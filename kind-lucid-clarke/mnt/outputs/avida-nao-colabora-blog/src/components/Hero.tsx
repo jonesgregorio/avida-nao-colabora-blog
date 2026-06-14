@@ -1,5 +1,3 @@
-import { ChevronDown } from 'lucide-react'
-
 interface HeroProps {
   onNavigate: (section: string) => void
 }
@@ -8,57 +6,59 @@ export default function Hero({ onNavigate }: HeroProps) {
   return (
     <section
       id="home"
-      className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
+      className="relative min-h-[88vh] flex items-center justify-center overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #f4f7f4 0%, #faf8f4 40%, #f0f7ff 100%)',
+        background: 'linear-gradient(135deg, #f5f0fa 0%, #faf8f4 45%, #f8f4f0 70%, #f0ede8 100%)',
       }}
     >
-      {/* Decorative elements */}
+      {/* Decorative blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-sage-100/60 animate-float" style={{ animationDelay: '0s' }} />
-        <div className="absolute top-40 right-20 w-20 h-20 rounded-full bg-ocean-100/60 animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute bottom-32 left-1/4 w-24 h-24 rounded-full bg-sand-200/60 animate-float" style={{ animationDelay: '4s' }} />
+        <div
+          className="absolute top-16 left-8 w-48 h-48 rounded-full opacity-30"
+          style={{ background: 'radial-gradient(circle, #c4b5d4, transparent)', filter: 'blur(40px)' }}
+        />
+        <div
+          className="absolute bottom-24 right-12 w-64 h-64 rounded-full opacity-25"
+          style={{ background: 'radial-gradient(circle, #d4c5b0, transparent)', filter: 'blur(50px)' }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #b8a8c8, transparent)', filter: 'blur(60px)' }}
+        />
       </div>
 
-      <div className="relative max-w-4xl mx-auto px-6 text-center animate-slide-up">
-        <p className="text-sage-500 text-sm font-medium uppercase tracking-widest mb-4">
-          Templo das Palavras
+      <div className="relative max-w-3xl mx-auto px-6 text-center">
+        <p className="text-purple-400 text-sm font-medium uppercase tracking-widest mb-5 opacity-80">
+          Bem-estar emocional
         </p>
 
-        <h1 className="font-serif text-5xl md:text-7xl text-sage-800 mb-6 leading-tight">
-          A Vida Não<br />
-          <em className="text-sage-500">Colabora</em>
+        <h1 className="font-serif text-4xl md:text-6xl text-sage-800 mb-6 leading-tight">
+          A vida não colabora.<br />
+          <em className="text-purple-500">Mas você ainda pode se cuidar.</em>
         </h1>
 
-        <p className="text-lg md:text-xl text-sage-600 max-w-2xl mx-auto mb-4 leading-relaxed">
-          Um espaço de acolhimento sobre ansiedade, depressão, fibromialgia e os percursos invisíveis da saúde mental.
-        </p>
-        <p className="text-base text-sage-500 max-w-xl mx-auto mb-10 leading-relaxed">
-          Aqui, as palavras têm colo. Você não está sozinho(a).
+        <p className="text-base md:text-lg text-sage-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+          Um espaço de apoio emocional para registrar sentimentos, entender padrões, acompanhar sua evolução e criar pequenas práticas de autocuidado no dia a dia.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={() => onNavigate('articles')}
-            className="bg-sage-600 hover:bg-sage-700 text-white px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-md hover:shadow-lg"
+            onClick={() => onNavigate('auth')}
+            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-md hover:shadow-lg"
           >
-            Ler artigos
+            Começar gratuitamente
           </button>
           <button
-            onClick={() => onNavigate('questionnaire')}
-            className="bg-white hover:bg-sage-50 text-sage-700 border border-sage-200 px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-sm"
+            onClick={() => onNavigate('pricing')}
+            className="bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-sm"
           >
-            Avaliar meu bem-estar
+            Conhecer os planos
           </button>
         </div>
 
-        <button
-          onClick={() => onNavigate('articles')}
-          className="mt-16 flex flex-col items-center gap-2 text-sage-400 hover:text-sage-600 mx-auto transition-colors"
-        >
-          <span className="text-xs">Role para explorar</span>
-          <ChevronDown className="w-5 h-5 animate-bounce" />
-        </button>
+        <p className="text-xs text-sage-400 mt-6 max-w-md mx-auto leading-relaxed">
+          Este espaço é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Não substitui acompanhamento psicológico, psiquiátrico ou médico.
+        </p>
       </div>
     </section>
   )

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Heart, Menu, X, LogIn, User, BookOpen, ClipboardList, LogOut, Crown } from 'lucide-react'
+import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown } from 'lucide-react'
 import { Profile } from '../types'
 
 interface HeaderProps {
@@ -14,8 +14,9 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
 
   const nav = [
     { label: 'Início', id: 'home' },
-    { label: 'Artigos', id: 'articles' },
-    { label: 'Questionário', id: 'questionnaire' },
+    { label: 'Blog', id: 'articles' },
+    { label: 'Diário', id: 'diary' },
+    { label: 'Questionários', id: 'questionnaire' },
     { label: 'Planos', id: 'pricing' },
     { label: 'Sobre', id: 'about' },
   ]
@@ -29,6 +30,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
     free: 'Gratuito',
     essential: 'Essencial',
     therapeutic: 'Terapêutico',
+    'therapeutic-plus': 'Terapêutico Plus',
   }
 
   return (
@@ -46,7 +48,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
         </button>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-5">
           {nav.map(item => (
             <button
               key={item.id}
@@ -59,14 +61,6 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
 
           {user ? (
             <div className="flex items-center gap-3 ml-2">
-              {(profile?.plan === 'essential' || profile?.plan === 'therapeutic') && (
-                <button
-                  onClick={() => handleNav('diary')}
-                  className="flex items-center gap-1 text-sm text-ocean-600 hover:text-ocean-800 font-medium"
-                >
-                  <BookOpen className="w-4 h-4" /> Diário
-                </button>
-              )}
               <button
                 onClick={() => handleNav('profile')}
                 className="flex items-center gap-2 bg-sage-100 hover:bg-sage-200 text-sage-800 text-sm px-3 py-1.5 rounded-full transition-colors"
@@ -85,13 +79,21 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => handleNav('auth')}
-              className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-4 py-2 rounded-lg transition-colors"
-            >
-              <LogIn className="w-4 h-4" />
-              Entrar
-            </button>
+            <div className="flex items-center gap-2 ml-2">
+              <button
+                onClick={() => handleNav('auth')}
+                className="text-sm text-sage-700 hover:text-sage-900 font-medium transition-colors"
+              >
+                Entrar
+              </button>
+              <button
+                onClick={() => handleNav('auth')}
+                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg transition-colors font-medium"
+              >
+                <LogIn className="w-4 h-4" />
+                Começar grátis
+              </button>
+            </div>
           )}
         </nav>
 
@@ -99,6 +101,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
         <button
           className="md:hidden p-2 text-sage-700"
           onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label="Abrir menu"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -106,53 +109,69 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-sand-50 border-t border-sand-200 py-4 px-4 space-y-3">
+        <div className="md:hidden bg-sand-50 border-t border-sand-200 py-4 px-4 space-y-1">
           {nav.map(item => (
             <button
               key={item.id}
               onClick={() => handleNav(item.id)}
-              className="block w-full text-left text-sm text-sage-700 hover:text-sage-900 py-2 font-medium"
+              className="block w-full text-left text-sm text-sage-700 hover:text-sage-900 hover:bg-sage-50 px-3 py-2.5 rounded-lg font-medium transition-colors"
             >
               {item.label}
             </button>
           ))}
-          {user ? (
-            <>
-              <button
-                onClick={() => handleNav('diary')}
-                className="flex items-center gap-2 text-sm text-ocean-600 py-2"
-              >
-                <BookOpen className="w-4 h-4" /> Diário
-              </button>
-              <button
-                onClick={() => handleNav('profile')}
-                className="flex items-center gap-2 text-sm text-sage-700 py-2"
-              >
-                <User className="w-4 h-4" /> Perfil
-                {profile && <span className="text-xs bg-sage-100 px-2 py-0.5 rounded-full">{planLabel[profile.plan]}</span>}
-              </button>
-              <button
-                onClick={() => { onSignOut(); setMobileOpen(false) }}
-                className="flex items-center gap-2 text-sm text-red-500 py-2"
-              >
-                <LogOut className="w-4 h-4" /> Sair
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleNav('auth')}
-              className="flex items-center gap-2 bg-sage-600 text-white text-sm px-4 py-2 rounded-lg w-full justify-center"
-            >
-              <LogIn className="w-4 h-4" /> Entrar / Cadastrar
-            </button>
-          )}
+          <div className="pt-2 border-t border-sand-200 mt-2">
+            {user ? (
+              <>
+                <button
+                  onClick={() => handleNav('diary')}
+                  className="flex items-center gap-2 text-sm text-ocean-600 px-3 py-2.5 w-full hover:bg-ocean-50 rounded-lg"
+                >
+                  <BookOpen className="w-4 h-4" /> Diário
+                </button>
+                <button
+                  onClick={() => handleNav('profile')}
+                  className="flex items-center gap-2 text-sm text-sage-700 px-3 py-2.5 w-full hover:bg-sage-50 rounded-lg"
+                >
+                  <User className="w-4 h-4" /> Perfil
+                  {profile && (
+                    <span className="text-xs bg-sage-100 px-2 py-0.5 rounded-full ml-auto">
+                      {planLabel[profile.plan] || profile.plan}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => { onSignOut(); setMobileOpen(false) }}
+                  className="flex items-center gap-2 text-sm text-red-500 px-3 py-2.5 w-full hover:bg-red-50 rounded-lg"
+                >
+                  <LogOut className="w-4 h-4" /> Sair
+                </button>
+              </>
+            ) : (
+              <div className="space-y-2 px-1">
+                <button
+                  onClick={() => handleNav('auth')}
+                  className="block w-full text-center text-sm text-sage-700 border border-sage-200 py-2.5 rounded-lg hover:bg-sage-50 transition-colors font-medium"
+                >
+                  Entrar
+                </button>
+                <button
+                  onClick={() => handleNav('auth')}
+                  className="flex items-center justify-center gap-2 bg-green-600 text-white text-sm px-4 py-2.5 rounded-lg w-full font-medium hover:bg-green-700 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" /> Começar grátis
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* Plan badge bar */}
       {user && profile && (
         <div className={`text-center text-xs py-1 font-medium ${
-          profile.plan === 'therapeutic'
+          profile.plan === 'therapeutic-plus'
+            ? 'bg-purple-700 text-white'
+            : profile.plan === 'therapeutic'
             ? 'bg-ocean-600 text-white'
             : profile.plan === 'essential'
             ? 'bg-sage-600 text-white'
@@ -161,6 +180,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
           {profile.plan === 'free' && 'Plano Gratuito — '}
           {profile.plan === 'essential' && '✦ Plano Essencial — '}
           {profile.plan === 'therapeutic' && '✦ Plano Terapêutico — '}
+          {profile.plan === 'therapeutic-plus' && '✦ Plano Terapêutico Plus — '}
           Olá, {profile.full_name || 'bem-vindo(a)'}!
           {profile.plan === 'free' && (
             <button onClick={() => handleNav('pricing')} className="ml-2 underline">Fazer upgrade</button>

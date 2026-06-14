@@ -1,4 +1,4 @@
-export type Plan = 'free' | 'essential' | 'therapeutic'
+export type Plan = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
 export interface Profile {
   id: string
@@ -39,9 +39,21 @@ export interface DiaryEntry {
   mood_score: number
   text: string
   sleep_quality?: number
-  pain_intensity?: number
-  food_compulsion?: number
+  energy?: number
+  anxiety_level?: number
+  stress_level?: number
+  self_esteem?: number
+  irritability?: number
+  overload?: number
   emotional_triggers?: string
+  recurring_thoughts?: string
+  emotional_need?: string
+  relationships?: string
+  habits?: string
+  emotional_tags?: string[]
+  gratitude?: string
+  small_pride?: string
+  free_note?: string
   markers?: string[]
   entry_type: 'diary' | 'questionnaire' | 'evaluation'
   questionnaire_score?: number
