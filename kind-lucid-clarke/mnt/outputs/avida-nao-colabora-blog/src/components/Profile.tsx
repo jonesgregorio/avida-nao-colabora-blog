@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Profile as ProfileType } from '../types'
-import { ArrowLeft, Camera, Crown, CreditCard, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Camera, Crown, TrendingUp, Save, Key, LogOut } from 'lucide-react'
 
 interface ProfileProps {
   user: any
@@ -12,31 +12,43 @@ interface ProfileProps {
 }
 
 const planInfo: Record<string, { label: string; color: string; price: string }> = {
-  free: { label: 'Gratuito', color: 'bg-sand-100 text-sand-700', price: 'R$ 0' },
-  essential: { label: 'Essencial', color: 'bg-sage-100 text-sage-700', price: 'R$ 19,90/mês' },
-  therapeutic: { label: 'Terapêutico', color: 'bg-ocean-100 text-ocean-700', price: 'R$ 39,90/mês' },
+  free: { label: 'Gratuito', color: 'bg-stone-100 text-stone-600', price: 'R$ 0' },
+  essential: { label: 'Essencial', color: 'bg-blue-100 text-blue-700', price: 'R$ 19,90/mês' },
+  therapeutic: { label: 'Terapêutico', color: 'bg-emerald-100 text-emerald-700', price: 'R$ 39,90/mês' },
+  'therapeutic-plus': { label: 'Terapêutico Plus', color: 'bg-purple-100 text-purple-700', price: 'R$ 79,90/mês' },
 }
 
 export default function ProfilePage({ user, profile, onBack, onNavigatePricing, onRefreshProfile }: ProfileProps) {
-  const [name, setName] = useState(profile?.full_name || '')
-  const [saving, setSaving] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [displayName, setDisplayName] = useState((profile as any)?.display_name || profile?.full_name || '')
+  const [preferredName, setPreferredName] = useState((profile as any)?.preferred_name || '')
+  const [statusPhrase, setStatusPhrase] = useState((profile as any)?.status_phrase || '')
+  const [notificationFrequency, setNotificationFrequency] = useState((profile as any)?.notification_frequency || 'weekly')
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordMsg, setPasswordMsg] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
-  const [success, setSuccess] = useState('')
 
-  const handleSaveName = async () => {
-    setSaving(true)
-    await supabase.from('profiles').update({ full_name: name, updated_at: new Date().toISOString() }).eq('user_id', user.id)
-    setSuccess('Nome atualizado!')
-    setTimeout(() => setSuccess(''), 3000)
-    onRefreshProfile()
-    setSaving(false)
-  }
+  useEffect(() => {
+    if (profile) {
+      setDisplayName((profile as any)?.display_name || profile?.full_name || '')
+      setPreferredName((profile as any)?.preferred_name || '')
+      setStatusPhrase((profile as any)?.status_phrase || '')
+      setNotificationFrequency((profile as any)?.notification_frequency || 'weekly')
+      setAvatarUrl(profile?.avatar_url || '')
+    }
+  }, [profile])
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Imagem deve ter no máximo 2MB')
+      return
+    }
     setUploadingAvatar(true)
     const ext = file.name.split('.').pop()
     const path = `${user.id}/avatar.${ext}`
@@ -51,8 +63,47 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     setUploadingAvatar(false)
   }
 
+  const handleSave = async () => {
+    setSaving(true)
+    await supabase.from('profiles').upsert({
+      user_id: user.id,
+      full_name: displayName,
+      display_name: displayName,
+      preferred_name: preferredName,
+      status_phrase: statusPhrase,
+      avatar_url: avatarUrl,
+      notification_frequency: notificationFrequency,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    onRefreshProfile()
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      setPasswordMsg('A senha deve ter pelo menos 6 caracteres')
+      return
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) setPasswordMsg('Erro: ' + error.message)
+    else {
+      setPasswordMsg('Senha alterada com sucesso!')
+      setNewPassword('')
+      setShowPasswordForm(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    onBack()
+  }
+
   const plan = profile?.plan || 'free'
-  const planDetails = planInfo[plan]
+  const planDetails = planInfo[plan] || planInfo.free
+
+  const initials = (preferredName || displayName || user?.email || 'U').slice(0, 2).toUpperCase()
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -60,97 +111,152 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
         <ArrowLeft className="w-4 h-4" /> Voltar
       </button>
 
-      <h1 className="font-serif text-3xl text-sage-800 mb-6">Meu Perfil</h1>
+      <h1 className="font-serif text-3xl text-sage-800 mb-8">Meu perfil</h1>
 
       {/* Avatar */}
-      <div className="bg-white border border-sand-200 rounded-2xl p-6 mb-4">
-        <div className="flex items-center gap-5">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-sage-100 flex items-center justify-center">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-serif text-3xl text-sage-400">{name?.charAt(0) || '?'}</span>
-              )}
+      <div className="flex flex-col items-center mb-8">
+        <div className="relative">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Foto de perfil" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" />
+          ) : (
+            <div className="w-24 h-24 rounded-full bg-sage-100 flex items-center justify-center border-4 border-white shadow-md">
+              <span className="text-2xl font-bold text-sage-600">{initials}</span>
             </div>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploadingAvatar}
-              className="absolute bottom-0 right-0 w-7 h-7 bg-sage-600 hover:bg-sage-700 text-white rounded-full flex items-center justify-center shadow-md"
-            >
-              <Camera className="w-3.5 h-3.5" />
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          </div>
-          <div className="flex-1">
-            <p className="font-medium text-sage-800">{profile?.full_name || 'Usuário'}</p>
-            <p className="text-sm text-sage-400">{user.email}</p>
-            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${planDetails.color}`}>
-              {planDetails.label}
-            </span>
-          </div>
+          )}
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="absolute bottom-0 right-0 bg-sage-600 text-white p-2 rounded-full shadow-md hover:bg-sage-700"
+          >
+            <Camera size={14} />
+          </button>
         </div>
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
+        {uploadingAvatar && <p className="text-sm text-stone-500 mt-2">Enviando foto...</p>}
+        {statusPhrase && <p className="text-sage-500 italic text-sm mt-3">"{statusPhrase}"</p>}
       </div>
 
-      {/* Edit name */}
-      <div className="bg-white border border-sand-200 rounded-2xl p-6 mb-4">
-        <h3 className="font-semibold text-sage-700 mb-3 text-sm">Nome de exibição</h3>
-        <div className="flex gap-2">
+      {/* Plano */}
+      <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-sand-200">
+        <div>
+          <p className="text-sm text-sage-400">Plano atual</p>
+          <span className={`text-sm font-semibold px-3 py-1 rounded-full ${planDetails.color}`}>
+            {planDetails.label}
+          </span>
+        </div>
+        {plan !== 'therapeutic-plus' && (
+          <button onClick={onNavigatePricing} className="ml-auto flex items-center gap-1 text-sage-600 text-sm hover:underline">
+            <TrendingUp className="w-4 h-4" /> Ver planos
+          </button>
+        )}
+        {plan !== 'free' && plan === 'therapeutic-plus' && (
+          <Crown className="ml-auto w-5 h-5 text-purple-500" />
+        )}
+      </div>
+
+      {/* Formulário */}
+      <div className="space-y-5 bg-white rounded-xl border border-sand-200 p-6 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-sage-700 mb-1">E-mail</label>
           <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Como prefere ser chamado(a)?"
-            className="flex-1 border border-sand-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-300"
+            value={user?.email || ''}
+            disabled
+            className="w-full px-4 py-2 rounded-lg border border-sand-200 bg-stone-50 text-sage-400 text-sm"
           />
-          <button
-            onClick={handleSaveName}
-            disabled={saving}
-            className="bg-sage-600 hover:bg-sage-700 text-white text-sm px-4 py-2 rounded-lg transition-colors"
-          >
-            {saving ? '...' : 'Salvar'}
-          </button>
         </div>
-        {success && <p className="text-sage-600 text-xs mt-2">{success}</p>}
+
+        <div>
+          <label className="block text-sm font-medium text-sage-700 mb-1">Nome completo</label>
+          <input
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-sand-200 focus:ring-2 focus:ring-sage-300 outline-none text-sm"
+            placeholder="Seu nome"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-sage-700 mb-1">Como gostaria de ser chamado(a)?</label>
+          <input
+            value={preferredName}
+            onChange={e => setPreferredName(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-sand-200 focus:ring-2 focus:ring-sage-300 outline-none text-sm"
+            placeholder="Ex: Mari, Rafa, Carol..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-sage-700 mb-1">
+            Frase de status <span className="text-sage-400 font-normal">(opcional)</span>
+          </label>
+          <input
+            value={statusPhrase}
+            onChange={e => setStatusPhrase(e.target.value)}
+            maxLength={80}
+            className="w-full px-4 py-2 rounded-lg border border-sand-200 focus:ring-2 focus:ring-sage-300 outline-none text-sm"
+            placeholder="Ex: Hoje eu estou tentando com calma."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-sage-700 mb-1">Frequência de lembretes</label>
+          <select
+            value={notificationFrequency}
+            onChange={e => setNotificationFrequency(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-sand-200 focus:ring-2 focus:ring-sage-300 outline-none text-sm"
+          >
+            <option value="daily">Diária</option>
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensal</option>
+            <option value="never">Nunca</option>
+          </select>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-sage-600 text-white py-3 rounded-lg font-medium hover:bg-sage-700 flex items-center justify-center gap-2"
+        >
+          <Save size={16} />
+          {saving ? 'Salvando...' : saved ? '✓ Salvo!' : 'Salvar alterações'}
+        </button>
       </div>
 
-      {/* Subscription */}
-      <div className="bg-white border border-sand-200 rounded-2xl p-6 mb-4">
-        <h3 className="font-semibold text-sage-700 mb-4 text-sm flex items-center gap-2">
-          <Crown className="w-4 h-4 text-sand-500" /> Assinatura
-        </h3>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="font-medium text-sage-800">{planDetails.label}</p>
-            <p className="text-sm text-sage-400">{planDetails.price}</p>
+      {/* Alterar senha */}
+      <div className="bg-white rounded-xl border border-sand-200 p-6 mb-4">
+        <button
+          onClick={() => setShowPasswordForm(!showPasswordForm)}
+          className="flex items-center gap-2 text-sage-600 hover:text-sage-800 font-medium text-sm"
+        >
+          <Key size={16} /> Alterar senha
+        </button>
+        {showPasswordForm && (
+          <div className="mt-4 space-y-3">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="Nova senha (mínimo 6 caracteres)"
+              className="w-full px-4 py-2 rounded-lg border border-sand-200 focus:ring-2 focus:ring-sage-300 outline-none text-sm"
+            />
+            <button
+              onClick={handleChangePassword}
+              className="bg-sage-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-sage-800"
+            >
+              Confirmar nova senha
+            </button>
+            {passwordMsg && <p className="text-sm text-sage-600">{passwordMsg}</p>}
           </div>
-          <span className={`text-xs px-3 py-1 rounded-full font-medium ${planDetails.color}`}>Ativo</span>
-        </div>
-
-        {plan !== 'therapeutic' && (
-          <button
-            onClick={onNavigatePricing}
-            className="w-full flex items-center justify-center gap-2 border border-sage-300 text-sage-700 hover:bg-sage-50 text-sm px-4 py-2.5 rounded-lg transition-colors"
-          >
-            <TrendingUp className="w-4 h-4" /> Ver planos e fazer upgrade
-          </button>
-        )}
-
-        {plan !== 'free' && (
-          <button className="mt-2 w-full flex items-center justify-center gap-2 text-sage-400 hover:text-sage-600 text-xs py-2">
-            <CreditCard className="w-3.5 h-3.5" /> Gerenciar cobrança
-          </button>
         )}
       </div>
 
-      {/* Account */}
-      <div className="bg-white border border-sand-200 rounded-2xl p-6">
-        <h3 className="font-semibold text-sage-700 mb-3 text-sm">Conta</h3>
-        <p className="text-sm text-sage-500">E-mail: {user.email}</p>
-        <p className="text-xs text-sage-400 mt-1">
-          Membro desde {new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </p>
-      </div>
+      {/* Logout */}
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-700 py-3 border border-red-200 rounded-xl hover:bg-red-50"
+      >
+        <LogOut size={16} /> Sair da conta
+      </button>
     </div>
   )
 }

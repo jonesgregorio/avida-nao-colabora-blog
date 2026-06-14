@@ -1,133 +1,181 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Clock, Tag, Send } from 'lucide-react'
-import { Article, Comment } from '../types'
 import { supabase } from '../lib/supabase'
+import { ArrowLeft, Clock } from 'lucide-react'
+import type { Article } from '../types'
 
 interface ArticleViewProps {
-  article: Article
+  // Accept either a slug string or a full article object (backward compat)
+  slug?: string
+  article?: Article
   onBack: () => void
   user: any
+  onSelectArticle?: (slug: string) => void
 }
 
-export default function ArticleView({ article, onBack, user }: ArticleViewProps) {
-  const [comments, setComments] = useState<Comment[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [authorName, setAuthorName] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+export default function ArticleView({ slug, article: initialArticle, onBack, user: _user, onSelectArticle }: ArticleViewProps) {
+  const [article, setArticle] = useState<Article | null>(initialArticle || null)
+  const [related, setRelated] = useState<Article[]>([])
+  const [loading, setLoading] = useState(!initialArticle)
 
   useEffect(() => {
-    supabase
-      .from('comments')
-      .select('*')
-      .eq('article_id', article.id)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => setComments(data || []))
-  }, [article.id])
+    if (slug) {
+      loadArticle(slug)
+    } else if (initialArticle) {
+      setArticle(initialArticle)
+      loadRelated(initialArticle.category, initialArticle.slug)
+    }
+  }, [slug, initialArticle])
 
-  const submitComment = async () => {
-    if (!newComment.trim() || !authorName.trim()) return
-    setSubmitting(true)
+  async function loadArticle(s: string) {
+    setLoading(true)
     const { data } = await supabase
-      .from('comments')
-      .insert({
-        article_id: article.id,
-        user_id: user?.id || null,
-        author_name: authorName,
-        content: newComment,
-      })
-      .select()
+      .from('articles')
+      .select('*')
+      .eq('slug', s)
       .single()
-    if (data) setComments(prev => [...prev, data])
-    setNewComment('')
-    setSubmitting(false)
+    setArticle(data)
+    if (data?.category) {
+      await loadRelated(data.category, s)
+    }
+    setLoading(false)
   }
 
-  const formatContent = (content: string) => {
+  async function loadRelated(category: string, currentSlug: string) {
+    const { data } = await supabase
+      .from('articles')
+      .select('id, title, slug, category, read_time, image_url, cover_image')
+      .eq('category', category)
+      .neq('slug', currentSlug)
+      .limit(3)
+    setRelated(data || [])
+  }
+
+  function renderContent(content: string) {
+    if (!content) return null
     return content.split('\n').map((line, i) => {
-      if (line.startsWith('## ')) return <h2 key={i} className="font-serif text-2xl text-sage-800 mt-8 mb-3">{line.slice(3)}</h2>
-      if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="font-semibold text-sage-800 mt-4 mb-1">{line.slice(2, -2)}</p>
-      if (line.startsWith('> ')) return <blockquote key={i} className="border-l-4 border-sage-300 pl-4 italic text-sage-600 my-4">{line.slice(2)}</blockquote>
-      if (line.startsWith('- ')) return <li key={i} className="text-sage-600 ml-4 list-disc">{line.slice(2)}</li>
-      if (line === '') return <br key={i} />
+      if (line.startsWith('## '))
+        return <h2 key={i} className="font-serif text-2xl text-sage-800 mt-8 mb-3">{line.replace('## ', '')}</h2>
+      if (line.startsWith('### '))
+        return <h3 key={i} className="text-lg font-semibold text-sage-700 mt-6 mb-2">{line.replace('### ', '')}</h3>
+      if (line.startsWith('**') && line.endsWith('**'))
+        return <p key={i} className="font-semibold text-sage-800 mt-4 mb-1">{line.slice(2, -2)}</p>
+      if (line.startsWith('- '))
+        return <li key={i} className="text-sage-600 ml-4 list-disc">{line.replace('- ', '')}</li>
+      if (line.startsWith('> '))
+        return <blockquote key={i} className="border-l-4 border-sage-300 pl-4 italic text-sage-600 my-4">{line.replace('> ', '')}</blockquote>
+      if (line.trim() === '') return <br key={i} />
       return <p key={i} className="text-sage-600 leading-relaxed mb-3">{line}</p>
     })
   }
 
+  const getImage = (a: Article) =>
+    a.image_url || a.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!article) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <p className="text-stone-500">Artigo não encontrado.</p>
+        <button onClick={onBack} className="mt-4 text-sage-600 hover:underline">
+          Ver todos os artigos
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-4 py-10">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-sage-500 hover:text-sage-700 mb-6 text-sm"
+        className="flex items-center gap-2 text-sage-500 hover:text-sage-700 mb-8 text-sm"
       >
-        <ArrowLeft className="w-4 h-4" /> Voltar aos artigos
+        <ArrowLeft className="w-4 h-4" /> Voltar para o blog
       </button>
 
-      <div className="rounded-2xl overflow-hidden mb-8">
-        <img src={article.cover_image} alt={article.title} className="w-full h-64 md:h-80 object-cover" />
-      </div>
-
-      <div className="flex items-center gap-4 mb-4">
-        <span className="flex items-center gap-1 text-xs text-sage-500 bg-sage-50 px-3 py-1 rounded-full">
-          <Tag className="w-3 h-3" /> {article.category}
-        </span>
-        <span className="flex items-center gap-1 text-xs text-sage-400">
-          <Clock className="w-3 h-3" /> 5 min de leitura
+      <div className="mb-4">
+        <span className="text-sm font-medium text-sage-600 bg-sage-50 px-3 py-1 rounded-full">
+          {article.category}
         </span>
       </div>
 
-      <h1 className="font-serif text-4xl text-sage-800 mb-3 leading-tight">{article.title}</h1>
-      <p className="text-sage-500 text-sm mb-8">Por {article.author}</p>
+      <h1 className="font-serif text-3xl md:text-4xl text-sage-800 mb-4 leading-tight">{article.title}</h1>
+
+      {article.read_time && (
+        <div className="flex items-center gap-2 text-stone-400 text-sm mb-8">
+          <Clock size={14} /> {article.read_time} min de leitura
+        </div>
+      )}
+
+      <div className="rounded-2xl overflow-hidden mb-8 aspect-video">
+        <img
+          src={getImage(article)}
+          alt={article.image_alt || article.title}
+          className="w-full h-full object-cover"
+        />
+      </div>
 
       <div className="prose prose-sage max-w-none">
-        {formatContent(article.content || '')}
+        {renderContent(article.content || '')}
       </div>
 
-      {/* Comments */}
-      <div className="mt-12 border-t border-sand-200 pt-8">
-        <h3 className="font-serif text-2xl text-sage-800 mb-6">Comentários ({comments.length})</h3>
-
-        {comments.length === 0 && (
-          <p className="text-sage-400 text-sm mb-6">Seja o primeiro a comentar.</p>
-        )}
-
-        <div className="space-y-4 mb-8">
-          {comments.map(c => (
-            <div key={c.id} className="bg-sand-50 rounded-xl p-4">
-              <p className="font-medium text-sage-700 text-sm mb-1">{c.author_name}</p>
-              <p className="text-sage-600 text-sm leading-relaxed">{c.content}</p>
-              <p className="text-sage-400 text-xs mt-2">
-                {new Date(c.created_at + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white border border-sand-200 rounded-xl p-5">
-          <h4 className="font-medium text-sage-700 mb-3 text-sm">Deixe seu comentário</h4>
-          <input
-            type="text"
-            placeholder="Seu nome"
-            value={authorName}
-            onChange={e => setAuthorName(e.target.value)}
-            className="w-full border border-sand-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-sage-300"
-          />
-          <textarea
-            placeholder="Compartilhe sua reflexão..."
-            value={newComment}
-            onChange={e => setNewComment(e.target.value)}
-            rows={3}
-            className="w-full border border-sand-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sage-300"
-          />
-          <button
-            onClick={submitComment}
-            disabled={submitting || !newComment.trim() || !authorName.trim()}
-            className="mt-3 flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-5 py-2 rounded-lg transition-colors disabled:opacity-50"
+      {/* CTA */}
+      <div className="mt-12 bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
+        <h3 className="font-bold text-stone-800 mb-2">Quer explorar isso mais de perto?</h3>
+        <p className="text-stone-600 text-sm mb-4">
+          Use o diário para registrar o que você está sentindo agora ou faça a autoavaliação para entender melhor seus padrões.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="#diary"
+            onClick={e => { e.preventDefault(); window.history.pushState({}, '', '/'); document.dispatchEvent(new CustomEvent('navigate', { detail: 'diary' })) }}
+            className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700"
           >
-            <Send className="w-4 h-4" />
-            {submitting ? 'Enviando...' : 'Enviar'}
-          </button>
+            Registrar como estou hoje
+          </a>
         </div>
       </div>
+
+      {/* Disclaimer */}
+      <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-4">
+        <p className="text-amber-800 text-sm">
+          <strong>Importante:</strong> Os conteúdos deste blog são informativos e educativos. Não substituem acompanhamento profissional de saúde mental. Se você está passando por dificuldades severas, procure um psicólogo ou profissional de saúde.
+        </p>
+      </div>
+
+      {/* Related articles */}
+      {related.length > 0 && (
+        <div className="mt-12">
+          <h3 className="text-lg font-bold text-sage-800 mb-4">Artigos relacionados</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {related.map(rel => (
+              <button
+                key={rel.id}
+                onClick={() => onSelectArticle && onSelectArticle(rel.slug)}
+                className="text-left bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow"
+              >
+                <div className="aspect-video bg-stone-100 overflow-hidden">
+                  <img
+                    src={rel.image_url || rel.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=60'}
+                    alt={rel.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-3">
+                  <span className="text-xs text-sage-600">{rel.category}</span>
+                  <p className="font-medium text-sage-700 text-sm mt-1 line-clamp-2">{rel.title}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

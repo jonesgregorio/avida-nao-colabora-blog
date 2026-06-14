@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
-import { Article, Plan } from './types'
+import type { View, Plan } from './types'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -20,33 +20,23 @@ import TherapeuticQuestionnaire from './components/TherapeuticQuestionnaire'
 import AboutPage from './components/AboutPage'
 import PrivacyPage from './components/PrivacyPage'
 import TermsPage from './components/TermsPage'
-
-type View =
-  | 'home'
-  | 'auth'
-  | 'article'
-  | 'diary'
-  | 'profile'
-  | 'meditations'
-  | 'challenges'
-  | 'therapeutic-q'
-  | 'about'
-  | 'privacy'
-  | 'terms'
-  | 'questionnaire'
-  | 'pricing'
-  | 'articles'
+import { ResponsibilityPage } from './components/ResponsibilityPage'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
   const [view, setView] = useState<View>('home')
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
 
-  const navigate = (section: string) => {
-    const directViews: View[] = ['home', 'auth', 'diary', 'profile', 'meditations', 'challenges', 'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'pricing', 'articles']
+  const navigate = (section: string, articleSlug?: string) => {
+    const directViews: View[] = [
+      'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
+      'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire',
+      'pricing', 'articles', 'article', 'responsibility',
+    ]
     if (directViews.includes(section as View)) {
       setView(section as View)
+      if (articleSlug) setSelectedArticleSlug(articleSlug)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -66,10 +56,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sand-50">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-sage-300 border-t-sage-600 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sage-400 text-sm">Carregando...</p>
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-stone-500 text-sm">Carregando...</p>
         </div>
       </div>
     )
@@ -80,16 +70,17 @@ export default function App() {
     return <Auth onBack={() => setView('home')} />
   }
 
-  // Article view
-  if (view === 'article' && selectedArticle) {
+  // Article view (by slug)
+  if (view === 'article' && selectedArticleSlug) {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <ArticleView
-            article={selectedArticle}
-            onBack={() => { setView('home'); navigate('articles') }}
+            slug={selectedArticleSlug}
+            onBack={() => navigate('articles')}
             user={user}
+            onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); window.scrollTo(0, 0) }}
           />
         </main>
         <Footer onNavigate={navigate} />
@@ -103,7 +94,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <DiaryPage
             user={user}
             plan={profile?.plan || 'free'}
@@ -121,7 +112,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <ProfilePage
             user={user}
             profile={profile}
@@ -143,7 +134,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <GuidedMeditations onBack={() => setView('home')} />
         </main>
         <Footer onNavigate={navigate} />
@@ -156,7 +147,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <MiniChallenges onBack={() => setView('home')} />
         </main>
         <Footer onNavigate={navigate} />
@@ -172,7 +163,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <TherapeuticQuestionnaire user={user} onBack={() => setView('home')} />
         </main>
         <Footer onNavigate={navigate} />
@@ -185,7 +176,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <AboutPage onNavigate={navigate} />
         </main>
         <Footer onNavigate={navigate} />
@@ -198,7 +189,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <PrivacyPage onNavigate={navigate} />
         </main>
         <Footer onNavigate={navigate} />
@@ -211,8 +202,21 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <TermsPage onNavigate={navigate} />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  // Responsibility page
+  if (view === 'responsibility') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <ResponsibilityPage />
         </main>
         <Footer onNavigate={navigate} />
       </>
@@ -224,7 +228,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <Questionnaire
             user={user}
             onNavigateDiary={() => navigate('diary')}
@@ -242,11 +246,13 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <Articles
-            onSelectArticle={(article) => {
-              setSelectedArticle(article)
+            onSelectArticle={(articleOrSlug) => {
+              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+              setSelectedArticleSlug(slug)
               setView('article')
+              window.scrollTo(0, 0)
             }}
           />
         </main>
@@ -260,7 +266,7 @@ export default function App() {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-sand-50">
+        <main className="min-h-screen bg-stone-50">
           <Pricing
             user={user}
             currentPlan={profile?.plan || 'free'}
@@ -290,7 +296,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="min-h-screen bg-sand-50">
+      <main className="min-h-screen bg-stone-50">
         <Hero onNavigate={navigate} />
 
         <HomeContent onNavigate={navigate} />
@@ -326,9 +332,11 @@ export default function App() {
         )}
 
         <Articles
-          onSelectArticle={(article) => {
-            setSelectedArticle(article)
+          onSelectArticle={(articleOrSlug) => {
+            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+            setSelectedArticleSlug(slug)
             setView('article')
+            window.scrollTo(0, 0)
           }}
         />
 

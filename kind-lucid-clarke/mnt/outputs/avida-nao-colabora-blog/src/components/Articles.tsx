@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Article } from '../types'
-import { ChevronLeft, ChevronRight, Clock, Tag } from 'lucide-react'
+import { Search, Clock, ArrowRight } from 'lucide-react'
+import type { Article } from '../types'
 
 interface ArticlesProps {
-  onSelectArticle: (article: Article) => void
+  onSelectArticle: (article: Article | string) => void
 }
 
-const ARTICLES_PER_PAGE = 6
+const CATEGORIES = [
+  'Todos', 'Ansiedade', 'Autoestima', 'Cansaço emocional', 'Autoconhecimento',
+  'Relações e limites', 'Rotina e hábitos', 'Sono e descanso',
+  'Pensamentos difíceis', 'Diário emocional', 'Autocuidado possível', 'Vida real',
+]
 
 export default function Articles({ onSelectArticle }: ArticlesProps) {
   const [articles, setArticles] = useState<Article[]>([])
-  const [page, setPage] = useState(1)
+  const [filtered, setFiltered] = useState<Article[]>([])
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('Todos')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,21 +27,69 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setArticles(data || [])
+        setFiltered(data || [])
         setLoading(false)
       })
   }, [])
 
-  const totalPages = Math.ceil(articles.length / ARTICLES_PER_PAGE)
-  const paginated = articles.slice((page - 1) * ARTICLES_PER_PAGE, page * ARTICLES_PER_PAGE)
+  useEffect(() => {
+    let result = articles
+    if (category !== 'Todos') result = result.filter(a => a.category === category)
+    if (search) {
+      const q = search.toLowerCase()
+      result = result.filter(a =>
+        a.title.toLowerCase().includes(q) ||
+        (a.summary || a.excerpt || '').toLowerCase().includes(q)
+      )
+    }
+    setFiltered(result)
+  }, [search, category, articles])
+
+  const getImage = (article: Article) =>
+    article.image_url || article.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+
+  const getSummary = (article: Article) => article.summary || article.excerpt || ''
+
+  const handleSelect = (article: Article) => {
+    if (article.slug) {
+      onSelectArticle(article)
+    }
+  }
 
   return (
-    <section id="articles" className="max-w-6xl mx-auto px-4 py-16">
-      <div className="text-center mb-12">
+    <section id="articles" className="max-w-5xl mx-auto px-4 py-12">
+      <div className="mb-10">
         <p className="text-sage-500 text-sm uppercase tracking-widest mb-2">Conteúdo</p>
-        <h2 className="font-serif text-4xl text-sage-800 mb-4">Artigos</h2>
-        <p className="text-sage-600 max-w-lg mx-auto">
-          Reflexões sobre saúde mental, escritas com cuidado e empatia.
-        </p>
+        <h2 className="font-serif text-3xl md:text-4xl text-sage-800 mb-2">Blog</h2>
+        <p className="text-sage-600">Conteúdos sobre saúde emocional, autoconhecimento e autocuidado real.</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar artigos..."
+          className="w-full pl-11 pr-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-emerald-300 outline-none bg-white"
+        />
+      </div>
+
+      {/* Category filters */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setCategory(cat)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              category === cat
+                ? 'bg-sage-600 text-white'
+                : 'bg-white border border-stone-200 text-sage-600 hover:border-sage-400'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -44,81 +98,52 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
             <div key={i} className="bg-white rounded-2xl h-80 animate-pulse" />
           ))}
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-20 text-sage-400">
+          <p>Nenhum artigo encontrado.</p>
+        </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginated.map(article => (
-              <ArticleCard key={article.id} article={article} onClick={() => onSelectArticle(article)} />
-            ))}
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-10">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-2 rounded-lg border border-sand-200 disabled:opacity-40 hover:bg-sand-100 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4 text-sage-600" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
-                    p === page
-                      ? 'bg-sage-600 text-white'
-                      : 'border border-sand-200 text-sage-600 hover:bg-sand-100'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-2 rounded-lg border border-sand-200 disabled:opacity-40 hover:bg-sand-100 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4 text-sage-600" />
-              </button>
-            </div>
-          )}
-        </>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map(article => (
+            <article
+              key={article.id}
+              className="bg-white rounded-2xl border border-sand-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+              onClick={() => handleSelect(article)}
+            >
+              <div className="aspect-video bg-stone-100 overflow-hidden">
+                <img
+                  src={getImage(article)}
+                  alt={article.image_alt || article.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={e => {
+                    ;(e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+                  }}
+                />
+              </div>
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-sage-600 bg-sage-50 px-2 py-1 rounded-full">
+                    {article.category}
+                  </span>
+                  {article.read_time && (
+                    <span className="text-xs text-stone-400 flex items-center gap-1">
+                      <Clock size={12} /> {article.read_time} min
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-serif text-lg text-sage-800 mb-2 line-clamp-2 group-hover:text-sage-600 transition-colors leading-snug">
+                  {article.title}
+                </h3>
+                <p className="text-stone-500 text-sm line-clamp-3 mb-4">{getSummary(article)}</p>
+                <span className="flex items-center gap-1 text-sage-600 text-sm font-medium">
+                  Ler artigo <ArrowRight size={14} />
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
     </section>
-  )
-}
-
-function ArticleCard({ article, onClick }: { article: Article; onClick: () => void }) {
-  return (
-    <article
-      onClick={onClick}
-      className="bg-white rounded-2xl overflow-hidden shadow-sm border border-sand-100 hover:shadow-md transition-all cursor-pointer group"
-    >
-      <div className="aspect-[16/9] overflow-hidden">
-        <img
-          src={article.cover_image}
-          alt={article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-      </div>
-      <div className="p-5">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex items-center gap-1 text-xs text-sage-500">
-            <Tag className="w-3 h-3" /> {article.category}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-sage-400">
-            <Clock className="w-3 h-3" /> 5 min
-          </span>
-        </div>
-        <h3 className="font-serif text-xl text-sage-800 mb-2 group-hover:text-sage-600 transition-colors leading-snug">
-          {article.title}
-        </h3>
-        <p className="text-sm text-sage-500 leading-relaxed line-clamp-3">{article.excerpt}</p>
-        <button className="mt-4 text-sm text-sage-600 font-medium hover:text-sage-800 transition-colors">
-          Ler mais →
-        </button>
-      </div>
-    </article>
   )
 }

@@ -53,9 +53,15 @@ export default function Footer({ onNavigate }: FooterProps) {
                 </button>
                 <button
                   onClick={() => onNavigate('terms')}
-                  className="text-xs text-sage-400 hover:text-sage-200 transition-colors block"
+                  className="text-xs text-sage-400 hover:text-sage-200 transition-colors block mb-1"
                 >
                   Termos de Uso
+                </button>
+                <button
+                  onClick={() => onNavigate('responsibility')}
+                  className="text-xs text-sage-400 hover:text-sage-200 transition-colors block"
+                >
+                  Aviso de Responsabilidade
                 </button>
               </li>
             </ul>

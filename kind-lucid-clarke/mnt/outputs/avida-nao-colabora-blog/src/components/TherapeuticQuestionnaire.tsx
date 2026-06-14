@@ -13,7 +13,7 @@ const therapeuticQuestions = [
   { id: 'q8', text: 'Você pratica algum tipo de autocuidado regularmente?', options: ['Sim, rotina estabelecida', 'Às vezes', 'Raramente', 'Não pratico autocuidado'] },
   { id: 'q9', text: 'Como está sua alimentação?', options: ['Equilibrada e consciente', 'Com algumas dificuldades', 'Desregulada — compulsão ou restrição', 'Muito irregular e preocupante'] },
   { id: 'q10', text: 'Você já fez ou faz acompanhamento com profissional de saúde mental?', options: ['Sim, acompanhamento ativo', 'Fiz no passado', 'Nunca fiz, mas tenho interesse', 'Nunca fiz e não considero'] },
-  { id: 'q11', text: 'O que você mais deseja melhorar em sua vida agora?', options: ['Reduzir a dor física', 'Melhorar o estado emocional', 'Ter mais energia e disposição', 'Ter mais qualidade nos relacionamentos'] },
+  { id: 'q11', text: 'O que você mais deseja melhorar em sua vida agora?', options: ['Reduzir o cansaço emocional', 'Melhorar o estado emocional', 'Ter mais energia e disposição', 'Ter mais qualidade nos relacionamentos'] },
   { id: 'q12', text: 'Como você descreveria sua relação com seu corpo?', options: ['Harmoniosa e respeitosa', 'Às vezes conflituosa', 'Frequentemente conflituosa', 'Muito difícil — sinto que meu corpo me trai'] },
 ]
 

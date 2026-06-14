@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
-import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb } from 'lucide-react'
+import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown } from 'lucide-react'
 
 const moodOptions = [
   { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
@@ -217,6 +217,15 @@ export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
           <button onClick={fetchEntries} className="p-2 text-sage-400 hover:text-sage-600">
             <RefreshCw className="w-4 h-4" />
           </button>
+          {isEssential && (
+            <button
+              onClick={() => window.print()}
+              title="Exportar como PDF"
+              className="flex items-center gap-1 p-2 text-sage-400 hover:text-sage-600"
+            >
+              <FileDown className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => { if (!freeAtLimit) setShowForm(!showForm) }}
             disabled={freeAtLimit}

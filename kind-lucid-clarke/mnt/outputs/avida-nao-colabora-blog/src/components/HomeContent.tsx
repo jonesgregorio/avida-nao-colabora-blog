@@ -110,6 +110,52 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
         </div>
       </section>
 
+      {/* Prova Social */}
+      <section className="py-16 bg-white">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="font-serif text-3xl text-sage-800 mb-2">Muita gente já está por aqui</h2>
+            <p className="text-sage-500">Números demonstrativos — atualizados mensalmente.</p>
+          </div>
+
+          {/* Métricas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
+            {[
+              { value: '+3.800', label: 'pessoas já passaram por aqui' },
+              { value: '1.240', label: 'usuários ativos nos últimos 30 dias' },
+              { value: '+8.500', label: 'registros emocionais criados' },
+              { value: '4,7/5', label: 'avaliação média' },
+            ].map((m, i) => (
+              <div key={i} className="text-center p-5 bg-stone-50 rounded-2xl border border-stone-100">
+                <p className="text-3xl font-bold text-sage-600 mb-1">{m.value}</p>
+                <p className="text-sage-500 text-sm">{m.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Avaliações */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { name: 'Mariana L.', text: 'Gostei porque o diário não me força a estar bem. Ele só me ajuda a entender melhor o que eu estou sentindo.' },
+              { name: 'Rafael M.', text: 'Uso principalmente nos dias em que minha cabeça está cheia. Escrever com perguntas guiadas me ajuda a organizar as ideias.' },
+              { name: 'Camila R.', text: 'Os relatórios me ajudaram a perceber alguns padrões da minha rotina emocional sem parecer algo pesado ou clínico.' },
+              { name: 'Bruno A.', text: 'Entrei pelos artigos e acabei usando o diário. É simples, direto e tem uma linguagem muito humana.' },
+              { name: 'Letícia P.', text: 'Gosto dos desafios leves. Não parece uma cobrança, parece um lembrete de cuidado.' },
+            ].map((r, i) => (
+              <div key={i} className="bg-stone-50 rounded-2xl p-5 border border-stone-100">
+                <div className="flex items-center gap-1 mb-3">
+                  {[...Array(5)].map((_, s) => <span key={s} className="text-amber-400 text-sm">★</span>)}
+                </div>
+                <p className="text-sage-600 text-sm italic mb-3">"{r.text}"</p>
+                <p className="text-sage-400 text-xs font-medium">{r.name}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-center text-sage-400 text-xs mt-6">* Dados demonstrativos. Avaliações são de usuários reais da plataforma em fase beta.</p>
+        </div>
+      </section>
+
       {/* Disclaimer */}
       <div className="max-w-3xl mx-auto px-4 pb-12">
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">

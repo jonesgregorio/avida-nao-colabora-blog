@@ -66,7 +66,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                 className="flex items-center gap-2 bg-sage-100 hover:bg-sage-200 text-sage-800 text-sm px-3 py-1.5 rounded-full transition-colors"
               >
                 <User className="w-4 h-4" />
-                <span>{profile?.full_name || 'Perfil'}</span>
+                <span>{(profile as any)?.preferred_name || (profile as any)?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'Perfil'}</span>
                 {profile?.plan !== 'free' && (
                   <Crown className="w-3 h-3 text-sand-500" />
                 )}
@@ -181,7 +181,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
           {profile.plan === 'essential' && '✦ Plano Essencial — '}
           {profile.plan === 'therapeutic' && '✦ Plano Terapêutico — '}
           {profile.plan === 'therapeutic-plus' && '✦ Plano Terapêutico Plus — '}
-          Olá, {profile.full_name || 'bem-vindo(a)'}!
+          Olá, {(profile as any)?.preferred_name || (profile as any)?.display_name || profile?.full_name || 'bem-vindo(a)'}!
           {profile.plan === 'free' && (
             <button onClick={() => handleNav('pricing')} className="ml-2 underline">Fazer upgrade</button>
           )}
