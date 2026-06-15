@@ -64,10 +64,10 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
             <div className="flex items-center gap-2 ml-2">
               <button
                 onClick={() => handleNav('saved')}
-                title="Caixa de Cuidado"
-                className="p-1.5 text-sage-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full transition-colors"
               >
                 <Bookmark className="w-4 h-4" />
+                <span>Caixa de Cuidado</span>
               </button>
               <button
                 onClick={() => handleNav('trails')}

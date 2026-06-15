@@ -19,16 +19,6 @@ const steps = [
   { num: '04', title: 'Receba conteúdos, desafios e sugestões', desc: 'Com base no seu plano, acesse recursos personalizados para apoiar seu autocuidado no dia a dia.' },
 ]
 
-const features = [
-  { icon: '📔', title: 'Diário de bem-estar', desc: 'Registre como você está se sentindo com facilidade e privacidade.' },
-  { icon: '📋', title: 'Questionários de autoavaliação', desc: 'Perguntas acolhedoras para entender seu estado emocional.' },
-  { icon: '📊', title: 'Gráficos de evolução', desc: 'Visualize seus padrões emocionais ao longo do tempo.' },
-  { icon: '📄', title: 'Relatórios mensais', desc: 'Resumo do seu mês com destaques e tendências.' },
-  { icon: '🌟', title: 'Mini-desafios de autocuidado', desc: 'Pequenas ações diárias para criar hábitos positivos.' },
-  { icon: '📚', title: 'Conteúdos guiados', desc: 'Textos reflexivos e exercícios emocionais selecionados para você.' },
-  { icon: '🗺️', title: 'Planos de autocuidado', desc: 'Um plano semanal personalizado para seus objetivos emocionais.' },
-  { icon: '💡', title: 'Recomendações personalizadas', desc: 'Sugestões de conteúdo baseadas no que você está vivendo.' },
-]
 
 export default function HomeContent({ onNavigate }: HomeContentProps) {
   return (
@@ -75,42 +65,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
         </div>
       </section>
 
-      {/* Recursos principais */}
-      <section className="max-w-5xl mx-auto px-4 py-16">
-        <div className="text-center mb-10">
-          <p className="text-purple-400 text-sm uppercase tracking-widest mb-2">Recursos</p>
-          <h2 className="font-serif text-3xl md:text-4xl text-sage-800">O que você encontra aqui</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((f, i) => (
-            <div
-              key={i}
-              className="bg-white border border-sand-100 rounded-xl p-5 text-center shadow-sm hover:shadow-md transition-shadow"
-            >
-              <span className="text-3xl mb-3 block">{f.icon}</span>
-              <h3 className="font-semibold text-sage-800 text-sm mb-1">{f.title}</h3>
-              <p className="text-xs text-sage-500 leading-relaxed">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-10 text-center">
-          <button
-            onClick={() => onNavigate('auth')}
-            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-md hover:shadow-lg mr-3"
-          >
-            Começar gratuitamente
-          </button>
-          <button
-            onClick={() => onNavigate('pricing')}
-            className="bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-sm"
-          >
-            Ver planos
-          </button>
-        </div>
-      </section>
-
-      {/* Recursos para transformar leitura em autocuidado */}
+      {/* Recursos leitura em autocuidado */}
       <section className="max-w-5xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
           <p className="text-emerald-500 text-sm uppercase tracking-widest mb-2">Recursos</p>
