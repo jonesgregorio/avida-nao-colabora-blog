@@ -21,6 +21,8 @@ import AboutPage from './components/AboutPage'
 import PrivacyPage from './components/PrivacyPage'
 import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
+import TrailsPage from './components/TrailsPage'
+import SavedItemsPage from './components/SavedItemsPage'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -32,7 +34,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire',
-      'pricing', 'articles', 'article', 'responsibility',
+      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -80,6 +82,8 @@ export default function App() {
             slug={selectedArticleSlug}
             onBack={() => navigate('articles')}
             user={user}
+            profile={profile}
+            navigate={navigate}
             onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); window.scrollTo(0, 0) }}
           />
         </main>
@@ -279,6 +283,42 @@ export default function App() {
     )
   }
 
+  // Trails page
+  if (view === 'trails') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <TrailsPage
+            user={user}
+            profile={profile}
+            navigate={navigate}
+            onBack={() => setView('home')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  // Saved items (Caixa de Cuidado)
+  if (view === 'saved') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <SavedItemsPage
+            user={user}
+            profile={profile}
+            navigate={navigate}
+            onBack={() => setView('home')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   // Home
   return (
     <>
@@ -310,6 +350,18 @@ export default function App() {
                 className="text-sm bg-sage-50 border border-sage-200 text-sage-700 px-4 py-2 rounded-full hover:bg-sage-100 transition-colors"
               >
                 🏆 Mini-Desafios
+              </button>
+              <button
+                onClick={() => navigate('trails')}
+                className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors"
+              >
+                🗺️ Trilhas de Autocuidado
+              </button>
+              <button
+                onClick={() => navigate('saved')}
+                className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-full hover:bg-emerald-100 transition-colors"
+              >
+                📦 Caixa de Cuidado
               </button>
               {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
                 <button

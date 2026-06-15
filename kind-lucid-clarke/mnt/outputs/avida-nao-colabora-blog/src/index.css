@@ -43,6 +43,59 @@
   50% { transform: translateY(-12px); }
 }
 
+/* ===== @media print ===== */
+@media print {
+  header, nav, footer,
+  .no-print, .header-nav,
+  button, .btn,
+  .sidebar, .pricing-section,
+  .article-feedback, .article-cta-buttons,
+  [data-noprint] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    font-size: 12pt;
+    color: #000;
+    background: #fff;
+  }
+
+  .article-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .article-print-header {
+    display: block !important;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .article-print-disclaimer {
+    display: block !important;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ccc;
+    font-size: 10pt;
+    color: #666;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #666;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #f4f7f4; }

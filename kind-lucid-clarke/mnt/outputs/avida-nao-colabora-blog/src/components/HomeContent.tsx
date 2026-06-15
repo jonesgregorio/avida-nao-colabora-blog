@@ -110,6 +110,101 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
         </div>
       </section>
 
+      {/* Recursos para transformar leitura em autocuidado */}
+      <section className="max-w-5xl mx-auto px-4 py-16">
+        <div className="text-center mb-10">
+          <p className="text-emerald-500 text-sm uppercase tracking-widest mb-2">Recursos</p>
+          <h2 className="font-serif text-3xl md:text-4xl text-sage-800 mb-3">
+            Recursos para transformar leitura em autocuidado
+          </h2>
+          <p className="text-sage-500 max-w-xl mx-auto">
+            Cada recurso foi pensado para você usar no seu ritmo, sem pressão e sem cobranças.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              icon: '📔',
+              title: 'Diário emocional',
+              desc: 'Registre como você está se sentindo com perguntas guiadas e marcadores emocionais.',
+              plan: 'Gratuito',
+              planColor: 'bg-emerald-100 text-emerald-700',
+            },
+            {
+              icon: '📖',
+              title: 'Artigos guiados',
+              desc: 'Leitura acolhedora sobre temas como ansiedade, autoestima e relações.',
+              plan: 'Gratuito',
+              planColor: 'bg-emerald-100 text-emerald-700',
+            },
+            {
+              icon: '📦',
+              title: 'Caixa de cuidado',
+              desc: 'Salve artigos, perguntas e recursos para acessar quando precisar.',
+              plan: 'Essencial',
+              planColor: 'bg-blue-100 text-blue-700',
+            },
+            {
+              icon: '🗺️',
+              title: 'Trilhas de autocuidado',
+              desc: 'Sequências de leitura guiada por tema, no seu ritmo.',
+              plan: 'Essencial',
+              planColor: 'bg-blue-100 text-blue-700',
+            },
+            {
+              icon: '🧭',
+              title: 'Mapa emocional',
+              desc: 'Visualize seus padrões emocionais ao longo do tempo em gráficos.',
+              plan: 'Terapêutico',
+              planColor: 'bg-purple-100 text-purple-700',
+            },
+            {
+              icon: '📄',
+              title: 'Relatórios em PDF',
+              desc: 'Exporte seus registros e artigos favoritos para compartilhar com seu terapeuta.',
+              plan: 'Essencial',
+              planColor: 'bg-blue-100 text-blue-700',
+            },
+            {
+              icon: '✨',
+              title: 'Recomendações personalizadas',
+              desc: 'Sugestões de conteúdo baseadas no que você está vivendo agora.',
+              plan: 'Terapêutico',
+              planColor: 'bg-purple-100 text-purple-700',
+            },
+            {
+              icon: '🌟',
+              title: 'Preparação para sessão',
+              desc: 'Organize o que você quer falar na sua próxima sessão com o terapeuta.',
+              plan: 'Plus',
+              planColor: 'bg-amber-100 text-amber-700',
+            },
+          ].map((resource, i) => (
+            <div
+              key={i}
+              className="bg-white border border-sand-100 rounded-xl p-5 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <span className="text-3xl mb-1">{resource.icon}</span>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-semibold text-sage-800 text-sm leading-snug">{resource.title}</h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${resource.planColor}`}>
+                  {resource.plan}
+                </span>
+              </div>
+              <p className="text-xs text-sage-500 leading-relaxed">{resource.desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-10 text-center">
+          <button
+            onClick={() => onNavigate('pricing')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3.5 rounded-full font-medium text-sm transition-all shadow-md hover:shadow-lg"
+          >
+            Ver todos os planos
+          </button>
+        </div>
+      </section>
+
       {/* Prova Social */}
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">

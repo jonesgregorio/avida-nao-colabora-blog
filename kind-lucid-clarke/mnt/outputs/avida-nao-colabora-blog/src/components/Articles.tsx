@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Search, Clock, ArrowRight } from 'lucide-react'
+import { Search, Clock, ArrowRight, X } from 'lucide-react'
 import type { Article } from '../types'
 
 interface ArticlesProps {
@@ -13,12 +13,41 @@ const CATEGORIES = [
   'Pensamentos difíceis', 'Diário emocional', 'Autocuidado possível', 'Vida real',
 ]
 
+const MOODS = [
+  'ansioso(a)',
+  'cansado(a)',
+  'sobrecarregado(a)',
+  'confuso(a)',
+  'irritado(a)',
+  'sozinho(a)',
+  'sem energia',
+  'com pensamentos acelerados',
+  'precisando de acolhimento',
+  'precisando organizar minha rotina',
+] as const
+
+type Mood = typeof MOODS[number]
+
+const MOOD_MAP: Record<Mood, string[]> = {
+  'ansioso(a)': ['Ansiedade', 'Pensamentos difíceis'],
+  'cansado(a)': ['Cansaço emocional', 'Autocuidado possível'],
+  'sobrecarregado(a)': ['Cansaço emocional', 'Rotina e hábitos'],
+  'confuso(a)': ['Autoconhecimento', 'Diário emocional'],
+  'irritado(a)': ['Autoconhecimento', 'Relações e limites'],
+  'sozinho(a)': ['Relações e limites', 'Autoestima'],
+  'sem energia': ['Cansaço emocional', 'Autocuidado possível'],
+  'com pensamentos acelerados': ['Ansiedade', 'Pensamentos difíceis'],
+  'precisando de acolhimento': ['Autoestima', 'Autocuidado possível'],
+  'precisando organizar minha rotina': ['Rotina e hábitos', 'Diário emocional'],
+}
+
 export default function Articles({ onSelectArticle }: ArticlesProps) {
   const [articles, setArticles] = useState<Article[]>([])
   const [filtered, setFiltered] = useState<Article[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todos')
   const [loading, setLoading] = useState(true)
+  const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
 
   useEffect(() => {
     supabase
@@ -34,7 +63,14 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
 
   useEffect(() => {
     let result = articles
-    if (category !== 'Todos') result = result.filter(a => a.category === category)
+
+    if (selectedMood) {
+      const moodCategories = MOOD_MAP[selectedMood]
+      result = result.filter(a => moodCategories.includes(a.category))
+    } else if (category !== 'Todos') {
+      result = result.filter(a => a.category === category)
+    }
+
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(a =>
@@ -43,7 +79,18 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       )
     }
     setFiltered(result)
-  }, [search, category, articles])
+  }, [search, category, articles, selectedMood])
+
+  const handleMoodSelect = (mood: Mood) => {
+    if (selectedMood === mood) {
+      setSelectedMood(null)
+    } else {
+      setSelectedMood(mood)
+      setCategory('Todos')
+    }
+  }
+
+  const clearMood = () => setSelectedMood(null)
 
   const getImage = (article: Article) =>
     article.image_url || article.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
@@ -51,9 +98,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
   const getSummary = (article: Article) => article.summary || article.excerpt || ''
 
   const handleSelect = (article: Article) => {
-    if (article.slug) {
-      onSelectArticle(article)
-    }
+    if (article.slug) onSelectArticle(article)
   }
 
   return (
@@ -62,6 +107,41 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
         <p className="text-sage-500 text-sm uppercase tracking-widest mb-2">Conteúdo</p>
         <h2 className="font-serif text-3xl md:text-4xl text-sage-800 mb-2">Blog</h2>
         <p className="text-sage-600">Conteúdos sobre saúde emocional, autoconhecimento e autocuidado real.</p>
+      </div>
+
+      {/* Mood filter */}
+      <div className="mb-8 bg-purple-50 rounded-2xl p-5 border border-purple-100">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-purple-800">Estou me sentindo…</p>
+          {selectedMood && (
+            <button
+              onClick={clearMood}
+              className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700"
+            >
+              <X size={12} /> limpar filtro
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {MOODS.map(mood => (
+            <button
+              key={mood}
+              onClick={() => handleMoodSelect(mood)}
+              className={`px-3 py-1.5 rounded-full text-sm transition-all border ${
+                selectedMood === mood
+                  ? 'bg-purple-600 text-white border-purple-600'
+                  : 'bg-white border-purple-200 text-purple-700 hover:border-purple-400'
+              }`}
+            >
+              {mood}
+            </button>
+          ))}
+        </div>
+        {selectedMood && (
+          <p className="text-xs text-purple-500 mt-3">
+            Mostrando artigos sobre: <strong>{MOOD_MAP[selectedMood].join(', ')}</strong>
+          </p>
+        )}
       </div>
 
       {/* Search */}
@@ -76,21 +156,23 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       </div>
 
       {/* Category filters */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setCategory(cat)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-              category === cat
-                ? 'bg-sage-600 text-white'
-                : 'bg-white border border-stone-200 text-sage-600 hover:border-sage-400'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
+      {!selectedMood && (
+        <div className="flex flex-wrap gap-2 mb-8">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                category === cat
+                  ? 'bg-sage-600 text-white'
+                  : 'bg-white border border-stone-200 text-sage-600 hover:border-sage-400'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,7 +182,12 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-sage-400">
-          <p>Nenhum artigo encontrado.</p>
+          <p className="mb-2">Nenhum artigo encontrado.</p>
+          {selectedMood && (
+            <button onClick={clearMood} className="text-sm text-purple-500 underline">
+              Ver todos os artigos
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
