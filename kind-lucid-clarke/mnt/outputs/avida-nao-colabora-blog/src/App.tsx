@@ -27,7 +27,15 @@ import AdminPanel from './components/admin'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
-  const [view, setView] = useState<View>('home')
+  const initialView = (): View => {
+    const params = new URLSearchParams(window.location.search)
+    const v = params.get('view') as View
+    const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
+      'therapeutic-q','about','privacy','terms','questionnaire','pricing',
+      'articles','article','responsibility','trails','saved','admin']
+    return valid.includes(v) ? v : 'home'
+  }
+  const [view, setView] = useState<View>(initialView)
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
   const [diaryPromptContext, setDiaryPromptContext] = useState<{
