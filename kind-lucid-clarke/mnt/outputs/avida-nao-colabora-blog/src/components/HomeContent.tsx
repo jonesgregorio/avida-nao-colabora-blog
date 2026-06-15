@@ -217,10 +217,10 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
           {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
             {[
-              { value: '+320', label: 'pessoas já passaram por aqui' },
-              { value: '86', label: 'usuários ativos atualmente' },
-              { value: '+540', label: 'registros emocionais criados' },
-              { value: '4,6/5', label: 'avaliação média' },
+              { value: '+800', label: 'pessoas já passaram por aqui' },
+              { value: '335', label: 'usuários ativos atualmente' },
+              { value: '+1.300', label: 'registros emocionais criados' },
+              { value: '4,7/5', label: 'avaliação média' },
             ].map((m, i) => (
               <div key={i} className="text-center p-5 bg-stone-50 rounded-2xl border border-stone-100">
                 <p className="text-3xl font-bold text-sage-600 mb-1">{m.value}</p>
