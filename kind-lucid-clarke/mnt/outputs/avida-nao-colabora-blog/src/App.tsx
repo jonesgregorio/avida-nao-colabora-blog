@@ -29,6 +29,17 @@ export default function App() {
   const [view, setView] = useState<View>('home')
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
+  const [diaryPromptContext, setDiaryPromptContext] = useState<{
+    prompt: string
+    articleTitle: string
+    articleSlug: string
+    category: string
+  } | null>(null)
+
+  function handleSavePromptToDiary(prompt: string, articleTitle: string, articleSlug: string, category: string) {
+    setDiaryPromptContext({ prompt, articleTitle, articleSlug, category })
+    navigate('diary')
+  }
 
   const navigate = (section: string, articleSlug?: string) => {
     const directViews: View[] = [
@@ -85,6 +96,7 @@ export default function App() {
             profile={profile}
             navigate={navigate}
             onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); window.scrollTo(0, 0) }}
+            onSavePromptToDiary={handleSavePromptToDiary}
           />
         </main>
         <Footer onNavigate={navigate} />
@@ -103,6 +115,8 @@ export default function App() {
             user={user}
             plan={profile?.plan || 'free'}
             onBack={() => setView('home')}
+            promptContext={diaryPromptContext}
+            onClearPromptContext={() => setDiaryPromptContext(null)}
           />
         </main>
         <Footer onNavigate={navigate} />

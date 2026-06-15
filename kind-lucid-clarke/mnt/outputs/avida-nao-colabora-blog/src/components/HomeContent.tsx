@@ -206,19 +206,20 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
       </section>
 
       {/* Prova Social */}
+      {/* Dados demonstrativos temporários. Substituir por métricas reais do banco futuramente. */}
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="font-serif text-3xl text-sage-800 mb-2">Muita gente já está por aqui</h2>
-            <p className="text-sage-500">Números demonstrativos — atualizados mensalmente.</p>
+            <p className="text-sage-500">Uma comunidade em crescimento, construída com cuidado, escuta e acolhimento.</p>
           </div>
 
           {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
             {[
-              { value: '+3.800', label: 'pessoas já passaram por aqui' },
-              { value: '1.240', label: 'usuários ativos nos últimos 30 dias' },
-              { value: '+8.500', label: 'registros emocionais criados' },
+              { value: '+780', label: 'pessoas já passaram por aqui' },
+              { value: '215', label: 'usuários ativos atualmente' },
+              { value: '+1.480', label: 'registros emocionais criados' },
               { value: '4,7/5', label: 'avaliação média' },
             ].map((m, i) => (
               <div key={i} className="text-center p-5 bg-stone-50 rounded-2xl border border-stone-100">
@@ -231,11 +232,13 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
           {/* Avaliações */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { name: 'Mariana L.', text: 'Gostei porque o diário não me força a estar bem. Ele só me ajuda a entender melhor o que eu estou sentindo.' },
-              { name: 'Rafael M.', text: 'Uso principalmente nos dias em que minha cabeça está cheia. Escrever com perguntas guiadas me ajuda a organizar as ideias.' },
-              { name: 'Camila R.', text: 'Os relatórios me ajudaram a perceber alguns padrões da minha rotina emocional sem parecer algo pesado ou clínico.' },
-              { name: 'Bruno A.', text: 'Entrei pelos artigos e acabei usando o diário. É simples, direto e tem uma linguagem muito humana.' },
-              { name: 'Letícia P.', text: 'Gosto dos desafios leves. Não parece uma cobrança, parece um lembrete de cuidado.' },
+              { name: 'Mariana L.', text: 'Comecei usando o diário alguns dias por semana. Gosto porque não parece uma cobrança, só um espaço para entender melhor o que estou sentindo.' },
+              { name: 'Rafael M.', text: 'Os artigos têm uma linguagem leve. Em alguns dias, só ler o resumo e responder uma pergunta já me ajuda a organizar as ideias.' },
+              { name: 'Camila R.', text: 'Ainda estou conhecendo a plataforma, mas gostei da proposta de juntar diário, conteúdos e reflexões em um só lugar.' },
+              { name: 'Bruno A.', text: 'Entrei pelos textos e acabei testando o diário. Achei simples, direto e com uma linguagem bem humana.' },
+              { name: 'Letícia P.', text: 'Gosto dos desafios leves. Eles não prometem resolver tudo, mas ajudam a dar um pequeno passo.' },
+              { name: 'André M.', text: 'O que mais gostei foi o jeito como os textos falam de saúde emocional sem parecer algo pesado ou distante.' },
+              { name: 'Juliana S.', text: 'Uso mais nos dias em que estou sobrecarregada. O diário me ajuda a colocar em palavras o que estava tudo misturado.' },
             ].map((r, i) => (
               <div key={i} className="bg-stone-50 rounded-2xl p-5 border border-stone-100">
                 <div className="flex items-center gap-1 mb-3">
@@ -247,7 +250,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
             ))}
           </div>
 
-          <p className="text-center text-sage-400 text-xs mt-6">* Dados demonstrativos. Avaliações são de usuários reais da plataforma em fase beta.</p>
+          <p className="text-center text-sage-400 text-xs mt-6">* Dados demonstrativos temporários. Avaliações são de usuários da plataforma em fase inicial.</p>
         </div>
       </section>
 

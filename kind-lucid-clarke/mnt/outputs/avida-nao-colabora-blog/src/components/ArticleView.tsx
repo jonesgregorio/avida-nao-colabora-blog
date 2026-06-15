@@ -12,6 +12,7 @@ interface ArticleViewProps {
   profile?: { plan: Plan } | null
   navigate?: (v: string, slug?: string) => void
   onSelectArticle?: (slug: string) => void
+  onSavePromptToDiary?: (prompt: string, articleTitle: string, articleSlug: string, category: string) => void
   // Legacy compat: some callers pass navigate as separate prop
 }
 
@@ -65,6 +66,7 @@ export default function ArticleView({
   profile,
   navigate,
   onSelectArticle,
+  onSavePromptToDiary,
 }: ArticleViewProps) {
   const [article, setArticle] = useState<Article | null>(initialArticle || null)
   const [related, setRelated] = useState<Article[]>([])
@@ -201,6 +203,26 @@ export default function ArticleView({
     setFeedbackSaving(false)
     setFeedbackDone(true)
   }, [user, article])
+
+  // ---- Answer in diary with context ----
+  function handleAnswerInDiary(prompt: string) {
+    if (!article) return
+    if (!user) {
+      sessionStorage.setItem('pendingDiaryPrompt', JSON.stringify({
+        prompt,
+        articleTitle: article.title,
+        articleSlug: article.slug,
+        category: article.category,
+      }))
+      doNavigate('auth')
+      return
+    }
+    if (onSavePromptToDiary) {
+      onSavePromptToDiary(prompt, article.title, article.slug, article.category)
+    } else {
+      doNavigate('diary')
+    }
+  }
 
   // ---- Navigate helper ----
   const doNavigate = (v: string, articleSlug?: string) => {
@@ -372,7 +394,7 @@ export default function ArticleView({
               <div key={i} className="bg-stone-50 border border-stone-100 rounded-xl p-4 flex flex-col gap-3">
                 <p className="text-sage-700 text-sm leading-relaxed">{q}</p>
                 <button
-                  onClick={() => doNavigate(user ? 'diary' : 'auth')}
+                  onClick={() => handleAnswerInDiary(q)}
                   className="self-start text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors flex items-center gap-1"
                 >
                   <NotebookPen size={12} />

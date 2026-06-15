@@ -21,6 +21,13 @@ interface DiaryPageProps {
   user: any
   plan: Plan
   onBack: () => void
+  promptContext?: {
+    prompt: string
+    articleTitle: string
+    articleSlug: string
+    category: string
+  } | null
+  onClearPromptContext?: () => void
 }
 
 function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
@@ -44,7 +51,7 @@ function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: str
   )
 }
 
-export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
+export default function DiaryPage({ user, plan, onBack, promptContext, onClearPromptContext }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -128,6 +135,14 @@ export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
     fetchPrompt()
   }, [fetchEntries, fetchPrompt])
 
+  // When arriving from article with a prompt context, auto-open form and pre-fill
+  useEffect(() => {
+    if (promptContext && !freeAtLimit) {
+      setShowForm(true)
+      setWhatHappened(promptContext.prompt)
+    }
+  }, [promptContext])
+
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
   }
@@ -193,6 +208,7 @@ export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
     resetForm()
     setShowForm(false)
     setSaving(false)
+    if (onClearPromptContext) onClearPromptContext()
   }
 
   const filteredEntries = entries.filter(e =>
@@ -273,6 +289,30 @@ export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
       {showForm && !freeAtLimit && (
         <div className="bg-white border border-sand-200 rounded-xl p-5 mb-6 shadow-sm">
           <h3 className="font-serif text-lg text-sage-800 mb-5">Como você está hoje?</h3>
+
+          {/* Prompt context from article */}
+          {promptContext && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm text-emerald-700 font-medium mb-1">
+                    Pergunta do artigo: <span className="italic">"{promptContext.articleTitle}"</span>
+                  </p>
+                  <p className="text-emerald-800 font-semibold">"{promptContext.prompt}"</p>
+                  <p className="text-xs text-emerald-600 mt-2">Escreva sua resposta abaixo</p>
+                </div>
+                {onClearPromptContext && (
+                  <button
+                    onClick={onClearPromptContext}
+                    className="text-emerald-400 hover:text-emerald-600 text-xs flex-shrink-0"
+                    title="Limpar contexto"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Mood selector */}
           <div className="mb-5">
@@ -473,7 +513,7 @@ export default function DiaryPage({ user, plan, onBack }: DiaryPageProps) {
               {saving ? 'Salvando...' : 'Salvar entrada'}
             </button>
             <button
-              onClick={() => { setShowForm(false); resetForm() }}
+              onClick={() => { setShowForm(false); resetForm(); if (onClearPromptContext) onClearPromptContext() }}
               className="text-sage-500 text-sm px-4 py-2 rounded-lg hover:bg-sage-50"
             >
               Cancelar
