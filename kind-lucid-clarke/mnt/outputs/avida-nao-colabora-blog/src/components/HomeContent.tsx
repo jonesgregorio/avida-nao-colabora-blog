@@ -211,16 +211,16 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="font-serif text-3xl text-sage-800 mb-2">Muita gente já está por aqui</h2>
-            <p className="text-sage-500">Uma comunidade em crescimento, construída com cuidado, escuta e acolhimento.</p>
+            <p className="text-sage-500">Uma comunidade pequena, mas crescendo com cuidado todos os dias.</p>
           </div>
 
           {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
             {[
-              { value: '+780', label: 'pessoas já passaram por aqui' },
-              { value: '215', label: 'usuários ativos atualmente' },
-              { value: '+1.480', label: 'registros emocionais criados' },
-              { value: '4,7/5', label: 'avaliação média' },
+              { value: '+320', label: 'pessoas já passaram por aqui' },
+              { value: '86', label: 'usuários ativos atualmente' },
+              { value: '+540', label: 'registros emocionais criados' },
+              { value: '4,6/5', label: 'avaliação média' },
             ].map((m, i) => (
               <div key={i} className="text-center p-5 bg-stone-50 rounded-2xl border border-stone-100">
                 <p className="text-3xl font-bold text-sage-600 mb-1">{m.value}</p>
@@ -236,9 +236,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
               { name: 'Rafael M.', text: 'Os artigos têm uma linguagem leve. Em alguns dias, só ler o resumo e responder uma pergunta já me ajuda a organizar as ideias.' },
               { name: 'Camila R.', text: 'Ainda estou conhecendo a plataforma, mas gostei da proposta de juntar diário, conteúdos e reflexões em um só lugar.' },
               { name: 'Bruno A.', text: 'Entrei pelos textos e acabei testando o diário. Achei simples, direto e com uma linguagem bem humana.' },
-              { name: 'Letícia P.', text: 'Gosto dos desafios leves. Eles não prometem resolver tudo, mas ajudam a dar um pequeno passo.' },
-              { name: 'André M.', text: 'O que mais gostei foi o jeito como os textos falam de saúde emocional sem parecer algo pesado ou distante.' },
-              { name: 'Juliana S.', text: 'Uso mais nos dias em que estou sobrecarregada. O diário me ajuda a colocar em palavras o que estava tudo misturado.' },
+              { name: 'Letícia P.', text: 'Gostei dos desafios leves. Eles não prometem resolver tudo, mas ajudam a dar um pequeno passo.' },
             ].map((r, i) => (
               <div key={i} className="bg-stone-50 rounded-2xl p-5 border border-stone-100">
                 <div className="flex items-center gap-1 mb-3">
