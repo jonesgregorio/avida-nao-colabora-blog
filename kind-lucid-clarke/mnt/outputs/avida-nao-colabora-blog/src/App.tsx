@@ -23,6 +23,7 @@ import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
 import TrailsPage from './components/TrailsPage'
 import SavedItemsPage from './components/SavedItemsPage'
+import AdminPanel from './components/admin'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -45,7 +46,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire',
-      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved',
+      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -330,6 +331,18 @@ export default function App() {
         </main>
         <Footer onNavigate={navigate} />
       </>
+    )
+  }
+
+
+  // Admin panel
+  if (view === 'admin') {
+    return (
+      <AdminPanel
+        user={user}
+        profile={profile}
+        onExit={() => setView('home')}
+      />
     )
   }
 

@@ -1,6 +1,6 @@
 export type Plan = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'admin'
 
 export interface Profile {
   id: string
@@ -11,6 +11,7 @@ export interface Profile {
   avatar_url: string | null
   status_phrase?: string
   plan: Plan
+  role?: string | null
   communication_preference?: string
   notification_frequency?: string
   created_at: string
@@ -43,6 +44,7 @@ export interface UserProfile {
   avatar_url?: string
   status_phrase?: string
   plan: Plan
+  role?: string | null
   communication_preference?: string
   notification_frequency?: string
   created_at: string
