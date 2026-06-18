@@ -26,6 +26,7 @@ import SavedItemsPage from './components/SavedItemsPage'
 import AdminPanel from './components/admin'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
+import DailyContentWidget from './components/DailyContentWidget'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -381,6 +382,8 @@ export default function App() {
 
       <main className="min-h-screen bg-stone-50">
         <Hero onNavigate={navigate} />
+
+        <DailyContentWidget user={user} profile={profile} />
 
         <HomeContent onNavigate={navigate} />
 
