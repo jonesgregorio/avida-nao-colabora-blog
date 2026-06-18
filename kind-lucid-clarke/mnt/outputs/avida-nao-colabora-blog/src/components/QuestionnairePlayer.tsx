@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { ChevronRight, ArrowLeft, RotateCcw, BookOpen, Star } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ interface Props {
 export default function QuestionnairePlayer({
   questionnaireId, user, profile, onBack, onNavigateDiary, onNavigatePricing,
 }: Props) {
+  const { track } = useAnalytics(user?.id)
   const [phase, setPhase] = useState<Phase>('loading')
   const [questionnaire, setQuestionnaire] = useState<QFull | null>(null)
   const [questions, setQuestions] = useState<QQuestion[]>([])
@@ -92,6 +94,7 @@ export default function QuestionnairePlayer({
 
       if (qErr || !q) { setError('Questionário não encontrado.'); setPhase('error'); return }
       setQuestionnaire(q)
+      track('questionnaire_start', { entity_id: q.id, entity_title: q.title })
 
       const { data: qs } = await supabase
         .from('questionnaire_questions')
@@ -215,6 +218,7 @@ export default function QuestionnairePlayer({
       const { totalScore } = computeResult()
       void totalScore
       setPhase('result')
+      if (questionnaire) track('questionnaire_complete', { entity_id: questionnaire.id, entity_title: questionnaire.title })
       if (user) saveResponse()
     }
   }

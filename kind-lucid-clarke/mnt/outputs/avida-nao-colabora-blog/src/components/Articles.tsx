@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { Search, Clock, ArrowRight, X } from 'lucide-react'
 import type { Article } from '../types'
 
@@ -42,6 +43,7 @@ const MOOD_MAP: Record<Mood, string[]> = {
 }
 
 export default function Articles({ onSelectArticle }: ArticlesProps) {
+  const { track } = useAnalytics()
   const [articles, setArticles] = useState<Article[]>([])
   const [filtered, setFiltered] = useState<Article[]>([])
   const [search, setSearch] = useState('')
@@ -98,7 +100,10 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
   const getSummary = (article: Article) => article.summary || article.excerpt || ''
 
   const handleSelect = (article: Article) => {
-    if (article.slug) onSelectArticle(article)
+    if (article.slug) {
+      track('article_click', { entity_id: article.id, entity_title: article.title })
+      onSelectArticle(article)
+    }
   }
 
   return (

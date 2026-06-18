@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -52,6 +53,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
   const [content, setContent] = useState<AutoContent | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { track } = useAnalytics(user?.id)
 
   useEffect(() => {
     if (!profile) { setLoading(false); return }
@@ -73,6 +75,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
     const picked = pickTodayContent(data || [])
     setContent(picked)
     setLoading(false)
+    if (picked) track('daily_content_view', { entity_id: picked.id, entity_title: picked.title })
   }
 
   if (!user || loading || !content) return null
@@ -85,7 +88,10 @@ export default function DailyContentWidget({ user, profile }: Props) {
       <div className="bg-gradient-to-br from-emerald-50 to-stone-50 border border-emerald-100 rounded-2xl overflow-hidden">
         {/* Header */}
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => {
+            if (!expanded && content) track('daily_content_expand', { entity_id: content.id, entity_title: content.title })
+            setExpanded(e => !e)
+          }}
           className="w-full flex items-center gap-3 p-4 text-left hover:bg-emerald-50/50 transition-colors"
         >
           <span className="text-2xl">{emoji}</span>

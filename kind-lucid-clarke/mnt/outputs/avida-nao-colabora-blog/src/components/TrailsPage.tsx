@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { ArrowLeft, Lock, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
 import type { Plan } from '../types'
 import { UpgradeModal } from './UpgradeModal'
@@ -138,6 +139,7 @@ const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; 
 }
 
 export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPageProps) {
+  const { track } = useAnalytics(user?.id)
   const [readSlugs, setReadSlugs] = useState<Set<string>>(new Set())
   const [upgradeModal, setUpgradeModal] = useState(false)
   const [expandedTrail, setExpandedTrail] = useState<string | null>(null)
@@ -226,7 +228,10 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
               {/* Trail header */}
               <button
                 className="w-full text-left p-5 flex items-start justify-between gap-4"
-                onClick={() => setExpandedTrail(isExpanded ? null : trail.id)}
+                onClick={() => {
+                  if (!isExpanded) track('trail_start', { entity_id: trail.id, entity_title: trail.title })
+                  setExpandedTrail(isExpanded ? null : trail.id)
+                }}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
