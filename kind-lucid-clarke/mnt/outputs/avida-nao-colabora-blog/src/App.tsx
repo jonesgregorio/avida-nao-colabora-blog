@@ -90,12 +90,10 @@ export default function App() {
     )
   }
 
-  // Auth page
   if (view === 'auth') {
     return <Auth onBack={() => setView('home')} />
   }
 
-  // Article view (by slug)
   if (view === 'article' && selectedArticleSlug) {
     return (
       <>
@@ -116,7 +114,6 @@ export default function App() {
     )
   }
 
-  // Diary page
   if (view === 'diary') {
     if (!user) { navigate('auth'); return null }
     return (
@@ -136,7 +133,6 @@ export default function App() {
     )
   }
 
-  // Profile page
   if (view === 'profile') {
     if (!user) { navigate('auth'); return null }
     return (
@@ -156,7 +152,6 @@ export default function App() {
     )
   }
 
-  // Meditations
   if (view === 'meditations') {
     if (!user || (profile?.plan !== 'essential' && profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus')) {
       navigate('pricing'); return null
@@ -172,7 +167,6 @@ export default function App() {
     )
   }
 
-  // Mini challenges
   if (view === 'challenges') {
     return (
       <>
@@ -185,7 +179,6 @@ export default function App() {
     )
   }
 
-  // Therapeutic questionnaire
   if (view === 'therapeutic-q') {
     if (!user || (profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus')) {
       navigate('pricing'); return null
@@ -201,7 +194,6 @@ export default function App() {
     )
   }
 
-  // About page
   if (view === 'about') {
     return (
       <>
@@ -214,7 +206,6 @@ export default function App() {
     )
   }
 
-  // Privacy page
   if (view === 'privacy') {
     return (
       <>
@@ -227,7 +218,6 @@ export default function App() {
     )
   }
 
-  // Terms page
   if (view === 'terms') {
     return (
       <>
@@ -240,7 +230,6 @@ export default function App() {
     )
   }
 
-  // Responsibility page
   if (view === 'responsibility') {
     return (
       <>
@@ -253,100 +242,6 @@ export default function App() {
     )
   }
 
-  // Questionnaire standalone view
-  if (view === 'questionnaire') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-stone-50">
-          <Questionnaire
-            user={user}
-            onNavigateDiary={() => navigate('diary')}
-            onNavigatePricing={() => navigate('pricing')}
-            onNavigateArticles={() => navigate('articles')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  // Articles standalone view
-  if (view === 'articles') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-stone-50">
-          <Articles
-            onSelectArticle={(articleOrSlug) => {
-              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
-              setSelectedArticleSlug(slug)
-              setView('article')
-              window.scrollTo(0, 0)
-            }}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  // Pricing standalone view
-  if (view === 'pricing') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-stone-50">
-          <Pricing
-            user={user}
-            currentPlan={profile?.plan || 'free'}
-            onSubscribe={handleSubscribe}
-            onNavigateAuth={() => navigate('auth')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  // Trails page
-  if (view === 'trails') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-stone-50">
-          <TrailsPage
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onBack={() => setView('home')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  // Saved items (Caixa de Cuidado)
-  if (view === 'saved') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
-        <main className="min-h-screen bg-stone-50">
-          <SavedItemsPage
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onBack={() => setView('home')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-
-  // Questionnaires listing page
   if (view === 'questionarios') {
     return (
       <>
@@ -369,7 +264,6 @@ export default function App() {
     )
   }
 
-  // Dynamic questionnaire player (from listing page)
   if (view === 'questionnaire' && activeQuestionnaireId) {
     return (
       <>
@@ -389,7 +283,76 @@ export default function App() {
     )
   }
 
-  // Admin panel
+  if (view === 'articles') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <Articles
+            onSelectArticle={(articleOrSlug) => {
+              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+              setSelectedArticleSlug(slug)
+              setView('article')
+              window.scrollTo(0, 0)
+            }}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'pricing') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <Pricing
+            user={user}
+            currentPlan={profile?.plan || 'free'}
+            onSubscribe={handleSubscribe}
+            onNavigateAuth={() => navigate('auth')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'trails') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <TrailsPage
+            user={user}
+            profile={profile}
+            navigate={navigate}
+            onBack={() => setView('home')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'saved') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <SavedItemsPage
+            user={user}
+            profile={profile}
+            navigate={navigate}
+            onBack={() => setView('home')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   if (view === 'admin') {
     return (
       <AdminPanel
@@ -405,7 +368,6 @@ export default function App() {
     <>
       <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
 
-      {/* Login CTA for non-authenticated */}
       {!user && (
         <div className="bg-purple-50 border-b border-purple-100 py-2.5 px-4 text-center">
           <p className="text-sm text-purple-700">
@@ -422,13 +384,12 @@ export default function App() {
 
         <HomeContent onNavigate={navigate} />
 
-        {/* Plan-gated quick actions */}
         {user && profile && (
           <div className="max-w-6xl mx-auto px-4 py-6">
             <div className="flex flex-wrap gap-3 justify-center">
               <button
                 onClick={() => navigate('challenges')}
-                className="text-sm bg-sage-50 border border-sage-200 text-sage-700 px-4 py-2 rounded-full hover:bg-sage-100 transition-colors"
+                className="text-sm bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-full hover:bg-green-100 transition-colors"
               >
                 🏆 Mini-Desafios
               </button>
@@ -447,4 +408,54 @@ export default function App() {
               {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
                 <button
                   onClick={() => navigate('meditations')}
-                  className="text-sm bg-ocean-50 bo
+                  className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors"
+                >
+                  🧘 Meditações Guiadas
+                </button>
+              )}
+              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
+                <button
+                  onClick={() => navigate('therapeutic-q')}
+                  className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
+                >
+                  📋 Questionário Aprofundado
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Articles
+          onSelectArticle={(articleOrSlug) => {
+            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+            setSelectedArticleSlug(slug)
+            setView('article')
+            window.scrollTo(0, 0)
+          }}
+        />
+
+        <DiaryCard
+          user={user}
+          onOpenDiary={() => navigate('diary')}
+          onNewEntry={() => { navigate('diary'); setShowDiaryForm(true) }}
+        />
+
+        <Questionnaire
+          user={user}
+          onNavigateDiary={() => navigate('diary')}
+          onNavigatePricing={() => navigate('pricing')}
+          onNavigateArticles={() => navigate('articles')}
+        />
+
+        <Pricing
+          user={user}
+          currentPlan={profile?.plan || 'free'}
+          onSubscribe={handleSubscribe}
+          onNavigateAuth={() => navigate('auth')}
+        />
+      </main>
+
+      <Footer onNavigate={navigate} />
+    </>
+  )
+}
