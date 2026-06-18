@@ -24,6 +24,8 @@ import { ResponsibilityPage } from './components/ResponsibilityPage'
 import TrailsPage from './components/TrailsPage'
 import SavedItemsPage from './components/SavedItemsPage'
 import AdminPanel from './components/admin'
+import QuestionnairesPage from './components/QuestionnairesPage'
+import QuestionnairePlayer from './components/QuestionnairePlayer'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -31,13 +33,14 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     const v = params.get('view') as View
     const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
-      'therapeutic-q','about','privacy','terms','questionnaire','pricing',
+      'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
       'articles','article','responsibility','trails','saved','admin']
     return valid.includes(v) ? v : 'home'
   }
   const [view, setView] = useState<View>(initialView)
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
+  const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(null)
   const [diaryPromptContext, setDiaryPromptContext] = useState<{
     prompt: string
     articleTitle: string
@@ -53,7 +56,7 @@ export default function App() {
   const navigate = (section: string, articleSlug?: string) => {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
-      'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire',
+      'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin',
     ]
     if (directViews.includes(section as View)) {
@@ -343,6 +346,49 @@ export default function App() {
   }
 
 
+  // Questionnaires listing page
+  if (view === 'questionarios') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <QuestionnairesPage
+            user={user}
+            profile={profile}
+            onStart={(id) => {
+              setActiveQuestionnaireId(id)
+              navigate('questionnaire')
+            }}
+            onBack={() => navigate('home')}
+            onNavigatePricing={() => navigate('pricing')}
+            onNavigateAuth={() => navigate('auth')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  // Dynamic questionnaire player (from listing page)
+  if (view === 'questionnaire' && activeQuestionnaireId) {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <QuestionnairePlayer
+            questionnaireId={activeQuestionnaireId}
+            user={user}
+            profile={profile}
+            onBack={() => { setActiveQuestionnaireId(null); navigate('questionarios') }}
+            onNavigateDiary={() => navigate('diary')}
+            onNavigatePricing={() => navigate('pricing')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   // Admin panel
   if (view === 'admin') {
     return (
@@ -401,54 +447,4 @@ export default function App() {
               {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
                 <button
                   onClick={() => navigate('meditations')}
-                  className="text-sm bg-ocean-50 border border-ocean-200 text-ocean-700 px-4 py-2 rounded-full hover:bg-ocean-100 transition-colors"
-                >
-                  🧘 Meditações Guiadas
-                </button>
-              )}
-              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
-                <button
-                  onClick={() => navigate('therapeutic-q')}
-                  className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
-                >
-                  📋 Questionário Aprofundado
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        <Articles
-          onSelectArticle={(articleOrSlug) => {
-            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
-            setSelectedArticleSlug(slug)
-            setView('article')
-            window.scrollTo(0, 0)
-          }}
-        />
-
-        <DiaryCard
-          user={user}
-          onOpenDiary={() => navigate('diary')}
-          onNewEntry={() => { navigate('diary'); setShowDiaryForm(true) }}
-        />
-
-        <Questionnaire
-          user={user}
-          onNavigateDiary={() => navigate('diary')}
-          onNavigatePricing={() => navigate('pricing')}
-          onNavigateArticles={() => navigate('articles')}
-        />
-
-        <Pricing
-          user={user}
-          currentPlan={profile?.plan || 'free'}
-          onSubscribe={handleSubscribe}
-          onNavigateAuth={() => navigate('auth')}
-        />
-      </main>
-
-      <Footer onNavigate={navigate} />
-    </>
-  )
-}
+                  className="text-sm bg-ocean-50 bo
