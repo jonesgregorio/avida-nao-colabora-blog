@@ -1,118 +1,218 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Save, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Save, Star } from 'lucide-react'
 
-interface Metric { label: string; value: string }
-interface Testimonial { name: string; text: string }
+interface Testimonial {
+  id: string
+  name: string
+  text: string
+  role: string | null
+  avatar_url: string | null
+  rating: number
+  active: boolean
+  created_at: string
+}
+
+interface SiteMetric {
+  id: string
+  key: string
+  label: string
+  value: string
+  updated_at: string
+}
+
+const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminSocialProof() {
-  const [metrics, setMetrics] = useState<Metric[]>([
-    { label: 'pessoas já passaram por aqui', value: '+800' },
-    { label: 'usuários ativos atualmente', value: '335' },
-    { label: 'registros emocionais criados', value: '+1.300' },
-    { label: 'avaliação média', value: '4,7/5' },
-  ])
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([
-    { name: 'Mariana L.', text: 'Comecei usando o diário alguns dias por semana. Gosto porque não parece uma cobrança, só um espaço para entender melhor o que estou sentindo.' },
-    { name: 'Rafael M.', text: 'Os artigos têm uma linguagem leve. Em alguns dias, só ler o resumo e responder uma pergunta já me ajuda a organizar as ideias.' },
-    { name: 'Camila R.', text: 'Ainda estou conhecendo a plataforma, mas gostei da proposta de juntar diário, conteúdos e reflexões em um só lugar.' },
-  ])
-  const [saved, setSaved] = useState(false)
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [metrics, setMetrics] = useState<SiteMetric[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [savingMetrics, setSavingMetrics] = useState(false)
 
-  function updateMetric(i: number, field: keyof Metric, val: string) {
-    setMetrics(m => m.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
+  // Testimonial form
+  const [name, setName] = useState('')
+  const [text, setText] = useState('')
+  const [role, setRole] = useState('')
+  const [rating, setRating] = useState(5)
+  const [saving, setSaving] = useState(false)
+
+  async function load() {
+    const [{ data: t }, { data: m }] = await Promise.all([
+      supabase.from('testimonials').select('*').order('created_at', { ascending: false }),
+      supabase.from('site_metrics').select('*').order('key'),
+    ])
+    setTestimonials(t || [])
+    if (m && m.length > 0) {
+      setMetrics(m)
+    } else {
+      // Initialize default metrics if none exist
+      const defaults = [
+        { key: 'users_count', label: 'Usuárias', value: '0' },
+        { key: 'articles_count', label: 'Artigos publicados', value: '0' },
+        { key: 'diary_entries', label: 'Entradas de diário', value: '0' },
+        { key: 'satisfaction', label: 'Taxa de satisfação', value: '98%' },
+      ]
+      await supabase.from('site_metrics').insert(defaults)
+      setMetrics(defaults.map((d, i) => ({ ...d, id: String(i), updated_at: new Date().toISOString() })))
+    }
+    setLoading(false)
   }
 
-  function updateTestimonial(i: number, field: keyof Testimonial, val: string) {
-    setTestimonials(t => t.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
+  useEffect(() => { load() }, [])
+
+  async function saveTestimonial() {
+    if (!name.trim() || !text.trim()) return
+    setSaving(true)
+    try {
+      await supabase.from('testimonials').insert({ name, text, role: role || null, rating, active: true })
+      showToast('Depoimento salvo!')
+      setShowForm(false); setName(''); setText(''); setRole(''); setRating(5)
+      load()
+    } catch (e: any) {
+      showToast('Erro: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function saveAll() {
-    // In a real implementation, this would save to a Supabase config table.
-    // For now we show a confirmation and the user must update HomeContent.tsx manually or via this editor.
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  async function toggleTestimonial(id: string, active: boolean) {
+    await supabase.from('testimonials').update({ active: !active }).eq('id', id)
+    setTestimonials(ts => ts.map(t => t.id === id ? { ...t, active: !active } : t))
+  }
+
+  async function deleteTestimonial(id: string) {
+    if (!confirm('Excluir depoimento?')) return
+    await supabase.from('testimonials').delete().eq('id', id)
+    load()
+  }
+
+  async function saveMetrics() {
+    setSavingMetrics(true)
+    try {
+      await Promise.all(metrics.map(m =>
+        supabase.from('site_metrics').update({ value: m.value, updated_at: new Date().toISOString() }).eq('id', m.id)
+      ))
+      showToast('Métricas salvas!')
+    } catch (e: any) {
+      showToast('Erro: ' + e.message)
+    } finally {
+      setSavingMetrics(false)
+    }
+  }
+
+  function showToast(msg: string) {
+    setToast(msg); setTimeout(() => setToast(null), 3000)
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Prova Social</h1>
-        <button
-          onClick={saveAll}
-          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700"
-        >
-          <Save className="w-4 h-4" /> {saved ? 'Salvo!' : 'Salvar'}
+    <div>
+      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+
+      <h1 className="text-2xl font-bold text-stone-800 mb-6">Prova Social</h1>
+
+      {/* Metrics */}
+      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Métricas do site</h2>
+          <button onClick={saveMetrics} disabled={savingMetrics} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-emerald-700 disabled:opacity-50">
+            <Save className="w-3 h-3" /> {savingMetrics ? 'Salvando...' : 'Salvar métricas'}
+          </button>
+        </div>
+        {loading ? (
+          <p className="text-stone-400 text-sm">Carregando...</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {metrics.map((m, i) => (
+              <div key={m.id || i}>
+                <label className="block text-xs text-stone-500 mb-1">{m.label}</label>
+                <input
+                  value={m.value}
+                  onChange={e => setMetrics(ms => ms.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
+                  className={inputCls}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Testimonials */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Depoimentos</h2>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-stone-800 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-stone-700">
+          <Plus className="w-3.5 h-3.5" /> Novo depoimento
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
-        <h2 className="font-semibold text-stone-700 mb-4 text-sm uppercase tracking-wide">Métricas</h2>
-        <div className="space-y-3">
-          {metrics.map((m, i) => (
-            <div key={i} className="flex gap-3 items-center">
-              <input
-                value={m.value}
-                onChange={e => updateMetric(i, 'value', e.target.value)}
-                className="w-32 px-3 py-2 border border-stone-200 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-stone-300"
-                placeholder="Valor"
-              />
-              <input
-                value={m.label}
-                onChange={e => updateMetric(i, 'label', e.target.value)}
-                className="flex-1 px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
-                placeholder="Descrição"
-              />
-              <button onClick={() => setMetrics(m => m.filter((_, idx) => idx !== i))} className="text-stone-300 hover:text-red-500">
-                <Trash2 className="w-4 h-4" />
-              </button>
+      {showForm && (
+        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Nome</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Ana Silva" className={inputCls} />
             </div>
-          ))}
-          <button
-            onClick={() => setMetrics(m => [...m, { value: '', label: '' }])}
-            className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800"
-          >
-            <Plus className="w-4 h-4" /> Adicionar métrica
-          </button>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Cargo / Descrição (opcional)</label>
+              <input value={role} onChange={e => setRole(e.target.value)} placeholder="Ex: Usuária há 6 meses" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Nota (1-5)</label>
+              <select value={rating} onChange={e => setRating(Number(e.target.value))} className={inputCls}>
+                {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{'⭐'.repeat(n)} ({n})</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">Depoimento</label>
+            <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="O que a pessoa disse sobre a plataforma..." className={inputCls} />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={saveTestimonial} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-stone-200 text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
-        <h2 className="font-semibold text-stone-700 mb-4 text-sm uppercase tracking-wide">Depoimentos</h2>
-        <div className="space-y-4">
-          {testimonials.map((t, i) => (
-            <div key={i} className="bg-stone-50 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  value={t.name}
-                  onChange={e => updateTestimonial(i, 'name', e.target.value)}
-                  className="w-40 px-3 py-1.5 border border-stone-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-stone-300"
-                  placeholder="Nome"
-                />
-                <button onClick={() => setTestimonials(ts => ts.filter((_, idx) => idx !== i))} className="text-stone-300 hover:text-red-500 ml-auto">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      {loading ? null : testimonials.length === 0 ? (
+        <div className="text-center py-12 text-stone-400 bg-white rounded-xl border border-stone-200">
+          <Star className="w-8 h-8 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">Nenhum depoimento cadastrado ainda.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {testimonials.map(t => (
+            <div key={t.id} className={`bg-white rounded-xl border p-4 ${!t.active ? 'opacity-60' : 'border-stone-200'}`}>
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-semibold text-stone-800 text-sm">{t.name}</p>
+                  {t.role && <p className="text-xs text-stone-400">{t.role}</p>}
+                  <div className="flex mt-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`w-3.5 h-3.5 ${i < t.rating ? 'text-amber-400 fill-amber-400' : 'text-stone-200'}`} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => toggleTestimonial(t.id, t.active)}
+                    className={`text-xs px-2 py-1 rounded ${t.active ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}
+                  >
+                    {t.active ? 'Ativo' : 'Inativo'}
+                  </button>
+                  <button onClick={() => deleteTestimonial(t.id)} className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <textarea
-                value={t.text}
-                onChange={e => updateTestimonial(i, 'text', e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
-                placeholder="Depoimento"
-              />
+              <p className="text-sm text-stone-600 leading-relaxed line-clamp-3">{t.text}</p>
             </div>
           ))}
-          <button
-            onClick={() => setTestimonials(ts => [...ts, { name: '', text: '' }])}
-            className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800"
-          >
-            <Plus className="w-4 h-4" /> Adicionar depoimento
-          </button>
         </div>
-        <p className="text-xs text-stone-400 mt-4">
-          ⚠️ As alterações aqui são salvas localmente. Para refletir no site, será necessária integração com a tabela <code>site_config</code> no Supabase (ver SQL schema).
-        </p>
-      </div>
+      )}
     </div>
   )
 }
