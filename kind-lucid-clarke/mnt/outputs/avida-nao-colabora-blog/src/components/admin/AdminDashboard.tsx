@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { AdminView } from './index'
+import { AdminView } from './types'
 import {
   FileText, Users, TrendingUp, AlertCircle, CheckCircle,
   BookOpen, MessageSquare, Zap, CreditCard,

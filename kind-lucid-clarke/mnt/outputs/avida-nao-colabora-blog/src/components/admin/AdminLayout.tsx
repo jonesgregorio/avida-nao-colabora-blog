@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react'
-import { AdminView } from './index'
+import { AdminView } from './types'
 import {
   LayoutDashboard, FileText, Image, Tag, Users, CreditCard,
   Star, BookOpen, Box, BarChart2, HeadphonesIcon, Bell,
