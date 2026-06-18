@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { AdminView } from './types'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import AdminLayout from './AdminLayout'
 import AdminDashboard from './AdminDashboard'
 import AdminArticles from './AdminArticles'
