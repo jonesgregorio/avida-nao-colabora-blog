@@ -18,7 +18,7 @@ export default function AdminSavedItems() {
 
   useEffect(() => {
     supabase
-      .from('saved_articles')
+      .from('saved_items')
       .select('*, article:articles(title, slug, category), user:profiles(email)')
       .order('created_at', { ascending: false })
       .limit(300)

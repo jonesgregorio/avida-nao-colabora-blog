@@ -6,7 +6,7 @@ import json
 import urllib.request
 
 SUPABASE_URL = "https://lejvvhzluggyxlfwfoxl.supabase.co"
-SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlanZ2aHpsdWdneXhsZndmb3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTM4NjgyMiwiZXhwIjoyMDk2OTYyODIyfQ.yfQaMFSumWQfTDDPpH6UJJdvGKVifSQz8EuhQWo-NZg"
+SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 HEADERS = {
     "apikey": SERVICE_KEY,

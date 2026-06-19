@@ -5,7 +5,7 @@ import json
 import urllib.request
 
 SUPABASE_URL = "https://lejvvhzluggyxlfwfoxl.supabase.co"
-SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlanZ2aHpsdWdneXhsZndmb3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTM4NjgyMiwiZXhwIjoyMDk2OTYyODIyfQ.yfQaMFSumWQfTDDPpH6UJJdvGKVifSQz8EuhQWo-NZg"
+SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 IMAGES = {
   "como-entender-o-que-voce-sente": ("https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=800&q=80", "Pessoa em reflexão olhando para o horizonte"),

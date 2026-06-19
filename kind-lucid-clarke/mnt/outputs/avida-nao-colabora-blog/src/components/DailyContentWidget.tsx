@@ -68,7 +68,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
     const { data } = await supabase
       .from('automated_contents')
       .select('id, title, type, frequency, content')
-      .eq('active', true)
+      .eq('is_active', true)
       .in('plan_required', eligiblePlans)
       .order('created_at', { ascending: false })
 

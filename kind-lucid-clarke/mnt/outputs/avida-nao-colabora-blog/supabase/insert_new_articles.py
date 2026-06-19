@@ -12,7 +12,7 @@ import urllib.error
 from datetime import datetime
 
 SUPABASE_URL = "https://lejvvhzluggyxlfwfoxl.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlanZ2aHpsdWdneXhsZndmb3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTM4NjgyMiwiZXhwIjoyMDk2OTYyODIyfQ.yfQaMFSumWQfTDDPpH6UJJdvGKVifSQz8EuhQWo-NZg"
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 ARTICLES = [
     # ------------------------------------------------------------------ 1

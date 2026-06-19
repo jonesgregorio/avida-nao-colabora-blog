@@ -1,6 +1,6 @@
 export type Plan = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'admin'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin'
 
 export interface Profile {
   id: string
@@ -152,4 +152,5 @@ export interface WeeklyEvaluation {
   avg_stress: number
   highlight: string
   recommendations: string[]
-  creat
+  created_at: string
+}
