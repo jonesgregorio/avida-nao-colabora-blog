@@ -456,13 +456,3 @@ export default function App() {
     </>
   )
 }
- currentPlan={profile?.plan || 'free'}
-          onSubscribe={handleSubscribe}
-          onNavigateAuth={() => navigate('auth')}
-        />
-      </main>
-
-      <Footer onNavigate={navigate} />
-    </>
-  )
-}
