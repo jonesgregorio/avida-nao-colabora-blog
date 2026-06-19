@@ -321,7 +321,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
           requiredPlan="essential"
           featureName="Trilhas premium"
           onClose={() => setUpgradeModal(false)}
-          navigate={navigate as (v: import('../types').View) => void}
+          navigate={navigate as any}
         />
       )}
     </div>
