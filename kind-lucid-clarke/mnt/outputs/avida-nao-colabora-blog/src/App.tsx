@@ -450,9 +450,13 @@ export default function App() {
           onNavigateArticles={() => navigate('articles')}
         />
 
-        <Pricing
-          user={user}
-          currentPlan={profile?.plan || 'free'}
+        </main>
+
+      <Footer />
+    </>
+  )
+}
+ currentPlan={profile?.plan || 'free'}
           onSubscribe={handleSubscribe}
           onNavigateAuth={() => navigate('auth')}
         />

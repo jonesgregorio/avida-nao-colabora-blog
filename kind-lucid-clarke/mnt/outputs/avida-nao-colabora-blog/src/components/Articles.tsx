@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { Search, Clock, ArrowRight, X } from 'lucide-react'
+import { Search, Clock, ArrowRight, ChevronRight, X } from 'lucide-react'
 import type { Article } from '../types'
 
 interface ArticlesProps {
@@ -228,8 +228,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
                   {article.title}
                 </h3>
                 <p className="text-stone-500 text-sm line-clamp-3 mb-4">{getSummary(article)}</p>
-                <span className="flex items-center gap-1 text-sage-600 text-sm font-medium">
-                  Ler artigo <ArrowRight size={14} />
+                <span className="flex items-center gap-1 text-sage-600 text-sm font-medium">                  Ler artigo <ChevronRight size={14} />
                 </span>
               </div>
             </article>

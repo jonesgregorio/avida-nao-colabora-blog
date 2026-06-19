@@ -318,10 +318,10 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
       {upgradeModal && (
         <UpgradeModal
           isOpen={upgradeModal}
-          featureName="Trilhas de autocuidado completas"
           requiredPlan="essential"
+          featureName="Trilhas premium"
           onClose={() => setUpgradeModal(false)}
-          navigate={(v) => navigate(v)}
+          navigate={navigate as (v: import('../types').View) => void}
         />
       )}
     </div>

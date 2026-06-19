@@ -154,3 +154,4 @@ export interface WeeklyEvaluation {
   recommendations: string[]
   created_at: string
 }
+

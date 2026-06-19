@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { ChevronRight, ArrowLeft, RotateCcw, BookOpen, Star } from 'lucide-react'
+import { ChevronRight, ArrowLeft, RotateCcw, BookOpen, Star, RefreshCw, X } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -536,11 +536,13 @@ export default function QuestionnairePlayer({
               onClick={() => { setAnswers({}); setStep(0); setPhase('intro'); setSaved(false) }}
               className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm"
             >
-              <RotateCcw className="w-4 h-4" /> Refazer
+                        <RefreshCw className="w-3.5 h-3.5" /> Refazer
             </button>
-            <button onClick={onBack} className="text-stone-400 hover:text-stone-600 text-sm">
-              Ver outros questionários
-            </button>
+            {onClose && (
+              <button onClick={onClose} className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm">
+                <X className="w-3.5 h-3.5" /> Fechar
+              </button>
+            )}
           </div>
         </div>
       </section>
