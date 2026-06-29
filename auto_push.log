@@ -1,0 +1,27 @@
+[2026-06-18 18:03:31] ERRO: Push falhou - HTTP 403 via proxy. Commit pendente: c6830e2 feat: sistema completo de questionários - admin editor, página pública, player dinâmico
+2026-06-18 15:04:44  === auto_push iniciado. Monitorando: C:\Users\jones\avida-nao-colabora-blog\kind-lucid-clarke\mnt\outputs\avida-nao-colabora-blog\src
+2026-06-18 15:04:45  Watcher ativo. Aguardando mudancas...
+Mon Jun 29 16:40:45 UTC 2026: Nada a enviar.
+2026-06-29 16:44:40 - Nada a enviar.
+2026-06-29 16:56:48 - Nada a enviar.
+Mon Jun 29 17:10:39 UTC 2026: Nada a enviar.
+2026-06-29 17:18:45 - Nada a enviar.
+2026-06-29 17:22:44 - ERRO: Push falhou com HTTP 403 (proxy bloqueou a conexão). Commit pendente: 48ef0f9
+2026-06-29 17:24:46 - ERRO: Push falhou com HTTP 403 (proxy). Commit pendente: 48ef0f9
+2026-06-29 17:26:58 UTC - ERRO: Push falhou - HTTP 403 do proxy ao tentar acessar o repositório remoto. Commit pendente: 48ef0f9
+Mon Jun 29 17:28:45 UTC 2026: Push falhou - HTTP 403 do proxy ao tentar enviar commit: 48ef0f9
+2026-06-29 17:30:46 - ERRO: Push falhou. fatal: HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas
+2026-06-29 17:32:48 - ERRO: Push falhou - HTTP 403 do proxy ao tentar acessar o repositório remoto. Commit pendente: 48ef0f9
+[Mon Jun 29 17:34:47 UTC 2026] ERRO: Push falhou - HTTP 403 via proxy. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas para corresponder ao banco real
+[Mon Jun 29 17:38:50 UTC 2026] Push falhou: HTTP 403 - acesso bloqueado pelo proxy. Commit pendente: 48ef0f9
+2026-06-29 17:40:55 - ERRO: Push falhou - HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9
+2026-06-29 17:42:52 - ERRO: Push falhou - HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9
+[Mon Jun 29 17:44:48 UTC 2026] Push falhou: HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9
+2026-06-29 17:46:43 - ERRO: Push falhou - HTTP 403 via proxy. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas para corresponder ao banco real
+[Mon Jun 29 17:48:44 UTC 2026] Push falhou: HTTP 403 do proxy ao tentar push do commit 48ef0f9
+2026-06-29 17:50:42 - ERRO: Push falhou - HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9
+[2026-06-29 17:52:48 UTC] ERRO: Push falhou - HTTP 403 via proxy. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas para corresponder ao banco real
+[Mon Jun 29 17:54:41 UTC 2026] ERRO: Push falhou - HTTP 403 do proxy. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas para corresponder ao banco real
+[Mon Jun 29 17:56:44 UTC 2026] Push falhou: HTTP 403 via proxy. Commit pendente: 48ef0f9 fix: corrigir nomes de colunas para corresponder ao banco real
+2026-06-29 17:58:43 - ERRO: HTTP 403 do proxy ao tentar push. Commit pendente: 48ef0f9
+Mon Jun 29 18:00:43 UTC 2026: ERRO - Push falhou: HTTP 403 from proxy after CONNECT. C2026-06-29 18:02:43 - ERRO: Push falhou - HTTP 403 from proxy after CONNECT. Commit pendente: 48ef0f9
