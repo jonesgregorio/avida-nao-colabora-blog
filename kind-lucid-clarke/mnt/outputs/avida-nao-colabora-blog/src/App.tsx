@@ -59,7 +59,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
-      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin',
+      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)

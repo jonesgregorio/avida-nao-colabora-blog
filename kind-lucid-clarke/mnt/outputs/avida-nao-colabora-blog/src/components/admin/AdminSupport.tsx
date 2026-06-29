@@ -134,7 +134,7 @@ export default function AdminSupport() {
                 <option value="all">Todos</option>
                 <option value="open">Aberto</option>
                 <option value="in_progress">Em andamento</option>
-                <option value="resolved">Resolvido</option>
+                <option value="closed">Resolvido</option>
               </select>
             </div>
 
