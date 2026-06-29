@@ -301,7 +301,16 @@ export default function AdminQuestionnaires() {
 
   const save = async (targetStatus?: QStatus) => {
     setSaving(true)
-    const payload = { ...editing, status: targetStatus || editing.status, question_count: editing.questions.length, questions: editing.questions.map(({ expanded: _e, ...q }) => q) }
+    const newStatus = targetStatus || editing.status
+    const isPublishing = newStatus === 'published' && editing.status !== 'published'
+    const payload = {
+      ...editing,
+      status: newStatus,
+      question_count: editing.questions.length,
+      questions: editing.questions.map(({ expanded: _e, ...q }) => q),
+      // define published_at apenas na primeira publicação
+      ...(isPublishing ? { published_at: new Date().toISOString() } : {}),
+    }
     const { error } = editing.id
       ? await supabase.from('questionnaires').update(payload).eq('id', editing.id)
       : await supabase.from('questionnaires').insert([payload])

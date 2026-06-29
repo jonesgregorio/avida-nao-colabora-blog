@@ -355,13 +355,7 @@ export default function App() {
   }
 
   if (view === 'admin') {
-    return (
-      <AdminPanel
-        user={user}
-        profile={profile}
-        onExit={() => setView('home')}
-      />
-    )
+    return <AdminPanel />
   }
 
   // Home
@@ -452,7 +446,7 @@ export default function App() {
 
         </main>
 
-      <Footer />
+      <Footer onNavigate={navigate} />
     </>
   )
 }

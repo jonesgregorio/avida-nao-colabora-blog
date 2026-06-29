@@ -8,17 +8,46 @@ import { ChevronRight, ArrowLeft, RotateCcw, BookOpen, Star, RefreshCw, X } from
 interface QFull {
   id: string
   title: string
-  short_description: string
-  intro_message: string
-  final_message: string
-  disclaimer: string
-  start_button_text: string
-  final_button_text: string
-  default_result_text: string
+  // campos salvos pelo admin — mapeados abaixo para compatibilidade
+  description: string        // admin salva como "description"
+  short_description?: string // fallback
+  intro_text?: string        // admin salva como "intro_text"
+  intro_message?: string     // fallback
+  completion_text?: string   // admin salva como "completion_text"
+  final_message?: string     // fallback
+  disclaimer?: string
+  start_button_text?: string
+  final_button_text?: string
+  default_result_text?: string
   plan_required: string
-  estimated_time: string
-  icon: string
+  estimated_time: string | number
+  cover_image?: string
+  icon?: string
   category: string
+  questions?: AdminQQuestion[]
+  results?: AdminQResult[]
+}
+
+// Formato salvo pelo admin no JSONB
+interface AdminQQuestion {
+  id: string
+  type: string   // admin usa "type", player usava "question_type"
+  text: string   // admin usa "text", player usava "question_text"
+  subtitle?: string
+  required: boolean
+  options: { id: string; text: string; score: number; tag?: string }[]
+  min_label?: string
+  max_label?: string
+}
+
+interface AdminQResult {
+  id: string
+  min_score: number
+  max_score: number
+  label: string         // admin usa "label", player usava "title"
+  description: string
+  recommendation: string
+  color: string
 }
 
 interface QQuestion {
@@ -96,33 +125,76 @@ export default function QuestionnairePlayer({
       setQuestionnaire(q)
       track('questionnaire_start', { entity_id: q.id, entity_title: q.title })
 
-      const { data: qs } = await supabase
-        .from('questionnaire_questions')
-        .select('*')
-        .eq('questionnaire_id', questionnaireId)
-        .order('order_index')
-
-      if (qs && qs.length > 0) {
-        const withOpts = await Promise.all(qs.map(async (qq: any) => {
-          if (['single_choice', 'multiple_choice', 'yes_no', 'emotion_select'].includes(qq.question_type)) {
-            const { data: opts } = await supabase
-              .from('questionnaire_options')
-              .select('*')
-              .eq('question_id', qq.id)
-              .order('order_index')
-            return { ...qq, options: opts || [] }
-          }
-          return qq
+      // Admin salva perguntas como JSONB inline em q.questions.
+      // Mapeamos para o formato interno do player.
+      const adminQuestions: AdminQQuestion[] = Array.isArray(q.questions) ? q.questions : []
+      if (adminQuestions.length > 0) {
+        const mapped: QQuestion[] = adminQuestions.map((aq, idx) => ({
+          id: aq.id || String(idx),
+          question_text: aq.text,
+          helper_text: aq.subtitle || '',
+          question_type: aq.type,
+          is_required: aq.required ?? true,
+          order_index: idx,
+          weight: 1,
+          placeholder: '',
+          character_limit: 0,
+          options: (aq.options || []).map((o, oi) => ({
+            id: o.id || String(oi),
+            option_text: o.text,
+            score: o.score || 0,
+            tag: o.tag || '',
+            order_index: oi,
+          })),
         }))
-        setQuestions(withOpts)
+        setQuestions(mapped)
+      } else {
+        // Fallback: tenta buscar das tabelas separadas (legado)
+        const { data: qs } = await supabase
+          .from('questionnaire_questions')
+          .select('*')
+          .eq('questionnaire_id', questionnaireId)
+          .order('order_index')
+
+        if (qs && qs.length > 0) {
+          const withOpts = await Promise.all(qs.map(async (qq: any) => {
+            if (['single_choice', 'multiple_choice', 'yes_no', 'emotion_select'].includes(qq.question_type)) {
+              const { data: opts } = await supabase
+                .from('questionnaire_options')
+                .select('*')
+                .eq('question_id', qq.id)
+                .order('order_index')
+              return { ...qq, options: opts || [] }
+            }
+            return qq
+          }))
+          setQuestions(withOpts)
+        }
       }
 
-      const { data: rs } = await supabase
-        .from('questionnaire_results')
-        .select('*')
-        .eq('questionnaire_id', questionnaireId)
-        .order('min_score')
-      setResults(rs || [])
+      // Admin salva resultados como JSONB inline em q.results.
+      const adminResults: AdminQResult[] = Array.isArray(q.results) ? q.results : []
+      if (adminResults.length > 0) {
+        const mapped: QResult[] = adminResults.map(ar => ({
+          id: ar.id,
+          title: ar.label,
+          message: ar.description,
+          description: ar.recommendation || '',
+          min_score: ar.min_score,
+          max_score: ar.max_score,
+          related_tags: '',
+          disclaimer: '',
+        }))
+        setResults(mapped)
+      } else {
+        // Fallback: tabelas separadas
+        const { data: rs } = await supabase
+          .from('questionnaire_results')
+          .select('*')
+          .eq('questionnaire_id', questionnaireId)
+          .order('min_score')
+        setResults(rs || [])
+      }
 
       setPhase('intro')
     }
@@ -182,7 +254,7 @@ export default function QuestionnairePlayer({
             selected_options: Array.isArray(ans.value) ? JSON.stringify(ans.value) : null,
             score: ans.score,
             generated_tags: ans.tags.join(','),
-          }).catch(() => {})
+          })
         }
         setSaved(true)
       }
@@ -263,11 +335,13 @@ export default function QuestionnairePlayer({
             {questionnaire.icon || '📋'}
           </div>
           <h1 className="font-serif text-2xl text-stone-800 mb-2">{questionnaire.title}</h1>
-          <p className="text-stone-500 text-sm mb-5 max-w-sm mx-auto">{questionnaire.short_description}</p>
+          <p className="text-stone-500 text-sm mb-5 max-w-sm mx-auto">
+            {questionnaire.short_description || questionnaire.description}
+          </p>
 
-          {questionnaire.intro_message && (
+          {(questionnaire.intro_message || questionnaire.intro_text) && (
             <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-sm text-stone-700 text-left mb-5">
-              {questionnaire.intro_message}
+              {questionnaire.intro_message || questionnaire.intro_text}
             </div>
           )}
 
@@ -495,8 +569,10 @@ export default function QuestionnairePlayer({
             <p className="text-sm text-stone-600 mb-4 leading-relaxed">{matchedResult.description}</p>
           )}
 
-          {questionnaire.final_message && (
-            <p className="text-sm text-stone-500 mb-5 leading-relaxed text-center">{questionnaire.final_message}</p>
+          {(questionnaire.final_message || questionnaire.completion_text) && (
+            <p className="text-sm text-stone-500 mb-5 leading-relaxed text-center">
+              {questionnaire.final_message || questionnaire.completion_text}
+            </p>
           )}
 
           <p className="text-xs text-stone-400 text-center mb-6 leading-relaxed">{disclaimer}</p>
@@ -536,13 +612,11 @@ export default function QuestionnairePlayer({
               onClick={() => { setAnswers({}); setStep(0); setPhase('intro'); setSaved(false) }}
               className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm"
             >
-                        <RefreshCw className="w-3.5 h-3.5" /> Refazer
+              <RefreshCw className="w-3.5 h-3.5" /> Refazer
             </button>
-            {onClose && (
-              <button onClick={onClose} className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm">
-                <X className="w-3.5 h-3.5" /> Fechar
-              </button>
-            )}
+            <button onClick={onBack} className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm">
+              <X className="w-3.5 h-3.5" /> Fechar
+            </button>
           </div>
         </div>
       </section>

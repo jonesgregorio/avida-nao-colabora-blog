@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Save, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Save, Check, Loader2 } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
 type PlanKey = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
@@ -60,7 +61,34 @@ const DEFAULT_PLANS: PlanConfig[] = [
 export default function AdminPlans() {
   const [plans, setPlans] = useState<PlanConfig[]>(DEFAULT_PLANS)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<PlanKey>('free')
+
+  // Carrega configurações salvas no banco
+  useEffect(() => {
+    async function loadConfigs() {
+      const { data } = await supabase.from('plan_configs').select('*')
+      if (data && data.length > 0) {
+        setPlans(prev => prev.map(pl => {
+          const saved = data.find((d: any) => d.plan_key === pl.key)
+          if (!saved) return pl
+          return {
+            ...pl,
+            label: saved.label ?? pl.label,
+            price: saved.price ?? pl.price,
+            description: saved.description ?? pl.description,
+            recommended: saved.recommended ?? pl.recommended,
+            active: saved.active ?? pl.active,
+            diaryLimit: saved.diary_limit ?? pl.diaryLimit,
+            features: saved.features ?? pl.features,
+          }
+        }))
+      }
+      setLoading(false)
+    }
+    loadConfigs()
+  }, [])
 
   function update(key: PlanKey, field: keyof PlanConfig, value: any) {
     setPlans(p => p.map(pl => pl.key === key ? { ...pl, [field]: value } : pl))
@@ -73,10 +101,26 @@ export default function AdminPlans() {
     ))
   }
 
-  function save() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-    // TODO: persist to supabase plan_configs table
+  async function save() {
+    setSaving(true)
+    try {
+      for (const pl of plans) {
+        await supabase.from('plan_configs').upsert({
+          plan_key: pl.key,
+          label: pl.label,
+          price: pl.price,
+          description: pl.description,
+          recommended: pl.recommended,
+          active: pl.active,
+          diary_limit: pl.diaryLimit,
+          features: pl.features,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'plan_key' })
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (_) {}
+    setSaving(false)
   }
 
   const plan = plans.find(p => p.key === activeTab)!
@@ -87,10 +131,11 @@ export default function AdminPlans() {
         <h1 className="text-2xl font-bold text-stone-800">Planos</h1>
         <button
           onClick={save}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700"
+          disabled={saving || loading}
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60"
         >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? 'Salvo!' : 'Salvar alterações'}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar alterações'}
         </button>
       </div>
 
@@ -231,9 +276,6 @@ export default function AdminPlans() {
         </div>
       </div>
 
-      <p className="text-xs text-stone-400 mt-4">
-        ⚠️ As configurações de plano ainda são gerenciadas no código. Integração completa com banco de dados será ativada na próxima etapa via tabela <code>plan_configs</code>.
-      </p>
     </div>
   )
 }

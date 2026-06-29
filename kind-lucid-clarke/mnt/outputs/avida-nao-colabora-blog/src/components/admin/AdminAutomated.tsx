@@ -245,64 +245,39 @@ export default function AdminAutomated() {
           {/* Form fields */}
           <div>
             <label className="text-xs text-stone-500 block mb-1">Título *</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} />
+            <input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="Título do conteúdo" />
           </div>
           <div>
             <label className="text-xs text-stone-500 block mb-1">Conteúdo *</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={4} value={form.content} onChange={e => setForm(f => ({...f, content: e.target.value}))} />
+            <textarea className={inputCls} rows={5} value={content} onChange={e => setContent(e.target.value)} placeholder="Escreva ou gere com IA acima..." />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-stone-500 block mb-1">Tipo</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.content_type} onChange={e => setForm(f => ({...f, content_type: e.target.value}))}>
-                <option value="dica">Dica</option>
-                <option value="reflexao">Reflexão</option>
-                <option value="exercicio">Exercício</option>
-                <option value="afirmacao">Afirmação</option>
+              <select className={inputCls} value={type} onChange={e => setType(e.target.value)}>
+                {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-stone-500 block mb-1">Frequência</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.frequency} onChange={e => setForm(f => ({...f, frequency: e.target.value}))}>
-                <option value="daily">Diário</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensal</option>
+              <select className={inputCls} value={frequency} onChange={e => setFrequency(e.target.value)}>
+                {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
           </div>
+          <div>
+            <label className="text-xs text-stone-500 block mb-1">Plano mínimo</label>
+            <select className={inputCls} value={planRequired} onChange={e => setPlan(e.target.value)}>
+              {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditing(null) }} className="px-4 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50">Cancelar</button>
-            <button onClick={saveItem} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-700 disabled:opacity-50">
+            <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-700 disabled:opacity-50">
               <Save size={14} />{saving ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
             </button>
           </div>
         </div>
-        )}
-
-        {generated && (
-          <div className="mt-4 p-4 bg-white border rounded-xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-stone-700 text-sm">Conteúdo gerado</h3>
-              <button
-                onClick={() => { setGenerated(null); setTopic('') }}
-                className="text-xs text-stone-400 hover:text-stone-600"
-              >
-                Limpar
-              </button>
-            </div>
-            <div className="space-y-2 text-sm text-stone-700">
-              <p><span className="font-medium">Título:</span> {generated.title}</p>
-              <p><span className="font-medium">Tipo:</span> {generated.content_type}</p>
-              <p className="whitespace-pre-wrap border rounded p-2 bg-stone-50 text-xs max-h-48 overflow-y-auto">{generated.content}</p>
-            </div>
-            <button
-              onClick={saveGenerated}
-              disabled={saving}
-              className="mt-3 flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
-            >
-              <Save size={14} />{saving ? 'Salvando...' : 'Salvar como rascunho'}
-            </button>
-          </div>
         )}
 
       {/* Lista de conteúdos */}
@@ -314,7 +289,7 @@ export default function AdminAutomated() {
         ) : items.map(item => (
           <div key={item.id} className="bg-white border rounded-xl p-4 flex items-start gap-3">
             <button
-              onClick={() => toggleActive(item.id, item.active)}
+              onClick={() => toggle(item.id, item.active)}
               className={"mt-0.5 flex-shrink-0 " + (item.active ? 'text-emerald-500' : 'text-stone-300')}
               title={item.active ? 'Desativar' : 'Ativar'}
             >
@@ -323,13 +298,13 @@ export default function AdminAutomated() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-medium text-stone-800 text-sm">{item.title}</span>
-                <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{item.content_type}</span>
+                <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{item.type}</span>
                 {!item.active && <span className="text-xs text-orange-500">Inativo</span>}
               </div>
               <p className="text-xs text-stone-500 line-clamp-2">{item.content}</p>
             </div>
             <div className="flex gap-1 flex-shrink-0">
-              <button onClick={() => { setEditing(item); setForm({title:item.title,content:item.content,content_type:item.content_type,frequency:item.frequency||'daily',active:item.active}); setShowForm(true) }} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded">
+              <button onClick={() => openEdit(item)} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded">
                 <Pencil size={14} />
               </button>
               <button onClick={() => setPreview(item)} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded">

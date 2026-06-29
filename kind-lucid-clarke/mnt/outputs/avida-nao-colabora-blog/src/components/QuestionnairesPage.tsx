@@ -6,13 +6,15 @@ interface QItem {
   id: string
   title: string
   slug: string
-  short_description: string
+  description: string        // campo real salvo pelo admin
+  short_description?: string // fallback
   category: string
   plan_required: string
-  estimated_time: string
+  estimated_time: string | number
   status: string
   show_on_questionnaires_page: boolean
   question_count?: number
+  questions?: any[]          // JSONB do admin
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -60,20 +62,17 @@ export default function QuestionnairesPage({
       const now = new Date().toISOString()
       const { data } = await supabase
         .from('questionnaires')
-        .select('id,title,slug,short_description,category,plan_required,estimated_time,status,show_on_questionnaires_page,scheduled_at')
+        .select('id,title,slug,description,category,plan_required,estimated_time,status,show_on_questionnaires_page,scheduled_at,questions,created_at')
         .eq('show_on_questionnaires_page', true)
         .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
-        .order('published_at', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (!data) { setLoading(false); return }
 
-      const withCounts = await Promise.all(data.map(async (q: any) => {
-        const { count } = await supabase
-          .from('questionnaire_questions')
-          .select('*', { count: 'exact', head: true })
-          .eq('questionnaire_id', q.id)
-          .catch(() => ({ count: 0 })) as any
-        return { ...q, question_count: count || 0 }
+      // Conta perguntas a partir do JSONB inline (sem precisar de tabela separada)
+      const withCounts = data.map((q: any) => ({
+        ...q,
+        question_count: Array.isArray(q.questions) ? q.questions.length : 0,
       }))
       setItems(withCounts)
       setLoading(false)
@@ -168,7 +167,7 @@ export default function QuestionnairesPage({
                       {item.title}
                     </h3>
                     <p className="text-stone-500 text-xs leading-relaxed mb-4 line-clamp-2">
-                      {item.short_description}
+                      {item.short_description || item.description}
                     </p>
 
                     <div className="flex items-center justify-between">

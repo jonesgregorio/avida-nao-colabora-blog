@@ -77,8 +77,12 @@ export default function AdminPanel() {
     }
   }
 
+  function handleExit() {
+    window.location.href = window.location.pathname
+  }
+
   return (
-    <AdminLayout currentView={view} onNavigate={setView}>
+    <AdminLayout currentView={view} onNavigate={setView} onExit={handleExit}>
       {renderView()}
     </AdminLayout>
   )
