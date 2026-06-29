@@ -15,8 +15,9 @@ interface Testimonial {
 
 interface SiteMetric {
   id: string
-  key: string
-  label: string
+  key: string | null
+  metric: string | null
+  label: string | null
   value: string
   updated_at: string
 }
@@ -41,7 +42,7 @@ export default function AdminSocialProof() {
   async function load() {
     const [{ data: t }, { data: m }] = await Promise.all([
       supabase.from('testimonials').select('*').order('created_at', { ascending: false }),
-      supabase.from('site_metrics').select('*').order('key'),
+      supabase.from('site_metrics').select('*').order('label', { nullsFirst: false }),
     ])
     setTestimonials(t || [])
     if (m && m.length > 0) {
@@ -126,7 +127,7 @@ export default function AdminSocialProof() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {metrics.map((m, i) => (
               <div key={m.id || i}>
-                <label className="block text-xs text-stone-500 mb-1">{m.label}</label>
+                <label className="block text-xs text-stone-500 mb-1">{m.label || m.key || m.metric || '—'}</label>
                 <input
                   value={m.value}
                   onChange={e => setMetrics(ms => ms.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}

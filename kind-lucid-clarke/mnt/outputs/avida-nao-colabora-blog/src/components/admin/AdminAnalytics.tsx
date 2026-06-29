@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  TrendingUp, FileText, Users, BookOpen, MousePointerClick,
-  ClipboardList, Map, Zap, RefreshCw, ArrowUpRight
+  TrendingUp, FileText, Users, BarChart2, MousePointerClick,
+  ClipboardList, Map, Zap, RefreshCw
 } from 'lucide-react'
 
 interface PlanDist { plan: string; count: number }
@@ -58,17 +58,17 @@ export default function AdminAnalytics() {
       // ── Base metrics ────────────────────────────────────────────────────
       const [
         { data: profiles },
-        { count: diaryCount },
-        { count: articleCount },
+        { data: diaryRows },
+        { data: articleRows },
       ] = await Promise.all([
         supabase.from('profiles').select('plan'),
-        supabase.from('diary_entries').select('*', { count: 'exact', head: true }).gte('created_at', isoSince),
-        supabase.from('articles').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+        supabase.from('diary_entries').select('id').gte('created_at', isoSince),
+        supabase.from('articles').select('id').eq('status', 'published'),
       ])
 
       setTotalUsers((profiles || []).length)
-      setTotalDiary(diaryCount || 0)
-      setTotalArticles(articleCount || 0)
+      setTotalDiary((diaryRows || []).length)
+      setTotalArticles((articleRows || []).length)
 
       const counts: Record<string, number> = {}
       ;(profiles || []).forEach((p: any) => { counts[p.plan] = (counts[p.plan] || 0) + 1 })
@@ -196,7 +196,7 @@ export default function AdminAnalytics() {
               { label: 'Artigos publicados',         value: totalArticles, icon: FileText,    color: 'text-green-600 bg-green-50' },
               { label: `Entradas no diário (${period}d)`, value: totalDiary, icon: TrendingUp, color: 'text-purple-600 bg-purple-50' },
               { label: 'Eventos rastreados',
-                value: eventSummary.length, icon: BarChart2, color: 'text-orange-600 bg-orange-50' },
+                value: eventSummary.reduce((s, e) => s + e.count, 0), icon: BarChart2, color: 'text-orange-600 bg-orange-50' },
             ].map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="bg-white border rounded-xl p-4">
                 <div className={`inline-flex p-2 rounded-lg mb-3 ${color.split(' ')[1]}`}>
@@ -222,16 +222,14 @@ export default function AdminAnalytics() {
                 <thead className="bg-stone-50">
                   <tr>
                     <th className="text-left px-4 py-2 text-xs text-stone-500 font-medium">Evento</th>
-                    <th className="text-right px-4 py-2 text-xs text-stone-500 font-medium">Total</th>
-                    <th className="text-right px-4 py-2 text-xs text-stone-500 font-medium">Usuários únicos</th>
+                    <th className="text-right px-4 py-2 text-xs text-stone-500 font-medium" colSpan={2}>Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {eventSummary.map((e, i) => (
                     <tr key={i} className="hover:bg-stone-50">
-                      <td className="px-4 py-2 text-stone-700">{e.event_type}</td>
-                      <td className="px-4 py-2 text-right text-stone-600">{e.count}</td>
-                      <td className="px-4 py-2 text-right text-stone-600">{e.unique_users}</td>
+                      <td className="px-4 py-2 text-stone-700">{e.event}</td>
+                      <td className="px-4 py-2 text-right text-stone-600" colSpan={2}>{e.count}</td>
                     </tr>
                   ))}
                 </tbody>

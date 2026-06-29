@@ -13,10 +13,12 @@ export default function AdminImages() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [bucketError, setBucketError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
-    const { data } = await supabase.storage.from('article-images').list('', { sortBy: { column: 'created_at', order: 'desc' } })
+    const { data, error } = await supabase.storage.from('article-images').list('', { sortBy: { column: 'created_at', order: 'desc' } })
+    if (error) { setBucketError(true); setLoading(false); return }
     if (data) {
       const items = data.map(f => ({
         name: f.name,
@@ -77,6 +79,13 @@ export default function AdminImages() {
         </button>
         <input ref={inputRef} type="file" accept="image/*" onChange={upload} className="hidden" />
       </div>
+
+      {bucketError && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+          <strong>Bucket não encontrado.</strong> Crie o bucket <code>article-images</code> como público em{' '}
+          <strong>Supabase Dashboard → Storage → New bucket</strong>.
+        </div>
+      )}
 
       {loading ? (
         <p className="text-stone-400 text-sm">Carregando imagens...</p>
