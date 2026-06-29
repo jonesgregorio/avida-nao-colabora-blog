@@ -39,6 +39,8 @@ const FREQ_COLORS: Record<string, string> = {
 const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 // ── Geração via Pollinations.ai (gratuito, sem API key) ────────────────────
+const GENERATE_TIMEOUT_MS = 30_000
+
 async function generateContent(tema: string, tipo: string, frequencia: string): Promise<string> {
   const prompt = `Você é um psicólogo especializado em saúde mental e bem-estar emocional.
 
@@ -53,19 +55,33 @@ Requisitos:
 - Termine com uma frase de encorajamento
 - Retorne APENAS o texto, sem título`
 
-  const response = await fetch('https://text.pollinations.ai/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'openai',
-      seed: Math.floor(Math.random() * 9999),
-    }),
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS)
 
-  if (!response.ok) throw new Error('Erro na geração de conteúdo')
-  const text = await response.text()
-  return text.trim()
+  try {
+    const response = await fetch('https://text.pollinations.ai/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'openai',
+        seed: Math.floor(Math.random() * 9999),
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) throw new Error(`Serviço indisponível (${response.status})`)
+    const text = await response.text()
+    if (!text.trim()) throw new Error('Resposta vazia')
+    return text.trim()
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Tempo limite excedido (30s). Tente novamente.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export default function AdminAutomated() {
@@ -125,7 +141,8 @@ export default function AdminAutomated() {
       if (!title.trim()) setTitle(`${type} — ${tema.trim()}`)
       flash('Conteúdo gerado!')
     } catch (e: any) {
-      flash('Erro ao gerar: ' + e.message, 'err')
+      const msg = e?.message || 'Erro desconhecido'
+      flash(`Geração falhou: ${msg}`, 'err')
     } finally {
       setGenerating(false)
     }

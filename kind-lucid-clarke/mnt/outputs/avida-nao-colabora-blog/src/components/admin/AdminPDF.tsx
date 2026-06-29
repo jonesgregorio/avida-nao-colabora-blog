@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { FileText, Download, Users, CheckCircle, XCircle, Settings } from 'lucide-react'
+import { FileText, Download, Users, CheckCircle, XCircle, Settings, TableIcon } from 'lucide-react'
 
 const PDF_PLANS = ['therapeutic', 'therapeutic-plus']
 
@@ -15,6 +15,28 @@ interface PDFStats {
   totalEligible: number
   totalUsers: number
   byPlan: Record<string, number>
+}
+
+function exportCSV(stats: PDFStats) {
+  const rows = [
+    ['Plano', 'Usuários', 'Elegível para PDF'],
+    ...Object.entries(stats.byPlan).map(([plan, count]) => [
+      PLAN_LABELS[plan] || plan,
+      String(count),
+      PDF_PLANS.includes(plan) ? 'Sim' : 'Não',
+    ]),
+    [],
+    ['Total de usuários', String(stats.totalUsers), ''],
+    ['Elegíveis para PDF', String(stats.totalEligible), ''],
+  ]
+  const csv = rows.map(r => r.join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `relatorio-pdf-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const REPORT_TYPES = [
@@ -52,8 +74,20 @@ export default function AdminPDF() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-stone-800 mb-1">Relatórios PDF</h1>
-      <p className="text-stone-400 text-sm mb-6">Geração de relatórios em PDF para usuários com planos Terapêutico e Terapêutico Plus.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-800 mb-1">Relatórios PDF</h1>
+          <p className="text-stone-400 text-sm">Geração de relatórios em PDF para usuários com planos Terapêutico e Terapêutico Plus.</p>
+        </div>
+        {stats && (
+          <button
+            onClick={() => exportCSV(stats)}
+            className="flex items-center gap-2 border border-stone-200 text-stone-600 px-4 py-2 rounded-lg text-sm hover:bg-stone-50"
+          >
+            <TableIcon className="w-4 h-4" /> Exportar CSV
+          </button>
+        )}
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
