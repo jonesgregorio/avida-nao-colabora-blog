@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Save, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Save, Check, Loader2 } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
 type PlanKey = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
@@ -74,7 +75,24 @@ export default function AdminDiaryConfig() {
   const [configs, setConfigs] = useState<DiaryPlanConfig[]>(DEFAULT_CONFIGS)
   const [activeTab, setActiveTab] = useState<PlanKey>('free')
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [newQuestion, setNewQuestion] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('diary_plan_configs').select('*')
+      if (data && data.length > 0) {
+        setConfigs(prev => prev.map(c => {
+          const row = data.find((r: any) => r.plan_key === c.plan)
+          if (!row?.config) return c
+          return { ...c, ...row.config }
+        }))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   const cfg = configs.find(c => c.plan === activeTab)!
 
@@ -96,18 +114,32 @@ export default function AdminDiaryConfig() {
     updateCfg('guidedQuestions', cfg.guidedQuestions.filter((_, idx) => idx !== i))
   }
 
-  function save() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  async function save() {
+    setSaving(true)
+    try {
+      for (const c of configs) {
+        await supabase.from('diary_plan_configs').upsert(
+          { plan_key: c.plan, config: c, updated_at: new Date().toISOString() },
+          { onConflict: 'plan_key' }
+        )
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (_) {}
+    setSaving(false)
   }
 
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Diário por Plano</h1>
-        <button onClick={save} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700">
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? 'Salvo!' : 'Salvar'}
+        <button
+          onClick={save}
+          disabled={saving || loading}
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar'}
         </button>
       </div>
 

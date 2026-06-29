@@ -34,6 +34,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                 { label: 'Questionários', id: 'questionnaire' },
                 { label: 'Planos', id: 'pricing' },
                 { label: 'Sobre', id: 'about' },
+                { label: 'Contato', id: 'contact' },
               ].map(item => (
                 <li key={item.id}>
                   <button

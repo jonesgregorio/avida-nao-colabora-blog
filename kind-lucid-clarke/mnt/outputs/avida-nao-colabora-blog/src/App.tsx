@@ -27,6 +27,7 @@ import AdminPanel from './components/admin'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
 import DailyContentWidget from './components/DailyContentWidget'
+import ContactPage from './components/ContactPage'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -35,7 +36,7 @@ export default function App() {
     const v = params.get('view') as View
     const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
       'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
-      'articles','article','responsibility','trails','saved','admin']
+      'articles','article','responsibility','trails','saved','admin','contact']
     return valid.includes(v) ? v : 'home'
   }
   const [view, setView] = useState<View>(initialView)
@@ -189,6 +190,18 @@ export default function App() {
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
         <main className="min-h-screen bg-stone-50">
           <TherapeuticQuestionnaire user={user} onBack={() => setView('home')} />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'contact') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <ContactPage user={user} profile={profile} onBack={() => setView('home')} />
         </main>
         <Footer onNavigate={navigate} />
       </>

@@ -8,17 +8,21 @@ interface Ticket {
   email: string
   subject: string
   message: string
-  status: 'open' | 'in_progress' | 'resolved'
+  status: 'open' | 'in_progress' | 'closed' | 'resolved'
   priority: 'low' | 'normal' | 'high'
   admin_reply: string | null
+  admin_notes: string | null
   plan: string | null
   created_at: string
 }
 
-const STATUS_LABELS: Record<string, string> = { open: 'Aberto', in_progress: 'Em andamento', resolved: 'Resolvido' }
+const STATUS_LABELS: Record<string, string> = {
+  open: 'Aberto', in_progress: 'Em andamento', closed: 'Resolvido', resolved: 'Resolvido',
+}
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-red-100 text-red-700',
   in_progress: 'bg-amber-100 text-amber-700',
+  closed: 'bg-green-100 text-green-700',
   resolved: 'bg-green-100 text-green-700',
 }
 const PRIORITY_COLORS: Record<string, string> = {
@@ -65,7 +69,8 @@ export default function AdminSupport() {
 
   async function sendReply() {
     if (!selected || !reply.trim()) return
-    await updateTicket(selected.id, { admin_reply: reply, status: 'in_progress' })
+    // Salva em ambas as colunas para compatibilidade (admin_reply é novo, admin_notes é antigo)
+    await updateTicket(selected.id, { admin_reply: reply, admin_notes: reply, status: 'in_progress' })
     setReply('')
   }
 
@@ -80,6 +85,9 @@ export default function AdminSupport() {
     const matchStatus = filterStatus === 'all' || t.status === filterStatus
     return matchSearch && matchStatus
   })
+
+  // Lê admin_reply com fallback para admin_notes (coluna antiga)
+  function getReply(t: Ticket) { return t.admin_reply ?? t.admin_notes ?? '' }
 
   const openCount = tickets.filter(t => t.status === 'open').length
 
@@ -134,7 +142,7 @@ export default function AdminSupport() {
               {filtered.map(t => (
                 <button
                   key={t.id}
-                  onClick={() => { setSelected(t); setReply(t.admin_reply || '') }}
+                  onClick={() => { setSelected(t); setReply(getReply(t)) }}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${
                     selected?.id === t.id ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 bg-white hover:bg-stone-50'
                   }`}
@@ -187,7 +195,7 @@ export default function AdminSupport() {
                     >
                       <option value="open">Aberto</option>
                       <option value="in_progress">Em andamento</option>
-                      <option value="resolved">Resolvido</option>
+                      <option value="closed">Resolvido</option>
                     </select>
                   </div>
                 </div>
@@ -233,11 +241,12 @@ export default function AdminSupport() {
                       {saving ? 'Salvando...' : 'Salvar resposta'}
                     </button>
                     <button
-                      onClick={() => updateTicket(selected.id, { status: 'resolved' })}
+                      onClick={() => updateTicket(selected.id, { status: 'closed' })}
                       className="flex items-center gap-1.5 px-3 py-2 text-sm text-green-700 border border-green-200 bg-green-50 rounded-lg hover:bg-green-100"
                     >
                       <CheckCircle className="w-3.5 h-3.5" /> Marcar resolvido
                     </button>
+
                   </div>
                 </div>
               </div>
