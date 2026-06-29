@@ -4,18 +4,18 @@ import { Plus, Trash2, Save, Star } from 'lucide-react'
 
 interface Testimonial {
   id: string
-  name: string
-  text: string
+  author_name: string
+  content: string
   role: string | null
   avatar_url: string | null
   rating: number
-  active: boolean
+  is_approved: boolean
   created_at: string
 }
 
 interface SiteMetric {
   id: string
-  key: string
+  metric: string
   label: string
   value: string
   updated_at: string
@@ -41,7 +41,7 @@ export default function AdminSocialProof() {
   async function load() {
     const [{ data: t }, { data: m }] = await Promise.all([
       supabase.from('testimonials').select('*').order('created_at', { ascending: false }),
-      supabase.from('site_metrics').select('*').order('key'),
+      supabase.from('site_metrics').select('*').order('metric'),
     ])
     setTestimonials(t || [])
     if (m && m.length > 0) {
@@ -49,10 +49,10 @@ export default function AdminSocialProof() {
     } else {
       // Initialize default metrics if none exist
       const defaults = [
-        { key: 'users_count', label: 'Usuárias', value: '0' },
-        { key: 'articles_count', label: 'Artigos publicados', value: '0' },
-        { key: 'diary_entries', label: 'Entradas de diário', value: '0' },
-        { key: 'satisfaction', label: 'Taxa de satisfação', value: '98%' },
+        { metric: 'users_count', label: 'Usuárias', value: '0' },
+        { metric: 'articles_count', label: 'Artigos publicados', value: '0' },
+        { metric: 'diary_entries', label: 'Entradas de diário', value: '0' },
+        { metric: 'satisfaction', label: 'Taxa de satisfação', value: '98%' },
       ]
       await supabase.from('site_metrics').insert(defaults)
       setMetrics(defaults.map((d, i) => ({ ...d, id: String(i), updated_at: new Date().toISOString() })))
@@ -66,7 +66,7 @@ export default function AdminSocialProof() {
     if (!name.trim() || !text.trim()) return
     setSaving(true)
     try {
-      await supabase.from('testimonials').insert({ name, text, role: role || null, rating, active: true })
+      await supabase.from('testimonials').insert({ author_name: name, content: text, role: role || null, rating, is_approved: true })
       showToast('Depoimento salvo!')
       setShowForm(false); setName(''); setText(''); setRole(''); setRating(5)
       load()
@@ -77,9 +77,9 @@ export default function AdminSocialProof() {
     }
   }
 
-  async function toggleTestimonial(id: string, active: boolean) {
-    await supabase.from('testimonials').update({ active: !active }).eq('id', id)
-    setTestimonials(ts => ts.map(t => t.id === id ? { ...t, active: !active } : t))
+  async function toggleTestimonial(id: string, is_approved: boolean) {
+    await supabase.from('testimonials').update({ is_approved: !is_approved }).eq('id', id)
+    setTestimonials(ts => ts.map(t => t.id === id ? { ...t, is_approved: !is_approved } : t))
   }
 
   async function deleteTestimonial(id: string) {
@@ -185,10 +185,10 @@ export default function AdminSocialProof() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {testimonials.map(t => (
-            <div key={t.id} className={`bg-white rounded-xl border p-4 ${!t.active ? 'opacity-60' : 'border-stone-200'}`}>
+            <div key={t.id} className={`bg-white rounded-xl border p-4 ${!t.is_approved ? 'opacity-60' : 'border-stone-200'}`}>
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-semibold text-stone-800 text-sm">{t.name}</p>
+                  <p className="font-semibold text-stone-800 text-sm">{t.author_name}</p>
                   {t.role && <p className="text-xs text-stone-400">{t.role}</p>}
                   <div className="flex mt-1">
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -198,17 +198,17 @@ export default function AdminSocialProof() {
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => toggleTestimonial(t.id, t.active)}
-                    className={`text-xs px-2 py-1 rounded ${t.active ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}
+                    onClick={() => toggleTestimonial(t.id, t.is_approved)}
+                    className={`text-xs px-2 py-1 rounded ${t.is_approved ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}
                   >
-                    {t.active ? 'Ativo' : 'Inativo'}
+                    {t.is_approved ? 'Aprovado' : 'Pendente'}
                   </button>
                   <button onClick={() => deleteTestimonial(t.id)} className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-              <p className="text-sm text-stone-600 leading-relaxed line-clamp-3">{t.text}</p>
+              <p className="text-sm text-stone-600 leading-relaxed line-clamp-3">{t.content}</p>
             </div>
           ))}
         </div>

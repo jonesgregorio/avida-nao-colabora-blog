@@ -66,24 +66,33 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
         })
 
         // Support tickets
-        const { count: openTickets } = await supabase
-          .from('support_tickets')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'open')
-          .catch(() => ({ count: 0 })) as any
+        let openTickets = 0
+        try {
+          const { count } = await supabase
+            .from('support_tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'open')
+          openTickets = count || 0
+        } catch { /* tabela pode não existir */ }
 
         // Trails
-        const { count: totalTrails } = await supabase
-          .from('trails')
-          .select('*', { count: 'exact', head: true })
-          .catch(() => ({ count: 0 })) as any
+        let totalTrails = 0
+        try {
+          const { count } = await supabase
+            .from('trails')
+            .select('*', { count: 'exact', head: true })
+          totalTrails = count || 0
+        } catch { /* tabela pode não existir */ }
 
         // Automated contents
-        const { count: automatedContents } = await supabase
-          .from('automated_contents')
-          .select('*', { count: 'exact', head: true })
-          .eq('active', true)
-          .catch(() => ({ count: 0 })) as any
+        let automatedContents = 0
+        try {
+          const { count } = await supabase
+            .from('automated_contents')
+            .select('*', { count: 'exact', head: true })
+            .eq('active', true)
+          automatedContents = count || 0
+        } catch { /* tabela pode não existir */ }
 
         setStats({
           totalUsers: totalUsers || 0,

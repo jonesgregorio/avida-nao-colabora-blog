@@ -6,11 +6,11 @@ interface AdminLog {
   id: string
   admin_id: string
   action: string
-  target_type: string | null
-  target_id: string | null
-  details: string | null
+  entity: string | null
+  entity_id: string | null
+  details: any | null
   created_at: string
-  admin?: { email: string }
+  admin?: { full_name: string | null }
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -30,7 +30,7 @@ export default function AdminLogs() {
     setLoading(true)
     const { data } = await supabase
       .from('admin_logs')
-      .select('*, admin:profiles(email)')
+      .select('*, admin:profiles(full_name)')
       .order('created_at', { ascending: false })
       .limit(200)
     setLogs(data || [])
@@ -42,9 +42,9 @@ export default function AdminLogs() {
   const filtered = filter
     ? logs.filter(l =>
         l.action.includes(filter) ||
-        l.target_type?.includes(filter) ||
-        l.details?.toLowerCase().includes(filter.toLowerCase()) ||
-        (l.admin as any)?.email?.includes(filter)
+        l.entity?.includes(filter) ||
+        JSON.stringify(l.details || '').toLowerCase().includes(filter.toLowerCase()) ||
+        (l.admin as any)?.full_name?.includes(filter)
       )
     : logs
 
@@ -92,7 +92,7 @@ export default function AdminLogs() {
                     {new Date(log.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-600">
-                    {(log.admin as any)?.email || log.admin_id.slice(0, 8)}
+                    {(log.admin as any)?.full_name || log.admin_id?.slice(0, 8) || '—'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[log.action] || 'bg-stone-100 text-stone-600'}`}>
@@ -100,11 +100,11 @@ export default function AdminLogs() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-500 hidden md:table-cell">
-                    {log.target_type && <span className="capitalize">{log.target_type}</span>}
-                    {log.target_id && <span className="text-stone-300 ml-1">#{log.target_id.slice(0, 8)}</span>}
+                    {log.entity && <span className="capitalize">{log.entity}</span>}
+                    {log.entity_id && <span className="text-stone-300 ml-1">#{log.entity_id.slice(0, 8)}</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-500 hidden lg:table-cell max-w-xs truncate">
-                    {log.details}
+                    {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
                   </td>
                 </tr>
               ))}

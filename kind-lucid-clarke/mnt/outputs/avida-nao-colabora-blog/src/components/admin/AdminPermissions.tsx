@@ -4,7 +4,8 @@ import { Shield, Save } from 'lucide-react'
 
 interface AdminUser {
   id: string
-  email: string
+  full_name: string | null
+  user_id: string
   role: string
   plan: string
   created_at: string
@@ -20,7 +21,7 @@ export default function AdminPermissions() {
   async function load() {
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, role, plan, created_at')
+      .select('id, user_id, full_name, role, plan, created_at')
       .eq('role', 'admin')
       .order('created_at')
     setAdmins(data || [])
@@ -29,8 +30,8 @@ export default function AdminPermissions() {
 
   useEffect(() => { load() }, [])
 
-  async function revokeAdmin(id: string, email: string) {
-    if (!confirm(`Remover permissão de admin de ${email}?`)) return
+  async function revokeAdmin(id: string, name: string) {
+    if (!confirm(`Remover permissão de admin de ${name}?`)) return
     await supabase.from('profiles').update({ role: 'user' }).eq('id', id)
     showToast('Permissão removida.')
     load()
@@ -64,13 +65,13 @@ export default function AdminPermissions() {
             {admins.map(a => (
               <div key={a.id} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-stone-800">{a.email}</p>
+                  <p className="text-sm font-medium text-stone-800">{a.full_name || a.user_id.slice(0, 8)}</p>
                   <p className="text-xs text-stone-400">
                     Admin desde {new Date(a.created_at).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
                 <button
-                  onClick={() => revokeAdmin(a.id, a.email)}
+                  onClick={() => revokeAdmin(a.id, a.full_name || a.user_id.slice(0, 8))}
                   className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50"
                 >
                   Revogar admin

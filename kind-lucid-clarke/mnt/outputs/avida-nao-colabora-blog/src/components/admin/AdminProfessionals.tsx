@@ -9,7 +9,7 @@ interface Professional {
   email: string
   phone: string
   bio: string
-  active: boolean
+  is_is_active: boolean
   created_at: string
 }
 
@@ -21,7 +21,7 @@ const SPECIALTIES = [
 const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 const empty = (): Omit<Professional, 'id' | 'created_at'> => ({
-  name: '', specialty: 'Psicologia', email: '', phone: '', bio: '', active: true,
+  name: '', specialty: 'Psicologia', email: '', phone: '', bio: '', is_is_active: true,
 })
 
 export default function AdminProfessionals() {
@@ -56,7 +56,7 @@ export default function AdminProfessionals() {
   }
 
   function openEdit(p: Professional) {
-    setForm({ name: p.name, specialty: p.specialty, email: p.email, phone: p.phone, bio: p.bio, active: p.active })
+    setForm({ name: p.name, specialty: p.specialty, email: p.email, phone: p.phone, bio: p.bio, is_active: p.is_active })
     setEditId(p.id); setShowForm(true)
   }
 
@@ -80,7 +80,7 @@ export default function AdminProfessionals() {
   }
 
   async function toggleActive(p: Professional) {
-    await supabase.from('professionals').update({ active: !p.active }).eq('id', p.id)
+    await supabase.from('professionals').update({ is_active: !p.is_active }).eq('id', p.id)
     load()
   }
 
@@ -101,14 +101,14 @@ export default function AdminProfessionals() {
   email TEXT NOT NULL,
   phone TEXT,
   bio TEXT,
-  active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE professionals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "professionals_admin" ON professionals FOR ALL USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 );
-CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = true);`}</pre>
+CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (is_active = true);`}</pre>
       </div>
     </div>
   )
@@ -172,7 +172,7 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
                 <textarea className={inputCls} rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="Breve descrição do profissional..." />
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} />
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
                 <span className="text-sm text-stone-700">Ativo (visível na plataforma)</span>
               </label>
             </div>
@@ -204,8 +204,8 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-stone-800 truncate">{p.name}</p>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
-                    {p.active ? 'Ativo' : 'Inativo'}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                    {p.is_active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500">{p.specialty} · {p.email}</p>
@@ -214,9 +214,9 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => toggleActive(p)}
-                  className={`text-xs px-2 py-1 rounded border ${p.active ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                  className={`text-xs px-2 py-1 rounded border ${p.is_active ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
                 >
-                  {p.active ? 'Desativar' : 'Ativar'}
+                  {p.is_active ? 'Desativar' : 'Ativar'}
                 </button>
                 <button onClick={() => openEdit(p)} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg">
                   <Pencil className="w-4 h-4" />
