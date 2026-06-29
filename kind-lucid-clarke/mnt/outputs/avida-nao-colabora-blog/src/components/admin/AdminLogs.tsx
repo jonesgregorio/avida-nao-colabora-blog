@@ -6,8 +6,8 @@ interface AdminLog {
   id: string
   admin_id: string
   action: string
-  entity: string | null
-  entity_id: string | null
+  target_type: string | null
+  target_id: string | null
   details: any | null
   created_at: string
   admin?: { full_name: string | null }
@@ -42,7 +42,7 @@ export default function AdminLogs() {
   const filtered = filter
     ? logs.filter(l =>
         l.action.includes(filter) ||
-        l.entity?.includes(filter) ||
+        l.target_type?.includes(filter) ||
         JSON.stringify(l.details || '').toLowerCase().includes(filter.toLowerCase()) ||
         (l.admin as any)?.full_name?.includes(filter)
       )
@@ -100,8 +100,8 @@ export default function AdminLogs() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-500 hidden md:table-cell">
-                    {log.entity && <span className="capitalize">{log.entity}</span>}
-                    {log.entity_id && <span className="text-stone-300 ml-1">#{log.entity_id.slice(0, 8)}</span>}
+                    {log.target_type && <span className="capitalize">{log.target_type}</span>}
+                    {log.target_id && <span className="text-stone-300 ml-1">#{log.target_id.slice(0, 8)}</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-500 hidden lg:table-cell max-w-xs truncate">
                     {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
