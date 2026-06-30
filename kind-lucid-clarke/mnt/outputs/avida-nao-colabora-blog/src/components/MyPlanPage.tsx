@@ -142,6 +142,16 @@ function totalDaysInCycle(start: string | null, end: string | null): number {
   return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000))
 }
 
+function calcEffectivePeriodEnd(sub: Subscription | null, profileCreatedAt: string | null | undefined): string {
+  if (sub?.current_period_end) return sub.current_period_end
+  // Calcula o fim do ciclo atual com base na data de criação do perfil (ciclos de 30 dias)
+  const anchor = profileCreatedAt ? new Date(profileCreatedAt) : new Date()
+  const msPerCycle = 30 * 86400000
+  const elapsed = Date.now() - anchor.getTime()
+  const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
+  return new Date(anchor.getTime() + (cyclesDone + 1) * msPerCycle).toISOString()
+}
+
 function lostFeatures(fromPlan: string, toPlan: string): string[] {
   const from = PLAN_FEATURES[fromPlan] ?? []
   const to = PLAN_FEATURES[toPlan] ?? []
@@ -184,14 +194,19 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
 
   async function getOrCreateSub(): Promise<Subscription | null> {
     if (sub) return sub
-    const now = new Date()
-    const end = new Date(now); end.setDate(end.getDate() + 30)
+    // Calcula ciclo baseado na data de criação do perfil (mesma lógica do calcEffectivePeriodEnd)
+    const anchor = profile?.created_at ? new Date(profile.created_at) : new Date()
+    const msPerCycle = 30 * 86400000
+    const elapsed = Date.now() - anchor.getTime()
+    const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
+    const periodStart = new Date(anchor.getTime() + cyclesDone * msPerCycle)
+    const periodEnd = new Date(anchor.getTime() + (cyclesDone + 1) * msPerCycle)
     const { data, error } = await supabase.from('user_subscriptions').upsert({
       user_id: user!.id,
       plan_key: currentPlan,
       status: currentPlan === 'free' ? 'inactive' : 'active',
-      current_period_start: now.toISOString(),
-      current_period_end: end.toISOString(),
+      current_period_start: periodStart.toISOString(),
+      current_period_end: periodEnd.toISOString(),
     }, { onConflict: 'user_id' }).select().single()
     if (error || !data) return null
     setSub(data as Subscription)
@@ -371,6 +386,8 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 text-purple-500 animate-spin" /></div>
   }
 
+  const effectivePeriodEnd = calcEffectivePeriodEnd(sub, profile?.created_at)
+
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
   const isDowngrade = (plan: string) => PLAN_ORDER.indexOf(plan) < PLAN_ORDER.indexOf(currentPlan)
   const isCancelPending = sub?.cancel_at_period_end || sub?.status === 'cancel_pending'
@@ -426,7 +443,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
 
         {isCancelPending && (
           <div className="bg-amber-100 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
-            <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(sub?.current_period_end ?? null)}. Depois disso, você voltará para o plano Gratuito. Seus dados serão preservados.
+            <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(effectivePeriodEnd)}. Depois disso, você voltará para o plano Gratuito. Seus dados serão preservados.
           </div>
         )}
 
@@ -497,7 +514,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
                   </p>
                   {upgrade && proration !== null && proration > 0 && (
                     <p className="text-xs text-emerald-700 mt-0.5">
-                      Hoje: {formatPrice(proration)} proporcional · {daysRemaining(sub?.current_period_end ?? null)} dias restantes
+                      Hoje: {formatPrice(proration)} proporcional · {daysRemaining(effectivePeriodEnd)} dias restantes
                     </p>
                   )}
                   {downgrade && currentPlan !== 'free' && (
@@ -577,7 +594,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
                 ['Novo plano', PLAN_LABELS[modal.targetPlan]],
                 ['Valor atual', formatPrice(PLAN_PRICES[currentPlan]) + '/mês'],
                 ['Novo valor mensal', formatPrice(PLAN_PRICES[modal.targetPlan]) + '/mês'],
-                ['Dias restantes no ciclo', `${daysRemaining(sub?.current_period_end ?? null)} dias`],
+                ['Dias restantes no ciclo', `${daysRemaining(effectivePeriodEnd)} dias`],
                 ['Diferença mensal', formatPrice(PLAN_PRICES[modal.targetPlan] - PLAN_PRICES[currentPlan])],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-sm">
@@ -594,7 +611,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
                       <span className="text-purple-700">{formatPrice(proration)}</span>
                     </div>
                     <p className="text-xs text-stone-400">
-                      Você está alterando do plano {PLAN_LABELS[currentPlan]} para o {PLAN_LABELS[modal.targetPlan]}. Como ainda restam {daysRemaining(sub?.current_period_end ?? null)} dias no seu ciclo atual, será cobrada apenas a diferença proporcional de {formatPrice(proration)} agora. A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
+                      Você está alterando do plano {PLAN_LABELS[currentPlan]} para o {PLAN_LABELS[modal.targetPlan]}. Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no seu ciclo atual, será cobrada apenas a diferença proporcional de {formatPrice(proration)} agora. A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
                     </p>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
                       Pagamento ainda não processado. Integração com checkout necessária para concluir automaticamente.
@@ -646,7 +663,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
               {/* Data de vigência */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <p className="text-xs font-semibold text-blue-800 mb-1">Você continua no plano atual até</p>
-                <p className="text-lg font-bold text-blue-900">{formatDate(sub?.current_period_end ?? null)}</p>
+                <p className="text-lg font-bold text-blue-900">{formatDate(effectivePeriodEnd)}</p>
                 <p className="text-xs text-blue-700 mt-1">
                   O plano <strong>{PLAN_LABELS[modal.targetPlan]}</strong> só entrará em vigor após essa data.
                   Até lá, você mantém acesso completo ao plano <strong>{PLAN_LABELS[currentPlan]}</strong>.
@@ -715,7 +732,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
               {/* Data */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="text-xs font-semibold text-amber-800 mb-1">Acesso garantido até</p>
-                <p className="text-lg font-bold text-amber-900">{formatDate(sub?.current_period_end ?? null)}</p>
+                <p className="text-lg font-bold text-amber-900">{formatDate(effectivePeriodEnd)}</p>
                 <p className="text-xs text-amber-700 mt-1">
                   Você continua com acesso completo ao plano <strong>{PLAN_LABELS[currentPlan]}</strong> até essa data.
                   Depois disso, sua conta será migrada automaticamente para o plano <strong>Gratuito</strong>.
