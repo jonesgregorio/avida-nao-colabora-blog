@@ -4,13 +4,12 @@ import { Plus, Trash2, Bell, Send } from 'lucide-react'
 
 interface Notification {
   id: string
+  user_id: string | null
   title: string
-  body: string
-  target_plan: string
+  body: string | null
   type: string
-  sent_at: string | null
+  is_read: boolean
   created_at: string
-  status: 'draft' | 'sent'
 }
 
 const PLANS: Record<string, string> = {
@@ -21,7 +20,15 @@ const PLANS: Record<string, string> = {
   'therapeutic-plus': 'Terapêutico Plus',
 }
 
-const TYPES = ['Informativo', 'Novo conteúdo', 'Promoção', 'Lembrete', 'Aviso importante']
+const TYPES: { value: string; label: string }[] = [
+  { value: 'info', label: 'Informativo' },
+  { value: 'content', label: 'Novo conteúdo' },
+  { value: 'promo', label: 'Promoção' },
+  { value: 'reminder', label: 'Lembrete' },
+  { value: 'alert', label: 'Aviso importante' },
+  { value: 'admin_message', label: 'Mensagem do admin' },
+  { value: 'system', label: 'Sistema' },
+]
 
 const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
@@ -33,8 +40,10 @@ export default function AdminNotifications() {
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [targetMode, setTargetMode] = useState<'all' | 'plan' | 'user'>('all')
   const [targetPlan, setTargetPlan] = useState('all')
-  const [type, setType] = useState(TYPES[0])
+  const [targetUserId, setTargetUserId] = useState('')
+  const [type, setType] = useState('info')
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -42,6 +51,7 @@ export default function AdminNotifications() {
       .from('notifications')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(100)
     setItems(data || [])
     setLoading(false)
   }
@@ -51,36 +61,69 @@ export default function AdminNotifications() {
   async function save() {
     if (!title.trim() || !body.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('notifications').insert({
-      title, body, target_plan: targetPlan, type, status: 'draft',
-    })
-    setSaving(false)
-    if (error) { showToast('Erro: ' + error.message); return }
-    showToast('Notificação criada!')
-    setShowForm(false); setTitle(''); setBody(''); load()
-  }
 
-  async function markSent(id: string) {
-    if (!confirm('Marcar esta notificação como enviada?')) return
-    const { error } = await supabase.from('notifications').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast('Erro: ' + error.message); return }
+    if (targetMode === 'user') {
+      // Single user
+      if (!targetUserId.trim()) { showToastMsg('Informe o ID do usuário.'); setSaving(false); return }
+      const { error } = await supabase.from('notifications').insert({
+        user_id: targetUserId.trim(),
+        title, body, type, is_read: false,
+      })
+      setSaving(false)
+      if (error) { showToastMsg('Erro: ' + error.message); return }
+    } else if (targetMode === 'plan' && targetPlan !== 'all') {
+      // All users with that plan
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('plan', targetPlan)
+      if (!profiles || profiles.length === 0) {
+        showToastMsg('Nenhum usuário encontrado com esse plano.')
+        setSaving(false)
+        return
+      }
+      const rows = profiles.map(p => ({
+        user_id: p.user_id,
+        title, body, type, is_read: false,
+      }))
+      const { error } = await supabase.from('notifications').insert(rows)
+      setSaving(false)
+      if (error) { showToastMsg('Erro: ' + error.message); return }
+      showToastMsg(`Notificação enviada para ${rows.length} usuário(s)!`)
+    } else {
+      // All users
+      const { data: profiles } = await supabase.from('profiles').select('user_id')
+      if (!profiles || profiles.length === 0) {
+        showToastMsg('Nenhum usuário encontrado.')
+        setSaving(false)
+        return
+      }
+      const rows = profiles.map(p => ({
+        user_id: p.user_id,
+        title, body, type, is_read: false,
+      }))
+      const { error } = await supabase.from('notifications').insert(rows)
+      setSaving(false)
+      if (error) { showToastMsg('Erro: ' + error.message); return }
+      showToastMsg(`Notificação enviada para ${rows.length} usuário(s)!`)
+    }
+
+    setShowForm(false); setTitle(''); setBody('')
     load()
-    showToast('Marcada como enviada!')
   }
 
   async function remove(id: string) {
     if (!confirm('Excluir notificação?')) return
     const { error } = await supabase.from('notifications').delete().eq('id', id)
-    if (error) { showToast('Erro ao excluir: ' + error.message); return }
+    if (error) { showToastMsg('Erro ao excluir: ' + error.message); return }
     load()
   }
 
-  function showToast(msg: string) {
-    setToast(msg); setTimeout(() => setToast(null), 3000)
+  function showToastMsg(msg: string) {
+    setToast(msg); setTimeout(() => setToast(null), 3500)
   }
 
-  const drafts = items.filter(i => i.status === 'draft')
-  const sent = items.filter(i => i.status === 'sent')
+  const typeLabel = (t: string) => TYPES.find(x => x.value === t)?.label ?? t
 
   return (
     <div>
@@ -96,6 +139,43 @@ export default function AdminNotifications() {
       {showForm && (
         <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Nova notificação</h2>
+
+          {/* Target mode */}
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">Destinatário</label>
+            <div className="flex gap-3">
+              {(['all', 'plan', 'user'] as const).map(m => (
+                <label key={m} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" checked={targetMode === m} onChange={() => setTargetMode(m)} className="accent-stone-800" />
+                  <span className="text-sm text-stone-700">
+                    {m === 'all' ? 'Todos' : m === 'plan' ? 'Por plano' : 'Usuário específico'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {targetMode === 'plan' && (
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Plano</label>
+              <select value={targetPlan} onChange={e => setTargetPlan(e.target.value)} className={inputCls}>
+                {Object.entries(PLANS).filter(([k]) => k !== 'all').map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+          )}
+
+          {targetMode === 'user' && (
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">User ID</label>
+              <input
+                value={targetUserId}
+                onChange={e => setTargetUserId(e.target.value)}
+                placeholder="UUID do usuário..."
+                className={inputCls}
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-stone-500 mb-1">Título</label>
@@ -104,13 +184,7 @@ export default function AdminNotifications() {
             <div>
               <label className="block text-xs text-stone-500 mb-1">Tipo</label>
               <select value={type} onChange={e => setType(e.target.value)} className={inputCls}>
-                {TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-stone-500 mb-1">Público alvo</label>
-              <select value={targetPlan} onChange={e => setTargetPlan(e.target.value)} className={inputCls}>
-                {Object.entries(PLANS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
           </div>
@@ -119,8 +193,9 @@ export default function AdminNotifications() {
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={3} placeholder="Texto da notificação..." className={inputCls} />
           </div>
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50">
-              {saving ? 'Salvando...' : 'Salvar como rascunho'}
+            <button onClick={save} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2">
+              <Send className="w-3.5 h-3.5" />
+              {saving ? 'Enviando...' : 'Enviar notificação'}
             </button>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-stone-200 text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
           </div>
@@ -135,67 +210,30 @@ export default function AdminNotifications() {
           <p className="text-sm">Nenhuma notificação criada ainda.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {drafts.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide mb-3">Rascunhos ({drafts.length})</h2>
-              <NotifList items={drafts} plans={PLANS} onSend={markSent} onDelete={remove} />
+        <div className="space-y-3">
+          {items.map(n => (
+            <div key={n.id} className="bg-white rounded-xl border border-stone-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${n.is_read ? 'bg-stone-100 text-stone-500' : 'bg-blue-100 text-blue-700'}`}>
+                      {n.is_read ? 'Lida' : 'Não lida'}
+                    </span>
+                    <span className="text-xs text-stone-400">{typeLabel(n.type)}</span>
+                    {n.user_id && <span className="text-xs text-stone-400 font-mono truncate max-w-[120px]">{n.user_id.slice(0, 8)}…</span>}
+                  </div>
+                  <p className="font-medium text-stone-800 text-sm">{n.title}</p>
+                  {n.body && <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{n.body}</p>}
+                  <p className="text-xs text-stone-400 mt-1">{new Date(n.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                </div>
+                <button onClick={() => remove(n.id)} className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          )}
-          {sent.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide mb-3">Enviadas ({sent.length})</h2>
-              <NotifList items={sent} plans={PLANS} onSend={markSent} onDelete={remove} />
-            </div>
-          )}
+          ))}
         </div>
       )}
-
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
-        <strong>Envio automático em breve:</strong> Integração com push notifications e e-mail para disparar notificações diretamente pelo painel.
-      </div>
-    </div>
-  )
-}
-
-function NotifList({ items, plans, onSend, onDelete }: {
-  items: Notification[]
-  plans: Record<string, string>
-  onSend: (id: string) => void
-  onDelete: (id: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      {items.map(n => (
-        <div key={n.id} className={`bg-white rounded-xl border p-4 ${n.status === 'draft' ? 'border-amber-100' : 'border-stone-200'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${n.status === 'draft' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                  {n.status === 'draft' ? 'Rascunho' : 'Enviada'}
-                </span>
-                <span className="text-xs text-stone-400">{n.type}</span>
-                <span className="text-xs text-stone-400">→ {plans[n.target_plan] || n.target_plan}</span>
-              </div>
-              <p className="font-medium text-stone-800 text-sm">{n.title}</p>
-              <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{n.body}</p>
-              {n.sent_at && (
-                <p className="text-xs text-stone-400 mt-1">Enviada em {new Date(n.sent_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>
-              )}
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-              {n.status === 'draft' && (
-                <button onClick={() => onSend(n.id)} className="p-1.5 text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 rounded" title="Marcar como enviada">
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button onClick={() => onDelete(n.id)} className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
     </div>
   )
 }

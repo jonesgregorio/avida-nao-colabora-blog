@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { MessageSquare, Search, X, Send, Lock, AlertTriangle, RefreshCw } from 'lucide-react'
+import { MessageSquare, Search, X, Send, Lock, AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
 interface Ticket {
@@ -17,6 +17,8 @@ interface Ticket {
   closed_at: string | null
   created_at: string
   updated_at: string
+  unread_for_admin?: boolean
+  unread_for_user?: boolean
   // enriched
   user_name?: string | null
   user_plan?: string | null
@@ -36,6 +38,8 @@ interface Message {
 const STATUS_LABELS: Record<string, string> = {
   open: 'Aberto',
   in_progress: 'Em andamento',
+  awaiting_admin: 'Aguardando admin',
+  awaiting_user: 'Aguardando cliente',
   waiting_client: 'Aguardando resp.',
   resolved: 'Resolvido',
   closed: 'Fechado',
@@ -43,6 +47,8 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   in_progress: 'bg-orange-100 text-orange-700',
+  awaiting_admin: 'bg-yellow-100 text-yellow-700',
+  awaiting_user: 'bg-purple-100 text-purple-700',
   waiting_client: 'bg-purple-100 text-purple-700',
   resolved: 'bg-green-100 text-green-700',
   closed: 'bg-stone-100 text-stone-500',
@@ -63,8 +69,9 @@ const PLAN_LABELS: Record<string, string> = {
 const STATUS_TABS = [
   { key: '', label: 'Todos' },
   { key: 'open', label: 'Abertos' },
+  { key: 'awaiting_admin', label: 'Aguardando admin' },
   { key: 'in_progress', label: 'Em andamento' },
-  { key: 'waiting_client', label: 'Aguardando' },
+  { key: 'awaiting_user', label: 'Aguardando cliente' },
   { key: 'resolved', label: 'Resolvidos' },
   { key: 'closed', label: 'Fechados' },
 ]
@@ -100,6 +107,8 @@ export default function AdminSupport() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [statusTab, setStatusTab] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('')
+  const [unreadOnly, setUnreadOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -251,13 +260,32 @@ export default function AdminSupport() {
       m.id === optimisticId ? { ...newMsg, sender_name: 'Suporte' } : m
     ))
 
-    // Auto-advance status open → in_progress
-    if (!isInternal && selectedTicket.status === 'open') {
-      await supabase.from('support_tickets').update({ status: 'in_progress' })
-        .eq('id', selectedTicket.id).eq('status', 'open')
-      const updated = { ...selectedTicket, status: 'in_progress', updated_at: new Date().toISOString() }
+    if (!isInternal) {
+      const now = new Date().toISOString()
+      // Update ticket unread flags and status
+      await supabase.from('support_tickets').update({
+        unread_for_user: true,
+        unread_for_admin: false,
+        status: 'awaiting_user',
+        last_message_at: now,
+        last_admin_message_at: now,
+      }).eq('id', selectedTicket.id)
+
+      const updated = { ...selectedTicket, status: 'awaiting_user', unread_for_admin: false, unread_for_user: true, updated_at: now }
       setSelectedTicket(updated)
-      setTickets(prev => prev.map(t => t.id === updated.id ? { ...t, status: 'in_progress' } : t))
+      setTickets(prev => prev.map(t => t.id === updated.id ? { ...t, status: 'awaiting_user', unread_for_admin: false } : t))
+
+      // Insert notification for user
+      await supabase.from('notifications').insert({
+        user_id: selectedTicket.user_id,
+        title: 'Resposta do suporte',
+        body: 'Sua solicitação foi respondida. Clique para visualizar.',
+        type: 'support_reply',
+        related_ticket_id: selectedTicket.id,
+        action_view: 'support-ticket',
+        action_label: 'Ver resposta',
+        is_read: false,
+      })
     }
 
     setSending(false)
@@ -291,9 +319,16 @@ export default function AdminSupport() {
     setUpdatingStatus(false)
   }
 
+  async function reopenTicket() {
+    if (!selectedTicket) return
+    await updateTicket('status', 'open')
+  }
+
   // ── Derived list ──────────────────────────────────────────────────────
   const filtered = tickets
     .filter(t => !statusTab || t.status === statusTab)
+    .filter(t => !priorityFilter || t.priority === priorityFilter)
+    .filter(t => !unreadOnly || t.unread_for_admin)
     .filter(t => {
       if (!search) return true
       const q = search.toLowerCase()
@@ -305,12 +340,15 @@ export default function AdminSupport() {
     })
 
   const openCount = tickets.filter(t => t.status === 'open').length
+  const unreadCount = tickets.filter(t => t.unread_for_admin).length
 
   const allMessages: Message[] = selectedTicket
     ? [descriptionAsMessage(selectedTicket), ...messages]
     : []
 
   const selectCls = 'px-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 disabled:opacity-50'
+
+  const isClosed = selectedTicket?.status === 'closed' || selectedTicket?.status === 'resolved'
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -324,9 +362,16 @@ export default function AdminSupport() {
             </div>
             <div>
               <h1 className="font-semibold text-stone-800">Central de Suporte</h1>
-              {openCount > 0 && (
-                <p className="text-xs text-stone-400">{openCount} ticket{openCount !== 1 ? 's' : ''} aberto{openCount !== 1 ? 's' : ''}</p>
-              )}
+              <div className="flex items-center gap-2">
+                {openCount > 0 && (
+                  <p className="text-xs text-stone-400">{openCount} aberto{openCount !== 1 ? 's' : ''}</p>
+                )}
+                {unreadCount > 0 && (
+                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                    {unreadCount} não lido{unreadCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
             <button onClick={loadTickets} className="ml-auto p-1.5 rounded-lg hover:bg-stone-100 text-stone-400" title="Recarregar">
               <RefreshCw className="w-4 h-4" />
@@ -342,6 +387,28 @@ export default function AdminSupport() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+          </div>
+
+          {/* Filters row */}
+          <div className="flex gap-2 flex-wrap mb-2">
+            <button
+              onClick={() => setUnreadOnly(v => !v)}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 ${unreadOnly ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+            >
+              {unreadOnly && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+              Não lidas
+            </button>
+            <select
+              value={priorityFilter}
+              onChange={e => setPriorityFilter(e.target.value)}
+              className="text-xs px-2 py-1.5 border border-stone-200 rounded-full bg-white focus:outline-none"
+            >
+              <option value="">Prioridade</option>
+              <option value="low">Baixa</option>
+              <option value="medium">Média</option>
+              <option value="high">Alta</option>
+              <option value="urgent">Urgente</option>
+            </select>
           </div>
 
           {/* Status tabs */}
@@ -390,6 +457,9 @@ export default function AdminSupport() {
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[ticket.priority] ?? 'bg-stone-100'}`}>
                           {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
                         </span>
+                        {ticket.unread_for_admin && (
+                          <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Nova mensagem</span>
+                        )}
                       </div>
                       <p className="text-sm font-medium text-stone-800 truncate">{ticket.subject}</p>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-stone-400">
@@ -400,9 +470,11 @@ export default function AdminSupport() {
                         <span className="text-stone-300">· {formatDate(ticket.updated_at)}</span>
                       </div>
                     </div>
-                    {ticket.status === 'open' && (
+                    {ticket.unread_for_admin ? (
+                      <span className="flex-shrink-0 w-2.5 h-2.5 bg-red-500 rounded-full mt-1.5 animate-pulse" />
+                    ) : ticket.status === 'open' ? (
                       <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
-                    )}
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -425,11 +497,28 @@ export default function AdminSupport() {
                       {PLAN_LABELS[selectedTicket.plan_at_creation] ?? selectedTicket.plan_at_creation}
                     </span>
                   )}
+                  {selectedTicket.unread_for_admin && (
+                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium animate-pulse">
+                      Nova mensagem do cliente
+                    </span>
+                  )}
                 </div>
                 <p className="font-semibold text-stone-800 leading-snug">{selectedTicket.subject}</p>
                 <p className="text-xs text-stone-400 mt-0.5">
                   {selectedTicket.user_name ?? 'Usuário'} · Aberto em {formatDate(selectedTicket.created_at)}
                 </p>
+                {/* Status label */}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[selectedTicket.status] ?? 'bg-stone-100'}`}>
+                    {STATUS_LABELS[selectedTicket.status] ?? selectedTicket.status}
+                  </span>
+                  {selectedTicket.status === 'awaiting_admin' && (
+                    <span className="text-xs text-yellow-700 font-medium">Aguardando resposta do admin</span>
+                  )}
+                  {selectedTicket.status === 'awaiting_user' && (
+                    <span className="text-xs text-purple-700 font-medium">Aguardando resposta do cliente</span>
+                  )}
+                </div>
               </div>
               <button onClick={closeDrawer} className="flex-shrink-0 p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100">
                 <X className="w-4 h-4" />
@@ -448,7 +537,8 @@ export default function AdminSupport() {
                 >
                   <option value="open">Aberto</option>
                   <option value="in_progress">Em andamento</option>
-                  <option value="waiting_client">Aguardando resp.</option>
+                  <option value="awaiting_admin">Aguardando admin</option>
+                  <option value="awaiting_user">Aguardando cliente</option>
                   <option value="resolved">Resolvido</option>
                   <option value="closed">Fechado</option>
                 </select>
@@ -467,6 +557,24 @@ export default function AdminSupport() {
                   <option value="urgent">Urgente</option>
                 </select>
               </div>
+              {isClosed && (
+                <button
+                  onClick={reopenTicket}
+                  disabled={updatingStatus}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reabrir
+                </button>
+              )}
+              {!isClosed && (
+                <button
+                  onClick={() => updateTicket('status', 'closed')}
+                  disabled={updatingStatus}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-50"
+                >
+                  Fechar ticket
+                </button>
+              )}
             </div>
           </div>
 
@@ -517,9 +625,19 @@ export default function AdminSupport() {
               </div>
             )}
 
-            {selectedTicket.status === 'closed' ? (
-              <div className="flex items-center gap-2 text-sm text-stone-400 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                <Lock className="w-4 h-4 flex-shrink-0" /> Ticket fechado.
+            {isClosed ? (
+              <div className="flex items-center justify-between gap-2 text-sm text-stone-400 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 flex-shrink-0" />
+                  {selectedTicket.status === 'resolved' ? 'Ticket resolvido.' : 'Ticket fechado.'}
+                </div>
+                <button
+                  onClick={reopenTicket}
+                  disabled={updatingStatus}
+                  className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                >
+                  Reabrir
+                </button>
               </div>
             ) : (
               <>

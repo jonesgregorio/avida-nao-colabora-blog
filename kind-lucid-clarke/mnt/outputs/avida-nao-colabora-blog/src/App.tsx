@@ -31,6 +31,7 @@ import ContactPage from './components/ContactPage'
 import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
+import NotificationsPage from './components/NotificationsPage'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -40,7 +41,7 @@ export default function App() {
     const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
       'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
       'articles','article','responsibility','trails','saved','admin','contact','success',
-      'support','support-ticket']
+      'support','support-ticket','notifications']
     return valid.includes(v) ? v : 'home'
   }
   const [view, setView] = useState<View>(initialView)
@@ -65,7 +66,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
-      'support', 'support-ticket',
+      'support', 'support-ticket', 'notifications',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -198,12 +199,24 @@ export default function App() {
     )
   }
 
+  if (view === 'notifications') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <NotificationsPage user={user} navigate={navigate} onBack={() => navigate('home')} />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   if (view === 'contact') {
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
         <main className="min-h-screen bg-stone-50">
-          <ContactPage user={user} profile={profile} onBack={() => setView('home')} />
+          <ContactPage user={user} profile={profile} onBack={() => setView('home')} navigate={navigate} />
         </main>
         <Footer onNavigate={navigate} />
       </>

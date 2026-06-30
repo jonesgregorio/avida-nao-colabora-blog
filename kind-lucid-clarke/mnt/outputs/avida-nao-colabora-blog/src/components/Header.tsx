@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Map, Bookmark } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Map, Bookmark, Bell } from 'lucide-react'
 import { Profile } from '../types'
+import { supabase } from '../lib/supabase'
 
 interface HeaderProps {
   onNavigate: (section: string) => void
@@ -11,6 +12,17 @@ interface HeaderProps {
 
 export default function Header({ onNavigate, user, profile, onSignOut }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return }
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+      .then(({ count }) => setUnreadCount(count ?? 0))
+  }, [user])
 
   const nav = [
     { label: 'Início', id: 'home' },
@@ -62,6 +74,18 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
 
           {user ? (
             <div className="flex items-center gap-2 ml-2">
+              <button
+                onClick={() => handleNav('notifications')}
+                title="Notificações"
+                className="relative p-1.5 text-sage-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => handleNav('saved')}
                 className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full transition-colors"

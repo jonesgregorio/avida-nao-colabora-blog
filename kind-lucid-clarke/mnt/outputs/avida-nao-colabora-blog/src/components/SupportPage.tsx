@@ -103,6 +103,8 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
         description: form.description.trim(),
         priority: form.priority,
         plan_at_creation: profile?.plan ?? null,
+        unread_for_admin: true,
+        source: 'support_page',
       })
       .select()
       .single()

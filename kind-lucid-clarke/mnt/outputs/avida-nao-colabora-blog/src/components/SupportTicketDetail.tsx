@@ -37,6 +37,8 @@ const STATUS_LABEL: Record<string, string> = {
   open: 'Aberto',
   in_progress: 'Em andamento',
   waiting_client: 'Aguardando resposta',
+  awaiting_admin: 'Aguardando suporte',
+  awaiting_user: 'Aguardando você',
   resolved: 'Resolvido',
   closed: 'Fechado',
 }
@@ -44,6 +46,8 @@ const STATUS_COLOR: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   in_progress: 'bg-orange-100 text-orange-700',
   waiting_client: 'bg-purple-100 text-purple-700',
+  awaiting_admin: 'bg-yellow-100 text-yellow-700',
+  awaiting_user: 'bg-purple-100 text-purple-700',
   resolved: 'bg-green-100 text-green-700',
   closed: 'bg-stone-100 text-stone-500',
 }
@@ -153,7 +157,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
   async function handleSend() {
     const trimmed = content.trim()
     if (!trimmed || sending || !user) return
-    if (ticket?.status === 'closed') { setSendError('Este ticket está fechado.'); return }
+    if (ticket?.status === 'closed' || ticket?.status === 'resolved') { setSendError('Este ticket está fechado.'); return }
 
     setSending(true)
     setSendError(null)
@@ -190,14 +194,20 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
       m.id === optimisticId ? { ...newMsg, sender_name: null } : m
     ))
 
-    // Update ticket status if needed
-    if (ticket?.status === 'open' || ticket?.status === 'in_progress') {
-      await supabase
-        .from('support_tickets')
-        .update({ status: 'waiting_client' })
-        .eq('id', ticketId)
-        .in('status', ['open', 'in_progress'])
-      setTicket(t => t ? { ...t, status: 'waiting_client', updated_at: new Date().toISOString() } : t)
+    // Update ticket status and unread flags
+    const now = new Date().toISOString()
+    const updates: Record<string, unknown> = {
+      unread_for_admin: true,
+      unread_for_user: false,
+      last_message_at: now,
+      last_user_message_at: now,
+    }
+    if (ticket?.status === 'open' || ticket?.status === 'in_progress' || ticket?.status === 'awaiting_user') {
+      updates.status = 'awaiting_admin'
+    }
+    await supabase.from('support_tickets').update(updates).eq('id', ticketId)
+    if (updates.status) {
+      setTicket(t => t ? { ...t, status: updates.status as string, updated_at: now } : t)
     }
 
     setSending(false)
