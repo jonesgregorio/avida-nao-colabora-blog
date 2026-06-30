@@ -7,20 +7,22 @@ interface Trail {
   title: string
   description: string
   plan_required: string
+  is_active: boolean
   active: boolean
   created_at: string
-  article_count?: number
 }
 
 interface TrailArticle {
   id: string
   trail_id: string
   article_id: string
-  position: number
+  order_index: number
   article?: { title: string; slug: string }
 }
 
 type Screen = 'list' | 'edit'
+
+const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminTrails() {
   const [trails, setTrails] = useState<Trail[]>([])
@@ -28,7 +30,6 @@ export default function AdminTrails() {
   const [screen, setScreen] = useState<Screen>('list')
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  // Form state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [planRequired, setPlanRequired] = useState('free')
@@ -36,11 +37,17 @@ export default function AdminTrails() {
   const [trailArticles, setTrailArticles] = useState<TrailArticle[]>([])
   const [allArticles, setAllArticles] = useState<{ id: string; title: string; slug: string }[]>([])
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   async function loadTrails() {
     setLoading(true)
-    const { data } = await supabase.from('trails').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('trails').select('*').order('created_at', { ascending: false })
+    if (error) showToast('Erro ao carregar trilhas: ' + error.message, true)
     setTrails(data || [])
     setLoading(false)
   }
@@ -60,51 +67,68 @@ export default function AdminTrails() {
 
   async function openEdit(trail: Trail) {
     setEditingId(trail.id); setTitle(trail.title); setDescription(trail.description)
-    setPlanRequired(trail.plan_required); setActive(trail.active)
-    const { data } = await supabase
+    setPlanRequired(trail.plan_required); setActive(trail.is_active ?? trail.active ?? true)
+    const { data, error } = await supabase
       .from('trail_articles')
       .select('*, article:articles(title, slug)')
       .eq('trail_id', trail.id)
-      .order('position')
+      .order('order_index')
+    if (error) showToast('Erro ao carregar artigos da trilha: ' + error.message, true)
     setTrailArticles(data || [])
     setScreen('edit')
   }
 
   async function save() {
-    if (!title.trim()) return
+    if (!title.trim()) { showToast('Título obrigatório', true); return }
     setSaving(true)
-    try {
-      let trailId = editingId
-      if (editingId) {
-        await supabase.from('trails').update({ title, description, plan_required: planRequired, active }).eq('id', editingId)
-      } else {
-        const { data } = await supabase.from('trails').insert({ title, description, plan_required: planRequired, active }).select().single()
-        trailId = data?.id
-      }
-      // Sync articles
-      if (trailId) {
-        await supabase.from('trail_articles').delete().eq('trail_id', trailId)
-        if (trailArticles.length > 0) {
-          await supabase.from('trail_articles').insert(
-            trailArticles.map((ta, i) => ({ trail_id: trailId, article_id: ta.article_id, position: i + 1 }))
-          )
-        }
-      }
-      showToast('Trilha salva!')
-      loadTrails()
-      setScreen('list')
-    } catch (e: any) {
-      showToast('Erro: ' + e.message)
-    } finally {
-      setSaving(false)
+
+    let trailId = editingId
+    if (editingId) {
+      const { error } = await supabase.from('trails').update({
+        title, description,
+        plan_required: planRequired,
+        is_active: active,
+        active,
+      }).eq('id', editingId)
+      if (error) { showToast('Erro ao salvar trilha: ' + error.message, true); setSaving(false); return }
+    } else {
+      const { data, error } = await supabase.from('trails').insert({
+        title, description,
+        plan_required: planRequired,
+        is_active: active,
+        active,
+      }).select().single()
+      if (error) { showToast('Erro ao criar trilha: ' + error.message, true); setSaving(false); return }
+      trailId = data?.id
     }
+
+    if (trailId) {
+      await supabase.from('trail_articles').delete().eq('trail_id', trailId)
+      if (trailArticles.length > 0) {
+        const { error: insertError } = await supabase.from('trail_articles').insert(
+          trailArticles.map((ta, i) => ({
+            trail_id: trailId,
+            article_id: ta.article_id,
+            order_index: i + 1,
+            position: i + 1,
+          }))
+        )
+        if (insertError) { showToast('Aviso: trilha salva, mas erro ao salvar artigos: ' + insertError.message, true); setSaving(false); return }
+      }
+    }
+
+    showToast('Trilha salva!')
+    setSaving(false)
+    loadTrails()
+    setScreen('list')
   }
 
   async function deleteTrail(id: string) {
     if (!confirm('Excluir esta trilha?')) return
     await supabase.from('trail_articles').delete().eq('trail_id', id)
-    await supabase.from('trails').delete().eq('id', id)
-    loadTrails()
+    const { error } = await supabase.from('trails').delete().eq('id', id)
+    if (error) showToast('Erro ao excluir: ' + error.message, true)
+    else loadTrails()
   }
 
   function addArticle(articleId: string) {
@@ -112,7 +136,7 @@ export default function AdminTrails() {
     if (!article || trailArticles.find(ta => ta.article_id === articleId)) return
     setTrailArticles(ts => [...ts, {
       id: `new-${Date.now()}`, trail_id: editingId || '', article_id: articleId,
-      position: ts.length + 1, article: { title: article.title, slug: article.slug },
+      order_index: ts.length + 1, article: { title: article.title, slug: article.slug },
     }])
   }
 
@@ -120,16 +144,16 @@ export default function AdminTrails() {
     setTrailArticles(ts => ts.filter(ta => ta.article_id !== articleId))
   }
 
-  function showToast(msg: string) {
-    setToast(msg); setTimeout(() => setToast(null), 3000)
-  }
-
   const availableArticles = allArticles.filter(a => !trailArticles.find(ta => ta.article_id === a.id))
 
   if (screen === 'edit') {
     return (
       <div className="max-w-3xl">
-        {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+            {toast.msg}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => setScreen('list')} className="text-stone-400 hover:text-stone-700">
@@ -155,7 +179,6 @@ export default function AdminTrails() {
               </div>
             </div>
 
-            {/* Articles */}
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Artigos da trilha ({trailArticles.length})</h2>
 
@@ -188,7 +211,12 @@ export default function AdminTrails() {
                 </div>
               )}
 
-              {trailArticles.length === 0 && <p className="text-sm text-stone-400">Nenhum artigo adicionado ainda.</p>}
+              {trailArticles.length === 0 && availableArticles.length === 0 && (
+                <p className="text-sm text-stone-400">Nenhum artigo publicado disponível. Publique artigos primeiro.</p>
+              )}
+              {trailArticles.length === 0 && availableArticles.length > 0 && (
+                <p className="text-sm text-stone-400">Nenhum artigo adicionado ainda.</p>
+              )}
             </div>
           </div>
 
@@ -206,7 +234,7 @@ export default function AdminTrails() {
               </div>
               <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
                 <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} className="accent-emerald-600" />
-                Trilha ativa
+                Trilha ativa (visível no site)
               </label>
             </div>
           </div>
@@ -217,7 +245,11 @@ export default function AdminTrails() {
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+          {toast.msg}
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Trilhas</h1>
@@ -240,8 +272,8 @@ export default function AdminTrails() {
             <div key={trail.id} className="bg-white rounded-xl border border-stone-200 p-5">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-stone-800 leading-snug">{trail.title}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${trail.active ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}>
-                  {trail.active ? 'Ativa' : 'Inativa'}
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${(trail.is_active ?? trail.active) ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}>
+                  {(trail.is_active ?? trail.active) ? 'Ativa' : 'Inativa'}
                 </span>
               </div>
               <p className="text-xs text-stone-500 mb-3 line-clamp-2">{trail.description}</p>
@@ -263,5 +295,3 @@ export default function AdminTrails() {
     </div>
   )
 }
-
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"

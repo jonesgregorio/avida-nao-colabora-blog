@@ -51,27 +51,27 @@ export default function AdminNotifications() {
   async function save() {
     if (!title.trim() || !body.trim()) return
     setSaving(true)
-    try {
-      await supabase.from('notifications').insert({ title, body, target_plan: targetPlan, type, status: 'draft' })
-      showToast('Notificação criada!')
-      setShowForm(false); setTitle(''); setBody(''); load()
-    } catch (e: any) {
-      showToast('Erro: ' + e.message)
-    } finally {
-      setSaving(false)
-    }
+    const { error } = await supabase.from('notifications').insert({
+      title, body, target_plan: targetPlan, type, status: 'draft',
+    })
+    setSaving(false)
+    if (error) { showToast('Erro: ' + error.message); return }
+    showToast('Notificação criada!')
+    setShowForm(false); setTitle(''); setBody(''); load()
   }
 
   async function markSent(id: string) {
     if (!confirm('Marcar esta notificação como enviada?')) return
-    await supabase.from('notifications').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
+    const { error } = await supabase.from('notifications').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast('Erro: ' + error.message); return }
     load()
     showToast('Marcada como enviada!')
   }
 
   async function remove(id: string) {
     if (!confirm('Excluir notificação?')) return
-    await supabase.from('notifications').delete().eq('id', id)
+    const { error } = await supabase.from('notifications').delete().eq('id', id)
+    if (error) { showToast('Erro ao excluir: ' + error.message); return }
     load()
   }
 

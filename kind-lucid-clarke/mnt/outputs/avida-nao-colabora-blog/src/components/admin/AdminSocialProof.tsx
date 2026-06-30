@@ -56,7 +56,7 @@ export default function AdminSocialProof() {
         { key: 'satisfaction', label: 'Taxa de satisfação', value: '98%' },
       ]
       await supabase.from('site_metrics').insert(defaults)
-      setMetrics(defaults.map((d, i) => ({ ...d, id: String(i), updated_at: new Date().toISOString() })))
+      setMetrics(defaults.map((d, i) => ({ ...d, metric: d.key, id: String(i), updated_at: new Date().toISOString() })))
     }
     setLoading(false)
   }
@@ -66,16 +66,15 @@ export default function AdminSocialProof() {
   async function saveTestimonial() {
     if (!name.trim() || !text.trim()) return
     setSaving(true)
-    try {
-      await supabase.from('testimonials').insert({ name, text, role: role || null, rating, active: true })
-      showToast('Depoimento salvo!')
-      setShowForm(false); setName(''); setText(''); setRole(''); setRating(5)
-      load()
-    } catch (e: any) {
-      showToast('Erro: ' + e.message)
-    } finally {
-      setSaving(false)
-    }
+    const { error } = await supabase.from('testimonials').insert({
+      name, text, role: role || null, rating,
+      active: true,
+    })
+    setSaving(false)
+    if (error) { showToast('Erro: ' + error.message); return }
+    showToast('Depoimento salvo!')
+    setShowForm(false); setName(''); setText(''); setRole(''); setRating(5)
+    load()
   }
 
   async function toggleTestimonial(id: string, active: boolean) {
@@ -91,16 +90,13 @@ export default function AdminSocialProof() {
 
   async function saveMetrics() {
     setSavingMetrics(true)
-    try {
-      await Promise.all(metrics.map(m =>
-        supabase.from('site_metrics').update({ value: m.value, updated_at: new Date().toISOString() }).eq('id', m.id)
-      ))
-      showToast('Métricas salvas!')
-    } catch (e: any) {
-      showToast('Erro: ' + e.message)
-    } finally {
-      setSavingMetrics(false)
-    }
+    const results = await Promise.all(metrics.map(m =>
+      supabase.from('site_metrics').update({ value: m.value, updated_at: new Date().toISOString() }).eq('id', m.id)
+    ))
+    setSavingMetrics(false)
+    const firstError = results.find(r => r.error)?.error
+    if (firstError) showToast('Erro: ' + firstError.message)
+    else showToast('Métricas salvas!')
   }
 
   function showToast(msg: string) {

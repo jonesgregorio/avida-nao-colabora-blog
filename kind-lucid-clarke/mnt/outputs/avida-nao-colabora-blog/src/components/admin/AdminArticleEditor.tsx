@@ -9,7 +9,8 @@ interface ArticleData {
   category: string
   content: string
   summary: string
-  cover_image_url: string
+  image_url: string
+  image_alt: string
   seo_title: string
   seo_description: string
   diary_question: string
@@ -18,16 +19,16 @@ interface ArticleData {
   plan_required: string
   published_at: string
   scheduled_at: string
-  reading_time_minutes: number
+  read_time: number
 }
 
 const EMPTY: ArticleData = {
   title: '', slug: '', status: 'draft', category: '',
-  content: '', summary: '', cover_image_url: '',
+  content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
   diary_question: '', cta_text: '', cta_link: '',
   plan_required: 'free', published_at: '', scheduled_at: '',
-  reading_time_minutes: 5,
+  read_time: 5,
 }
 
 interface Props {
@@ -39,54 +40,112 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
   const [loading, setLoading] = useState(!!articleId)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    supabase.from('categories').select('name').eq('is_active', true).order('name').then(({ data: cats }) => {
+      if (cats) setCategories(cats.map(c => c.name))
+    })
+  }, [])
 
   useEffect(() => {
     if (!articleId) return
-    supabase.from('articles').select('*').eq('id', articleId).single().then(({ data: a }) => {
-      if (a) setData({ ...EMPTY, ...a })
+    supabase.from('articles').select('*').eq('id', articleId).single().then(({ data: a, error }) => {
+      if (error) { showToast('Erro ao carregar artigo: ' + error.message, true); setLoading(false); return }
+      if (a) {
+        setData({
+          title: a.title || '',
+          slug: a.slug || '',
+          status: a.status || 'draft',
+          category: a.category || '',
+          content: a.content || '',
+          summary: a.summary || a.excerpt || '',
+          image_url: a.image_url || a.cover_image || a.cover_image_url || '',
+          image_alt: a.image_alt || '',
+          seo_title: a.seo_title || '',
+          seo_description: a.seo_description || '',
+          diary_question: a.diary_question || '',
+          cta_text: a.cta_text || '',
+          cta_link: a.cta_link || '',
+          plan_required: a.plan_required || 'free',
+          published_at: a.published_at ? a.published_at.slice(0, 16) : '',
+          scheduled_at: a.scheduled_at ? a.scheduled_at.slice(0, 16) : '',
+          read_time: a.read_time || a.reading_time_minutes || 5,
+        })
+      }
       setLoading(false)
     })
   }, [articleId])
 
   function set(key: keyof ArticleData, value: any) {
-    setData(d => ({ ...d, [key]: value }))
-    if (key === 'title' && !articleId) {
-      setData(d => ({
-        ...d,
-        title: value,
-        slug: value.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    setData(d => {
+      const next = { ...d, [key]: value }
+      if (key === 'title' && !articleId) {
+        next.slug = value.toLowerCase()
+          .normalize('NFD').replace(/[̀-ͯ]/g, '')
           .replace(/[^a-z0-9\s-]/g, '')
-          .trim().replace(/\s+/g, '-'),
-      }))
-    }
+          .trim().replace(/\s+/g, '-')
+      }
+      return next
+    })
   }
 
   async function save(status?: string) {
+    if (!data.title.trim()) { showToast('Título obrigatório', true); return }
+    if (!data.slug.trim()) { showToast('Slug obrigatório', true); return }
     setSaving(true)
-    const payload = { ...data, status: status || data.status }
-    if (status === 'published' && !payload.published_at) {
-      payload.published_at = new Date().toISOString()
+
+    const targetStatus = status || data.status
+    const payload: any = {
+      title: data.title,
+      slug: data.slug,
+      status: targetStatus,
+      category: data.category,
+      content: data.content,
+      summary: data.summary,
+      excerpt: data.summary,
+      image_url: data.image_url,
+      cover_image: data.image_url,
+      image_alt: data.image_alt,
+      seo_title: data.seo_title,
+      seo_description: data.seo_description,
+      diary_question: data.diary_question,
+      cta_text: data.cta_text,
+      cta_link: data.cta_link,
+      plan_required: data.plan_required,
+      read_time: data.read_time,
+      updated_at: new Date().toISOString(),
     }
-    try {
-      if (articleId) {
-        await supabase.from('articles').update(payload).eq('id', articleId)
-      } else {
-        await supabase.from('articles').insert(payload)
-      }
+
+    if (data.scheduled_at) payload.scheduled_at = new Date(data.scheduled_at).toISOString()
+    if (targetStatus === 'published' && !data.published_at) {
+      payload.published_at = new Date().toISOString()
+    } else if (data.published_at) {
+      payload.published_at = new Date(data.published_at).toISOString()
+    }
+
+    let error: any
+    if (articleId) {
+      const res = await supabase.from('articles').update(payload).eq('id', articleId)
+      error = res.error
+    } else {
+      const res = await supabase.from('articles').insert(payload).select().single()
+      error = res.error
+    }
+
+    if (error) {
+      showToast('Erro ao salvar: ' + error.message, true)
+    } else {
       showToast('Salvo com sucesso!')
       if (status) setData(d => ({ ...d, status }))
-    } catch (e: any) {
-      showToast('Erro ao salvar: ' + e.message)
-    } finally {
-      setSaving(false)
     }
+    setSaving(false)
   }
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    setTimeout(() => setToast(null), 4000)
   }
 
   if (loading) return <p className="text-stone-400 text-sm">Carregando artigo...</p>
@@ -94,8 +153,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   return (
     <div className="max-w-4xl">
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-          {toast}
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+          {toast.msg}
         </div>
       )}
 
@@ -125,51 +184,23 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main fields */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Conteúdo</h2>
             <Field label="Título">
-              <input
-                value={data.title}
-                onChange={e => set('title', e.target.value)}
-                placeholder="Título do artigo"
-                className={inputCls}
-              />
+              <input value={data.title} onChange={e => set('title', e.target.value)} placeholder="Título do artigo" className={inputCls} />
             </Field>
             <Field label="Slug">
-              <input
-                value={data.slug}
-                onChange={e => set('slug', e.target.value)}
-                placeholder="slug-do-artigo"
-                className={inputCls}
-              />
+              <input value={data.slug} onChange={e => set('slug', e.target.value)} placeholder="slug-do-artigo" className={inputCls} />
             </Field>
             <Field label="Resumo">
-              <textarea
-                value={data.summary}
-                onChange={e => set('summary', e.target.value)}
-                rows={2}
-                placeholder="Resumo exibido na listagem de artigos"
-                className={inputCls}
-              />
+              <textarea value={data.summary} onChange={e => set('summary', e.target.value)} rows={2} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
             </Field>
             <Field label="Conteúdo (Markdown ou HTML)">
-              <textarea
-                value={data.content}
-                onChange={e => set('content', e.target.value)}
-                rows={16}
-                placeholder="Conteúdo completo do artigo..."
-                className={`${inputCls} font-mono text-xs`}
-              />
+              <textarea value={data.content} onChange={e => set('content', e.target.value)} rows={16} placeholder="Conteúdo completo do artigo..." className={`${inputCls} font-mono text-xs`} />
             </Field>
             <Field label="Pergunta para o diário">
-              <input
-                value={data.diary_question}
-                onChange={e => set('diary_question', e.target.value)}
-                placeholder="Ex: O que esse texto te fez sentir?"
-                className={inputCls}
-              />
+              <input value={data.diary_question} onChange={e => set('diary_question', e.target.value)} placeholder="Ex: O que esse texto te fez sentir?" className={inputCls} />
             </Field>
           </div>
 
@@ -195,7 +226,6 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Publicação</h2>
@@ -213,7 +243,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               </Field>
             )}
             <Field label="Categoria">
-              <input value={data.category} onChange={e => set('category', e.target.value)} placeholder="Ex: ansiedade" className={inputCls} />
+              {categories.length > 0 ? (
+                <select value={data.category} onChange={e => set('category', e.target.value)} className={inputCls}>
+                  <option value="">Selecione...</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              ) : (
+                <input value={data.category} onChange={e => set('category', e.target.value)} placeholder="Ex: ansiedade" className={inputCls} />
+              )}
             </Field>
             <Field label="Plano requerido">
               <select value={data.plan_required} onChange={e => set('plan_required', e.target.value)} className={inputCls}>
@@ -224,17 +261,20 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               </select>
             </Field>
             <Field label="Tempo de leitura (min)">
-              <input type="number" value={data.reading_time_minutes} onChange={e => set('reading_time_minutes', Number(e.target.value))} className={inputCls} min={1} />
+              <input type="number" value={data.read_time} onChange={e => set('read_time', Number(e.target.value))} className={inputCls} min={1} />
             </Field>
           </div>
 
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Imagem de capa</h2>
             <Field label="URL da imagem">
-              <input value={data.cover_image_url} onChange={e => set('cover_image_url', e.target.value)} placeholder="https://..." className={inputCls} />
+              <input value={data.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://..." className={inputCls} />
             </Field>
-            {data.cover_image_url && (
-              <img src={data.cover_image_url} alt="Capa" className="w-full h-32 object-cover rounded-lg border border-stone-200" />
+            <Field label="Texto alternativo (alt)">
+              <input value={data.image_alt} onChange={e => set('image_alt', e.target.value)} placeholder="Descrição da imagem" className={inputCls} />
+            </Field>
+            {data.image_url && (
+              <img src={data.image_url} alt={data.image_alt || 'Capa'} className="w-full h-32 object-cover rounded-lg border border-stone-200" />
             )}
           </div>
         </div>

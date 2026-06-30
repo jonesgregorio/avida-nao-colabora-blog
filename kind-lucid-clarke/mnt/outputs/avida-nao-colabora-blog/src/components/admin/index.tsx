@@ -31,7 +31,7 @@ export type { AdminView } from './types'
 export default function AdminPanel() {
   const { profile } = useAuth()
   const [view, setView] = useState<AdminView>('dashboard')
-  const [editingArticleId, setEditingArticleId] = useState<string | undefined>(undefined)
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
 
   if (!profile || profile.role !== 'admin') {
     return (
@@ -44,7 +44,7 @@ export default function AdminPanel() {
   }
 
   function handleEditArticle(id?: string) {
-    setEditingArticleId(id)
+    setEditingArticleId(id ?? null)
     setView('article-editor')
   }
 

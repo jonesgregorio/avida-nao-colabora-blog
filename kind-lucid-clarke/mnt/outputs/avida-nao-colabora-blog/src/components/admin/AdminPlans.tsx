@@ -103,24 +103,28 @@ export default function AdminPlans() {
 
   async function save() {
     setSaving(true)
-    try {
-      for (const pl of plans) {
-        await supabase.from('plan_configs').upsert({
-          plan_key: pl.key,
-          label: pl.label,
-          price: pl.price,
-          description: pl.description,
-          recommended: pl.recommended,
-          active: pl.active,
-          diary_limit: pl.diaryLimit,
-          features: pl.features,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'plan_key' })
-      }
+    let hasError = false
+    for (const pl of plans) {
+      const { error } = await supabase.from('plan_configs').upsert({
+        plan_key: pl.key,
+        label: pl.label,
+        price: pl.price,
+        description: pl.description,
+        recommended: pl.recommended,
+        active: pl.active,
+        diary_limit: pl.diaryLimit,
+        features: pl.features,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'plan_key' })
+      if (error) { console.error('Erro ao salvar plano', pl.key, error); hasError = true; break }
+    }
+    setSaving(false)
+    if (hasError) {
+      alert('Erro ao salvar planos. Verifique o console.')
+    } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (_) {}
-    setSaving(false)
+    }
   }
 
   const plan = plans.find(p => p.key === activeTab)!

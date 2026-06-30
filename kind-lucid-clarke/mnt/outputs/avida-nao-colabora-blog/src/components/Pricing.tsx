@@ -123,6 +123,25 @@ const plans: PlanConfig[] = [
 export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [displayPlans, setDisplayPlans] = useState(plans)
+
+  // Carrega configurações de planos do banco (substitui nome/preço/descrição se disponíveis)
+  useState(() => {
+    supabase.from('plan_configs').select('*').eq('active', true).then(({ data }) => {
+      if (!data || data.length === 0) return
+      setDisplayPlans(prev => prev.map(pl => {
+        const cfg = data.find((d: any) => d.plan_key === pl.id)
+        if (!cfg) return pl
+        return {
+          ...pl,
+          name: cfg.label || pl.name,
+          price: cfg.price || pl.price,
+          tagline: cfg.description || pl.tagline,
+          badge: cfg.is_recommended ?? cfg.recommended ? 'Mais recomendado' : pl.badge,
+        }
+      }))
+    })
+  })
 
   const handleSubscribe = async (planId: Plan) => {
     if (!user) { onNavigateAuth(); return }
@@ -151,7 +170,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {plans.map(plan => (
+        {displayPlans.map(plan => (
           <div
             key={plan.id}
             className={`bg-white rounded-2xl border-2 ${plan.color} ${plan.id === 'therapeutic' ? 'ring-2 ring-purple-200' : ''} p-6 flex flex-col relative shadow-sm`}

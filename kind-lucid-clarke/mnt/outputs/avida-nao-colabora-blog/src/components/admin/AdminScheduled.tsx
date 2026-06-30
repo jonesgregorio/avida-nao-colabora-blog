@@ -24,12 +24,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-stone-100 text-stone-400',
 }
 
+const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+
 export default function AdminScheduled() {
   const [items, setItems] = useState<ScheduledContent[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<ScheduledContent | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState(TYPES[0])
@@ -39,8 +41,14 @@ export default function AdminScheduled() {
   const [recurrence, setRecurrence] = useState('')
   const [saving, setSaving] = useState(false)
 
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    setTimeout(() => setToast(null), 3500)
+  }
+
   async function load() {
-    const { data } = await supabase.from('scheduled_contents').select('*').order('scheduled_at', { ascending: true })
+    const { data, error } = await supabase.from('scheduled_contents').select('*').order('scheduled_at', { ascending: true })
+    if (error) showToast('Erro ao carregar: ' + error.message, true)
     setItems(data || [])
     setLoading(false)
   }
@@ -60,37 +68,47 @@ export default function AdminScheduled() {
   }
 
   async function save() {
-    if (!title.trim() || !scheduledAt) return
+    if (!title.trim()) { showToast('Título obrigatório', true); return }
+    if (!scheduledAt) { showToast('Data e hora obrigatórias', true); return }
     setSaving(true)
-    const payload = { title, type, content, plan_required: planRequired, scheduled_at: scheduledAt, recurrence: recurrence || null, status: 'pending' as const }
-    try {
-      if (editing) {
-        await supabase.from('scheduled_contents').update(payload).eq('id', editing.id)
-      } else {
-        await supabase.from('scheduled_contents').insert(payload)
-      }
-      showToast('Salvo!'); setShowForm(false); load()
-    } catch (e: any) {
-      showToast('Erro: ' + e.message)
-    } finally {
-      setSaving(false)
+    const payload = {
+      title, type, content, plan_required: planRequired,
+      scheduled_at: new Date(scheduledAt).toISOString(),
+      recurrence: recurrence || null,
+      status: 'pending' as const,
     }
+
+    let error: any
+    if (editing) {
+      const res = await supabase.from('scheduled_contents').update(payload).eq('id', editing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('scheduled_contents').insert(payload).select().single()
+      error = res.error
+    }
+    setSaving(false)
+
+    if (error) {
+      showToast('Erro ao salvar: ' + error.message, true)
+      return
+    }
+    showToast('Salvo!')
+    setShowForm(false)
+    load()
   }
 
   async function cancel(id: string) {
     if (!confirm('Cancelar este conteúdo programado?')) return
-    await supabase.from('scheduled_contents').update({ status: 'cancelled' }).eq('id', id)
-    load()
+    const { error } = await supabase.from('scheduled_contents').update({ status: 'cancelled' }).eq('id', id)
+    if (error) showToast('Erro: ' + error.message, true)
+    else load()
   }
 
   async function remove(id: string) {
     if (!confirm('Excluir?')) return
-    await supabase.from('scheduled_contents').delete().eq('id', id)
-    load()
-  }
-
-  function showToast(msg: string) {
-    setToast(msg); setTimeout(() => setToast(null), 3000)
+    const { error } = await supabase.from('scheduled_contents').delete().eq('id', id)
+    if (error) showToast('Erro ao excluir: ' + error.message, true)
+    else load()
   }
 
   const upcoming = items.filter(i => i.status === 'pending' && new Date(i.scheduled_at) >= new Date())
@@ -98,7 +116,11 @@ export default function AdminScheduled() {
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+          {toast.msg}
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Conteúdos Programados</h1>
@@ -112,7 +134,7 @@ export default function AdminScheduled() {
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">{editing ? 'Editar' : 'Novo conteúdo programado'}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-stone-500 mb-1">Título</label>
+              <label className="block text-xs text-stone-500 mb-1">Título *</label>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Desafio de início do mês" className={inputCls} />
             </div>
             <div>
@@ -122,7 +144,7 @@ export default function AdminScheduled() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-stone-500 mb-1">Data e hora</label>
+              <label className="block text-xs text-stone-500 mb-1">Data e hora *</label>
               <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} className={inputCls} />
             </div>
             <div>
@@ -136,7 +158,7 @@ export default function AdminScheduled() {
               <input value={recurrence} onChange={e => setRecurrence(e.target.value)} placeholder="Ex: Mensal, toda segunda-feira, etc." className={inputCls} />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs text-stone-500 mb-1">Conteúdo</label>
+              <label className="block text-xs text-stone-500 mb-1">Conteúdo / Descrição</label>
               <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} placeholder="Conteúdo ou descrição do envio..." className={inputCls} />
             </div>
           </div>
@@ -237,5 +259,3 @@ function ContentTable({ items, onEdit, onCancel, onDelete }: {
     </div>
   )
 }
-
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"

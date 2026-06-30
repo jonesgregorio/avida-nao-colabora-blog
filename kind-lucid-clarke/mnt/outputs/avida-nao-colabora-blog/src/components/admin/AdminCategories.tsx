@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil } from 'lucide-react'
 
-interface Category { id: string; name: string; slug: string; description: string }
+interface Category { id: string; name: string; slug: string; description: string; is_active: boolean }
+
+const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminCategories() {
   const [cats, setCats] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   async function load() {
-    const { data } = await supabase.from('categories').select('*').order('name')
+    const { data, error } = await supabase.from('categories').select('*').order('name')
+    if (error) showToast('Erro ao carregar: ' + error.message, true)
     setCats(data || [])
     setLoading(false)
   }
@@ -19,21 +29,51 @@ export default function AdminCategories() {
   useEffect(() => { load() }, [])
 
   async function create() {
-    if (!newName.trim()) return
-    const slug = newName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
-    await supabase.from('categories').insert({ name: newName.trim(), slug, description: newDesc.trim() })
+    if (!newName.trim()) { showToast('Nome obrigatório', true); return }
+    setSaving(true)
+    const slug = newName.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim().replace(/\s+/g, '-')
+
+    const { error } = await supabase.from('categories').insert({
+      name: newName.trim(),
+      slug,
+      description: newDesc.trim() || null,
+      is_active: true,
+    })
+    setSaving(false)
+
+    if (error) {
+      showToast('Erro ao criar categoria: ' + error.message, true)
+      return
+    }
+    showToast('Categoria criada!')
     setNewName(''); setNewDesc('')
     load()
   }
 
+  async function toggleActive(cat: Category) {
+    const { error } = await supabase.from('categories').update({ is_active: !cat.is_active }).eq('id', cat.id)
+    if (error) showToast('Erro: ' + error.message, true)
+    else load()
+  }
+
   async function remove(id: string) {
     if (!confirm('Excluir categoria?')) return
-    await supabase.from('categories').delete().eq('id', id)
-    load()
+    const { error } = await supabase.from('categories').delete().eq('id', id)
+    if (error) showToast('Erro ao excluir: ' + error.message, true)
+    else load()
   }
 
   return (
     <div className="max-w-2xl">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold text-stone-800 mb-6">Categorias</h1>
 
       <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-3">
@@ -42,19 +82,21 @@ export default function AdminCategories() {
           value={newName}
           onChange={e => setNewName(e.target.value)}
           placeholder="Nome da categoria"
-          className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className={inputCls}
+          onKeyDown={e => e.key === 'Enter' && create()}
         />
         <input
           value={newDesc}
           onChange={e => setNewDesc(e.target.value)}
           placeholder="Descrição (opcional)"
-          className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className={inputCls}
         />
         <button
           onClick={create}
-          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700"
+          disabled={saving}
+          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-50"
         >
-          <Plus className="w-4 h-4" /> Criar
+          <Plus className="w-4 h-4" /> {saving ? 'Criando...' : 'Criar'}
         </button>
       </div>
 
@@ -63,15 +105,24 @@ export default function AdminCategories() {
           {cats.map(cat => (
             <div key={cat.id} className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-stone-800">{cat.name}</p>
+                <p className={`text-sm font-medium ${cat.is_active ? 'text-stone-800' : 'text-stone-400'}`}>{cat.name}</p>
                 <p className="text-xs text-stone-400">{cat.slug}{cat.description ? ` — ${cat.description}` : ''}</p>
               </div>
-              <button
-                onClick={() => remove(cat.id)}
-                className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => toggleActive(cat)}
+                  className={`text-xs px-2 py-1 rounded ${cat.is_active ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'}`}
+                  title={cat.is_active ? 'Desativar' : 'Ativar'}
+                >
+                  {cat.is_active ? 'Ativa' : 'Inativa'}
+                </button>
+                <button
+                  onClick={() => remove(cat.id)}
+                  className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           ))}
           {cats.length === 0 && <p className="text-stone-400 text-sm px-4 py-3">Nenhuma categoria cadastrada.</p>}

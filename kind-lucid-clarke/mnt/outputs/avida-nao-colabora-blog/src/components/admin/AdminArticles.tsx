@@ -36,13 +36,20 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('articles')
       .select('id, title, slug, status, category, created_at, published_at')
       .order('created_at', { ascending: false })
+    if (error) showToast('Erro ao carregar artigos: ' + error.message, true)
     setArticles(data || [])
     setLoading(false)
   }
@@ -50,26 +57,30 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
   useEffect(() => { load() }, [])
 
   async function duplicate(article: Article) {
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('articles')
       .select('*')
       .eq('id', article.id)
       .single()
-    if (!data) return
+    if (fetchError || !data) { showToast('Erro ao buscar artigo', true); return }
+
     const { id: _id, created_at: _c, updated_at: _u, published_at: _p, ...rest } = data as any
-    await supabase.from('articles').insert({
+    const { error } = await supabase.from('articles').insert({
       ...rest,
       title: `${data.title} (cópia)`,
       slug: `${data.slug}-copia-${Date.now()}`,
       status: 'draft',
+      published_at: null,
     })
-    load()
+    if (error) showToast('Erro ao duplicar: ' + error.message, true)
+    else { showToast('Artigo duplicado!'); load() }
   }
 
   async function deleteArticle(id: string) {
     if (!confirm('Tem certeza que deseja excluir este artigo?')) return
-    await supabase.from('articles').delete().eq('id', id)
-    load()
+    const { error } = await supabase.from('articles').delete().eq('id', id)
+    if (error) showToast('Erro ao excluir: ' + error.message, true)
+    else load()
   }
 
   const filtered = articles.filter(a => {
@@ -80,6 +91,12 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
 
   return (
     <div>
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Artigos</h1>
         <button
@@ -148,25 +165,13 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
-                      <button
-                        onClick={() => onEdit(article.id)}
-                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded"
-                        title="Editar"
-                      >
+                      <button onClick={() => onEdit(article.id)} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded" title="Editar">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => duplicate(article)}
-                        className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded"
-                        title="Duplicar"
-                      >
+                      <button onClick={() => duplicate(article)} className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded" title="Duplicar">
                         <Copy className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => deleteArticle(article.id)}
-                        className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded"
-                        title="Excluir"
-                      >
+                      <button onClick={() => deleteArticle(article.id)} className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded" title="Excluir">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

@@ -55,7 +55,8 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
     supabase
       .from('articles')
       .select('*')
-      .order('created_at', { ascending: false })
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
       .then(({ data }) => {
         setArticles(data || [])
         setFiltered(data || [])
