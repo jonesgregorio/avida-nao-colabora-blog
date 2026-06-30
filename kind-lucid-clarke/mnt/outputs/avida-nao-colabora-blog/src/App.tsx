@@ -32,6 +32,7 @@ import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
 import NotificationsPage from './components/NotificationsPage'
+import ForceChangePassword from './components/ForceChangePassword'
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
@@ -123,6 +124,11 @@ export default function App() {
         </div>
       </div>
     )
+  }
+
+  // Force password change if admin set a temporary password
+  if (user && profile?.must_change_password) {
+    return <ForceChangePassword userId={user.id} onDone={refreshProfile} />
   }
 
   if (view === 'auth') {

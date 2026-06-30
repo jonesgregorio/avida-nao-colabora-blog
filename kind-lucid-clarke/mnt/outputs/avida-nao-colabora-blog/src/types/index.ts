@@ -15,6 +15,7 @@ export interface Profile {
   role?: string | null
   communication_preference?: string
   notification_frequency?: string
+  must_change_password?: boolean
   created_at: string
   updated_at: string
 }
