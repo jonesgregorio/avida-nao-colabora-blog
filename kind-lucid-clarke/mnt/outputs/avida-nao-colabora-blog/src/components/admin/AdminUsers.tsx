@@ -12,6 +12,7 @@ interface UserRow {
   id: string
   user_id: string
   full_name: string | null
+  email: string | null
   plan: string
   role: string | null
   created_at: string
@@ -22,6 +23,17 @@ interface UserRow {
   admin_tags: string[] | null
   open_tickets?: number
   unread_notifs?: number
+}
+
+interface AdminSubscription {
+  id: string
+  plan_key: string
+  status: string
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  pending_plan: string | null
+  pending_plan_starts_at: string | null
 }
 
 interface TicketRow {
@@ -107,7 +119,7 @@ function timeSince(iso: string): string {
 
 const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
-type DrawerTab = 'resumo' | 'plano' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca'
+type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca'
 type ViewMode = 'list' | 'kanban'
 
 const KANBAN_COLUMNS = [
@@ -127,6 +139,11 @@ export default function AdminUsers() {
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('resumo')
 
   // Drawer data
+  const [adminSub, setAdminSub] = useState<AdminSubscription | null>(null)
+  const [adminSubLoading, setAdminSubLoading] = useState(false)
+  const [adminSubPlan, setAdminSubPlan] = useState('')
+  const [adminSubActing, setAdminSubActing] = useState(false)
+  const [adminSubMsg, setAdminSubMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [userTickets, setUserTickets] = useState<TicketRow[]>([])
   const [userNotifs, setUserNotifs] = useState<NotifRow[]>([])
   const [userNotes, setUserNotes] = useState<NoteRow[]>([])
@@ -189,7 +206,7 @@ export default function AdminUsers() {
     setLoading(true)
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('id, user_id, full_name, plan, role, created_at, account_status, unlimited_access, discount_percent, discount_fixed, admin_tags')
+      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, discount_percent, discount_fixed, admin_tags')
       .order('created_at', { ascending: false })
 
     if (!profileData) { setLoading(false); return }
@@ -264,6 +281,53 @@ export default function AdminUsers() {
     setLoadingDrawer(false)
   }
 
+  async function loadAdminSub(userId: string) {
+    setAdminSubLoading(true)
+    const { data } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()
+    setAdminSub(data as AdminSubscription | null)
+    if (data) setAdminSubPlan(data.plan_key)
+    setAdminSubLoading(false)
+  }
+
+  async function adminChangePlan(targetPlan: string, userId: string) {
+    setAdminSubActing(true)
+    setAdminSubMsg(null)
+    const oldPlan = selectedUser?.plan ?? 'free'
+    const { error } = await supabase.from('profiles').update({ plan: targetPlan }).eq('user_id', userId)
+    if (error) { setAdminSubMsg({ type: 'err', text: 'Erro ao alterar plano: ' + error.message }); setAdminSubActing(false); return }
+    await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
+    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: planReason || null })
+    await supabase.from('notifications').insert({ user_id: userId, title: 'Plano atualizado pelo suporte', body: `Seu plano foi alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.`, type: 'plan_change', is_read: false })
+    setUsers(u => u.map(r => r.user_id === userId ? { ...r, plan: targetPlan } : r))
+    setSelectedUser(s => s ? { ...s, plan: targetPlan } : s)
+    setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: planReason || 'admin_change', created_at: new Date().toISOString() }, ...prev])
+    setAdminSubMsg({ type: 'ok', text: `Plano alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.` })
+    loadAdminSub(userId)
+    setAdminSubActing(false)
+  }
+
+  async function adminCancelSub(userId: string) {
+    setAdminSubActing(true)
+    setAdminSubMsg(null)
+    await supabase.from('user_subscriptions').upsert({ user_id: userId, status: 'cancel_pending', cancel_at_period_end: true }, { onConflict: 'user_id' })
+    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: selectedUser?.plan, new_plan: 'free', change_type: 'cancel', changed_by: adminUser?.id ?? null, source: 'admin', notes: 'Cancelado pelo admin' })
+    await supabase.from('notifications').insert({ user_id: userId, title: 'Plano cancelado pelo suporte', body: 'Seu plano foi cancelado. Você continuará com acesso até o fim do ciclo atual.', type: 'plan_change', is_read: false })
+    setAdminSubMsg({ type: 'ok', text: 'Cancelamento agendado com sucesso.' })
+    loadAdminSub(userId)
+    setAdminSubActing(false)
+  }
+
+  async function adminReactivateSub(userId: string) {
+    setAdminSubActing(true)
+    setAdminSubMsg(null)
+    await supabase.from('user_subscriptions').update({ status: 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }).eq('user_id', userId)
+    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: selectedUser?.plan, new_plan: selectedUser?.plan, change_type: 'reactivate', changed_by: adminUser?.id ?? null, source: 'admin', notes: 'Reativado pelo admin' })
+    await supabase.from('notifications').insert({ user_id: userId, title: 'Assinatura reativada pelo suporte', body: 'Seu cancelamento foi removido. A assinatura continuará ativa normalmente.', type: 'plan_change', is_read: false })
+    setAdminSubMsg({ type: 'ok', text: 'Assinatura reativada com sucesso.' })
+    loadAdminSub(userId)
+    setAdminSubActing(false)
+  }
+
   function openDrawer(u: UserRow) {
     setSelectedUser(u)
     setDrawerTab('resumo')
@@ -289,7 +353,9 @@ export default function AdminUsers() {
     setMsgTitle(''); setMsgBody(''); setMsgType('admin_message')
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
+    setAdminSub(null); setAdminSubMsg(null); setAdminSubPlan(u.plan)
     loadDrawerData(u.user_id)
+    loadAdminSub(u.user_id)
   }
 
   function closeDrawer() { setSelectedUser(null) }
@@ -531,14 +597,17 @@ export default function AdminUsers() {
     }
   }
 
-  const filtered = users.filter(u =>
-    (u.full_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    u.user_id?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = users.filter(u => {
+    const q = search.toLowerCase()
+    return (u.full_name ?? '').toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q) ||
+      u.user_id?.toLowerCase().includes(q)
+  })
 
   const DRAWER_TABS: { key: DrawerTab; label: string }[] = [
     { key: 'resumo', label: 'Resumo' },
     { key: 'plano', label: 'Plano' },
+    { key: 'assinatura', label: 'Assinatura' },
     { key: 'acesso', label: 'Acesso' },
     { key: 'suporte', label: 'Suporte' },
     { key: 'notificacoes', label: 'Notificações' },
@@ -586,7 +655,7 @@ export default function AdminUsers() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por nome ou ID..."
+                placeholder="Buscar por nome, e-mail ou ID..."
                 className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
               />
             </div>
@@ -637,6 +706,7 @@ export default function AdminUsers() {
                         <p className="text-sm font-medium text-stone-800 truncate">{u.full_name || 'Sem nome'}</p>
                         {u.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
                       </div>
+                      {u.email && <p className="text-xs text-stone-400 truncate">{u.email}</p>}
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[u.plan] ?? 'bg-stone-100 text-stone-500'}`}>
                           {PLAN_LABELS[u.plan] ?? u.plan}
@@ -708,6 +778,7 @@ export default function AdminUsers() {
                                 <p className="text-xs font-semibold text-stone-800 truncate leading-tight">
                                   {u.full_name || 'Sem nome'}
                                 </p>
+                                {u.email && <p className="text-[10px] text-stone-400 truncate">{u.email}</p>}
                                 <p className="text-[10px] text-stone-400">{timeSince(u.created_at)}</p>
                               </div>
                               {u.role === 'admin' && <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />}
@@ -751,6 +822,9 @@ export default function AdminUsers() {
                   <p className="font-semibold text-stone-800">{selectedUser.full_name || 'Sem nome'}</p>
                   {selectedUser.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                 </div>
+                {selectedUser.email && (
+                  <p className="text-xs text-stone-500 truncate max-w-[280px]">{selectedUser.email}</p>
+                )}
                 <p className="text-xs text-stone-400 font-mono truncate max-w-[240px]">{selectedUser.user_id}</p>
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[selectedUser.plan] ?? 'bg-stone-100'}`}>
@@ -795,6 +869,7 @@ export default function AdminUsers() {
                     <div className="grid grid-cols-2 gap-3">
                       {[
                         ['Nome', selectedUser.full_name || '—'],
+                        ['E-mail', selectedUser.email || '—'],
                         ['Plano', PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan],
                         ['Perfil', selectedUser.role === 'admin' ? 'Admin' : 'Usuário'],
                         ['Cadastro', new Date(selectedUser.created_at).toLocaleDateString('pt-BR')],
@@ -918,6 +993,80 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Tab: Assinatura */}
+                {drawerTab === 'assinatura' && (
+                  <div className="space-y-4">
+                    {adminSubMsg && (
+                      <div className={`text-sm px-3 py-2 rounded-lg border ${adminSubMsg.type === 'ok' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                        {adminSubMsg.text}
+                      </div>
+                    )}
+                    {adminSubLoading ? (
+                      <div className="h-12 bg-stone-100 rounded-xl animate-pulse" />
+                    ) : (
+                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-semibold text-stone-700">Dados da assinatura</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {[
+                            ['Plano atual', PLAN_LABELS[selectedUser?.plan ?? ''] ?? selectedUser?.plan ?? '—'],
+                            ['Status', adminSub?.status ?? '—'],
+                            ['Cancelamento agendado', adminSub?.cancel_at_period_end ? 'Sim' : 'Não'],
+                            ['Plano pendente', adminSub?.pending_plan ? (PLAN_LABELS[adminSub.pending_plan] ?? adminSub.pending_plan) : '—'],
+                            ['Início do ciclo', adminSub?.current_period_start ? new Date(adminSub.current_period_start).toLocaleDateString('pt-BR') : '—'],
+                            ['Fim do ciclo', adminSub?.current_period_end ? new Date(adminSub.current_period_end).toLocaleDateString('pt-BR') : '—'],
+                          ].map(([label, value]) => (
+                            <div key={label} className="bg-white rounded-lg p-2 border border-stone-100">
+                              <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
+                              <p className="font-medium text-stone-700 text-xs">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                      <p className="text-xs font-semibold text-stone-700">Alterar plano (admin)</p>
+                      <div className="flex gap-2">
+                        <select
+                          value={adminSubPlan}
+                          onChange={e => setAdminSubPlan(e.target.value)}
+                          className={inputCls}
+                        >
+                          {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                        <button
+                          onClick={() => adminChangePlan(adminSubPlan, selectedUser!.user_id)}
+                          disabled={adminSubActing || adminSubPlan === selectedUser?.plan}
+                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors"
+                        >
+                          {adminSubActing ? '...' : 'Aplicar'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-stone-400">Altera o plano imediatamente, sem cobrança proporcional. Uma notificação é enviada ao usuário.</p>
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      {adminSub?.cancel_at_period_end ? (
+                        <button
+                          onClick={() => adminReactivateSub(selectedUser!.user_id)}
+                          disabled={adminSubActing}
+                          className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors"
+                        >
+                          Reativar assinatura
+                        </button>
+                      ) : selectedUser?.plan !== 'free' ? (
+                        <button
+                          onClick={() => adminCancelSub(selectedUser!.user_id)}
+                          disabled={adminSubActing}
+                          className="text-sm border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+                        >
+                          Agendar cancelamento
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 
