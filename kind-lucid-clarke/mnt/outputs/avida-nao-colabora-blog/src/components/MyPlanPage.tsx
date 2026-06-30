@@ -142,14 +142,13 @@ function totalDaysInCycle(start: string | null, end: string | null): number {
   return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000))
 }
 
-function calcEffectivePeriodEnd(sub: Subscription | null, profileCreatedAt: string | null | undefined): string {
+function calcEffectivePeriodEnd(sub: Subscription | null, planAnchor: Date): string {
   if (sub?.current_period_end) return sub.current_period_end
-  // Calcula o fim do ciclo atual com base na data de criação do perfil (ciclos de 30 dias)
-  const anchor = profileCreatedAt ? new Date(profileCreatedAt) : new Date()
+  // Calcula o fim do ciclo atual com base na data de ativação do plano (ciclos de 30 dias)
   const msPerCycle = 30 * 86400000
-  const elapsed = Date.now() - anchor.getTime()
+  const elapsed = Date.now() - planAnchor.getTime()
   const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
-  return new Date(anchor.getTime() + (cyclesDone + 1) * msPerCycle).toISOString()
+  return new Date(planAnchor.getTime() + (cyclesDone + 1) * msPerCycle).toISOString()
 }
 
 function lostFeatures(fromPlan: string, toPlan: string): string[] {
@@ -169,6 +168,7 @@ function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscri
 export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRefreshProfile }: Props) {
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
+  const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string } | null>(null)
   const [acting, setActing] = useState(false)
@@ -183,19 +183,48 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
 
   async function loadData() {
     setLoading(true)
-    const [subRes, histRes] = await Promise.all([
+    const cp = profile?.plan ?? 'free'
+    const [subRes, histRes, planHistRes] = await Promise.all([
       supabase.from('user_subscriptions').select('*').eq('user_id', user!.id).maybeSingle(),
       supabase.from('plan_change_history').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(20),
+      // Busca a data em que o plano atual foi ativado
+      supabase.from('plan_change_history')
+        .select('created_at')
+        .eq('user_id', user!.id)
+        .eq('new_plan', cp)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ])
     setSub(subRes.data as Subscription | null)
     setHistory((histRes.data as PlanChangeRecord[]) ?? [])
+    // Data de ativação: registro no plan_change_history, ou user_plan_history como fallback
+    if (planHistRes.data?.created_at) {
+      setPlanActivatedAt(planHistRes.data.created_at)
+    } else {
+      // Fallback: busca em user_plan_history (tabela anterior)
+      const { data: oldHist } = await supabase
+        .from('user_plan_history')
+        .select('created_at')
+        .eq('user_id', user!.id)
+        .eq('new_plan', cp)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setPlanActivatedAt(oldHist?.created_at ?? null)
+    }
     setLoading(false)
+  }
+
+  // Âncora do ciclo: data de ativação do plano atual. Fallback: hoje.
+  function getPlanAnchor(): Date {
+    if (planActivatedAt) return new Date(planActivatedAt)
+    return new Date() // sem histórico: ciclo começa agora
   }
 
   async function getOrCreateSub(): Promise<Subscription | null> {
     if (sub) return sub
-    // Calcula ciclo baseado na data de criação do perfil (mesma lógica do calcEffectivePeriodEnd)
-    const anchor = profile?.created_at ? new Date(profile.created_at) : new Date()
+    const anchor = getPlanAnchor()
     const msPerCycle = 30 * 86400000
     const elapsed = Date.now() - anchor.getTime()
     const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
@@ -386,7 +415,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 text-purple-500 animate-spin" /></div>
   }
 
-  const effectivePeriodEnd = calcEffectivePeriodEnd(sub, profile?.created_at)
+  const effectivePeriodEnd = calcEffectivePeriodEnd(sub, getPlanAnchor())
 
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
   const isDowngrade = (plan: string) => PLAN_ORDER.indexOf(plan) < PLAN_ORDER.indexOf(currentPlan)
