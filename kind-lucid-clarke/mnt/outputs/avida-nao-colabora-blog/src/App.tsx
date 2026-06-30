@@ -126,6 +126,7 @@ export default function App() {
             user={user}
             plan={profile?.plan || 'free'}
             onBack={() => setView('home')}
+            onNavigatePricing={() => navigate('pricing')}
             promptContext={diaryPromptContext}
             onClearPromptContext={() => setDiaryPromptContext(null)}
           />

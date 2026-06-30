@@ -17,7 +17,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
     { label: 'Blog', id: 'articles' },
     { label: 'Diário', id: 'diary' },
     { label: 'Trilhas', id: 'trails' },
-    { label: 'Questionários', id: 'questionnaire' },
+    { label: 'Questionários', id: 'questionarios' },
     { label: 'Planos', id: 'pricing' },
     { label: 'Sobre', id: 'about' },
   ]

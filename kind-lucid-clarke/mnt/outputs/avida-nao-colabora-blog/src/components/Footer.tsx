@@ -31,7 +31,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                 { label: 'Início', id: 'home' },
                 { label: 'Blog', id: 'articles' },
                 { label: 'Diário', id: 'diary' },
-                { label: 'Questionários', id: 'questionnaire' },
+                { label: 'Questionários', id: 'questionarios' },
                 { label: 'Planos', id: 'pricing' },
                 { label: 'Sobre', id: 'about' },
                 { label: 'Contato', id: 'contact' },

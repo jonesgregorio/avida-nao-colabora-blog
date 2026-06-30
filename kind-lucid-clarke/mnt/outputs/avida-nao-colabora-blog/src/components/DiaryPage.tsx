@@ -21,6 +21,7 @@ interface DiaryPageProps {
   user: any
   plan: Plan
   onBack: () => void
+  onNavigatePricing?: () => void
   promptContext?: {
     prompt: string
     articleTitle: string
@@ -51,7 +52,7 @@ function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: str
   )
 }
 
-export default function DiaryPage({ user, plan, onBack, promptContext, onClearPromptContext }: DiaryPageProps) {
+export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promptContext, onClearPromptContext }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -267,7 +268,7 @@ export default function DiaryPage({ user, plan, onBack, promptContext, onClearPr
           </div>
           {freeAtLimit && (
             <p className="text-xs text-sage-600 mt-2">
-              Você usou todas as entradas do mês. <button className="text-purple-600 underline font-medium">Faça upgrade para continuar registrando.</button>
+              Você usou todas as entradas do mês. <button onClick={onNavigatePricing} className="text-purple-600 underline font-medium">Faça upgrade para continuar registrando.</button>
             </p>
           )}
         </div>
