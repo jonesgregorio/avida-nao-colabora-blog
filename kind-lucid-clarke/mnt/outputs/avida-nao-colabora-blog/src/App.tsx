@@ -29,6 +29,8 @@ import QuestionnairePlayer from './components/QuestionnairePlayer'
 import DailyContentWidget from './components/DailyContentWidget'
 import ContactPage from './components/ContactPage'
 import SuccessPage from './components/SuccessPage'
+import SupportPage from './components/SupportPage'
+import SupportTicketDetail from './components/SupportTicketDetail'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -37,13 +39,15 @@ export default function App() {
     const v = params.get('view') as View
     const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
       'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
-      'articles','article','responsibility','trails','saved','admin','contact','success']
+      'articles','article','responsibility','trails','saved','admin','contact','success',
+      'support','support-ticket']
     return valid.includes(v) ? v : 'home'
   }
   const [view, setView] = useState<View>(initialView)
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(null)
+  const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(null)
   const [diaryPromptContext, setDiaryPromptContext] = useState<{
     prompt: string
     articleTitle: string
@@ -61,6 +65,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
+      'support', 'support-ticket',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -371,6 +376,40 @@ export default function App() {
         onNavigateHome={() => navigate('home')}
         onRefreshProfile={refreshProfile}
       />
+    )
+  }
+
+  if (view === 'support') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <SupportPage
+            user={user}
+            profile={profile}
+            navigate={navigate}
+            onBack={() => navigate('home')}
+            onOpenTicket={(id) => { setActiveSupportTicketId(id); setView('support-ticket') }}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'support-ticket' && activeSupportTicketId) {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50 pt-2">
+          <SupportTicketDetail
+            ticketId={activeSupportTicketId}
+            user={user}
+            onBack={() => { setActiveSupportTicketId(null); navigate('support') }}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
     )
   }
 
