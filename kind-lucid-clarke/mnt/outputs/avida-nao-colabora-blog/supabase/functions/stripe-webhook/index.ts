@@ -7,9 +7,9 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 
 // Mapeia Price ID → nome do plano interno
 const PLAN_BY_PRICE: Record<string, string> = {
-  [Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || '']: 'essential',
-  [Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || '']: 'therapeutic',
-  [Deno.env.get('STRIPE_PRICE_PLUS')         || '']: 'therapeutic-plus',
+  [Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || 'price_1To2n05xvJV4HLHz8ym64uYH']: 'essential',
+  [Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || 'price_1To2n15xvJV4HLHzqQWylm4W']: 'therapeutic',
+  [Deno.env.get('STRIPE_PRICE_PLUS')         || 'price_1To2n15xvJV4HLHz2BoMO7ie']: 'therapeutic-plus',
 }
 
 Deno.serve(async (req) => {

@@ -5,11 +5,10 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
-// Price IDs criados no painel do Stripe (dashboard.stripe.com → Produtos)
 const PRICE_IDS: Record<string, string> = {
-  essential:          Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || '',
-  therapeutic:        Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || '',
-  'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS')        || '',
+  essential:          Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || 'price_1To2n05xvJV4HLHz8ym64uYH',
+  therapeutic:        Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || 'price_1To2n15xvJV4HLHzqQWylm4W',
+  'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS')        || 'price_1To2n15xvJV4HLHz2BoMO7ie',
 }
 
 const cors = {
