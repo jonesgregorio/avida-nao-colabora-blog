@@ -512,7 +512,7 @@ export default function App() {
             profile={profile}
             onBack={() => navigate('home')}
             onNavigateAuth={() => navigate('auth')}
-            onRefreshProfile={() => { /* profile refreshes via useAuth hook */ }}
+            onRefreshProfile={refreshProfile}
           />
         </main>
         <Footer onNavigate={navigate} />

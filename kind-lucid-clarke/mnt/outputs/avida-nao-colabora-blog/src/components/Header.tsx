@@ -108,14 +108,19 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                 <Map className="w-4 h-4" />
               </button>
               <button
+                onClick={() => handleNav('my-plan')}
+                className="flex items-center gap-1.5 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-full transition-colors"
+                title="Meu Plano / Assinatura"
+              >
+                <Crown className="w-4 h-4" />
+                <span>Meu Plano</span>
+              </button>
+              <button
                 onClick={() => handleNav('profile')}
                 className="flex items-center gap-2 bg-sage-100 hover:bg-sage-200 text-sage-800 text-sm px-3 py-1.5 rounded-full transition-colors"
               >
                 <User className="w-4 h-4" />
                 <span>{(profile as any)?.preferred_name || (profile as any)?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'Perfil'}</span>
-                {profile?.plan !== 'free' && (
-                  <Crown className="w-3 h-3 text-sand-500" />
-                )}
               </button>
               <button
                 onClick={onSignOut}
