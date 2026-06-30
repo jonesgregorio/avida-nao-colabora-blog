@@ -152,9 +152,17 @@ function calcEffectivePeriodEnd(sub: Subscription | null, planAnchor: Date): str
 }
 
 function lostFeatures(fromPlan: string, toPlan: string): string[] {
-  const from = PLAN_FEATURES[fromPlan] ?? []
-  const to = PLAN_FEATURES[toPlan] ?? []
-  return from.filter(f => !to.includes(f) && !f.startsWith('Tudo do'))
+  const fromIdx = PLAN_ORDER.indexOf(fromPlan)
+  const toIdx = PLAN_ORDER.indexOf(toPlan)
+  if (fromIdx <= toIdx) return []
+  // Acumula todos os benefícios dos planos pagos perdidos, do mais alto até o mais baixo (exclusive toPlan)
+  const lost: string[] = []
+  for (let i = toIdx + 1; i <= fromIdx; i++) {
+    for (const f of PLAN_FEATURES[PLAN_ORDER[i]] ?? []) {
+      if (!f.startsWith('Tudo do') && !lost.includes(f)) lost.push(f)
+    }
+  }
+  return lost
 }
 
 function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null): number {
