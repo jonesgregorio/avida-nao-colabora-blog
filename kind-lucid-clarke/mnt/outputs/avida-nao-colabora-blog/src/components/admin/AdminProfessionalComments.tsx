@@ -65,11 +65,14 @@ export default function AdminProfessionalComments() {
     if (!selectedUser) return
     setLoadingComments(true)
     supabase.from('professional_comments')
-      .select('id,user_id,comment_text,report_month,professional_name,created_at')
+      .select('id,user_id,comment_text,comment,report_month,professional_name,created_at')
       .eq('user_id', selectedUser.user_id)
       .order('report_month', { ascending: false })
       .then(({ data }) => {
-        setComments((data as Comment[]) ?? [])
+        setComments(((data as (Comment & { comment?: string })[]) ?? []).map(c => ({
+          ...c,
+          comment_text: c.comment_text || c.comment || '',
+        })))
         setLoadingComments(false)
       })
   }, [selectedUser])
@@ -82,6 +85,7 @@ export default function AdminProfessionalComments() {
 
     const { error } = await supabase.from('professional_comments').insert({
       user_id: selectedUser.user_id,
+      comment: commentText.trim(),
       comment_text: commentText.trim(),
       report_month: reportMonth,
       professional_name: professionalName.trim() || null,
@@ -107,10 +111,13 @@ export default function AdminProfessionalComments() {
     setCommentText('')
     // Reload comments
     const { data } = await supabase.from('professional_comments')
-      .select('id,user_id,comment_text,report_month,professional_name,created_at')
+      .select('id,user_id,comment_text,comment,report_month,professional_name,created_at')
       .eq('user_id', selectedUser.user_id)
       .order('report_month', { ascending: false })
-    setComments((data as Comment[]) ?? [])
+    setComments(((data as (Comment & { comment?: string })[]) ?? []).map(c => ({
+      ...c,
+      comment_text: c.comment_text || c.comment || '',
+    })))
     setSubmitting(false)
   }
 

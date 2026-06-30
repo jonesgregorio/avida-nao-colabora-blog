@@ -14,6 +14,7 @@ interface Props {
 interface Comment {
   id: string
   comment_text: string
+  comment?: string
   report_month: string
   professional_name: string | null
   created_at: string
@@ -34,11 +35,14 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
     if (!user || !allowed) { setLoading(false); return }
     supabase
       .from('professional_comments')
-      .select('id,comment_text,report_month,professional_name,created_at')
+      .select('id,comment_text,comment,report_month,professional_name,created_at')
       .eq('user_id', user.id)
       .order('report_month', { ascending: false })
       .then(({ data }) => {
-        setComments((data as Comment[]) ?? [])
+        setComments(((data as Comment[]) ?? []).map(c => ({
+          ...c,
+          comment_text: c.comment_text || c.comment || '',
+        })))
         setLoading(false)
       })
   }, [user])
