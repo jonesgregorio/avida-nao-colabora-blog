@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Check, Crown, ChevronLeft, Loader2, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES } from '../lib/officialPlans'
 
 interface Props {
   user: User | null
@@ -35,68 +36,17 @@ interface PlanChangeRecord {
   created_at: string
 }
 
-const PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  essential: 19.9,
-  therapeutic: 39.9,
-  'therapeutic-plus': 79.9,
-}
+const PLAN_PRICES: Record<string, number> = Object.fromEntries(
+  OFFICIAL_PLANS.map(p => [p.key, p.priceValue])
+)
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito',
-  essential: 'Essencial',
-  therapeutic: 'Terapêutico',
-  'therapeutic-plus': 'Terapêutico Plus',
-}
+const PLAN_LABELS: Record<string, string> = Object.fromEntries(
+  OFFICIAL_PLANS.map(p => [p.key, p.label])
+)
 
-const PLAN_ORDER = ['free', 'essential', 'therapeutic', 'therapeutic-plus']
+const PLAN_ORDER: string[] = OFFICIAL_PLANS.map(p => p.key)
 
-const PLAN_FEATURES: Record<string, string[]> = {
-  free: [
-    'Artigos gratuitos',
-    'Questionário básico de autoavaliação',
-    'Diário de bem-estar com até 5 entradas por mês',
-    'Registro simples de humor',
-    'Mini-desafios quinzenais automatizados',
-    'Histórico limitado',
-    'Conteúdos com anúncios',
-  ],
-  essential: [
-    'Tudo do Gratuito',
-    'Diário ilimitado',
-    'Histórico completo',
-    'Avaliações semanais',
-    'Gráficos simples de evolução',
-    'Meditações guiadas em texto',
-    'Notas guiadas no diário',
-    'Relatórios mensais em PDF',
-    'Resumo do diário, humor e sintomas',
-    'Destaques de evolução, sem análise clínica',
-    'Biblioteca de exercícios emocionais',
-    'Sem anúncios',
-    'Suporte por e-mail prioritário',
-  ],
-  therapeutic: [
-    'Tudo do Essencial',
-    'Questionário aprofundado',
-    'Plano de autocuidado personalizado',
-    'Diário avançado',
-    'Marcadores extras: sono, depressão, medo, compulsão, gatilhos, ansiedade, autoestima e energia',
-    'Gráficos comparativos mensais',
-    'Relatório mensal avançado',
-    'Recomendações personalizadas de conteúdo',
-    'Plano semanal de autocuidado',
-    'Acesso antecipado a novos conteúdos',
-    'Orientação mensal por mensagem',
-  ],
-  'therapeutic-plus': [
-    'Tudo do Terapêutico',
-    '1 sessão mensal de 30 minutos com Psicanalista',
-    'Revisão mensal do plano de autocuidado',
-    'Comentário individual sobre o relatório do mês',
-    'Suporte prioritário máximo',
-  ],
-}
+const PLAN_FEATURES = PUBLIC_PLAN_FEATURES as Record<string, string[]>
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'border-stone-300 bg-stone-50',

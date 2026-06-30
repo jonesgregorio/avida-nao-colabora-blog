@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
+import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES } from '../lib/officialPlans'
 
 interface PricingProps {
   user: unknown
@@ -29,73 +30,26 @@ interface PlanConfig {
   features: Feature[]
 }
 
-const STATIC_PLANS: PlanConfig[] = [
-  {
-    id: 'free', name: 'Gratuito', price: 'R$ 0', period: 'para sempre',
-    tagline: 'Para começar a se conhecer melhor, sem custo.',
-    color: 'border-sand-200', buttonColor: 'bg-sand-200 hover:bg-sand-300 text-sand-800', buttonLabel: 'Começar grátis',
-    features: [
-      { text: 'Artigos gratuitos', included: true },
-      { text: 'Questionário básico de autoavaliação', included: true },
-      { text: 'Diário de bem-estar com até 5 entradas por mês', included: true },
-      { text: 'Registro simples de humor', included: true },
-      { text: 'Mini-desafios quinzenais automatizados', included: true },
-      { text: 'Histórico limitado', included: true },
-      { text: 'Conteúdos com anúncios', included: true, note: true },
-    ],
-  },
-  {
-    id: 'essential', name: 'Essencial', price: 'R$ 19,90', period: '/mês',
-    tagline: 'Para acompanhar sua evolução emocional com continuidade.',
-    color: 'border-sage-300', buttonColor: 'bg-sage-600 hover:bg-sage-700 text-white', buttonLabel: 'Assinar Essencial',
-    features: [
-      { text: 'Tudo do Gratuito', included: true },
-      { text: 'Diário ilimitado', included: true },
-      { text: 'Histórico completo', included: true },
-      { text: 'Avaliações semanais', included: true },
-      { text: 'Gráficos simples de evolução', included: true },
-      { text: 'Meditações guiadas em texto', included: true },
-      { text: 'Notas guiadas no diário', included: true },
-      { text: 'Relatórios mensais em PDF', included: true },
-      { text: 'Resumo do diário, humor e sintomas', included: true },
-      { text: 'Destaques de evolução, sem análise clínica', included: true },
-      { text: 'Biblioteca de exercícios emocionais', included: true },
-      { text: 'Sem anúncios', included: true },
-      { text: 'Suporte por e-mail prioritário', included: true },
-    ],
-  },
-  {
-    id: 'therapeutic', name: 'Terapêutico', price: 'R$ 39,90', period: '/mês',
-    tagline: 'Para uma experiência personalizada de autocuidado.',
-    color: 'border-purple-400', badge: 'Mais recomendado', badgeColor: 'bg-purple-600 text-white',
-    buttonColor: 'bg-purple-600 hover:bg-purple-700 text-white', buttonLabel: 'Assinar Terapêutico',
-    features: [
-      { text: 'Tudo do Essencial', included: true },
-      { text: 'Questionário aprofundado', included: true },
-      { text: 'Plano de autocuidado personalizado', included: true },
-      { text: 'Diário avançado', included: true },
-      { text: 'Marcadores extras: sono, depressão, medo, compulsão, gatilhos, ansiedade, autoestima e energia', included: true },
-      { text: 'Gráficos comparativos mensais', included: true },
-      { text: 'Relatório mensal avançado', included: true },
-      { text: 'Recomendações personalizadas de conteúdo', included: true },
-      { text: 'Plano semanal de autocuidado', included: true },
-      { text: 'Acesso antecipado a novos conteúdos', included: true },
-      { text: 'Orientação mensal por mensagem', included: true },
-    ],
-  },
-  {
-    id: 'therapeutic-plus', name: 'Terapêutico Plus', price: 'R$ 79,90', period: '/mês',
-    tagline: 'Para quem deseja acompanhamento individual mensal.',
-    color: 'border-ocean-300', buttonColor: 'bg-ocean-600 hover:bg-ocean-700 text-white', buttonLabel: 'Assinar Plus',
-    features: [
-      { text: 'Tudo do Terapêutico', included: true },
-      { text: '1 sessão mensal de 30 minutos com Psicanalista', included: true },
-      { text: 'Revisão mensal do plano de autocuidado', included: true },
-      { text: 'Comentário individual sobre o relatório do mês', included: true },
-      { text: 'Suporte prioritário máximo', included: true },
-    ],
-  },
-]
+const PLAN_STYLES: Record<string, { color: string; badge?: string; badgeColor?: string; buttonColor: string; buttonLabel: string }> = {
+  free:              { color: 'border-sand-200',   buttonColor: 'bg-sand-200 hover:bg-sand-300 text-sand-800',       buttonLabel: 'Começar grátis' },
+  essential:         { color: 'border-sage-300',   buttonColor: 'bg-sage-600 hover:bg-sage-700 text-white',          buttonLabel: 'Assinar Essencial' },
+  therapeutic:       { color: 'border-purple-400', badge: 'Mais recomendado', badgeColor: 'bg-purple-600 text-white', buttonColor: 'bg-purple-600 hover:bg-purple-700 text-white', buttonLabel: 'Assinar Terapêutico' },
+  'therapeutic-plus':{ color: 'border-ocean-300',  buttonColor: 'bg-ocean-600 hover:bg-ocean-700 text-white',        buttonLabel: 'Assinar Plus' },
+}
+
+const STATIC_PLANS: PlanConfig[] = OFFICIAL_PLANS.map(p => ({
+  id: p.key,
+  name: p.label,
+  price: p.price,
+  period: p.period,
+  tagline: p.tagline,
+  ...PLAN_STYLES[p.key],
+  features: PUBLIC_PLAN_FEATURES[p.key].map((text, i) => ({
+    text,
+    included: true,
+    note: p.key === 'free' && i === PUBLIC_PLAN_FEATURES[p.key].length - 1,
+  })),
+}))
 
 export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
