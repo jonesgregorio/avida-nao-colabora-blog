@@ -31,8 +31,11 @@ END;
 $$;
 
 -- 3. Set a user's password directly (admin sets temporary password)
+-- pgcrypto lives in the extensions schema on Supabase
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 CREATE OR REPLACE FUNCTION admin_set_user_password(target_user_id uuid, new_password text)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
   IF NOT is_admin() THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   IF new_password IS NULL OR length(trim(new_password)) < 8 THEN
@@ -40,7 +43,7 @@ BEGIN
   END IF;
   UPDATE auth.users
   SET
-    encrypted_password = crypt(new_password, gen_salt('bf')),
+    encrypted_password = extensions.crypt(new_password, extensions.gen_salt('bf')),
     updated_at = NOW()
   WHERE id = target_user_id;
 END;
