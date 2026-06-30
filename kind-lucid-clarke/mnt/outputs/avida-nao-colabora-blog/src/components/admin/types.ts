@@ -22,3 +22,4 @@ export type AdminView =
   | 'logs'
   | 'professionals'
   | 'financial'
+  | 'professional-comments'

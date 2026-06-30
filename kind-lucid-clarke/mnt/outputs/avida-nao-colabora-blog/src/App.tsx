@@ -33,13 +33,15 @@ import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
 import NotificationsPage from './components/NotificationsPage'
 import ForceChangePassword from './components/ForceChangePassword'
+import MonthlyGuidancePage from './components/MonthlyGuidancePage'
+import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
   'home','auth','diary','profile','meditations','challenges',
   'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','trails','saved','admin','contact','success',
-  'support','support-ticket','notifications',
+  'support','support-ticket','notifications','monthly-guidance','professional-comments',
 ]
 
 function restoreNav() {
@@ -98,7 +100,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
-      'support', 'support-ticket', 'notifications',
+      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -463,6 +465,42 @@ export default function App() {
     )
   }
 
+  if (view === 'monthly-guidance') {
+    if (!user) { navigate('auth'); return null }
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <MonthlyGuidancePage
+            user={user}
+            profile={profile}
+            onBack={() => navigate('home')}
+            onNavigatePricing={() => navigate('pricing')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'professional-comments') {
+    if (!user) { navigate('auth'); return null }
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50 max-w-2xl mx-auto px-4 py-8">
+          <ProfessionalCommentsSection
+            user={user}
+            profile={profile}
+            onNavigateDiary={() => navigate('diary')}
+            onNavigatePricing={() => navigate('pricing')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   if (view === 'admin') {
     return <AdminPanel />
   }
@@ -525,6 +563,22 @@ export default function App() {
                   className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
                 >
                   📋 Questionário Aprofundado
+                </button>
+              )}
+              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
+                <button
+                  onClick={() => navigate('monthly-guidance')}
+                  className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
+                >
+                  💬 Orientação Mensal
+                </button>
+              )}
+              {profile.plan === 'therapeutic-plus' && (
+                <button
+                  onClick={() => navigate('professional-comments')}
+                  className="text-sm bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-full hover:bg-amber-100 transition-colors"
+                >
+                  ⭐ Comentários do Profissional
                 </button>
               )}
             </div>

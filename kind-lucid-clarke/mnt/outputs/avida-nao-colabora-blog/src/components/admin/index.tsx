@@ -25,6 +25,7 @@ import AdminPermissions from './AdminPermissions'
 import AdminLogs from './AdminLogs'
 import AdminProfessionals from './AdminProfessionals'
 import AdminFinancial from './AdminFinancial'
+import AdminProfessionalComments from './AdminProfessionalComments'
 
 export type { AdminView } from './types'
 
@@ -81,6 +82,7 @@ export default function AdminPanel() {
       case 'logs':           return <AdminLogs />
       case 'professionals':  return <AdminProfessionals />
       case 'financial':      return <AdminFinancial />
+      case 'professional-comments': return <AdminProfessionalComments />
       default:               return <AdminDashboard onNavigate={setView} />
     }
   }

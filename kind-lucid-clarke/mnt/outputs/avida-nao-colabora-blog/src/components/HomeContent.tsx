@@ -161,11 +161,11 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
               planColor: 'bg-purple-100 text-purple-700',
             },
             {
-              icon: '🌟',
-              title: 'Preparação para sessão',
-              desc: 'Organize o que você quer falar na sua próxima sessão com o terapeuta.',
-              plan: 'Plus',
-              planColor: 'bg-amber-100 text-amber-700',
+              icon: '💬',
+              title: 'Orientação mensal',
+              desc: 'Envie uma mensagem mensal e receba orientação de apoio dentro do site.',
+              plan: 'Terapêutico',
+              planColor: 'bg-purple-100 text-purple-700',
             },
           ].map((resource, i) => (
             <div

@@ -81,19 +81,12 @@ const STATUS_TABS = [
   { key: 'closed', label: 'Fechados' },
 ]
 
-const REPLY_TEMPLATES = [
-  { label: 'Recebemos sua solicitação', text: 'Olá! Recebemos sua solicitação e ela já está registrada por aqui.\n\nVou analisar as informações com atenção e te retornar assim que possível.\n\nEnquanto isso, você pode acompanhar o andamento por esta conversa dentro do site.' },
-  { label: 'Precisamos de mais informações', text: 'Olá! Para eu conseguir te ajudar melhor, preciso de mais algumas informações.\n\nVocê pode me enviar mais detalhes sobre o que aconteceu? Se possível, informe:\n- em qual página ou recurso ocorreu;\n- o que você tentou fazer;\n- se apareceu alguma mensagem de erro;\n- se o problema aconteceu no celular ou computador.\n\nAssim consigo analisar com mais precisão.' },
-  { label: 'Problema técnico em análise', text: 'Olá! Obrigado por avisar.\n\nEsse comportamento parece estar relacionado a uma instabilidade ou problema técnico. Vou verificar com mais cuidado e acompanhar por aqui.\n\nAssim que eu tiver uma atualização, te respondo nesta mesma solicitação.' },
-  { label: 'Problema resolvido', text: 'Olá! Fizemos uma verificação e o problema informado foi corrigido.\n\nVocê pode testar novamente, por favor?\n\nCaso ainda perceba algo errado, responda esta solicitação com mais detalhes para que eu continue acompanhando.' },
-  { label: 'Dúvida sobre plano', text: 'Olá! Vou te ajudar com sua dúvida sobre os planos.\n\nCada plano libera recursos diferentes dentro do site. O plano Gratuito oferece uma experiência inicial, enquanto os planos pagos liberam mais recursos, limites maiores e funcionalidades extras.\n\nSe você me disser qual recurso quer usar, eu consigo te orientar sobre qual plano faz mais sentido para o seu caso.' },
-  { label: 'Recurso disponível em outro plano', text: 'Olá! Esse recurso faz parte de um plano superior ao seu plano atual.\n\nVocê ainda pode continuar usando os recursos disponíveis no seu plano, mas para acessar essa funcionalidade específica será necessário fazer upgrade.\n\nSe quiser, posso te explicar a diferença entre os planos e te ajudar a escolher a melhor opção.' },
-  { label: 'Solicitação de cancelamento', text: 'Olá! Recebi sua solicitação de cancelamento.\n\nVou verificar as informações da sua assinatura e te orientar sobre os próximos passos.\n\nSe puder, me diga também o motivo do cancelamento. Isso nos ajuda a melhorar o serviço.' },
-  { label: 'Pagamento ou assinatura', text: 'Olá! Vou te ajudar com sua assinatura.\n\nPara analisar melhor, me informe o que aconteceu:\n- pagamento não aprovado;\n- cobrança duplicada;\n- plano não liberado;\n- desconto não aplicado;\n- dúvida sobre renovação;\n- cancelamento.\n\nCom essas informações, consigo direcionar melhor o atendimento.' },
-  { label: 'Privacidade e dados', text: 'Olá! Entendo sua preocupação com privacidade.\n\nAs informações registradas no site devem ser tratadas com cuidado e usadas apenas para melhorar sua experiência dentro da plataforma.\n\nVou verificar sua solicitação e te orientar da forma mais clara possível.' },
-  { label: 'Encerramento cordial', text: 'Olá! Como não tivemos novas mensagens por aqui e a solicitação parece ter sido resolvida, vou encerrar este atendimento.\n\nSe precisar de ajuda novamente, você pode abrir uma nova solicitação pelo Fale Conosco/Suporte dentro do site.' },
-  { label: 'Atendimento prioritário Plus', text: 'Olá! Vi que você está no plano Terapêutico Plus, então sua solicitação será tratada com prioridade.\n\nVou analisar o caso com atenção e te retornar por aqui assim que possível.' },
-  { label: 'Não consegui reproduzir o erro', text: 'Olá! Fiz alguns testes, mas por enquanto não consegui reproduzir o erro informado.\n\nVocê pode me enviar mais detalhes, como:\n- print da tela, se possível;\n- passo a passo do que você fez;\n- navegador ou aparelho usado;\n- horário aproximado em que aconteceu.\n\nCom isso, consigo investigar melhor.' },
+// Templates are loaded from DB (support_reply_templates). Fallback below.
+const REPLY_TEMPLATES_FALLBACK = [
+  { id: 'f1', title: 'Recebemos sua solicitação', category: 'Boas-vindas', body: 'Olá! Recebemos sua solicitação e ela já está registrada por aqui.\n\nVou analisar as informações com atenção e te retornar assim que possível.\n\nEnquanto isso, você pode acompanhar o andamento por esta conversa dentro do site.' },
+  { id: 'f2', title: 'Precisamos de mais informações', category: 'Suporte técnico', body: 'Olá! Para eu conseguir te ajudar melhor, preciso de mais algumas informações.\n\nVocê pode me enviar mais detalhes sobre o que aconteceu? Se possível, informe:\n- em qual página ou recurso ocorreu;\n- o que você tentou fazer;\n- se apareceu alguma mensagem de erro;\n- se o problema aconteceu no celular ou computador.\n\nAssim consigo analisar com mais precisão.' },
+  { id: 'f3', title: 'Diferença entre os planos', category: 'Planos', body: 'Olá! Os planos foram pensados para diferentes níveis de uso dentro do site.\n\nO Gratuito permite começar com artigos, questionário básico, diário limitado, registro simples de humor e mini-desafios.\n\nO Essencial libera uso contínuo, com diário ilimitado, histórico completo, avaliações semanais, gráficos simples, relatórios mensais, meditações, notas guiadas e biblioteca de exercícios.\n\nO Terapêutico adiciona uma experiência mais personalizada, com questionário aprofundado, plano de autocuidado, diário avançado, marcadores extras, recomendações, plano semanal e orientação mensal por mensagem.\n\nO Terapêutico Plus inclui o Terapêutico e acrescenta 1 sessão mensal de 30 minutos com Psicanalista, revisão mensal do plano de autocuidado, comentário individual sobre o relatório do mês e suporte prioritário máximo.' },
+  { id: 'f4', title: 'Encerramento cordial', category: 'Encerramento', body: 'Olá! Como não tivemos novas mensagens por aqui e a solicitação parece ter sido resolvida, vou encerrar este atendimento.\n\nSe precisar de ajuda novamente, você pode abrir uma nova solicitação pelo Suporte dentro do site.' },
 ]
 
 function timeAgo(iso: string): string {
@@ -162,6 +155,13 @@ const KANBAN_COLUMNS = [
   { key: 'resolved', label: 'Resolvido', color: 'bg-green-100 text-green-700' },
 ]
 
+interface ReplyTemplate {
+  id: string
+  title: string
+  category: string
+  body: string
+}
+
 export default function AdminSupport() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -181,6 +181,17 @@ export default function AdminSupport() {
   const [isInternal, setIsInternal] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState('')
+
+  const [templates, setTemplates] = useState<ReplyTemplate[]>(REPLY_TEMPLATES_FALLBACK)
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templateCategory, setTemplateCategory] = useState('')
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false)
+
+  useEffect(() => {
+    supabase.from('support_reply_templates').select('id,title,category,body').eq('active', true).order('category').order('title').then(({ data }) => {
+      if (data && data.length > 0) setTemplates(data as ReplyTemplate[])
+    })
+  }, [])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -763,26 +774,65 @@ export default function AdminSupport() {
             ) : (
               <>
                 {/* Template selector */}
-                <div className="mb-2 relative">
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedTemplate}
-                      onChange={e => {
-                        setSelectedTemplate(e.target.value)
-                        if (e.target.value) {
-                          const tpl = REPLY_TEMPLATES.find(t => t.label === e.target.value)
-                          if (tpl) setReplyContent(tpl.text)
-                        }
-                      }}
-                      className="flex-1 text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300"
-                    >
-                      <option value="">Usar template...</option>
-                      {REPLY_TEMPLATES.map(t => (
-                        <option key={t.label} value={t.label}>{t.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-400 -ml-6 pointer-events-none" />
-                  </div>
+                <div className="mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplatePanel(v => !v)}
+                    className="w-full flex items-center justify-between text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  >
+                    <span className="text-stone-500">{selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.title ?? 'Usar template...' : 'Usar template...'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${showTemplatePanel ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showTemplatePanel && (() => {
+                    const categories = [...new Set(templates.map(t => t.category))].sort()
+                    const filtered = templates
+                      .filter(t => !templateCategory || t.category === templateCategory)
+                      .filter(t => !templateSearch || t.title.toLowerCase().includes(templateSearch.toLowerCase()) || t.body.toLowerCase().includes(templateSearch.toLowerCase()))
+                    return (
+                      <div className="mt-1 border border-stone-200 rounded-xl bg-white shadow-lg z-10 overflow-hidden">
+                        <div className="p-2 border-b border-stone-100 flex gap-2">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
+                            <input
+                              autoFocus
+                              value={templateSearch}
+                              onChange={e => setTemplateSearch(e.target.value)}
+                              placeholder="Buscar template..."
+                              className="w-full pl-6 pr-2 py-1 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300"
+                            />
+                          </div>
+                          <select
+                            value={templateCategory}
+                            onChange={e => setTemplateCategory(e.target.value)}
+                            className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none"
+                          >
+                            <option value="">Todas categorias</option>
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div className="max-h-52 overflow-y-auto divide-y divide-stone-50">
+                          {filtered.length === 0 ? (
+                            <p className="text-xs text-stone-400 text-center py-4">Nenhum template encontrado</p>
+                          ) : filtered.map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTemplate(t.id)
+                                setReplyContent(t.body)
+                                setShowTemplatePanel(false)
+                                setTemplateSearch('')
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-stone-50 transition-colors"
+                            >
+                              <p className="text-xs font-medium text-stone-700">{t.title}</p>
+                              <p className="text-[10px] text-stone-400">{t.category}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Internal note toggle */}

@@ -1,6 +1,6 @@
 export type Plan = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments'
 
 export interface Profile {
   id: string

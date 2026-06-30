@@ -68,6 +68,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Negócio',
     items: [
       { id: 'professionals',label: 'Profissionais',    icon: Briefcase },
+      { id: 'professional-comments', label: 'Comentários Plus', icon: Star },
       { id: 'financial',    label: 'Financeiro',       icon: DollarSign },
     ],
   },

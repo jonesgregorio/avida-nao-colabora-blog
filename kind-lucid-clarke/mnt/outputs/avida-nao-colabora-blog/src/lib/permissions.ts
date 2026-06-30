@@ -7,44 +7,59 @@ const PLAN_ORDER: Record<string, number> = {
   'therapeutic-plus': 3,
 }
 
-// Static fallback map: feature_key → minimum plan required
+// Static fallback — chaves oficiais da versão final dos planos
 const FEATURE_PLAN_FLOOR: Record<string, Plan> = {
+  // Conteúdo
   articles_free: 'free',
-  basic_questionnaire: 'free',
-  diary_limited: 'free',
-  saved_items_limited: 'free',
+  guided_text_meditations: 'essential',
+  emotional_exercise_library: 'essential',
+  personalized_content_recommendations: 'therapeutic',
+  early_access_content: 'therapeutic',
 
-  articles_premium: 'essential',
+  // Diário
+  wellbeing_diary_limited: 'free',
+  diary_monthly_limit_5: 'free',
+  simple_mood_checkin: 'free',
   diary_unlimited: 'essential',
-  guided_notes: 'essential',
-  diary_summary: 'essential',
-  saved_items_unlimited: 'essential',
-  weekly_evaluations: 'essential',
-  simple_charts: 'essential',
-  monthly_pdf_report: 'essential',
-  guided_meditations: 'essential',
-  exercise_library: 'essential',
-  no_ads: 'essential',
-  priority_email_support: 'essential',
+  guided_diary_notes: 'essential',
+  advanced_diary: 'therapeutic',
+  extra_markers_sleep_depression_fear_compulsion_triggers_anxiety_selfesteem_energy: 'therapeutic',
 
-  premium_trails: 'therapeutic',
+  // Avaliações
+  basic_self_assessment: 'free',
+  biweekly_auto_challenges: 'free',
+  weekly_assessments: 'essential',
   deep_questionnaire: 'therapeutic',
-  diary_advanced: 'therapeutic',
-  advanced_charts: 'therapeutic',
-  advanced_pdf_report: 'therapeutic',
-  personalized_recommendations: 'therapeutic',
-  personalized_self_care_plan: 'therapeutic',
-  automatic_personalized_content: 'therapeutic',
-  early_access: 'therapeutic',
-  monthly_group_guidance: 'therapeutic',
 
-  individual_session: 'therapeutic-plus',
-  session_preparation: 'therapeutic-plus',
-  professional_summary: 'therapeutic-plus',
-  professional_comment: 'therapeutic-plus',
-  session_reminders: 'therapeutic-plus',
-  saved_items_session: 'therapeutic-plus',
-  maximum_support: 'therapeutic-plus',
+  // Relatórios
+  monthly_pdf_reports: 'essential',
+  diary_mood_symptoms_summary: 'essential',
+  evolution_highlights_no_clinical_analysis: 'essential',
+  simple_evolution_charts: 'essential',
+  monthly_comparative_charts: 'therapeutic',
+  advanced_monthly_report: 'therapeutic',
+
+  // Histórico
+  limited_history: 'free',
+  full_history: 'essential',
+
+  // Autocuidado
+  personalized_self_care_plan: 'therapeutic',
+  weekly_self_care_plan: 'therapeutic',
+  monthly_self_care_plan_review: 'therapeutic-plus',
+
+  // Suporte
+  priority_email_support: 'essential',
+  maximum_priority_support: 'therapeutic-plus',
+
+  // Sessão / Profissional
+  monthly_message_guidance: 'therapeutic',
+  monthly_psychoanalyst_session_30min: 'therapeutic-plus',
+  professional_comment_on_monthly_report: 'therapeutic-plus',
+
+  // Anúncios
+  ads_enabled: 'free',
+  no_ads: 'essential',
 }
 
 // Runtime cache from plan_feature_access table (populated via loadPlanAccess())
