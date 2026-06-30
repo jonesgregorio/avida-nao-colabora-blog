@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 
@@ -33,22 +33,53 @@ import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
 import NotificationsPage from './components/NotificationsPage'
 
+const PERSIST_KEY = 'avida_nav'
+const VALID_VIEWS: View[] = [
+  'home','auth','diary','profile','meditations','challenges',
+  'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
+  'articles','article','responsibility','trails','saved','admin','contact','success',
+  'support','support-ticket','notifications',
+]
+
+function restoreNav() {
+  try {
+    // URL param takes priority (e.g. payment redirect)
+    const params = new URLSearchParams(window.location.search)
+    const urlView = params.get('view') as View
+    if (urlView && VALID_VIEWS.includes(urlView)) {
+      return { view: urlView, articleSlug: null, ticketId: null, questionnaireId: null }
+    }
+    const raw = localStorage.getItem(PERSIST_KEY)
+    if (!raw) return null
+    const saved = JSON.parse(raw)
+    // Don't restore auth view on refresh — go home instead
+    if (saved.view === 'auth') return null
+    if (!VALID_VIEWS.includes(saved.view)) return null
+    return saved
+  } catch {
+    return null
+  }
+}
+
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
-  const initialView = (): View => {
-    const params = new URLSearchParams(window.location.search)
-    const v = params.get('view') as View
-    const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
-      'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
-      'articles','article','responsibility','trails','saved','admin','contact','success',
-      'support','support-ticket','notifications']
-    return valid.includes(v) ? v : 'home'
-  }
-  const [view, setView] = useState<View>(initialView)
-  const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(null)
+
+  const saved = restoreNav()
+  const [view, setView] = useState<View>(saved?.view ?? 'home')
+  const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
-  const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(null)
-  const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(null)
+  const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
+  const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
+
+  // Persist navigation state so refresh keeps the user on the same page
+  useEffect(() => {
+    localStorage.setItem(PERSIST_KEY, JSON.stringify({
+      view,
+      articleSlug: selectedArticleSlug,
+      ticketId: activeSupportTicketId,
+      questionnaireId: activeQuestionnaireId,
+    }))
+  }, [view, selectedArticleSlug, activeSupportTicketId, activeQuestionnaireId])
   const [diaryPromptContext, setDiaryPromptContext] = useState<{
     prompt: string
     articleTitle: string

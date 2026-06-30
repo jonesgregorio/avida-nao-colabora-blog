@@ -76,10 +76,10 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
             <div className="flex items-center gap-2 ml-2">
               <button
                 onClick={() => handleNav('support')}
-                title="Suporte"
-                className="p-1.5 text-sage-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-stone-600 hover:text-emerald-700 hover:bg-emerald-50 border border-stone-200 px-3 py-1.5 rounded-full transition-colors"
               >
                 <LifeBuoy className="w-4 h-4" />
+                <span>Suporte</span>
               </button>
               <button
                 onClick={() => handleNav('notifications')}

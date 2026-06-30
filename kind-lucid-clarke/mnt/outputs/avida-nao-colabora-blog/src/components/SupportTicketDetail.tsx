@@ -91,12 +91,18 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
   const [sendError, setSendError] = useState<string | null>(null)
   const [content, setContent] = useState('')
 
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastCountRef = useRef(0)
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    bottomRef.current?.scrollIntoView({ behavior })
+    const el = messagesRef.current
+    if (!el) return
+    if (behavior === 'instant') {
+      el.scrollTop = el.scrollHeight
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior })
+    }
   }, [])
 
   const fetchData = useCallback(async (silent = false) => {
@@ -271,7 +277,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-stone-50 rounded-xl border border-stone-100 p-4 space-y-3 min-h-0">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto bg-stone-50 rounded-xl border border-stone-100 p-4 space-y-3 min-h-0">
         {messages.map(msg => {
           const isUser = msg.sender_role === 'user'
           return (
@@ -289,7 +295,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
             </div>
           )
         })}
-        <div ref={bottomRef} />
+        <div />
       </div>
 
       {/* Input */}

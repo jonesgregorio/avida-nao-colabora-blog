@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { AdminView } from './types'
 import { useAuth } from '../../hooks/useAuth'
 import AdminLayout from './AdminLayout'
@@ -28,10 +28,18 @@ import AdminFinancial from './AdminFinancial'
 
 export type { AdminView } from './types'
 
+const ADMIN_KEY = 'avida_admin_view'
+
 export default function AdminPanel() {
   const { profile } = useAuth()
-  const [view, setView] = useState<AdminView>('dashboard')
+  const [view, setView] = useState<AdminView>(() => {
+    try { return (localStorage.getItem(ADMIN_KEY) as AdminView) || 'dashboard' } catch { return 'dashboard' }
+  })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
+
+  useEffect(() => {
+    try { localStorage.setItem(ADMIN_KEY, view) } catch { /* noop */ }
+  }, [view])
 
   if (!profile || profile.role !== 'admin') {
     return (
