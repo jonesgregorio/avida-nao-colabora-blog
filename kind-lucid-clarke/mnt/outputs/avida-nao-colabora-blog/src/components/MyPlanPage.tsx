@@ -397,9 +397,14 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
             </div>
             <p className="text-2xl font-bold text-sage-700">{formatPrice(PLAN_PRICES[currentPlan])}<span className="text-sm font-normal text-sage-400">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
           </div>
-          <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[sub?.status ?? 'inactive']}`}>
-            {STATUS_LABELS[sub?.status ?? 'inactive']}
-          </span>
+          {(() => {
+            const effectiveStatus = sub?.status ?? (currentPlan !== 'free' ? 'active' : 'inactive')
+            return (
+              <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[effectiveStatus]}`}>
+                {STATUS_LABELS[effectiveStatus]}
+              </span>
+            )
+          })()}
         </div>
 
         {sub && (
@@ -461,7 +466,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       {/* Comparação de planos */}
       <h2 className="font-semibold text-sage-800 mb-4">Outros planos disponíveis</h2>
       <div className="space-y-4 mb-8">
-        {PLAN_ORDER.filter(p => p !== currentPlan).map(plan => {
+        {PLAN_ORDER.filter(p => p !== currentPlan && !(p === 'free' && currentPlan !== 'free')).map(plan => {
           const upgrade = isUpgrade(plan)
           const downgrade = isDowngrade(plan)
           const proration = upgrade && currentPlan !== 'free'
