@@ -168,6 +168,12 @@ export default function AdminUsers() {
   const [blockingUser, setBlockingUser] = useState(false)
   const [showBlockForm, setShowBlockForm] = useState(false)
 
+  // Auth ops
+  const [newEmail, setNewEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [authOpResult, setAuthOpResult] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+  const [savingAuthOp, setSavingAuthOp] = useState(false)
+
   // Send message
   const [msgTitle, setMsgTitle] = useState('')
   const [msgBody, setMsgBody] = useState('')
@@ -277,6 +283,9 @@ export default function AdminUsers() {
     })
     setBlockReason('')
     setShowBlockForm(false)
+    setNewEmail('')
+    setNewPassword('')
+    setAuthOpResult(null)
     setMsgTitle(''); setMsgBody(''); setMsgType('admin_message')
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
@@ -456,6 +465,44 @@ export default function AdminUsers() {
   async function togglePinNote(noteId: string, current: boolean) {
     const { error } = await supabase.from('user_internal_notes').update({ is_pinned: !current }).eq('id', noteId)
     if (!error) setUserNotes(prev => prev.map(n => n.id === noteId ? { ...n, is_pinned: !current } : n))
+  }
+
+  async function handleResetPassword() {
+    if (!selectedUser || !newPassword.trim()) return
+    if (newPassword.trim().length < 8) {
+      setAuthOpResult({ type: 'err', msg: 'Senha deve ter pelo menos 8 caracteres.' }); return
+    }
+    setSavingAuthOp(true); setAuthOpResult(null)
+    const { error } = await supabase.rpc('admin_set_user_password', {
+      target_user_id: selectedUser.user_id,
+      new_password: newPassword.trim(),
+    })
+    if (error) {
+      setAuthOpResult({ type: 'err', msg: 'Erro: ' + error.message })
+    } else {
+      setAuthOpResult({ type: 'ok', msg: 'Senha alterada com sucesso.' })
+      setNewPassword('')
+    }
+    setSavingAuthOp(false)
+  }
+
+  async function handleChangeEmail() {
+    if (!selectedUser || !newEmail.trim()) return
+    if (!newEmail.includes('@')) {
+      setAuthOpResult({ type: 'err', msg: 'E-mail inválido.' }); return
+    }
+    setSavingAuthOp(true); setAuthOpResult(null)
+    const { error } = await supabase.rpc('admin_change_user_email', {
+      target_user_id: selectedUser.user_id,
+      new_email: newEmail.trim(),
+    })
+    if (error) {
+      setAuthOpResult({ type: 'err', msg: 'Erro: ' + error.message })
+    } else {
+      setAuthOpResult({ type: 'ok', msg: 'E-mail alterado com sucesso.' })
+      setNewEmail('')
+    }
+    setSavingAuthOp(false)
   }
 
   async function sendMsg() {
@@ -1191,6 +1238,59 @@ export default function AdminUsers() {
                           </button>
                         </div>
                       )}
+                    </div>
+
+                    {/* Auth ops result */}
+                    {authOpResult && (
+                      <div className={`text-sm px-3 py-2 rounded-lg ${authOpResult.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {authOpResult.msg}
+                      </div>
+                    )}
+
+                    {/* Reset / change password */}
+                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                      <p className="text-xs font-semibold text-stone-700">Redefinir senha</p>
+                      <p className="text-xs text-stone-400">Define uma nova senha temporária para o usuário. O usuário deverá alterar no próximo acesso.</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="Nova senha (mín. 8 caracteres)"
+                          className={inputCls}
+                          autoComplete="new-password"
+                        />
+                        <button
+                          onClick={handleResetPassword}
+                          disabled={savingAuthOp || newPassword.trim().length < 8}
+                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-900 disabled:opacity-40 transition-colors"
+                        >
+                          {savingAuthOp ? 'Salvando...' : 'Definir'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Change email */}
+                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                      <p className="text-xs font-semibold text-stone-700">Alterar e-mail</p>
+                      <p className="text-xs text-stone-400">Atualiza o e-mail de login do usuário imediatamente, sem necessidade de confirmação.</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={newEmail}
+                          onChange={e => setNewEmail(e.target.value)}
+                          placeholder="novo@email.com"
+                          className={inputCls}
+                          autoComplete="off"
+                        />
+                        <button
+                          onClick={handleChangeEmail}
+                          disabled={savingAuthOp || !newEmail.trim()}
+                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-900 disabled:opacity-40 transition-colors"
+                        >
+                          {savingAuthOp ? 'Salvando...' : 'Alterar'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
