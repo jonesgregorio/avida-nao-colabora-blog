@@ -1,10 +1,11 @@
-import { Check, X } from 'lucide-react'
+import { useState } from 'react'
+import { Check, X, Loader2 } from 'lucide-react'
 import { Plan } from '../types'
+import { supabase } from '../lib/supabase'
 
 interface PricingProps {
   user: any
   currentPlan: Plan
-  onSubscribe: (plan: Plan) => void
   onNavigateAuth: () => void
 }
 
@@ -119,7 +120,26 @@ const plans: PlanConfig[] = [
   },
 ]
 
-export default function Pricing({ user, currentPlan, onSubscribe, onNavigateAuth }: PricingProps) {
+export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingProps) {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubscribe = async (planId: Plan) => {
+    if (!user) { onNavigateAuth(); return }
+    setLoadingPlan(planId)
+    setError(null)
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('create-checkout', {
+        body: { plan: planId },
+      })
+      if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao criar sessão de pagamento')
+      window.location.href = data.url
+    } catch (err: any) {
+      setError(err.message || 'Erro ao redirecionar para pagamento. Tente novamente.')
+      setLoadingPlan(null)
+    }
+  }
+
   return (
     <section id="pricing" className="max-w-6xl mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -172,7 +192,7 @@ export default function Pricing({ user, currentPlan, onSubscribe, onNavigateAuth
               </button>
             ) : plan.id === 'free' ? (
               <button
-                onClick={() => user ? undefined : onNavigateAuth()}
+                onClick={() => !user && onNavigateAuth()}
                 disabled={!!user}
                 className={`w-full py-2.5 rounded-xl text-xs font-medium transition-colors ${plan.buttonColor} ${user ? 'opacity-50 cursor-default' : ''}`}
               >
@@ -180,15 +200,26 @@ export default function Pricing({ user, currentPlan, onSubscribe, onNavigateAuth
               </button>
             ) : (
               <button
-                onClick={() => user ? onSubscribe(plan.id) : onNavigateAuth()}
-                className={`w-full py-2.5 rounded-xl text-xs font-medium transition-colors ${plan.buttonColor}`}
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={loadingPlan === plan.id}
+                className={`w-full py-2.5 rounded-xl text-xs font-medium transition-colors ${plan.buttonColor} disabled:opacity-70 flex items-center justify-center gap-2`}
               >
-                {user ? plan.buttonLabel : 'Criar conta para assinar'}
+                {loadingPlan === plan.id ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Redirecionando...</>
+                ) : (
+                  user ? plan.buttonLabel : 'Criar conta para assinar'
+                )}
               </button>
             )}
           </div>
         ))}
       </div>
+
+      {error && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4 max-w-2xl mx-auto text-center">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
 
       <div className="mt-6 bg-sand-50 border border-sand-200 rounded-xl p-4 max-w-2xl mx-auto text-center">
         <p className="text-xs text-sage-500 leading-relaxed">

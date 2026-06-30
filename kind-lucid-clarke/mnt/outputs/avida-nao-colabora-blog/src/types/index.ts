@@ -1,6 +1,6 @@
 export type Plan = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success'
 
 export interface Profile {
   id: string
@@ -11,6 +11,7 @@ export interface Profile {
   avatar_url: string | null
   status_phrase?: string
   plan: Plan
+  stripe_customer_id?: string | null
   role?: string | null
   communication_preference?: string
   notification_frequency?: string

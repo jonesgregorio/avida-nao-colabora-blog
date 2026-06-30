@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
-import type { View, Plan } from './types'
+import type { View } from './types'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -28,6 +28,7 @@ import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
 import DailyContentWidget from './components/DailyContentWidget'
 import ContactPage from './components/ContactPage'
+import SuccessPage from './components/SuccessPage'
 
 export default function App() {
   const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
@@ -36,7 +37,7 @@ export default function App() {
     const v = params.get('view') as View
     const valid: View[] = ['home','auth','diary','profile','meditations','challenges',
       'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
-      'articles','article','responsibility','trails','saved','admin','contact']
+      'articles','article','responsibility','trails','saved','admin','contact','success']
     return valid.includes(v) ? v : 'home'
   }
   const [view, setView] = useState<View>(initialView)
@@ -59,7 +60,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
-      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact',
+      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -74,11 +75,6 @@ export default function App() {
       const el = document.getElementById(section)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
-  }
-
-  const handleSubscribe = async (plan: Plan) => {
-    await updatePlan(plan)
-    navigate('pricing')
   }
 
   if (loading) {
@@ -325,7 +321,6 @@ export default function App() {
           <Pricing
             user={user}
             currentPlan={profile?.plan || 'free'}
-            onSubscribe={handleSubscribe}
             onNavigateAuth={() => navigate('auth')}
           />
         </main>
@@ -365,6 +360,16 @@ export default function App() {
         </main>
         <Footer onNavigate={navigate} />
       </>
+    )
+  }
+
+  if (view === 'success') {
+    return (
+      <SuccessPage
+        onNavigateDiary={() => navigate('diary')}
+        onNavigateHome={() => navigate('home')}
+        onRefreshProfile={refreshProfile}
+      />
     )
   }
 
