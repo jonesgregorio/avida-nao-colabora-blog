@@ -26,6 +26,7 @@ const TYPES: { value: string; label: string }[] = [
   { value: 'promo', label: 'Promoção' },
   { value: 'reminder', label: 'Lembrete' },
   { value: 'alert', label: 'Aviso importante' },
+  { value: 'support_reply', label: 'Resposta de suporte' },
   { value: 'admin_message', label: 'Mensagem do admin' },
   { value: 'system', label: 'Sistema' },
 ]
