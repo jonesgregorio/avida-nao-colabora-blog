@@ -67,7 +67,7 @@ const DEFAULT_CONFIGS: DiaryPlanConfig[] = [
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
     guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?', 'Como posso me preparar melhor para minha próxima sessão?'],
     graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Padrões emocionais', 'Mapa de gatilhos', 'Evolução semanal'],
-    reports: ['Relatório mensal simples', 'Relatório avançado', 'Plano de autocuidado', 'Resumo para sessão', 'Preparação para sessão'],
+    reports: ['Relatório mensal simples', 'Relatório avançado', 'Plano de autocuidado'],
   },
 ]
 
