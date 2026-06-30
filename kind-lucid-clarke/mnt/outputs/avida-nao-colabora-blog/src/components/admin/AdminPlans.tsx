@@ -60,7 +60,7 @@ export default function AdminPlans() {
 
     const [{ data: cfgData }, { data: featData }, { data: accessData }] = await Promise.all([
       supabase.from('plan_configs').select('*'),
-      supabase.from('plan_features').select('*').eq('is_display', true).order('display_order'),
+      supabase.from('plan_features').select('*').order('display_order'),
       supabase.from('plan_feature_access').select('*'),
     ])
 
@@ -191,7 +191,6 @@ export default function AdminPlans() {
       feature_description: '',
       category:            f.category,
       display_order:       f.order,
-      is_display:          true,
       is_implemented:      true,
       updated_at:          new Date().toISOString(),
     }))

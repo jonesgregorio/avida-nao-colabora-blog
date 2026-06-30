@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
-import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES } from '../lib/officialPlans'
+import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, OFFICIAL_FEATURES } from '../lib/officialPlans'
 
 interface PricingProps {
   user: unknown
@@ -61,7 +61,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     async function loadFromDB() {
       const [{ data: cfgData }, { data: featData }, { data: accessData }] = await Promise.all([
         supabase.from('plan_configs').select('*').eq('active', true),
-        supabase.from('plan_features').select('*').eq('is_display', true).order('category').order('display_order'),
+        supabase.from('plan_features').select('*').order('display_order'),
         supabase.from('plan_feature_access').select('*').eq('enabled', true),
       ])
 
@@ -71,14 +71,17 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
         const cfg = cfgData?.find((d: { plan_key: string }) => d.plan_key === pl.id)
         let features = pl.features
 
-        // If we have plan_feature_access data, build features from it
+        // Se temos dados de acesso, filtra apenas as features oficiais ativas
         if (featData && accessData) {
+          const officialKeys = new Set(OFFICIAL_FEATURES.map(f => f.key))
           const enabledKeys = accessData
             .filter((a: { plan_key: string }) => a.plan_key === pl.id)
             .map((a: { feature_key: string }) => a.feature_key)
 
           const enabledFeatures = featData
-            .filter((f: { feature_key: string }) => enabledKeys.includes(f.feature_key))
+            .filter((f: { feature_key: string }) =>
+              enabledKeys.includes(f.feature_key) && officialKeys.has(f.feature_key)
+            )
             .map((f: { feature_name: string }) => ({ text: f.feature_name, included: true }))
 
           if (enabledFeatures.length > 0) features = enabledFeatures
