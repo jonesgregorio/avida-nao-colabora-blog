@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Bookmark, Trash2, FileText, NotebookPen, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Bookmark, Trash2, FileText, NotebookPen, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Plan } from '../types'
 import { UpgradeModal } from './UpgradeModal'
 
@@ -48,23 +48,27 @@ const TYPE_COLORS: Record<SavedItem['item_type'], string> = {
   trail: 'bg-rose-50 text-rose-700',
 }
 
-const FREE_LIMIT = 3
+const PLAN_LIMITS: Record<Plan, number | null> = {
+  free: 3,
+  essential: null,
+  therapeutic: null,
+  'therapeutic-plus': null,
+}
 
 export default function SavedItemsPage({ user, profile, navigate, onBack }: SavedItemsPageProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const [upgradeModal, setUpgradeModal] = useState(false)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
   const plan: Plan = profile?.plan || 'free'
   const isPremium = plan !== 'free'
+  const isPlus = plan === 'therapeutic-plus'
+  const limit = PLAN_LIMITS[plan]
 
-  useEffect(() => {
-    if (!user) return
-    loadItems()
-  }, [user])
-
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('saved_items')
@@ -73,13 +77,31 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
       .order('created_at', { ascending: false })
     setItems(data || [])
     setLoading(false)
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    loadItems()
+  }, [user, loadItems])
 
   async function removeItem(id: string) {
     setRemoving(id)
-    await supabase.from('saved_items').delete().eq('id', id)
-    setItems(prev => prev.filter(i => i.id !== id))
+    setRemoveError(null)
+    const { error } = await supabase.from('saved_items').delete().eq('id', id)
+    if (error) {
+      setRemoveError('Não foi possível remover o item. Tente novamente.')
+    } else {
+      setItems(prev => prev.filter(i => i.id !== id))
+    }
     setRemoving(null)
+  }
+
+  function toggleCategory(cat: string) {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev)
+      next.has(cat) ? next.delete(cat) : next.add(cat)
+      return next
+    })
   }
 
   const handleItemClick = (item: SavedItem) => {
@@ -132,13 +154,13 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
       </div>
 
       {/* Quota info for free users */}
-      {!isPremium && (
+      {!isPremium && limit !== null && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-amber-800">
-              <strong>{items.length}/{FREE_LIMIT}</strong> itens salvos no plano gratuito.
+              <strong>{items.length}/{limit}</strong> itens salvos no plano gratuito.
             </p>
-            {items.length >= FREE_LIMIT && (
+            {items.length >= limit && (
               <button
                 onClick={() => setUpgradeModal(true)}
                 className="text-xs text-amber-700 underline font-medium"
@@ -147,11 +169,18 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
               </button>
             )}
           </div>
-          {items.length >= FREE_LIMIT && (
-            <div className="h-1.5 bg-amber-200 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full w-full" />
-            </div>
-          )}
+          <div className="h-1.5 bg-amber-200 rounded-full mt-2 overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (items.length / limit) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {removeError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+          {removeError}
         </div>
       )}
 
@@ -176,55 +205,79 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="bg-white border border-stone-100 rounded-xl p-4 flex items-start gap-4 hover:shadow-sm transition-shadow group"
-            >
-              {/* Type icon */}
-              <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${TYPE_COLORS[item.item_type]}`}>
-                {TYPE_ICONS[item.item_type]}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => handleItemClick(item)}
-                  className="text-left w-full"
-                >
-                  <p className="font-medium text-stone-800 text-sm leading-snug mb-0.5 group-hover:text-emerald-700 transition-colors">
-                    {item.title}
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLORS[item.item_type]}`}>
-                      {TYPE_LABELS[item.item_type]}
-                    </span>
-                    {item.category && (
-                      <span className="text-xs text-stone-400">{item.category}</span>
-                    )}
-                    <span className="text-xs text-stone-300">·</span>
-                    <span className="text-xs text-stone-400">{formatDate(item.created_at)}</span>
-                  </div>
-                  {item.notes && (
-                    <p className="text-xs text-stone-500 mt-1.5 line-clamp-2">{item.notes}</p>
-                  )}
-                </button>
-              </div>
-
-              {/* Remove */}
+        <div className="space-y-6">
+          {Array.from(
+            items.reduce((acc, item) => {
+              const cat = item.category || 'Sem categoria'
+              if (!acc.has(cat)) acc.set(cat, [])
+              acc.get(cat)!.push(item)
+              return acc
+            }, new Map<string, SavedItem[]>())
+          ).map(([cat, catItems]) => (
+            <div key={cat}>
               <button
-                onClick={() => removeItem(item.id)}
-                disabled={removing === item.id}
-                className="flex-shrink-0 p-1.5 rounded-lg text-stone-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                title="Remover"
+                onClick={() => toggleCategory(cat)}
+                className="flex items-center gap-2 w-full text-left mb-3"
               >
-                {removing === item.id ? (
-                  <div className="w-4 h-4 border border-red-300 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Trash2 size={15} />
-                )}
+                <span className="text-xs font-semibold uppercase tracking-wider text-stone-400">{cat}</span>
+                <span className="text-xs text-stone-300">({catItems.length})</span>
+                <span className="ml-auto text-stone-300">
+                  {collapsedCategories.has(cat) ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </span>
               </button>
+              {!collapsedCategories.has(cat) && (
+                <div className="space-y-3">
+                  {catItems.map(item => (
+                    <div
+                      key={item.id}
+                      className="bg-white border border-stone-100 rounded-xl p-4 flex items-start gap-4 hover:shadow-sm transition-shadow group"
+                    >
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${TYPE_COLORS[item.item_type]}`}>
+                        {TYPE_ICONS[item.item_type]}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <button onClick={() => handleItemClick(item)} className="text-left w-full">
+                          <p className="font-medium text-stone-800 text-sm leading-snug mb-0.5 group-hover:text-emerald-700 transition-colors">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLORS[item.item_type]}`}>
+                              {TYPE_LABELS[item.item_type]}
+                            </span>
+                            <span className="text-xs text-stone-300">·</span>
+                            <span className="text-xs text-stone-400">{formatDate(item.created_at)}</span>
+                          </div>
+                          {item.notes && (
+                            <p className="text-xs text-stone-500 mt-1.5 line-clamp-2">{item.notes}</p>
+                          )}
+                        </button>
+                        {isPlus && item.item_type === 'article' && (
+                          <button
+                            onClick={() => navigate('diary')}
+                            className="mt-2 text-xs text-purple-600 hover:text-purple-700 underline"
+                          >
+                            Levar para sessão →
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        disabled={removing === item.id}
+                        className="flex-shrink-0 p-1.5 rounded-lg text-stone-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                        title="Remover"
+                      >
+                        {removing === item.id ? (
+                          <div className="w-4 h-4 border border-red-300 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

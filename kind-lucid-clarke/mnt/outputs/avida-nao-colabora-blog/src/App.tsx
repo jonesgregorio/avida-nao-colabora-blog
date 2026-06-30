@@ -287,6 +287,7 @@ export default function App() {
             onBack={() => { setActiveQuestionnaireId(null); navigate('questionarios') }}
             onNavigateDiary={() => navigate('diary')}
             onNavigatePricing={() => navigate('pricing')}
+            onNavigateArticles={() => navigate('articles')}
           />
         </main>
         <Footer onNavigate={navigate} />

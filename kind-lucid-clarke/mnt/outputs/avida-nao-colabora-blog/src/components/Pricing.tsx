@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
 
 interface PricingProps {
-  user: any
+  user: unknown
   currentPlan: Plan
   onNavigateAuth: () => void
 }
@@ -29,92 +29,65 @@ interface PlanConfig {
   features: Feature[]
 }
 
-const plans: PlanConfig[] = [
+const STATIC_PLANS: PlanConfig[] = [
   {
-    id: 'free',
-    name: 'Gratuito',
-    price: 'R$ 0',
-    period: 'para sempre',
+    id: 'free', name: 'Gratuito', price: 'R$ 0', period: 'para sempre',
     tagline: 'Para começar a se conhecer melhor.',
-    color: 'border-sand-200',
-    buttonColor: 'bg-sand-200 hover:bg-sand-300 text-sand-800',
-    buttonLabel: 'Começar grátis',
+    color: 'border-sand-200', buttonColor: 'bg-sand-200 hover:bg-sand-300 text-sand-800', buttonLabel: 'Começar grátis',
     features: [
       { text: 'Artigos gratuitos do blog', included: true },
       { text: 'Questionário básico de autoavaliação', included: true },
       { text: 'Diário de bem-estar (até 5 entradas/mês)', included: true },
-      { text: 'Registro simples de humor', included: true },
-      { text: 'Mini-desafios mensais automatizados', included: true },
-      { text: 'Histórico limitado', included: true },
+      { text: 'Caixa de Cuidado (até 3 itens)', included: true },
       { text: 'Conteúdos com anúncios', included: true, note: true },
+      { text: 'Diário ilimitado', included: false },
+      { text: 'Relatórios PDF', included: false },
     ],
   },
   {
-    id: 'essential',
-    name: 'Essencial',
-    price: 'R$ 19,90',
-    period: '/mês',
+    id: 'essential', name: 'Essencial', price: 'R$ 19,90', period: '/mês',
     tagline: 'Para acompanhar sua evolução emocional.',
-    color: 'border-sage-300',
-    buttonColor: 'bg-sage-600 hover:bg-sage-700 text-white',
-    buttonLabel: 'Assinar Essencial',
+    color: 'border-sage-300', buttonColor: 'bg-sage-600 hover:bg-sage-700 text-white', buttonLabel: 'Assinar Essencial',
     features: [
       { text: 'Tudo do plano Gratuito', included: true },
       { text: 'Diário ilimitado', included: true },
       { text: 'Histórico completo', included: true },
       { text: 'Avaliações semanais', included: true },
       { text: 'Gráficos simples de evolução', included: true },
-      { text: 'Meditações guiadas em texto', included: true },
-      { text: 'Notas guiadas no diário', included: true },
       { text: 'Relatórios mensais em PDF', included: true },
-      { text: 'Resumo automático do diário, humor e sintomas', included: true },
-      { text: 'Destaques de evolução (sem análise clínica)', included: true },
+      { text: 'Meditações guiadas em texto', included: true },
       { text: 'Biblioteca de exercícios emocionais', included: true },
       { text: 'Sem anúncios', included: true },
       { text: 'Suporte por e-mail prioritário', included: true },
     ],
   },
   {
-    id: 'therapeutic',
-    name: 'Terapêutico',
-    price: 'R$ 39,90',
-    period: '/mês',
+    id: 'therapeutic', name: 'Terapêutico', price: 'R$ 39,90', period: '/mês',
     tagline: 'Para uma experiência personalizada de autocuidado.',
-    color: 'border-purple-400',
-    badge: 'Mais recomendado',
-    badgeColor: 'bg-purple-600 text-white',
-    buttonColor: 'bg-purple-600 hover:bg-purple-700 text-white',
-    buttonLabel: 'Assinar Terapêutico',
+    color: 'border-purple-400', badge: 'Mais recomendado', badgeColor: 'bg-purple-600 text-white',
+    buttonColor: 'bg-purple-600 hover:bg-purple-700 text-white', buttonLabel: 'Assinar Terapêutico',
     features: [
       { text: 'Tudo do plano Essencial', included: true },
       { text: 'Questionário aprofundado', included: true },
       { text: 'Plano de autocuidado personalizado', included: true },
       { text: 'Diário avançado com marcadores emocionais', included: true },
-      { text: 'Marcadores extras: sono, energia, ansiedade, estresse, autoestima, irritabilidade, sobrecarga, gatilhos emocionais', included: true },
       { text: 'Gráficos comparativos mensais', included: true },
       { text: 'Relatório mensal avançado', included: true },
       { text: 'Recomendações personalizadas de conteúdo', included: true },
-      { text: 'Plano semanal de autocuidado', included: true },
-      { text: 'Acesso antecipado a novos conteúdos', included: true },
+      { text: 'Trilhas premium', included: true },
       { text: 'Orientação mensal por mensagem', included: true },
     ],
   },
   {
-    id: 'therapeutic-plus',
-    name: 'Terapêutico Plus',
-    price: 'R$ 79,90',
-    period: '/mês',
+    id: 'therapeutic-plus', name: 'Terapêutico Plus', price: 'R$ 79,90', period: '/mês',
     tagline: 'Para quem deseja acompanhamento individual mensal.',
-    color: 'border-ocean-300',
-    buttonColor: 'bg-ocean-600 hover:bg-ocean-700 text-white',
-    buttonLabel: 'Assinar Plus',
+    color: 'border-ocean-300', buttonColor: 'bg-ocean-600 hover:bg-ocean-700 text-white', buttonLabel: 'Assinar Plus',
     features: [
       { text: 'Tudo do plano Terapêutico', included: true },
       { text: '1 sessão individual de 30 min com profissional parceiro', included: true },
       { text: 'Revisão mensal do plano de autocuidado', included: true },
       { text: 'Comentário individual sobre o relatório do mês', included: true },
       { text: 'Suporte prioritário máximo', included: true },
-      { text: 'Agendamento automático da sessão', included: true },
       { text: 'Lembretes automáticos antes da sessão', included: true },
     ],
   },
@@ -123,25 +96,48 @@ const plans: PlanConfig[] = [
 export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [displayPlans, setDisplayPlans] = useState(plans)
+  const [displayPlans, setDisplayPlans] = useState(STATIC_PLANS)
 
-  // Carrega configurações de planos do banco (substitui nome/preço/descrição se disponíveis)
-  useState(() => {
-    supabase.from('plan_configs').select('*').eq('active', true).then(({ data }) => {
-      if (!data || data.length === 0) return
+  // Merge DB plan_configs + plan_feature_access into display
+  useEffect(() => {
+    async function loadFromDB() {
+      const [{ data: cfgData }, { data: featData }, { data: accessData }] = await Promise.all([
+        supabase.from('plan_configs').select('*').eq('active', true),
+        supabase.from('plan_features').select('*').order('category').order('display_order'),
+        supabase.from('plan_feature_access').select('*').eq('enabled', true),
+      ])
+
+      if (!cfgData && !accessData) return
+
       setDisplayPlans(prev => prev.map(pl => {
-        const cfg = data.find((d: any) => d.plan_key === pl.id)
-        if (!cfg) return pl
+        const cfg = cfgData?.find((d: { plan_key: string }) => d.plan_key === pl.id)
+        let features = pl.features
+
+        // If we have plan_feature_access data, build features from it
+        if (featData && accessData) {
+          const enabledKeys = accessData
+            .filter((a: { plan_key: string }) => a.plan_key === pl.id)
+            .map((a: { feature_key: string }) => a.feature_key)
+
+          const enabledFeatures = featData
+            .filter((f: { feature_key: string }) => enabledKeys.includes(f.feature_key))
+            .map((f: { feature_name: string }) => ({ text: f.feature_name, included: true }))
+
+          if (enabledFeatures.length > 0) features = enabledFeatures
+        }
+
         return {
           ...pl,
-          name: cfg.label || pl.name,
-          price: cfg.price || pl.price,
-          tagline: cfg.description || pl.tagline,
-          badge: cfg.is_recommended ?? cfg.recommended ? 'Mais recomendado' : pl.badge,
+          name: cfg?.label || pl.name,
+          price: cfg?.price || pl.price,
+          tagline: cfg?.description || pl.tagline,
+          badge: cfg?.recommended || cfg?.is_recommended ? 'Mais recomendado' : pl.badge,
+          features,
         }
       }))
-    })
-  })
+    }
+    loadFromDB()
+  }, [])
 
   const handleSubscribe = async (planId: Plan) => {
     if (!user) { onNavigateAuth(); return }
@@ -153,8 +149,9 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
       })
       if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao criar sessão de pagamento')
       window.location.href = data.url
-    } catch (err: any) {
-      setError(err.message || 'Erro ao redirecionar para pagamento. Tente novamente.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao redirecionar para pagamento.'
+      setError(msg)
       setLoadingPlan(null)
     }
   }
@@ -247,7 +244,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
       </div>
 
       <p className="text-center text-xs text-sage-400 mt-4">
-        Os planos pagos serão processados via Stripe. Você pode cancelar a qualquer momento.
+        Os planos pagos são processados via Stripe. Você pode cancelar a qualquer momento.
         Este serviço não substitui acompanhamento clínico profissional.
       </p>
     </section>

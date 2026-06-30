@@ -8,8 +8,8 @@ interface ArticlesProps {
   onSelectArticle: (article: Article | string) => void
 }
 
-const CATEGORIES = [
-  'Todos', 'Ansiedade', 'Autoestima', 'Cansaço emocional', 'Autoconhecimento',
+const FALLBACK_CATEGORIES = [
+  'Ansiedade', 'Autoestima', 'Cansaço emocional', 'Autoconhecimento',
   'Relações e limites', 'Rotina e hábitos', 'Sono e descanso',
   'Pensamentos difíceis', 'Diário emocional', 'Autocuidado possível', 'Vida real',
 ]
@@ -49,18 +49,33 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todos')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
+  const [dbCategories, setDbCategories] = useState<string[]>([])
+
+  const allCategories = ['Todos', ...(dbCategories.length > 0 ? dbCategories : FALLBACK_CATEGORIES)]
 
   useEffect(() => {
+    const now = new Date().toISOString()
     supabase
       .from('articles')
       .select('*')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .then(({ data }) => {
+      .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .then(({ data, error }) => {
+        if (error) { setLoadError(true); setLoading(false); return }
         setArticles(data || [])
         setFiltered(data || [])
         setLoading(false)
+      })
+
+    supabase
+      .from('categories')
+      .select('name')
+      .eq('is_active', true)
+      .order('order_index', { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) setDbCategories(data.map((c: { name: string }) => c.name))
       })
   }, [])
 
@@ -164,7 +179,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       {/* Category filters */}
       {!selectedMood && (
         <div className="flex flex-wrap gap-2 mb-8">
-          {CATEGORIES.map(cat => (
+          {allCategories.map(cat => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
@@ -186,13 +201,26 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
             <div key={i} className="bg-white rounded-2xl h-80 animate-pulse" />
           ))}
         </div>
+      ) : loadError ? (
+        <div className="text-center py-20 text-sage-400">
+          <p className="mb-2 font-medium">Não foi possível carregar os artigos agora.</p>
+          <p className="text-sm mb-4">Tente novamente em alguns instantes.</p>
+          <button
+            onClick={() => { setLoadError(false); setLoading(true) }}
+            className="text-sm text-sage-600 underline"
+          >
+            Tentar novamente
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-sage-400">
-          <p className="mb-2">Nenhum artigo encontrado.</p>
-          {selectedMood && (
+          <p className="mb-2 font-medium">Nenhum artigo encontrado.</p>
+          {selectedMood ? (
             <button onClick={clearMood} className="text-sm text-purple-500 underline">
               Ver todos os artigos
             </button>
+          ) : (
+            <p className="text-sm">Novos artigos são publicados regularmente. Volte em breve.</p>
           )}
         </div>
       ) : (

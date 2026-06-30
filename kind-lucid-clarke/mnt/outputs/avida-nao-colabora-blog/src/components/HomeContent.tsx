@@ -1,6 +1,24 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
 interface HomeContentProps {
   onNavigate: (section: string) => void
 }
+
+interface SiteMetric { id: string; key: string | null; label: string | null; value: string }
+interface Testimonial { id: string; name: string; text: string; rating: number; role?: string | null }
+
+const FALLBACK_METRICS = [
+  { value: '+800', label: 'pessoas já passaram por aqui' },
+  { value: '335',  label: 'usuários ativos atualmente' },
+  { value: '+1.300', label: 'registros emocionais criados' },
+  { value: '4,7/5', label: 'avaliação média' },
+]
+const FALLBACK_TESTIMONIALS = [
+  { name: 'Mariana L.', text: 'Comecei usando o diário alguns dias por semana. Gosto porque não parece uma cobrança, só um espaço para entender melhor o que estou sentindo.', rating: 5 },
+  { name: 'Rafael M.', text: 'Os artigos têm uma linguagem leve. Em alguns dias, só ler o resumo e responder uma pergunta já me ajuda a organizar as ideias.', rating: 5 },
+  { name: 'Camila R.', text: 'Ainda estou conhecendo a plataforma, mas gostei da proposta de juntar diário, conteúdos e reflexões em um só lugar.', rating: 5 },
+]
 
 const whoCards = [
   { icon: '🫂', text: 'Quem sente que carrega tudo sozinho(a)' },
@@ -21,6 +39,21 @@ const steps = [
 
 
 export default function HomeContent({ onNavigate }: HomeContentProps) {
+  const [metrics, setMetrics] = useState<{ value: string; label: string }[]>(FALLBACK_METRICS)
+  const [testimonials, setTestimonials] = useState<{ name: string; text: string; rating: number; role?: string | null }[]>(FALLBACK_TESTIMONIALS)
+
+  useEffect(() => {
+    supabase.from('site_metrics').select('*').then(({ data }) => {
+      if (data && data.length > 0) {
+        const mapped = (data as SiteMetric[]).map(m => ({ value: m.value, label: m.label || m.key || '' }))
+        setMetrics(mapped)
+      }
+    })
+    supabase.from('testimonials').select('id,name,text,rating,role').eq('active', true).order('created_at', { ascending: false }).limit(6).then(({ data }) => {
+      if (data && data.length > 0) setTestimonials(data as Testimonial[])
+    })
+  }, [])
+
   return (
     <>
       {/* Para quem é */}
@@ -171,12 +204,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
 
           {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-14">
-            {[
-              { value: '+800', label: 'pessoas já passaram por aqui' },
-              { value: '335', label: 'usuários ativos atualmente' },
-              { value: '+1.300', label: 'registros emocionais criados' },
-              { value: '4,7/5', label: 'avaliação média' },
-            ].map((m, i) => (
+            {metrics.map((m, i) => (
               <div key={i} className="text-center p-5 bg-stone-50 rounded-2xl border border-stone-100">
                 <p className="text-3xl font-bold text-sage-600 mb-1">{m.value}</p>
                 <p className="text-sage-500 text-sm">{m.label}</p>
@@ -186,19 +214,13 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
 
           {/* Avaliações */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              { name: 'Mariana L.', text: 'Comecei usando o diário alguns dias por semana. Gosto porque não parece uma cobrança, só um espaço para entender melhor o que estou sentindo.' },
-              { name: 'Rafael M.', text: 'Os artigos têm uma linguagem leve. Em alguns dias, só ler o resumo e responder uma pergunta já me ajuda a organizar as ideias.' },
-              { name: 'Camila R.', text: 'Ainda estou conhecendo a plataforma, mas gostei da proposta de juntar diário, conteúdos e reflexões em um só lugar.' },
-              { name: 'Bruno A.', text: 'Entrei pelos textos e acabei testando o diário. Achei simples, direto e com uma linguagem bem humana.' },
-              { name: 'Letícia P.', text: 'Gostei dos desafios leves. Eles não prometem resolver tudo, mas ajudam a dar um pequeno passo.' },
-            ].map((r, i) => (
+            {testimonials.map((r, i) => (
               <div key={i} className="bg-stone-50 rounded-2xl p-5 border border-stone-100">
                 <div className="flex items-center gap-1 mb-3">
-                  {[...Array(5)].map((_, s) => <span key={s} className="text-amber-400 text-sm">★</span>)}
+                  {[...Array(r.rating || 5)].map((_, s) => <span key={s} className="text-amber-400 text-sm">★</span>)}
                 </div>
                 <p className="text-sage-600 text-sm italic mb-3">"{r.text}"</p>
-                <p className="text-sage-400 text-xs font-medium">{r.name}</p>
+                <p className="text-sage-400 text-xs font-medium">{r.name}{r.role ? ` · ${r.role}` : ''}</p>
               </div>
             ))}
           </div>

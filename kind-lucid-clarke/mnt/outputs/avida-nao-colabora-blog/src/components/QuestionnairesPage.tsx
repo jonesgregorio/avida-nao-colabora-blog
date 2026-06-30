@@ -133,8 +133,13 @@ export default function QuestionnairesPage({
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-stone-400">
             <HelpCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Nenhum questionário disponível ainda.</p>
-            <p className="text-xs mt-1">Volte em breve — novos conteúdos são adicionados regularmente.</p>
+            <p className="text-sm font-medium text-stone-600 mb-2">Você ainda não tem questionários publicados por aqui.</p>
+            <p className="text-xs mt-1 mb-6">Enquanto isso, você pode explorar artigos guiados ou registrar como está se sentindo hoje.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => onBack()} className="px-4 py-2 bg-white border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">Ver artigos</button>
+              <button onClick={() => onBack()} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl text-sm hover:bg-purple-200">Registrar no diário</button>
+              <button onClick={() => onBack()} className="px-4 py-2 bg-stone-100 text-stone-600 rounded-xl text-sm hover:bg-stone-200">Voltar ao início</button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

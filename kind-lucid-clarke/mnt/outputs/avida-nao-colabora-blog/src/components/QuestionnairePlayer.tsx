@@ -88,17 +88,20 @@ type Phase = 'loading' | 'intro' | 'playing' | 'result' | 'error'
 
 interface Props {
   questionnaireId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   user: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   profile: any
   onBack: () => void
   onNavigateDiary?: () => void
   onNavigatePricing?: () => void
+  onNavigateArticles?: () => void
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function QuestionnairePlayer({
-  questionnaireId, user, profile, onBack, onNavigateDiary, onNavigatePricing,
+  questionnaireId, user, profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles,
 }: Props) {
   const { track } = useAnalytics(user?.id)
   const [phase, setPhase] = useState<Phase>('loading')
@@ -569,13 +572,10 @@ export default function QuestionnairePlayer({
             <p className="text-sm text-stone-600 mb-4 leading-relaxed">{matchedResult.description}</p>
           )}
 
-          {(questionnaire.final_message || questionnaire.completion_text) && (
-            <p className="text-sm text-stone-500 mb-5 leading-relaxed text-center">
-              {questionnaire.final_message || questionnaire.completion_text}
-            </p>
-          )}
-
-          <p className="text-xs text-stone-400 text-center mb-6 leading-relaxed">{disclaimer}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800 leading-relaxed text-center">
+            {disclaimer || questionnaire.final_message || questionnaire.completion_text ||
+              'Este resultado é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'}
+          </div>
 
           {user && !saved && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 text-center text-xs text-emerald-700">
@@ -597,7 +597,15 @@ export default function QuestionnairePlayer({
                 <BookOpen className="w-4 h-4" /> Registrar no diário
               </button>
             )}
-            {onNavigatePricing && (
+            {onNavigateArticles && (
+              <button
+                onClick={onNavigateArticles}
+                className="flex items-center justify-center gap-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" /> Ver artigos recomendados
+              </button>
+            )}
+            {onNavigatePricing && !user && (
               <button
                 onClick={onNavigatePricing}
                 className="flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-3 rounded-xl text-sm font-medium transition-colors"

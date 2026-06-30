@@ -69,7 +69,7 @@ export default function ArticleView({
   onSavePromptToDiary,
 }: ArticleViewProps) {
   const [article, setArticle] = useState<Article | null>(initialArticle || null)
-  const [related, setRelated] = useState<Article[]>([])
+  const [related, setRelated] = useState<Pick<Article, 'id' | 'title' | 'slug' | 'category' | 'read_time' | 'image_url' | 'cover_image'>[]>([])
   const [loading, setLoading] = useState(!initialArticle)
 
   // Interactive state

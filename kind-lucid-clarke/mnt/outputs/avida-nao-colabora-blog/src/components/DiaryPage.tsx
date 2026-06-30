@@ -571,7 +571,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                         <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Avaliação</span>
                       )}
                     </div>
-                    <p className="text-xs text-sage-400 mt-0.5">{formatDate(entry.date)}</p>
+                    <p className="text-xs text-sage-400 mt-0.5">{formatDate(entry.date ?? '')}</p>
                   </div>
                   <span className="text-xs text-sage-400 truncate max-w-[120px] hidden sm:block">{entry.text?.slice(0, 40)}...</span>
                   {isOpen ? <ChevronUp className="w-4 h-4 text-sage-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-sage-400 flex-shrink-0" />}
