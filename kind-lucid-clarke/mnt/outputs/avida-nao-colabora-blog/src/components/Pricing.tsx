@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
-import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, OFFICIAL_FEATURES } from '../lib/officialPlans'
+import {
+  OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, OFFICIAL_FEATURES,
+  OWN_FEATURE_KEYS, INHERIT_LABEL, DEFAULT_INHERIT,
+  type PlanKey,
+} from '../lib/officialPlans'
 
 interface PricingProps {
   user: unknown
@@ -56,43 +60,45 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
   const [error, setError] = useState<string | null>(null)
   const [displayPlans, setDisplayPlans] = useState(STATIC_PLANS)
 
-  // Merge DB plan_configs + plan_feature_access into display
+  // Carrega plan_configs do banco e mescla com exibição estática
   useEffect(() => {
     async function loadFromDB() {
-      const [{ data: cfgData }, { data: featData }, { data: accessData }] = await Promise.all([
-        supabase.from('plan_configs').select('*').eq('active', true),
-        supabase.from('plan_features').select('*').order('display_order'),
-        supabase.from('plan_feature_access').select('*').eq('enabled', true),
-      ])
-
-      if (!cfgData && !accessData) return
+      const { data: cfgData } = await supabase.from('plan_configs').select('*').eq('active', true)
+      if (!cfgData || cfgData.length === 0) return
 
       setDisplayPlans(prev => prev.map(pl => {
-        const cfg = cfgData?.find((d: { plan_key: string }) => d.plan_key === pl.id)
-        let features = pl.features
+        const cfg = cfgData.find((d: Record<string, unknown>) => d.plan_key === pl.id)
+        if (!cfg) return pl
 
-        // Se temos dados de acesso, filtra apenas as features oficiais ativas
-        if (featData && accessData) {
-          const officialKeys = new Set(OFFICIAL_FEATURES.map(f => f.key))
-          const enabledKeys = accessData
-            .filter((a: { plan_key: string }) => a.plan_key === pl.id)
-            .map((a: { feature_key: string }) => a.feature_key)
+        // Respeita herança configurada no banco ou usa padrão
+        const inherit = typeof cfg.inherit_previous_plan === 'boolean'
+          ? (cfg.inherit_previous_plan as boolean)
+          : DEFAULT_INHERIT[pl.id as PlanKey]
 
-          const enabledFeatures = featData
-            .filter((f: { feature_key: string }) =>
-              enabledKeys.includes(f.feature_key) && officialKeys.has(f.feature_key)
-            )
-            .map((f: { feature_name: string }) => ({ text: f.feature_name, included: true }))
+        // Monta lista pública: "Tudo do X" (se herdar) + benefícios próprios do plano
+        const ownKeys = OWN_FEATURE_KEYS[pl.id as PlanKey] ?? []
+        const ownItems = ownKeys
+          .map(k => OFFICIAL_FEATURES.find(f => f.key === k)?.name)
+          .filter(Boolean) as string[]
+        const inheritItem = INHERIT_LABEL[pl.id as PlanKey]
+        const publicList = inherit && inheritItem
+          ? [inheritItem, ...ownItems]
+          : ownItems
 
-          if (enabledFeatures.length > 0) features = enabledFeatures
-        }
+        const features = publicList.length > 0
+          ? publicList.map((text, i) => ({
+              text,
+              included: true,
+              note: pl.id === 'free' && i === publicList.length - 1,
+            }))
+          : pl.features
 
         return {
           ...pl,
-          name: cfg?.label || pl.name,
-          price: cfg?.price || pl.price,
-          tagline: cfg?.description || pl.tagline,
-          badge: cfg?.recommended || cfg?.is_recommended ? 'Mais recomendado' : pl.badge,
+          name:    (cfg.label       as string) || pl.name,
+          price:   (cfg.price       as string) || pl.price,
+          tagline: (cfg.description as string) || pl.tagline,
+          badge:   (cfg.recommended as boolean) ? 'Mais recomendado' : pl.badge,
           features,
         }
       }))
