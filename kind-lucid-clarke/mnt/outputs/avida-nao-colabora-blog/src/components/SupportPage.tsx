@@ -25,6 +25,8 @@ const STATUS_LABEL: Record<string, string> = {
   open: 'Aberto',
   in_progress: 'Em andamento',
   waiting_client: 'Aguardando resposta',
+  awaiting_admin: 'Aguardando suporte',
+  awaiting_user: 'Aguardando você',
   resolved: 'Resolvido',
   closed: 'Fechado',
 }
@@ -32,6 +34,8 @@ const STATUS_COLOR: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   in_progress: 'bg-orange-100 text-orange-700',
   waiting_client: 'bg-purple-100 text-purple-700',
+  awaiting_admin: 'bg-yellow-100 text-yellow-700',
+  awaiting_user: 'bg-purple-100 text-purple-700',
   resolved: 'bg-green-100 text-green-700',
   closed: 'bg-stone-100 text-stone-500',
 }
@@ -173,33 +177,33 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
             <button
               key={ticket.id}
               onClick={() => onOpenTicket(ticket.id)}
-              className="w-full text-left bg-white border border-stone-100 rounded-xl px-5 py-4 flex items-center gap-4 hover:shadow-md transition-shadow group"
+              className="w-full text-left bg-white border border-stone-100 rounded-lg px-4 py-2.5 flex items-center gap-3 hover:shadow-sm hover:border-stone-200 transition-all group"
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-xs text-stone-400 font-mono">#{ticket.ticket_number}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[ticket.status] ?? 'bg-stone-100 text-stone-500'}`}>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-stone-400 font-mono">#{ticket.ticket_number}</span>
+                  <span className={`text-[11px] px-1.5 py-0 rounded-full font-medium ${STATUS_COLOR[ticket.status] ?? 'bg-stone-100 text-stone-500'}`}>
                     {STATUS_LABEL[ticket.status] ?? ticket.status}
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_COLOR[ticket.priority] ?? 'bg-stone-100 text-stone-500'}`}>
+                  <span className={`text-[11px] px-1.5 py-0 rounded-full font-medium ${PRIORITY_COLOR[ticket.priority] ?? 'bg-stone-100 text-stone-500'}`}>
                     {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
                   </span>
-                </div>
-                <p className="font-medium text-sm text-stone-800 truncate">{ticket.subject}</p>
-                <div className="flex items-center gap-3 mt-1 text-xs text-stone-400">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}
-                  </span>
-                  {(ticket.message_count ?? 0) > 0 && (
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="w-3 h-3" />
-                      {ticket.message_count} mensagem{ticket.message_count !== 1 ? 's' : ''}
+                  <span className="ml-auto flex items-center gap-2 text-[11px] text-stone-400">
+                    {(ticket.message_count ?? 0) > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <MessageCircle className="w-3 h-3" />
+                        {ticket.message_count}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="w-3 h-3" />
+                      {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}
                     </span>
-                  )}
+                  </span>
                 </div>
+                <p className="font-medium text-sm text-stone-800 truncate mt-0.5">{ticket.subject}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-stone-300 flex-shrink-0" />
+              <ChevronRight className="w-3.5 h-3.5 text-stone-300 flex-shrink-0" />
             </button>
           ))}
         </div>

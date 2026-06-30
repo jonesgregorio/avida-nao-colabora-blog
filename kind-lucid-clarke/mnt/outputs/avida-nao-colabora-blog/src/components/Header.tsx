@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Map, Bookmark, Bell } from 'lucide-react'
+import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Map, Bookmark, Bell, LifeBuoy } from 'lucide-react'
 import { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 
@@ -74,6 +74,13 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
 
           {user ? (
             <div className="flex items-center gap-2 ml-2">
+              <button
+                onClick={() => handleNav('support')}
+                title="Suporte"
+                className="p-1.5 text-sage-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+              >
+                <LifeBuoy className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => handleNav('notifications')}
                 title="Notificações"
@@ -172,6 +179,12 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                   className="flex items-center gap-2 text-sm text-blue-600 px-3 py-2.5 w-full hover:bg-blue-50 rounded-lg"
                 >
                   <Map className="w-4 h-4" /> Trilhas de Autocuidado
+                </button>
+                <button
+                  onClick={() => handleNav('support')}
+                  className="flex items-center gap-2 text-sm text-emerald-600 px-3 py-2.5 w-full hover:bg-emerald-50 rounded-lg"
+                >
+                  <LifeBuoy className="w-4 h-4" /> Suporte
                 </button>
                 <button
                   onClick={() => handleNav('saved')}

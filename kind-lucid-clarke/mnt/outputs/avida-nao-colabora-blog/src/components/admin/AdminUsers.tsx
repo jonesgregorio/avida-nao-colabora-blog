@@ -5,6 +5,7 @@ import { sendUserMessage } from '../../lib/messaging'
 import {
   Search, X, Users, Crown, Bell, FileText,
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
+  LayoutList, Columns,
 } from 'lucide-react'
 
 interface UserRow {
@@ -107,12 +108,21 @@ function timeSince(iso: string): string {
 const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
 type DrawerTab = 'resumo' | 'plano' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca'
+type ViewMode = 'list' | 'kanban'
+
+const KANBAN_COLUMNS = [
+  { key: 'free', label: 'Gratuito', color: 'border-stone-300 bg-stone-50', badge: 'bg-stone-100 text-stone-600' },
+  { key: 'essential', label: 'Essencial', color: 'border-blue-300 bg-blue-50', badge: 'bg-blue-100 text-blue-700' },
+  { key: 'therapeutic', label: 'Terapêutico', color: 'border-purple-300 bg-purple-50', badge: 'bg-purple-100 text-purple-700' },
+  { key: 'therapeutic-plus', label: 'Plus', color: 'border-emerald-300 bg-emerald-50', badge: 'bg-emerald-100 text-emerald-700' },
+]
 
 export default function AdminUsers() {
   const { user: adminUser } = useAuth()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('resumo')
 
@@ -523,24 +533,42 @@ export default function AdminUsers() {
               </div>
             ))}
           </div>
-          <div className="relative max-w-sm">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar por nome ou ID..."
-              className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por nome ou ID..."
+                className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+              />
+            </div>
+            <div className="flex rounded-lg border border-stone-200 overflow-hidden flex-shrink-0">
+              <button
+                onClick={() => setViewMode('list')}
+                title="Lista"
+                className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-stone-800 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+              >
+                <LayoutList className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('kanban')}
+                title="Kanban"
+                className={`px-3 py-2 transition-colors ${viewMode === 'kanban' ? 'bg-stone-800 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+              >
+                <Columns className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="flex-1 overflow-y-auto">
+        {/* List / Kanban */}
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="p-6 space-y-3">
               {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-stone-100 rounded-xl animate-pulse" />)}
             </div>
-          ) : (
+          ) : viewMode === 'list' ? (
             <div className="divide-y divide-stone-50">
               {filtered.map(u => {
                 const hasDiscount = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
@@ -554,7 +582,6 @@ export default function AdminUsers() {
                     onClick={() => openDrawer(u)}
                     className={`w-full text-left px-6 py-3 hover:bg-stone-50 transition-colors flex items-center gap-3 ${selectedUser?.user_id === u.user_id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
                   >
-                    {/* Avatar placeholder */}
                     <div className="w-9 h-9 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-sm font-semibold flex-shrink-0">
                       {(u.full_name ?? 'U')[0]?.toUpperCase()}
                     </div>
@@ -568,13 +595,11 @@ export default function AdminUsers() {
                           {PLAN_LABELS[u.plan] ?? u.plan}
                         </span>
                         <span className="text-xs text-stone-400">{timeSince(u.created_at)}</span>
-                        {/* Status badge */}
                         {u.account_status && u.account_status !== 'active' && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ACCOUNT_STATUS_COLORS[u.account_status] ?? 'bg-stone-100'}`}>
                             {u.account_status}
                           </span>
                         )}
-                        {/* Benefit badges */}
                         {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Ilimitado</span>}
                         {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
                         {isBlocked && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
@@ -596,6 +621,71 @@ export default function AdminUsers() {
                       <ChevronRight className="w-4 h-4 text-stone-300" />
                     </div>
                   </button>
+                )
+              })}
+            </div>
+          ) : (
+            /* Kanban view — columns by plan */
+            <div className="flex gap-3 p-4 h-full overflow-x-auto items-start">
+              {KANBAN_COLUMNS.map(col => {
+                const colUsers = filtered.filter(u => u.plan === col.key)
+                return (
+                  <div key={col.key} className={`flex flex-col rounded-xl border-2 ${col.color} min-w-[220px] w-[220px] flex-shrink-0`}>
+                    {/* Column header */}
+                    <div className="px-3 py-2 flex items-center justify-between border-b border-black/10">
+                      <span className="text-xs font-semibold text-stone-700">{col.label}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${col.badge}`}>{colUsers.length}</span>
+                    </div>
+                    {/* Cards */}
+                    <div className="flex flex-col gap-2 p-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                      {colUsers.length === 0 ? (
+                        <p className="text-[11px] text-stone-400 text-center py-4">Nenhum usuário</p>
+                      ) : colUsers.map(u => {
+                        const isBlocked = u.account_status === 'blocked'
+                        const isSuspended = u.account_status === 'suspended'
+                        const isUnlimited = u.unlimited_access === true
+                        const hasDiscount = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
+                        const hasOpenTickets = (u.open_tickets ?? 0) > 0
+                        const hasUnreadNotifs = (u.unread_notifs ?? 0) > 0
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => openDrawer(u)}
+                            className={`w-full text-left bg-white rounded-lg border px-3 py-2.5 hover:shadow-md transition-shadow ${selectedUser?.user_id === u.user_id ? 'ring-2 ring-blue-400 border-blue-200' : 'border-stone-100'}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-xs font-bold flex-shrink-0">
+                                {(u.full_name ?? 'U')[0]?.toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-stone-800 truncate leading-tight">
+                                  {u.full_name || 'Sem nome'}
+                                </p>
+                                <p className="text-[10px] text-stone-400">{timeSince(u.created_at)}</p>
+                              </div>
+                              {u.role === 'admin' && <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {isBlocked && <span className="text-[10px] px-1.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
+                              {isSuspended && <span className="text-[10px] px-1.5 rounded-full bg-orange-100 text-orange-700 font-medium">Suspenso</span>}
+                              {isUnlimited && <span className="text-[10px] px-1.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Ilimitado</span>}
+                              {hasDiscount && <span className="text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
+                              {hasOpenTickets && (
+                                <span className="text-[10px] px-1.5 rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-0.5">
+                                  <Ticket className="w-2.5 h-2.5" />{u.open_tickets}
+                                </span>
+                              )}
+                              {hasUnreadNotifs && (
+                                <span className="text-[10px] px-1.5 rounded-full bg-red-100 text-red-700 font-medium flex items-center gap-0.5">
+                                  <Bell className="w-2.5 h-2.5" />{u.unread_notifs}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )
               })}
             </div>
