@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2, Bell, Send } from 'lucide-react'
+import { Plus, Trash2, Bell, Send, Sparkles } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 interface Notification {
   id: string
@@ -46,6 +47,7 @@ export default function AdminNotifications() {
   const [targetUserId, setTargetUserId] = useState('')
   const [type, setType] = useState('info')
   const [saving, setSaving] = useState(false)
+  const [showAI, setShowAI] = useState(false)
 
   async function load() {
     const { data } = await supabase
@@ -130,6 +132,20 @@ export default function AdminNotifications() {
     <div>
       {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
+      {showAI && (
+        <AIContentAssistant
+          contentType="notification"
+          defaultTheme={`${TYPES.find(t => t.value === type)?.label ?? type}${title ? ` — ${title}` : ''}`}
+          onInsert={result => {
+            const titleMatch = result.match(/TÍTULO:\s*(.+)/i)
+            const msgMatch   = result.match(/MENSAGEM:\s*(.+)/i)
+            if (titleMatch) setTitle(titleMatch[1].trim())
+            if (msgMatch)   setBody(msgMatch[1].trim())
+          }}
+          onClose={() => setShowAI(false)}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Notificações</h1>
         <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700">
@@ -139,7 +155,15 @@ export default function AdminNotifications() {
 
       {showForm && (
         <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
-          <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Nova notificação</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Nova notificação</h2>
+            <button
+              onClick={() => setShowAI(true)}
+              className="flex items-center gap-1.5 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Gerar com IA
+            </button>
+          </div>
 
           {/* Target mode */}
           <div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Save, Eye, Calendar } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Sparkles } from 'lucide-react'
+import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 
 interface ArticleData {
   title: string
@@ -42,6 +43,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   const [categories, setCategories] = useState<string[]>([])
+  const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
 
   useEffect(() => {
     supabase.from('categories').select('name').eq('is_active', true).order('name').then(({ data: cats }) => {
@@ -148,6 +150,27 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     setTimeout(() => setToast(null), 4000)
   }
 
+  function handleAIInsert(result: string) {
+    if (!aiModal) return
+    switch (aiModal.type) {
+      case 'article':           set('content', result); break
+      case 'article_title':     set('title', result); break
+      case 'article_summary':   set('summary', result); break
+      case 'article_seo':
+        // Tenta extrair campos do bloco SEO gerado
+        const titleMatch = result.match(/META TITLE:\s*(.+)/i)
+        const descMatch  = result.match(/META DESCRIPTION:\s*(.+)/i)
+        if (titleMatch) set('seo_title', titleMatch[1].trim())
+        if (descMatch)  set('seo_description', descMatch[1].trim())
+        break
+      case 'article_diary_question': set('diary_question', result); break
+      case 'article_cta':       set('cta_text', result); break
+      case 'improve':
+      case 'rewrite':           set('content', result); break
+      default:                  set('content', result)
+    }
+  }
+
   if (loading) return <p className="text-stone-400 text-sm">Carregando artigo...</p>
 
   return (
@@ -156,6 +179,19 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
           {toast.msg}
         </div>
+      )}
+
+      {aiModal && (
+        <AIContentAssistant
+          contentType={aiModal.type}
+          label={aiModal.label}
+          contextTitle={data.title}
+          contextContent={data.content}
+          contextCategory={data.category}
+          defaultTheme={data.title}
+          onInsert={handleAIInsert}
+          onClose={() => setAiModal(null)}
+        />
       )}
 
       <div className="flex items-center gap-3 mb-6">
@@ -185,6 +221,35 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
+          {/* Painel de IA */}
+          <div className="bg-gradient-to-r from-emerald-50 to-stone-50 border border-emerald-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-800">Assistente de IA</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { type: 'article', label: 'Gerar artigo completo' },
+                { type: 'article_title', label: 'Gerar título' },
+                { type: 'article_summary', label: 'Gerar resumo' },
+                { type: 'article_seo', label: 'Gerar SEO' },
+                { type: 'article_diary_question', label: 'Pergunta para diário' },
+                { type: 'article_cta', label: 'Gerar CTA' },
+                { type: 'improve', label: 'Melhorar texto' },
+                { type: 'rewrite', label: 'Reescrever acolhedor' },
+              ] as { type: AIContentType; label: string }[]).map(btn => (
+                <button
+                  key={btn.type}
+                  onClick={() => setAiModal(btn)}
+                  className="text-xs bg-white border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors font-medium"
+                >
+                  ✦ {btn.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Conteúdo</h2>
             <Field label="Título">

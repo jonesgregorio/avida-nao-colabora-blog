@@ -175,7 +175,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                   onClick={() => handleNav('trails')}
                   className="flex items-center gap-2 text-sm text-blue-600 px-3 py-2.5 w-full hover:bg-blue-50 rounded-lg"
                 >
-                  <Map className="w-4 h-4" /> Trilhas de Autocuidado
+                  Trilhas de Autocuidado
                 </button>
                 <button
                   onClick={() => handleNav('support')}

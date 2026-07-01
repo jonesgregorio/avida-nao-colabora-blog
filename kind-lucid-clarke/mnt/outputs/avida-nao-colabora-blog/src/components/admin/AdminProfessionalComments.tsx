@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { Star, Send, Loader2, Search } from 'lucide-react'
+import { Star, Send, Loader2, Search, Sparkles } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 interface UserProfile {
   user_id: string
@@ -52,6 +53,7 @@ export default function AdminProfessionalComments() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
+  const [showAI, setShowAI] = useState(false)
 
   useEffect(() => {
     supabase.from('profiles')
@@ -199,7 +201,26 @@ export default function AdminProfessionalComments() {
                 </div>
               </div>
               <div className="mb-3">
-                <label className="text-xs font-medium text-stone-500 mb-1 block">Comentário</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-stone-500">Comentário</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAI(true)}
+                    className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                  >
+                    <Sparkles className="w-3 h-3" /> Gerar rascunho com IA
+                  </button>
+                </div>
+                {showAI && (
+                  <AIContentAssistant
+                    contentType="professional_comment"
+                    label="Gerar rascunho de comentário profissional"
+                    defaultTheme={commentText || 'evolução emocional do mês'}
+                    defaultTone="profissional"
+                    onInsert={result => setCommentText(result)}
+                    onClose={() => setShowAI(false)}
+                  />
+                )}
                 <textarea
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}

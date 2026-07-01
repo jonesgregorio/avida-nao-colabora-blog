@@ -191,38 +191,37 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
     const prevStart = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1).toISOString().slice(0, 10)
     const prevEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-    const queries: Promise<unknown>[] = [
-      supabase
-        .from('diary_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: true })
-        .then(({ data }) => setEntries((data as DiaryEntry[]) ?? [])),
+    const p1 = supabase
+      .from('diary_entries')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('date', start)
+      .lte('date', end)
+      .order('date', { ascending: true })
+      .then(({ data }) => setEntries((data as DiaryEntry[]) ?? []))
 
-      supabase
-        .from('diary_entries')
-        .select('date,mood,mood_score,energy,anxiety_level,stress_level,sleep_quality,self_esteem')
-        .eq('user_id', user.id)
-        .gte('date', prevStart)
-        .lte('date', prevEnd)
-        .then(({ data }) => setPrevEntries((data as DiaryEntry[]) ?? [])),
-    ]
+    const p2 = supabase
+      .from('diary_entries')
+      .select('date,mood,mood_score,energy,anxiety_level,stress_level,sleep_quality,self_esteem')
+      .eq('user_id', user.id)
+      .gte('date', prevStart)
+      .lte('date', prevEnd)
+      .then(({ data }) => setPrevEntries((data as DiaryEntry[]) ?? []))
+
+    const queries: Promise<unknown>[] = [Promise.resolve(p1), Promise.resolve(p2)]
 
     if (isPlus) {
-      queries.push(
-        supabase
-          .from('professional_comments')
-          .select('id,comment_text,comment,report_month,professional_name,created_at')
-          .eq('user_id', user.id)
-          .eq('report_month', selectedMonth)
-          .maybeSingle()
-          .then(({ data }) => {
-            const d = data as ProfessionalComment | null
-            setComment(d ? { ...d, comment_text: d.comment_text || d.comment || '' } : null)
-          })
-      )
+      const p3 = supabase
+        .from('professional_comments')
+        .select('id,comment_text,comment,report_month,professional_name,created_at')
+        .eq('user_id', user.id)
+        .eq('report_month', selectedMonth)
+        .maybeSingle()
+        .then(({ data }) => {
+          const d = data as ProfessionalComment | null
+          setComment(d ? { ...d, comment_text: d.comment_text || (d as any).comment || '' } : null)
+        })
+      queries.push(Promise.resolve(p3))
     }
 
     Promise.all(queries).finally(() => setLoading(false))

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { AlertCircle, CheckCircle, Save, X, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle, Save, X, Loader2, Sparkles } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 interface ArticleSEO {
   id: string
@@ -26,6 +27,7 @@ export default function AdminSEO() {
   const [editState, setEditState] = useState<EditState>({ seo_title: '', seo_description: '' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [aiArticle, setAiArticle] = useState<ArticleSEO | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -93,6 +95,23 @@ export default function AdminSEO() {
         <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {toast}
         </div>
+      )}
+
+      {aiArticle && (
+        <AIContentAssistant
+          contentType="article_seo"
+          contextTitle={aiArticle.title}
+          defaultTheme={aiArticle.title}
+          onInsert={result => {
+            const titleMatch = result.match(/META TITLE:\s*(.+)/i)
+            const descMatch  = result.match(/META DESCRIPTION:\s*(.+)/i)
+            setEditState({
+              seo_title: titleMatch ? titleMatch[1].trim().slice(0, 80) : editState.seo_title,
+              seo_description: descMatch ? descMatch[1].trim().slice(0, 200) : editState.seo_description,
+            })
+          }}
+          onClose={() => setAiArticle(null)}
+        />
       )}
 
       <h1 className="text-2xl font-bold text-stone-800 mb-6">SEO</h1>
@@ -197,7 +216,13 @@ export default function AdminSEO() {
                             maxLength={200}
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => setAiArticle(a)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                          >
+                            <Sparkles className="w-3 h-3" /> Gerar SEO com IA
+                          </button>
                           <button
                             onClick={saveEdit}
                             disabled={saving}

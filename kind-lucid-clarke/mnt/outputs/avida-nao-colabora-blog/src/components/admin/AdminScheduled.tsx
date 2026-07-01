@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Pencil, Trash2, Calendar } from 'lucide-react'
+import { Plus, Pencil, Trash2, Calendar, Sparkles } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 interface ScheduledContent {
   id: string
@@ -31,6 +32,7 @@ export default function AdminScheduled() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<ScheduledContent | null>(null)
+  const [showAI, setShowAI] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
 
   const [title, setTitle] = useState('')
@@ -129,6 +131,16 @@ export default function AdminScheduled() {
         </button>
       </div>
 
+      {showAI && (
+        <AIContentAssistant
+          contentType="scheduled_content"
+          defaultTheme={title || type}
+          label="Gerar conteúdo programado com IA"
+          onInsert={result => setContent(result)}
+          onClose={() => setShowAI(false)}
+        />
+      )}
+
       {showForm && (
         <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">{editing ? 'Editar' : 'Novo conteúdo programado'}</h2>
@@ -158,7 +170,16 @@ export default function AdminScheduled() {
               <input value={recurrence} onChange={e => setRecurrence(e.target.value)} placeholder="Ex: Mensal, toda segunda-feira, etc." className={inputCls} />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs text-stone-500 mb-1">Conteúdo / Descrição</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-stone-500">Conteúdo / Descrição</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAI(true)}
+                  className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                >
+                  <Sparkles className="w-3 h-3" /> Gerar com IA
+                </button>
+              </div>
               <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} placeholder="Conteúdo ou descrição do envio..." className={inputCls} />
             </div>
           </div>

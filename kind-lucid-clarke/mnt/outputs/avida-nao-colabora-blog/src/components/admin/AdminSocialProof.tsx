@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2, Save, Star } from 'lucide-react'
+import { Plus, Trash2, Save, Star, Sparkles } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 interface Testimonial {
   id: string
@@ -30,6 +31,7 @@ export default function AdminSocialProof() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [showAI, setShowAI] = useState(false)
   const [savingMetrics, setSavingMetrics] = useState(false)
 
   // Testimonial form
@@ -162,7 +164,25 @@ export default function AdminSocialProof() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-stone-500 mb-1">Depoimento</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-stone-500">Depoimento</label>
+              <button
+                type="button"
+                onClick={() => setShowAI(true)}
+                className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+              >
+                <Sparkles className="w-3 h-3" /> Gerar com IA
+              </button>
+            </div>
+            {showAI && (
+              <AIContentAssistant
+                contentType="social_proof"
+                defaultTheme="depoimento de usuário do app de bem-estar"
+                label="Gerar texto de prova social"
+                onInsert={result => { setText(result); setShowAI(false) }}
+                onClose={() => setShowAI(false)}
+              />
+            )}
             <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="O que a pessoa disse sobre a plataforma..." className={inputCls} />
           </div>
           <div className="flex gap-2">
