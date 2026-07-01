@@ -4,8 +4,9 @@ import {
   Plus, Pencil, Trash2, Eye, Copy, Archive,
   ChevronUp, ChevronDown, X, Save, Send, Clock, CheckCircle,
   AlertCircle, Info, List, Settings, BarChart2, Play,
-  GripVertical, ChevronRight, FileText
+  GripVertical, ChevronRight, FileText, Sparkles
 } from 'lucide-react'
+import AIContentAssistant from './AIContentAssistant'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -275,8 +276,55 @@ export default function AdminQuestionnaires() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<QStatus | 'all'>('all')
   const [activeTab, setActiveTab] = useState<'info' | 'questions' | 'results' | 'settings'>('info')
+  const [showAI, setShowAI] = useState(false)
 
   const flash = (type: 'ok' | 'err', text: string) => { setMsg({ type, text }); setTimeout(() => setMsg(null), 4000) }
+
+  function applyAIDraft(raw: string) {
+    try {
+      // tenta extrair JSON mesmo se vier com texto ao redor
+      const match = raw.match(/\{[\s\S]*\}/)
+      if (!match) { flash('err', 'IA não retornou JSON válido. Copie e edite manualmente.'); return }
+      const parsed = JSON.parse(match[0])
+      const questions: QQuestion[] = (parsed.questions ?? []).map((q: any) => ({
+        id: uid(),
+        type: (q.type as QuestionType) ?? 'single_choice',
+        text: q.text ?? '',
+        subtitle: q.subtitle ?? '',
+        required: true,
+        options: (q.options ?? []).map((o: any) => ({
+          id: uid(),
+          text: o.text ?? '',
+          score: Number(o.score ?? 0),
+          tag: o.tag ?? '',
+        })),
+        expanded: true,
+      }))
+      const results: QResult[] = (parsed.results ?? []).map((r: any, i: number) => ({
+        id: uid(),
+        min_score: Number(r.min ?? r.min_score ?? 0),
+        max_score: Number(r.max ?? r.max_score ?? 10),
+        label: r.label ?? '',
+        description: r.description ?? '',
+        recommendation: r.recommendation ?? '',
+        color: RESULT_COLORS[i % RESULT_COLORS.length],
+      }))
+      setEditing(e => ({
+        ...e,
+        title:           parsed.title           ?? e.title,
+        description:     parsed.short_description ?? parsed.description ?? e.description,
+        intro_text:      parsed.intro_text       ?? e.intro_text,
+        completion_text: parsed.completion_text  ?? e.completion_text,
+        estimated_time:  Number(parsed.estimated_time ?? e.estimated_time),
+        questions,
+        results,
+      }))
+      flash('ok', `Questionário gerado: ${questions.length} perguntas, ${results.length} resultados. Revise antes de salvar.`)
+      setActiveTab('info')
+    } catch {
+      flash('err', 'Erro ao interpretar JSON da IA. Copie o resultado e edite manualmente.')
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -394,10 +442,26 @@ export default function AdminQuestionnaires() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {showAI && (
+        <AIContentAssistant
+          contentType="questionnaire"
+          defaultTheme={editing.title || editing.category}
+          label="Gerar questionário completo com IA"
+          defaultTone="acolhedor"
+          onInsert={applyAIDraft}
+          onClose={() => setShowAI(false)}
+        />
+      )}
       {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <button onClick={() => setView('list')} className="text-stone-400 hover:text-stone-700"><X size={20} /></button>
         <h1 className="text-xl font-bold text-stone-800 flex-1">{editing.id ? 'Editar' : 'Novo questionário'}</h1>
+        <button
+          onClick={() => setShowAI(true)}
+          className="flex items-center gap-1.5 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+        >
+          <Sparkles size={14} /> Gerar com IA
+        </button>
         <button onClick={() => save()} disabled={saving} className="flex items-center gap-2 border rounded-lg px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"><Save size={14} />{saving ? 'Salvando...' : 'Rascunho'}</button>
         <button onClick={() => save('published')} disabled={saving} className="flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50"><Send size={14} />Publicar</button>
       </div>
