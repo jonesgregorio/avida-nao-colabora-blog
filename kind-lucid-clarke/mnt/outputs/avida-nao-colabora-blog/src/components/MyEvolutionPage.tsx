@@ -536,6 +536,7 @@ function TabRelatorios({ plan, user, profile, onNavigatePricing }: {
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const [report, setReport] = useState<MonthlyReport | null>(null)
+  const [reportExtras, setReportExtras] = useState<PersonalizedExtra[]>([])
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
   const { stats } = useDiaryStats(user?.id, selectedMonth)
@@ -550,9 +551,16 @@ function TabRelatorios({ plan, user, profile, onNavigatePricing }: {
     if (!user) return
     setLoading(true)
     const type = hasPlan(plan, 'therapeutic') ? 'advanced' : 'simple'
-    const { data } = await supabase.from('monthly_reports').select('*')
-      .eq('user_id', user.id).eq('month_key', selectedMonth).eq('report_type', type).maybeSingle()
-    setReport(data)
+    const [repRes, extrasRes] = await Promise.all([
+      supabase.from('monthly_reports').select('*')
+        .eq('user_id', user.id).eq('month_key', selectedMonth).eq('report_type', type).maybeSingle(),
+      supabase.from('personalized_content_deliveries')
+        .select('id, title, body, content_type, sent_at, created_at')
+        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'reports')
+        .order('sent_at', { ascending: false }).limit(10),
+    ])
+    setReport(repRes.data)
+    setReportExtras((extrasRes.data ?? []) as PersonalizedExtra[])
     setLoading(false)
   }, [user, selectedMonth, plan])
 
@@ -677,6 +685,24 @@ function TabRelatorios({ plan, user, profile, onNavigatePricing }: {
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {generating ? 'Gerando...' : 'Gerar relatório do mês'}
           </button>
+        </div>
+      )}
+
+      {reportExtras.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-stone-700">Comentários e feedbacks da equipe</h3>
+          {reportExtras.map(e => (
+            <div key={e.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-stone-800 text-sm">{e.title}</p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {e.content_type && <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full">{getContentTypeLabel(e.content_type)}</span>}
+                  <span className="text-xs text-stone-400">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</span>
+                </div>
+              </div>
+              <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{e.body}</p>
+            </div>
+          ))}
         </div>
       )}
 

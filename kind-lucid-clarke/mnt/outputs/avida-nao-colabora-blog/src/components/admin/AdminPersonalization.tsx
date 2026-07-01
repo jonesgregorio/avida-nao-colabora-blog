@@ -12,6 +12,7 @@ import {
   generateContentForTask, TaskSnapshot, monthKey,
   refreshTasksForAllUsers,
 } from '../../lib/personalizationTasks'
+import { sendPersonalizedDelivery } from '../../services/personalizedDeliveryService'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -305,36 +306,61 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
     }
     setSending(true)
 
+    const { data: meData } = await supabase.auth.getUser()
+    const adminId = meData.user?.id ?? ''
+    const now = new Date().toISOString()
+
+    // 1. Atualizar delivery para enviado
     await supabase
       .from('personalized_content_deliveries')
       .update({
         title: editTitle, body: editBody,
-        status: 'sent', sent_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: 'sent', sent_at: now,
+        updated_at: now,
       })
       .eq('id', delivery.id)
 
+    // 2. Atualizar task para enviada
     await supabase
       .from('user_personalization_tasks')
       .update({
         status: 'sent',
         delivery_id: delivery.id,
-        sent_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        sent_at: now,
+        completed_at: now,
+        updated_at: now,
       })
       .eq('id', task.id)
 
+    // 3. Notificação ao usuário
     if (def) {
       await supabase.from('notifications').insert({
         user_id: task.user_id,
         title: def.notificationTitle ?? 'Novo conteúdo personalizado disponível',
         body: def.notificationBody ?? 'Preparamos uma nova entrega personalizada para você.',
-        type: 'system',
+        type: 'personalized_content',
         action_view: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'] ?? 'my-evolution',
         action_label: 'Ver conteúdo',
         is_read: false,
       })
+    }
+
+    // 4. Reflexo nos módulos oficiais (não bloqueia o envio se falhar)
+    try {
+      await sendPersonalizedDelivery({
+        taskId: task.id,
+        deliveryId: delivery.id,
+        userId: task.user_id,
+        adminId,
+        contentType: task.content_type ?? '',
+        targetArea: task.target_area ?? null,
+        title: editTitle,
+        body: editBody,
+        planKey: task.plan_key ?? null,
+        relatedGuidanceId: (task as any).related_guidance_id ?? null,
+      })
+    } catch (e) {
+      console.warn('[send] Reflexo em módulos oficiais falhou (não crítico):', e)
     }
 
     showToast('Conteúdo enviado e usuário notificado!')
