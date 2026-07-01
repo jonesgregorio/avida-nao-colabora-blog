@@ -30,6 +30,7 @@ import AdminGuidanceRequests from './AdminGuidanceRequests'
 import AdminEvolutionSessions from './AdminEvolutionSessions'
 import AdminSelfCarePlans from './AdminSelfCarePlans'
 import AdminPersonalization from './AdminPersonalization'
+import AdminSystemHealth from './AdminSystemHealth'
 
 export type { AdminView } from './types'
 
@@ -91,6 +92,7 @@ export default function AdminPanel() {
       case 'evolution-sessions':   return <AdminEvolutionSessions />
       case 'self-care-plans':      return <AdminSelfCarePlans />
       case 'personalization':      return <AdminPersonalization />
+      case 'system-health':        return <AdminSystemHealth />
       default:               return <AdminDashboard onNavigate={setView} />
     }
   }
