@@ -695,8 +695,12 @@ function ProfessionalCommentStatus({ userId, monthKey: mk, reportId }: {
 
   useEffect(() => {
     if (!userId) return
-    supabase.from('professional_comments').select('*')
-      .eq('user_id', userId).eq('month_key', mk).maybeSingle()
+    // A tabela usa report_month ou month_key dependendo de como foi inserido
+    supabase.from('professional_comments').select('id, comment, comment_text, report_month, month_key, created_at')
+      .eq('user_id', userId)
+      .or(`report_month.eq.${mk},month_key.eq.${mk}`)
+      .order('created_at', { ascending: false })
+      .limit(1).maybeSingle()
       .then(({ data }) => setComment(data))
   }, [userId, mk])
 
@@ -738,7 +742,7 @@ function ProfessionalCommentStatus({ userId, monthKey: mk, reportId }: {
         <CheckCircle className="w-4 h-4 text-purple-600" />
         <p className="text-sm text-purple-800 font-medium">Comentário profissional disponível</p>
       </div>
-      <p className="text-sm text-stone-700 leading-relaxed">{comment.comment}</p>
+      <p className="text-sm text-stone-700 leading-relaxed">{comment.comment_text || comment.comment}</p>
       <p className="text-xs text-stone-400">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</p>
       <p className="text-xs text-stone-400 italic">{DISCLAIMER}</p>
     </div>
@@ -1036,11 +1040,27 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
 
 interface ProfessionalComment {
   id: string
-  month_key: string
-  comment: string
+  report_month: string | null
+  month_key: string | null
+  comment: string | null
+  comment_text: string | null
   title: string | null
-  status: string
+  professional_name: string | null
+  status: string | null
   created_at: string
+}
+
+function safeMonthLabel(key: string | null | undefined) {
+  if (!key) return '—'
+  try { return monthLabel(key) } catch { return key }
+}
+
+function commentText(c: ProfessionalComment) {
+  return c.comment_text || c.comment || ''
+}
+
+function commentMonth(c: ProfessionalComment) {
+  return c.report_month || c.month_key || null
 }
 
 function TabComentarios({ plan, user, onNavigatePricing }: {
@@ -1051,9 +1071,10 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
 
   useEffect(() => {
     if (!user || !hasPlan(plan, 'therapeutic-plus')) { setLoading(false); return }
-    supabase.from('professional_comments').select('*')
+    supabase.from('professional_comments')
+      .select('id, report_month, month_key, comment, comment_text, title, professional_name, status, created_at')
       .eq('user_id', user.id).order('created_at', { ascending: false })
-      .then(({ data }) => { setComments(data ?? []); setLoading(false) })
+      .then(({ data }) => { setComments((data as ProfessionalComment[]) ?? []); setLoading(false) })
   }, [user, plan])
 
   if (!hasPlan(plan, 'therapeutic-plus')) {
@@ -1086,10 +1107,15 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
           {comments.map(c => (
             <div key={c.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-stone-800 text-sm">{c.title ?? `Comentário de ${monthLabel(c.month_key)}`}</h3>
+                <h3 className="font-semibold text-stone-800 text-sm">
+                  {c.title ?? `Comentário de ${safeMonthLabel(commentMonth(c))}`}
+                </h3>
                 <span className="text-xs text-stone-400">{new Date(c.created_at).toLocaleDateString('pt-BR')}</span>
               </div>
-              <p className="text-sm text-stone-700 leading-relaxed">{c.comment}</p>
+              {c.professional_name && (
+                <p className="text-xs text-stone-400">Por: {c.professional_name}</p>
+              )}
+              <p className="text-sm text-stone-700 leading-relaxed">{commentText(c)}</p>
               <div className="border-t border-stone-100 pt-3">
                 <p className="text-xs text-stone-400 italic">{DISCLAIMER}</p>
               </div>
