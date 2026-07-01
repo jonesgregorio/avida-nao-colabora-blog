@@ -23,3 +23,6 @@ export type AdminView =
   | 'professionals'
   | 'financial'
   | 'professional-comments'
+  | 'guidance-requests'
+  | 'evolution-sessions'
+  | 'self-care-plans'

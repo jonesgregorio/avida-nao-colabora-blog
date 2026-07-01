@@ -37,13 +37,14 @@ import MonthlyGuidancePage from './components/MonthlyGuidancePage'
 import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
+import MyEvolutionPage from './components/MyEvolutionPage'
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
   'home','auth','diary','profile','meditations','challenges',
   'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','trails','saved','admin','contact','success',
-  'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report',
+  'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
 ]
 
 function restoreNav() {
@@ -102,7 +103,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
-      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan',
+      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution',
     ]
     if (directViews.includes(section as View)) {
       setView(section as View)
@@ -496,6 +497,25 @@ export default function App() {
             profile={profile}
             onNavigateDiary={() => navigate('diary')}
             onNavigatePricing={() => navigate('pricing')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'my-evolution') {
+    if (!user) { navigate('auth'); return null }
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <MyEvolutionPage
+            user={user}
+            profile={profile}
+            onBack={() => navigate('home')}
+            onNavigatePricing={() => navigate('pricing')}
+            onNavigateDiary={() => navigate('diary')}
           />
         </main>
         <Footer onNavigate={navigate} />

@@ -26,6 +26,9 @@ import AdminLogs from './AdminLogs'
 import AdminProfessionals from './AdminProfessionals'
 import AdminFinancial from './AdminFinancial'
 import AdminProfessionalComments from './AdminProfessionalComments'
+import AdminGuidanceRequests from './AdminGuidanceRequests'
+import AdminEvolutionSessions from './AdminEvolutionSessions'
+import AdminSelfCarePlans from './AdminSelfCarePlans'
 
 export type { AdminView } from './types'
 
@@ -83,6 +86,9 @@ export default function AdminPanel() {
       case 'professionals':  return <AdminProfessionals />
       case 'financial':      return <AdminFinancial />
       case 'professional-comments': return <AdminProfessionalComments />
+      case 'guidance-requests':    return <AdminGuidanceRequests />
+      case 'evolution-sessions':   return <AdminEvolutionSessions />
+      case 'self-care-plans':      return <AdminSelfCarePlans />
       default:               return <AdminDashboard onNavigate={setView} />
     }
   }

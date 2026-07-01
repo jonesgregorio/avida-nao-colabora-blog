@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Bookmark, Bell, LifeBuoy } from 'lucide-react'
+import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Bookmark, Bell, LifeBuoy, TrendingUp } from 'lucide-react'
 import { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 
@@ -98,6 +98,14 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
               >
                 <Bookmark className="w-4 h-4" />
                 <span>Caixa de Cuidado</span>
+              </button>
+              <button
+                onClick={() => handleNav('my-evolution')}
+                className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full transition-colors"
+                title="Minha Evolução"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>Minha Evolução</span>
               </button>
               <button
                 onClick={() => handleNav('my-plan')}
@@ -199,6 +207,12 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                       {planLabel[profile.plan] || profile.plan}
                     </span>
                   )}
+                </button>
+                <button
+                  onClick={() => handleNav('my-evolution')}
+                  className="flex items-center gap-2 text-sm text-emerald-700 px-3 py-2.5 w-full hover:bg-emerald-50 rounded-lg"
+                >
+                  <TrendingUp className="w-4 h-4" /> Minha Evolução
                 </button>
                 <button
                   onClick={() => handleNav('my-plan')}
