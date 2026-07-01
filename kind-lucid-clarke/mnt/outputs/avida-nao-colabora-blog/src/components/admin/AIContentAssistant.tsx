@@ -129,19 +129,33 @@ ALT IMAGE: [descrição da imagem de capa]`
       return `Escreva 3 opções de CTA para o final de um artigo sobre: "${theme}"${ctx}. Convide ao diário ou caixa de cuidado. Sem pressão. Liste numeradas.`
 
     case 'questionnaire':
-      return `Crie um questionário de autoconhecimento emocional.
+      return `Crie um questionário de autoconhecimento emocional em português brasileiro.
 Tema: "${theme}"${ctx}
-Retorne JSON válido:
+IMPORTANTE: Retorne SOMENTE o JSON abaixo, sem texto antes nem depois, sem blocos markdown, sem explicações.
 {
-  "title": "...",
-  "short_description": "...",
-  "intro_text": "...",
-  "completion_text": "...",
+  "title": "Título do questionário",
+  "short_description": "Uma frase descrevendo o questionário",
+  "intro_text": "Texto acolhedor de boas-vindas (2 frases)",
+  "completion_text": "Frase de encorajamento ao concluir",
   "estimated_time": 5,
-  "questions": [{"text":"...","type":"single_choice","options":[{"text":"...","score":1}]}],
-  "results": [{"min":0,"max":5,"label":"...","description":"...","color":"green"}]
+  "questions": [
+    {
+      "text": "Texto da pergunta",
+      "type": "single_choice",
+      "options": [
+        { "text": "Opção 1", "score": 1 },
+        { "text": "Opção 2", "score": 2 },
+        { "text": "Opção 3", "score": 3 }
+      ]
+    }
+  ],
+  "results": [
+    { "min": 0, "max": 5, "label": "Nível leve", "description": "Descrição acolhedora do resultado", "color": "green" },
+    { "min": 6, "max": 10, "label": "Nível moderado", "description": "Descrição acolhedora do resultado", "color": "yellow" },
+    { "min": 11, "max": 15, "label": "Nível intenso", "description": "Descrição sem diagnóstico clínico", "color": "red" }
+  ]
 }
-Gere 5 perguntas, 3 opções cada. Não diagnostique.`
+Gere exatamente 5 perguntas com 3 opções cada. Não use linguagem clínica nem diagnóstica. Responda APENAS com o JSON.`
 
     case 'trail':
       return `Crie uma trilha de bem-estar emocional.

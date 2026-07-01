@@ -282,10 +282,17 @@ export default function AdminQuestionnaires() {
 
   function applyAIDraft(raw: string) {
     try {
-      // tenta extrair JSON mesmo se vier com texto ao redor
-      const match = raw.match(/\{[\s\S]*\}/)
-      if (!match) { flash('err', 'IA não retornou JSON válido. Copie e edite manualmente.'); return }
-      const parsed = JSON.parse(match[0])
+      // Remove markdown code blocks se presentes, então extrai o JSON
+      let jsonStr: string
+      const codeBlock = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+      if (codeBlock) {
+        jsonStr = codeBlock[1]
+      } else {
+        const match = raw.match(/\{[\s\S]*\}/)
+        if (!match) { flash('err', 'IA não retornou JSON válido. Copie o resultado e edite manualmente.'); return }
+        jsonStr = match[0]
+      }
+      const parsed = JSON.parse(jsonStr)
       const questions: QQuestion[] = (parsed.questions ?? []).map((q: any) => ({
         id: uid(),
         type: (q.type as QuestionType) ?? 'single_choice',
