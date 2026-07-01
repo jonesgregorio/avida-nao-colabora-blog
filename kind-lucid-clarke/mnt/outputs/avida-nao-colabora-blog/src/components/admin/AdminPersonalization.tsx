@@ -1,16 +1,15 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   Sparkles, Loader2, Search, X, Copy, Send, Save, Trash2, RefreshCw,
-  User, CheckCircle, Square, CheckSquare, AlertTriangle, Clock,
-  ChevronDown, ChevronUp, Ban, Check,
+  CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
 } from 'lucide-react'
 import {
   TASK_DEFS, PersonalizationTask, TaskStatus,
-  loadAllTasksForAdmin, loadTasksForUser,
+  loadAllTasksForAdmin,
   formatDueLabel, dueBadgeColors, priorityBadgeColors,
   PRIORITY_LABELS, STATUS_LABELS, TARGET_AREA_LABELS, ACTION_VIEW_MAP,
-  generateContentForTask, TaskSnapshot, getTaskDefsForPlan, monthKey,
+  generateContentForTask, TaskSnapshot, monthKey,
   refreshTasksForAllUsers,
 } from '../../lib/personalizationTasks'
 
@@ -52,15 +51,16 @@ interface Delivery {
   title: string; body: string; target_area: string | null
   ai_generated: boolean; status: string; sent_at: string | null
   created_at: string; task_id?: string | null; read_at?: string | null
+  updated_at?: string | null
 }
 
 const TAB_CONFIG: { id: AdminTab; label: string; statuses: string[] }[] = [
-  { id: 'queue', label: 'Fila de trabalho', statuses: ['pending', 'overdue'] },
-  { id: 'drafts', label: 'Rascunhos', statuses: ['draft', 'generated'] },
-  { id: 'resolved', label: 'Resolvidas', statuses: ['sent', 'resolved', 'completed'] },
-  { id: 'overdue', label: 'Atrasadas', statuses: ['overdue'] },
-  { id: 'cancelled', label: 'Canceladas', statuses: ['cancelled'] },
-  { id: 'history', label: 'Histórico de envios', statuses: [] },
+  { id: 'queue',     label: 'Fila de trabalho',    statuses: ['pending', 'overdue'] },
+  { id: 'drafts',    label: 'Rascunhos',            statuses: ['draft', 'generated'] },
+  { id: 'resolved',  label: 'Resolvidas',           statuses: ['sent', 'resolved', 'completed'] },
+  { id: 'overdue',   label: 'Atrasadas',            statuses: ['overdue'] },
+  { id: 'cancelled', label: 'Canceladas',           statuses: ['cancelled'] },
+  { id: 'history',   label: 'Histórico de envios',  statuses: [] },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -117,151 +117,269 @@ function applyFilters(task: PersonalizationTask, filters: Filters, profileMap: R
   return true
 }
 
-async function sendTaskContent(task: PersonalizationTask, delivery: Delivery, def: typeof TASK_DEFS[0] | undefined, adminId: string | null) {
-  await supabase.from('personalized_content_deliveries').update({
-    status: 'sent', sent_at: new Date().toISOString(),
-  }).eq('id', delivery.id)
+// ── DraftEditor (modal de revisão/edição) ─────────────────────────────────────
+// Usado tanto após gerar pela primeira vez quanto ao abrir rascunho existente.
+// NUNCA fecha sozinho após geração — só fecha quando o admin escolhe uma ação.
 
-  await supabase.from('user_personalization_tasks').update({
-    status: 'sent', sent_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  }).eq('id', task.id)
-
-  if (def) {
-    await supabase.from('notifications').insert({
-      user_id: task.user_id, title: def.notificationTitle, body: def.notificationBody,
-      type: 'system', action_view: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'] ?? 'my-evolution',
-      action_label: 'Ver conteúdo', is_read: false,
-    })
-  }
-}
-
-// ── GenerateModal ─────────────────────────────────────────────────────────────
-
-function GenerateModal({ task, profileMap, onClose, onSaved, showToast }: {
+function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showToast }: {
   task: PersonalizationTask
   profileMap: Record<string, UserRow>
+  initialDelivery: Delivery | null   // rascunho já existente, se houver
   onClose: () => void
-  onSaved: () => void
+  onDone: (reloadNeeded: boolean) => void
   showToast: (msg: string, err?: boolean) => void
 }) {
   const def = TASK_DEFS.find(d => d.key === task.task_key)
   const profile = profileMap[task.user_id]
+
+  // delivery vinculado ao rascunho atual (pode ser criado durante a sessão)
+  const [delivery, setDelivery] = useState<Delivery | null>(initialDelivery)
+  const [editTitle, setEditTitle] = useState(initialDelivery?.title ?? '')
+  const [editBody, setEditBody] = useState(initialDelivery?.body ?? '')
   const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(null)
-  const [existingDelivery, setExistingDelivery] = useState<Delivery | null>(null)
-  const [askExisting, setAskExisting] = useState(false)
+
+  const [phase, setPhase] = useState<'view' | 'edit' | 'generate' | 'confirm-regen'>(() => {
+    if (initialDelivery) return 'view'   // rascunho existente → mostra conteúdo
+    return 'generate'                    // sem rascunho → começa gerando
+  })
   const [generating, setGenerating] = useState(false)
-  const [editTitle, setEditTitle] = useState('')
-  const [editBody, setEditBody] = useState('')
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [cancelNote, setCancelNote] = useState('')
 
-  useEffect(() => {
-    if (task.delivery_id) {
-      supabase.from('personalized_content_deliveries').select('*').eq('id', task.delivery_id).single()
-        .then(({ data }) => {
-          if (data) {
-            setExistingDelivery(data as Delivery)
-            setEditTitle(data.title)
-            setEditBody(data.body)
-            if (task.status === 'draft') setAskExisting(true)
-          } else {
-            buildSnapshot(task.user_id, task.plan_key, task.task_key).then(setSnapshot)
-          }
-        })
-    } else {
-      buildSnapshot(task.user_id, task.plan_key, task.task_key).then(setSnapshot)
-    }
-  }, [task.id])
+  const snapshotRef = useRef<TaskSnapshot | null>(null)
 
-  async function generate() {
-    const snap = snapshot ?? (await buildSnapshot(task.user_id, task.plan_key, task.task_key))
+  async function getSnapshot() {
+    if (snapshotRef.current) return snapshotRef.current
+    const snap = await buildSnapshot(task.user_id, task.plan_key, task.task_key)
+    snapshotRef.current = snap
     setSnapshot(snap)
+    return snap
+  }
+
+  // Autostart: se não há rascunho, gera imediatamente ao abrir
+  useEffect(() => {
+    if (phase === 'generate' && !delivery) {
+      void generateContent()
+    }
+  }, [])
+
+  async function generateContent() {
     setGenerating(true)
-    setAskExisting(false)
+    setPhase('generate')
     try {
-      const result = await generateContentForTask({ task_key: task.task_key, task_title: task.task_title, plan_key: task.plan_key }, snap)
+      const snap = await getSnapshot()
+      const { data: me } = await supabase.auth.getUser()
+      const result = await generateContentForTask(
+        { task_key: task.task_key, task_title: task.task_title, plan_key: task.plan_key },
+        snap,
+      )
       const lines = result.split('\n').filter(l => l.trim())
-      setEditTitle(lines[0]?.replace(/^\*\*|\*\*$/g, '').trim() ?? task.task_title)
+      const title = lines[0]?.replace(/^\*\*|\*\*$/g, '').trim() ?? task.task_title
+
+      console.log('[DraftEditor] IA retornou conteúdo. title:', title.slice(0, 60), 'body length:', result.length)
+
+      // Persistir imediatamente como draft (com body preenchido)
+      let savedDelivery: Delivery | null = null
+      if (delivery?.id) {
+        // Substituir rascunho existente
+        const { data } = await supabase
+          .from('personalized_content_deliveries')
+          .update({ title, body: result, status: 'draft', updated_at: new Date().toISOString() })
+          .eq('id', delivery.id)
+          .select('*')
+          .single()
+        savedDelivery = data as Delivery | null
+        console.log('[DraftEditor] Rascunho atualizado. delivery_id:', delivery.id)
+      } else {
+        // Criar novo delivery
+        const { data } = await supabase
+          .from('personalized_content_deliveries')
+          .insert({
+            user_id: task.user_id,
+            created_by: me.user?.id ?? null,
+            plan_key: task.plan_key,
+            content_type: task.content_type,
+            title,
+            body: result,
+            target_area: task.target_area ?? 'my_evolution',
+            data_snapshot: snap,
+            ai_generated: true,
+            status: 'draft',
+            task_id: task.id,
+          })
+          .select('*')
+          .single()
+        savedDelivery = data as Delivery | null
+        console.log('[DraftEditor] Delivery criado. id:', savedDelivery?.id)
+      }
+
+      if (!savedDelivery?.id) {
+        showToast('Conteúdo gerado mas falhou ao salvar rascunho no banco.', true)
+      } else {
+        // Vincular task ao delivery
+        await supabase
+          .from('user_personalization_tasks')
+          .update({
+            status: 'draft',
+            delivery_id: savedDelivery.id,
+            generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', task.id)
+        console.log('[DraftEditor] Task atualizada para draft. delivery_id:', savedDelivery.id)
+      }
+
+      // Atualizar estado LOCAL — modal permanece ABERTO
+      setDelivery(savedDelivery)
+      setEditTitle(title)
       setEditBody(result)
-      await supabase.from('user_personalization_tasks').update({ status: 'generated', generated_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', task.id)
-      onSaved()
+      setPhase('edit')          // transiciona para editor — NÃO fecha o modal
     } catch (e) {
-      showToast('Erro ao gerar: ' + String(e), true)
+      console.error('[DraftEditor] Erro ao gerar:', e)
+      showToast('Erro ao gerar conteúdo: ' + String(e), true)
+      setPhase(delivery ? 'view' : 'generate')
     }
     setGenerating(false)
   }
 
-  async function save(sendNow: boolean) {
-    if (!editBody.trim() || !editTitle.trim()) { showToast('Preencha título e conteúdo.', true); return }
-    sendNow ? setSending(true) : setSaving(true)
+  async function saveDraft() {
+    if (!editTitle.trim() || !editBody.trim()) {
+      showToast('Preencha título e conteúdo antes de salvar.', true)
+      return
+    }
+    setSaving(true)
     const { data: me } = await supabase.auth.getUser()
-    const snap = snapshot ?? await buildSnapshot(task.user_id, task.plan_key, task.task_key)
+    const snap = await getSnapshot()
 
-    let deliveryId = existingDelivery?.id ?? null
-
-    if (deliveryId) {
-      await supabase.from('personalized_content_deliveries').update({ title: editTitle, body: editBody, status: sendNow ? 'sent' : 'draft', sent_at: sendNow ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq('id', deliveryId)
+    if (delivery?.id) {
+      await supabase
+        .from('personalized_content_deliveries')
+        .update({ title: editTitle, body: editBody, updated_at: new Date().toISOString() })
+        .eq('id', delivery.id)
+      await supabase
+        .from('user_personalization_tasks')
+        .update({ status: 'draft', delivery_id: delivery.id, updated_at: new Date().toISOString() })
+        .eq('id', task.id)
+      showToast('Rascunho salvo com sucesso!')
     } else {
-      const { data: d } = await supabase.from('personalized_content_deliveries').insert({
-        user_id: task.user_id, created_by: me.user?.id ?? null, plan_key: task.plan_key,
-        content_type: task.content_type, title: editTitle, body: editBody,
-        target_area: task.target_area ?? 'my_evolution', data_snapshot: snap,
-        ai_generated: true, status: sendNow ? 'sent' : 'draft',
-        sent_at: sendNow ? new Date().toISOString() : null, task_id: task.id,
-      }).select('id').single()
-      deliveryId = d?.id ?? null
+      const { data: d } = await supabase
+        .from('personalized_content_deliveries')
+        .insert({
+          user_id: task.user_id, created_by: me.user?.id ?? null,
+          plan_key: task.plan_key, content_type: task.content_type,
+          title: editTitle, body: editBody,
+          target_area: task.target_area ?? 'my_evolution',
+          data_snapshot: snap, ai_generated: false, status: 'draft', task_id: task.id,
+        })
+        .select('*').single()
+      if (d?.id) {
+        await supabase
+          .from('user_personalization_tasks')
+          .update({ status: 'draft', delivery_id: d.id, updated_at: new Date().toISOString() })
+          .eq('id', task.id)
+        setDelivery(d as Delivery)
+        showToast('Rascunho salvo com sucesso!')
+      } else {
+        showToast('Falha ao salvar rascunho.', true)
+      }
     }
+    setSaving(false)
+    onDone(true)
+    onClose()
+  }
 
-    await supabase.from('user_personalization_tasks').update({
-      status: sendNow ? 'sent' : 'draft', delivery_id: deliveryId,
-      sent_at: sendNow ? new Date().toISOString() : null,
-      completed_at: sendNow ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', task.id)
+  async function send() {
+    if (!editTitle.trim() || !editBody.trim()) {
+      showToast('Não foi possível enviar: título ou conteúdo está vazio.', true)
+      return
+    }
+    if (!delivery?.id) {
+      showToast('Não foi possível enviar: rascunho não está salvo corretamente. Salve antes.', true)
+      return
+    }
+    if (!task.user_id) {
+      showToast('Não foi possível enviar: user_id ausente.', true)
+      return
+    }
+    setSending(true)
 
-    if (sendNow && def && deliveryId) {
-      await supabase.from('notifications').insert({
-        user_id: task.user_id, title: def.notificationTitle, body: def.notificationBody,
-        type: 'system', action_view: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'] ?? 'my-evolution',
-        action_label: 'Ver conteúdo', is_read: false,
+    await supabase
+      .from('personalized_content_deliveries')
+      .update({
+        title: editTitle, body: editBody,
+        status: 'sent', sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
-      showToast('Conteúdo enviado e usuário notificado!')
-    } else {
-      showToast('Rascunho salvo!')
+      .eq('id', delivery.id)
+
+    await supabase
+      .from('user_personalization_tasks')
+      .update({
+        status: 'sent',
+        delivery_id: delivery.id,
+        sent_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', task.id)
+
+    if (def) {
+      await supabase.from('notifications').insert({
+        user_id: task.user_id,
+        title: def.notificationTitle ?? 'Novo conteúdo personalizado disponível',
+        body: def.notificationBody ?? 'Preparamos uma nova entrega personalizada para você.',
+        type: 'system',
+        action_view: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'] ?? 'my-evolution',
+        action_label: 'Ver conteúdo',
+        is_read: false,
+      })
     }
-    setSaving(false); setSending(false)
-    onSaved(); onClose()
+
+    showToast('Conteúdo enviado e usuário notificado!')
+    setSending(false)
+    onDone(true)
+    onClose()
   }
 
   async function cancelTask() {
-    await supabase.from('user_personalization_tasks').update({ status: 'cancelled', admin_notes: cancelNote || 'Cancelado pelo admin.', updated_at: new Date().toISOString() }).eq('id', task.id)
+    await supabase
+      .from('user_personalization_tasks')
+      .update({ status: 'cancelled', admin_notes: cancelNote || 'Cancelado pelo admin.', updated_at: new Date().toISOString() })
+      .eq('id', task.id)
     showToast('Pendência cancelada.')
-    onSaved(); onClose()
+    onDone(true)
+    onClose()
   }
 
   const dueLabel = formatDueLabel(task.due_at)
   const dueCls = dueBadgeColors(task.status as TaskStatus, task.due_at)
+  const hasContent = editTitle.trim() && editBody.trim()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={e => { if (!generating && !saving && !sending && e.target === e.currentTarget) onClose() }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+
+        {/* Header */}
         <div className="p-5 border-b border-stone-100 flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[task.plan_key] ?? 'bg-stone-100'}`}>{PLAN_LABELS[task.plan_key] ?? task.plan_key}</span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dueCls}`}>{dueLabel}</span>
               {def && <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${priorityBadgeColors(def.priority)}`}>{PRIORITY_LABELS[def.priority]}</span>}
+              {delivery?.id && <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">Rascunho salvo</span>}
             </div>
             <h2 className="font-bold text-stone-800 text-lg">{task.task_title}</h2>
             <p className="text-sm text-stone-500">{profile?.full_name ?? '(sem nome)'} · {profile?.email ?? '—'}</p>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
+          {!generating && !saving && !sending && (
+            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
+          )}
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Metadata */}
           {def && (
             <div className="bg-stone-50 rounded-xl p-3 text-sm space-y-1">
               <p><span className="font-medium text-stone-700">Motivo:</span> <span className="text-stone-600">{def.description}</span></p>
@@ -270,28 +388,71 @@ function GenerateModal({ task, profileMap, onClose, onSaved, showToast }: {
             </div>
           )}
 
-          {/* Rascunho existente */}
-          {askExisting && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-              <p className="text-sm font-medium text-blue-800">Já existe um rascunho salvo para esta pendência.</p>
-              <p className="text-sm text-blue-700">Deseja editar o rascunho existente ou gerar um novo conteúdo?</p>
+          {/* Fase: gerando */}
+          {phase === 'generate' && generating && (
+            <div className="flex flex-col items-center justify-center gap-3 py-10">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              <p className="text-sm font-medium text-stone-700">Gerando conteúdo personalizado com IA...</p>
+              <p className="text-xs text-stone-400">Isso pode levar alguns segundos.</p>
+            </div>
+          )}
+
+          {/* Fase: erro / sem rascunho e sem geração */}
+          {phase === 'generate' && !generating && !delivery && (
+            <div className="text-center py-8 space-y-3">
+              <AlertCircle className="w-8 h-8 mx-auto text-amber-400" />
+              <p className="text-sm text-stone-600">Não foi possível gerar o conteúdo. Tente novamente.</p>
+              <button onClick={generateContent} className="flex items-center gap-2 mx-auto bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700">
+                <Sparkles className="w-4 h-4" /> Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {/* Confirmação de regeneração */}
+          {phase === 'confirm-regen' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-amber-800">Substituir rascunho existente?</p>
+              <p className="text-sm text-amber-700">Já existe um rascunho salvo. Ao gerar novamente, o conteúdo atual será substituído.</p>
               <div className="flex gap-2">
-                <button onClick={() => setAskExisting(false)} className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">Editar rascunho existente</button>
-                <button onClick={generate} className="text-sm border border-blue-300 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">Gerar novamente com IA</button>
+                <button onClick={generateContent} className="text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700">Substituir rascunho</button>
+                <button onClick={() => setPhase(delivery ? 'view' : 'edit')} className="text-sm border border-amber-300 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50">Cancelar</button>
               </div>
             </div>
           )}
 
-          {/* Botão gerar */}
-          {!editBody && !askExisting && (
-            <button onClick={generate} disabled={generating || !snapshot} className="flex items-center gap-2 w-full justify-center bg-emerald-600 text-white py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 font-medium">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? 'Gerando conteúdo exato com IA...' : 'Gerar conteúdo com IA'}
-            </button>
+          {/* Fase: visualização do rascunho (só leitura com botões de ação) */}
+          {phase === 'view' && delivery && (
+            <div className="space-y-3">
+              <div className="bg-stone-50 rounded-xl p-4 space-y-3">
+                <div>
+                  <p className="text-xs text-stone-400 mb-1">Título</p>
+                  <p className="text-sm font-semibold text-stone-800">{editTitle}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-stone-400 mb-1">Conteúdo</p>
+                  <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">{editBody}</p>
+                </div>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-700 italic">{DISCLAIMER}</div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setPhase('edit')} className="flex items-center gap-1.5 bg-stone-100 text-stone-700 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-200">
+                  <FileText className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => setPhase('confirm-regen')} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
+                  <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
+                </button>
+                <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
+                  <Copy className="w-3.5 h-3.5" /> Copiar
+                </button>
+                <button onClick={send} disabled={sending} className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 ml-auto">
+                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar ao usuário
+                </button>
+              </div>
+            </div>
           )}
 
-          {/* Editor */}
-          {editBody && !askExisting && (
+          {/* Fase: editor */}
+          {phase === 'edit' && (
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-stone-500 block mb-1">Título</label>
@@ -299,38 +460,39 @@ function GenerateModal({ task, profileMap, onClose, onSaved, showToast }: {
               </div>
               <div>
                 <label className="text-xs text-stone-500 block mb-1">Conteúdo — revise antes de enviar</label>
-                <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={10} className={inputCls + ' font-mono text-xs resize-y'} />
+                <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={12} className={inputCls + ' font-mono text-xs resize-y'} />
               </div>
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-700 italic">{DISCLAIMER}</div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={generate} disabled={generating} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+                <button onClick={() => setPhase('confirm-regen')} disabled={generating} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
                   <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
                 </button>
                 <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
                   <Copy className="w-3.5 h-3.5" /> Copiar
                 </button>
-                <button onClick={() => save(false)} disabled={saving || sending} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+                <button onClick={saveDraft} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Salvar rascunho
                 </button>
-                <button onClick={() => save(true)} disabled={saving || sending} className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                <button onClick={send} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar ao usuário
                 </button>
-                <button onClick={() => { setEditBody(''); setEditTitle('') }} className="flex items-center gap-1.5 text-red-400 text-sm px-3 py-1.5 rounded-lg hover:bg-red-50">
-                  <Trash2 className="w-3.5 h-3.5" /> Descartar
-                </button>
               </div>
+              {!hasContent && (
+                <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Preencha título e conteúdo antes de salvar ou enviar.</p>
+              )}
             </div>
           )}
 
+          {/* Cancelar pendência */}
           <div className="border-t border-stone-100 pt-3">
             {!showCancel ? (
               <button onClick={() => setShowCancel(true)} className="text-xs text-stone-400 hover:text-red-500">Cancelar esta pendência</button>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-stone-500 font-medium">Motivo do cancelamento:</p>
-                <input value={cancelNote} onChange={e => setCancelNote(e.target.value)} className={inputCls} placeholder="Opcional..." />
+                <p className="text-xs text-stone-500 font-medium">Motivo do cancelamento (opcional):</p>
+                <input value={cancelNote} onChange={e => setCancelNote(e.target.value)} className={inputCls} placeholder="Ex: não aplicável, usuário solicitou..." />
                 <div className="flex gap-2">
-                  <button onClick={cancelTask} className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg">Confirmar</button>
+                  <button onClick={cancelTask} className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg">Confirmar cancelamento</button>
                   <button onClick={() => setShowCancel(false)} className="text-xs border border-stone-200 text-stone-600 px-3 py-1.5 rounded-lg">Voltar</button>
                 </div>
               </div>
@@ -359,7 +521,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
     setProgress({ ...prog })
 
     for (const task of tasks) {
-      // Se já tem rascunho, skip
+      // Se já tem rascunho com delivery_id, skip
       if (task.delivery_id && task.status === 'draft') {
         prog.skipped.push({ id: task.id, title: task.task_title })
         prog.done++
@@ -373,21 +535,43 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
         const lines = result.split('\n').filter(l => l.trim())
         const title = lines[0]?.replace(/^\*\*|\*\*$/g, '').trim() ?? task.task_title
 
-        const { data: delivery } = await supabase.from('personalized_content_deliveries').insert({
-          user_id: task.user_id, created_by: me.user?.id ?? null,
-          plan_key: task.plan_key, content_type: task.content_type,
-          title, body: result, target_area: task.target_area ?? 'my_evolution',
-          data_snapshot: snap, ai_generated: true, status: 'draft', task_id: task.id,
-        }).select('id').single()
+        console.log('[BulkGenerate] Gerado para task:', task.id, 'body length:', result.length)
 
-        await supabase.from('user_personalization_tasks').update({
-          status: 'draft', delivery_id: delivery?.id ?? null,
-          generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-        }).eq('id', task.id)
+        // Criar delivery com body preenchido
+        const { data: delivery } = await supabase
+          .from('personalized_content_deliveries')
+          .insert({
+            user_id: task.user_id,
+            created_by: me.user?.id ?? null,
+            plan_key: task.plan_key,
+            content_type: task.content_type,
+            title,
+            body: result,
+            target_area: task.target_area ?? 'my_evolution',
+            data_snapshot: snap,
+            ai_generated: true,
+            status: 'draft',
+            task_id: task.id,
+          })
+          .select('id')
+          .single()
+
+        console.log('[BulkGenerate] Delivery criado:', delivery?.id)
+
+        await supabase
+          .from('user_personalization_tasks')
+          .update({
+            status: 'draft',
+            delivery_id: delivery?.id ?? null,
+            generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', task.id)
 
         prog.done++
         setProgress({ ...prog })
       } catch (e) {
+        console.error('[BulkGenerate] Falha na task:', task.id, e)
         prog.failed.push({ id: task.id, title: task.task_title, error: String(e) })
         prog.done++
         setProgress({ ...prog })
@@ -416,7 +600,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
               <div className="bg-stone-50 rounded-xl p-4 space-y-2">
                 <p className="text-sm font-medium text-stone-700">Você está prestes a gerar conteúdos para <span className="text-emerald-700">{tasks.length} pendências</span>.</p>
                 <p className="text-sm text-stone-500">Cada conteúdo será criado individualmente de acordo com o plano, perfil do usuário e tipo da pendência.</p>
-                <p className="text-sm text-stone-500 font-medium">Os conteúdos serão salvos como <span className="text-blue-600">rascunho</span> e NÃO serão enviados automaticamente.</p>
+                <p className="text-sm text-stone-500 font-semibold">Os conteúdos serão salvos como <span className="text-blue-600">rascunho</span>. Nenhum será enviado automaticamente.</p>
               </div>
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {tasks.map(t => {
@@ -442,7 +626,6 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
 
           {progress && (
             <div className="space-y-4">
-              {/* Barra de progresso */}
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-stone-600">{progress.active ? 'Gerando...' : 'Concluído'}</span>
@@ -455,20 +638,21 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
 
               {progress.active && (
                 <div className="flex items-center gap-2 text-sm text-stone-500">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Processando pendências individualmente...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Processando individualmente...
                 </div>
               )}
 
               {progress.complete && (
                 <div className="space-y-2">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                    <p className="text-sm font-semibold text-emerald-700">{generated} rascunho{generated !== 1 ? 's' : ''} gerado{generated !== 1 ? 's' : ''} com sucesso</p>
-                    {progress.skipped.length > 0 && <p className="text-xs text-stone-500">{progress.skipped.length} ignorado{progress.skipped.length !== 1 ? 's' : ''} (já tinham rascunho)</p>}
-                    {progress.failed.length > 0 && <p className="text-xs text-red-600">{progress.failed.length} falhou{progress.failed.length !== 1 ? 'ram' : ''}</p>}
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-1">
+                    <p className="text-sm font-semibold text-emerald-700">{generated} rascunho{generated !== 1 ? 's' : ''} gerado{generated !== 1 ? 's' : ''} com sucesso.</p>
+                    <p className="text-xs text-stone-500">0 conteúdos enviados automaticamente. Revise cada rascunho antes de enviar ao usuário.</p>
+                    {progress.skipped.length > 0 && <p className="text-xs text-stone-500">{progress.skipped.length} ignorado{progress.skipped.length !== 1 ? 's' : ''} (já tinham rascunho).</p>}
+                    {progress.failed.length > 0 && <p className="text-xs text-red-600">{progress.failed.length} falhou{progress.failed.length !== 1 ? 'ram' : ''}.</p>}
                   </div>
                   {progress.failed.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
-                      <p className="text-xs font-medium text-red-700">Falhas:</p>
+                      <p className="text-xs font-medium text-red-700">Pendências que falharam:</p>
                       {progress.failed.map(f => (
                         <p key={f.id} className="text-xs text-red-600">• {f.title}</p>
                       ))}
@@ -493,10 +677,10 @@ function CancelModal({ count, onConfirm, onClose }: { count: number; onConfirm: 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
         <h2 className="font-bold text-stone-800">Cancelar {count} pendência{count !== 1 ? 's' : ''}</h2>
-        <p className="text-sm text-stone-500">Informe o motivo do cancelamento (opcional):</p>
+        <p className="text-sm text-stone-500">Motivo do cancelamento (opcional):</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} className={inputCls + ' resize-none'} placeholder="Ex: usuário mudou de plano, não aplicável este mês..." />
         <div className="flex gap-2">
-          <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-red-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-red-600"><Ban className="w-4 h-4" /> Confirmar cancelamento</button>
+          <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-red-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-red-600"><Ban className="w-4 h-4" /> Confirmar</button>
           <button onClick={onClose} className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Voltar</button>
         </div>
       </div>
@@ -512,7 +696,7 @@ function ResolveModal({ count, onConfirm, onClose }: { count: number; onConfirm:
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
         <h2 className="font-bold text-stone-800">Marcar {count} pendência{count !== 1 ? 's' : ''} como resolvida{count !== 1 ? 's' : ''}</h2>
-        <p className="text-sm text-stone-500">Como essa{count !== 1 ? 's pendências foram resolvidas' : ' pendência foi resolvida'}?</p>
+        <p className="text-sm text-stone-500">Como foi resolvid{count !== 1 ? 'as' : 'a'}?</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} className={inputCls + ' resize-none'} placeholder="Ex: respondido por e-mail, resolvido fora do sistema..." />
         <div className="flex gap-2">
           <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700"><Check className="w-4 h-4" /> Confirmar</button>
@@ -525,26 +709,26 @@ function ResolveModal({ count, onConfirm, onClose }: { count: number; onConfirm:
 
 // ── SummaryCards ──────────────────────────────────────────────────────────────
 
-function SummaryCards({ allTasks, deliveries, onFilter }: {
+function SummaryCards({ allTasks, deliveryCount, onFilter }: {
   allTasks: PersonalizationTask[]
-  deliveries: Delivery[]
+  deliveryCount: number
   onFilter: (tab: AdminTab) => void
 }) {
   const cur = monthKey()
   const today = new Date().toDateString()
   const cards = [
-    { label: 'Pendências abertas', value: allTasks.filter(t => ['pending'].includes(t.status)).length, color: 'text-stone-700', bg: 'bg-stone-50 hover:bg-stone-100', tab: 'queue' as AdminTab },
-    { label: 'Atrasadas', value: allTasks.filter(t => t.status === 'overdue').length, color: 'text-red-600', bg: 'bg-red-50 hover:bg-red-100', tab: 'overdue' as AdminTab },
-    { label: 'Vencem hoje', value: allTasks.filter(t => t.due_at && new Date(t.due_at).toDateString() === today && ['pending', 'overdue'].includes(t.status)).length, color: 'text-orange-600', bg: 'bg-orange-50 hover:bg-orange-100', tab: 'queue' as AdminTab },
-    { label: 'Rascunhos', value: allTasks.filter(t => ['draft', 'generated'].includes(t.status)).length, color: 'text-blue-600', bg: 'bg-blue-50 hover:bg-blue-100', tab: 'drafts' as AdminTab },
-    { label: 'Resolvidas este mês', value: allTasks.filter(t => ['sent', 'resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100', tab: 'resolved' as AdminTab },
-    { label: 'Canceladas', value: allTasks.filter(t => t.status === 'cancelled').length, color: 'text-stone-400', bg: 'bg-stone-50 hover:bg-stone-100', tab: 'cancelled' as AdminTab },
-    { label: 'Usuários com pendência', value: new Set(allTasks.filter(t => ['pending', 'overdue'].includes(t.status)).map(t => t.user_id)).size, color: 'text-purple-600', bg: 'bg-purple-50 hover:bg-purple-100', tab: 'queue' as AdminTab },
+    { label: 'Pendências abertas',    value: allTasks.filter(t => t.status === 'pending').length,                                                              color: 'text-stone-700',   bg: 'bg-stone-50 hover:bg-stone-100',   tab: 'queue'    as AdminTab },
+    { label: 'Atrasadas',             value: allTasks.filter(t => t.status === 'overdue').length,                                                              color: 'text-red-600',     bg: 'bg-red-50 hover:bg-red-100',       tab: 'overdue'  as AdminTab },
+    { label: 'Vencem hoje',           value: allTasks.filter(t => t.due_at && new Date(t.due_at).toDateString() === today && ['pending','overdue'].includes(t.status)).length, color: 'text-orange-600',  bg: 'bg-orange-50 hover:bg-orange-100', tab: 'queue'    as AdminTab },
+    { label: 'Rascunhos',             value: allTasks.filter(t => ['draft','generated'].includes(t.status)).length,                                            color: 'text-blue-600',    bg: 'bg-blue-50 hover:bg-blue-100',     tab: 'drafts'   as AdminTab },
+    { label: 'Resolvidas este mês',   value: allTasks.filter(t => ['sent','resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100', tab: 'resolved' as AdminTab },
+    { label: 'Canceladas',            value: allTasks.filter(t => t.status === 'cancelled').length,                                                            color: 'text-stone-400',   bg: 'bg-stone-50 hover:bg-stone-100',   tab: 'cancelled' as AdminTab },
+    { label: 'Usuários c/ pendência', value: new Set(allTasks.filter(t => ['pending','overdue'].includes(t.status)).map(t => t.user_id)).size,                 color: 'text-purple-600',  bg: 'bg-purple-50 hover:bg-purple-100', tab: 'queue'    as AdminTab },
   ]
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-5">
       {cards.map(c => (
-        <button key={c.label} onClick={() => onFilter(c.tab)} className={`${c.bg} rounded-xl p-3 text-center transition-colors cursor-pointer`}>
+        <button key={c.label} onClick={() => onFilter(c.tab)} className={`${c.bg} rounded-xl p-3 text-center transition-colors`}>
           <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
           <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">{c.label}</p>
         </button>
@@ -622,12 +806,13 @@ function BulkActionBar({ count, onGenerate, onCancel, onResolve, onClear }: {
 
 // ── TaskTable ─────────────────────────────────────────────────────────────────
 
-function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate, showResolved = false }: {
+function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange, onOpen, showResolved = false }: {
   tasks: PersonalizationTask[]
   profileMap: Record<string, UserRow>
+  deliveryMap: Record<string, Delivery>
   selectedIds: Set<string>
   onSelectChange: (ids: Set<string>) => void
-  onGenerate: (task: PersonalizationTask) => void
+  onOpen: (task: PersonalizationTask) => void
   showResolved?: boolean
 }) {
   const allSelected = tasks.length > 0 && tasks.every(t => selectedIds.has(t.id))
@@ -635,20 +820,14 @@ function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate,
 
   function toggleAll() {
     if (allSelected) {
-      const next = new Set(selectedIds)
-      tasks.forEach(t => next.delete(t.id))
-      onSelectChange(next)
+      const next = new Set(selectedIds); tasks.forEach(t => next.delete(t.id)); onSelectChange(next)
     } else {
-      const next = new Set(selectedIds)
-      tasks.forEach(t => next.add(t.id))
-      onSelectChange(next)
+      const next = new Set(selectedIds); tasks.forEach(t => next.add(t.id)); onSelectChange(next)
     }
   }
 
   function toggle(id: string) {
-    const next = new Set(selectedIds)
-    next.has(id) ? next.delete(id) : next.add(id)
-    onSelectChange(next)
+    const next = new Set(selectedIds); next.has(id) ? next.delete(id) : next.add(id); onSelectChange(next)
   }
 
   if (tasks.length === 0) {
@@ -671,7 +850,7 @@ function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate,
                   {allSelected ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : someSelected ? <CheckSquare className="w-4 h-4 text-stone-400" /> : <Square className="w-4 h-4" />}
                 </button>
               </th>
-              {['Usuário', 'Plano', 'Pendência', 'Prazo', 'Prioridade', 'Status', 'Ação'].map(h => (
+              {['Usuário', 'Plano', 'Pendência / Título rascunho', 'Prazo', 'Prioridade', 'Status', 'Ação'].map(h => (
                 <th key={h} className="py-2.5 px-3 text-left text-xs font-semibold text-stone-500 whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -680,9 +859,14 @@ function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate,
             {tasks.map(task => {
               const profile = profileMap[task.user_id]
               const def = TASK_DEFS.find(d => d.key === task.task_key)
+              const delivery = task.delivery_id ? deliveryMap[task.delivery_id] : undefined
               const isSelected = selectedIds.has(task.id)
               const dueLabel = formatDueLabel(task.due_at)
               const dueCls = dueBadgeColors(task.status as TaskStatus, task.due_at)
+              const isDraft = ['draft', 'generated'].includes(task.status)
+              const hasDelivery = !!delivery?.id && !!delivery.body
+              const inconsistent = isDraft && task.delivery_id && !hasDelivery
+
               return (
                 <tr key={task.id} className={`border-b border-stone-100 transition-colors ${isSelected ? 'bg-emerald-50/40' : 'hover:bg-stone-50/40'}`}>
                   <td className="py-3 px-3">
@@ -697,8 +881,15 @@ function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate,
                   <td className="py-3 px-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[task.plan_key] ?? 'bg-stone-100 text-stone-600'}`}>{PLAN_LABELS[task.plan_key] ?? task.plan_key}</span>
                   </td>
-                  <td className="py-3 px-3">
-                    <p className="text-sm text-stone-700 max-w-xs">{task.task_title}</p>
+                  <td className="py-3 px-3 max-w-xs">
+                    <p className="text-sm text-stone-700">{task.task_title}</p>
+                    {/* Na aba Rascunhos, mostra o título do delivery se disponível */}
+                    {isDraft && hasDelivery && delivery.title !== task.task_title && (
+                      <p className="text-xs text-blue-600 mt-0.5 truncate">Rascunho: "{delivery.title}"</p>
+                    )}
+                    {inconsistent && (
+                      <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Rascunho inconsistente — gere novamente</p>
+                    )}
                     <p className="text-xs text-stone-400">{TARGET_AREA_LABELS[task.target_area ?? ''] ?? task.target_area}</p>
                   </td>
                   <td className="py-3 px-3">
@@ -711,8 +902,9 @@ function TaskTable({ tasks, profileMap, selectedIds, onSelectChange, onGenerate,
                   <td className="py-3 px-3 text-xs text-stone-500 whitespace-nowrap">{STATUS_LABELS[task.status] ?? task.status}</td>
                   <td className="py-3 px-3">
                     {!showResolved && (
-                      <button onClick={() => onGenerate(task)} className="flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-lg hover:bg-emerald-100 font-medium whitespace-nowrap">
-                        <Sparkles className="w-3 h-3" /> {task.status === 'draft' ? 'Revisar' : 'Gerar com IA'}
+                      <button onClick={() => onOpen(task)} className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium whitespace-nowrap border ${isDraft && hasDelivery ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
+                        <Sparkles className="w-3 h-3" />
+                        {isDraft && hasDelivery ? 'Revisar rascunho' : isDraft ? 'Gerar novamente' : 'Gerar com IA'}
                       </button>
                     )}
                   </td>
@@ -809,13 +1001,15 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
 export default function AdminPersonalization() {
   const [activeTab, setActiveTab] = useState<AdminTab>('queue')
   const [allTasks, setAllTasks] = useState<PersonalizationTask[]>([])
-  const [deliveries, setDeliveries] = useState<Delivery[]>([])
+  // deliveryMap: delivery_id → Delivery (inclui rascunhos e enviados)
+  const [deliveryMap, setDeliveryMap] = useState<Record<string, Delivery>>({})
   const [profileMap, setProfileMap] = useState<Record<string, UserRow>>({})
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filters, setFilters] = useState<Filters>({ search: '', plan: 'all', taskKey: 'all', priority: 'all', deadline: 'all' })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [generateTask, setGenerateTask] = useState<PersonalizationTask | null>(null)
+  const [editorTask, setEditorTask] = useState<PersonalizationTask | null>(null)
+  const [editorDelivery, setEditorDelivery] = useState<Delivery | null>(null)
   const [bulkGenerateTasks, setBulkGenerateTasks] = useState<PersonalizationTask[] | null>(null)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showResolveModal, setShowResolveModal] = useState(false)
@@ -830,17 +1024,22 @@ export default function AdminPersonalization() {
     const [tasks, { data: profiles }, { data: delivs }] = await Promise.all([
       loadAllTasksForAdmin(),
       supabase.from('profiles').select('user_id, full_name, email, plan, created_at').limit(500),
-      supabase.from('personalized_content_deliveries').select('*').eq('status', 'sent').order('sent_at', { ascending: false }).limit(500),
+      // Busca todos os deliveries (draft + sent) para montar o deliveryMap
+      supabase.from('personalized_content_deliveries').select('*').in('status', ['draft', 'sent']).order('created_at', { ascending: false }).limit(1000),
     ])
-    const map: Record<string, UserRow> = {}
-    for (const p of (profiles ?? []) as UserRow[]) map[p.user_id] = p
+    const pMap: Record<string, UserRow> = {}
+    for (const p of (profiles ?? []) as UserRow[]) pMap[p.user_id] = p
+
+    const dMap: Record<string, Delivery> = {}
+    for (const d of (delivs ?? []) as Delivery[]) dMap[d.id] = d
+
     setAllTasks(tasks)
-    setProfileMap(map)
-    setDeliveries((delivs ?? []) as Delivery[])
+    setProfileMap(pMap)
+    setDeliveryMap(dMap)
     setLoading(false)
   }, [])
 
-  const refreshTasks = useCallback(async () => {
+  const doRefreshTasks = useCallback(async () => {
     setRefreshing(true)
     try {
       const result = await refreshTasksForAllUsers()
@@ -853,24 +1052,23 @@ export default function AdminPersonalization() {
 
   useEffect(() => {
     setLoading(true)
-    loadData().then(() => refreshTasks())
+    loadData().then(() => doRefreshTasks())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Tasks filtradas pela aba ativa
   const tabTasks = useMemo(() => {
     const conf = TAB_CONFIG.find(t => t.id === activeTab)
     if (!conf || activeTab === 'history') return []
     return allTasks.filter(t => conf.statuses.includes(t.status))
   }, [allTasks, activeTab])
 
-  // Tasks com filtros aplicados
   const filteredTasks = useMemo(() => {
     return tabTasks.filter(t => applyFilters(t, filters, profileMap))
   }, [tabTasks, filters, profileMap])
 
-  // Counts por status para os tabs
   const tabCounts = useMemo(() => {
-    const counts: Record<AdminTab, number> = { queue: 0, drafts: 0, resolved: 0, overdue: 0, cancelled: 0, history: deliveries.length }
+    const deliverySentCount = Object.values(deliveryMap).filter(d => d.status === 'sent').length
+    const counts: Record<AdminTab, number> = { queue: 0, drafts: 0, resolved: 0, overdue: 0, cancelled: 0, history: deliverySentCount }
     for (const t of allTasks) {
       if (['pending', 'overdue'].includes(t.status)) counts.queue++
       if (['draft', 'generated'].includes(t.status)) counts.drafts++
@@ -879,7 +1077,20 @@ export default function AdminPersonalization() {
       if (t.status === 'cancelled') counts.cancelled++
     }
     return counts
-  }, [allTasks, deliveries.length])
+  }, [allTasks, deliveryMap])
+
+  // Abre o editor: busca o delivery pelo delivery_id da task
+  function openEditor(task: PersonalizationTask) {
+    const delivery = task.delivery_id ? (deliveryMap[task.delivery_id] ?? null) : null
+    setEditorTask(task)
+    setEditorDelivery(delivery)
+  }
+
+  function closeEditor(reloadNeeded: boolean) {
+    setEditorTask(null)
+    setEditorDelivery(null)
+    if (reloadNeeded) loadData()
+  }
 
   async function bulkCancel(note: string) {
     const ids = [...selectedIds]
@@ -907,25 +1118,37 @@ export default function AdminPersonalization() {
     await loadData()
   }
 
-  function handleCardFilter(tab: AdminTab) {
-    setActiveTab(tab)
-    setSelectedIds(new Set())
-  }
-
   const selectedTasks = filteredTasks.filter(t => selectedIds.has(t.id))
+  const sentDeliveryCount = Object.values(deliveryMap).filter(d => d.status === 'sent').length
 
   return (
     <div>
       {/* Toast */}
       {toast && <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>{toast.msg}</div>}
 
-      {/* Modals */}
-      {generateTask && (
-        <GenerateModal task={generateTask} profileMap={profileMap} onClose={() => setGenerateTask(null)} onSaved={() => { setGenerateTask(null); loadData() }} showToast={showToast} />
+      {/* Editor / DraftEditor */}
+      {editorTask && (
+        <DraftEditor
+          task={editorTask}
+          profileMap={profileMap}
+          initialDelivery={editorDelivery}
+          onClose={() => closeEditor(false)}
+          onDone={(reload) => closeEditor(reload)}
+          showToast={showToast}
+        />
       )}
+
+      {/* Bulk generate */}
       {bulkGenerateTasks && (
-        <BulkGenerateModal tasks={bulkGenerateTasks} profileMap={profileMap} onClose={() => setBulkGenerateTasks(null)} onDone={async () => { setBulkGenerateTasks(null); setSelectedIds(new Set()); setActiveTab('drafts'); await loadData() }} showToast={showToast} />
+        <BulkGenerateModal
+          tasks={bulkGenerateTasks}
+          profileMap={profileMap}
+          onClose={() => setBulkGenerateTasks(null)}
+          onDone={async () => { setBulkGenerateTasks(null); setSelectedIds(new Set()); setActiveTab('drafts'); await loadData() }}
+          showToast={showToast}
+        />
       )}
+
       {showCancelModal && <CancelModal count={selectedIds.size} onConfirm={bulkCancel} onClose={() => setShowCancelModal(false)} />}
       {showResolveModal && <ResolveModal count={selectedIds.size} onConfirm={bulkResolve} onClose={() => setShowResolveModal(false)} />}
 
@@ -937,14 +1160,14 @@ export default function AdminPersonalization() {
           </h1>
           <p className="text-sm text-stone-500 mt-0.5">Fila inteligente de entregas personalizadas por plano</p>
         </div>
-        <button onClick={refreshTasks} disabled={refreshing} className="flex items-center gap-2 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+        <button onClick={doRefreshTasks} disabled={refreshing} className="flex items-center gap-2 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
           {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {refreshing ? 'Atualizando...' : 'Atualizar pendências'}
         </button>
       </div>
 
       {/* Cards */}
-      <SummaryCards allTasks={allTasks} deliveries={deliveries} onFilter={handleCardFilter} />
+      <SummaryCards allTasks={allTasks} deliveryCount={sentDeliveryCount} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()) }} />
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-stone-200 mb-4 overflow-x-auto">
@@ -958,23 +1181,23 @@ export default function AdminPersonalization() {
         ))}
       </div>
 
-      {/* Filtros (não no histórico) */}
+      {/* Filtros */}
       {activeTab !== 'history' && (
         <FilterBar filters={filters} onChange={f => { setFilters(prev => ({ ...prev, ...f })); setSelectedIds(new Set()) }} />
       )}
 
-      {/* Barra de ações em massa */}
+      {/* Ações em massa */}
       {activeTab !== 'history' && activeTab !== 'resolved' && activeTab !== 'cancelled' && (
         <BulkActionBar
           count={selectedIds.size}
-          onGenerate={() => { const tasks = selectedTasks; if (tasks.length) setBulkGenerateTasks(tasks) }}
+          onGenerate={() => { if (selectedTasks.length) setBulkGenerateTasks(selectedTasks) }}
           onCancel={() => setShowCancelModal(true)}
           onResolve={() => setShowResolveModal(true)}
           onClear={() => setSelectedIds(new Set())}
         />
       )}
 
-      {/* Conteúdo das abas */}
+      {/* Conteúdo */}
       {loading && activeTab !== 'history' ? (
         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-stone-300" /></div>
       ) : activeTab === 'history' ? (
@@ -983,9 +1206,10 @@ export default function AdminPersonalization() {
         <TaskTable
           tasks={filteredTasks}
           profileMap={profileMap}
+          deliveryMap={deliveryMap}
           selectedIds={selectedIds}
           onSelectChange={setSelectedIds}
-          onGenerate={setGenerateTask}
+          onOpen={openEditor}
           showResolved={activeTab === 'resolved' || activeTab === 'cancelled'}
         />
       )}
