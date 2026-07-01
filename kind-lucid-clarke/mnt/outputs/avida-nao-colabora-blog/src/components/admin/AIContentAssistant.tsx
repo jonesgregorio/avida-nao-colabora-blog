@@ -3,7 +3,7 @@ import {
   Sparkles, Loader2, Copy, CheckCircle, AlertCircle,
   RefreshCw, X, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { callAI, type AITone, type AISize } from '../../lib/aiContent'
+import { callAI, generateQuestionnaireDraft, type AITone, type AISize } from '../../lib/aiContent'
 
 export type AIContentType =
   | 'article'
@@ -274,8 +274,14 @@ export default function AIContentAssistant({
     setError('')
     setResult('')
     try {
-      const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
-      const text = await callAI(prompt, { tone, size, extras })
+      // Para questionários, chama diretamente sem instruções de tamanho/tom que corrompem o JSON
+      let text: string
+      if (contentType === 'questionnaire') {
+        text = await generateQuestionnaireDraft(theme, 'autoavaliação')
+      } else {
+        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
+        text = await callAI(prompt, { tone, size, extras })
+      }
       setResult(text)
       setStatus('done')
     } catch (e: unknown) {

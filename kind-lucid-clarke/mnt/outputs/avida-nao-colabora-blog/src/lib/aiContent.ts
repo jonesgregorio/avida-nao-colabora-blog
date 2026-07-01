@@ -170,38 +170,35 @@ Seja gentil, nunca pressione. Formate como lista numerada.`,
 export async function generateQuestionnaireDraft(
   topic: string,
   type: string,
-  opts: AICallOptions = {}
 ): Promise<string> {
-  return callAI(
-    `Crie um questionário de autoconhecimento emocional sobre: "${topic}".
-Tipo: ${type}.
-Retorne um JSON válido com esta estrutura exata:
-{
-  "title": "Título do questionário",
-  "short_description": "Descrição curta (1 frase)",
-  "intro_text": "Texto de boas-vindas ao questionário (2 frases acolhedoras)",
-  "completion_text": "Texto de encerramento (1 frase de encorajamento)",
-  "estimated_time": 5,
-  "questions": [
-    {
-      "text": "Texto da pergunta",
-      "type": "single_choice",
-      "options": [
-        { "text": "Opção 1", "score": 1 },
-        { "text": "Opção 2", "score": 2 },
-        { "text": "Opção 3", "score": 3 }
-      ]
-    }
-  ],
-  "results": [
-    { "min": 0, "max": 5, "label": "Nível baixo", "description": "Descrição do resultado", "color": "green" },
-    { "min": 6, "max": 10, "label": "Nível médio", "description": "Descrição do resultado", "color": "yellow" },
-    { "min": 11, "max": 15, "label": "Nível elevado", "description": "Descrição do resultado. Lembre de não diagnosticar.", "color": "red" }
-  ]
-}
-Gere 5 perguntas com 3 a 4 opções cada. Não use linguagem clínica ou diagnóstica. Retorne apenas o JSON.`,
-    { size: 'longo', ...opts }
-  )
+  const prompt = `Crie um questionário de autoconhecimento emocional em português brasileiro sobre: "${topic}". Tipo: ${type}.
+RETORNE APENAS O JSON ABAIXO. SEM texto antes, SEM texto depois, SEM blocos de código markdown.
+{"title":"Título do questionário","short_description":"Descrição curta (1 frase)","intro_text":"Texto de boas-vindas acolhedor (2 frases)","completion_text":"Frase de encorajamento ao concluir","estimated_time":5,"questions":[{"text":"Texto da pergunta","type":"single_choice","options":[{"text":"Opção 1","score":1},{"text":"Opção 2","score":2},{"text":"Opção 3","score":3}]}],"results":[{"min":0,"max":5,"label":"Nível leve","description":"Descrição acolhedora","color":"green"},{"min":6,"max":10,"label":"Nível moderado","description":"Descrição acolhedora","color":"yellow"},{"min":11,"max":15,"label":"Nível intenso","description":"Sem diagnóstico clínico","color":"red"}]}
+Gere exatamente 5 perguntas com 3 opções cada, pontuação de 1 a 3. Não use linguagem clínica. Responda SOMENTE com JSON válido.`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const res = await fetch(POLLINATIONS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'openai',
+        seed: Math.floor(Math.random() * 99999),
+      }),
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`Serviço indisponível (HTTP ${res.status})`)
+    const text = await res.text()
+    if (!text.trim()) throw new Error('Resposta vazia')
+    return text.trim()
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') throw new Error('Tempo limite atingido (35s). Tente novamente.')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function generateTrailDraft(title: string, opts: AICallOptions = {}): Promise<string> {
