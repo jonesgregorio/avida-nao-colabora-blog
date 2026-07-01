@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { sendUserMessage } from '../../lib/messaging'
+import { generateUserProfileSummary, type UserProfileData } from '../../lib/aiContent'
 import {
   Search, X, Users, Crown, Bell, FileText,
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
-  LayoutList, Columns,
+  LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
 } from 'lucide-react'
 
 interface UserRow {
@@ -119,7 +120,15 @@ function timeSince(iso: string): string {
 
 const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
-type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca'
+type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
+
+interface AISummaryRow {
+  id: string
+  summary: string
+  data_snapshot: any
+  provider: string | null
+  created_at: string
+}
 type ViewMode = 'list' | 'kanban'
 
 const KANBAN_COLUMNS = [
@@ -191,6 +200,19 @@ export default function AdminUsers() {
   const [authOpResult, setAuthOpResult] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
   const [savingAuthOp, setSavingAuthOp] = useState(false)
 
+  // Resumo inteligente
+  const [aiSummaries, setAiSummaries] = useState<AISummaryRow[]>([])
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiCurrentSummary, setAiCurrentSummary] = useState<string>('')
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiExtraMetrics, setAiExtraMetrics] = useState({
+    guidanceCount: 0, guidancePending: 0, sessionsCount: 0,
+    commentsCount: 0, reportsCount: 0, topTags: [] as string[], avgMood: 0,
+  })
+  const [aiExtraLoaded, setAiExtraLoaded] = useState(false)
+  const [aiMsg, setAiMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
   // Send message
   const [msgTitle, setMsgTitle] = useState('')
   const [msgBody, setMsgBody] = useState('')
@@ -256,6 +278,12 @@ export default function AdminUsers() {
 
   useEffect(() => { loadUsers() }, [loadUsers])
 
+  useEffect(() => {
+    if (drawerTab === 'resumo-inteligente' && selectedUser && !aiExtraLoaded) {
+      loadAiExtraMetrics(selectedUser.user_id)
+    }
+  }, [drawerTab, selectedUser?.user_id])
+
   async function loadDrawerData(userId: string) {
     setLoadingDrawer(true)
     const [ticketRes, notifRes, noteRes, planHistRes, diaryRes, savedRes, qRes] = await Promise.all([
@@ -279,6 +307,108 @@ export default function AdminUsers() {
       unreadNotifs: (notifRes.data || []).filter((n: NotifRow) => !n.is_read).length,
     })
     setLoadingDrawer(false)
+  }
+
+  async function loadAiSummaries(userId: string) {
+    setAiSummaryLoading(true)
+    const { data } = await supabase
+      .from('user_ai_summaries')
+      .select('id, summary, data_snapshot, provider, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setAiSummaries(data ?? [])
+    if (data && data.length > 0) setAiCurrentSummary(data[0].summary)
+    setAiSummaryLoading(false)
+  }
+
+  async function loadAiExtraMetrics(userId: string) {
+    const [guidanceRes, sessionsRes, commentsRes, reportsRes, diaryTagsRes] = await Promise.all([
+      supabase.from('monthly_guidance_requests').select('id, status').eq('user_id', userId),
+      supabase.from('user_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('professional_comments').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('monthly_reports').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('diary_entries').select('emotional_tags, mood').eq('user_id', userId).limit(100),
+    ])
+    const guidance = guidanceRes.data ?? []
+    const tagCounts: Record<string, number> = {}
+    const moodVals: number[] = []
+    for (const e of diaryTagsRes.data ?? []) {
+      const tags = Array.isArray(e.emotional_tags) ? e.emotional_tags : []
+      tags.forEach((t: string) => { tagCounts[t] = (tagCounts[t] ?? 0) + 1 })
+      const m = Number(e.mood)
+      if (m > 0) moodVals.push(m)
+    }
+    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
+    const avgMood = moodVals.length ? moodVals.reduce((a, b) => a + b, 0) / moodVals.length : 0
+    setAiExtraMetrics({
+      guidanceCount: guidance.length,
+      guidancePending: guidance.filter(g => g.status === 'open').length,
+      sessionsCount: sessionsRes.count ?? 0,
+      commentsCount: commentsRes.count ?? 0,
+      reportsCount: reportsRes.count ?? 0,
+      topTags,
+      avgMood,
+    })
+    setAiExtraLoaded(true)
+  }
+
+  async function generateAiSummary() {
+    if (!selectedUser) return
+    setAiGenerating(true)
+    setAiMsg(null)
+    try {
+      const data: UserProfileData = {
+        plan: selectedUser.plan,
+        planLabel: PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan,
+        memberSince: new Date(selectedUser.created_at).toLocaleDateString('pt-BR'),
+        diaryCount: metrics.diary,
+        questionnaireCount: metrics.questionnaires,
+        savedCount: metrics.saved,
+        ticketCount: metrics.tickets,
+        guidanceCount: aiExtraMetrics.guidanceCount,
+        guidancePending: aiExtraMetrics.guidancePending,
+        sessionsCount: aiExtraMetrics.sessionsCount,
+        commentsCount: aiExtraMetrics.commentsCount,
+        reportsCount: aiExtraMetrics.reportsCount,
+        topTags: aiExtraMetrics.topTags,
+        avgMood: aiExtraMetrics.avgMood || undefined,
+        recentActivity: [],
+        adminTags: selectedUser.admin_tags ?? [],
+      }
+      const summary = await generateUserProfileSummary(data)
+      setAiCurrentSummary(summary)
+    } catch (err: any) {
+      setAiMsg({ type: 'err', text: 'Erro ao gerar resumo: ' + (err?.message ?? 'Tente novamente.') })
+    }
+    setAiGenerating(false)
+  }
+
+  async function saveAiSummary() {
+    if (!selectedUser || !aiCurrentSummary.trim() || !adminUser) return
+    setAiSaving(true)
+    setAiMsg(null)
+    const { error } = await supabase.from('user_ai_summaries').insert({
+      user_id: selectedUser.user_id,
+      generated_by: adminUser.id,
+      summary: aiCurrentSummary.trim(),
+      data_snapshot: {
+        plan: selectedUser.plan,
+        diary: metrics.diary,
+        questionnaires: metrics.questionnaires,
+        guidance: aiExtraMetrics.guidanceCount,
+        sessions: aiExtraMetrics.sessionsCount,
+        topTags: aiExtraMetrics.topTags,
+      },
+      provider: 'pollinations',
+    })
+    if (!error) {
+      setAiMsg({ type: 'ok', text: 'Resumo salvo com sucesso!' })
+      loadAiSummaries(selectedUser.user_id)
+    } else {
+      setAiMsg({ type: 'err', text: 'Erro ao salvar: ' + error.message })
+    }
+    setAiSaving(false)
   }
 
   async function loadAdminSub(userId: string) {
@@ -354,8 +484,10 @@ export default function AdminUsers() {
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
     setAdminSub(null); setAdminSubMsg(null); setAdminSubPlan(u.plan)
+    setAiSummaries([]); setAiCurrentSummary(''); setAiExtraLoaded(false); setAiMsg(null)
     loadDrawerData(u.user_id)
     loadAdminSub(u.user_id)
+    loadAiSummaries(u.user_id)
   }
 
   function closeDrawer() { setSelectedUser(null) }
@@ -615,6 +747,7 @@ export default function AdminUsers() {
     { key: 'descontos', label: 'Descontos' },
     { key: 'notas', label: 'Notas' },
     { key: 'seguranca', label: 'Segurança' },
+    { key: 'resumo-inteligente', label: '✦ Resumo IA' },
   ]
 
   const notePriorityColors: Record<string, string> = {
@@ -1318,6 +1451,163 @@ export default function AdminUsers() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab: Resumo Inteligente */}
+                {drawerTab === 'resumo-inteligente' && (
+                  <div className="space-y-4">
+                    {/* Aviso */}
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">Resumo administrativo de apoio. Não representa avaliação clínica ou diagnóstico.</p>
+                    </div>
+
+                    {/* Dados agregados */}
+                    {!aiExtraLoaded ? (
+                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                        <p className="text-xs text-stone-500 mb-3 font-semibold">Dados de uso para o resumo</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                          {[
+                            ['Diário', metrics.diary],
+                            ['Questionários', metrics.questionnaires],
+                            ['Itens salvos', metrics.saved],
+                            ['Tickets', metrics.tickets],
+                          ].map(([l, v]) => (
+                            <div key={l as string} className="bg-white rounded-lg p-2 border border-stone-100">
+                              <p className="text-[10px] text-stone-400 mb-0.5">{l}</p>
+                              <p className="font-bold text-stone-700">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => loadAiExtraMetrics(selectedUser!.user_id)}
+                          className="text-xs bg-stone-800 text-white px-3 py-1.5 rounded-lg hover:bg-stone-700"
+                        >
+                          Carregar dados completos
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                        <p className="text-xs text-stone-500 mb-3 font-semibold">Dados de uso agregados</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {[
+                            ['Diário', metrics.diary],
+                            ['Questionários', metrics.questionnaires],
+                            ['Itens salvos', metrics.saved],
+                            ['Tickets', metrics.tickets],
+                            ['Orientações', aiExtraMetrics.guidanceCount],
+                            ['Orient. pendentes', aiExtraMetrics.guidancePending],
+                            ['Sessões Plus', aiExtraMetrics.sessionsCount],
+                            ['Coment. profissionais', aiExtraMetrics.commentsCount],
+                            ['Relatórios', aiExtraMetrics.reportsCount],
+                          ].map(([l, v]) => (
+                            <div key={l as string} className="bg-white rounded-lg p-2 border border-stone-100">
+                              <p className="text-[10px] text-stone-400 mb-0.5">{l}</p>
+                              <p className="font-bold text-stone-700">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {aiExtraMetrics.topTags.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-[10px] text-stone-400 mb-1">Marcadores mais frequentes no diário</p>
+                            <div className="flex flex-wrap gap-1">
+                              {aiExtraMetrics.topTags.map(t => (
+                                <span key={t} className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {aiExtraMetrics.avgMood > 0 && (
+                          <p className="text-xs text-stone-500 mt-2">Humor médio registrado: <span className="font-semibold">{aiExtraMetrics.avgMood.toFixed(1)}/5</span></p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Gerar resumo com IA */}
+                    <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-stone-700 flex items-center gap-1.5">
+                          <Brain className="w-3.5 h-3.5" /> Resumo inteligente
+                        </p>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={generateAiSummary}
+                            disabled={aiGenerating || !aiExtraLoaded}
+                            title={!aiExtraLoaded ? 'Carregue os dados completos primeiro' : 'Gerar resumo com IA'}
+                            className="flex items-center gap-1 text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                          >
+                            {aiGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            {aiGenerating ? 'Gerando...' : aiCurrentSummary ? 'Atualizar' : 'Gerar com IA'}
+                          </button>
+                          {aiCurrentSummary && (
+                            <>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(aiCurrentSummary)}
+                                title="Copiar resumo"
+                                className="flex items-center gap-1 text-xs border border-stone-200 text-stone-600 px-2.5 py-1 rounded-lg hover:bg-stone-50"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={saveAiSummary}
+                                disabled={aiSaving}
+                                title="Salvar resumo"
+                                className="flex items-center gap-1 text-xs bg-stone-800 text-white px-2.5 py-1 rounded-lg hover:bg-stone-700 disabled:opacity-40"
+                              >
+                                {aiSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {aiMsg && (
+                        <div className={`text-xs px-3 py-2 rounded-lg ${aiMsg.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                          {aiMsg.text}
+                        </div>
+                      )}
+
+                      {aiCurrentSummary ? (
+                        <textarea
+                          value={aiCurrentSummary}
+                          onChange={e => setAiCurrentSummary(e.target.value)}
+                          rows={10}
+                          className="w-full text-xs text-stone-700 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-300 resize-y leading-relaxed"
+                        />
+                      ) : aiSummaryLoading ? (
+                        <div className="flex items-center gap-2 py-4 text-stone-400 text-xs">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
+                        </div>
+                      ) : (
+                        <p className="text-xs text-stone-400 py-4 text-center">
+                          {aiExtraLoaded
+                            ? 'Clique em "Gerar com IA" para criar um resumo do perfil deste usuário.'
+                            : 'Primeiro carregue os dados completos, depois clique em "Gerar com IA".'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Histórico de resumos */}
+                    {aiSummaries.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-stone-600 mb-2">Histórico de resumos salvos</p>
+                        <div className="space-y-2">
+                          {aiSummaries.map(s => (
+                            <button
+                              key={s.id}
+                              onClick={() => setAiCurrentSummary(s.summary)}
+                              className="w-full text-left bg-stone-50 border border-stone-100 rounded-xl p-3 hover:bg-stone-100 transition-colors"
+                            >
+                              <p className="text-[10px] text-stone-400 mb-1">
+                                Salvo em {new Date(s.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                              </p>
+                              <p className="text-xs text-stone-600 line-clamp-2">{s.summary}</p>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

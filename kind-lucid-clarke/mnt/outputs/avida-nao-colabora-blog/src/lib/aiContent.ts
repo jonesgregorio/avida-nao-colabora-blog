@@ -334,3 +334,62 @@ Escreva o conteúdo completo pronto para ser entregue ao usuário, de forma acol
     { size: 'médio', ...opts }
   )
 }
+
+export interface UserProfileData {
+  plan: string
+  planLabel: string
+  memberSince: string
+  diaryCount: number
+  questionnaireCount: number
+  savedCount: number
+  ticketCount: number
+  guidanceCount: number
+  guidancePending: number
+  sessionsCount: number
+  commentsCount: number
+  reportsCount: number
+  topTags: string[]
+  avgMood?: number
+  recentActivity: string[]
+  adminTags?: string[]
+}
+
+export async function generateUserProfileSummary(data: UserProfileData): Promise<string> {
+  const prompt = `Você é um assistente administrativo do projeto A Vida Não Colabora.
+Sua tarefa é resumir dados de uso de um usuário para ajudar o admin a entender melhor como ele utiliza a plataforma.
+
+REGRAS OBRIGATÓRIAS:
+- Não faça diagnóstico
+- Não diga que o usuário tem transtorno ou condição clínica
+- Não use linguagem clínica afirmativa
+- Não prometa cura
+- Use linguagem cuidadosa, neutra e baseada em registros
+- Use expressões como "o usuário registrou", "aparece com frequência", "pode ser útil sugerir", "sem caráter clínico"
+
+DADOS DO USUÁRIO (agregados, sem identificação pessoal):
+- Plano: ${data.planLabel}
+- Membro desde: ${data.memberSince}
+- Registros no diário: ${data.diaryCount}
+- Questionários respondidos: ${data.questionnaireCount}
+- Itens salvos na Caixa de Cuidado: ${data.savedCount}
+- Tickets de suporte: ${data.ticketCount}
+- Orientações enviadas: ${data.guidanceCount} (${data.guidancePending} aguardando resposta)
+- Sessões Plus realizadas: ${data.sessionsCount}
+- Comentários profissionais recebidos: ${data.commentsCount}
+- Relatórios gerados: ${data.reportsCount}
+${data.topTags.length > 0 ? `- Marcadores mais frequentes: ${data.topTags.join(', ')}` : ''}
+${data.avgMood ? `- Humor médio registrado: ${data.avgMood.toFixed(1)}/5` : ''}
+${data.recentActivity.length > 0 ? `- Atividade recente: ${data.recentActivity.join('; ')}` : ''}
+${data.adminTags && data.adminTags.length > 0 ? `- Tags administrativas: ${data.adminTags.join(', ')}` : ''}
+
+Organize o resumo em:
+1. Visão geral (1-2 frases)
+2. Uso da plataforma (bullet points)
+3. Temas mais recorrentes (se houver marcadores)
+4. Pontos de atenção (baseado no uso)
+5. Sugestões administrativas (próximas ações possíveis)
+
+Escreva em português brasileiro, de forma clara e objetiva. Este resumo é apenas para uso administrativo interno.`
+
+  return callAI(prompt, { tone: 'profissional', size: 'médio' })
+}

@@ -873,6 +873,8 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
   const [context, setContext] = useState('')
   const [expectedHelp, setExpectedHelp] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -901,6 +903,7 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
   async function send() {
     if (!user || !message.trim()) return
     setSending(true)
+    setSendError(null)
     const { error } = await supabase.from('monthly_guidance_requests').insert({
       user_id: user.id,
       month_key: current,
@@ -918,16 +921,34 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
         action_view: 'my-evolution',
         is_read: false,
       })
-      setShowForm(false); setMessage(''); setContext(''); setExpectedHelp('')
-      load()
+      setShowForm(false)
+      setMessage('')
+      setContext('')
+      setExpectedHelp('')
+      setSendError(null)
+      await load()
+    } else {
+      if (error.code === '23505' || error.message?.includes('unique') || error.message?.includes('duplicate')) {
+        setSendError('Você já enviou sua orientação deste mês. Aguarde a resposta antes de enviar outra.')
+      } else {
+        setSendError('Não foi possível enviar sua orientação agora. Tente novamente em alguns instantes.')
+      }
     }
     setSending(false)
   }
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-stone-400" /></div>
 
+  const historyPast = history.filter(h => h.month_key !== current)
+
   return (
     <div className="space-y-6">
+      {/* Info header */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+        <p className="text-sm font-medium text-emerald-800">Orientação mensal</p>
+        <p className="text-xs text-emerald-700 mt-0.5">Você tem direito a 1 orientação por mensagem por mês. O profissional responderá em até 3 dias úteis.</p>
+      </div>
+
       <div className="bg-white rounded-xl border border-stone-200 p-5">
         <h3 className="text-sm font-semibold text-stone-700 mb-1">Orientação de {monthLabel(current)}</h3>
 
@@ -949,6 +970,7 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
                     value={message} onChange={e => setMessage(e.target.value)}
                     rows={3} placeholder="Descreva sua situação ou dúvida..."
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    disabled={sending}
                   />
                 </div>
                 <div>
@@ -957,6 +979,7 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
                     value={context} onChange={e => setContext(e.target.value)}
                     rows={2} placeholder="Conte o que você já experimentou..."
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    disabled={sending}
                   />
                 </div>
                 <div>
@@ -965,26 +988,63 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
                     value={expectedHelp} onChange={e => setExpectedHelp(e.target.value)}
                     rows={2} placeholder="Ex: quero dicas práticas, quero entender melhor..."
                     className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    disabled={sending}
                   />
                 </div>
+                {sendError && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-700">{sendError}</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <button onClick={send} disabled={sending || !message.trim()} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                  <button
+                    onClick={send}
+                    disabled={sending || !message.trim()}
+                    className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    {sending ? 'Enviando...' : 'Enviar'}
+                    {sending ? 'Enviando...' : 'Enviar orientação'}
                   </button>
-                  <button onClick={() => setShowForm(false)} className="border border-stone-200 text-stone-600 text-sm px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
+                  <button
+                    onClick={() => { setShowForm(false); setSendError(null) }}
+                    disabled={sending}
+                    className="border border-stone-200 text-stone-600 text-sm px-4 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </div>
             )}
           </>
         ) : currentRequest.status === 'open' ? (
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <Clock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-amber-800 font-medium">Orientação enviada — aguardando resposta</p>
-              <p className="text-xs text-amber-700 mt-1">{currentRequest.message}</p>
-              <p className="text-xs text-amber-500 mt-1">Enviada em {new Date(currentRequest.created_at).toLocaleDateString('pt-BR')}</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <Clock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-amber-800 font-medium">Orientação enviada — aguardando resposta</p>
+                <p className="text-xs text-amber-500 mt-0.5">Enviada em {new Date(currentRequest.created_at).toLocaleDateString('pt-BR')}</p>
+              </div>
             </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 space-y-2">
+              <div>
+                <p className="text-xs text-stone-400 font-medium mb-1">Sua mensagem</p>
+                <p className="text-sm text-stone-700">{currentRequest.message}</p>
+              </div>
+              {currentRequest.context && (
+                <div>
+                  <p className="text-xs text-stone-400 font-medium mb-1">O que já tentou</p>
+                  <p className="text-sm text-stone-600">{currentRequest.context}</p>
+                </div>
+              )}
+              {currentRequest.expected_help && (
+                <div>
+                  <p className="text-xs text-stone-400 font-medium mb-1">Ajuda esperada</p>
+                  <p className="text-sm text-stone-600">{currentRequest.expected_help}</p>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-stone-400 italic">Você já utilizou sua orientação mensal. Você será notificado quando houver resposta.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -992,11 +1052,13 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
               <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-emerald-800 font-medium">Sua orientação foi respondida</p>
-                <p className="text-xs text-emerald-600 mt-0.5">{currentRequest.responded_at ? new Date(currentRequest.responded_at).toLocaleDateString('pt-BR') : ''}</p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  {currentRequest.responded_at ? new Date(currentRequest.responded_at).toLocaleDateString('pt-BR') : ''}
+                </p>
               </div>
             </div>
-            <div className="bg-white border border-stone-200 rounded-lg p-4">
-              <p className="text-xs text-stone-500 mb-1 font-medium">Sua pergunta</p>
+            <div className="bg-stone-50 border border-stone-100 rounded-lg p-4">
+              <p className="text-xs text-stone-400 font-medium mb-1">Sua pergunta</p>
               <p className="text-sm text-stone-700">{currentRequest.message}</p>
             </div>
             {currentRequest.response && (
@@ -1010,20 +1072,27 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
       </div>
 
       {/* Histórico */}
-      {history.filter(h => h.month_key !== current).length > 0 && (
+      {historyPast.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-stone-700">Histórico de orientações</h3>
-          {history.filter(h => h.month_key !== current).map(h => (
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700 underline"
+          >
+            {showHistory ? 'Ocultar histórico' : `Ver histórico de orientações (${historyPast.length})`}
+          </button>
+          {showHistory && historyPast.map(h => (
             <div key={h.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-stone-700">{monthLabel(h.month_key)}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  h.status === 'answered' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                }`}>{h.status === 'answered' ? 'Respondida' : 'Aguardando'}</span>
+                  h.status === 'answered' ? 'bg-emerald-100 text-emerald-700' :
+                  h.status === 'closed' ? 'bg-stone-100 text-stone-500' :
+                  'bg-amber-100 text-amber-700'
+                }`}>{h.status === 'answered' ? 'Respondida' : h.status === 'closed' ? 'Encerrada' : 'Aguardando'}</span>
               </div>
               <p className="text-xs text-stone-500 line-clamp-2">{h.message}</p>
               {h.response && (
-                <p className="text-xs text-emerald-700 bg-emerald-50 p-2 rounded">{h.response}</p>
+                <p className="text-xs text-emerald-700 bg-emerald-50 p-2 rounded leading-relaxed">{h.response}</p>
               )}
             </div>
           ))}
