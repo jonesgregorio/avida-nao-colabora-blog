@@ -5,7 +5,7 @@ import {
   Star, BookOpen, Box, BarChart2, HeadphonesIcon, Bell,
   Search, Shield, ClipboardList, Briefcase, DollarSign,
   FileOutput, HelpCircle, Calendar, Zap, LogOut, ExternalLink,
-  Menu, ChevronDown, ChevronRight, MessageSquare, Video, Leaf,
+  Menu, ChevronDown, ChevronRight, MessageSquare, Video, Leaf, Sparkles,
 } from 'lucide-react'
 
 type NavGroup = {
@@ -72,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'guidance-requests', label: 'Orientações',     icon: MessageSquare },
       { id: 'evolution-sessions', label: 'Sessões Plus',   icon: Video },
       { id: 'self-care-plans', label: 'Planos Autocuidado', icon: Leaf },
+      { id: 'personalization', label: 'Personalização por Plano', icon: Sparkles },
       { id: 'financial',    label: 'Financeiro',       icon: DollarSign },
     ],
   },

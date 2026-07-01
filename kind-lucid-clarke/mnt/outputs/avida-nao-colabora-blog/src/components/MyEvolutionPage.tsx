@@ -5,7 +5,7 @@ import type { Profile } from '../types'
 import {
   BarChart2, FileText, Heart, Leaf, MessageSquare, Video,
   Lock, ChevronLeft, Download, Send, RefreshCw, CheckCircle,
-  Clock, Calendar, AlertCircle, TrendingUp, BookOpen, Loader2,
+  Clock, Calendar, AlertCircle, TrendingUp, BookOpen, Loader2, Sparkles,
 } from 'lucide-react'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ const PLAN_RANK: Record<string, number> = {
   free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3,
 }
 
-type Tab = 'resumo' | 'graficos' | 'relatorios' | 'autocuidado' | 'orientacoes' | 'comentarios' | 'sessao'
+type Tab = 'resumo' | 'graficos' | 'relatorios' | 'autocuidado' | 'orientacoes' | 'comentarios' | 'sessao' | 'para-voce'
 
 function monthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -145,6 +145,7 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
     { id: 'orientacoes', label: 'Orientações', icon: <MessageSquare className="w-4 h-4" />, minPlan: 'therapeutic' },
     { id: 'comentarios', label: 'Comentários Profissionais', icon: <Heart className="w-4 h-4" />, minPlan: 'therapeutic-plus' },
     { id: 'sessao', label: 'Sessão Plus', icon: <Video className="w-4 h-4" />, minPlan: 'therapeutic-plus' },
+    { id: 'para-voce', label: 'Para você', icon: <Sparkles className="w-4 h-4" />, minPlan: 'free' },
   ]
 
   return (
@@ -193,6 +194,7 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
           {tab === 'orientacoes' && <TabOrientacoes plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
           {tab === 'comentarios' && <TabComentarios plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
           {tab === 'sessao' && <TabSessaoPlus plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+          {tab === 'para-voce' && <TabParaVoce user={user} />}
         </div>
       </div>
     </div>
@@ -1615,6 +1617,91 @@ function TabSessaoPlus({ plan, user, onNavigatePricing }: {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Tab: Para você ────────────────────────────────────────────────────────────
+
+interface PersonalizedDelivery {
+  id: string
+  title: string
+  body: string
+  content_type: string
+  target_area: string | null
+  sent_at: string | null
+  created_at: string
+}
+
+function TabParaVoce({ user }: { user: User | null }) {
+  const [deliveries, setDeliveries] = useState<PersonalizedDelivery[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user?.id) { setLoading(false); return }
+    supabase
+      .from('personalized_content_deliveries')
+      .select('id, title, body, content_type, target_area, sent_at, created_at')
+      .eq('user_id', user.id)
+      .eq('status', 'sent')
+      .order('sent_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        setDeliveries((data ?? []) as PersonalizedDelivery[])
+        setLoading(false)
+      })
+  }, [user?.id])
+
+  if (loading) {
+    return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-stone-300" /></div>
+  }
+
+  if (deliveries.length === 0) {
+    return (
+      <div className="text-center py-16 space-y-3">
+        <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+          <Sparkles className="w-7 h-7 text-emerald-400" />
+        </div>
+        <p className="font-medium text-stone-700">Nada aqui ainda</p>
+        <p className="text-sm text-stone-400 max-w-xs mx-auto">Quando a equipe preparar algo especialmente para você, vai aparecer aqui.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 max-w-2xl">
+      <p className="text-sm text-stone-500 mb-4">Conteúdos preparados especialmente para você com base no seu uso da plataforma.</p>
+      {deliveries.map(d => (
+        <div key={d.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                <span className="text-xs text-stone-400">
+                  {d.sent_at ? new Date(d.sent_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                </span>
+              </div>
+              <p className="font-semibold text-stone-800 text-sm leading-snug">{d.title}</p>
+            </div>
+            <button
+              onClick={() => setExpanded(expanded === d.id ? null : d.id)}
+              className="text-xs text-emerald-600 hover:text-emerald-700 flex-shrink-0 font-medium"
+            >
+              {expanded === d.id ? 'Fechar' : 'Ler'}
+            </button>
+          </div>
+          {expanded !== d.id && (
+            <p className="text-sm text-stone-500 line-clamp-2">{d.body}</p>
+          )}
+          {expanded === d.id && (
+            <div className="border-t border-stone-100 pt-3">
+              <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{d.body}</p>
+              <p className="text-xs text-stone-400 mt-4 italic">{DISCLAIMER}</p>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

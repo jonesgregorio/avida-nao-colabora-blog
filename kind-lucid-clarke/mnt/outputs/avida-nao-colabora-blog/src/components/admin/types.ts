@@ -26,3 +26,4 @@ export type AdminView =
   | 'guidance-requests'
   | 'evolution-sessions'
   | 'self-care-plans'
+  | 'personalization'
