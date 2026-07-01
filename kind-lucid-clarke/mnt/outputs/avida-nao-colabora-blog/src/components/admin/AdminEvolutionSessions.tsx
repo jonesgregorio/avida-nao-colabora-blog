@@ -134,16 +134,13 @@ export default function AdminEvolutionSessions() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: sess }, { data: users }, { data: profs }] = await Promise.all([
+
+    // Buscar sessões e profissionais em paralelo (sem join — profiles usa user_id separado)
+    const [{ data: sess }, { data: profs }] = await Promise.all([
       supabase
         .from('user_sessions')
-        .select('*, user:profiles(full_name, email, plan)')
+        .select('*')
         .order('created_at', { ascending: false })
-        .limit(200),
-      supabase
-        .from('profiles')
-        .select('id, full_name, user_id')
-        .eq('plan', 'therapeutic-plus')
         .limit(200),
       supabase
         .from('professionals')
@@ -151,10 +148,34 @@ export default function AdminEvolutionSessions() {
         .eq('active', true)
         .order('name'),
     ])
-    setSessions(sess ?? [])
-    setPlusUsers((users ?? []).map((u: any) => ({
-      id: u.user_id ?? u.id,
-      full_name: u.full_name ?? u.id,
+
+    // Buscar perfis pelos user_ids encontrados
+    const userIds = [...new Set((sess ?? []).map((s: any) => s.user_id as string))]
+    let profileMap: Record<string, { full_name?: string; email?: string; plan?: string }> = {}
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email, plan')
+        .in('user_id', userIds)
+      profileMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.user_id, p]))
+    }
+
+    // Buscar usuários Plus para formulário de criação
+    const { data: plusProfiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name')
+      .eq('plan', 'therapeutic-plus')
+      .limit(200)
+
+    const sessionsWithUsers = (sess ?? []).map((s: any) => ({
+      ...s,
+      user: profileMap[s.user_id] ?? null,
+    }))
+
+    setSessions(sessionsWithUsers)
+    setPlusUsers((plusProfiles ?? []).map((u: any) => ({
+      id: u.user_id,
+      full_name: u.full_name ?? u.user_id,
     })))
     setProfessionals(profs ?? [])
     setLoading(false)
