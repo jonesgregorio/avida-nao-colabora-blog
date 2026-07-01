@@ -580,11 +580,10 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   const curWeek = weekKey(now)
   const curBiweek = biweekKey(now)
 
-  // ── 2. Carregar pendências existentes (últimos 2 meses de períodos) ──
+  // ── 2. Carregar pendências existentes (todos os status para dedup correto) ──
   const { data: existingTasks } = await supabase
     .from('user_personalization_tasks')
     .select('id, user_id, task_key, period_key, status, due_at, expires_at')
-    .not('status', 'in', '("sent","cancelled","not_applicable")')
 
   const existingSet = new Set(
     (existingTasks ?? []).map((t: any) => `${t.user_id}|${t.task_key}|${t.period_key}`)
@@ -715,7 +714,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
     const batch = toInsert.slice(i, i + BATCH)
     const { error } = await supabase
       .from('user_personalization_tasks')
-      .insert(batch)
+      .upsert(batch, { onConflict: 'user_id,task_key,period_key', ignoreDuplicates: true })
     if (error) errors.push('insert: ' + error.message)
     else created += batch.length
   }

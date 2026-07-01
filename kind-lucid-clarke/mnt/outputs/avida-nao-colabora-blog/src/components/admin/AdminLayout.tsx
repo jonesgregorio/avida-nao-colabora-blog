@@ -89,10 +89,16 @@ interface Props {
 
 export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('admin-menu-collapsed') ?? '{}') } catch { return {} }
+  })
 
   function toggleGroup(label: string) {
-    setCollapsed(c => ({ ...c, [label]: !c[label] }))
+    setCollapsed(c => {
+      const next = { ...c, [label]: !c[label] }
+      localStorage.setItem('admin-menu-collapsed', JSON.stringify(next))
+      return next
+    })
   }
 
   function isActive(id: AdminView) {
