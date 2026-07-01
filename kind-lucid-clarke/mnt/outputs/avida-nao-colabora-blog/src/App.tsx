@@ -36,13 +36,14 @@ import ForceChangePassword from './components/ForceChangePassword'
 import MonthlyGuidancePage from './components/MonthlyGuidancePage'
 import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
 import MyPlanPage from './components/MyPlanPage'
+import MyReportPage from './components/MyReportPage'
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
   'home','auth','diary','profile','meditations','challenges',
   'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','trails','saved','admin','contact','success',
-  'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan',
+  'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report',
 ]
 
 function restoreNav() {
@@ -502,6 +503,26 @@ export default function App() {
     )
   }
 
+  if (view === 'my-report') {
+    if (!user) { navigate('auth'); return null }
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <main className="min-h-screen bg-stone-50">
+          <MyReportPage
+            user={user}
+            profile={profile}
+            onBack={() => navigate('home')}
+            onNavigatePricing={() => navigate('pricing')}
+            onNavigateDiary={() => navigate('diary')}
+            onNavigateGuidance={() => navigate('monthly-guidance')}
+          />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
   if (view === 'my-plan') {
     return (
       <>
@@ -600,6 +621,12 @@ export default function App() {
                   ⭐ Comentários do Profissional
                 </button>
               )}
+              <button
+                onClick={() => navigate('my-report')}
+                className="text-sm bg-violet-50 border border-violet-200 text-violet-700 px-4 py-2 rounded-full hover:bg-violet-100 transition-colors"
+              >
+                📊 Meu Relatório
+              </button>
               <button
                 onClick={() => navigate('my-plan')}
                 className="text-sm bg-stone-50 border border-stone-200 text-stone-700 px-4 py-2 rounded-full hover:bg-stone-100 transition-colors"
