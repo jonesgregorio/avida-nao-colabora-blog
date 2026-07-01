@@ -1628,9 +1628,28 @@ interface PersonalizedDelivery {
   title: string
   body: string
   content_type: string
+  plan_key: string | null
   target_area: string | null
   sent_at: string | null
   created_at: string
+  read_at: string | null
+}
+
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  reflection: 'Reflexão', insight: 'Insight', tip: 'Dica prática',
+  exercise: 'Exercício', summary: 'Resumo', guidance: 'Orientação',
+  report_feedback: 'Feedback de relatório', session_followup: 'Pós-sessão',
+  weekly_summary: 'Resumo semanal',
+}
+
+const PLAN_LABELS_USER: Record<string, string> = {
+  free: 'Gratuito', essential: 'Essencial',
+  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+}
+
+const TARGET_AREA_LABELS_USER: Record<string, string> = {
+  my_evolution: 'Minha Evolução', diary: 'Diário', reports: 'Relatórios',
+  sessions: 'Sessões', orientacoes: 'Orientações', general: 'Geral',
 }
 
 function TabParaVoce({ user }: { user: User | null }) {
@@ -1642,7 +1661,7 @@ function TabParaVoce({ user }: { user: User | null }) {
     if (!user?.id) { setLoading(false); return }
     supabase
       .from('personalized_content_deliveries')
-      .select('id, title, body, content_type, target_area, sent_at, created_at')
+      .select('id, title, body, content_type, plan_key, target_area, sent_at, created_at, read_at')
       .eq('user_id', user.id)
       .eq('status', 'sent')
       .order('sent_at', { ascending: false })
@@ -1652,6 +1671,17 @@ function TabParaVoce({ user }: { user: User | null }) {
         setLoading(false)
       })
   }, [user?.id])
+
+  async function markAsRead(id: string) {
+    await supabase.from('personalized_content_deliveries').update({ read_at: new Date().toISOString() }).eq('id', id).is('read_at', null)
+    setDeliveries(prev => prev.map(d => d.id === id && !d.read_at ? { ...d, read_at: new Date().toISOString() } : d))
+  }
+
+  function handleExpand(id: string) {
+    const next = expanded === id ? null : id
+    setExpanded(next)
+    if (next) markAsRead(id)
+  }
 
   if (loading) {
     return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-stone-300" /></div>
@@ -1669,39 +1699,57 @@ function TabParaVoce({ user }: { user: User | null }) {
     )
   }
 
+  const unreadCount = deliveries.filter(d => !d.read_at).length
+
   return (
     <div className="space-y-3 max-w-2xl">
-      <p className="text-sm text-stone-500 mb-4">Conteúdos preparados especialmente para você com base no seu uso da plataforma.</p>
-      {deliveries.map(d => (
-        <div key={d.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                <span className="text-xs text-stone-400">
-                  {d.sent_at ? new Date(d.sent_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
-                </span>
+      <div className="mb-4 space-y-1">
+        <p className="text-sm text-stone-500">Conteúdos preparados com base no seu uso e revisados pela equipe antes do envio.</p>
+        {unreadCount > 0 && (
+          <p className="text-xs font-medium text-emerald-600">{unreadCount} novo{unreadCount !== 1 ? 's' : ''} para você</p>
+        )}
+      </div>
+      {deliveries.map(d => {
+        const isNew = !d.read_at
+        return (
+          <div key={d.id} className={`bg-white rounded-xl border p-5 space-y-3 transition-colors ${isNew ? 'border-emerald-200 shadow-sm' : 'border-stone-200'}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  {isNew && (
+                    <span className="text-[10px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">Novo</span>
+                  )}
+                  {d.content_type && (
+                    <span className="text-[10px] font-medium bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full">{CONTENT_TYPE_LABELS[d.content_type] ?? d.content_type}</span>
+                  )}
+                  {d.target_area && (
+                    <span className="text-[10px] text-stone-400">{TARGET_AREA_LABELS_USER[d.target_area] ?? d.target_area}</span>
+                  )}
+                  <span className="text-[10px] text-stone-400 ml-auto">
+                    {d.sent_at ? new Date(d.sent_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                  </span>
+                </div>
+                <p className="font-semibold text-stone-800 text-sm leading-snug">{d.title}</p>
               </div>
-              <p className="font-semibold text-stone-800 text-sm leading-snug">{d.title}</p>
+              <button
+                onClick={() => handleExpand(d.id)}
+                className="text-xs text-emerald-600 hover:text-emerald-700 flex-shrink-0 font-medium"
+              >
+                {expanded === d.id ? 'Fechar' : 'Ler'}
+              </button>
             </div>
-            <button
-              onClick={() => setExpanded(expanded === d.id ? null : d.id)}
-              className="text-xs text-emerald-600 hover:text-emerald-700 flex-shrink-0 font-medium"
-            >
-              {expanded === d.id ? 'Fechar' : 'Ler'}
-            </button>
+            {expanded !== d.id && (
+              <p className="text-sm text-stone-500 line-clamp-2">{d.body}</p>
+            )}
+            {expanded === d.id && (
+              <div className="border-t border-stone-100 pt-3 space-y-3">
+                <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{d.body}</p>
+                <p className="text-xs text-stone-400 italic border-t border-stone-100 pt-3">{DISCLAIMER}</p>
+              </div>
+            )}
           </div>
-          {expanded !== d.id && (
-            <p className="text-sm text-stone-500 line-clamp-2">{d.body}</p>
-          )}
-          {expanded === d.id && (
-            <div className="border-t border-stone-100 pt-3">
-              <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{d.body}</p>
-              <p className="text-xs text-stone-400 mt-4 italic">{DISCLAIMER}</p>
-            </div>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

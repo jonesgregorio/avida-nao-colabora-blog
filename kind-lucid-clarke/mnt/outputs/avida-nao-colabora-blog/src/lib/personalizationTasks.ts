@@ -737,10 +737,19 @@ export async function loadAllOpenTasks(): Promise<PersonalizationTask[]> {
   const { data, error } = await supabase
     .from('user_personalization_tasks')
     .select('*')
-    .not('status', 'in', '("sent","cancelled","not_applicable","expired")')
+    .not('status', 'in', '("sent","resolved","cancelled","not_applicable","expired")')
     .order('due_at', { ascending: true })
     .limit(1000)
   if (error) return []
+  return (data ?? []) as PersonalizationTask[]
+}
+
+export async function loadAllTasksForAdmin(limit = 1000): Promise<PersonalizationTask[]> {
+  const { data } = await supabase
+    .from('user_personalization_tasks')
+    .select('*')
+    .order('due_at', { ascending: true, nullsFirst: false })
+    .limit(limit)
   return (data ?? []) as PersonalizationTask[]
 }
 
@@ -798,6 +807,7 @@ export const STATUS_LABELS: Record<string, string> = {
   generated: 'Gerado',
   draft: 'Rascunho',
   sent: 'Enviado',
+  resolved: 'Resolvido',
   expired: 'Expirado',
   overdue: 'Atrasado',
   cancelled: 'Cancelado',
