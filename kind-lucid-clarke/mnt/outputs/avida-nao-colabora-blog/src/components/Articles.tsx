@@ -237,7 +237,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
                   alt={article.image_alt || article.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   onError={e => {
-                    ;(e.target as HTMLImageElement).src =
+                    (e.target as HTMLImageElement).src =
                       'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
                   }}
                 />

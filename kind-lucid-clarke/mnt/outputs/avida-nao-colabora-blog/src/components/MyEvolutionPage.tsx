@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { getContentTypeLabel, getTargetAreaLabel } from '../lib/personalizedContentLabels'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import {
@@ -762,17 +763,31 @@ interface SelfCarePlan {
   created_at: string
 }
 
+interface PersonalizedExtra {
+  id: string; title: string; body: string; content_type: string | null; sent_at: string | null; created_at: string
+}
+
 function TabAutocuidado({ plan, user, onNavigatePricing }: {
   plan: string; user: User | null; onNavigatePricing: () => void
 }) {
   const [reviews, setReviews] = useState<SelfCarePlan[]>([])
+  const [extras, setExtras] = useState<PersonalizedExtra[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user || !hasPlan(plan, 'therapeutic')) { setLoading(false); return }
-    supabase.from('self_care_plan_reviews').select('*')
-      .eq('user_id', user.id).order('month_key', { ascending: false }).limit(6)
-      .then(({ data }) => { setReviews(data ?? []); setLoading(false) })
+    Promise.all([
+      supabase.from('self_care_plan_reviews').select('*')
+        .eq('user_id', user.id).order('month_key', { ascending: false }).limit(6),
+      supabase.from('personalized_content_deliveries')
+        .select('id, title, body, content_type, sent_at, created_at')
+        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'self_care_plan')
+        .order('sent_at', { ascending: false }).limit(10),
+    ]).then(([r, d]) => {
+      setReviews(r.data ?? [])
+      setExtras((d.data ?? []) as PersonalizedExtra[])
+      setLoading(false)
+    })
   }, [user, plan])
 
   if (!hasPlan(plan, 'therapeutic')) {
@@ -831,6 +846,22 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
                   <Download className="w-4 h-4" /> Baixar revisão em PDF
                 </a>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {extras.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-stone-700">Conteúdos personalizados recebidos</h3>
+          {extras.map(e => (
+            <div key={e.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-stone-800 text-sm">{e.title}</p>
+                {e.content_type && <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full flex-shrink-0">{getContentTypeLabel(e.content_type)}</span>}
+              </div>
+              <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">{e.body}</p>
+              <p className="text-xs text-stone-400">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</p>
             </div>
           ))}
         </div>
@@ -1137,14 +1168,24 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
   plan: string; user: User | null; onNavigatePricing: () => void
 }) {
   const [comments, setComments] = useState<ProfessionalComment[]>([])
+  const [extras, setExtras] = useState<PersonalizedExtra[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user || !hasPlan(plan, 'therapeutic-plus')) { setLoading(false); return }
-    supabase.from('professional_comments')
-      .select('id, report_month, comment, comment_text, title, professional_name, created_at')
-      .eq('user_id', user.id).order('report_month', { ascending: false })
-      .then(({ data }) => { setComments((data as ProfessionalComment[]) ?? []); setLoading(false) })
+    Promise.all([
+      supabase.from('professional_comments')
+        .select('id, report_month, comment, comment_text, title, professional_name, created_at')
+        .eq('user_id', user.id).order('report_month', { ascending: false }),
+      supabase.from('personalized_content_deliveries')
+        .select('id, title, body, content_type, sent_at, created_at')
+        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'professional_comments')
+        .order('sent_at', { ascending: false }).limit(10),
+    ]).then(([c, d]) => {
+      setComments((c.data as ProfessionalComment[]) ?? [])
+      setExtras((d.data ?? []) as PersonalizedExtra[])
+      setLoading(false)
+    })
   }, [user, plan])
 
   if (!hasPlan(plan, 'therapeutic-plus')) {
@@ -1166,7 +1207,7 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
         <p className="text-sm text-purple-700">Receba uma devolutiva breve do profissional sobre os seus registros mensais.</p>
       </div>
 
-      {comments.length === 0 ? (
+      {comments.length === 0 && extras.length === 0 ? (
         <div className="bg-white rounded-xl border border-stone-200 p-8 text-center space-y-3">
           <MessageSquare className="w-10 h-10 text-stone-300 mx-auto" />
           <p className="text-stone-600 text-sm">Nenhum comentário profissional disponível ainda.</p>
@@ -1189,6 +1230,16 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
               <div className="border-t border-stone-100 pt-3">
                 <p className="text-xs text-stone-400 italic">{DISCLAIMER}</p>
               </div>
+            </div>
+          ))}
+          {extras.map(e => (
+            <div key={e.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-stone-800 text-sm">{e.title}</h3>
+                <span className="text-xs text-stone-400">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</span>
+              </div>
+              {e.content_type && <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full">{getContentTypeLabel(e.content_type)}</span>}
+              <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{e.body}</p>
             </div>
           ))}
         </div>
@@ -1250,16 +1301,20 @@ function TabSessaoPlus({ plan, user, onNavigatePricing }: {
   const [userNotes, setUserNotes] = useState('')
 
   const isPlus = hasPlan(plan, 'therapeutic-plus')
+  const [sessionExtras, setSessionExtras] = useState<PersonalizedExtra[]>([])
 
   const load = useCallback(async () => {
     if (!user || !isPlus) { setLoading(false); return }
-    const { data } = await supabase
-      .from('user_sessions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    const all = (data ?? []) as UserSession[]
+    const [sessData, delivData] = await Promise.all([
+      supabase.from('user_sessions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('personalized_content_deliveries')
+        .select('id, title, body, content_type, sent_at, created_at')
+        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'session_plus')
+        .order('sent_at', { ascending: false }).limit(10),
+    ])
+    const all = (sessData.data ?? []) as UserSession[]
     setSessions(all)
+    setSessionExtras((delivData.data ?? []) as PersonalizedExtra[])
     const cur = all.find(s => s.month_key === current) ?? null
     setCurrentSession(cur)
     setLoading(false)
@@ -1617,6 +1672,22 @@ function TabSessaoPlus({ plan, user, onNavigatePricing }: {
           })}
         </div>
       )}
+
+      {sessionExtras.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-stone-700">Mensagens da equipe</h3>
+          {sessionExtras.map(e => (
+            <div key={e.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-stone-800 text-sm">{e.title}</p>
+                {e.content_type && <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full flex-shrink-0">{getContentTypeLabel(e.content_type)}</span>}
+              </div>
+              <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">{e.body}</p>
+              <p className="text-xs text-stone-400">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1635,21 +1706,9 @@ interface PersonalizedDelivery {
   read_at: string | null
 }
 
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  reflection: 'Reflexão', insight: 'Insight', tip: 'Dica prática',
-  exercise: 'Exercício', summary: 'Resumo', guidance: 'Orientação',
-  report_feedback: 'Feedback de relatório', session_followup: 'Pós-sessão',
-  weekly_summary: 'Resumo semanal',
-}
-
 const PLAN_LABELS_USER: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial',
   therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
-}
-
-const TARGET_AREA_LABELS_USER: Record<string, string> = {
-  my_evolution: 'Minha Evolução', diary: 'Diário', reports: 'Relatórios',
-  sessions: 'Sessões', orientacoes: 'Orientações', general: 'Geral',
 }
 
 function TabParaVoce({ user }: { user: User | null }) {
@@ -1720,10 +1779,10 @@ function TabParaVoce({ user }: { user: User | null }) {
                     <span className="text-[10px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">Novo</span>
                   )}
                   {d.content_type && (
-                    <span className="text-[10px] font-medium bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full">{CONTENT_TYPE_LABELS[d.content_type] ?? d.content_type}</span>
+                    <span className="text-[10px] font-medium bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full">{getContentTypeLabel(d.content_type)}</span>
                   )}
                   {d.target_area && (
-                    <span className="text-[10px] text-stone-400">{TARGET_AREA_LABELS_USER[d.target_area] ?? d.target_area}</span>
+                    <span className="text-[10px] text-stone-400">{getTargetAreaLabel(d.target_area)}</span>
                   )}
                   <span className="text-[10px] text-stone-400 ml-auto">
                     {d.sent_at ? new Date(d.sent_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}

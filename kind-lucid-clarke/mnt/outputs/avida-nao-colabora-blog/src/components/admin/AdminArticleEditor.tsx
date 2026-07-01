@@ -156,13 +156,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       case 'article':           set('content', result); break
       case 'article_title':     set('title', result); break
       case 'article_summary':   set('summary', result); break
-      case 'article_seo':
+      case 'article_seo': {
         // Tenta extrair campos do bloco SEO gerado
         const titleMatch = result.match(/META TITLE:\s*(.+)/i)
         const descMatch  = result.match(/META DESCRIPTION:\s*(.+)/i)
         if (titleMatch) set('seo_title', titleMatch[1].trim())
         if (descMatch)  set('seo_description', descMatch[1].trim())
         break
+      }
       case 'article_diary_question': set('diary_question', result); break
       case 'article_cta':       set('cta_text', result); break
       case 'improve':

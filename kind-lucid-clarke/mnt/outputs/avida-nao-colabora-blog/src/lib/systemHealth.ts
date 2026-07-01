@@ -47,7 +47,6 @@ export interface HealthReport {
 
 const TIMEOUT_LIGHT = 5000
 const TIMEOUT_AI    = 15000
-const TIMEOUT_FULL  = 60000
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -67,12 +66,16 @@ async function checkSupabaseTable(
   checkKey: string, checkName: string, category: string, table: string,
 ): Promise<HealthCheckResult> {
   try {
-    const { ms } = await timed(() =>
+    const { ms, result } = await timed(() =>
       withTimeout(
         Promise.resolve(supabase.from(table as any).select('id').limit(1)),
         TIMEOUT_LIGHT,
       ),
     )
+    const { error } = result as { data: unknown; error: { message: string } | null }
+    if (error) {
+      return { checkKey, checkName, category, status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
+    }
     return { checkKey, checkName, category, status: ms > 3000 ? 'warning' : 'ok', responseTimeMs: ms, severity: 'info' }
   } catch (e) {
     return { checkKey, checkName, category, status: 'error', errorMessage: String(e), severity: 'high' }
@@ -104,7 +107,7 @@ export async function checkArticles(): Promise<HealthCheckResult> {
 }
 
 export async function checkTrails(): Promise<HealthCheckResult> {
-  return checkSupabaseTable('db_trails', 'Trilhas', 'content', 'trail_items')
+  return checkSupabaseTable('db_trails', 'Trilhas', 'content', 'trails')
 }
 
 export async function checkPersonalizationTasks(): Promise<HealthCheckResult> {
@@ -197,8 +200,9 @@ export async function checkAIFallback(): Promise<HealthCheckResult> {
 export async function checkPayments(): Promise<HealthCheckResult> {
   // Verifica apenas se ambiente/configuração de pagamento está definido
   // Nunca cria cobrança real
-  const hasStripeKey = typeof import.meta.env?.VITE_STRIPE_PUBLIC_KEY === 'string' && import.meta.env.VITE_STRIPE_PUBLIC_KEY.length > 0
-  const isSandbox = import.meta.env?.VITE_STRIPE_PUBLIC_KEY?.startsWith?.('pk_test_') ?? false
+  const stripeKey = import.meta.env?.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env?.VITE_STRIPE_PUBLIC_KEY
+  const hasStripeKey = typeof stripeKey === 'string' && stripeKey.length > 0
+  const isSandbox = (stripeKey as string | undefined)?.startsWith('pk_test_') ?? false
   if (!hasStripeKey) {
     return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Gateway de pagamento não configurado', details: { note: 'Pagamento real não implementado ou chave ausente.' }, severity: 'low' }
   }
@@ -333,8 +337,27 @@ export async function saveHealthCheckResult(result: HealthCheckResult): Promise<
 
 export async function saveHealthCheckResults(results: HealthCheckResult[]): Promise<void> {
   if (results.length === 0) return
+
+  // Carrega o status anterior de cada check para salvar apenas mudanças
+  const keys = results.map(r => r.checkKey)
+  const { data: previous } = await supabase
+    .from('system_health_checks')
+    .select('check_key, status')
+    .in('check_key', keys)
+    .order('checked_at', { ascending: false })
+    .limit(keys.length * 2)
+
+  const lastStatus: Record<string, string> = {}
+  for (const row of previous ?? []) {
+    if (!lastStatus[row.check_key]) lastStatus[row.check_key] = row.status
+  }
+
+  // Salva apenas resultados cujo status mudou (ou que ainda não existem)
+  const toSave = results.filter(r => lastStatus[r.checkKey] !== r.status)
+  if (toSave.length === 0) return
+
   await supabase.from('system_health_checks').insert(
-    results.map(r => ({
+    toSave.map(r => ({
       check_key: r.checkKey,
       check_name: r.checkName,
       category: r.category,

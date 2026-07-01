@@ -125,7 +125,9 @@ export default function AdminDiaryConfig() {
       }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (_) {}
+    } catch {
+      // noop
+    }
     setSaving(false)
   }
 

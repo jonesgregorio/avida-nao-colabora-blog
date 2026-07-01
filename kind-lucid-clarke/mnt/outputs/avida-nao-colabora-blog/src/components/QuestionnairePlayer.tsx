@@ -261,7 +261,9 @@ export default function QuestionnairePlayer({
         }
         setSaved(true)
       }
-    } catch (_) {}
+    } catch {
+      // noop — save failure is non-critical
+    }
     setSaving(false)
   }
 

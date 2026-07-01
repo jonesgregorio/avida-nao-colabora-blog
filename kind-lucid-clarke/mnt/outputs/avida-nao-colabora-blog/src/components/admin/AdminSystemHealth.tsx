@@ -1,12 +1,12 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
-  Activity, CheckCircle, AlertTriangle, XCircle, Clock, RefreshCw,
+  Activity, CheckCircle, RefreshCw,
   Loader2, Play, Zap, Database, Sparkles, CreditCard, Bell,
-  Shield, ChevronDown, ChevronUp, X, Settings, BarChart2, FileText,
-  AlertCircle, Eye, Trash2, Search,
+  Shield, ChevronDown, ChevronUp, FileText,
+  AlertCircle,
 } from 'lucide-react'
 import {
-  HealthCheckResult, SystemIncident, HealthReport, CheckStatus, CheckSeverity,
+  HealthCheckResult, SystemIncident, HealthReport, CheckStatus,
   runQuickHealthCheck, runIntermediateHealthCheck, runFullDiagnostic,
   runSingleCheck, saveHealthCheckResults, createHealthReport,
   detectOrUpdateIncident, resolveIncident, ignoreIncident,
