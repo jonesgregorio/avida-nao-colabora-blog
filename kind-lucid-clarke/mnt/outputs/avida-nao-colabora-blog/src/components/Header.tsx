@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Map, Bookmark, Bell, LifeBuoy } from 'lucide-react'
+import { Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown, Bookmark, Bell, LifeBuoy } from 'lucide-react'
 import { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 
@@ -31,7 +31,6 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
     { label: 'Trilhas', id: 'trails' },
     { label: 'Questionários', id: 'questionarios' },
     { label: 'Planos', id: 'pricing' },
-    { label: 'Sobre', id: 'about' },
   ]
 
   const handleNav = (id: string) => {
@@ -99,13 +98,6 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
               >
                 <Bookmark className="w-4 h-4" />
                 <span>Caixa de Cuidado</span>
-              </button>
-              <button
-                onClick={() => handleNav('trails')}
-                title="Trilhas de Autocuidado"
-                className="p-1.5 text-sage-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-              >
-                <Map className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleNav('my-plan')}
