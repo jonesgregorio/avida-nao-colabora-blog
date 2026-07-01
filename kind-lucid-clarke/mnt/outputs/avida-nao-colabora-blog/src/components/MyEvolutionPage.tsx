@@ -695,10 +695,9 @@ function ProfessionalCommentStatus({ userId, monthKey: mk, reportId }: {
 
   useEffect(() => {
     if (!userId) return
-    // A tabela usa report_month ou month_key dependendo de como foi inserido
-    supabase.from('professional_comments').select('id, comment, comment_text, report_month, month_key, created_at')
-      .eq('user_id', userId)
-      .or(`report_month.eq.${mk},month_key.eq.${mk}`)
+    supabase.from('professional_comments')
+      .select('id, comment, comment_text, report_month, created_at')
+      .eq('user_id', userId).eq('report_month', mk)
       .order('created_at', { ascending: false })
       .limit(1).maybeSingle()
       .then(({ data }) => setComment(data))
@@ -1072,8 +1071,8 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
   useEffect(() => {
     if (!user || !hasPlan(plan, 'therapeutic-plus')) { setLoading(false); return }
     supabase.from('professional_comments')
-      .select('id, report_month, month_key, comment, comment_text, title, professional_name, status, created_at')
-      .eq('user_id', user.id).order('created_at', { ascending: false })
+      .select('id, report_month, comment, comment_text, title, professional_name, created_at')
+      .eq('user_id', user.id).order('report_month', { ascending: false })
       .then(({ data }) => { setComments((data as ProfessionalComment[]) ?? []); setLoading(false) })
   }, [user, plan])
 
