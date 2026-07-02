@@ -19,7 +19,10 @@ export function useAuth() {
       // Create profile if it doesn't exist
       const { data: newProfile } = await supabase
         .from('profiles')
-        .upsert({ user_id: userId, plan: 'free', full_name: '' })
+        .upsert(
+          { user_id: userId, plan: 'free', full_name: '' },
+          { onConflict: 'user_id', ignoreDuplicates: true },
+        )
         .select()
         .single()
       setProfile(newProfile)

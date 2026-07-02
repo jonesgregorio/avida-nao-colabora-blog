@@ -255,26 +255,12 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     setActing(true)
     setActionMsg(null)
     try {
-      const currentSub = await getOrCreateSub()
-      const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
-
-      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
-        user_id: user!.id,
-        pending_plan: targetPlan,
-        pending_plan_starts_at: effectiveAt,
-        cancel_at_period_end: targetPlan === 'free',
-      }, { onConflict: 'user_id' })
-
-      if (subErr) throw new Error('Erro ao agendar downgrade: ' + subErr.message)
-
-      await recordChange({
-        oldPlan: currentPlan, newPlan: targetPlan, changeType: 'downgrade',
-        effectiveAt,
-        notes: `Agendado para ${formatDate(effectiveAt)}`,
-      }).catch(e => console.error('recordChange downgrade:', e))
-
+      const { data, error } = await supabase.functions.invoke('manage-subscription', {
+        body: { action: 'downgrade', targetPlan },
+      })
+      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao agendar downgrade')
       setModal(null)
-      setActionMsg({ type: 'ok', text: `Downgrade para ${PLAN_LABELS[targetPlan]} agendado para ${formatDate(effectiveAt)}.` })
+      setActionMsg({ type: 'ok', text: data.message ?? `Downgrade para ${PLAN_LABELS[targetPlan]} agendado.` })
       loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao agendar downgrade'
@@ -290,27 +276,12 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     setActing(true)
     setActionMsg(null)
     try {
-      const currentSub = await getOrCreateSub()
-      const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
-
-      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
-        user_id: user!.id,
-        status: 'cancel_pending',
-        cancel_at_period_end: true,
-        pending_plan: 'free',
-        pending_plan_starts_at: effectiveAt,
-      }, { onConflict: 'user_id' })
-
-      if (subErr) throw new Error('Erro ao agendar cancelamento: ' + subErr.message)
-
-      await recordChange({
-        oldPlan: currentPlan, newPlan: 'free', changeType: 'cancel',
-        effectiveAt,
-        notes: `Cancelamento agendado para ${formatDate(effectiveAt)}`,
-      }).catch(e => console.error('recordChange cancel:', e))
-
+      const { data, error } = await supabase.functions.invoke('manage-subscription', {
+        body: { action: 'cancel' },
+      })
+      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao cancelar assinatura')
       setModal(null)
-      setActionMsg({ type: 'ok', text: `Cancelamento agendado para ${formatDate(effectiveAt)}. Você mantém acesso até lá.` })
+      setActionMsg({ type: 'ok', text: data.message ?? 'Cancelamento agendado. Você mantém acesso até o fim do ciclo.' })
       loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao cancelar assinatura'
@@ -326,22 +297,12 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     setActing(true)
     setActionMsg(null)
     try {
-      const { error: subErr } = await supabase.from('user_subscriptions').update({
-        status: 'active',
-        cancel_at_period_end: false,
-        pending_plan: null,
-        pending_plan_starts_at: null,
-      }).eq('user_id', user!.id)
-
-      if (subErr) throw new Error('Erro ao reativar assinatura: ' + subErr.message)
-
-      await recordChange({
-        oldPlan: currentPlan, newPlan: currentPlan, changeType: 'reactivate',
-        notes: 'Cancelamento removido pelo usuário',
-      }).catch(e => console.error('recordChange reactivate:', e))
-
+      const { data, error } = await supabase.functions.invoke('manage-subscription', {
+        body: { action: 'reactivate' },
+      })
+      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao reativar assinatura')
       setModal(null)
-      setActionMsg({ type: 'ok', text: 'Cancelamento removido. Seu plano continuará ativo normalmente.' })
+      setActionMsg({ type: 'ok', text: data.message ?? 'Cancelamento removido. Seu plano continuará ativo normalmente.' })
       loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao reativar assinatura'

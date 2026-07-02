@@ -24,8 +24,8 @@ export default function ForceChangePassword({ userId, onDone }: Props) {
     const { error: pwErr } = await supabase.auth.updateUser({ password })
     if (pwErr) { setError('Erro ao atualizar senha: ' + pwErr.message); setSaving(false); return }
 
-    // Clear the flag
-    await supabase.from('profiles').update({ must_change_password: false }).eq('user_id', userId)
+    // Clear the flag via RPC (SECURITY DEFINER — não expõe UPDATE direto em profiles)
+    await supabase.rpc('clear_must_change_password')
     setSaving(false)
     onDone()
   }
