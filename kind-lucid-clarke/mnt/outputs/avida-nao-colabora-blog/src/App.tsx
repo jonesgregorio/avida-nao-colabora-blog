@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 
@@ -23,7 +23,6 @@ import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
 import TrailsPage from './components/TrailsPage'
 import SavedItemsPage from './components/SavedItemsPage'
-import AdminPanel from './components/admin'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
 import DailyContentWidget from './components/DailyContentWidget'
@@ -38,6 +37,9 @@ import ProfessionalCommentsSection from './components/ProfessionalCommentsSectio
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
 import MyEvolutionPage from './components/MyEvolutionPage'
+
+// AdminPanel carregado sob demanda — o maior chunk do bundle
+const AdminPanel = lazy(() => import('./components/admin'))
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
@@ -73,7 +75,7 @@ export default function App() {
   const saved = restoreNav()
   const [view, setView] = useState<View>(saved?.view ?? 'home')
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
-  const [_showDiaryForm, setShowDiaryForm] = useState(false)
+  const [, setShowDiaryForm] = useState(false)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
   const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
@@ -105,6 +107,15 @@ export default function App() {
       const tab = section.split('tab=')[1]
       setInitialEvolutionTab(tab)
       setView('my-evolution')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    // Suporte a ticket específico: 'support-ticket:<uuid>'
+    if (section.startsWith('support-ticket:')) {
+      const ticketId = section.split('support-ticket:')[1]
+      if (ticketId) setActiveSupportTicketId(ticketId)
+      setView('support-ticket')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -574,7 +585,15 @@ export default function App() {
   }
 
   if (view === 'admin') {
-    return <AdminPanel />
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-stone-50">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }>
+        <AdminPanel />
+      </Suspense>
+    )
   }
 
   // Home

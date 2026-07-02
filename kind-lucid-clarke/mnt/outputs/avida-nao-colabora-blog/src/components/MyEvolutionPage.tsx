@@ -536,7 +536,7 @@ interface MonthlyReport {
   data_json: any
 }
 
-function TabRelatorios({ plan, user, profile, onNavigatePricing }: {
+function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
   plan: string; user: User | null; profile: Profile | null; onNavigatePricing: () => void
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
@@ -721,7 +721,7 @@ function TabRelatorios({ plan, user, profile, onNavigatePricing }: {
   )
 }
 
-function ProfessionalCommentStatus({ userId, monthKey: mk, reportId }: {
+function ProfessionalCommentStatus({ userId, monthKey: mk, reportId: _reportId }: {
   userId?: string; monthKey: string; reportId: string
 }) {
   const [comment, setComment] = useState<any>(null)
@@ -1737,7 +1737,8 @@ interface PersonalizedDelivery {
   read_at: string | null
 }
 
-const PLAN_LABELS_USER: Record<string, string> = {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _PLAN_LABELS_USER: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial',
   therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
 }

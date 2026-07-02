@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Shield, Save } from 'lucide-react'
+import { Shield } from 'lucide-react'
 
 interface AdminUser {
   id: string
@@ -10,8 +10,6 @@ interface AdminUser {
   plan: string
   created_at: string
 }
-
-const inputCls = "px-3 py-1.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminPermissions() {
   const [admins, setAdmins] = useState<AdminUser[]>([])

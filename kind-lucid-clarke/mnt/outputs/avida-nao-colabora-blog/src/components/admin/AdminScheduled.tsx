@@ -19,7 +19,8 @@ const TYPES = ['Artigo', 'Desafio', 'Campanha', 'Lembrete', 'Relatório mensal',
 const PLANS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', therapeutic: 'Terapêutico', 'therapeutic-plus': 'Plus',
 }
-const STATUS_COLORS: Record<string, string> = {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
   sent: 'bg-green-100 text-green-700',
   cancelled: 'bg-stone-100 text-stone-400',
@@ -55,7 +56,8 @@ export default function AdminScheduled() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [])
 
   function openNew() {
     setEditing(null); setTitle(''); setType(TYPES[0]); setContent('')

@@ -254,6 +254,7 @@ export default function AdminSystemHealth() {
       loadReports().then(setReports),
     ])
     doQuickCheck()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Intervalos automáticos

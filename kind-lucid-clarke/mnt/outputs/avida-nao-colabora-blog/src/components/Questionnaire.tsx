@@ -90,7 +90,7 @@ interface QuestionnaireProps {
   onNavigateArticles?: () => void
 }
 
-export default function Questionnaire({ user, onNavigateDiary, onNavigatePricing, onNavigateArticles }: QuestionnaireProps) {
+export default function Questionnaire({ user: _user, onNavigateDiary, onNavigatePricing, onNavigateArticles }: QuestionnaireProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)

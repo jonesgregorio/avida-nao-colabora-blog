@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Printer, Heart, Brain, CloudRain, Clock3, Feather } from 'lucide-react'
-import type { Article, View, Plan } from '../types'
+import type { Article, Plan } from '../types'
 import { UpgradeModal } from './UpgradeModal'
 
 interface ArticleViewProps {
@@ -17,7 +17,7 @@ interface ArticleViewProps {
 }
 
 // --- Quick summary extracted from article content ---
-function extractSummary(content: string, title: string) {
+function extractSummary(content: string, _title: string) {
   const lines = content.split('\n').filter(l => l.trim())
   // First non-heading paragraph
   const firstPara = lines.find(l => !l.startsWith('#') && l.length > 60) || ''
@@ -92,6 +92,7 @@ export default function ArticleView({
       setArticle(initialArticle)
       loadRelated(initialArticle.category, initialArticle.slug)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, initialArticle])
 
   // ---- Load saved status ----
@@ -184,6 +185,7 @@ export default function ArticleView({
       setSaved(true)
       setSavedCount(c => c + 1)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article, user, saved, isPremium, savedCount])
 
   // ---- Feedback ----

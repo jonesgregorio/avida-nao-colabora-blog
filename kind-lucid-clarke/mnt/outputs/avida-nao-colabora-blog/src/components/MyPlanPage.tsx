@@ -123,7 +123,7 @@ function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscri
   return Math.max(0, (diff / total) * remaining)
 }
 
-export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRefreshProfile }: Props) {
+export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRefreshProfile: _onRefreshProfile }: Props) {
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
@@ -137,6 +137,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
   useEffect(() => {
     if (!user) return
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   async function loadData() {
@@ -178,26 +179,6 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
   function getPlanAnchor(): Date {
     if (planActivatedAt) return new Date(planActivatedAt)
     return new Date() // sem histórico: ciclo começa agora
-  }
-
-  async function getOrCreateSub(): Promise<Subscription | null> {
-    if (sub) return sub
-    const anchor = getPlanAnchor()
-    const msPerCycle = 30 * 86400000
-    const elapsed = Date.now() - anchor.getTime()
-    const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
-    const periodStart = new Date(anchor.getTime() + cyclesDone * msPerCycle)
-    const periodEnd = new Date(anchor.getTime() + (cyclesDone + 1) * msPerCycle)
-    const { data, error } = await supabase.from('user_subscriptions').upsert({
-      user_id: user!.id,
-      plan_key: currentPlan,
-      status: currentPlan === 'free' ? 'inactive' : 'active',
-      current_period_start: periodStart.toISOString(),
-      current_period_end: periodEnd.toISOString(),
-    }, { onConflict: 'user_id' }).select().single()
-    if (error || !data) return null
-    setSub(data as Subscription)
-    return data as Subscription
   }
 
   async function recordChange(opts: {

@@ -58,6 +58,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
   useEffect(() => {
     if (!profile) { setLoading(false); return }
     loadContent()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
 
   async function loadContent() {

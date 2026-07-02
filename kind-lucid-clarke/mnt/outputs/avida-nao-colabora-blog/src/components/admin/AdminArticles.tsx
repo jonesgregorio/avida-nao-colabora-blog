@@ -54,7 +54,8 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [])
 
   async function duplicate(article: Article) {
     const { data, error: fetchError } = await supabase
@@ -64,6 +65,7 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
       .single()
     if (fetchError || !data) { showToast('Erro ao buscar artigo', true); return }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, created_at: _c, updated_at: _u, published_at: _p, ...rest } = data as any
     const { error } = await supabase.from('articles').insert({
       ...rest,

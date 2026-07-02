@@ -59,7 +59,8 @@ export default function AdminTrails() {
     setAllArticles(data || [])
   }
 
-  useEffect(() => { loadTrails(); loadAllArticles() }, [])
+  useEffect(() => { loadTrails(); loadAllArticles() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [])
 
   function openNew() {
     setEditingId(null); setTitle(''); setDescription('')

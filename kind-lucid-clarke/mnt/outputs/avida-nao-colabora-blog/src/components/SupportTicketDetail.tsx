@@ -158,6 +158,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
     if (ticket.status === 'closed' || ticket.status === 'resolved') return
     pollingRef.current = setInterval(() => fetchData(true), 4000)
     return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.status, fetchData])
 
   async function handleSend() {

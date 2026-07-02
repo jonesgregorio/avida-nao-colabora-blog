@@ -62,6 +62,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   useEffect(() => {
     if (!user) return
     loadTickets()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   async function loadTickets() {

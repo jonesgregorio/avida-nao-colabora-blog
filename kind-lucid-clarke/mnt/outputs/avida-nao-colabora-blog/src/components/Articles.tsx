@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { Search, Clock, ArrowRight, ChevronRight, X } from 'lucide-react'
+import { Search, Clock, ChevronRight, X } from 'lucide-react'
 import type { Article } from '../types'
 
 interface ArticlesProps {
@@ -55,19 +55,28 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
 
   const allCategories = ['Todos', ...(dbCategories.length > 0 ? dbCategories : FALLBACK_CATEGORIES)]
 
-  useEffect(() => {
+  const loadArticles = async () => {
     const now = new Date().toISOString()
-    supabase
-      .from('articles')
-      .select('*')
-      .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .then(({ data, error }) => {
-        if (error) { setLoadError(true); setLoading(false); return }
-        setArticles(data || [])
-        setFiltered(data || [])
-        setLoading(false)
-      })
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
+        .order('published_at', { ascending: false, nullsFirst: false })
+      if (error) { setLoadError(true); return }
+      setArticles(data || [])
+      setFiltered(data || [])
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadArticles()
 
     supabase
       .from('categories')
@@ -77,7 +86,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       .then(({ data }) => {
         if (data && data.length > 0) setDbCategories(data.map((c: { name: string }) => c.name))
       })
-  }, [])
+  }, []) // loadArticles is stable within mount — categories fetch also only needed once
 
   useEffect(() => {
     let result = articles
@@ -206,7 +215,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
           <p className="mb-2 font-medium">Não foi possível carregar os artigos agora.</p>
           <p className="text-sm mb-4">Tente novamente em alguns instantes.</p>
           <button
-            onClick={() => { setLoadError(false); setLoading(true) }}
+            onClick={loadArticles}
             className="text-sm text-sage-600 underline"
           >
             Tentar novamente

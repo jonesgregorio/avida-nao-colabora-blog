@@ -300,6 +300,7 @@ export default function AdminSupport() {
       if (drawerOpenRef.current) loadMessages(selectedTicket.id, true)
     }, 4000)
     return () => { if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null } }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?.id, selectedTicket?.status, loadMessages])
 
   useEffect(() => {

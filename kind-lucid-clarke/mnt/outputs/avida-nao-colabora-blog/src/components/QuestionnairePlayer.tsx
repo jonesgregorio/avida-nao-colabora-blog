@@ -101,7 +101,7 @@ interface Props {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function QuestionnairePlayer({
-  questionnaireId, user, profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles,
+  questionnaireId, user, profile: _profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles,
 }: Props) {
   const { track } = useAnalytics(user?.id)
   const [phase, setPhase] = useState<Phase>('loading')
@@ -202,6 +202,7 @@ export default function QuestionnairePlayer({
       setPhase('intro')
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionnaireId])
 
   // ── Compute result ─────────────────────────────────────────────────────────

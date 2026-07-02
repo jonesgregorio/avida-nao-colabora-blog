@@ -1,31 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  TrendingUp, FileText, Users, BarChart2, MousePointerClick,
-  ClipboardList, Map, Zap, RefreshCw
+  TrendingUp, FileText, Users, BarChart2, RefreshCw
 } from 'lucide-react'
 
-interface PlanDist { plan: string; count: number }
-interface TopItem { entity_id: string; entity_title: string; count: number }
 interface DayCount { day: string; count: number }
 interface EventSummary { event: string; count: number }
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Plus',
-}
-const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-stone-400', essential: 'bg-blue-500',
-  therapeutic: 'bg-emerald-500', 'therapeutic-plus': 'bg-purple-500',
-}
-const EVENT_LABELS: Record<string, { label: string; icon: any; color: string }> = {
-  article_click:           { label: 'Cliques em artigos',       icon: MousePointerClick, color: 'text-blue-600 bg-blue-50' },
-  questionnaire_start:     { label: 'Questionários iniciados',  icon: ClipboardList,     color: 'text-purple-600 bg-purple-50' },
-  questionnaire_complete:  { label: 'Questionários concluídos', icon: ClipboardList,     color: 'text-emerald-600 bg-emerald-50' },
-  trail_start:             { label: 'Trilhas iniciadas',         icon: Map,               color: 'text-orange-600 bg-orange-50' },
-  daily_content_view:      { label: 'Conteúdos automáticos vistos', icon: Zap,           color: 'text-yellow-600 bg-yellow-50' },
-  daily_content_expand:    { label: 'Conteúdos expandidos',     icon: Zap,               color: 'text-amber-600 bg-amber-50' },
-}
 
 export default function AdminAnalytics() {
   const [period, setPeriod] = useState('30')
@@ -36,15 +17,10 @@ export default function AdminAnalytics() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [totalArticles, setTotalArticles] = useState(0)
   const [totalDiary, setTotalDiary] = useState(0)
-  const [planDist, setPlanDist] = useState<PlanDist[]>([])
-
   // Event metrics
   const [eventSummary, setEventSummary] = useState<EventSummary[]>([])
-  const [topArticles, setTopArticles] = useState<TopItem[]>([])
-  const [topQuestionnaires, setTopQuestionnaires] = useState<TopItem[]>([])
-  const [topTrails, setTopTrails] = useState<TopItem[]>([])
-  const [dailyActivity, setDailyActivity] = useState<DayCount[]>([])
-  const [hasEventData, setHasEventData] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_dailyActivity, setDailyActivity] = useState<DayCount[]>([])
 
   async function load(silent = false) {
     if (!silent) setLoading(true)
@@ -70,9 +46,6 @@ export default function AdminAnalytics() {
       setTotalDiary((diaryRows || []).length)
       setTotalArticles((articleRows || []).length)
 
-      const counts: Record<string, number> = {}
-      ;(profiles || []).forEach((p: any) => { counts[p.plan] = (counts[p.plan] || 0) + 1 })
-      setPlanDist(Object.entries(counts).map(([plan, count]) => ({ plan, count })))
 
       // ── Analytics events ────────────────────────────────────────────────
       const { data: events } = await supabase
@@ -81,48 +54,10 @@ export default function AdminAnalytics() {
         .gte('created_at', isoSince)
 
       if (events && events.length > 0) {
-        setHasEventData(true)
-
         // Summary por tipo de evento
         const evMap: Record<string, number> = {}
         events.forEach((e: any) => { evMap[e.event] = (evMap[e.event] || 0) + 1 })
         setEventSummary(Object.entries(evMap).map(([event, count]) => ({ event, count })).sort((a, b) => b.count - a.count))
-
-        // Top artigos
-        const artMap: Record<string, { title: string; count: number }> = {}
-        events.filter((e: any) => e.event === 'article_click').forEach((e: any) => {
-          if (!e.entity_id) return
-          if (!artMap[e.entity_id]) artMap[e.entity_id] = { title: e.entity_title || e.entity_id, count: 0 }
-          artMap[e.entity_id].count++
-        })
-        setTopArticles(
-          Object.entries(artMap).map(([id, v]) => ({ entity_id: id, entity_title: v.title, count: v.count }))
-            .sort((a, b) => b.count - a.count).slice(0, 8)
-        )
-
-        // Top questionários
-        const qMap: Record<string, { title: string; count: number }> = {}
-        events.filter((e: any) => e.event === 'questionnaire_start').forEach((e: any) => {
-          if (!e.entity_id) return
-          if (!qMap[e.entity_id]) qMap[e.entity_id] = { title: e.entity_title || e.entity_id, count: 0 }
-          qMap[e.entity_id].count++
-        })
-        setTopQuestionnaires(
-          Object.entries(qMap).map(([id, v]) => ({ entity_id: id, entity_title: v.title, count: v.count }))
-            .sort((a, b) => b.count - a.count).slice(0, 5)
-        )
-
-        // Top trilhas
-        const trMap: Record<string, { title: string; count: number }> = {}
-        events.filter((e: any) => e.event === 'trail_start').forEach((e: any) => {
-          if (!e.entity_id) return
-          if (!trMap[e.entity_id]) trMap[e.entity_id] = { title: e.entity_title || e.entity_id, count: 0 }
-          trMap[e.entity_id].count++
-        })
-        setTopTrails(
-          Object.entries(trMap).map(([id, v]) => ({ entity_id: id, entity_title: v.title, count: v.count }))
-            .sort((a, b) => b.count - a.count).slice(0, 5)
-        )
 
         // Atividade diária (últimos 14 dias)
         const dayMap: Record<string, number> = {}
@@ -137,11 +72,7 @@ export default function AdminAnalytics() {
         })
         setDailyActivity(last14.map(day => ({ day, count: dayMap[day] })))
       } else {
-        setHasEventData(false)
         setEventSummary([])
-        setTopArticles([])
-        setTopQuestionnaires([])
-        setTopTrails([])
         setDailyActivity([])
       }
     } catch (e) {
@@ -152,14 +83,8 @@ export default function AdminAnalytics() {
     }
   }
 
-  useEffect(() => { load() }, [period])
-
-  const maxDay = Math.max(...dailyActivity.map(d => d.count), 1)
-
-  // Funil: iniciados → concluídos
-  const qStarted = eventSummary.find(e => e.event === 'questionnaire_start')?.count || 0
-  const qDone    = eventSummary.find(e => e.event === 'questionnaire_complete')?.count || 0
-  const qRate    = qStarted > 0 ? Math.round((qDone / qStarted) * 100) : 0
+  useEffect(() => { load() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [period])
 
   return (
     <div>

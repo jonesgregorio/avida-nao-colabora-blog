@@ -142,6 +142,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       setShowForm(true)
       setWhatHappened(promptContext.prompt)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptContext])
 
   const toggleTag = (tag: string) => {

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  Video, Calendar, CheckCircle, Clock, Plus, Loader2, Save,
-  Filter, X, AlertCircle, RefreshCw,
+  Video, Calendar, CheckCircle, Plus, Loader2, Save,
+  Filter, X, RefreshCw,
 } from 'lucide-react'
 
 interface Slot {

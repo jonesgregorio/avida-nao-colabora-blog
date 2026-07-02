@@ -7,7 +7,7 @@ interface Props {
   onDone: () => void
 }
 
-export default function ForceChangePassword({ userId, onDone }: Props) {
+export default function ForceChangePassword({ userId: _userId, onDone }: Props) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPw, setShowPw] = useState(false)

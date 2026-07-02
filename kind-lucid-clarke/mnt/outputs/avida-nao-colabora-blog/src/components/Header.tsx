@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Heart, Menu, X, LogIn, User, BookOpen, LogOut, Crown,
   Bookmark, Bell, LifeBuoy, TrendingUp, ChevronDown, Wrench,
-  HelpCircle, Map, ClipboardList, Shield, Settings,
+  HelpCircle, Map, ClipboardList, Shield,
 } from 'lucide-react'
 import { Profile } from '../types'
 import { supabase } from '../lib/supabase'

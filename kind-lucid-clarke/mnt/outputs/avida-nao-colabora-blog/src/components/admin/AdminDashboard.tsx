@@ -48,20 +48,21 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
           supabase.from('articles').select('*', { count: 'exact', head: true }).eq('status', 'published'),
           supabase.from('articles').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
           supabase.from('diary_entries').select('*', { count: 'exact', head: true }),
-          supabase.from('articles').select('id,cover_image_url,diary_question,cta_text,content').eq('status', 'published'),
+          supabase.from('articles').select('id,image_url,cover_image_url,cover_image,diary_question,cta_text,content').eq('status', 'published'),
         ])
 
         // Audit published articles
         const arts = articles || []
-        const articlesNoImage = arts.filter((a: any) => !a.cover_image_url).length
-        const articlesNoDiaryQ = arts.filter((a: any) => !a.diary_question).length
-        const articlesNoCTA = arts.filter((a: any) => !a.cta_text).length
-        const articlesShort = arts.filter((a: any) => a.content && a.content.split(/\s+/).length < 1000).length
+        type ArtRow = { image_url?: string; cover_image_url?: string; cover_image?: string; diary_question?: string; cta_text?: string; content?: string }
+        const articlesNoImage = arts.filter((a: ArtRow) => !a.image_url && !a.cover_image_url && !a.cover_image).length
+        const articlesNoDiaryQ = arts.filter((a: ArtRow) => !a.diary_question).length
+        const articlesNoCTA = arts.filter((a: ArtRow) => !a.cta_text).length
+        const articlesShort = arts.filter((a: ArtRow) => a.content && a.content.split(/\s+/).length < 1000).length
 
         // Plan counts
         const { data: profiles } = await supabase.from('profiles').select('plan')
         const planCounts: Record<string, number> = {}
-        ;(profiles || []).forEach((p: any) => {
+        ;(profiles || []).forEach((p: { plan: string }) => {
           planCounts[p.plan] = (planCounts[p.plan] || 0) + 1
         })
 

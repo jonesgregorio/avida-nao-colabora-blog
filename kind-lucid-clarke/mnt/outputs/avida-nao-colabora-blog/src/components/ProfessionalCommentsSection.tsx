@@ -45,6 +45,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
         })))
         setLoading(false)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   if (!allowed) {

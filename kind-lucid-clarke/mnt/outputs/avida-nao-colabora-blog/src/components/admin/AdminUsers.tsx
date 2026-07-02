@@ -285,6 +285,7 @@ export default function AdminUsers() {
   // Dependência `loadAiExtraMetrics` omitida intencionalmente: a função é redefinida
   // a cada render e incluí-la causaria loop infinito. O efeito deve disparar apenas
   // quando `drawerTab` ou o usuário selecionado mudar.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawerTab, selectedUser?.user_id])
 
   async function loadDrawerData(userId: string) {

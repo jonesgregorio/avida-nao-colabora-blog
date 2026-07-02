@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  Sparkles, Loader2, Search, X, Copy, Send, Save, Trash2, RefreshCw,
+  Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
   CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
 } from 'lucide-react'
 import {
@@ -136,8 +136,6 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
   const [delivery, setDelivery] = useState<Delivery | null>(initialDelivery)
   const [editTitle, setEditTitle] = useState(initialDelivery?.title ?? '')
   const [editBody, setEditBody] = useState(initialDelivery?.body ?? '')
-  const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(null)
-
   const [phase, setPhase] = useState<'view' | 'edit' | 'generate' | 'confirm-regen'>(() => {
     if (initialDelivery) return 'view'   // rascunho existente → mostra conteúdo
     return 'generate'                    // sem rascunho → começa gerando
@@ -154,7 +152,6 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
     if (snapshotRef.current) return snapshotRef.current
     const snap = await buildSnapshot(task.user_id, task.plan_key, task.task_key)
     snapshotRef.current = snap
-    setSnapshot(snap)
     return snap
   }
 
@@ -163,6 +160,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
     if (phase === 'generate' && !delivery) {
       void generateContent()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function generateContent() {
@@ -531,7 +529,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
 
 // ── BulkGenerateModal ─────────────────────────────────────────────────────────
 
-function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast }: {
+function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _showToast }: {
   tasks: PersonalizationTask[]
   profileMap: Record<string, UserRow>
   onClose: () => void
@@ -734,7 +732,7 @@ function ResolveModal({ count, onConfirm, onClose }: { count: number; onConfirm:
 
 // ── SummaryCards ──────────────────────────────────────────────────────────────
 
-function SummaryCards({ allTasks, deliveryCount, onFilter }: {
+function SummaryCards({ allTasks, deliveryCount: _deliveryCount, onFilter }: {
   allTasks: PersonalizationTask[]
   deliveryCount: number
   onFilter: (tab: AdminTab) => void

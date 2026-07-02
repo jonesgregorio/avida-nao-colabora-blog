@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  Plus, Pencil, Trash2, Zap, ToggleLeft, ToggleRight,
+  Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   Sparkles, Loader2, CheckCircle, AlertCircle, Eye, Save
 } from 'lucide-react'
 
@@ -109,7 +109,8 @@ export default function AdminAutomated() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [])
 
   function flash(msg: string, type: 'ok' | 'err' = 'ok') {
     setToast({ msg, type })

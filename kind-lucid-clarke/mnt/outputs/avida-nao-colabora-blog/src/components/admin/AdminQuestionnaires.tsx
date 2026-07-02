@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  Plus, Pencil, Trash2, Eye, Copy, Archive,
-  ChevronUp, ChevronDown, X, Save, Send, Clock, CheckCircle,
-  AlertCircle, Info, List, Settings, BarChart2, Play,
+  Plus, Pencil, Trash2, Copy,
+  ChevronUp, ChevronDown, X, Save, Send,
+  Info, List, Settings, BarChart2,
   GripVertical, ChevronRight, FileText, Sparkles
 } from 'lucide-react'
 import AIContentAssistant from './AIContentAssistant'
@@ -383,6 +383,7 @@ export default function AdminQuestionnaires() {
   const duplicate = async (id: string) => {
     const { data } = await supabase.from('questionnaires').select('*').eq('id', id).single()
     if (!data) return
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, created_at: _c, ...rest } = data
     await supabase.from('questionnaires').insert([{ ...rest, title: `${rest.title} (cópia)`, status: 'draft' }])
     flash('ok', 'Duplicado!'); load()

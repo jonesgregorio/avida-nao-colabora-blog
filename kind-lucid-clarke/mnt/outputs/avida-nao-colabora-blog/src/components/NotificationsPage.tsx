@@ -101,7 +101,7 @@ export default function NotificationsPage({ user, navigate, onBack }: Props) {
   function handleAction(n: Notification) {
     if (!navigate) return
     if (n.action_view === 'support-ticket' && n.related_ticket_id) {
-      navigate('support')
+      navigate(`support-ticket:${n.related_ticket_id}`)
     } else if (n.action_view) {
       navigate(n.action_view)
     }

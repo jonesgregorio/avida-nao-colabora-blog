@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2, Pencil } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
 interface Category { id: string; name: string; slug: string; description: string; is_active: boolean }
 
@@ -26,7 +26,8 @@ export default function AdminCategories() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [])
 
   async function create() {
     if (!newName.trim()) { showToast('Nome obrigatório', true); return }

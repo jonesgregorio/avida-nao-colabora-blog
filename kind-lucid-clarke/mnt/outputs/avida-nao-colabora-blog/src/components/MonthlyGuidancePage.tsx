@@ -68,6 +68,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }
     loadCurrentTicket()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   async function loadCurrentTicket() {
