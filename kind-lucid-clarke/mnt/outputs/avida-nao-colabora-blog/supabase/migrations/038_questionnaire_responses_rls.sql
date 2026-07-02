@@ -27,6 +27,6 @@ CREATE POLICY "admin_insert_any_response" ON questionnaire_responses
     EXISTS (
       SELECT 1 FROM profiles
       WHERE user_id = auth.uid()
-        AND (role = 'admin' OR is_admin = true)
+        AND role = 'admin'
     )
   );

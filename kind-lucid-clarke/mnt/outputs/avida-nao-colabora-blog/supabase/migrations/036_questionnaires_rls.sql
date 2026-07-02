@@ -39,7 +39,6 @@ CREATE POLICY "auth_read_essential_questionnaires" ON questionnaires
         WHERE p.user_id = auth.uid()
           AND (
             p.plan IN ('essential', 'therapeutic', 'therapeutic-plus')
-            OR p.is_admin = true
             OR p.role = 'admin'
           )
       )
@@ -59,7 +58,6 @@ CREATE POLICY "auth_read_therapeutic_questionnaires" ON questionnaires
         WHERE p.user_id = auth.uid()
           AND (
             p.plan IN ('therapeutic', 'therapeutic-plus')
-            OR p.is_admin = true
             OR p.role = 'admin'
           )
       )
@@ -79,7 +77,6 @@ CREATE POLICY "auth_read_therapeutic_plus_questionnaires" ON questionnaires
         WHERE p.user_id = auth.uid()
           AND (
             p.plan = 'therapeutic-plus'
-            OR p.is_admin = true
             OR p.role = 'admin'
           )
       )

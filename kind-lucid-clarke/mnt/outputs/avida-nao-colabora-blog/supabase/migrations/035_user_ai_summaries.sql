@@ -33,7 +33,7 @@ ALTER TABLE user_ai_summaries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "admin_all_ai_summaries" ON user_ai_summaries;
 CREATE POLICY "admin_all_ai_summaries" ON user_ai_summaries
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM profiles WHERE user_id = auth.uid() AND (role = 'admin' OR is_admin = true))
+    is_admin()
   );
 
 -- Usuário comum não acessa sumários administrativos (sem policy de SELECT para usuário)
