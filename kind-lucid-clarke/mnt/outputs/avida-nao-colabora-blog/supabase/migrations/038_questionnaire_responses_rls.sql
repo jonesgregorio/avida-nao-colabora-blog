@@ -7,9 +7,11 @@
 -- Esta migration restringe para exigir autenticação e garante
 -- que o usuário só possa inserir respostas próprias.
 
--- Remove policy permissiva de INSERT
+-- Remove policies anteriores e as desta migration (idempotente)
 DROP POLICY IF EXISTS "Anyone can insert questionnaire" ON questionnaire_responses;
 DROP POLICY IF EXISTS "users_insert_own_responses" ON questionnaire_responses;
+DROP POLICY IF EXISTS "auth_users_insert_own_responses" ON questionnaire_responses;
+DROP POLICY IF EXISTS "admin_insert_any_response" ON questionnaire_responses;
 
 -- Exige autenticação para inserir resposta.
 -- Usuário só pode inserir resposta cujo user_id seja o seu.

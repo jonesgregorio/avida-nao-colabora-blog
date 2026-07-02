@@ -68,7 +68,7 @@ function restoreNav() {
 }
 
 export default function App() {
-  const { user, profile, loading, signOut, updatePlan, refreshProfile } = useAuth()
+  const { user, profile, loading, signOut, refreshProfile } = useAuth()
 
   const saved = restoreNav()
   const [view, setView] = useState<View>(saved?.view ?? 'home')

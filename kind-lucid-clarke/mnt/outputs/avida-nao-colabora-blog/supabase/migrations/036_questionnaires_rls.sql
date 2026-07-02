@@ -8,11 +8,15 @@
 --   questionário therapeutic-plus → authenticated com plan = therapeutic-plus ou admin
 --   admin → SELECT em tudo
 
--- Remove políticas anteriores permissivas
+-- Remove políticas anteriores (permissivas ou desta migration)
 DROP POLICY IF EXISTS "Questionários públicos visíveis" ON questionnaires;
 DROP POLICY IF EXISTS "users_read_accessible_questionnaires" ON questionnaires;
 DROP POLICY IF EXISTS "anon_read_free_questionnaires" ON questionnaires;
 DROP POLICY IF EXISTS "auth_read_paid_questionnaires" ON questionnaires;
+DROP POLICY IF EXISTS "any_read_free_questionnaires" ON questionnaires;
+DROP POLICY IF EXISTS "auth_read_essential_questionnaires" ON questionnaires;
+DROP POLICY IF EXISTS "auth_read_therapeutic_questionnaires" ON questionnaires;
+DROP POLICY IF EXISTS "auth_read_therapeutic_plus_questionnaires" ON questionnaires;
 
 -- Política 1: questionários gratuitos (plan_required IS NULL ou 'free')
 -- Qualquer visitante (autenticado ou anônimo) pode ver

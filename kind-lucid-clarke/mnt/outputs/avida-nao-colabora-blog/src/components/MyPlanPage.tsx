@@ -216,137 +216,141 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     })
   }
 
-  async function sendNotification(title: string, body: string) {
-    await supabase.from('notifications').insert({
-      user_id: user!.id, title, body,
-      type: 'plan_change', action_view: 'my-plan',
-      action_label: 'Ver meu plano', is_read: false,
-    })
-  }
-
   async function handleUpgrade(targetPlan: string) {
     setActing(true)
     setActionMsg(null)
-    const currentSub = await getOrCreateSub()
+    try {
+      // Chama Edge Function que cria sessão de checkout no Stripe
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { plan: targetPlan },
+      })
 
-    const prorationAmount = calcUpgradeProration(currentPlan, targetPlan, currentSub)
+      if (error || !data?.url) {
+        throw new Error(error?.message ?? 'URL de checkout não retornada')
+      }
 
-    // Registra intenção de pagamento (checkout real depende de integração via Stripe webhook)
-    await supabase.from('payment_events').insert({
-      user_id: user!.id,
-      subscription_id: currentSub?.id ?? null,
-      plan_key: targetPlan,
-      amount: prorationAmount,
-      currency: 'BRL',
-      status: 'pending',
-      type: 'upgrade_proration',
-      description: `Upgrade proporcional de ${PLAN_LABELS[currentPlan]} para ${PLAN_LABELS[targetPlan]}`,
-    })
+      // Registra intenção no histórico (não altera profiles.plan)
+      await recordChange({
+        oldPlan: currentPlan, newPlan: targetPlan, changeType: 'upgrade_intent',
+        notes: 'Checkout Stripe iniciado. Plano será ativado após confirmação de pagamento.',
+      }).catch(e => console.error('recordChange upgrade_intent:', e))
 
-    // NÃO atualiza o plano diretamente aqui.
-    // O plano só é alterado via webhook Stripe (stripe-webhook/index.ts) após confirmação de pagamento.
-    // Apenas registra a intenção no histórico de mudanças.
-    await recordChange({
-      oldPlan: currentPlan, newPlan: targetPlan, changeType: 'upgrade_intent', amount: prorationAmount,
-      notes: prorationAmount > 0
-        ? `Intenção de upgrade registrada. Valor proporcional estimado: ${formatPrice(prorationAmount)}. Aguardando integração de checkout.`
-        : 'Intenção de upgrade registrada. Aguardando integração de checkout.',
-    })
-
-    await sendNotification(
-      'Intenção de upgrade registrada',
-      `Recebemos sua solicitação de upgrade para ${PLAN_LABELS[targetPlan]}. ${prorationAmount > 0 ? `Valor estimado: ${formatPrice(prorationAmount)}.` : ''} A alteração será efetivada após a confirmação do pagamento.`,
-    )
-
-    setModal(null)
-    setActionMsg({ type: 'ok', text: `Intenção de upgrade para ${PLAN_LABELS[targetPlan]} registrada. ${prorationAmount > 0 ? `Valor estimado: ${formatPrice(prorationAmount)}.` : ''} A alteração de plano ocorrerá após confirmação do pagamento via checkout.` })
-    loadData()
-    setActing(false)
+      setModal(null)
+      // Redireciona para o checkout Stripe — plano só muda via webhook após pagamento
+      window.location.href = data.url
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      console.error('handleUpgrade:', msg)
+      setModal(null)
+      setActionMsg({
+        type: 'err',
+        text: 'Não foi possível iniciar o pagamento agora. Seu plano atual foi mantido.',
+      })
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleDowngrade(targetPlan: string) {
     setActing(true)
     setActionMsg(null)
-    const currentSub = await getOrCreateSub()
-    const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
+    try {
+      const currentSub = await getOrCreateSub()
+      const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
 
-    await supabase.from('user_subscriptions').upsert({
-      user_id: user!.id,
-      pending_plan: targetPlan,
-      pending_plan_starts_at: effectiveAt,
-      cancel_at_period_end: targetPlan === 'free',
-    }, { onConflict: 'user_id' })
+      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
+        user_id: user!.id,
+        pending_plan: targetPlan,
+        pending_plan_starts_at: effectiveAt,
+        cancel_at_period_end: targetPlan === 'free',
+      }, { onConflict: 'user_id' })
 
-    await recordChange({
-      oldPlan: currentPlan, newPlan: targetPlan, changeType: 'downgrade',
-      effectiveAt,
-      notes: `Agendado para ${formatDate(effectiveAt)}`,
-    })
+      if (subErr) throw new Error('Erro ao agendar downgrade: ' + subErr.message)
 
-    await sendNotification(
-      'Downgrade agendado',
-      `Seu plano será alterado para ${PLAN_LABELS[targetPlan]} em ${formatDate(effectiveAt)}.`,
-    )
+      await recordChange({
+        oldPlan: currentPlan, newPlan: targetPlan, changeType: 'downgrade',
+        effectiveAt,
+        notes: `Agendado para ${formatDate(effectiveAt)}`,
+      }).catch(e => console.error('recordChange downgrade:', e))
 
-    setModal(null)
-    setActionMsg({ type: 'ok', text: `Downgrade para ${PLAN_LABELS[targetPlan]} agendado para ${formatDate(effectiveAt)}.` })
-    loadData()
-    setActing(false)
+      setModal(null)
+      setActionMsg({ type: 'ok', text: `Downgrade para ${PLAN_LABELS[targetPlan]} agendado para ${formatDate(effectiveAt)}.` })
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao agendar downgrade'
+      console.error('handleDowngrade:', msg)
+      setModal(null)
+      setActionMsg({ type: 'err', text: msg })
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleCancel() {
     setActing(true)
     setActionMsg(null)
-    const currentSub = await getOrCreateSub()
-    const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
+    try {
+      const currentSub = await getOrCreateSub()
+      const effectiveAt = currentSub?.current_period_end ?? new Date().toISOString()
 
-    await supabase.from('user_subscriptions').upsert({
-      user_id: user!.id,
-      status: 'cancel_pending',
-      cancel_at_period_end: true,
-      pending_plan: 'free',
-      pending_plan_starts_at: effectiveAt,
-    }, { onConflict: 'user_id' })
+      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
+        user_id: user!.id,
+        status: 'cancel_pending',
+        cancel_at_period_end: true,
+        pending_plan: 'free',
+        pending_plan_starts_at: effectiveAt,
+      }, { onConflict: 'user_id' })
 
-    await recordChange({
-      oldPlan: currentPlan, newPlan: 'free', changeType: 'cancel',
-      effectiveAt,
-      notes: `Cancelamento agendado para ${formatDate(effectiveAt)}`,
-    })
+      if (subErr) throw new Error('Erro ao agendar cancelamento: ' + subErr.message)
 
-    await sendNotification(
-      'Cancelamento agendado',
-      `Seu plano continuará ativo até ${formatDate(effectiveAt)}. Depois disso, você voltará para o plano Gratuito.`,
-    )
+      await recordChange({
+        oldPlan: currentPlan, newPlan: 'free', changeType: 'cancel',
+        effectiveAt,
+        notes: `Cancelamento agendado para ${formatDate(effectiveAt)}`,
+      }).catch(e => console.error('recordChange cancel:', e))
 
-    setModal(null)
-    setActionMsg({ type: 'ok', text: `Cancelamento agendado para ${formatDate(effectiveAt)}. Você mantém acesso até lá.` })
-    loadData()
-    setActing(false)
+      setModal(null)
+      setActionMsg({ type: 'ok', text: `Cancelamento agendado para ${formatDate(effectiveAt)}. Você mantém acesso até lá.` })
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao cancelar assinatura'
+      console.error('handleCancel:', msg)
+      setModal(null)
+      setActionMsg({ type: 'err', text: msg })
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleReactivate() {
     setActing(true)
     setActionMsg(null)
+    try {
+      const { error: subErr } = await supabase.from('user_subscriptions').update({
+        status: 'active',
+        cancel_at_period_end: false,
+        pending_plan: null,
+        pending_plan_starts_at: null,
+      }).eq('user_id', user!.id)
 
-    await supabase.from('user_subscriptions').update({
-      status: 'active',
-      cancel_at_period_end: false,
-      pending_plan: null,
-      pending_plan_starts_at: null,
-    }).eq('user_id', user!.id)
+      if (subErr) throw new Error('Erro ao reativar assinatura: ' + subErr.message)
 
-    await recordChange({
-      oldPlan: currentPlan, newPlan: currentPlan, changeType: 'reactivate',
-      notes: 'Cancelamento removido pelo usuário',
-    })
+      await recordChange({
+        oldPlan: currentPlan, newPlan: currentPlan, changeType: 'reactivate',
+        notes: 'Cancelamento removido pelo usuário',
+      }).catch(e => console.error('recordChange reactivate:', e))
 
-    await sendNotification('Assinatura reativada', 'O cancelamento foi removido. Seu plano continuará ativo normalmente.')
-
-    setModal(null)
-    setActionMsg({ type: 'ok', text: 'Cancelamento removido. Seu plano continuará ativo normalmente.' })
-    loadData()
-    setActing(false)
+      setModal(null)
+      setActionMsg({ type: 'ok', text: 'Cancelamento removido. Seu plano continuará ativo normalmente.' })
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao reativar assinatura'
+      console.error('handleReactivate:', msg)
+      setModal(null)
+      setActionMsg({ type: 'err', text: msg })
+    } finally {
+      setActing(false)
+    }
   }
 
   if (!user) {
@@ -551,9 +555,9 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
         </div>
       )}
 
-      {/* Aviso de checkout */}
-      <div className="mt-8 bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800">
-        <strong>Pagamento:</strong> A cobrança automática depende de integração com Stripe ou Mercado Pago. As alterações de plano são registradas, mas a cobrança real só será efetuada após configuração do checkout.
+      {/* Aviso de segurança */}
+      <div className="mt-8 bg-stone-50 border border-stone-200 rounded-xl p-4 text-xs text-stone-500">
+        <strong>Pagamentos processados com segurança pelo Stripe.</strong> Seu plano só é ativado após confirmação do pagamento. Nenhuma cobrança é feita sem sua autorização.
       </div>
 
       {/* Modal de upgrade */}
@@ -583,14 +587,14 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
                 return proration > 0 ? (
                   <>
                     <div className="border-t pt-3 flex justify-between text-sm font-semibold">
-                      <span className="text-stone-700">Valor proporcional agora</span>
+                      <span className="text-stone-700">Valor proporcional estimado</span>
                       <span className="text-purple-700">{formatPrice(proration)}</span>
                     </div>
                     <p className="text-xs text-stone-400">
-                      Você está alterando do plano {PLAN_LABELS[currentPlan]} para o {PLAN_LABELS[modal.targetPlan]}. Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no seu ciclo atual, será cobrada apenas a diferença proporcional de {formatPrice(proration)} agora. A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
+                      Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no ciclo atual, será cobrada a diferença proporcional estimada de {formatPrice(proration)}. A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
                     </p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
-                      Pagamento ainda não processado. Integração com checkout necessária para concluir automaticamente.
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                      Você será redirecionado para o Stripe para concluir o pagamento. Seu plano só será alterado após confirmação.
                     </div>
                   </>
                 ) : null
@@ -603,7 +607,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Confirmar upgrade
+                Ir para pagamento
               </button>
               <button onClick={() => setModal(null)} className="px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">
                 Cancelar

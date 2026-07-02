@@ -52,33 +52,40 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     setUploadingAvatar(true)
     const ext = file.name.split('.').pop()
     const path = `${user.id}/avatar.${ext}`
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (!error) {
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (!uploadError) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       const url = data.publicUrl + '?t=' + Date.now()
-      await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', user.id)
-      setAvatarUrl(url)
-      onRefreshProfile()
+      const { error: rpcError } = await supabase.rpc('update_my_profile', { p_avatar_url: url })
+      if (!rpcError) {
+        setAvatarUrl(url)
+        onRefreshProfile()
+      } else {
+        alert('Erro ao salvar avatar: ' + rpcError.message)
+      }
+    } else {
+      alert('Erro ao fazer upload: ' + uploadError.message)
     }
     setUploadingAvatar(false)
   }
 
   const handleSave = async () => {
     setSaving(true)
-    await supabase.from('profiles').upsert({
-      user_id: user.id,
-      full_name: displayName,
-      display_name: displayName,
-      preferred_name: preferredName,
-      status_phrase: statusPhrase,
-      avatar_url: avatarUrl,
-      notification_frequency: notificationFrequency,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    const { error } = await supabase.rpc('update_my_profile', {
+      p_full_name: displayName,
+      p_display_name: displayName,
+      p_preferred_name: preferredName,
+      p_status_phrase: statusPhrase,
+      p_notification_frequency: notificationFrequency,
+    })
+    if (error) {
+      alert('Erro ao salvar perfil: ' + error.message)
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      onRefreshProfile()
+    }
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    onRefreshProfile()
   }
 
   const handleChangePassword = async () => {

@@ -6,11 +6,19 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 })
 
 // Mapeia Price ID → nome do plano interno
-const PLAN_BY_PRICE: Record<string, string> = {
-  [Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || 'price_1To2n05xvJV4HLHz8ym64uYH']: 'essential',
-  [Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || 'price_1To2n15xvJV4HLHzqQWylm4W']: 'therapeutic',
-  [Deno.env.get('STRIPE_PRICE_PLUS')         || 'price_1To2n15xvJV4HLHz2BoMO7ie']: 'therapeutic-plus',
+// Configure obrigatoriamente no Supabase Dashboard → Edge Functions → Secrets:
+//   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_THERAPEUTIC, STRIPE_PRICE_PLUS
+function buildPlanByPrice(): Record<string, string> {
+  const map: Record<string, string> = {}
+  const essential = Deno.env.get('STRIPE_PRICE_ESSENTIAL')
+  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
+  const plus = Deno.env.get('STRIPE_PRICE_PLUS')
+  if (essential) map[essential] = 'essential'
+  if (therapeutic) map[therapeutic] = 'therapeutic'
+  if (plus) map[plus] = 'therapeutic-plus'
+  return map
 }
+const PLAN_BY_PRICE = buildPlanByPrice()
 
 Deno.serve(async (req) => {
   const signature = req.headers.get('stripe-signature')
@@ -61,7 +69,9 @@ Deno.serve(async (req) => {
       const plan = PLAN_BY_PRICE[priceId]
       const customerId = subscription.customer as string
 
-      if (plan && customerId) {
+      if (!plan) {
+        console.error(`invoice.payment_succeeded: Price ID "${priceId}" não mapeado — nenhuma env var correspondente configurada. Plano NÃO atualizado.`)
+      } else if (plan && customerId) {
         const { error } = await supabase
           .from('profiles')
           .update({ plan })

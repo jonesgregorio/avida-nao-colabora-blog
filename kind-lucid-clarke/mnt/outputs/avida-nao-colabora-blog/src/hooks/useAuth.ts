@@ -53,20 +53,9 @@ export function useAuth() {
     setProfile(null)
   }
 
-  const updatePlan = async (plan: Plan) => {
-    if (!user) return
-    const { data } = await supabase
-      .from('profiles')
-      .update({ plan })
-      .eq('user_id', user.id)
-      .select()
-      .single()
-    if (data) setProfile(data)
-  }
-
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id)
   }
 
-  return { user, profile, loading, signOut, updatePlan, refreshProfile }
+  return { user, profile, loading, signOut, refreshProfile }
 }

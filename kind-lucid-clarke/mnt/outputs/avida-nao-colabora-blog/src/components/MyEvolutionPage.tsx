@@ -139,6 +139,10 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
   const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
 
+  useEffect(() => {
+    if (initialTab) setTab(initialTab)
+  }, [initialTab])
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode; minPlan: string }[] = [
     { id: 'resumo', label: 'Resumo', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
     { id: 'graficos', label: 'Gráficos', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
