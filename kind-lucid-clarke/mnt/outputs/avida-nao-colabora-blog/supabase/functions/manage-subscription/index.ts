@@ -5,18 +5,31 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+}
+
 // Ações suportadas
 type Action = 'cancel' | 'downgrade' | 'reactivate'
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS })
   }
 
   // Autentica o usuário via JWT
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
   }
 
   const supabaseUser = createClient(
@@ -27,7 +40,10 @@ Deno.serve(async (req) => {
 
   const { data: { user }, error: userErr } = await supabaseUser.auth.getUser()
   if (userErr || !user) {
-    return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
   }
 
   const supabase = createClient(
@@ -39,13 +55,25 @@ Deno.serve(async (req) => {
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Body inválido' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'Body inválido' }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
   }
 
   const { action, targetPlan } = body
   if (!['cancel', 'downgrade', 'reactivate'].includes(action)) {
-    return new Response(JSON.stringify({ error: 'Ação inválida' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'Ação inválida' }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
   }
+
+  const jsonResponse = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
 
   // Busca assinatura do usuário
   const { data: sub } = await supabase
@@ -98,18 +126,19 @@ Deno.serve(async (req) => {
         title: 'Cancelamento agendado',
         body: `Sua assinatura será encerrada ao fim do ciclo atual. Você mantém acesso até lá.`,
         type: 'info',
+        action_view: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif cancel:', error) })
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ok: true,
         message: `Cancelamento agendado para ${new Date(effectiveAt).toLocaleDateString('pt-BR')}.`,
         effectiveAt,
-      }), { headers: { 'Content-Type': 'application/json' } })
+      })
     }
 
     if (action === 'downgrade') {
       if (!targetPlan) {
-        return new Response(JSON.stringify({ error: 'targetPlan obrigatório para downgrade' }), { status: 400 })
+        return jsonResponse({ error: 'targetPlan obrigatório para downgrade' }, 400)
       }
 
       // Para downgrade, cancela a assinatura Stripe atual ao fim do período.
@@ -142,13 +171,14 @@ Deno.serve(async (req) => {
         title: 'Downgrade agendado',
         body: `Seu plano será alterado ao fim do ciclo atual.`,
         type: 'info',
+        action_view: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif downgrade:', error) })
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ok: true,
         message: `Downgrade agendado para ${new Date(effectiveAt).toLocaleDateString('pt-BR')}.`,
         effectiveAt,
-      }), { headers: { 'Content-Type': 'application/json' } })
+      })
     }
 
     if (action === 'reactivate') {
@@ -181,17 +211,21 @@ Deno.serve(async (req) => {
         title: 'Assinatura reativada',
         body: `O cancelamento agendado foi removido. Seu plano continua ativo normalmente.`,
         type: 'info',
+        action_view: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif reactivate:', error) })
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ok: true,
         message: 'Cancelamento removido. Seu plano continuará ativo normalmente.',
-      }), { headers: { 'Content-Type': 'application/json' } })
+      })
     }
   } catch (err: any) {
     console.error(`manage-subscription ${action}:`, err.message)
-    return new Response(JSON.stringify({ error: err.message ?? 'Erro interno' }), { status: 500 })
+    return new Response(JSON.stringify({ error: err.message ?? 'Erro interno' }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
   }
 
-  return new Response(JSON.stringify({ error: 'Ação não tratada' }), { status: 400 })
+  return jsonResponse({ error: 'Ação não tratada' }, 400)
 })

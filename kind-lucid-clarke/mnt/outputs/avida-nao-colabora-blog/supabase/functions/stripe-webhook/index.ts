@@ -56,6 +56,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
+    // Busca plano anterior ANTES de atualizar
+    const { data: prevProfile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('user_id', userId)
+      .single()
+    const oldPlan = prevProfile?.plan ?? 'free'
+
     // Atualiza plano em profiles
     const { error: profileErr } = await supabase
       .from('profiles')
@@ -94,14 +102,6 @@ Deno.serve(async (req) => {
     }, { onConflict: 'user_id' })
     if (subErr) console.error('Erro ao upsert user_subscriptions (checkout):', subErr)
 
-    // Busca plano anterior para registrar no histórico
-    const { data: prevProfile } = await supabase
-      .from('profiles')
-      .select('plan')
-      .eq('user_id', userId)
-      .single()
-    const oldPlan = prevProfile?.plan ?? 'free'
-
     // Registra no histórico de mudanças
     const { error: histErr } = await supabase.from('plan_change_history').insert({
       user_id: userId,
@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
       title: 'Assinatura ativada com sucesso!',
       body: `Seu plano foi ativado. Aproveite todos os recursos do seu novo plano.`,
       type: 'info',
+      action_view: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (checkout):', notifErr)
 
@@ -188,7 +189,7 @@ Deno.serve(async (req) => {
       user_id: userId,
       type: 'monthly_payment',
       amount: (invoice.amount_paid ?? 0) / 100,
-      stripe_invoice_id: invoice.id,
+      provider_payment_id: invoice.id,
       description: `Renovação ${plan} — ${new Date(periodStart).toLocaleDateString('pt-BR')}`,
     })
     if (payErr) console.error('Erro ao inserir payment_events:', payErr)
@@ -214,6 +215,7 @@ Deno.serve(async (req) => {
       title: 'Pagamento confirmado',
       body: `Sua assinatura foi renovada com sucesso.`,
       type: 'info',
+      action_view: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (invoice):', notifErr)
 
@@ -298,6 +300,7 @@ Deno.serve(async (req) => {
       title: notifTitle,
       body: notifBody,
       type: 'info',
+      action_view: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (deleted):', notifErr)
 

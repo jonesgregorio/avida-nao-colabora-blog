@@ -36,15 +36,7 @@ export default function Auth({ onBack }: AuthProps) {
           options: { data: { full_name: name } },
         })
         if (error) throw error
-        // Create profile
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          await supabase.from('profiles').upsert({
-            user_id: session.user.id,
-            full_name: name,
-            plan: 'free',
-          })
-        }
+        // Perfil criado automaticamente pelo trigger handle_new_user no banco
         setSuccess('Conta criada com sucesso! Verifique seu e-mail se necessário.')
         setTimeout(() => onBack(), 2000)
       } else {
