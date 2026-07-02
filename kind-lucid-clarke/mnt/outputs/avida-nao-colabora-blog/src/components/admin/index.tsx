@@ -2,44 +2,67 @@ import { useState, useEffect } from 'react'
 import type { AdminView } from './types'
 import { useAuth } from '../../hooks/useAuth'
 import AdminLayout from './AdminLayout'
-import AdminDashboard from './AdminDashboard'
-import AdminArticles from './AdminArticles'
 import AdminArticleEditor from './AdminArticleEditor'
-import AdminImages from './AdminImages'
-import AdminCategories from './AdminCategories'
-import AdminQuestionnaires from './AdminQuestionnaires'
-import AdminTrails from './AdminTrails'
-import AdminSEO from './AdminSEO'
-import AdminAutomated from './AdminAutomated'
-import AdminScheduled from './AdminScheduled'
-import AdminNotifications from './AdminNotifications'
-import AdminUsers from './AdminUsers'
-import AdminPlans from './AdminPlans'
-import AdminDiaryConfig from './AdminDiaryConfig'
-import AdminSavedItems from './AdminSavedItems'
-import AdminAnalytics from './AdminAnalytics'
-import AdminSocialProof from './AdminSocialProof'
-import AdminPDF from './AdminPDF'
-import AdminSupport from './AdminSupport'
-import AdminPermissions from './AdminPermissions'
-import AdminLogs from './AdminLogs'
-import AdminProfessionals from './AdminProfessionals'
-import AdminFinancial from './AdminFinancial'
-import AdminProfessionalComments from './AdminProfessionalComments'
-import AdminGuidanceRequests from './AdminGuidanceRequests'
-import AdminEvolutionSessions from './AdminEvolutionSessions'
-import AdminSelfCarePlans from './AdminSelfCarePlans'
-import AdminPersonalization from './AdminPersonalization'
-import AdminSystemHealth from './AdminSystemHealth'
+import AdminAreaPainel from './AdminAreaPainel'
+import AdminAreaConteudo from './AdminAreaConteudo'
+import AdminAreaUsuariosPlanos from './AdminAreaUsuariosPlanos'
+import AdminAreaAtendimento from './AdminAreaAtendimento'
+import AdminAreaComunicacao from './AdminAreaComunicacao'
+import AdminAreaSistema from './AdminAreaSistema'
 
 export type { AdminView } from './types'
 
 const ADMIN_KEY = 'avida_admin_view'
 
+// ── Alias: views legadas → área principal + aba interna ──────────────────────
+// Garante compatibilidade com ?view=X ou localStorage antigo
+const AREA_ALIAS: Record<string, { area: AdminView; tabKey: string; tab: string }> = {
+  'dashboard':             { area: 'painel',          tabKey: 'admin-painel-tab',       tab: 'visao-geral' },
+  'analytics':             { area: 'painel',          tabKey: 'admin-painel-tab',       tab: 'metricas'    },
+  'system-health':         { area: 'sistema',         tabKey: 'admin-sistema-tab',      tab: 'saude'       },
+  'logs':                  { area: 'sistema',         tabKey: 'admin-sistema-tab',      tab: 'logs'        },
+  'articles':              { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'artigos'     },
+  'categories':            { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'categorias'  },
+  'images':                { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'imagens'     },
+  'questionnaires':        { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'questionarios'},
+  'trails':                { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'trilhas'     },
+  'seo':                   { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'seo'         },
+  'social-proof':          { area: 'conteudo',        tabKey: 'admin-conteudo-tab',     tab: 'depoimentos' },
+  'users':                 { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'usuarios'    },
+  'plans':                 { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'planos'      },
+  'financial':             { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'financeiro'  },
+  'pdf':                   { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'relatorios'  },
+  'permissions':           { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'permissoes'  },
+  'diary-config':          { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'diario'      },
+  'saved-items':           { area: 'usuarios-planos', tabKey: 'admin-usuarios-tab',     tab: 'itens-salvos'},
+  'personalization':       { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'fila'        },
+  'support':               { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'suporte'     },
+  'guidance-requests':     { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'orientacoes' },
+  'evolution-sessions':    { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'sessoes'     },
+  'professional-comments': { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'comentarios' },
+  'self-care-plans':       { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'autocuidado' },
+  'professionals':         { area: 'atendimento',     tabKey: 'admin-atendimento-tab',  tab: 'equipe'      },
+  'notifications':         { area: 'comunicacao',     tabKey: 'admin-comunicacao-tab',  tab: 'notificacoes'},
+  'automated':             { area: 'comunicacao',     tabKey: 'admin-comunicacao-tab',  tab: 'automaticos' },
+  'scheduled':             { area: 'comunicacao',     tabKey: 'admin-comunicacao-tab',  tab: 'automaticos' },
+}
+
+function resolveView(raw: string): AdminView {
+  const alias = AREA_ALIAS[raw]
+  if (alias) {
+    try { localStorage.setItem(alias.tabKey, alias.tab) } catch { /* noop */ }
+    return alias.area
+  }
+  return raw as AdminView
+}
+
 export default function AdminPanel() {
   const { profile } = useAuth()
   const [view, setView] = useState<AdminView>(() => {
-    try { return (localStorage.getItem(ADMIN_KEY) as AdminView) || 'dashboard' } catch { return 'dashboard' }
+    try {
+      const raw = localStorage.getItem(ADMIN_KEY) ?? 'painel'
+      return resolveView(raw)
+    } catch { return 'painel' }
   })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
 
@@ -57,6 +80,12 @@ export default function AdminPanel() {
     )
   }
 
+  function navigate(v: string) {
+    const resolved = resolveView(v)
+    setView(resolved)
+    try { localStorage.setItem(ADMIN_KEY, resolved) } catch { /* noop */ }
+  }
+
   function handleEditArticle(id?: string) {
     setEditingArticleId(id ?? null)
     setView('article-editor')
@@ -64,36 +93,37 @@ export default function AdminPanel() {
 
   function renderView() {
     switch (view) {
-      case 'dashboard':      return <AdminDashboard onNavigate={setView} />
-      case 'articles':       return <AdminArticles onEdit={handleEditArticle} onNew={() => handleEditArticle()} />
-      case 'article-editor': return <AdminArticleEditor articleId={editingArticleId} onBack={() => setView('articles')} />
-      case 'images':         return <AdminImages />
-      case 'categories':     return <AdminCategories />
-      case 'questionnaires': return <AdminQuestionnaires />
-      case 'trails':         return <AdminTrails />
-      case 'seo':            return <AdminSEO />
-      case 'automated':      return <AdminAutomated />
-      case 'scheduled':      return <AdminScheduled />
-      case 'notifications':  return <AdminNotifications />
-      case 'users':          return <AdminUsers />
-      case 'plans':          return <AdminPlans />
-      case 'diary-config':   return <AdminDiaryConfig />
-      case 'saved-items':    return <AdminSavedItems />
-      case 'analytics':      return <AdminAnalytics />
-      case 'social-proof':   return <AdminSocialProof />
-      case 'pdf':            return <AdminPDF />
-      case 'support':        return <AdminSupport />
-      case 'permissions':    return <AdminPermissions />
-      case 'logs':           return <AdminLogs />
-      case 'professionals':  return <AdminProfessionals />
-      case 'financial':      return <AdminFinancial />
-      case 'professional-comments': return <AdminProfessionalComments />
-      case 'guidance-requests':    return <AdminGuidanceRequests />
-      case 'evolution-sessions':   return <AdminEvolutionSessions />
-      case 'self-care-plans':      return <AdminSelfCarePlans />
-      case 'personalization':      return <AdminPersonalization />
-      case 'system-health':        return <AdminSystemHealth />
-      default:               return <AdminDashboard onNavigate={setView} />
+      // ── Áreas principais ──────────────────────────────────────────────────
+      case 'painel':
+        return <AdminAreaPainel onNavigate={v => navigate(v)} />
+      case 'conteudo':
+        return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'usuarios-planos':
+        return <AdminAreaUsuariosPlanos />
+      case 'atendimento':
+        return <AdminAreaAtendimento />
+      case 'comunicacao':
+        return <AdminAreaComunicacao />
+      case 'sistema':
+        return <AdminAreaSistema />
+
+      // ── Editor de artigos (view direta, fora das abas) ────────────────────
+      case 'article-editor':
+        return (
+          <AdminArticleEditor
+            articleId={editingArticleId}
+            onBack={() => {
+              try { localStorage.setItem('admin-conteudo-tab', 'artigos') } catch { /* noop */ }
+              setView('conteudo')
+            }}
+          />
+        )
+
+      // ── Views legadas: redirecionam para a área correta ───────────────────
+      // (garante compat. se view antiga chegou por URL ou localStorage externo)
+      default:
+        navigate(view)
+        return null
     }
   }
 
@@ -102,7 +132,7 @@ export default function AdminPanel() {
   }
 
   return (
-    <AdminLayout currentView={view} onNavigate={setView} onExit={handleExit}>
+    <AdminLayout currentView={view} onNavigate={v => navigate(v)} onExit={handleExit}>
       {renderView()}
     </AdminLayout>
   )

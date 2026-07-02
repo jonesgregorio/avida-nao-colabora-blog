@@ -1,83 +1,25 @@
 import { ReactNode, useState } from 'react'
 import { AdminView } from './types'
 import {
-  LayoutDashboard, FileText, Image, Tag, Users, CreditCard,
-  Star, BookOpen, Box, BarChart2, HeadphonesIcon, Bell,
-  Search, Shield, ClipboardList, Briefcase, DollarSign,
-  FileOutput, HelpCircle, Calendar, Zap, LogOut, ExternalLink,
-  Menu, ChevronDown, ChevronRight, MessageSquare, Video, Leaf, Sparkles, Activity,
+  LayoutDashboard, FileText, Users, HeadphonesIcon, Bell, Settings2,
+  LogOut, ExternalLink, Menu,
 } from 'lucide-react'
 
-type NavGroup = {
-  label: string
-  items: { id: AdminView; label: string; icon: any }[]
-}
+type NavItem = { id: AdminView; label: string; icon: any }
 
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Principal',
-    items: [
-      { id: 'dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'Conteúdo',
-    items: [
-      { id: 'articles',        label: 'Artigos',           icon: FileText },
-      { id: 'categories',      label: 'Categorias',        icon: Tag },
-      { id: 'images',          label: 'Imagens',           icon: Image },
-      { id: 'questionnaires',  label: 'Questionários',     icon: HelpCircle },
-      { id: 'trails',          label: 'Trilhas',           icon: BookOpen },
-      { id: 'seo',             label: 'SEO',               icon: Search },
-    ],
-  },
-  {
-    label: 'Usuários',
-    items: [
-      { id: 'users',        label: 'Usuários',         icon: Users },
-      { id: 'permissions',  label: 'Permissões',       icon: Shield },
-      { id: 'diary-config', label: 'Diário por Plano', icon: ClipboardList },
-      { id: 'saved-items',  label: 'Caixa de Cuidado', icon: Box },
-    ],
-  },
-  {
-    label: 'Planos & Financeiro',
-    items: [
-      { id: 'plans',        label: 'Planos',            icon: CreditCard },
-      { id: 'financial',    label: 'Financeiro',        icon: DollarSign },
-      { id: 'pdf',          label: 'Relatórios/PDF',    icon: FileOutput },
-      { id: 'analytics',    label: 'Analytics',         icon: BarChart2 },
-      { id: 'social-proof', label: 'Prova Social',      icon: Star },
-    ],
-  },
-  {
-    label: 'Atendimento & Evolução',
-    items: [
-      { id: 'support',               label: 'Suporte',                    icon: HeadphonesIcon },
-      { id: 'guidance-requests',     label: 'Orientações',                icon: MessageSquare },
-      { id: 'evolution-sessions',    label: 'Sessões Plus',               icon: Video },
-      { id: 'professional-comments', label: 'Comentários Profissionais',  icon: Star },
-      { id: 'professionals',         label: 'Profissionais',              icon: Briefcase },
-      { id: 'self-care-plans',       label: 'Planos de Autocuidado',      icon: Leaf },
-      { id: 'personalization',       label: 'Personalização por Plano',   icon: Sparkles },
-    ],
-  },
-  {
-    label: 'Comunicação & Automação',
-    items: [
-      { id: 'notifications', label: 'Notificações',      icon: Bell },
-      { id: 'automated',     label: 'Conteúdos Auto.',   icon: Zap },
-      { id: 'scheduled',     label: 'Programados',       icon: Calendar },
-    ],
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { id: 'system-health', label: 'Monitoramento',  icon: Activity },
-      { id: 'logs',          label: 'Logs',            icon: ClipboardList },
-    ],
-  },
+const NAV_ITEMS: NavItem[] = [
+  { id: 'painel',          label: 'Painel',          icon: LayoutDashboard },
+  { id: 'conteudo',        label: 'Conteúdo',        icon: FileText },
+  { id: 'usuarios-planos', label: 'Usuários & Planos',icon: Users },
+  { id: 'atendimento',     label: 'Atendimento',     icon: HeadphonesIcon },
+  { id: 'comunicacao',     label: 'Comunicação',     icon: Bell },
+  { id: 'sistema',         label: 'Sistema',         icon: Settings2 },
 ]
+
+// Views que pertencem a cada área (para destacar o item correto no menu)
+const AREA_OF: Record<string, AdminView> = {
+  'article-editor': 'conteudo',
+}
 
 interface Props {
   currentView: AdminView
@@ -89,65 +31,36 @@ interface Props {
 
 export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem('admin-menu-collapsed') ?? '{}') } catch { return {} }
-  })
-
-  function toggleGroup(label: string) {
-    setCollapsed(c => {
-      const next = { ...c, [label]: !c[label] }
-      localStorage.setItem('admin-menu-collapsed', JSON.stringify(next))
-      return next
-    })
-  }
 
   function isActive(id: AdminView) {
-    return currentView === id || (currentView === 'article-editor' && id === 'articles')
+    return currentView === id || AREA_OF[currentView] === id
   }
 
   const SidebarContent = () => (
-    <aside className="w-60 bg-stone-900 text-white flex flex-col h-full overflow-y-auto">
+    <aside className="w-56 bg-stone-900 text-white flex flex-col h-full overflow-y-auto">
       <div className="px-4 py-5 border-b border-stone-700 flex-shrink-0">
         <p className="text-xs text-stone-400 uppercase tracking-widest mb-0.5">Painel Admin</p>
         <p className="font-semibold text-sm">A Vida Não Colabora</p>
         {userEmail && <p className="text-xs text-stone-400 mt-1 truncate">{userEmail}</p>}
       </div>
 
-      <nav className="flex-1 py-3 px-2 space-y-1">
-        {NAV_GROUPS.map(group => {
-          const isCollapsed = collapsed[group.label]
+      <nav className="flex-1 py-4 px-2 space-y-0.5">
+        {NAV_ITEMS.map(item => {
+          const Icon = item.icon
+          const active = isActive(item.id)
           return (
-            <div key={group.label}>
-              {group.label !== 'Principal' && (
-                <button
-                  onClick={() => toggleGroup(group.label)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-stone-400 uppercase tracking-wider hover:text-stone-300 mt-2"
-                >
-                  {group.label}
-                  {isCollapsed
-                    ? <ChevronRight className="w-3 h-3" />
-                    : <ChevronDown className="w-3 h-3" />
-                  }
-                </button>
-              )}
-              {!isCollapsed && group.items.map(item => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { onNavigate(item.id); setSidebarOpen(false) }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                      isActive(item.id)
-                        ? 'bg-emerald-700 text-white'
-                        : 'text-stone-300 hover:bg-stone-800 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <button
+              key={item.id}
+              onClick={() => { onNavigate(item.id); setSidebarOpen(false) }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                active
+                  ? 'bg-emerald-700 text-white font-medium'
+                  : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </button>
           )
         })}
       </nav>
@@ -194,7 +107,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
           </button>
           <span className="font-semibold text-sm">Admin — A Vida Não Colabora</span>
         </div>
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

@@ -1,4 +1,15 @@
+// ── 6 áreas principais (menu lateral) ─────────────────────────────────────────
+export type AdminAreaView =
+  | 'painel'
+  | 'conteudo'
+  | 'usuarios-planos'
+  | 'atendimento'
+  | 'comunicacao'
+  | 'sistema'
+
+// ── Views legadas (backward compat — resolúveis via AREA_ALIAS em index.tsx) ──
 export type AdminView =
+  | AdminAreaView
   | 'dashboard'
   | 'articles'
   | 'article-editor'
