@@ -7,7 +7,7 @@ import {
 import {
   TASK_DEFS, PersonalizationTask, TaskStatus,
   loadAllTasksForAdmin,
-  formatDueLabel, dueBadgeColors, priorityBadgeColors,
+  formatDueLabel, dueBadgeColors, priorityBadgeColors, calculateTaskPriority,
   PRIORITY_LABELS, STATUS_LABELS, TARGET_AREA_LABELS, ACTION_VIEW_MAP,
   generateContentForTask, TaskSnapshot, monthKey,
   refreshTasksForAllUsers,
@@ -97,8 +97,7 @@ function applyFilters(task: PersonalizationTask, filters: Filters, profileMap: R
   if (filters.plan !== 'all' && task.plan_key !== filters.plan) return false
   if (filters.taskKey !== 'all' && task.task_key !== filters.taskKey) return false
   if (filters.priority !== 'all') {
-    const def = TASK_DEFS.find(d => d.key === task.task_key)
-    if (def?.priority !== filters.priority) return false
+    if (calculateTaskPriority(task) !== filters.priority) return false
   }
   if (filters.deadline !== 'all' && task.due_at) {
     const diff = Math.round((new Date(task.due_at).getTime() - Date.now()) / 86400000)
@@ -742,13 +741,14 @@ function SummaryCards({ allTasks, deliveryCount, onFilter }: {
 }) {
   const cur = monthKey()
   const today = new Date().toDateString()
+  const now = Date.now()
   const cards = [
     { label: 'Pendências abertas',    value: allTasks.filter(t => t.status === 'pending').length,                                                              color: 'text-stone-700',   bg: 'bg-stone-50 hover:bg-stone-100',   tab: 'queue'    as AdminTab },
-    { label: 'Atrasadas',             value: allTasks.filter(t => t.status === 'overdue').length,                                                              color: 'text-red-600',     bg: 'bg-red-50 hover:bg-red-100',       tab: 'overdue'  as AdminTab },
+    { label: 'Alta prioridade',       value: allTasks.filter(t => ['pending','overdue','draft','generated'].includes(t.status) && calculateTaskPriority(t) === 'high').length, color: 'text-red-600', bg: 'bg-red-50 hover:bg-red-100', tab: 'queue' as AdminTab },
+    { label: 'Atrasadas',             value: allTasks.filter(t => t.status === 'overdue' || (t.due_at != null && new Date(t.due_at).getTime() < now && ['pending','draft','generated'].includes(t.status))).length, color: 'text-rose-700', bg: 'bg-rose-50 hover:bg-rose-100', tab: 'overdue' as AdminTab },
     { label: 'Vencem hoje',           value: allTasks.filter(t => t.due_at && new Date(t.due_at).toDateString() === today && ['pending','overdue'].includes(t.status)).length, color: 'text-orange-600',  bg: 'bg-orange-50 hover:bg-orange-100', tab: 'queue'    as AdminTab },
     { label: 'Rascunhos',             value: allTasks.filter(t => ['draft','generated'].includes(t.status)).length,                                            color: 'text-blue-600',    bg: 'bg-blue-50 hover:bg-blue-100',     tab: 'drafts'   as AdminTab },
     { label: 'Resolvidas este mês',   value: allTasks.filter(t => ['sent','resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100', tab: 'resolved' as AdminTab },
-    { label: 'Canceladas',            value: allTasks.filter(t => t.status === 'cancelled').length,                                                            color: 'text-stone-400',   bg: 'bg-stone-50 hover:bg-stone-100',   tab: 'cancelled' as AdminTab },
     { label: 'Usuários c/ pendência', value: new Set(allTasks.filter(t => ['pending','overdue'].includes(t.status)).map(t => t.user_id)).size,                 color: 'text-purple-600',  bg: 'bg-purple-50 hover:bg-purple-100', tab: 'queue'    as AdminTab },
   ]
   return (
@@ -886,7 +886,6 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
           <tbody>
             {tasks.map(task => {
               const profile = profileMap[task.user_id]
-              const def = TASK_DEFS.find(d => d.key === task.task_key)
               const delivery = task.delivery_id ? deliveryMap[task.delivery_id] : undefined
               const isSelected = selectedIds.has(task.id)
               const dueLabel = formatDueLabel(task.due_at)
@@ -925,7 +924,7 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
                     {task.due_at && <p className="text-[10px] text-stone-400 mt-0.5">{new Date(task.due_at).toLocaleDateString('pt-BR')}</p>}
                   </td>
                   <td className="py-3 px-3">
-                    {def && <span className={`text-xs px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${priorityBadgeColors(def.priority)}`}>{PRIORITY_LABELS[def.priority]}</span>}
+                    {(() => { const p = calculateTaskPriority(task); return <span className={`text-xs px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${priorityBadgeColors(p)}`}>{PRIORITY_LABELS[p]}</span> })()}
                   </td>
                   <td className="py-3 px-3 text-xs text-stone-500 whitespace-nowrap">{STATUS_LABELS[task.status] ?? task.status}</td>
                   <td className="py-3 px-3">
@@ -1091,7 +1090,12 @@ export default function AdminPersonalization() {
   }, [allTasks, activeTab])
 
   const filteredTasks = useMemo(() => {
-    return tabTasks.filter(t => applyFilters(t, filters, profileMap))
+    const filtered = tabTasks.filter(t => applyFilters(t, filters, profileMap))
+    return filtered.sort((a, b) => {
+      const daysA = a.due_at ? Math.floor((new Date(a.due_at).getTime() - Date.now()) / 86400000) : 9999
+      const daysB = b.due_at ? Math.floor((new Date(b.due_at).getTime() - Date.now()) / 86400000) : 9999
+      return daysA - daysB
+    })
   }, [tabTasks, filters, profileMap])
 
   const tabCounts = useMemo(() => {

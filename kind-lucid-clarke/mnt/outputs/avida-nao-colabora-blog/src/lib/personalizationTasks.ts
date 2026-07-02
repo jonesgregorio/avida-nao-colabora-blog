@@ -791,6 +791,14 @@ export function dueBadgeColors(status: TaskStatus, dueAt: string | null): string
   return 'bg-stone-100 text-stone-600'
 }
 
+export function calculateTaskPriority(task: { status: string; due_at: string | null }): TaskPriority {
+  if (!task.due_at) return 'low'
+  const diffDays = Math.floor((new Date(task.due_at).getTime() - Date.now()) / 86400000)
+  if (task.status === 'overdue' || diffDays <= 2) return 'high'
+  if (diffDays <= 7) return 'medium'
+  return 'low'
+}
+
 export function priorityBadgeColors(p: TaskPriority): string {
   if (p === 'high') return 'bg-red-50 text-red-600 border-red-200'
   if (p === 'medium') return 'bg-yellow-50 text-yellow-700 border-yellow-200'
