@@ -1027,6 +1027,8 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
 
 export default function AdminPersonalization() {
   const [activeTab, setActiveTab] = useState<AdminTab>('queue')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 50
   const [allTasks, setAllTasks] = useState<PersonalizationTask[]>([])
   // deliveryMap: delivery_id → Delivery (inclui rascunhos e enviados)
   const [deliveryMap, setDeliveryMap] = useState<Record<string, Delivery>>({})
@@ -1090,6 +1092,7 @@ export default function AdminPersonalization() {
   }, [allTasks, activeTab])
 
   const filteredTasks = useMemo(() => {
+    setPage(1)
     const filtered = tabTasks.filter(t => applyFilters(t, filters, profileMap))
     return filtered.sort((a, b) => {
       const daysA = a.due_at ? Math.floor((new Date(a.due_at).getTime() - Date.now()) / 86400000) : 9999
@@ -1097,6 +1100,11 @@ export default function AdminPersonalization() {
       return daysA - daysB
     })
   }, [tabTasks, filters, profileMap])
+
+  const pagedTasks = useMemo(
+    () => filteredTasks.slice(0, page * PAGE_SIZE),
+    [filteredTasks, page, PAGE_SIZE]
+  )
 
   const tabCounts = useMemo(() => {
     const deliverySentCount = Object.values(deliveryMap).filter(d => d.status === 'sent').length
@@ -1199,12 +1207,12 @@ export default function AdminPersonalization() {
       </div>
 
       {/* Cards */}
-      <SummaryCards allTasks={allTasks} deliveryCount={sentDeliveryCount} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()) }} />
+      <SummaryCards allTasks={allTasks} deliveryCount={sentDeliveryCount} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()); setPage(1) }} />
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-stone-200 mb-4 overflow-x-auto">
         {TAB_CONFIG.map(t => (
-          <button key={t.id} onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()) }} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap flex items-center gap-1.5 ${activeTab === t.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
+          <button key={t.id} onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); setPage(1) }} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap flex items-center gap-1.5 ${activeTab === t.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
             {t.label}
             {tabCounts[t.id] > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === t.id ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>{tabCounts[t.id]}</span>
@@ -1235,15 +1243,32 @@ export default function AdminPersonalization() {
       ) : activeTab === 'history' ? (
         <HistoryTable profileMap={profileMap} />
       ) : (
-        <TaskTable
-          tasks={filteredTasks}
-          profileMap={profileMap}
-          deliveryMap={deliveryMap}
-          selectedIds={selectedIds}
-          onSelectChange={setSelectedIds}
-          onOpen={openEditor}
-          showResolved={activeTab === 'resolved' || activeTab === 'cancelled'}
-        />
+        <>
+          <TaskTable
+            tasks={pagedTasks}
+            profileMap={profileMap}
+            deliveryMap={deliveryMap}
+            selectedIds={selectedIds}
+            onSelectChange={setSelectedIds}
+            onOpen={openEditor}
+            showResolved={activeTab === 'resolved' || activeTab === 'cancelled'}
+          />
+          {filteredTasks.length > pagedTasks.length && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setPage(p => p + 1)}
+                className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50"
+              >
+                Carregar mais ({filteredTasks.length - pagedTasks.length} restantes)
+              </button>
+            </div>
+          )}
+          {filteredTasks.length > PAGE_SIZE && (
+            <p className="text-center text-xs text-stone-400 mt-2">
+              Exibindo {pagedTasks.length} de {filteredTasks.length} pendências
+            </p>
+          )}
+        </>
       )}
     </div>
   )
