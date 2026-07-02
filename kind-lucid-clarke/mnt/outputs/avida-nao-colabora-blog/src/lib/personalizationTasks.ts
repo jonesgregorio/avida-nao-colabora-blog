@@ -835,6 +835,28 @@ export const TARGET_AREA_LABELS: Record<string, string> = {
   my_evolution: 'Minha Evolução',
 }
 
+export const PERSONALIZED_CONTENT_LABELS: Record<string, string> = {
+  article_suggestion: 'Sugestão de artigo',
+  mini_challenge: 'Mini-desafio',
+  diary_question: 'Pergunta para o diário',
+  guided_meditation: 'Meditação guiada',
+  emotional_exercise: 'Exercício emocional',
+  monthly_summary: 'Resumo mensal',
+  advanced_report: 'Relatório avançado',
+  weekly_self_care: 'Plano semanal de autocuidado',
+  self_care_plan: 'Plano de autocuidado',
+  monthly_review: 'Revisão mensal do plano',
+  guidance_response: 'Resposta da orientação mensal',
+  professional_comment: 'Comentário profissional',
+  session_themes: 'Sugestões para sessão',
+  post_session_message: 'Mensagem pós-sessão',
+  content_recommendations: 'Recomendações personalizadas',
+}
+
+export function getPersonalizedContentLabel(contentType: string): string {
+  return PERSONALIZED_CONTENT_LABELS[contentType] ?? contentType
+}
+
 export const ACTION_VIEW_MAP: Record<string, string> = {
   'para-voce': 'my-evolution',
   resumo: 'my-evolution',

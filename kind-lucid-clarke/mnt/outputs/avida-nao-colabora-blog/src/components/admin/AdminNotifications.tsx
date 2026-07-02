@@ -46,6 +46,7 @@ export default function AdminNotifications() {
   const [targetPlan, setTargetPlan] = useState('all')
   const [targetUserId, setTargetUserId] = useState('')
   const [type, setType] = useState('info')
+  const [actionView, setActionView] = useState('')
   const [saving, setSaving] = useState(false)
   const [showAI, setShowAI] = useState(false)
 
@@ -71,6 +72,7 @@ export default function AdminNotifications() {
       const { error } = await supabase.from('notifications').insert({
         user_id: targetUserId.trim(),
         title, body, type, is_read: false,
+        ...(actionView ? { action_view: actionView } : {}),
       })
       setSaving(false)
       if (error) { showToastMsg('Erro: ' + error.message); return }
@@ -88,6 +90,7 @@ export default function AdminNotifications() {
       const rows = profiles.map(p => ({
         user_id: p.user_id,
         title, body, type, is_read: false,
+        ...(actionView ? { action_view: actionView } : {}),
       }))
       const { error } = await supabase.from('notifications').insert(rows)
       setSaving(false)
@@ -104,6 +107,7 @@ export default function AdminNotifications() {
       const rows = profiles.map(p => ({
         user_id: p.user_id,
         title, body, type, is_read: false,
+        ...(actionView ? { action_view: actionView } : {}),
       }))
       const { error } = await supabase.from('notifications').insert(rows)
       setSaving(false)
@@ -111,7 +115,7 @@ export default function AdminNotifications() {
       showToastMsg(`Notificação enviada para ${rows.length} usuário(s)!`)
     }
 
-    setShowForm(false); setTitle(''); setBody('')
+    setShowForm(false); setTitle(''); setBody(''); setActionView('')
     load()
   }
 
@@ -212,6 +216,22 @@ export default function AdminNotifications() {
                 {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">Ação ao clicar (opcional)</label>
+            <select value={actionView} onChange={e => setActionView(e.target.value)} className={inputCls}>
+              <option value="">Sem ação</option>
+              <option value="my-evolution">Minha Evolução</option>
+              <option value="my-evolution?tab=para-voce">Para Você</option>
+              <option value="my-evolution?tab=orientacoes">Orientações</option>
+              <option value="my-evolution?tab=relatorios">Relatórios</option>
+              <option value="my-evolution?tab=autocuidado">Plano de Autocuidado</option>
+              <option value="my-evolution?tab=sessao">Sessão Plus</option>
+              <option value="my-evolution?tab=comentarios">Comentários Profissionais</option>
+              <option value="my-plan">Meu Plano</option>
+              <option value="support">Suporte</option>
+              <option value="blog">Blog</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs text-stone-500 mb-1">Mensagem</label>

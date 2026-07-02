@@ -282,6 +282,9 @@ export default function AdminUsers() {
     if (drawerTab === 'resumo-inteligente' && selectedUser && !aiExtraLoaded) {
       loadAiExtraMetrics(selectedUser.user_id)
     }
+  // Dependência `loadAiExtraMetrics` omitida intencionalmente: a função é redefinida
+  // a cada render e incluí-la causaria loop infinito. O efeito deve disparar apenas
+  // quando `drawerTab` ou o usuário selecionado mudar.
   }, [drawerTab, selectedUser?.user_id])
 
   async function loadDrawerData(userId: string) {

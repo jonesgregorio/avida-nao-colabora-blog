@@ -5,6 +5,10 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
+// ATENÇÃO: Price IDs de produção Stripe usados como fallback quando as env vars não estão definidas.
+// Em produção, configure obrigatoriamente as seguintes variáveis no Supabase Dashboard:
+//   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_THERAPEUTIC, STRIPE_PRICE_PLUS
+// Os IDs hardcoded abaixo são de produção real — não os exponha publicamente.
 const PRICE_IDS: Record<string, string> = {
   essential:          Deno.env.get('STRIPE_PRICE_ESSENTIAL')    || 'price_1To2n05xvJV4HLHz8ym64uYH',
   therapeutic:        Deno.env.get('STRIPE_PRICE_THERAPEUTIC')  || 'price_1To2n15xvJV4HLHzqQWylm4W',
