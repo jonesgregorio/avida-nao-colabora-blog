@@ -231,7 +231,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
 
     const prorationAmount = calcUpgradeProration(currentPlan, targetPlan, currentSub)
 
-    // Registra intenção de pagamento (checkout real depende de integração)
+    // Registra intenção de pagamento (checkout real depende de integração via Stripe webhook)
     await supabase.from('payment_events').insert({
       user_id: user!.id,
       subscription_id: currentSub?.id ?? null,
@@ -243,34 +243,23 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       description: `Upgrade proporcional de ${PLAN_LABELS[currentPlan]} para ${PLAN_LABELS[targetPlan]}`,
     })
 
-    // Atualiza plano no profile e subscription
-    const { error } = await supabase.from('profiles').update({ plan: targetPlan }).eq('user_id', user!.id)
-    if (error) { setActionMsg({ type: 'err', text: 'Erro ao atualizar plano. Tente novamente.' }); setActing(false); return }
-
-    await supabase.from('user_subscriptions').upsert({
-      user_id: user!.id,
-      plan_key: targetPlan,
-      status: 'active',
-      cancel_at_period_end: false,
-      pending_plan: null,
-      pending_plan_starts_at: null,
-    }, { onConflict: 'user_id' })
-
+    // NÃO atualiza o plano diretamente aqui.
+    // O plano só é alterado via webhook Stripe (stripe-webhook/index.ts) após confirmação de pagamento.
+    // Apenas registra a intenção no histórico de mudanças.
     await recordChange({
-      oldPlan: currentPlan, newPlan: targetPlan, changeType: 'upgrade', amount: prorationAmount,
+      oldPlan: currentPlan, newPlan: targetPlan, changeType: 'upgrade_intent', amount: prorationAmount,
       notes: prorationAmount > 0
-        ? `Valor proporcional: ${formatPrice(prorationAmount)} (checkout pendente de integração)`
-        : undefined,
+        ? `Intenção de upgrade registrada. Valor proporcional estimado: ${formatPrice(prorationAmount)}. Aguardando integração de checkout.`
+        : 'Intenção de upgrade registrada. Aguardando integração de checkout.',
     })
 
     await sendNotification(
-      'Plano atualizado',
-      `Seu plano foi alterado para ${PLAN_LABELS[targetPlan]}. ${prorationAmount > 0 ? `Valor a pagar: ${formatPrice(prorationAmount)} (integração de checkout necessária).` : ''}`,
+      'Intenção de upgrade registrada',
+      `Recebemos sua solicitação de upgrade para ${PLAN_LABELS[targetPlan]}. ${prorationAmount > 0 ? `Valor estimado: ${formatPrice(prorationAmount)}.` : ''} A alteração será efetivada após a confirmação do pagamento.`,
     )
 
     setModal(null)
-    setActionMsg({ type: 'ok', text: `Plano alterado para ${PLAN_LABELS[targetPlan]}! ${prorationAmount > 0 ? `Cobrança proporcional de ${formatPrice(prorationAmount)} pendente de integração com checkout.` : ''}` })
-    onRefreshProfile()
+    setActionMsg({ type: 'ok', text: `Intenção de upgrade para ${PLAN_LABELS[targetPlan]} registrada. ${prorationAmount > 0 ? `Valor estimado: ${formatPrice(prorationAmount)}.` : ''} A alteração de plano ocorrerá após confirmação do pagamento via checkout.` })
     loadData()
     setActing(false)
   }

@@ -3,6 +3,7 @@
 // por usuário, conforme plano, período e histórico de envios.
 
 import { supabase } from './supabase'
+import { getContentTypeLabel } from './personalizedContentLabels'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -835,6 +836,8 @@ export const TARGET_AREA_LABELS: Record<string, string> = {
   my_evolution: 'Minha Evolução',
 }
 
+// PERSONALIZED_CONTENT_LABELS mantido para compatibilidade com código legado.
+// Fonte autoritativa agora é src/lib/personalizedContentLabels.ts
 export const PERSONALIZED_CONTENT_LABELS: Record<string, string> = {
   article_suggestion: 'Sugestão de artigo',
   mini_challenge: 'Mini-desafio',
@@ -843,18 +846,28 @@ export const PERSONALIZED_CONTENT_LABELS: Record<string, string> = {
   emotional_exercise: 'Exercício emocional',
   monthly_summary: 'Resumo mensal',
   advanced_report: 'Relatório avançado',
+  advanced_monthly_report: 'Relatório mensal avançado',
   weekly_self_care: 'Plano semanal de autocuidado',
   self_care_plan: 'Plano de autocuidado',
   monthly_review: 'Revisão mensal do plano',
   guidance_response: 'Resposta da orientação mensal',
+  monthly_guidance_draft: 'Rascunho de orientação mensal',
   professional_comment: 'Comentário profissional',
   session_themes: 'Sugestões para sessão',
+  session_summary: 'Resumo de sessão',
   post_session_message: 'Mensagem pós-sessão',
   content_recommendations: 'Recomendações personalizadas',
+  guided_diary_notes: 'Notas guiadas para o diário',
+  evolution_highlights: 'Destaques de evolução',
+  report_suggestion: 'Sugestão de relatório',
+  questionnaire_suggestion: 'Questionário recomendado',
+  trail_suggestion: 'Sugestão de trilha',
+  next_steps: 'Próximos passos de autocuidado',
 }
 
+// Wrapper que delega para a fonte central de labels.
 export function getPersonalizedContentLabel(contentType: string): string {
-  return PERSONALIZED_CONTENT_LABELS[contentType] ?? contentType
+  return getContentTypeLabel(contentType)
 }
 
 export const ACTION_VIEW_MAP: Record<string, string> = {

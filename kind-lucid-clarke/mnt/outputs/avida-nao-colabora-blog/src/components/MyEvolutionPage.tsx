@@ -102,6 +102,7 @@ interface Props {
   onBack: () => void
   onNavigatePricing: () => void
   onNavigateDiary: () => void
+  initialTab?: Tab
 }
 
 // ─── Dados do diário ──────────────────────────────────────────────────────────
@@ -134,8 +135,8 @@ const MOOD_LABELS: Record<number, string> = {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MyEvolutionPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary }: Props) {
-  const [tab, setTab] = useState<Tab>('resumo')
+export default function MyEvolutionPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary, initialTab }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; minPlan: string }[] = [

@@ -76,6 +76,7 @@ export default function App() {
   const [_showDiaryForm, setShowDiaryForm] = useState(false)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
+  const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
 
   // Persist navigation state so refresh keeps the user on the same page
   useEffect(() => {
@@ -99,13 +100,23 @@ export default function App() {
   }
 
   const navigate = (section: string, articleSlug?: string) => {
+    // Suporte a navegação com aba: 'my-evolution?tab=relatorios'
+    if (section.startsWith('my-evolution?tab=')) {
+      const tab = section.split('tab=')[1]
+      setInitialEvolutionTab(tab)
+      setView('my-evolution')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
-      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution',
+      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
     ]
     if (directViews.includes(section as View)) {
+      if (section === 'my-evolution') setInitialEvolutionTab(undefined)
       setView(section as View)
       if (articleSlug) setSelectedArticleSlug(articleSlug)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -516,6 +527,7 @@ export default function App() {
             onBack={() => navigate('home')}
             onNavigatePricing={() => navigate('pricing')}
             onNavigateDiary={() => navigate('diary')}
+            initialTab={initialEvolutionTab as any}
           />
         </main>
         <Footer onNavigate={navigate} />

@@ -12,7 +12,7 @@ DECLARE
   entry_limit INTEGER := 5;
 BEGIN
   -- Busca o plano do usuário
-  SELECT plan INTO user_plan FROM profiles WHERE id = NEW.user_id;
+  SELECT plan INTO user_plan FROM profiles WHERE user_id = NEW.user_id;
 
   -- Só aplica limite ao plano gratuito
   IF user_plan = 'free' THEN
