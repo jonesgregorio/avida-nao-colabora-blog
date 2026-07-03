@@ -429,6 +429,14 @@ export async function resolveIncident(id: string): Promise<void> {
   await supabase.from('system_incidents').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id)
 }
 
+export async function resolveIncidentsByCheckKey(checkKey: string): Promise<void> {
+  await supabase
+    .from('system_incidents')
+    .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+    .eq('check_key', checkKey)
+    .in('status', ['open', 'investigating'])
+}
+
 export async function ignoreIncident(id: string): Promise<void> {
   await supabase.from('system_incidents').update({ status: 'ignored' }).eq('id', id)
 }
@@ -477,4 +485,44 @@ export async function loadLatestChecks(): Promise<HealthCheckResult[]> {
     }
   }
   return latest
+}
+
+// ── Auto-reparo (correção com 1 clique) ─────────────────────────────────────────
+
+// Checks que a RPC admin_autofix_health_check consegue corrigir (garantia de schema).
+// Checks fora desta lista (site, IA, sessão, pagamentos, RLS, performance) não são
+// corrigíveis por schema e não exibem o botão de auto-reparo.
+export const AUTOFIXABLE_KEYS = new Set<string>([
+  'supabase_conn', 'db_profiles', 'db_notifications', 'db_diary', 'db_questionnaires',
+  'db_articles', 'db_trails', 'db_pers_tasks', 'db_pers_deliveries', 'db_guidance',
+  'db_sessions', 'db_reports', 'db_support', 'db_saved',
+])
+
+export interface AutofixResult {
+  success: boolean
+  fixable: boolean
+  check_key: string
+  message: string
+}
+
+export function isAutofixable(checkKey: string): boolean {
+  return AUTOFIXABLE_KEYS.has(checkKey)
+}
+
+// Corrige um check específico chamando a RPC SECURITY DEFINER no servidor.
+export async function autofixCheck(checkKey: string): Promise<AutofixResult> {
+  const { data, error } = await supabase.rpc('admin_autofix_health_check', { p_check_key: checkKey })
+  if (error) {
+    return { success: false, fixable: false, check_key: checkKey, message: error.message }
+  }
+  return data as unknown as AutofixResult
+}
+
+// Corrige todos os checks corrigíveis de uma vez.
+export async function autofixAllChecks(): Promise<{ success: boolean; fixed_count: number; results: AutofixResult[] }> {
+  const { data, error } = await supabase.rpc('admin_autofix_all_health')
+  if (error) {
+    return { success: false, fixed_count: 0, results: [{ success: false, fixable: false, check_key: 'all', message: error.message }] }
+  }
+  return data as unknown as { success: boolean; fixed_count: number; results: AutofixResult[] }
 }

@@ -3,7 +3,7 @@ import {
   Activity, CheckCircle, RefreshCw,
   Loader2, Play, Zap, Database, Sparkles, CreditCard, Bell,
   Shield, ChevronDown, ChevronUp, FileText,
-  AlertCircle,
+  AlertCircle, Wrench,
 } from 'lucide-react'
 import {
   HealthCheckResult, SystemIncident, HealthReport, CheckStatus,
@@ -11,6 +11,7 @@ import {
   runSingleCheck, saveHealthCheckResults, createHealthReport,
   detectOrUpdateIncident, resolveIncident, ignoreIncident,
   loadIncidents, loadReports, loadLatestChecks,
+  autofixCheck, autofixAllChecks, resolveIncidentsByCheckKey, isAutofixable,
 } from '../../lib/systemHealth'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
@@ -122,6 +123,8 @@ export default function AdminSystemHealth() {
   const [reports, setReports] = useState<HealthReport[]>([])
   const [settings, setSettings] = useState<MonitorSettings>(DEFAULT_SETTINGS)
   const [runningKeys, setRunningKeys] = useState<Set<string>>(new Set())
+  const [fixingKeys, setFixingKeys] = useState<Set<string>>(new Set())
+  const [isFixingAll, setIsFixingAll] = useState(false)
   const [isRunningFull, setIsRunningFull] = useState(false)
   const [isRunningQuick, setIsRunningQuick] = useState(false)
   const [lastQuickAt, setLastQuickAt] = useState<string | null>(null)
@@ -225,6 +228,57 @@ export default function AdminSystemHealth() {
     setRunningKeys(prev => { const n = new Set(prev); n.delete(checkKey); return n })
   }
 
+  // Auto-reparo: chama a RPC no servidor e reexecuta o check para confirmar a correção real
+  async function handleAutofix(checkKey: string) {
+    if (fixingKeys.has(checkKey)) return
+    setFixingKeys(prev => new Set([...prev, checkKey]))
+    try {
+      const fix = await autofixCheck(checkKey)
+      if (!fix.success) {
+        showToast(fix.fixable ? `Falha no reparo: ${fix.message}` : fix.message, true)
+      } else {
+        // Reexecuta o teste para confirmar que o erro foi corrigido de fato
+        const res = await runSingleCheck(checkKey)
+        if (res) {
+          mergeResults([res])
+          await saveHealthCheckResults([res])
+          if (res.status === 'ok' || res.status === 'warning') {
+            await resolveIncidentsByCheckKey(checkKey)
+            await loadIncidents().then(setIncidents)
+            showToast(`Corrigido: ${fix.message}`)
+          } else {
+            showToast(`Reparo aplicado, mas o teste ainda falha: ${res.errorMessage ?? ''}`, true)
+          }
+        } else {
+          showToast(fix.message)
+        }
+      }
+    } catch (e) {
+      showToast('Erro no auto-reparo: ' + String(e), true)
+    }
+    setFixingKeys(prev => { const n = new Set(prev); n.delete(checkKey); return n })
+  }
+
+  async function handleAutofixAll() {
+    if (isFixingAll) return
+    setIsFixingAll(true)
+    try {
+      const res = await autofixAllChecks()
+      if (!res.success) {
+        showToast('Falha no auto-reparo geral: ' + (res.results[0]?.message ?? ''), true)
+      } else {
+        // Reexecuta os testes para refletir o resultado real após o reparo
+        await doQuickCheck()
+        await doIntermediateCheck()
+        await loadIncidents().then(setIncidents)
+        showToast(`Auto-reparo aplicado em ${res.fixed_count} áreas do banco.`)
+      }
+    } catch (e) {
+      showToast('Erro no auto-reparo geral: ' + String(e), true)
+    }
+    setIsFixingAll(false)
+  }
+
   async function doAICheck() {
     await doSingleCheck('ai_provider')
     await doSingleCheck('ai_fallback')
@@ -272,6 +326,7 @@ export default function AdminSystemHealth() {
   const overall = overallStatus(results)
   const errorCount = results.filter(r => r.status === 'error').length
   const warnCount = results.filter(r => r.status === 'warning').length
+  const fixableErrorCount = results.filter(r => r.status === 'error' && isAutofixable(r.checkKey)).length
   const openIncidents = incidents.filter(i => i.status === 'open' || i.status === 'investigating')
 
   const TABS: { id: HealthTab; label: string }[] = [
@@ -302,6 +357,12 @@ export default function AdminSystemHealth() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {fixableErrorCount > 0 && (
+            <button onClick={handleAutofixAll} disabled={isFixingAll} className="flex items-center gap-1.5 text-sm bg-amber-500 text-white px-3 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-50 shadow-sm">
+              {isFixingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}
+              {isFixingAll ? 'Corrigindo...' : `Corrigir ${fixableErrorCount} erro${fixableErrorCount !== 1 ? 's' : ''} com 1 clique`}
+            </button>
+          )}
           <button onClick={doAICheck} disabled={runningKeys.has('ai_provider')} className="flex items-center gap-1.5 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
             <Sparkles className="w-4 h-4" /> Testar IA
           </button>
@@ -330,6 +391,7 @@ export default function AdminSystemHealth() {
           results={results} overall={overall} errorCount={errorCount} warnCount={warnCount}
           openIncidents={openIncidents.length} lastQuickAt={lastQuickAt}
           runningKeys={runningKeys} onSingleCheck={doSingleCheck} expanded={expanded} setExpanded={setExpanded}
+          onAutofix={handleAutofix} fixingKeys={fixingKeys}
         />
       )}
 
@@ -350,7 +412,7 @@ export default function AdminSystemHealth() {
 
       {/* ── Histórico de erros ── */}
       {activeTab === 'incidents' && (
-        <IncidentsTab incidents={incidents} filter={incidentFilter} setFilter={setIncidentFilter} onResolve={handleResolveIncident} onIgnore={handleIgnoreIncident} onRetest={doSingleCheck} onRefresh={() => loadIncidents().then(setIncidents)} />
+        <IncidentsTab incidents={incidents} filter={incidentFilter} setFilter={setIncidentFilter} onResolve={handleResolveIncident} onIgnore={handleIgnoreIncident} onRetest={doSingleCheck} onRefresh={() => loadIncidents().then(setIncidents)} onAutofix={handleAutofix} fixingKeys={fixingKeys} />
       )}
 
       {/* ── Configurações ── */}
@@ -363,7 +425,7 @@ export default function AdminSystemHealth() {
 
 // ── Aba Visão Geral ───────────────────────────────────────────────────────────
 
-function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, lastQuickAt, runningKeys, onSingleCheck, expanded, setExpanded }: {
+function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, lastQuickAt, runningKeys, onSingleCheck, expanded, setExpanded, onAutofix, fixingKeys }: {
   results: HealthCheckResult[]
   overall: CheckStatus
   errorCount: number
@@ -374,6 +436,8 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
   onSingleCheck: (key: string) => void
   expanded: string | null
   setExpanded: (k: string | null) => void
+  onAutofix: (key: string) => void
+  fixingKeys: Set<string>
 }) {
   const aiResult = results.find(r => r.checkKey === 'ai_provider')
   const payResult = results.find(r => r.checkKey === 'payments')
@@ -444,6 +508,17 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
+                          {r.status === 'error' && isAutofixable(r.checkKey) && (
+                            <button
+                              onClick={() => onAutofix(r.checkKey)}
+                              disabled={fixingKeys.has(r.checkKey)}
+                              title="A IA corrige o problema automaticamente"
+                              className="flex items-center gap-1 text-xs text-white bg-amber-500 hover:bg-amber-600 px-2 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {fixingKeys.has(r.checkKey) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
+                              Corrigir
+                            </button>
+                          )}
                           <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg">
                             {runningKeys.has(r.checkKey) ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Testar'}
                           </button>
@@ -647,7 +722,7 @@ function ReportsTab({ reports, onRefresh }: { reports: HealthReport[]; onRefresh
 
 // ── Aba Incidentes ────────────────────────────────────────────────────────────
 
-function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRetest, onRefresh }: {
+function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRetest, onRefresh, onAutofix, fixingKeys }: {
   incidents: SystemIncident[]
   filter: string
   setFilter: (f: string) => void
@@ -655,6 +730,8 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
   onIgnore: (id: string) => void
   onRetest: (key: string) => void
   onRefresh: () => void
+  onAutofix: (key: string) => void
+  fixingKeys: Set<string>
 }) {
   const filtered = incidents.filter(i => filter === 'all' ? true : i.status === filter)
   return (
@@ -702,6 +779,17 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
+                        {inc.check_key && inc.status !== 'resolved' && isAutofixable(inc.check_key) && (
+                          <button
+                            onClick={() => onAutofix(inc.check_key!)}
+                            disabled={fixingKeys.has(inc.check_key)}
+                            title="A IA corrige o problema automaticamente"
+                            className="flex items-center gap-1 text-xs text-white bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 rounded disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {fixingKeys.has(inc.check_key) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
+                            Corrigir
+                          </button>
+                        )}
                         {inc.check_key && (
                           <button onClick={() => onRetest(inc.check_key!)} className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">Retestar</button>
                         )}
