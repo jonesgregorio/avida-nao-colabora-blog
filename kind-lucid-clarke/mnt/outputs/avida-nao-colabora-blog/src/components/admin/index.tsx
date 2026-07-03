@@ -57,7 +57,7 @@ function resolveView(raw: string): AdminView {
 }
 
 export default function AdminPanel() {
-  const { profile } = useAuth()
+  const { profile, loading } = useAuth()
   const [view, setView] = useState<AdminView>(() => {
     try {
       const raw = localStorage.getItem(ADMIN_KEY) ?? 'painel'
@@ -70,11 +70,33 @@ export default function AdminPanel() {
     try { localStorage.setItem(ADMIN_KEY, view) } catch { /* noop */ }
   }, [view])
 
+  // Aguarda autenticação antes de bloquear acesso (evita falso "Acesso restrito")
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   if (!profile || profile.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="text-center">
-          <p className="text-stone-500 text-sm">Acesso restrito a administradores.</p>
+        <div className="text-center space-y-3">
+          <p className="text-stone-600 font-medium">Acesso restrito a administradores.</p>
+          <p className="text-stone-400 text-sm">
+            {!profile ? 'Você precisa estar autenticado.' : 'Sua conta não tem permissão de administrador.'}
+          </p>
+          <div className="flex gap-3 justify-center mt-4">
+            <a href="/" className="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">
+              Voltar ao site
+            </a>
+            {!profile && (
+              <a href="/login" className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                Entrar
+              </a>
+            )}
+          </div>
         </div>
       </div>
     )

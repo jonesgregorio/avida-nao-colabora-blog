@@ -49,18 +49,81 @@ const VALID_VIEWS: View[] = [
   'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
 ]
 
-function restoreNav() {
+// Mapeamento bidirecional URL ↔ view
+const URL_TO_VIEW: Record<string, View> = {
+  '/':                           'home',
+  '/blog':                       'articles',
+  '/planos':                     'pricing',
+  '/sobre':                      'about',
+  '/contato':                    'contact',
+  '/privacidade':                'privacy',
+  '/termos':                     'terms',
+  '/aviso-de-responsabilidade':  'responsibility',
+  '/admin':                      'admin',
+  '/login':                      'auth',
+  '/diario':                     'diary',
+  '/perfil':                     'profile',
+  '/meditacoes':                 'meditations',
+  '/desafios':                   'challenges',
+  '/questionario-terapeutico':   'therapeutic-q',
+  '/questionarios':              'questionarios',
+  '/trilhas':                    'trails',
+  '/itens-salvos':               'saved',
+  '/sucesso':                    'success',
+  '/suporte':                    'support',
+  '/notificacoes':               'notifications',
+  '/guia-mensal':                'monthly-guidance',
+  '/comentarios-profissional':   'professional-comments',
+  '/minha-evolucao':             'my-evolution',
+  '/meu-relatorio':              'my-report',
+  '/meu-plano':                  'my-plan',
+}
+
+const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
+  Object.entries(URL_TO_VIEW).map(([url, view]) => [view, url])
+)
+
+function parseURLNav(): { view: View; articleSlug: string | null; ticketId: string | null } | null {
   try {
-    // URL param takes priority (e.g. payment redirect)
+    const path = window.location.pathname
+
+    // /blog/:slug → article
+    if (path.startsWith('/blog/') && path.length > 6) {
+      const slug = path.slice(6)
+      return { view: 'article', articleSlug: slug, ticketId: null }
+    }
+
+    // /suporte/:ticketId → support-ticket
+    if (path.startsWith('/suporte/') && path.length > 9) {
+      const ticketId = path.slice(9)
+      return { view: 'support-ticket', articleSlug: null, ticketId }
+    }
+
+    // URL param ?view=X (compatibilidade com links antigos e redirecionamentos Stripe)
     const params = new URLSearchParams(window.location.search)
     const urlView = params.get('view') as View
     if (urlView && VALID_VIEWS.includes(urlView)) {
-      return { view: urlView, articleSlug: null, ticketId: null, questionnaireId: null }
+      return { view: urlView, articleSlug: null, ticketId: null }
     }
+
+    const mapped = URL_TO_VIEW[path]
+    if (mapped) return { view: mapped, articleSlug: null, ticketId: null }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+function restoreNav() {
+  // URL tem prioridade máxima (permite deep-link e compartilhamento)
+  const fromURL = parseURLNav()
+  if (fromURL) return fromURL
+
+  try {
     const raw = localStorage.getItem(PERSIST_KEY)
     if (!raw) return null
     const saved = JSON.parse(raw)
-    // Don't restore auth view on refresh — go home instead
     if (saved.view === 'auth') return null
     if (!VALID_VIEWS.includes(saved.view)) return null
     return saved
@@ -101,12 +164,28 @@ export default function App() {
     navigate('diary')
   }
 
+  // Sincroniza URL com o estado de navegação
+  function pushURL(targetView: string, slug?: string | null, ticketId?: string | null) {
+    let url: string
+    if (targetView === 'article' && slug) {
+      url = `/blog/${slug}`
+    } else if (targetView === 'support-ticket' && ticketId) {
+      url = `/suporte/${ticketId}`
+    } else {
+      url = VIEW_TO_URL[targetView] ?? '/'
+    }
+    if (window.location.pathname !== url) {
+      window.history.pushState({ view: targetView, slug, ticketId }, '', url)
+    }
+  }
+
   const navigate = (section: string, articleSlug?: string) => {
     // Suporte a navegação com aba: 'my-evolution?tab=relatorios'
     if (section.startsWith('my-evolution?tab=')) {
       const tab = section.split('tab=')[1]
       setInitialEvolutionTab(tab)
       setView('my-evolution')
+      pushURL('my-evolution')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -116,6 +195,7 @@ export default function App() {
       const ticketId = section.split('support-ticket:')[1]
       if (ticketId) setActiveSupportTicketId(ticketId)
       setView('support-ticket')
+      pushURL('support-ticket', null, ticketId)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -130,17 +210,35 @@ export default function App() {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
       setView(section as View)
       if (articleSlug) setSelectedArticleSlug(articleSlug)
+      pushURL(section, articleSlug)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
     // Section-based scrolling on home
     setView('home')
+    pushURL('home')
     setTimeout(() => {
       const el = document.getElementById(section)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
   }
+
+  // Suporte ao botão Voltar/Avançar do navegador
+  useEffect(() => {
+    function handlePopState() {
+      const fromURL = parseURLNav()
+      if (fromURL) {
+        setView(fromURL.view)
+        if (fromURL.articleSlug) setSelectedArticleSlug(fromURL.articleSlug)
+        if (fromURL.ticketId) setActiveSupportTicketId(fromURL.ticketId)
+      } else {
+        setView('home')
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   if (loading) {
     return (
@@ -173,7 +271,7 @@ export default function App() {
             user={user}
             profile={profile}
             navigate={navigate}
-            onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); window.scrollTo(0, 0) }}
+            onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
             onSavePromptToDiary={handleSavePromptToDiary}
           />
         </main>
@@ -387,6 +485,7 @@ export default function App() {
               const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
               setSelectedArticleSlug(slug)
               setView('article')
+              pushURL('article', slug)
               window.scrollTo(0, 0)
             }}
           />
@@ -693,6 +792,7 @@ export default function App() {
             const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
             setSelectedArticleSlug(slug)
             setView('article')
+            pushURL('article', slug)
             window.scrollTo(0, 0)
           }}
         />

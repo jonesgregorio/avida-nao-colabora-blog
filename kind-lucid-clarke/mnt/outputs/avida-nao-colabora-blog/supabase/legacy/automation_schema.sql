@@ -1,3 +1,12 @@
+-- ============================================================
+-- automation_schema.sql
+-- ARQUIVO LEGADO — NÃO APLICAR MANUALMENTE.
+-- Todo o conteúdo deste arquivo foi consolidado nas migrations
+-- oficiais (003_z_prereqs.sql, 004_automated_emails.sql e
+-- 046_consolidate_schemas.sql).
+-- Mantido apenas para referência histórica.
+-- ============================================================
+
 -- Tabela de conteúdos automatizados
 CREATE TABLE IF NOT EXISTS automated_contents (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -65,6 +74,12 @@ ALTER TABLE automated_contents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_content_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_notification_preferences ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Public can read active contents" ON automated_contents FOR SELECT USING (is_active = true);
-CREATE POLICY IF NOT EXISTS "Users manage own history" ON user_content_history FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY IF NOT EXISTS "Users manage own preferences" ON user_notification_preferences FOR ALL USING (auth.uid() = user_id);
+-- NOTA: Sintaxe correta em PostgreSQL (sem IF NOT EXISTS em CREATE POLICY)
+DROP POLICY IF EXISTS "Public can read active contents" ON automated_contents;
+CREATE POLICY "Public can read active contents" ON automated_contents FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Users manage own history" ON user_content_history;
+CREATE POLICY "Users manage own history" ON user_content_history FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users manage own preferences" ON user_notification_preferences;
+CREATE POLICY "Users manage own preferences" ON user_notification_preferences FOR ALL USING (auth.uid() = user_id);

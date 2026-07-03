@@ -181,22 +181,6 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     return new Date() // sem histórico: ciclo começa agora
   }
 
-  async function recordChange(opts: {
-    oldPlan: string; newPlan: string; changeType: string;
-    amount?: number; notes?: string; effectiveAt?: string
-  }) {
-    await supabase.from('plan_change_history').insert({
-      user_id: user!.id,
-      old_plan: opts.oldPlan,
-      new_plan: opts.newPlan,
-      change_type: opts.changeType,
-      amount_charged: opts.amount ?? 0,
-      effective_at: opts.effectiveAt ?? new Date().toISOString(),
-      source: 'user',
-      notes: opts.notes ?? null,
-    })
-  }
-
   async function handleUpgrade(targetPlan: string) {
     setActing(true)
     setActionMsg(null)
@@ -210,14 +194,9 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
         throw new Error(error?.message ?? 'URL de checkout não retornada')
       }
 
-      // Registra intenção no histórico (não altera profiles.plan)
-      await recordChange({
-        oldPlan: currentPlan, newPlan: targetPlan, changeType: 'upgrade_intent',
-        notes: 'Checkout Stripe iniciado. Plano será ativado após confirmação de pagamento.',
-      }).catch(e => console.error('recordChange upgrade_intent:', e))
-
       setModal(null)
       // Redireciona para o checkout Stripe — plano só muda via webhook após pagamento
+      // O histórico de mudança é registrado pelo webhook (service role), não pelo frontend
       window.location.href = data.url
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'

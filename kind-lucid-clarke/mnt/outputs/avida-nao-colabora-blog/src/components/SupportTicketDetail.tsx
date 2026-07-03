@@ -106,38 +106,45 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
   }, [])
 
   const fetchData = useCallback(async (silent = false) => {
-    if (!user) return
-
-    const { data: ticketData, error } = await supabase
-      .from('support_tickets')
-      .select('*')
-      .eq('id', ticketId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (error || !ticketData) {
-      if (!silent) setNotFound(true)
+    if (!user) {
+      if (!silent) setLoading(false)
       return
     }
 
-    const { data: msgData } = await supabase
-      .from('ticket_messages')
-      .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at')
-      .eq('ticket_id', ticketId)
-      .eq('is_internal', false)
-      .order('created_at', { ascending: true })
+    try {
+      const { data: ticketData, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('id', ticketId)
+        .eq('user_id', user.id)
+        .single()
 
-    const msgs: Message[] = (msgData || []).map(m => ({ ...m, sender_name: null }))
-    const all: Message[] = [descriptionAsMessage(ticketData), ...msgs]
+      if (error || !ticketData) {
+        if (!silent) { setNotFound(true); setLoading(false) }
+        return
+      }
 
-    setTicket(ticketData)
-    setMessages(prev => {
-      if (silent && all.length === lastCountRef.current) return prev
-      lastCountRef.current = all.length
-      return all
-    })
+      const { data: msgData } = await supabase
+        .from('ticket_messages')
+        .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at')
+        .eq('ticket_id', ticketId)
+        .eq('is_internal', false)
+        .order('created_at', { ascending: true })
 
-    if (!silent) setLoading(false)
+      const msgs: Message[] = (msgData || []).map(m => ({ ...m, sender_name: null }))
+      const all: Message[] = [descriptionAsMessage(ticketData), ...msgs]
+
+      setTicket(ticketData)
+      setMessages(prev => {
+        if (silent && all.length === lastCountRef.current) return prev
+        lastCountRef.current = all.length
+        return all
+      })
+    } catch {
+      if (!silent) setNotFound(true)
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }, [ticketId, user])
 
   useEffect(() => {
