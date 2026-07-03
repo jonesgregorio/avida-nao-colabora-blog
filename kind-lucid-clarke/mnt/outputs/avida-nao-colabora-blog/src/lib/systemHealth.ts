@@ -161,29 +161,64 @@ export async function checkSitePublic(): Promise<HealthCheckResult> {
 }
 
 export async function checkAI(): Promise<HealthCheckResult> {
+  // MONITOR de disponibilidade da IA. Faz algumas tentativas para não acusar
+  // falha em blips transitórios. NÃO altera provedor, prompt, modelo ou o
+  // serviço de geração do app — apenas mede se o provedor externo responde.
+  const attempts = 2
   const t0 = Date.now()
-  try {
-    const res = await withTimeout(
-      fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: 'Responda apenas com o texto: OK_MONITORAMENTO_IA' }],
-          model: 'openai',
-          private: true,
+  let lastStatus = 0
+  let lastErr = ''
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await withTimeout(
+        fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: 'Responda apenas com o texto: OK_MONITORAMENTO_IA' }],
+            model: 'openai',
+            private: true,
+          }),
         }),
-      }),
-      TIMEOUT_AI,
-    )
-    const ms = Date.now() - t0
-    if (!res.ok) return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status: 'error', errorMessage: `HTTP ${res.status}`, responseTimeMs: ms, severity: 'high' }
-    const text = await res.text()
-    if (!text || text.trim().length === 0) return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status: 'error', errorMessage: 'Resposta vazia', responseTimeMs: ms, severity: 'high' }
-    const status: CheckStatus = ms > 8000 ? 'warning' : 'ok'
-    return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status, responseTimeMs: ms, details: { responsePreview: text.slice(0, 80) }, severity: ms > 8000 ? 'medium' : 'info' }
-  } catch (e) {
-    return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
+        TIMEOUT_AI,
+      )
+      if (res.ok) {
+        const text = await res.text()
+        const ms = Date.now() - t0
+        if (text && text.trim().length > 0) {
+          const status: CheckStatus = ms > 8000 ? 'warning' : 'ok'
+          return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status, responseTimeMs: ms, details: { responsePreview: text.slice(0, 80) }, severity: ms > 8000 ? 'medium' : 'info' }
+        }
+        lastStatus = res.status
+        lastErr = 'Resposta vazia'
+      } else {
+        lastStatus = res.status
+        lastErr = `HTTP ${res.status}`
+      }
+    } catch (e) {
+      lastStatus = 0
+      lastErr = String(e)
+    }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, 1200))
   }
+
+  const ms = Date.now() - t0
+  // 429 (limite), 5xx e timeout são instabilidade EXTERNA do provedor. Como o
+  // app tem fallback local (ver checkAIFallback), isso é degradação (alerta),
+  // não erro crítico — o app continua funcionando.
+  const isExternalTransient = lastStatus === 429 || lastStatus >= 500 || lastStatus === 0
+  if (isExternalTransient) {
+    return {
+      checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai',
+      status: 'warning',
+      errorMessage: `IA externa instável/limitada (${lastErr}) — app usa fallback local.`,
+      responseTimeMs: ms,
+      details: { external: true, lastStatus, fallback: 'ativo', note: 'Provedor gratuito Pollinations sob limite/instabilidade. Geração no app segue via fallback.' },
+      severity: 'medium',
+    }
+  }
+  return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status: 'error', errorMessage: lastErr, responseTimeMs: ms, severity: 'high' }
 }
 
 export async function checkAIFallback(): Promise<HealthCheckResult> {
@@ -198,18 +233,30 @@ export async function checkAIFallback(): Promise<HealthCheckResult> {
 }
 
 export async function checkPayments(): Promise<HealthCheckResult> {
-  // Verifica apenas se ambiente/configuração de pagamento está definido
-  // Nunca cria cobrança real
-  const stripeKey = import.meta.env?.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env?.VITE_STRIPE_PUBLIC_KEY
-  const hasStripeKey = typeof stripeKey === 'string' && stripeKey.length > 0
-  const isSandbox = (stripeKey as string | undefined)?.startsWith('pk_test_') ?? false
-  if (!hasStripeKey) {
-    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Gateway de pagamento não configurado', details: { note: 'Pagamento real não implementado ou chave ausente.' }, severity: 'low' }
+  // Este app usa checkout SERVER-SIDE: o frontend chama a Edge Function
+  // create-checkout (STRIPE_SECRET_KEY no servidor). Não existe chave publicável
+  // no frontend — por isso procurar VITE_STRIPE_PUBLISHABLE_KEY dava um falso
+  // "não configurado".
+  // Verificamos se a função de checkout está no ar via OPTIONS (preflight CORS):
+  // ela responde 'ok' de imediato — sem auth, sem criar cobrança e sem gerar
+  // log de erro. 404 = função não implantada.
+  const base = import.meta.env?.VITE_SUPABASE_URL as string | undefined
+  if (!base) {
+    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'error', errorMessage: 'VITE_SUPABASE_URL ausente no build', severity: 'high' }
   }
-  if (!isSandbox) {
-    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Chave não é de sandbox/teste', severity: 'medium' }
+
+  const t0 = Date.now()
+  try {
+    const res = await withTimeout(fetch(`${base}/functions/v1/create-checkout`, { method: 'OPTIONS' }), TIMEOUT_LIGHT)
+    const ms = Date.now() - t0
+    if (res.status === 404) {
+      return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Edge Function create-checkout não encontrada (404)', details: { hint: 'Faça deploy: supabase functions deploy create-checkout' }, responseTimeMs: ms, severity: 'medium' }
+    }
+    // Qualquer resposta que não seja 404 = função implantada e acessível
+    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'ok', responseTimeMs: ms, details: { note: 'Checkout server-side ativo (Edge Function create-checkout acessível).' }, severity: 'info' }
+  } catch (e) {
+    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Não foi possível acessar a função de checkout: ' + String(e), details: { hint: 'Verifique se create-checkout está implantada e os secrets Stripe configurados.' }, responseTimeMs: Date.now() - t0, severity: 'medium' }
   }
-  return { checkKey: 'payments', checkName: 'Pagamentos (Sandbox)', category: 'payments', status: 'ok', details: { mode: 'sandbox', note: 'Apenas sandbox — sem cobranças reais.' }, severity: 'info' }
 }
 
 export async function checkRLSPersonalization(): Promise<HealthCheckResult> {

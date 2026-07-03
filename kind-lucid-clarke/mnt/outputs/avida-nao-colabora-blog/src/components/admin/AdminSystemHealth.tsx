@@ -90,6 +90,20 @@ const CATEGORY_ICON: Record<string, typeof Database> = {
   security:        Shield,
 }
 
+// Orientações para checks que NÃO se corrigem por schema (externos/config).
+// Exibidas quando o botão tenta recuperar mas o problema persiste.
+const REMEDIATION_HINTS: Record<string, string> = {
+  ai_provider: 'IA externa (Pollinations) instável/limitada. O app segue via fallback local. Tente novamente em instantes.',
+  ai: 'IA externa instável/limitada. Fallback local ativo — geração do app não para.',
+  ai_fallback: 'Fallback local com problema — verifique src/lib de conteúdo IA.',
+  payments: 'Checkout é server-side. Confirme se a Edge Function create-checkout está implantada e os secrets Stripe (STRIPE_SECRET_KEY, STRIPE_PRICE_*) configurados no Supabase.',
+  site_public: 'Instabilidade de rede/hospedagem. Tente novamente; se persistir, verifique o deploy (Vercel).',
+  site: 'Instabilidade de rede/hospedagem.',
+  admin_session: 'Sessão expirada. Saia e entre novamente para renovar o token.',
+  auth: 'Sessão expirada — refaça login.',
+  rls_personalization: 'RLS de personalização bloqueando. Rode o auto-reparo das tabelas de personalização ou revise as policies.',
+}
+
 function StatusBadge({ status }: { status: CheckStatus }) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_COLOR[status]}`}>
@@ -228,33 +242,58 @@ export default function AdminSystemHealth() {
     setRunningKeys(prev => { const n = new Set(prev); n.delete(checkKey); return n })
   }
 
-  // Auto-reparo: chama a RPC no servidor e reexecuta o check para confirmar a correção real
+  // Correção com 1 clique. Schema → RPC real no servidor. Externos/config →
+  // tenta recuperar com novas tentativas e orienta a correção.
   async function handleAutofix(checkKey: string) {
     if (fixingKeys.has(checkKey)) return
     setFixingKeys(prev => new Set([...prev, checkKey]))
     try {
-      const fix = await autofixCheck(checkKey)
-      if (!fix.success) {
-        showToast(fix.fixable ? `Falha no reparo: ${fix.message}` : fix.message, true)
-      } else {
-        // Reexecuta o teste para confirmar que o erro foi corrigido de fato
-        const res = await runSingleCheck(checkKey)
-        if (res) {
-          mergeResults([res])
-          await saveHealthCheckResults([res])
-          if (res.status === 'ok' || res.status === 'warning') {
-            await resolveIncidentsByCheckKey(checkKey)
-            await loadIncidents().then(setIncidents)
-            showToast(`Corrigido: ${fix.message}`)
-          } else {
-            showToast(`Reparo aplicado, mas o teste ainda falha: ${res.errorMessage ?? ''}`, true)
-          }
+      if (isAutofixable(checkKey)) {
+        const fix = await autofixCheck(checkKey)
+        if (!fix.success) {
+          showToast(fix.fixable ? `Falha no reparo: ${fix.message}` : fix.message, true)
         } else {
-          showToast(fix.message)
+          // Reexecuta o teste para confirmar que o erro foi corrigido de fato
+          const res = await runSingleCheck(checkKey)
+          if (res) {
+            mergeResults([res])
+            await saveHealthCheckResults([res])
+            if (res.status === 'ok' || res.status === 'warning') {
+              await resolveIncidentsByCheckKey(checkKey)
+              await loadIncidents().then(setIncidents)
+              showToast(`Corrigido: ${fix.message}`)
+            } else {
+              showToast(`Reparo aplicado, mas o teste ainda falha: ${res.errorMessage ?? ''}`, true)
+            }
+          } else {
+            showToast(fix.message)
+          }
+        }
+      } else {
+        // Check externo/config: tenta recuperar com até 3 novas tentativas
+        let last: HealthCheckResult | null = null
+        let recovered = false
+        for (let i = 0; i < 3 && !recovered; i++) {
+          if (i > 0) await new Promise(r => setTimeout(r, 1500))
+          last = await runSingleCheck(checkKey)
+          if (last) {
+            mergeResults([last])
+            if (last.status === 'ok') recovered = true
+          }
+        }
+        if (last) await saveHealthCheckResults([last])
+        if (recovered) {
+          await resolveIncidentsByCheckKey(checkKey)
+          await loadIncidents().then(setIncidents)
+          showToast('Recuperado após nova tentativa.')
+        } else {
+          const hint = REMEDIATION_HINTS[checkKey] ?? REMEDIATION_HINTS[last?.category ?? ''] ?? 'Causa externa ou de configuração — verifique manualmente.'
+          const stillWarn = last?.status === 'warning'
+          showToast(`${stillWarn ? 'Segue em alerta (degradado): ' : 'Não resolvido automaticamente: '}${hint}`, !stillWarn)
         }
       }
     } catch (e) {
-      showToast('Erro no auto-reparo: ' + String(e), true)
+      showToast('Erro ao corrigir: ' + String(e), true)
     }
     setFixingKeys(prev => { const n = new Set(prev); n.delete(checkKey); return n })
   }
@@ -508,15 +547,15 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
-                          {r.status === 'error' && isAutofixable(r.checkKey) && (
+                          {(r.status === 'error' || r.status === 'warning') && (
                             <button
                               onClick={() => onAutofix(r.checkKey)}
                               disabled={fixingKeys.has(r.checkKey)}
-                              title="A IA corrige o problema automaticamente"
+                              title={isAutofixable(r.checkKey) ? 'Corrige o problema criando/ajustando o schema no banco' : 'Tenta recuperar o serviço e mostra a orientação de correção'}
                               className="flex items-center gap-1 text-xs text-white bg-amber-500 hover:bg-amber-600 px-2 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
                             >
                               {fixingKeys.has(r.checkKey) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
-                              Corrigir
+                              {isAutofixable(r.checkKey) ? 'Corrigir' : 'Tentar corrigir'}
                             </button>
                           )}
                           <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg">
@@ -779,15 +818,15 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
-                        {inc.check_key && inc.status !== 'resolved' && isAutofixable(inc.check_key) && (
+                        {inc.check_key && inc.status !== 'resolved' && (
                           <button
                             onClick={() => onAutofix(inc.check_key!)}
                             disabled={fixingKeys.has(inc.check_key)}
-                            title="A IA corrige o problema automaticamente"
+                            title={isAutofixable(inc.check_key) ? 'Corrige criando/ajustando o schema no banco' : 'Tenta recuperar o serviço e orienta a correção'}
                             className="flex items-center gap-1 text-xs text-white bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 rounded disabled:opacity-50 whitespace-nowrap"
                           >
                             {fixingKeys.has(inc.check_key) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
-                            Corrigir
+                            {isAutofixable(inc.check_key) ? 'Corrigir' : 'Tentar corrigir'}
                           </button>
                         )}
                         {inc.check_key && (
