@@ -13,7 +13,7 @@ import {
   loadIncidents, loadReports, loadLatestChecks,
   autofixCheck, autofixAllChecks, resolveIncidentsByCheckKey, isAutofixable,
 } from '../../lib/systemHealth'
-import { getActiveProvider, availableProviders, persistActiveProvider, PROVIDER_LABELS, loadActiveProviderFromDB } from '../../lib/aiContent'
+import { getActiveProvider, availableProviders, persistActiveProvider, PROVIDER_LABELS, loadActiveProviderFromDB, testProvider, type AIProvider } from '../../lib/aiContent'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -250,22 +250,33 @@ export default function AdminSystemHealth() {
     setFixingKeys(prev => new Set([...prev, checkKey]))
     try {
       if (checkKey === 'ai_provider') {
-        // Troca a IA ativa para o próximo provider disponível (Gemini, Groq…)
+        // Testa as outras IAs em ORDEM CÍCLICA (começando depois da ativa) e
+        // ativa a PRIMEIRA que responder. Antes ia só para alts[0], então
+        // oscilava Pollinations↔Gemini e nunca chegava no Groq.
         const active = getActiveProvider()
-        const alts = availableProviders().filter(p => p !== active)
-        if (alts.length === 0) {
-          showToast('Nenhuma IA alternativa configurada. Adicione VITE_GEMINI_API_KEY (ou VITE_GROQ_API_KEY) no deploy e tente de novo.', true)
+        const all = availableProviders()
+        const start = all.indexOf(active)
+        const others: AIProvider[] = start >= 0
+          ? [...all.slice(start + 1), ...all.slice(0, start)]
+          : all
+        if (others.length === 0) {
+          showToast('Nenhuma IA alternativa configurada. Adicione VITE_GEMINI_API_KEY ou VITE_GROQ_API_KEY no deploy.', true)
         } else {
-          const next = alts[0]
-          await persistActiveProvider(next)
+          let working: AIProvider | null = null
+          for (const p of others) {
+            const t = await testProvider(p)
+            if (t.ok) { working = p; break }
+          }
+          const chosen = working ?? others[0]
+          await persistActiveProvider(chosen)
           const res = await runSingleCheck('ai_provider')
           if (res) { mergeResults([res]); await saveHealthCheckResults([res]) }
-          if (res && res.status === 'ok') {
+          if (working) {
             await resolveIncidentsByCheckKey('ai_provider')
             await loadIncidents().then(setIncidents)
-            showToast(`IA ativa trocada para ${PROVIDER_LABELS[next]}.`)
+            showToast(`IA ativa trocada para ${PROVIDER_LABELS[working]} (respondendo).`)
           } else {
-            showToast(`Troquei para ${PROVIDER_LABELS[next]}, mas o teste ainda não passou: ${res?.errorMessage ?? ''}`, true)
+            showToast(`Todas as IAs estão limitadas no momento. Ativei ${PROVIDER_LABELS[chosen]}; na geração real o failover tenta as outras automaticamente.`, true)
           }
         }
       } else if (isAutofixable(checkKey)) {
