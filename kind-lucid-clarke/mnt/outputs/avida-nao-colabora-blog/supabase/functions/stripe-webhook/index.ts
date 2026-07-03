@@ -20,6 +20,37 @@ function buildPlanByPrice(): Record<string, string> {
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
 
+const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com.br'
+
+// Dispara e-mail transacional via Edge Function (service role).
+// NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
+async function sendTxEmail(
+  templateKey: string,
+  toEmail: string | null | undefined,
+  variables: Record<string, unknown>,
+  idempotencyKey: string,
+  userId?: string | null,
+): Promise<void> {
+  if (!toEmail) return
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    await fetch(`${url}/functions/v1/send-transactional-email`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'apikey': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId ?? null, to_email: toEmail, template_key: templateKey, variables, idempotency_key: idempotencyKey }),
+    })
+  } catch (e) {
+    console.error('sendTxEmail falhou:', templateKey, (e as Error).message)
+  }
+}
+
+async function getRecipient(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ email?: string; nome: string }> {
+  const { data } = await supabase.from('profiles').select('email, full_name').eq('user_id', userId).maybeSingle()
+  const row = data as { email?: string; full_name?: string } | null
+  return { email: row?.email ?? undefined, nome: row?.full_name || 'você' }
+}
+
 Deno.serve(async (req) => {
   const signature = req.headers.get('stripe-signature')
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
@@ -126,6 +157,22 @@ Deno.serve(async (req) => {
     if (notifErr) console.error('Erro ao criar notificação (checkout):', notifErr)
 
     console.log(`checkout.session.completed: plano "${plan}" ativado para usuário ${userId}`)
+
+    // ── E-mails transacionais (não bloqueiam o pagamento) ──
+    const { email, nome } = await getRecipient(supabase, userId)
+    const valor = ((session.amount_total ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    await sendTxEmail('payment_confirmed', email, {
+      nome, plano: plan, valor,
+      data_pagamento: new Date().toLocaleDateString('pt-BR'),
+      inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
+      fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
+      link_meu_plano: `${SITE}/meu-plano`,
+    }, `payment_confirmed:${session.id}`, userId)
+    if (oldPlan === 'free') {
+      await sendTxEmail('plan_activated', email, { nome, plano: plan, beneficios_do_plano: '', link_meu_plano: `${SITE}/meu-plano` }, `plan_activated:${session.id}`, userId)
+    } else if (oldPlan !== plan) {
+      await sendTxEmail('plan_upgraded', email, { nome, plano_antigo: oldPlan, plano_novo: plan, link_meu_plano: `${SITE}/meu-plano` }, `plan_upgraded:${session.id}`, userId)
+    }
   }
 
   // ────────────────────────────────────────────────────────────
@@ -220,6 +267,17 @@ Deno.serve(async (req) => {
     if (notifErr) console.error('Erro ao criar notificação (invoice):', notifErr)
 
     console.log(`invoice.payment_succeeded: plano "${plan}" renovado para customer ${customerId} (user ${userId})`)
+
+    // ── E-mail de renovação (não bloqueia) ──
+    const { email: rEmail, nome: rNome } = await getRecipient(supabase, userId)
+    const rValor = ((invoice.amount_paid ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    await sendTxEmail('payment_confirmed', rEmail, {
+      nome: rNome, plano: plan, valor: rValor,
+      data_pagamento: new Date().toLocaleDateString('pt-BR'),
+      inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
+      fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
+      link_meu_plano: `${SITE}/meu-plano`,
+    }, `payment_confirmed:${invoice.id}`, userId)
   }
 
   // ────────────────────────────────────────────────────────────
@@ -305,6 +363,33 @@ Deno.serve(async (req) => {
     if (notifErr) console.error('Erro ao criar notificação (deleted):', notifErr)
 
     console.log(`customer.subscription.deleted: plano revertido para "${finalPlan}" — customer ${customerId} (user ${userId})`)
+
+    // ── E-mail de retorno ao Gratuito (não bloqueia) ──
+    if (finalPlan === 'free') {
+      const { email: dEmail, nome: dNome } = await getRecipient(supabase, userId)
+      await sendTxEmail('plan_returned_to_free', dEmail, {
+        nome: dNome, plano_anterior: oldPlan, link_meu_plano: `${SITE}/meu-plano`,
+      }, `plan_returned_to_free:${subscription.id}`, userId)
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Pagamento recusado → avisa o usuário
+  // ────────────────────────────────────────────────────────────
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as Stripe.Invoice
+    const customerId = invoice.customer as string
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('user_id, plan, email, full_name')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle()
+    const p = prof as { user_id?: string; plan?: string; email?: string; full_name?: string } | null
+    if (p?.email) {
+      await sendTxEmail('payment_failed', p.email, {
+        nome: p.full_name || 'você', plano: p.plan || '', link_pagamento: `${SITE}/meu-plano`,
+      }, `payment_failed:${invoice.id}`, p.user_id)
+    }
   }
 
   return new Response(JSON.stringify({ received: true }), {

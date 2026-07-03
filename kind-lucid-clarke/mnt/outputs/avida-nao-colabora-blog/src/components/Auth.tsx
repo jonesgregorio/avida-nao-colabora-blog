@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Eye, EyeOff, Heart } from 'lucide-react'
+import { emailWelcome } from '../lib/emailTriggers'
 
 type AuthMode = 'login' | 'signup' | 'reset'
 
@@ -30,13 +31,17 @@ export default function Auth({ onBack }: AuthProps) {
         if (error) throw error
         onBack()
       } else if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: name } },
         })
         if (error) throw error
-        // Perfil criado automaticamente pelo trigger handle_new_user no banco
+        // Perfil criado automaticamente pelo trigger handle_new_user no banco.
+        // E-mail de boas-vindas (best-effort; nunca bloqueia o cadastro).
+        if (signUpData.user) {
+          void emailWelcome(signUpData.user.id, email, name || 'você')
+        }
         setSuccess('Conta criada com sucesso! Verifique seu e-mail se necessário.')
         setTimeout(() => onBack(), 2000)
       } else {

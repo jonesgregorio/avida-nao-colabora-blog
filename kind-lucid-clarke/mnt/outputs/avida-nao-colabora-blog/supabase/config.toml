@@ -43,3 +43,8 @@ verify_jwt = false
 # send-automated-emails é disparada por agendamento (sem JWT de usuário).
 [functions.send-automated-emails]
 verify_jwt = false
+
+# send-transactional-email faz a própria autenticação (service role | admin |
+# self-service), então o gateway não deve bloquear por JWT.
+[functions.send-transactional-email]
+verify_jwt = false

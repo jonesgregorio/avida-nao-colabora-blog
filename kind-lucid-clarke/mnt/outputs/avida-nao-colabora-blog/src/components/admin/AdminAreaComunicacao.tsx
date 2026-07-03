@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Bell, Zap, Calendar } from 'lucide-react'
+import { Bell, Zap, Calendar, Mail } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminAutomated from './AdminAutomated'
 import AdminScheduled from './AdminScheduled'
+import AdminEmails from './AdminEmails'
 
 // Abas de Automação de Conteúdo (sub-área)
 const AUTO_TABS = [
@@ -14,6 +15,7 @@ type AutoTab = typeof AUTO_TABS[number]['id']
 
 const TABS = [
   { id: 'notificacoes', label: 'Notificações',          icon: Bell },
+  { id: 'emails',       label: 'E-mails',               icon: Mail },
   { id: 'automaticos',  label: 'Automação de Conteúdo', icon: Zap },
 ] as const
 
@@ -100,6 +102,7 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
       </div>
       <div className="flex-1">
         {tab === 'notificacoes' && <AdminNotifications />}
+        {tab === 'emails'       && <AdminEmails />}
         {tab === 'automaticos'  && <AutomacaoConteudo />}
       </div>
     </div>
