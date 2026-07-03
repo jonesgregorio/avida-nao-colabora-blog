@@ -32,3 +32,14 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://avida-nao-colabora-blog.vercel.app"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
+
+# ── Edge Functions ────────────────────────────────────────────────────────────
+# stripe-webhook é chamado pelo Stripe SEM JWT do Supabase (autentica via
+# assinatura Stripe), então precisa de verify_jwt = false — senão o gateway
+# devolve 401 antes da função rodar.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# send-automated-emails é disparada por agendamento (sem JWT de usuário).
+[functions.send-automated-emails]
+verify_jwt = false
