@@ -13,6 +13,7 @@ import {
   loadIncidents, loadReports, loadLatestChecks,
   autofixCheck, autofixAllChecks, resolveIncidentsByCheckKey, isAutofixable,
 } from '../../lib/systemHealth'
+import { getActiveProvider, availableProviders, persistActiveProvider, PROVIDER_LABELS, loadActiveProviderFromDB } from '../../lib/aiContent'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -248,7 +249,26 @@ export default function AdminSystemHealth() {
     if (fixingKeys.has(checkKey)) return
     setFixingKeys(prev => new Set([...prev, checkKey]))
     try {
-      if (isAutofixable(checkKey)) {
+      if (checkKey === 'ai_provider') {
+        // Troca a IA ativa para o próximo provider disponível (Gemini, Groq…)
+        const active = getActiveProvider()
+        const alts = availableProviders().filter(p => p !== active)
+        if (alts.length === 0) {
+          showToast('Nenhuma IA alternativa configurada. Adicione VITE_GEMINI_API_KEY (ou VITE_GROQ_API_KEY) no deploy e tente de novo.', true)
+        } else {
+          const next = alts[0]
+          await persistActiveProvider(next)
+          const res = await runSingleCheck('ai_provider')
+          if (res) { mergeResults([res]); await saveHealthCheckResults([res]) }
+          if (res && res.status === 'ok') {
+            await resolveIncidentsByCheckKey('ai_provider')
+            await loadIncidents().then(setIncidents)
+            showToast(`IA ativa trocada para ${PROVIDER_LABELS[next]}.`)
+          } else {
+            showToast(`Troquei para ${PROVIDER_LABELS[next]}, mas o teste ainda não passou: ${res?.errorMessage ?? ''}`, true)
+          }
+        }
+      } else if (isAutofixable(checkKey)) {
         const fix = await autofixCheck(checkKey)
         if (!fix.success) {
           showToast(fix.fixable ? `Falha no reparo: ${fix.message}` : fix.message, true)
@@ -341,12 +361,15 @@ export default function AdminSystemHealth() {
 
   // Carregar dados iniciais
   useEffect(() => {
-    Promise.all([
-      loadLatestChecks().then(mergeResults),
-      loadIncidents().then(setIncidents),
-      loadReports().then(setReports),
-    ])
-    doQuickCheck()
+    void (async () => {
+      await loadActiveProviderFromDB()
+      await Promise.all([
+        loadLatestChecks().then(mergeResults),
+        loadIncidents().then(setIncidents),
+        loadReports().then(setReports),
+      ])
+      doQuickCheck()
+    })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

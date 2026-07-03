@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getActiveProvider, availableProviders, testProvider, PROVIDER_LABELS } from './aiContent'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,6 @@ export interface HealthReport {
 // ── Timeouts ──────────────────────────────────────────────────────────────────
 
 const TIMEOUT_LIGHT = 5000
-const TIMEOUT_AI    = 15000
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -161,64 +161,30 @@ export async function checkSitePublic(): Promise<HealthCheckResult> {
 }
 
 export async function checkAI(): Promise<HealthCheckResult> {
-  // MONITOR de disponibilidade da IA. Faz algumas tentativas para não acusar
-  // falha em blips transitórios. NÃO altera provedor, prompt, modelo ou o
-  // serviço de geração do app — apenas mede se o provedor externo responde.
-  const attempts = 2
-  const t0 = Date.now()
-  let lastStatus = 0
-  let lastErr = ''
+  // Testa o provider de IA ATIVO. Se ele falhar mas houver outro configurado,
+  // é degradação (o app faz failover automático) → alerta, e o botão "Corrigir"
+  // troca para o próximo. Sem alternativa configurada → erro.
+  const active = getActiveProvider()
+  const label = PROVIDER_LABELS[active]
+  const res = await testProvider(active)
 
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await withTimeout(
-        fetch('https://text.pollinations.ai/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: 'Responda apenas com o texto: OK_MONITORAMENTO_IA' }],
-            model: 'openai',
-            private: true,
-          }),
-        }),
-        TIMEOUT_AI,
-      )
-      if (res.ok) {
-        const text = await res.text()
-        const ms = Date.now() - t0
-        if (text && text.trim().length > 0) {
-          const status: CheckStatus = ms > 8000 ? 'warning' : 'ok'
-          return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status, responseTimeMs: ms, details: { responsePreview: text.slice(0, 80) }, severity: ms > 8000 ? 'medium' : 'info' }
-        }
-        lastStatus = res.status
-        lastErr = 'Resposta vazia'
-      } else {
-        lastStatus = res.status
-        lastErr = `HTTP ${res.status}`
-      }
-    } catch (e) {
-      lastStatus = 0
-      lastErr = String(e)
-    }
-    if (i < attempts - 1) await new Promise(r => setTimeout(r, 1200))
+  if (res.ok) {
+    const status: CheckStatus = res.ms > 8000 ? 'warning' : 'ok'
+    return { checkKey: 'ai_provider', checkName: `IA (${label})`, category: 'ai', status, responseTimeMs: res.ms, details: { provider: active }, severity: status === 'warning' ? 'medium' : 'info' }
   }
 
-  const ms = Date.now() - t0
-  // 429 (limite), 5xx e timeout são instabilidade EXTERNA do provedor. Como o
-  // app tem fallback local (ver checkAIFallback), isso é degradação (alerta),
-  // não erro crítico — o app continua funcionando.
-  const isExternalTransient = lastStatus === 429 || lastStatus >= 500 || lastStatus === 0
-  if (isExternalTransient) {
-    return {
-      checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai',
-      status: 'warning',
-      errorMessage: `IA externa instável/limitada (${lastErr}) — app usa fallback local.`,
-      responseTimeMs: ms,
-      details: { external: true, lastStatus, fallback: 'ativo', note: 'Provedor gratuito Pollinations sob limite/instabilidade. Geração no app segue via fallback.' },
-      severity: 'medium',
-    }
+  const alternatives = availableProviders().filter(p => p !== active)
+  const hasAlt = alternatives.length > 0
+  return {
+    checkKey: 'ai_provider', checkName: `IA (${label})`, category: 'ai',
+    status: hasAlt ? 'warning' : 'error',
+    errorMessage: hasAlt
+      ? `${label} indisponível (${res.error}). Clique em Corrigir para ativar ${PROVIDER_LABELS[alternatives[0]]}.`
+      : `${label} indisponível (${res.error}). Nenhuma IA alternativa configurada — adicione VITE_GEMINI_API_KEY e refaça o deploy.`,
+    responseTimeMs: res.ms,
+    details: { provider: active, alternatives, note: hasAlt ? 'Failover disponível.' : 'Sem alternativa configurada.' },
+    severity: hasAlt ? 'medium' : 'high',
   }
-  return { checkKey: 'ai_provider', checkName: 'IA (Pollinations)', category: 'ai', status: 'error', errorMessage: lastErr, responseTimeMs: ms, severity: 'high' }
 }
 
 export async function checkAIFallback(): Promise<HealthCheckResult> {

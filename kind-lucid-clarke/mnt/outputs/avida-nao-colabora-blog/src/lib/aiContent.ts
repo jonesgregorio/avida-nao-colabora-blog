@@ -1,7 +1,10 @@
+import { supabase } from './supabase'
+
 // ─── Camada central de IA para geração de conteúdo ───────────────────────────
-// Provider: Pollinations.ai (gratuito, sem chave de API, sem registro)
-// Fallback: mensagem de erro amigável, nunca trava o admin
-// Para trocar provider no futuro: altere apenas callAI()
+// Providers com failover: Pollinations (grátis, sem chave) + Gemini + Groq.
+// O provider ativo é persistido em ai_settings (migration 048) e pode ser
+// trocado pelo botão "Corrigir" na Saúde do Sistema. Se o ativo falhar, o
+// generateWithFailover cai automaticamente para o próximo disponível.
 
 const POLLINATIONS_URL = 'https://text.pollinations.ai/'
 const TIMEOUT_MS = 35_000
@@ -46,7 +49,162 @@ export interface AICallOptions {
   extras?: string
 }
 
-// ─── Chamada base ao Pollinations.ai ─────────────────────────────────────────
+// ─── Providers de IA + failover ──────────────────────────────────────────────
+// Prioridade: tenta o provider ATIVO; se falhar (limite/erro), cai para o
+// próximo disponível automaticamente. O admin também pode trocar manualmente
+// pelo botão "Corrigir" na Saúde do Sistema.
+
+const GEMINI_MODEL = 'gemini-2.0-flash'
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
+
+export type AIProvider = 'pollinations' | 'gemini' | 'groq'
+
+export const PROVIDER_ORDER: AIProvider[] = ['pollinations', 'gemini', 'groq']
+
+export const PROVIDER_LABELS: Record<AIProvider, string> = {
+  pollinations: 'Pollinations (grátis)',
+  gemini: 'Google Gemini',
+  groq: 'Groq (Llama)',
+}
+
+const AI_PROVIDER_KEY = 'avida_ai_provider'
+
+// Pollinations é keyless; Gemini/Groq exigem chave em variável de ambiente.
+export function providerConfigured(p: AIProvider): boolean {
+  if (p === 'pollinations') return true
+  if (p === 'gemini') return !!import.meta.env?.VITE_GEMINI_API_KEY
+  if (p === 'groq') return !!import.meta.env?.VITE_GROQ_API_KEY
+  return false
+}
+
+export function availableProviders(): AIProvider[] {
+  return PROVIDER_ORDER.filter(providerConfigured)
+}
+
+let activeProviderCache: AIProvider | null = null
+
+export function getActiveProvider(): AIProvider {
+  if (activeProviderCache) return activeProviderCache
+  try {
+    const saved = localStorage.getItem(AI_PROVIDER_KEY) as AIProvider | null
+    if (saved && PROVIDER_ORDER.includes(saved)) { activeProviderCache = saved; return saved }
+  } catch { /* noop */ }
+  activeProviderCache = 'pollinations'
+  return 'pollinations'
+}
+
+export function setActiveProviderLocal(p: AIProvider): void {
+  activeProviderCache = p
+  try { localStorage.setItem(AI_PROVIDER_KEY, p) } catch { /* noop */ }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function callPollinations(prompt: string): Promise<string> {
+  const res = await fetchWithTimeout(POLLINATIONS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'openai', seed: Math.floor(Math.random() * 99999) }),
+  })
+  if (!res.ok) throw new Error(`Pollinations HTTP ${res.status}`)
+  const text = await res.text()
+  if (!text.trim()) throw new Error('Pollinations: resposta vazia')
+  return text.trim()
+}
+
+async function callGemini(prompt: string): Promise<string> {
+  const key = import.meta.env?.VITE_GEMINI_API_KEY as string | undefined
+  if (!key) throw new Error('Gemini: VITE_GEMINI_API_KEY não configurada')
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  })
+  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
+  const data = await res.json()
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text || !String(text).trim()) throw new Error('Gemini: resposta vazia')
+  return String(text).trim()
+}
+
+async function callGroq(prompt: string): Promise<string> {
+  const key = import.meta.env?.VITE_GROQ_API_KEY as string | undefined
+  if (!key) throw new Error('Groq: VITE_GROQ_API_KEY não configurada')
+  const res = await fetchWithTimeout(GROQ_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }] }),
+  })
+  if (!res.ok) throw new Error(`Groq HTTP ${res.status}`)
+  const data = await res.json()
+  const text = data?.choices?.[0]?.message?.content
+  if (!text || !String(text).trim()) throw new Error('Groq: resposta vazia')
+  return String(text).trim()
+}
+
+const PROVIDER_FN: Record<AIProvider, (p: string) => Promise<string>> = {
+  pollinations: callPollinations,
+  gemini: callGemini,
+  groq: callGroq,
+}
+
+// Tenta o provider ativo e, em caso de falha, faz failover para os próximos
+// disponíveis. Se um provider de fallback funcionar, ele é promovido a ativo.
+export async function generateWithFailover(prompt: string): Promise<string> {
+  const active = getActiveProvider()
+  const order = [active, ...availableProviders().filter(p => p !== active)].filter(providerConfigured)
+  const tried: string[] = []
+  for (const p of order) {
+    try {
+      const out = await PROVIDER_FN[p](prompt)
+      if (p !== active) setActiveProviderLocal(p)
+      return out
+    } catch (err) {
+      tried.push(`${PROVIDER_LABELS[p]}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+  throw new Error(`Todas as IAs disponíveis falharam. ${tried.join(' | ')}`)
+}
+
+// Testa um provider específico (para o health check). Prompt mínimo.
+export async function testProvider(p: AIProvider): Promise<{ ok: boolean; error?: string; ms: number }> {
+  const t0 = Date.now()
+  if (!providerConfigured(p)) return { ok: false, error: 'Não configurada (sem chave de API)', ms: 0 }
+  try {
+    const out = await PROVIDER_FN[p]('Responda apenas com o texto: OK')
+    return { ok: !!out.trim(), ms: Date.now() - t0 }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e), ms: Date.now() - t0 }
+  }
+}
+
+// Sincroniza o provider ativo a partir do banco (ai_settings).
+export async function loadActiveProviderFromDB(): Promise<AIProvider> {
+  try {
+    const { data } = await supabase.from('ai_settings').select('active_provider').eq('id', 1).maybeSingle()
+    const p = (data as { active_provider?: string } | null)?.active_provider as AIProvider | undefined
+    if (p && PROVIDER_ORDER.includes(p)) { setActiveProviderLocal(p); return p }
+  } catch { /* noop */ }
+  return getActiveProvider()
+}
+
+// Persiste o provider ativo (admin) via RPC + cache local.
+export async function persistActiveProvider(p: AIProvider): Promise<void> {
+  setActiveProviderLocal(p)
+  try { await supabase.rpc('admin_set_ai_provider', { p_provider: p }) } catch { /* noop */ }
+}
+
+// ─── Chamada base (monta o prompt e usa o failover) ──────────────────────────
 
 export async function callAI(prompt: string, options: AICallOptions = {}): Promise<string> {
   const { tone = 'acolhedor', size = 'médio', extras = '' } = options
@@ -61,32 +219,7 @@ ${LANGUAGE_RULES.replace('${' + "''/* será substituído por parâmetro */" + '}
 
 Retorne APENAS o texto final solicitado, sem comentários adicionais.`.trim()
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
-  try {
-    const res = await fetch(POLLINATIONS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: fullPrompt }],
-        model: 'openai',
-        seed: Math.floor(Math.random() * 99999),
-      }),
-      signal: controller.signal,
-    })
-    if (!res.ok) throw new Error(`Serviço indisponível (HTTP ${res.status})`)
-    const text = await res.text()
-    if (!text.trim()) throw new Error('Resposta vazia do servidor de IA')
-    return text.trim()
-  } catch (err: unknown) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Tempo limite excedido (35s). Verifique sua conexão e tente novamente.')
-    }
-    throw err
-  } finally {
-    clearTimeout(timer)
-  }
+  return generateWithFailover(fullPrompt)
 }
 
 // ─── Funções específicas por tipo de conteúdo ────────────────────────────────
@@ -176,29 +309,7 @@ RETORNE APENAS O JSON ABAIXO. SEM texto antes, SEM texto depois, SEM blocos de c
 {"title":"Título do questionário","short_description":"Descrição curta (1 frase)","intro_text":"Texto de boas-vindas acolhedor (2 frases)","completion_text":"Frase de encorajamento ao concluir","estimated_time":5,"questions":[{"text":"Texto da pergunta","type":"single_choice","options":[{"text":"Opção 1","score":1},{"text":"Opção 2","score":2},{"text":"Opção 3","score":3}]}],"results":[{"min":0,"max":5,"label":"Nível leve","description":"Descrição acolhedora","color":"green"},{"min":6,"max":10,"label":"Nível moderado","description":"Descrição acolhedora","color":"yellow"},{"min":11,"max":15,"label":"Nível intenso","description":"Sem diagnóstico clínico","color":"red"}]}
 Gere exatamente 5 perguntas com 3 opções cada, pontuação de 1 a 3. Não use linguagem clínica. Responda SOMENTE com JSON válido.`
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    const res = await fetch(POLLINATIONS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'openai',
-        seed: Math.floor(Math.random() * 99999),
-      }),
-      signal: controller.signal,
-    })
-    if (!res.ok) throw new Error(`Serviço indisponível (HTTP ${res.status})`)
-    const text = await res.text()
-    if (!text.trim()) throw new Error('Resposta vazia')
-    return text.trim()
-  } catch (err: unknown) {
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('Tempo limite atingido (35s). Tente novamente.')
-    throw err
-  } finally {
-    clearTimeout(timer)
-  }
+  return generateWithFailover(prompt)
 }
 
 export async function generateTrailDraft(title: string, opts: AICallOptions = {}): Promise<string> {
