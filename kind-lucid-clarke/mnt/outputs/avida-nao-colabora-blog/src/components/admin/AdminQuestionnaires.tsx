@@ -293,21 +293,21 @@ export default function AdminQuestionnaires() {
         jsonStr = match[0]
       }
       const parsed = JSON.parse(jsonStr)
-      const questions: QQuestion[] = (parsed.questions ?? []).map((q: any) => ({
+      const questions: QQuestion[] = (parsed.questions ?? []).map((q: Record<string, unknown>) => ({
         id: uid(),
         type: (q.type as QuestionType) ?? 'single_choice',
         text: q.text ?? '',
         subtitle: q.subtitle ?? '',
         required: true,
-        options: (q.options ?? []).map((o: any) => ({
+        options: ((q.options as Record<string, unknown>[]) ?? []).map((o) => ({
           id: uid(),
-          text: o.text ?? '',
+          text: (o.text ?? '') as string,
           score: Number(o.score ?? 0),
-          tag: o.tag ?? '',
+          tag: (o.tag ?? '') as string,
         })),
         expanded: true,
       }))
-      const results: QResult[] = (parsed.results ?? []).map((r: any, i: number) => ({
+      const results: QResult[] = (parsed.results ?? []).map((r: Record<string, unknown>, i: number) => ({
         id: uid(),
         min_score: Number(r.min ?? r.min_score ?? 0),
         max_score: Number(r.max ?? r.max_score ?? 10),

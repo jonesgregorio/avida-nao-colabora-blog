@@ -160,8 +160,8 @@ export default function QuestionnairePlayer({
           .order('order_index')
 
         if (qs && qs.length > 0) {
-          const withOpts = await Promise.all(qs.map(async (qq: any) => {
-            if (['single_choice', 'multiple_choice', 'yes_no', 'emotion_select'].includes(qq.question_type)) {
+          const withOpts = await Promise.all(qs.map(async (qq: Record<string, unknown>) => {
+            if (['single_choice', 'multiple_choice', 'yes_no', 'emotion_select'].includes(qq.question_type as string)) {
               const { data: opts } = await supabase
                 .from('questionnaire_options')
                 .select('*')
@@ -171,7 +171,7 @@ export default function QuestionnairePlayer({
             }
             return qq
           }))
-          setQuestions(withOpts)
+          setQuestions(withOpts as unknown as QQuestion[])
         }
       }
 

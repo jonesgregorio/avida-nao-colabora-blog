@@ -4,12 +4,13 @@ import {
   Bookmark, Bell, LifeBuoy, TrendingUp, ChevronDown, Wrench,
   HelpCircle, Map, ClipboardList, Shield,
 } from 'lucide-react'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 
 interface HeaderProps {
   onNavigate: (section: string) => void
-  user: any
+  user: SupabaseUser | null
   profile: Profile | null
   onSignOut: () => void
 }
@@ -233,7 +234,7 @@ export default function Header({ onNavigate, user, profile, onSignOut }: HeaderP
                 >
                   <User className="w-4 h-4" />
                   <span className="max-w-[100px] truncate">
-                    {(profile as any)?.preferred_name || (profile as any)?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'Perfil'}
+                    {profile?.preferred_name || profile?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'Perfil'}
                   </span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
                 </button>

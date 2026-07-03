@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Profile as ProfileType } from '../types'
 import { ArrowLeft, Camera, Crown, TrendingUp, Save, Key, LogOut } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 interface ProfileProps {
-  user: any
+  user: User | null
   profile: ProfileType | null
   onBack: () => void
   onNavigatePricing: () => void
@@ -19,10 +20,10 @@ const planInfo: Record<string, { label: string; color: string; price: string }> 
 }
 
 export default function ProfilePage({ user, profile, onBack, onNavigatePricing, onRefreshProfile }: ProfileProps) {
-  const [displayName, setDisplayName] = useState((profile as any)?.display_name || profile?.full_name || '')
-  const [preferredName, setPreferredName] = useState((profile as any)?.preferred_name || '')
-  const [statusPhrase, setStatusPhrase] = useState((profile as any)?.status_phrase || '')
-  const [notificationFrequency, setNotificationFrequency] = useState((profile as any)?.notification_frequency || 'weekly')
+  const [displayName, setDisplayName] = useState(profile?.display_name || profile?.full_name || '')
+  const [preferredName, setPreferredName] = useState(profile?.preferred_name || '')
+  const [statusPhrase, setStatusPhrase] = useState(profile?.status_phrase || '')
+  const [notificationFrequency, setNotificationFrequency] = useState(profile?.notification_frequency || 'weekly')
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -34,10 +35,10 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
 
   useEffect(() => {
     if (profile) {
-      setDisplayName((profile as any)?.display_name || profile?.full_name || '')
-      setPreferredName((profile as any)?.preferred_name || '')
-      setStatusPhrase((profile as any)?.status_phrase || '')
-      setNotificationFrequency((profile as any)?.notification_frequency || 'weekly')
+      setDisplayName(profile?.display_name || profile?.full_name || '')
+      setPreferredName(profile?.preferred_name || '')
+      setStatusPhrase(profile?.status_phrase || '')
+      setNotificationFrequency(profile?.notification_frequency || 'weekly')
       setAvatarUrl(profile?.avatar_url || '')
     }
   }, [profile])
@@ -51,7 +52,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     }
     setUploadingAvatar(true)
     const ext = file.name.split('.').pop()
-    const path = `${user.id}/avatar.${ext}`
+    const path = `${user!.id}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (!uploadError) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)

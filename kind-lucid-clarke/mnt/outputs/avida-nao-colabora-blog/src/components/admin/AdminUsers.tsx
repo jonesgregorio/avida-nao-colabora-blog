@@ -125,7 +125,7 @@ type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'not
 interface AISummaryRow {
   id: string
   summary: string
-  data_snapshot: any
+  data_snapshot: Record<string, unknown>
   provider: string | null
   created_at: string
 }
@@ -382,8 +382,8 @@ export default function AdminUsers() {
       }
       const summary = await generateUserProfileSummary(data)
       setAiCurrentSummary(summary)
-    } catch (err: any) {
-      setAiMsg({ type: 'err', text: 'Erro ao gerar resumo: ' + (err?.message ?? 'Tente novamente.') })
+    } catch (err) {
+      setAiMsg({ type: 'err', text: 'Erro ao gerar resumo: ' + ((err as Error)?.message ?? 'Tente novamente.') })
     }
     setAiGenerating(false)
   }

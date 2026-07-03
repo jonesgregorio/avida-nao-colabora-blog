@@ -84,7 +84,7 @@ export default function AdminDiaryConfig() {
       const { data } = await supabase.from('diary_plan_configs').select('*')
       if (data && data.length > 0) {
         setConfigs(prev => prev.map(c => {
-          const row = data.find((r: any) => r.plan_key === c.plan)
+          const row = data.find((r: { plan_key: string; config: unknown }) => r.plan_key === c.plan)
           if (!row?.config) return c
           return { ...c, ...row.config }
         }))
@@ -96,7 +96,7 @@ export default function AdminDiaryConfig() {
 
   const cfg = configs.find(c => c.plan === activeTab)!
 
-  function updateCfg(field: keyof DiaryPlanConfig, value: any) {
+  function updateCfg(field: keyof DiaryPlanConfig, value: DiaryPlanConfig[keyof DiaryPlanConfig]) {
     setConfigs(cs => cs.map(c => c.plan === activeTab ? { ...c, [field]: value } : c))
   }
 

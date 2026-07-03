@@ -33,9 +33,9 @@ export function useAuth() {
 
   useEffect(() => {
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
         setUser(session?.user ?? null)
-        if (session?.user) fetchProfile(session.user.id)
+        if (session?.user) await fetchProfile(session.user.id)
       })
       .catch(() => { /* falha silenciosa — mantém user=null */ })
       .finally(() => setLoading(false))

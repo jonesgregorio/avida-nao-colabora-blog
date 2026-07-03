@@ -54,7 +54,7 @@ export default function AdminSelfCarePlans() {
       supabase.from('profiles').select('id, full_name, user_id').in('plan', ['therapeutic', 'therapeutic-plus']).limit(200),
     ])
     setPlans(ps ?? [])
-    setPlusUsers((users ?? []).map((u: any) => ({ id: u.user_id ?? u.id, full_name: u.full_name ?? u.id })))
+    setPlusUsers((users ?? []).map((u: { user_id?: string; id?: string; full_name?: string }) => ({ id: u.user_id ?? u.id ?? '', full_name: u.full_name ?? u.id ?? '' })))
     setLoading(false)
   }, [])
 
@@ -213,7 +213,7 @@ export default function AdminSelfCarePlans() {
           {plans.map(p => (
             <div key={p.id} className="bg-white rounded-xl border border-stone-200 p-4 hover:border-stone-300 cursor-pointer" onClick={() => openEdit(p)}>
               <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-stone-800 text-sm">{(p.user as any)?.full_name ?? p.user_id}</p>
+                <p className="font-medium text-stone-800 text-sm">{p.user?.full_name ?? p.user_id}</p>
                 <span className="text-xs text-stone-400">{monthLabel(p.month_key)}</span>
               </div>
               {p.summary && <p className="text-xs text-stone-500 line-clamp-2">{p.summary}</p>}

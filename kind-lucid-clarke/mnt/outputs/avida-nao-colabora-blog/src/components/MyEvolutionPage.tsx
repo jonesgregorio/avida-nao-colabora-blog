@@ -17,7 +17,7 @@ const PLAN_RANK: Record<string, number> = {
   free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3,
 }
 
-type Tab = 'resumo' | 'graficos' | 'relatorios' | 'autocuidado' | 'orientacoes' | 'comentarios' | 'sessao' | 'para-voce'
+export type Tab = 'resumo' | 'graficos' | 'relatorios' | 'autocuidado' | 'orientacoes' | 'comentarios' | 'sessao' | 'para-voce'
 
 function monthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -231,14 +231,15 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       const prevEntries = prev.data ?? []
 
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
-      const moods = entries.map((e: any) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
-      const energies = entries.map((e: any) => Number(e.energy || 0)).filter(Boolean)
-      const sleeps = entries.map((e: any) => Number(e.sleep_quality || 0)).filter(Boolean)
-      const anxieties = entries.map((e: any) => Number(e.anxiety_level || 0)).filter(Boolean)
-      const selfEsteems = entries.map((e: any) => Number(e.self_esteem || 0)).filter(Boolean)
+      type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; emotional_tags?: string[] | string; created_at: string }
+      const moods = (entries as DiaryRow[]).map((e) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
+      const energies = (entries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
+      const sleeps = (entries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
+      const anxieties = (entries as DiaryRow[]).map((e) => Number(e.anxiety_level || 0)).filter(Boolean)
+      const selfEsteems = (entries as DiaryRow[]).map((e) => Number(e.self_esteem || 0)).filter(Boolean)
 
       const tagCounts: Record<string, number> = {}
-      entries.forEach((e: any) => {
+      ;(entries as DiaryRow[]).forEach((e) => {
         const tags: string[] = Array.isArray(e.emotional_tags) ? e.emotional_tags : (e.emotional_tags ? JSON.parse(e.emotional_tags) : [])
         tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1 })
       })
@@ -249,20 +250,20 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       const dominantMood = MOOD_LABELS[dominantMoodScore] ?? '—'
 
       const weeklyEntries = [0, 0, 0, 0]
-      entries.forEach((e: any) => {
+      ;(entries as DiaryRow[]).forEach((e) => {
         const d = new Date(e.created_at)
         const weekIdx = Math.min(3, Math.floor((d.getDate() - 1) / 7))
         weeklyEntries[weekIdx]++
       })
 
-      const dailyMoods = entries.map((e: any) => ({
+      const dailyMoods = (entries as DiaryRow[]).map((e) => ({
         day: new Date(e.created_at).getDate(),
         mood: Number(e.mood || e.mood_score || 0),
       })).filter(x => x.mood > 0)
 
-      const prevMoods = prevEntries.map((e: any) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
-      const prevEnergies = prevEntries.map((e: any) => Number(e.energy || 0)).filter(Boolean)
-      const prevSleeps = prevEntries.map((e: any) => Number(e.sleep_quality || 0)).filter(Boolean)
+      const prevMoods = (prevEntries as DiaryRow[]).map((e) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
+      const prevEnergies = (prevEntries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
+      const prevSleeps = (prevEntries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
 
       setStats({
         totalEntries: entries.length,
@@ -533,7 +534,7 @@ interface MonthlyReport {
   status: string
   pdf_url: string | null
   created_at: string
-  data_json: any
+  data_json: { totalEntries?: number; avgMood?: number; avgEnergy?: number; avgSleep?: number; topTags?: string[] } | null
 }
 
 function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
@@ -648,11 +649,11 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
             <StatCard label="Sono médio" value={report.data_json?.avgSleep ? `${Number(report.data_json.avgSleep).toFixed(1)}/5` : '—'} />
           </div>
 
-          {report.data_json?.topTags?.length > 0 && (
+          {(report.data_json?.topTags?.length ?? 0) > 0 && (
             <div>
               <p className="text-xs text-stone-500 mb-2">Marcadores mais registrados</p>
               <div className="flex flex-wrap gap-2">
-                {report.data_json.topTags.map((tag: string) => (
+                {report.data_json?.topTags?.map((tag: string) => (
                   <span key={tag} className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">{tag}</span>
                 ))}
               </div>
@@ -724,7 +725,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
 function ProfessionalCommentStatus({ userId, monthKey: mk, reportId: _reportId }: {
   userId?: string; monthKey: string; reportId: string
 }) {
-  const [comment, setComment] = useState<any>(null)
+  const [comment, setComment] = useState<{ id: string; comment?: string; comment_text?: string; report_month: string; created_at: string } | null>(null)
   const [requesting, setRequesting] = useState(false)
 
   useEffect(() => {
@@ -1393,7 +1394,7 @@ function TabSessaoPlus({ plan, user, onNavigatePricing }: {
     }
 
     let result: UserSession | null = null
-    let err: any = null
+    let err: { message: string } | null = null
 
     if (currentSession) {
       // Atualizar solicitação existente (status available → requested)

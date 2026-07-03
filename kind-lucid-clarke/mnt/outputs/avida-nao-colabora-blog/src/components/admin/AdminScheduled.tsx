@@ -82,7 +82,7 @@ export default function AdminScheduled() {
       status: 'pending' as const,
     }
 
-    let error: any
+    let error: { message: string } | null
     if (editing) {
       const res = await supabase.from('scheduled_contents').update(payload).eq('id', editing.id)
       error = res.error

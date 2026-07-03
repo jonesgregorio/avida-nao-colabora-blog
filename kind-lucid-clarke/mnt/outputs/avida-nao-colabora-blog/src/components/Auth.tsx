@@ -46,8 +46,8 @@ export default function Auth({ onBack }: AuthProps) {
         if (error) throw error
         setSuccess('E-mail de recuperação enviado! Verifique sua caixa de entrada.')
       }
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro. Tente novamente.')
+    } catch (err) {
+      setError((err as Error).message || 'Ocorreu um erro. Tente novamente.')
     } finally {
       setLoading(false)
     }

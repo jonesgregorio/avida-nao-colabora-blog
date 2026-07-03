@@ -80,11 +80,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     })
   }, [articleId])
 
-  function set(key: keyof ArticleData, value: any) {
+  function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
     setData(d => {
       const next = { ...d, [key]: value }
       if (key === 'title' && !articleId) {
-        next.slug = value.toLowerCase()
+        next.slug = (value as string).toLowerCase()
           .normalize('NFD').replace(/[̀-ͯ]/g, '')
           .replace(/[^a-z0-9\s-]/g, '')
           .trim().replace(/\s+/g, '-')
@@ -99,7 +99,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     setSaving(true)
 
     const targetStatus = status || data.status
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       title: data.title,
       slug: data.slug,
       status: targetStatus,
@@ -109,6 +109,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       excerpt: data.summary,
       image_url: data.image_url,
       cover_image: data.image_url,
+      cover_image_url: data.image_url,
       image_alt: data.image_alt,
       seo_title: data.seo_title,
       seo_description: data.seo_description,
@@ -127,7 +128,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       payload.published_at = new Date(data.published_at).toISOString()
     }
 
-    let error: any
+    let error: { message: string } | null
     if (articleId) {
       const res = await supabase.from('articles').update(payload).eq('id', articleId)
       error = res.error

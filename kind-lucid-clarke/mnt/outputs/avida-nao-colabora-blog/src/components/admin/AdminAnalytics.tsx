@@ -56,7 +56,7 @@ export default function AdminAnalytics() {
       if (events && events.length > 0) {
         // Summary por tipo de evento
         const evMap: Record<string, number> = {}
-        events.forEach((e: any) => { evMap[e.event] = (evMap[e.event] || 0) + 1 })
+        events.forEach((e: { event: string; created_at: string }) => { evMap[e.event] = (evMap[e.event] || 0) + 1 })
         setEventSummary(Object.entries(evMap).map(([event, count]) => ({ event, count })).sort((a, b) => b.count - a.count))
 
         // Atividade diária (últimos 14 dias)
@@ -66,7 +66,7 @@ export default function AdminAnalytics() {
           return d.toISOString().split('T')[0]
         })
         last14.forEach(d => { dayMap[d] = 0 })
-        events.forEach((e: any) => {
+        events.forEach((e: { event: string; created_at: string }) => {
           const day = e.created_at.split('T')[0]
           if (dayMap[day] !== undefined) dayMap[day]++
         })

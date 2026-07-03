@@ -28,13 +28,25 @@ export interface Article {
   summary?: string
   content: string
   cover_image?: string
+  cover_image_url?: string
   image_url?: string
   image_alt?: string
   read_time?: number
+  reading_time_minutes?: number
   published?: boolean
+  status?: string
+  plan_required?: string
   author?: string
   category: string
   related_slugs?: string[]
+  seo_title?: string
+  seo_description?: string
+  diary_question?: string
+  cta_text?: string
+  cta_link?: string
+  published_at?: string
+  scheduled_at?: string
+  updated_at?: string
   created_at: string
 }
 

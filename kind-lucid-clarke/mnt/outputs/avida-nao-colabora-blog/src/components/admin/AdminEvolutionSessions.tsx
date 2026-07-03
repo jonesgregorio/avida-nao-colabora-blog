@@ -150,14 +150,14 @@ export default function AdminEvolutionSessions() {
     ])
 
     // Buscar perfis pelos user_ids encontrados
-    const userIds = [...new Set((sess ?? []).map((s: any) => s.user_id as string))]
+    const userIds = [...new Set((sess ?? []).map((s: { user_id: string }) => s.user_id))]
     let profileMap: Record<string, { full_name?: string; email?: string; plan?: string }> = {}
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name, email, plan')
         .in('user_id', userIds)
-      profileMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.user_id, p]))
+      profileMap = Object.fromEntries((profiles ?? []).map((p: { user_id: string; full_name?: string; email?: string; plan?: string }) => [p.user_id, p]))
     }
 
     // Buscar usuários Plus para formulário de criação
@@ -167,13 +167,13 @@ export default function AdminEvolutionSessions() {
       .eq('plan', 'therapeutic-plus')
       .limit(200)
 
-    const sessionsWithUsers = (sess ?? []).map((s: any) => ({
+    const sessionsWithUsers = (sess ?? []).map((s: Omit<Session, 'user'>) => ({
       ...s,
       user: profileMap[s.user_id] ?? null,
     }))
 
     setSessions(sessionsWithUsers)
-    setPlusUsers((plusProfiles ?? []).map((u: any) => ({
+    setPlusUsers((plusProfiles ?? []).map((u: { user_id: string; full_name?: string | null }) => ({
       id: u.user_id,
       full_name: u.full_name ?? u.user_id,
     })))
@@ -500,16 +500,16 @@ export default function AdminEvolutionSessions() {
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div>
-                <p className="font-semibold text-stone-800">{(selected.user as any)?.full_name ?? 'Usuário'}</p>
-                {(selected.user as any)?.email && (
-                  <p className="text-xs text-stone-400">{(selected.user as any).email}</p>
+                <p className="font-semibold text-stone-800">{selected.user?.full_name ?? 'Usuário'}</p>
+                {selected.user?.email && (
+                  <p className="text-xs text-stone-400">{selected.user.email}</p>
                 )}
                 <p className="text-xs text-stone-400 mt-0.5">{monthLabel(selected.month_key)}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {(selected.user as any)?.plan && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[(selected.user as any).plan] ?? 'bg-stone-100'}`}>
-                    {PLAN_LABELS[(selected.user as any).plan] ?? (selected.user as any).plan}
+                {selected.user?.plan && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[selected.user.plan] ?? 'bg-stone-100'}`}>
+                    {PLAN_LABELS[selected.user.plan] ?? selected.user.plan}
                   </span>
                 )}
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[selected.status] ?? 'bg-stone-100'}`}>
@@ -717,15 +717,15 @@ export default function AdminEvolutionSessions() {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <p className="font-medium text-stone-800 text-sm">{(s.user as any)?.full_name ?? s.user_id}</p>
-                    {(s.user as any)?.plan && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[(s.user as any).plan] ?? 'bg-stone-100'}`}>
-                        {PLAN_LABELS[(s.user as any).plan] ?? (s.user as any).plan}
+                    <p className="font-medium text-stone-800 text-sm">{s.user?.full_name ?? s.user_id}</p>
+                    {s.user?.plan && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[s.user.plan] ?? 'bg-stone-100'}`}>
+                        {PLAN_LABELS[s.user.plan] ?? s.user.plan}
                       </span>
                     )}
                   </div>
-                  {(s.user as any)?.email && (
-                    <p className="text-xs text-stone-400">{(s.user as any).email}</p>
+                  {s.user?.email && (
+                    <p className="text-xs text-stone-400">{s.user.email}</p>
                   )}
                   <p className="text-xs text-stone-400 mt-0.5">{monthLabel(s.month_key)}</p>
                   {s.scheduled_at && (

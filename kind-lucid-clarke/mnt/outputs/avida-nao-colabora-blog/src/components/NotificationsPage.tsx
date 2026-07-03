@@ -4,6 +4,7 @@ import {
   Bell, MessageCircle, MessageSquare, Info, BookOpen, Tag, Clock,
   AlertTriangle, Settings, CheckCheck, LogIn,
 } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 interface Notification {
   id: string
@@ -20,7 +21,7 @@ interface Notification {
 }
 
 interface Props {
-  user: any
+  user: User | null
   navigate?: (v: string) => void
   onBack?: () => void
 }

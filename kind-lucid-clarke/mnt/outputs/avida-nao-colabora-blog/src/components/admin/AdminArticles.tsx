@@ -66,7 +66,7 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
     if (fetchError || !data) { showToast('Erro ao buscar artigo', true); return }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _id, created_at: _c, updated_at: _u, published_at: _p, ...rest } = data as any
+    const { id: _id, created_at: _c, updated_at: _u, published_at: _p, ...rest } = data as Record<string, unknown>
     const { error } = await supabase.from('articles').insert({
       ...rest,
       title: `${data.title} (cópia)`,

@@ -78,7 +78,7 @@ export default function AdminGuidanceRequests() {
 
   const filtered = requests.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false
-    if (planFilter !== 'all' && (r.user as any)?.plan !== planFilter) return false
+    if (planFilter !== 'all' && r.user?.plan !== planFilter) return false
     if (monthFilter !== 'all' && r.month_key !== monthFilter) return false
     return true
   })
@@ -203,16 +203,16 @@ export default function AdminGuidanceRequests() {
           <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div>
-                <p className="font-semibold text-stone-800">{(selected.user as any)?.full_name ?? 'Usuário'}</p>
-                {(selected.user as any)?.email && (
-                  <p className="text-xs text-stone-400">{(selected.user as any).email}</p>
+                <p className="font-semibold text-stone-800">{selected.user?.full_name ?? 'Usuário'}</p>
+                {selected.user?.email && (
+                  <p className="text-xs text-stone-400">{selected.user.email}</p>
                 )}
                 <p className="text-xs text-stone-400">{monthLabel(selected.month_key)} · {new Date(selected.created_at).toLocaleDateString('pt-BR')}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {(selected.user as any)?.plan && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[(selected.user as any).plan] ?? 'bg-stone-100'}`}>
-                    {PLAN_LABELS[(selected.user as any).plan] ?? (selected.user as any).plan}
+                {selected.user?.plan && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[selected.user.plan] ?? 'bg-stone-100'}`}>
+                    {PLAN_LABELS[selected.user.plan] ?? selected.user.plan}
                   </span>
                 )}
                 <span className={`text-xs px-2 py-1 rounded-full ${selected.status === 'answered' ? 'bg-emerald-100 text-emerald-700' : selected.status === 'closed' ? 'bg-stone-100 text-stone-500' : 'bg-amber-100 text-amber-700'}`}>
@@ -311,17 +311,17 @@ export default function AdminGuidanceRequests() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="font-medium text-stone-800 text-sm">{(r.user as any)?.full_name ?? 'Usuário'}</p>
-                        {(r.user as any)?.plan && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[(r.user as any).plan] ?? 'bg-stone-100'}`}>
-                            {PLAN_LABELS[(r.user as any).plan] ?? (r.user as any).plan}
+                        <p className="font-medium text-stone-800 text-sm">{r.user?.full_name ?? 'Usuário'}</p>
+                        {r.user?.plan && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[r.user.plan] ?? 'bg-stone-100'}`}>
+                            {PLAN_LABELS[r.user.plan] ?? r.user.plan}
                           </span>
                         )}
                         <span className="text-xs text-stone-400">·</span>
                         <span className="text-xs text-stone-400">{monthLabel(r.month_key)}</span>
                       </div>
-                      {(r.user as any)?.email && (
-                        <p className="text-xs text-stone-400 mb-1">{(r.user as any).email}</p>
+                      {r.user?.email && (
+                        <p className="text-xs text-stone-400 mb-1">{r.user.email}</p>
                       )}
                       <p className="text-sm text-stone-600 line-clamp-2">{r.message}</p>
                     </div>

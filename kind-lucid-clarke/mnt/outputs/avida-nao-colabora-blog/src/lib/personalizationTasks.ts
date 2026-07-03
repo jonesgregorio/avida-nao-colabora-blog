@@ -65,7 +65,7 @@ export interface PersonalizationTask {
   related_guidance_id: string | null
   related_session_id: string | null
   delivery_id: string | null
-  data_snapshot: Record<string, any>
+  data_snapshot: Record<string, unknown>
   generated_at: string | null
   sent_at: string | null
   completed_at: string | null
@@ -587,10 +587,10 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
     .select('id, user_id, task_key, period_key, status, due_at, expires_at')
 
   const existingSet = new Set(
-    (existingTasks ?? []).map((t: any) => `${t.user_id}|${t.task_key}|${t.period_key}`)
+    (existingTasks ?? []).map((t: { user_id: string; task_key: string; period_key: string }) => `${t.user_id}|${t.task_key}|${t.period_key}`)
   )
   const existingMap = new Map(
-    (existingTasks ?? []).map((t: any) => [`${t.user_id}|${t.task_key}|${t.period_key}`, t])
+    (existingTasks ?? []).map((t: { user_id: string; task_key: string; period_key: string; id: string; status: string; due_at: string | null; expires_at: string | null }) => [`${t.user_id}|${t.task_key}|${t.period_key}`, t])
   )
 
   // ── 3. Eventos ──
@@ -631,7 +631,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   }
 
   // ── 4. Processar cada usuário ──
-  const toInsert: any[] = []
+  const toInsert: Record<string, unknown>[] = []
   const toUpdate: { id: string; status: string; updated_at: string }[] = []
 
   for (const profile of (profiles ?? []) as ProfileRow[]) {

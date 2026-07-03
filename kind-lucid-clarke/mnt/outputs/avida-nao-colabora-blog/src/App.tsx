@@ -36,7 +36,7 @@ import MonthlyGuidancePage from './components/MonthlyGuidancePage'
 import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
-import MyEvolutionPage from './components/MyEvolutionPage'
+import MyEvolutionPage, { type Tab } from './components/MyEvolutionPage'
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle
 const AdminPanel = lazy(() => import('./components/admin'))
@@ -384,7 +384,7 @@ export default function App() {
         <main className="min-h-screen bg-stone-50">
           <Articles
             onSelectArticle={(articleOrSlug) => {
-              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
               setSelectedArticleSlug(slug)
               setView('article')
               window.scrollTo(0, 0)
@@ -538,7 +538,7 @@ export default function App() {
             onBack={() => navigate('home')}
             onNavigatePricing={() => navigate('pricing')}
             onNavigateDiary={() => navigate('diary')}
-            initialTab={initialEvolutionTab as any}
+            initialTab={initialEvolutionTab as Tab}
           />
         </main>
         <Footer onNavigate={navigate} />
@@ -690,7 +690,7 @@ export default function App() {
 
         <Articles
           onSelectArticle={(articleOrSlug) => {
-            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as any).slug
+            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
             setSelectedArticleSlug(slug)
             setView('article')
             window.scrollTo(0, 0)

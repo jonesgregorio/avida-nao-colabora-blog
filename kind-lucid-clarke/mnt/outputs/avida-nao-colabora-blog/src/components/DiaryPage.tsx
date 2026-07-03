@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 const moodOptions = [
   { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
@@ -18,7 +19,7 @@ const emotionalTags = [
 ]
 
 interface DiaryPageProps {
-  user: any
+  user: User | null
   plan: Plan
   onBack: () => void
   onNavigatePricing?: () => void
@@ -106,12 +107,12 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     const { data } = await supabase
       .from('diary_entries')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
     setEntries(data || [])
     setLoading(false)
-  }, [user.id])
+  }, [user])
 
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
@@ -174,7 +175,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     const entryText = [mainEmotion, whatHappened, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
     const payload: Partial<DiaryEntry> & { user_id: string } = {
-      user_id: user.id,
+      user_id: user!.id,
       date: new Date().toISOString().split('T')[0],
       mood: moodObj.label,
       mood_score: isEssential ? moodScore : moodObj.score,

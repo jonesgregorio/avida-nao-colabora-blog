@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Bookmark, Trash2, FileText, NotebookPen, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Plan } from '../types'
+import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
 
 interface SavedItem {
@@ -15,7 +16,7 @@ interface SavedItem {
 }
 
 interface SavedItemsPageProps {
-  user: any
+  user: User | null
   profile: { plan: Plan } | null
   navigate: (v: string, slug?: string) => void
   onBack: () => void
@@ -73,7 +74,7 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
     const { data } = await supabase
       .from('saved_items')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
     setItems(data || [])
     setLoading(false)

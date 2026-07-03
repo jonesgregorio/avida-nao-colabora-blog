@@ -1,11 +1,12 @@
 import { ReactNode, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { AdminView } from './types'
 import {
   LayoutDashboard, FileText, Users, HeadphonesIcon, Bell, Settings2,
   LogOut, ExternalLink, Menu,
 } from 'lucide-react'
 
-type NavItem = { id: AdminView; label: string; icon: any }
+type NavItem = { id: AdminView; label: string; icon: LucideIcon }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'painel',          label: 'Painel',          icon: LayoutDashboard },

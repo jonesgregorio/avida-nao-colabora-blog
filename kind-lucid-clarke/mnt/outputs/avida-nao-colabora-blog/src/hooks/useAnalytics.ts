@@ -19,7 +19,7 @@ export type AnalyticsEvent =
 export interface TrackPayload {
   entity_id?: string
   entity_title?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 /**

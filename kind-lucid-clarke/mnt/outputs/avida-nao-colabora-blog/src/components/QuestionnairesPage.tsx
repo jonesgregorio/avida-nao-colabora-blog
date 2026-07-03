@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Clock, Lock, ChevronRight, HelpCircle, ArrowLeft } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
+import type { Profile } from '../types'
 
 interface QItem {
   id: string
@@ -14,7 +16,7 @@ interface QItem {
   status: string
   show_on_questionnaires_page: boolean
   question_count?: number
-  questions?: any[]          // JSONB do admin
+  questions?: unknown[]      // JSONB do admin
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -39,8 +41,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 interface Props {
-  user: any
-  profile: any
+  user: User | null
+  profile: Profile | null
   onStart: (id: string) => void
   onBack: () => void
   onNavigatePricing: () => void
@@ -70,11 +72,11 @@ export default function QuestionnairesPage({
       if (!data) { setLoading(false); return }
 
       // Conta perguntas a partir do JSONB inline (sem precisar de tabela separada)
-      const withCounts = data.map((q: any) => ({
+      const withCounts = data.map((q: Record<string, unknown>) => ({
         ...q,
         question_count: Array.isArray(q.questions) ? q.questions.length : 0,
       }))
-      setItems(withCounts)
+      setItems(withCounts as unknown as QItem[])
       setLoading(false)
     }
     load()

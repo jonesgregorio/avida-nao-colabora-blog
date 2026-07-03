@@ -73,8 +73,8 @@ Requisitos: escreva em português brasileiro, tom acolhedor e empático, entre 1
     const text = await response.text()
     if (!text.trim()) throw new Error('Resposta vazia')
     return text.trim()
-  } catch (err: any) {
-    if (err.name === 'AbortError') throw new Error('Tempo limite excedido (30s). Tente novamente.')
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw new Error('Tempo limite excedido (30s). Tente novamente.')
     throw err
   } finally {
     clearTimeout(timer)
@@ -140,8 +140,8 @@ export default function AdminAutomated() {
       setContent(result)
       if (!title.trim()) setTitle(`${typeLabel} — ${tema.trim()}`)
       flash('Conteúdo gerado!')
-    } catch (e: any) {
-      flash(`Geração falhou: ${e?.message || 'Erro desconhecido'}`, 'err')
+    } catch (e) {
+      flash(`Geração falhou: ${(e as Error)?.message || 'Erro desconhecido'}`, 'err')
     } finally {
       setGenerating(false)
     }
@@ -160,7 +160,7 @@ export default function AdminAutomated() {
       is_active: true,
       active: true,
     }
-    let error: any
+    let error: { message: string } | null
     if (editing) {
       const res = await supabase.from('automated_contents').update(payload).eq('id', editing.id)
       error = res.error

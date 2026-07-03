@@ -8,7 +8,7 @@ interface AdminLog {
   action: string
   target_type: string | null
   target_id: string | null
-  details: any | null
+  details: Record<string, unknown> | null
   created_at: string
   admin?: { full_name: string | null }
 }
@@ -44,7 +44,7 @@ export default function AdminLogs() {
         l.action.includes(filter) ||
         l.target_type?.includes(filter) ||
         JSON.stringify(l.details || '').toLowerCase().includes(filter.toLowerCase()) ||
-        (l.admin as any)?.full_name?.includes(filter)
+        l.admin?.full_name?.includes(filter)
       )
     : logs
 
@@ -92,7 +92,7 @@ export default function AdminLogs() {
                     {new Date(log.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
                   <td className="px-4 py-3 text-xs text-stone-600">
-                    {(log.admin as any)?.full_name || log.admin_id?.slice(0, 8) || '—'}
+                    {log.admin?.full_name || log.admin_id?.slice(0, 8) || '—'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[log.action] || 'bg-stone-100 text-stone-600'}`}>

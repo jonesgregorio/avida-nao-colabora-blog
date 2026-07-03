@@ -219,9 +219,9 @@ Deno.serve(async (req) => {
         message: 'Cancelamento removido. Seu plano continuará ativo normalmente.',
       })
     }
-  } catch (err: any) {
-    console.error(`manage-subscription ${action}:`, err.message)
-    return new Response(JSON.stringify({ error: err.message ?? 'Erro interno' }), {
+  } catch (err) {
+    console.error(`manage-subscription ${action}:`, (err as Error).message)
+    return new Response(JSON.stringify({ error: (err as Error).message ?? 'Erro interno' }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })

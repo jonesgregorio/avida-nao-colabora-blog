@@ -120,7 +120,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
   const clearMood = () => setSelectedMood(null)
 
   const getImage = (article: Article) =>
-    article.image_url || article.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+    article.image_url || article.cover_image_url || article.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
 
   const getSummary = (article: Article) => article.summary || article.excerpt || ''
 

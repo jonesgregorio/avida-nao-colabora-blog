@@ -79,8 +79,8 @@ async function buildSnapshot(userId: string, plan: string, taskKey: string): Pro
   ])
   const tagFreq: Record<string, number> = {}
   let moodSum = 0; let moodCount = 0
-  for (const d of (diaryData ?? []) as any[]) {
-    if (d.tags && Array.isArray(d.tags)) for (const t of d.tags) tagFreq[t] = (tagFreq[t] ?? 0) + 1
+  for (const d of (diaryData ?? []) as { tags?: unknown[]; mood?: number }[]) {
+    if (d.tags && Array.isArray(d.tags)) for (const t of d.tags) tagFreq[t as string] = (tagFreq[t as string] ?? 0) + 1
     if (d.mood) { moodSum += d.mood; moodCount++ }
   }
   const topMarkers = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
@@ -354,7 +354,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
         title: editTitle,
         body: editBody,
         planKey: task.plan_key ?? null,
-        relatedGuidanceId: (task as any).related_guidance_id ?? null,
+        relatedGuidanceId: task.related_guidance_id ?? null,
       })
     } catch (e) {
       console.warn('[send] Reflexo em módulos oficiais falhou (não crítico):', e)

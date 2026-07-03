@@ -219,7 +219,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
         .maybeSingle()
         .then(({ data }) => {
           const d = data as ProfessionalComment | null
-          setComment(d ? { ...d, comment_text: d.comment_text || (d as any).comment || '' } : null)
+          setComment(d ? { ...d, comment_text: d.comment_text || d.comment || '' } : null)
         })
       queries.push(Promise.resolve(p3))
     }

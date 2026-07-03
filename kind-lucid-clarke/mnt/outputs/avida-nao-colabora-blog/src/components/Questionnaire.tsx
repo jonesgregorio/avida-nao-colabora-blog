@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ClipboardList, BookOpen, DollarSign, BookMarked, ChevronRight, RotateCcw } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 interface Question {
   id: string
@@ -84,7 +85,7 @@ function buildResult(answers: Record<string, string>): string {
 }
 
 interface QuestionnaireProps {
-  user: any
+  user: User | null
   onNavigateDiary: () => void
   onNavigatePricing?: () => void
   onNavigateArticles?: () => void

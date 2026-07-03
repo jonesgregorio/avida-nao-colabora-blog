@@ -101,7 +101,7 @@ serve(async (req) => {
     }
 
     let totalSent = 0
-    const logs: any[] = []
+    const logs: Record<string, unknown>[] = []
 
     for (const content of todayContents) {
       // Buscar usuários elegíveis pelo plano

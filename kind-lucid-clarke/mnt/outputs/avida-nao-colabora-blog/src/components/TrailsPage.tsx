@@ -3,10 +3,11 @@ import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { ArrowLeft, Lock, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
 import type { Plan } from '../types'
+import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
 
 interface TrailsPageProps {
-  user: any
+  user: User | null
   profile: { plan: Plan } | null
   navigate: (v: string, slug?: string) => void
   onBack: () => void
@@ -21,6 +22,12 @@ interface DbTrail {
   active?: boolean
   category?: string
   articles: { id: string; title: string; slug: string; order_index: number }[]
+}
+
+interface TrailArticleRow {
+  order_index?: number
+  position?: number
+  article?: { id: string; title: string; slug: string } | null
 }
 
 const COLORS = ['blue', 'emerald', 'amber', 'rose', 'purple', 'teal']
@@ -67,13 +74,13 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
           plan_required: t.plan_required || 'free',
           is_active: t.is_active ?? t.active ?? true,
           category: t.category,
-          articles: ((t.trail_articles || []) as any[])
-            .filter((ta: any) => ta.article)
-            .sort((a: any, b: any) => (a.order_index ?? a.position ?? 0) - (b.order_index ?? b.position ?? 0))
-            .map((ta: any) => ({
-              id: ta.article.id,
-              title: ta.article.title,
-              slug: ta.article.slug,
+          articles: ((t.trail_articles || []) as unknown as TrailArticleRow[])
+            .filter((ta) => ta.article)
+            .sort((a, b) => (a.order_index ?? a.position ?? 0) - (b.order_index ?? b.position ?? 0))
+            .map((ta) => ({
+              id: ta.article!.id,
+              title: ta.article!.title,
+              slug: ta.article!.slug,
               order_index: ta.order_index ?? ta.position ?? 0,
             })),
         }))
@@ -91,7 +98,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
       .select('article_slug')
       .eq('user_id', user.id)
       .then(({ data }) => {
-        if (data) setReadSlugs(new Set(data.map((r: any) => r.article_slug)))
+        if (data) setReadSlugs(new Set(data.map((r: { article_slug: string }) => r.article_slug)))
       })
   }, [user])
 
@@ -265,7 +272,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
           requiredPlan="essential"
           featureName="Trilhas premium"
           onClose={() => setUpgradeModal(false)}
-          navigate={navigate as any}
+          navigate={(v) => navigate(v)}
         />
       )}
     </div>

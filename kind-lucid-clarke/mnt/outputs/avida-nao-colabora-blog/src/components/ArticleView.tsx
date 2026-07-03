@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Printer, Heart, Brain, CloudRain, Clock3, Feather } from 'lucide-react'
 import type { Article, Plan } from '../types'
+import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
 
 interface ArticleViewProps {
   slug?: string
   article?: Article
   onBack: () => void
-  user: any
+  user: User | null
   profile?: { plan: Plan } | null
   navigate?: (v: string, slug?: string) => void
   onSelectArticle?: (slug: string) => void
@@ -69,7 +70,7 @@ export default function ArticleView({
   onSavePromptToDiary,
 }: ArticleViewProps) {
   const [article, setArticle] = useState<Article | null>(initialArticle || null)
-  const [related, setRelated] = useState<Pick<Article, 'id' | 'title' | 'slug' | 'category' | 'read_time' | 'image_url' | 'cover_image'>[]>([])
+  const [related, setRelated] = useState<Pick<Article, 'id' | 'title' | 'slug' | 'category' | 'read_time' | 'image_url' | 'cover_image_url' | 'cover_image'>[]>([])
   const [loading, setLoading] = useState(!initialArticle)
 
   // Interactive state
@@ -134,20 +135,33 @@ export default function ArticleView({
 
   async function loadArticle(s: string) {
     setLoading(true)
-    const { data } = await supabase.from('articles').select('*').eq('slug', s).single()
-    setArticle(data)
-    if (data?.category) await loadRelated(data.category, s)
-    setLoading(false)
+    try {
+      const { data, error } = await supabase.from('articles').select('*').eq('slug', s).single()
+      if (error || !data) {
+        setArticle(null)
+        return
+      }
+      setArticle(data)
+      if (data.category) await loadRelated(data.category, s)
+    } catch {
+      setArticle(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function loadRelated(category: string, currentSlug: string) {
-    const { data } = await supabase
-      .from('articles')
-      .select('id, title, slug, category, read_time, image_url, cover_image')
-      .eq('category', category)
-      .neq('slug', currentSlug)
-      .limit(3)
-    setRelated(data || [])
+    try {
+      const { data } = await supabase
+        .from('articles')
+        .select('id, title, slug, category, read_time, image_url, cover_image_url, cover_image')
+        .eq('category', category)
+        .neq('slug', currentSlug)
+        .limit(3)
+      setRelated(data || [])
+    } catch {
+      // silencia erro de relacionados — não crítico
+    }
   }
 
   // ---- Save to Caixa de Cuidado ----
@@ -253,7 +267,7 @@ export default function ArticleView({
   }
 
   const getImage = (a: Article) =>
-    a.image_url || a.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+    a.image_url || a.cover_image_url || a.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
 
   // ---- Loading / not found ----
   if (loading) {
@@ -512,7 +526,7 @@ export default function ArticleView({
               >
                 <div className="aspect-video bg-stone-100 overflow-hidden">
                   <img
-                    src={rel.image_url || rel.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=60'}
+                    src={rel.image_url || rel.cover_image_url || rel.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=60'}
                     alt={rel.title}
                     className="w-full h-full object-cover"
                   />

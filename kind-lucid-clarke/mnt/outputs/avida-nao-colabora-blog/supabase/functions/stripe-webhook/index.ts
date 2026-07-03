@@ -33,9 +33,9 @@ Deno.serve(async (req) => {
   let event: Stripe.Event
   try {
     event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
-  } catch (err: any) {
-    console.error('Webhook signature inválida:', err.message)
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 })
+  } catch (err) {
+    console.error('Webhook signature inválida:', (err as Error).message)
+    return new Response(`Webhook Error: ${(err as Error).message}`, { status: 400 })
   }
 
   const supabase = createClient(
@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
     if (session.subscription) {
       try {
         stripeSub = await stripe.subscriptions.retrieve(session.subscription as string)
-      } catch (e: any) {
-        console.error('Erro ao buscar subscription Stripe (checkout):', e.message)
+      } catch (e) {
+        console.error('Erro ao buscar subscription Stripe (checkout):', (e as Error).message)
       }
     }
 

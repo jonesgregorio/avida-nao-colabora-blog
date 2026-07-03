@@ -68,7 +68,7 @@ async function checkSupabaseTable(
   try {
     const { ms, result } = await timed(() =>
       withTimeout(
-        Promise.resolve(supabase.from(table as any).select('id').limit(1)),
+        Promise.resolve(supabase.from(table as Parameters<typeof supabase.from>[0]).select('id').limit(1)),
         TIMEOUT_LIGHT,
       ),
     )

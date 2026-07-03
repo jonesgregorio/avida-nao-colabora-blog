@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, ClipboardList, CheckCircle } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 const therapeuticQuestions = [
   { id: 'q1', text: 'Há quanto tempo você convive com dor crônica ou sintomas persistentes?', options: ['Menos de 6 meses', '6 meses a 2 anos', '2 a 5 anos', 'Mais de 5 anos'] },
@@ -59,7 +60,7 @@ function generatePlan(answers: Record<string, number>) {
 }
 
 interface TherapeuticQuestionnaireProps {
-  user: any
+  user: User | null
   onBack: () => void
 }
 
@@ -74,7 +75,7 @@ export default function TherapeuticQuestionnaire({ user, onBack }: TherapeuticQu
     setSaving(true)
     const plan = generatePlan(answers)
     await supabase.from('questionnaire_responses').insert({
-      user_id: user.id,
+      user_id: user!.id,
       answers,
       score: Object.values(answers).reduce((a, b) => a + b, 0),
       category: `Aprofundado — ${plan.intensity}`,

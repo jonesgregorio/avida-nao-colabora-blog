@@ -75,9 +75,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
-  } catch (err: any) {
+  } catch (err) {
     console.error('create-checkout error:', err)
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 400,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })

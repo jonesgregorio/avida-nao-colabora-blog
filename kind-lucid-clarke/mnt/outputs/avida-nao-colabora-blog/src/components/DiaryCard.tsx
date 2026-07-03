@@ -1,9 +1,10 @@
 import { BookOpen, Plus } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 interface DiaryCardProps {
   onOpenDiary: () => void
   onNewEntry: () => void
-  user: any
+  user: User | null
 }
 
 export default function DiaryCard({ onOpenDiary, onNewEntry, user }: DiaryCardProps) {
