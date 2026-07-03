@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { MessageSquare, CheckCircle, Clock, Send, Loader2, Filter } from 'lucide-react'
 import AIContentAssistant from './AIContentAssistant'
+import { emailGuidanceAnsweredForUser } from '../../lib/emailTriggers'
 
 interface GuidanceRequest {
   id: string
@@ -88,13 +89,14 @@ export default function AdminGuidanceRequests() {
   async function respond() {
     if (!selected || !response.trim()) return
     setSaving(true)
+    const respondedAt = new Date().toISOString()
     const { error } = await supabase
       .from('monthly_guidance_requests')
       .update({
         response: response.trim(),
         status: 'answered',
-        responded_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        responded_at: respondedAt,
+        updated_at: respondedAt,
       })
       .eq('id', selected.id)
     if (error) { showToast('Erro: ' + error.message, true); setSaving(false); return }
@@ -108,6 +110,8 @@ export default function AdminGuidanceRequests() {
       action_label: 'Ver orientação',
       is_read: false,
     })
+
+    void emailGuidanceAnsweredForUser(selected.user_id, selected.id, respondedAt)
 
     showToast('Resposta enviada e usuário notificado!')
     setSaving(false)

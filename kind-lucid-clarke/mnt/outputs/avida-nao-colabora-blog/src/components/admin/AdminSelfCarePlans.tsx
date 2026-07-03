@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Leaf, Plus, Save, Loader2 } from 'lucide-react'
 import AIContentAssistant from './AIContentAssistant'
+import { emailSelfCarePlanForUser } from '../../lib/emailTriggers'
 
 interface SelfCarePlan {
   id: string
@@ -92,6 +93,7 @@ export default function AdminSelfCarePlans() {
           action_label: 'Ver plano',
           is_read: false,
         })
+        void emailSelfCarePlanForUser(selected.user_id, selected.id)
       }
     } else {
       const res = await supabase.from('self_care_plan_reviews').insert({
@@ -110,6 +112,7 @@ export default function AdminSelfCarePlans() {
           action_label: 'Ver plano',
           is_read: false,
         })
+        void emailSelfCarePlanForUser(userId, `${userId}:${month}`)
       }
     }
 

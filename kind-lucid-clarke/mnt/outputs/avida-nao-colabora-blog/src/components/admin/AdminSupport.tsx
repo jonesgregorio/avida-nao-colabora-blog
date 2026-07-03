@@ -5,6 +5,7 @@ import {
   RefreshCw, RotateCcw, ChevronDown, LayoutList, Columns,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { emailSupportReplyForUser } from '../../lib/emailTriggers'
 
 interface Ticket {
   id: string
@@ -354,6 +355,8 @@ export default function AdminSupport() {
     ))
 
     if (!isInternal) {
+      // E-mail de resposta do suporte (não bloqueia o envio)
+      if (selectedTicket.user_id) void emailSupportReplyForUser(selectedTicket.user_id, selectedTicket.id, newMsg.id)
       const now = new Date().toISOString()
       await supabase.from('support_tickets').update({
         unread_for_user: true,

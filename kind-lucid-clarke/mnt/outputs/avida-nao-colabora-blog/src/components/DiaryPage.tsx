@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
+import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
 
 const moodOptions = [
   { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
@@ -207,7 +208,16 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
 
     const { data, error: err } = await supabase.from('diary_entries').insert(payload).select().single()
     if (err) { setError('Erro ao salvar. Tente novamente.'); setSaving(false); return }
-    if (data) setEntries(prev => [data, ...prev])
+    if (data) {
+      setEntries(prev => [data, ...prev])
+      // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status
+      if (!isEssential && !isTherapeutic) {
+        const monthKey = new Date().toISOString().slice(0, 7)
+        const count = [data, ...entries].filter(e => String(e.date ?? '').startsWith(monthKey) && e.entry_type === 'diary').length
+        if (count === 4) void emailDiaryLimitWarningForUser(user!.id, monthKey)
+        else if (count >= 5) void emailDiaryLimitReachedForUser(user!.id, monthKey)
+      }
+    }
     resetForm()
     setShowForm(false)
     setSaving(false)

@@ -181,3 +181,70 @@ export function emailDiaryLimitReached(userId: string, toEmail: string, nome: st
     idempotencyKey: `diary_limit_reached:${userId}:${monthKey}`,
   })
 }
+
+// ─── Wrappers "ForUser": buscam email/nome do perfil e disparam ────────────────
+// (admin lê perfil de outros via RLS de admin; usuário lê o próprio)
+async function recipientOf(userId: string): Promise<{ email?: string; nome: string }> {
+  try {
+    const { data } = await supabase.from('profiles').select('email, full_name').eq('user_id', userId).maybeSingle()
+    const r = data as { email?: string; full_name?: string } | null
+    return { email: r?.email ?? undefined, nome: r?.full_name || 'você' }
+  } catch {
+    return { nome: 'você' }
+  }
+}
+
+export async function emailSupportReplyForUser(userId: string, ticketId: string, messageId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailSupportReply(userId, email, nome, ticketId, messageId)
+}
+
+export async function emailGuidanceAnsweredForUser(userId: string, guidanceId: string, respondedAt: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailGuidanceAnswered(userId, email, nome, guidanceId, respondedAt)
+}
+
+export async function emailSessionScheduledForUser(userId: string, sessionId: string, opts: { scheduledAt: string; data: string; horario: string; profissional: string; link: string }) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailSessionScheduled(userId, email, nome, sessionId, opts)
+}
+
+export async function emailSessionRescheduledForUser(userId: string, sessionId: string, opts: { scheduledAt: string; data: string; horario: string }) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailSessionRescheduled(userId, email, nome, sessionId, opts)
+}
+
+export async function emailSessionCancelledForUser(userId: string, sessionId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailSessionCancelled(userId, email, nome, sessionId)
+}
+
+export async function emailMonthlyReportForUser(userId: string, reportId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailMonthlyReport(userId, email, nome, reportId)
+}
+
+export async function emailProfessionalCommentForUser(userId: string, commentId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailProfessionalComment(userId, email, nome, commentId)
+}
+
+export async function emailSelfCarePlanForUser(userId: string, planId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailSelfCarePlan(userId, email, nome, planId)
+}
+
+export async function emailPersonalizedContentForUser(userId: string, deliveryId: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailPersonalizedContent(userId, email, nome, deliveryId)
+}
+
+export async function emailDiaryLimitWarningForUser(userId: string, monthKey: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailDiaryLimitWarning(userId, email, nome, monthKey)
+}
+
+export async function emailDiaryLimitReachedForUser(userId: string, monthKey: string) {
+  const { email, nome } = await recipientOf(userId)
+  if (email) void emailDiaryLimitReached(userId, email, nome, monthKey)
+}

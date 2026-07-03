@@ -52,10 +52,17 @@ Assuntos **sempre neutros**; categoria `clinical` recebe o rodapé de responsabi
 - `invoice.payment_failed` → `payment_failed` (handler novo)
 - `customer.subscription.deleted` (→ free) → `plan_returned_to_free`
 
-**Client-side:**
+**Client-side (admin/usuário), com idempotência:**
 - Cadastro (`Auth.tsx`) → `welcome` (best-effort, não bloqueia o signup)
+- Suporte respondido (`AdminSupport.tsx`) → `support_reply`
+- Orientação respondida (`AdminGuidanceRequests.tsx`) → `guidance_answered`
+- Sessão agendada/remarcada/cancelada (`AdminEvolutionSessions.tsx`) → `session_scheduled` / `session_rescheduled` / `session_cancelled`
+- Comentário profissional (`AdminProfessionalComments.tsx`) → `professional_comment_available`
+- Plano de autocuidado (`AdminSelfCarePlans.tsx`) → `self_care_plan_available`
+- Conteúdo personalizado enviado (`AdminPersonalization.tsx`) → `personalized_content_available`
+- Limite do diário — Gratuito, 4ª entrada/mês → `diary_limit_warning`; 5ª+ → `diary_limit_reached` (`DiaryPage.tsx`)
 
-Todos os envios do webhook são embrulhados: **falha de e-mail nunca quebra o pagamento**.
+Todos os envios do webhook são embrulhados: **falha de e-mail nunca quebra o pagamento**. Os client-side usam `void` (fire-and-forget) e nunca bloqueiam a ação.
 
 ## 7. Arquivos alterados/criados
 
@@ -91,22 +98,16 @@ Testes funcionais (envio real) dependem da ativação (secrets + domínio) — v
 - `welcome` é best-effort: se a confirmação de e-mail estiver **ativa**, o usuário não tem sessão logo após o signup e o envio via cliente pode não autenticar. Para 100% de garantia, disparar via **DB trigger/Auth Hook** (ver seção 11).
 - Segurança da Edge Function: aceita service role (server), admin (JWT) ou self-service (`welcome`/`email_confirmation`/`session_requested` para o próprio e-mail).
 
-## 11. Pendências (gatilhos com helper pronto — só falta chamar no ponto certo)
+## 11. Pendências
 
-Cada função abaixo já existe em `src/lib/emailTriggers.ts`. Basta chamá-la logo após a ação correspondente do admin/usuário (idempotência já embutida):
+Os gatilhos de suporte, orientação, sessão (agendar/remarcar/cancelar), comentário, autocuidado, conteúdo personalizado e limite do diário **já estão conectados** (seção 6). Restam apenas itens opcionais:
 
-| Evento | Chamar | Onde (ação) |
-|--------|--------|-------------|
-| Suporte respondido | `emailSupportReply(userId, email, nome, ticketId, messageId)` | admin envia mensagem no ticket |
-| Orientação respondida | `emailGuidanceAnswered(userId, email, nome, guidanceId, respondedAt)` | admin responde em `monthly_guidance_requests` |
-| Sessão agendada/remarcada/cancelada | `emailSessionScheduled / Rescheduled / Cancelled(...)` | `AdminEvolutionSessions` |
-| Sessão solicitada | `emailSessionRequested(...)` | usuário solicita sessão (Plus) |
-| Relatório disponível | `emailMonthlyReport(userId, email, nome, reportId)` | relatório mensal publicado |
-| Comentário profissional | `emailProfessionalComment(...)` | admin publica comentário |
-| Plano de autocuidado | `emailSelfCarePlan(...)` | criar/atualizar autocuidado |
-| Conteúdo personalizado | `emailPersonalizedContent(...)` | envio de personalização |
-| Limite do diário (4 e 5) | `emailDiaryLimitWarning / Reached(userId, email, nome, monthKey)` | `DiaryPage` ao salvar entrada |
-| `welcome` garantido | DB trigger em `profiles` (via pg_net → Edge Function) | alternativa server-side |
+| Item | Situação | Observação |
+|------|----------|-----------|
+| `email_confirmation` | Opcional | O Supabase Auth já envia confirmação nativa. Para usar o template custom, sobrescrever o e-mail de confirmação nas configurações de Auth (ou desligar a confirmação nativa e disparar via este sistema). |
+| `session_requested` | Não conectado | Wrapper `emailSessionRequested` pronto; falta identificar o fluxo em que o **usuário** solicita a sessão para plugar. |
+| `monthly_report_available` | Opcional | O relatório é gerado pelo próprio usuário (`MyEvolutionPage`), então o e-mail seria redundante. Conectar só se passar a ser gerado por admin/sistema (`emailMonthlyReportForUser` pronto). |
+| `welcome` garantido | Melhoria | Hoje é best-effort no cliente. Para 100% (mesmo com confirmação de e-mail ativa), disparar via DB trigger/Auth Hook. |
 
 **Ativação (passos seus):**
 1. Aplicar a migration `049` no SQL Editor.

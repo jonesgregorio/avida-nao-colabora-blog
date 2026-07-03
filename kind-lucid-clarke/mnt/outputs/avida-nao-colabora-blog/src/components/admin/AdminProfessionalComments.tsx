@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { Star, Send, Loader2, Search, Sparkles } from 'lucide-react'
+import { emailProfessionalCommentForUser } from '../../lib/emailTriggers'
 import AIContentAssistant from './AIContentAssistant'
 
 interface UserProfile {
@@ -108,6 +109,8 @@ export default function AdminProfessionalComments() {
       type: 'professional_comment',
       is_read: false,
     })
+
+    void emailProfessionalCommentForUser(selectedUser.user_id, `${selectedUser.user_id}:${reportMonth}`)
 
     setSuccessMsg(`Comentário de ${monthLabel(reportMonth)} enviado para ${selectedUser.full_name ?? 'usuário'}.`)
     setCommentText('')

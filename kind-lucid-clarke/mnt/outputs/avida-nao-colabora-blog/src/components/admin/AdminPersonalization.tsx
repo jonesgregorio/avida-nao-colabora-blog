@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import { emailPersonalizedContentForUser } from '../../lib/emailTriggers'
 import {
   Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
   CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
@@ -316,6 +317,9 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
         updated_at: now,
       })
       .eq('id', delivery.id)
+
+    // E-mail de nova recomendação (assunto neutro; conteúdo fica na conta)
+    void emailPersonalizedContentForUser(task.user_id, delivery.id)
 
     // 2. Atualizar task para enviada
     await supabase

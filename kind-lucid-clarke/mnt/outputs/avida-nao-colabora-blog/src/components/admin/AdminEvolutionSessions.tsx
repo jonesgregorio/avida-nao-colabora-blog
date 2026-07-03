@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { emailSessionScheduledForUser, emailSessionRescheduledForUser, emailSessionCancelledForUser } from '../../lib/emailTriggers'
 import {
   Video, Calendar, CheckCircle, Plus, Loader2, Save,
   Filter, X, RefreshCw,
@@ -237,6 +238,17 @@ export default function AdminEvolutionSessions() {
       is_read: false,
     })
 
+    if (editScheduledAt) {
+      const d = new Date(editScheduledAt)
+      void emailSessionScheduledForUser(selected.user_id, selected.id, {
+        scheduledAt: d.toISOString(),
+        data: d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        horario: d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }),
+        profissional: profName || '',
+        link: editMeetingLink || '',
+      })
+    }
+
     showToast('Sessão confirmada e usuário notificado!')
     setSaving(false)
     setSelected(null)
@@ -275,6 +287,12 @@ export default function AdminEvolutionSessions() {
       action_view: 'my-evolution',
       action_label: 'Ver minha sessão',
       is_read: false,
+    })
+
+    void emailSessionRescheduledForUser(selected.user_id, selected.id, {
+      scheduledAt: new Date(editScheduledAt).toISOString(),
+      data: new Date(editScheduledAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      horario: new Date(editScheduledAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }),
     })
 
     showToast('Sessão remarcada e usuário notificado!')
@@ -332,6 +350,8 @@ export default function AdminEvolutionSessions() {
       action_label: 'Falar com suporte',
       is_read: false,
     })
+
+    void emailSessionCancelledForUser(selected.user_id, selected.id)
 
     showToast('Sessão cancelada e usuário notificado!')
     setSaving(false)
