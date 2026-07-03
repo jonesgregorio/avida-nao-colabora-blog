@@ -245,17 +245,48 @@ export async function checkPayments(): Promise<HealthCheckResult> {
     return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'error', errorMessage: 'VITE_SUPABASE_URL ausente no build', severity: 'high' }
   }
 
+  // Verifica o CAMINHO COMPLETO do pagamento, não só o início do checkout:
+  //  - create-checkout      → inicia o pagamento
+  //  - stripe-webhook       → ATIVA o plano após o pagamento (crítico)
+  //  - manage-subscription  → cancelar / trocar / reativar
+  // OPTIONS não cria cobrança. Status 404 = não implantada; 503 = BOOT_ERROR
+  // (função não inicializa). Qualquer outro status = está no ar.
+  const fns = ['create-checkout', 'stripe-webhook', 'manage-subscription']
   const t0 = Date.now()
+  const statuses: Record<string, number> = {}
   try {
-    const res = await withTimeout(fetch(`${base}/functions/v1/create-checkout`, { method: 'OPTIONS' }), TIMEOUT_LIGHT)
+    await Promise.all(fns.map(async fn => {
+      try {
+        const res = await withTimeout(fetch(`${base}/functions/v1/${fn}`, { method: 'OPTIONS' }), TIMEOUT_LIGHT)
+        statuses[fn] = res.status
+      } catch {
+        statuses[fn] = 0
+      }
+    }))
     const ms = Date.now() - t0
-    if (res.status === 404) {
-      return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Edge Function create-checkout não encontrada (404)', details: { hint: 'Faça deploy: supabase functions deploy create-checkout' }, responseTimeMs: ms, severity: 'medium' }
+    const broken = fns.filter(f => statuses[f] === 404 || statuses[f] === 503)
+    const webhookBroken = broken.includes('stripe-webhook')
+    const checkoutBroken = broken.includes('create-checkout')
+
+    if (broken.length === 0) {
+      return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'ok', responseTimeMs: ms, details: { statuses, note: 'Checkout, webhook e gestão de assinatura acessíveis.' }, severity: 'info' }
     }
-    // Qualquer resposta que não seja 404 = função implantada e acessível
-    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'ok', responseTimeMs: ms, details: { note: 'Checkout server-side ativo (Edge Function create-checkout acessível).' }, severity: 'info' }
+
+    const critical = webhookBroken || checkoutBroken
+    return {
+      checkKey: 'payments', checkName: 'Pagamentos', category: 'payments',
+      status: critical ? 'error' : 'warning',
+      errorMessage: webhookBroken
+        ? `Webhook de pagamento indisponível (${broken.join(', ')}). Usuário paga mas o plano pode NÃO ser ativado.`
+        : checkoutBroken
+          ? `Função de checkout indisponível (${broken.join(', ')}).`
+          : `Função de pagamento com problema: ${broken.join(', ')}.`,
+      details: { statuses, broken, hint: `Verifique os logs no Supabase e refaça o deploy: supabase functions deploy ${broken.join(' ')}` },
+      responseTimeMs: ms,
+      severity: critical ? 'critical' : 'medium',
+    }
   } catch (e) {
-    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Não foi possível acessar a função de checkout: ' + String(e), details: { hint: 'Verifique se create-checkout está implantada e os secrets Stripe configurados.' }, responseTimeMs: Date.now() - t0, severity: 'medium' }
+    return { checkKey: 'payments', checkName: 'Pagamentos', category: 'payments', status: 'warning', errorMessage: 'Não foi possível verificar as funções de pagamento: ' + String(e), details: { statuses, hint: 'Verifique se as Edge Functions de pagamento estão implantadas.' }, responseTimeMs: Date.now() - t0, severity: 'medium' }
   }
 }
 
