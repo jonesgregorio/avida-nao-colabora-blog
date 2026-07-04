@@ -20,7 +20,18 @@ function buildPlanByPrice(): Record<string, string> {
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
 
-const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com.br'
+const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
+
+// Resumo curto de benefícios por plano (para o e-mail plan_activated).
+// Apenas EXIBE os benefícios oficiais — não altera plano/preço/hierarquia.
+const PLAN_BENEFITS: Record<string, string> = {
+  essential:
+    '- Diário ilimitado e histórico completo\n- Avaliações semanais e gráficos de evolução\n- Meditações guiadas em texto\n- Relatórios mensais em PDF\n- Resumo do diário, humor e sintomas\n- Sem anúncios e suporte por e-mail prioritário',
+  therapeutic:
+    '- Tudo do Essencial\n- Questionário aprofundado e plano de autocuidado personalizado\n- Diário avançado com marcadores extras\n- Gráficos comparativos e relatório mensal avançado\n- Recomendações personalizadas de conteúdo\n- Orientação mensal por mensagem',
+  'therapeutic-plus':
+    '- Tudo do Terapêutico\n- 1 sessão mensal de 30 min com Psicanalista\n- Revisão mensal do plano de autocuidado\n- Comentário profissional sobre o relatório do mês\n- Suporte prioritário máximo',
+}
 
 // Dispara e-mail transacional via Edge Function (service role).
 // NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
@@ -169,7 +180,7 @@ Deno.serve(async (req) => {
       link_meu_plano: `${SITE}/meu-plano`,
     }, `payment_confirmed:${session.id}`, userId)
     if (oldPlan === 'free') {
-      await sendTxEmail('plan_activated', email, { nome, plano: plan, beneficios_do_plano: '', link_meu_plano: `${SITE}/meu-plano` }, `plan_activated:${session.id}`, userId)
+      await sendTxEmail('plan_activated', email, { nome, plano: plan, beneficios_do_plano: PLAN_BENEFITS[plan] ?? '', link_meu_plano: `${SITE}/meu-plano` }, `plan_activated:${session.id}`, userId)
     } else if (oldPlan !== plan) {
       await sendTxEmail('plan_upgraded', email, { nome, plano_antigo: oldPlan, plano_novo: plan, link_meu_plano: `${SITE}/meu-plano` }, `plan_upgraded:${session.id}`, userId)
     }
