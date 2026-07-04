@@ -28,6 +28,8 @@ DROP POLICY IF EXISTS "admin_all" ON articles;
 DROP POLICY IF EXISTS "Admin gerencia métricas" ON site_metrics;
 DROP POLICY IF EXISTS "site_metrics_admin" ON site_metrics;
 DROP POLICY IF EXISTS "site_metrics_read" ON site_metrics;
+DROP POLICY IF EXISTS "site_metrics_public_read" ON site_metrics;
+DROP POLICY IF EXISTS "site_metrics_admin_all" ON site_metrics;
 
 -- leitura pública (necessária p/ os contadores da home):
 CREATE POLICY "site_metrics_public_read" ON site_metrics
