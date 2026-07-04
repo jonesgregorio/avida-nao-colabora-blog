@@ -19,20 +19,22 @@ DROP POLICY IF EXISTS "admin_all" ON articles;
 -- Resultado: anônimo/Gratuito leem só artigos free (articles_public_free);
 -- planos pagos leem conforme plano; admin lê tudo (articles_admin_all).
 
--- ── FIX 2 (MÉDIO) — site_metrics gravável por não-admin + leitura pública ─────
+-- ── FIX 2 (MÉDIO) — site_metrics gravável por não-admin ───────────────────────
 -- "Admin gerencia métricas" tinha WITH CHECK (true): como INSERT só valida
--- WITH CHECK (não o USING), qualquer usuário conseguia inserir métrica.
+-- WITH CHECK (não o USING), QUALQUER usuário conseguia INSERIR métrica.
 -- "site_metrics_admin" usava profiles.id (padrão quebrado, nunca casa).
--- "site_metrics_read" tinha USING (true) (leitura pública das métricas).
+-- A HOME (HomeContent.tsx) lê site_metrics publicamente (contadores), então a
+-- LEITURA pública é MANTIDA; só a ESCRITA passa a ser exclusiva de admin.
 DROP POLICY IF EXISTS "Admin gerencia métricas" ON site_metrics;
 DROP POLICY IF EXISTS "site_metrics_admin" ON site_metrics;
 DROP POLICY IF EXISTS "site_metrics_read" ON site_metrics;
 
+-- leitura pública (necessária p/ os contadores da home):
+CREATE POLICY "site_metrics_public_read" ON site_metrics
+  FOR SELECT USING (true);
+-- escrita (INSERT/UPDATE/DELETE) só admin:
 CREATE POLICY "site_metrics_admin_all" ON site_metrics
   FOR ALL USING (is_admin()) WITH CHECK (is_admin());
--- NOTA: se o site exibir métricas publicamente (ex.: contadores na home),
--- me avise que eu adiciono um SELECT público controlado. Por padrão, agora
--- só admin lê/escreve métricas.
 
 -- ── FIX 3 (BAIXO-MÉDIO) — usuário podia "responder" a própria orientação ──────
 -- "users_own_guidance" era FOR ALL (auth.uid()=user_id), permitindo ao usuário
