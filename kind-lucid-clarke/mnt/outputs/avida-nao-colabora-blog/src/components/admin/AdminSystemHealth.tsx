@@ -14,6 +14,7 @@ import {
   autofixCheck, autofixAllChecks, resolveIncidentsByCheckKey, isAutofixable,
 } from '../../lib/systemHealth'
 import { getActiveProvider, availableProviders, persistActiveProvider, PROVIDER_LABELS, loadActiveProviderFromDB, testProvider, type AIProvider } from '../../lib/aiContent'
+import AdminStripeSetup from './AdminStripeSetup'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -413,6 +414,9 @@ export default function AdminSystemHealth() {
 
   return (
     <div>
+      {/* Setup + autoteste do Stripe (server-side; a chave fica nas Edge Functions) */}
+      <AdminStripeSetup />
+
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>{toast.msg}</div>

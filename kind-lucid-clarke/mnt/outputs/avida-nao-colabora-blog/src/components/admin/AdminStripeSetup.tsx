@@ -1,0 +1,56 @@
+import { useState } from 'react'
+import { supabase } from '../../lib/supabase'
+import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
+
+// Painel admin para: (1) configurar os eventos do webhook Stripe e (2) rodar o
+// autoteste da lógica de cobrança — ambos server-side (a STRIPE_SECRET_KEY fica
+// nas Edge Functions; o frontend só dispara). Modo teste, sem cobrança real.
+export default function AdminStripeSetup() {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [result, setResult] = useState<{ fn: string; data: unknown } | null>(null)
+
+  async function call(fn: 'configure-stripe-webhook' | 'stripe-selftest') {
+    setBusy(fn); setResult(null)
+    try {
+      const { data, error } = await supabase.functions.invoke(fn, { body: {} })
+      setResult({ fn, data: error ? { error: error.message } : data })
+    } catch (e) {
+      setResult({ fn, data: { error: e instanceof Error ? e.message : 'erro' } })
+    } finally { setBusy(null) }
+  }
+
+  const ok = (result?.data as { ok?: boolean })?.ok
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <CreditCard className="w-4 h-4 text-sage-600" />
+        <h3 className="font-semibold text-stone-800 text-sm">Stripe — setup &amp; autoteste</h3>
+      </div>
+      <p className="text-xs text-stone-500 mb-4">
+        Configura os eventos do webhook e roda um autoteste da lógica de cobrança (upgrade, downgrade, idempotência) em modo teste, sem cobrança real.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => call('configure-stripe-webhook')} disabled={!!busy}
+          className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'configure-stripe-webhook' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+          Configurar eventos do webhook
+        </button>
+        <button onClick={() => call('stripe-selftest')} disabled={!!busy}
+          className="flex items-center gap-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'stripe-selftest' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          Rodar autoteste de cobrança
+        </button>
+      </div>
+      {result && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-2 text-sm">
+            {ok ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+            <span className="font-medium text-stone-700">{result.fn}: {ok ? 'OK' : 'ver detalhes'}</span>
+          </div>
+          <pre className="text-xs bg-stone-900 text-stone-100 rounded-lg p-3 overflow-auto max-h-72">{JSON.stringify(result.data, null, 2)}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
