@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AdminView } from './types'
 import { useAuth } from '../../hooks/useAuth'
+import { logAdminAction } from '../../lib/adminAudit'
 import AdminLayout from './AdminLayout'
 import AdminArticleEditor from './AdminArticleEditor'
 import AdminAreaPainel from './AdminAreaPainel'
@@ -69,6 +70,13 @@ export default function AdminPanel() {
   useEffect(() => {
     try { localStorage.setItem(ADMIN_KEY, view) } catch { /* noop */ }
   }, [view])
+
+  // Auditoria: registra o acesso do admin ao painel (as ações em si são
+  // auditadas por triggers no banco — ver migration 053).
+  useEffect(() => {
+    if (profile?.role === 'admin') logAdminAction('login', 'admin')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.role])
 
   // Aguarda autenticação antes de bloquear acesso (evita falso "Acesso restrito")
   if (loading) {
