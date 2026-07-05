@@ -1,0 +1,33 @@
+name: Apply Supabase Migrations
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/*.sql'
+  workflow_dispatch: {}
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Aplicar migrations novas (Management API)
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: lejvvhzluggyxlfwfoxl
+        run: |
+          set -euo pipefail
+          DIR="kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations"
+          FILES=$(git diff --name-only HEAD^ HEAD -- "$DIR/*.sql" || true)
+          if [ -z "$FILES" ]; then echo "Nenhuma migration nova."; exit 0; fi
+          for f in $FILES; do
+            echo "== $f =="
+            payload=$(jq -n --rawfile q "$f" '{query:$q}')
+            http=$(curl -sS -o resp.json -w '%{http_code}' -X POST \
+              "https://api.supabase.com/v1/projects/$REF/database/query" \
+              -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+              --data "$payload")
+            echo "HTTP $http"; cat resp.json; echo
+            [ "$http" -ge 300 ] && { echo "FALHOU: $f"; exit 1; } || true
+          done
