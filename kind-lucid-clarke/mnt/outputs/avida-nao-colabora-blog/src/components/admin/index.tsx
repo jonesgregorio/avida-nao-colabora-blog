@@ -75,7 +75,6 @@ export default function AdminPanel() {
   // auditadas por triggers no banco — ver migration 053).
   useEffect(() => {
     if (profile?.role === 'admin') logAdminAction('login', 'admin')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.role])
 
   // Aguarda autenticação antes de bloquear acesso (evita falso "Acesso restrito")

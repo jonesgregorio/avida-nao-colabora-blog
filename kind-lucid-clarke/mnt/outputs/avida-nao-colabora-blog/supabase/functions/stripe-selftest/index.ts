@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
     if (scheduleId) { try { await stripe.subscriptionSchedules.release(scheduleId) } catch { /* noop */ } }
     if (subId) { try { await stripe.subscriptions.cancel(subId) } catch { /* noop */ } }
     if (custId) { try { await stripe.customers.del(custId) } catch { /* noop */ } }
+    if (clockId) { try { await stripe.testHelpers.testClocks.del(clockId) } catch { /* noop */ } }
   }
 
   const r = results as Record<string, { ok?: boolean }>
