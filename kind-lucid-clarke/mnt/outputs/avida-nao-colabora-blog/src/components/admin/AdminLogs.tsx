@@ -28,12 +28,27 @@ export default function AdminLogs() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
+    // admin_logs.admin_id referencia auth.users (não profiles), então o embed
+    // do PostgREST (admin:profiles(...)) falha com 400 PGRST200. Buscamos os
+    // registros e resolvemos os nomes dos admins numa segunda consulta.
+    const { data: rows } = await supabase
       .from('admin_logs')
-      .select('*, admin:profiles(full_name)')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(200)
-    setLogs(data || [])
+    const list = (rows ?? []) as AdminLog[]
+    const ids = [...new Set(list.map(l => l.admin_id).filter(Boolean))]
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', ids)
+      const nameById = new Map(
+        (profs ?? []).map(p => [p.user_id as string, (p.full_name as string | null) ?? null]),
+      )
+      list.forEach(l => { l.admin = { full_name: nameById.get(l.admin_id) ?? null } })
+    }
+    setLogs(list)
     setLoading(false)
   }
 

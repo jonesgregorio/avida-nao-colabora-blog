@@ -50,11 +50,25 @@ export default function AdminSelfCarePlans() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    // self_care_plan_reviews.user_id referencia auth.users (não profiles), então
+    // o embed do PostgREST (user:profiles) falha com 400. Resolve-se o nome à parte.
     const [{ data: ps }, { data: users }] = await Promise.all([
-      supabase.from('self_care_plan_reviews').select('*, user:profiles(full_name)').order('created_at', { ascending: false }).limit(100),
+      supabase.from('self_care_plan_reviews').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('profiles').select('id, full_name, user_id').in('plan', ['therapeutic', 'therapeutic-plus']).limit(200),
     ])
-    setPlans(ps ?? [])
+    const list = (ps ?? []) as SelfCarePlan[]
+    const ids = [...new Set(list.map(p => p.user_id).filter(Boolean))]
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', ids)
+      const nameById = new Map(
+        (profs ?? []).map((p: { user_id: string; full_name?: string }) => [p.user_id, p.full_name ?? undefined]),
+      )
+      list.forEach(p => { p.user = { full_name: nameById.get(p.user_id) } })
+    }
+    setPlans(list)
     setPlusUsers((users ?? []).map((u: { user_id?: string; id?: string; full_name?: string }) => ({ id: u.user_id ?? u.id ?? '', full_name: u.full_name ?? u.id ?? '' })))
     setLoading(false)
   }, [])

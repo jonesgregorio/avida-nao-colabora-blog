@@ -66,12 +66,30 @@ export default function AdminGuidanceRequests() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
+    // user_id referencia auth.users (não profiles), então o embed do PostgREST
+    // (user:profiles) falha com 400 PGRST200. Buscamos os pedidos e resolvemos
+    // os dados do usuário (nome, e-mail, plano) numa segunda consulta.
+    const { data: rows } = await supabase
       .from('monthly_guidance_requests')
-      .select('*, user:profiles(full_name, email, plan)')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(200)
-    setRequests(data ?? [])
+    const list = (rows ?? []) as GuidanceRequest[]
+    const ids = [...new Set(list.map(r => r.user_id).filter(Boolean))]
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email, plan')
+        .in('user_id', ids)
+      const byId = new Map(
+        (profs ?? []).map((p: { user_id: string; full_name?: string; email?: string; plan?: string }) => [p.user_id, p]),
+      )
+      list.forEach(r => {
+        const p = byId.get(r.user_id)
+        r.user = p ? { full_name: p.full_name ?? undefined, email: p.email ?? undefined, plan: p.plan ?? undefined } : undefined
+      })
+    }
+    setRequests(list)
     setLoading(false)
   }, [])
 
