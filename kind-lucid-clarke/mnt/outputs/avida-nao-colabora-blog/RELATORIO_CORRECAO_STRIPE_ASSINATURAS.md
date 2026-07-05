@@ -61,15 +61,16 @@ Autoteste automático (`stripe-selftest`) na API real do Stripe (modo teste), cr
 
 ## 17. Resultado dos testes
 ```
-setup                : active         OK
-upgrade_sem_duplicata: 1 assinatura   OK
-downgrade_via_schedule: 2 fases        OK
-idempotencia         : 2º rejeitado   OK
+setup                  : active                         OK
+upgrade_sem_duplicata  : 1 assinatura, sem duplicar     OK
+downgrade_via_schedule : 2 fases, não cancela           OK
+idempotencia           : 2º evento rejeitado            OK
+downgrade_aplica_no_fim: price→essencial (Test Clock)   OK   ← tempo avançado
 ```
-Compra e cancelamento de 1ª assinatura também validados manualmente na sessão.
+**Todos os invariantes críticos passaram.** Compra e cancelamento de 1ª assinatura também validados manualmente na sessão.
 
 ## 18. Pendências restantes (honesto)
-1. **Downgrade APLICANDO no fim do ciclo** — o autoteste provou que o *schedule é criado corretamente*, mas não avançou o tempo. Verificar com **Stripe Test Clock** (avançar o relógio) OU ao longo de 1 ciclo real, confirmando que `subscription.updated` sincroniza o plano inferior.
+1. ~~Downgrade aplicando no fim do ciclo~~ — **VALIDADO** via Stripe Test Clock: avançando o relógio, o price troca para o plano inferior e a assinatura continua ativa (`ok: true`).
 2. **Sanidade de UI** — o autoteste valida o *backend*; recomenda-se 1 clique humano nos botões reais (assinar / upgrade / cancelar) pra confirmar o wiring do frontend.
 3. **`invoice.payment_failed`** — reforçar marcação `status=past_due` no `user_subscriptions`.
 4. **Go-live (modo Live)** — trocar chaves e recriar o webhook no modo Live (ver checklist).
@@ -87,6 +88,6 @@ Compra e cancelamento de 1ª assinatura também validados manualmente na sessão
 - **Stripe pronto pra cobrar usuários reais?** → Quase: código corrigido e **backend validado**; falta só a **troca pro modo Live** (config) + verificação do downgrade no fim do ciclo. **Não habilitar cobrança real sem esses 2 passos.**
 - **Risco de assinatura duplicada?** → **Não** (upgrade altera a existente; `create-checkout` recusa se já há assinatura — validado).
 - **Risco de liberar plano pago sem cobrança?** → **Não** (downgrade via schedule; `profiles.plan` só muda via webhook — validado).
-- **Downgrade está correto?** → **Sim** (schedule criado; aplicação no fim do ciclo a confirmar com test clock).
+- **Downgrade está correto?** → **Sim** (schedule criado E aplicação no fim do ciclo **validada via Test Clock**).
 - **Cancelamento está correto?** → **Sim.**
 - **Webhook é idempotente?** → **Sim** (validado).
