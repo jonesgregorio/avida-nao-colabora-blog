@@ -14,3 +14,5 @@ UPDATE email_logs SET created_at = COALESCE(sent_at, updated_at, now()) WHERE cr
 
 -- C) Métrica pública "Usuárias" -> "Usuários" (contador; plural)
 UPDATE site_metrics SET label = 'Usuários' WHERE label = 'Usuárias';
+
+-- Aplicada automaticamente via CI (workflow apply-migrations). Idempotente.
