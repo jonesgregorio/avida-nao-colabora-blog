@@ -41,7 +41,9 @@ function render(tpl: string, vars: Record<string, unknown>): string {
 // Monta o HTML de marca a partir do texto (quando o template não tem body_html próprio)
 function buildHtml(subject: string, bodyText: string, category: string | null): string {
   const paragraphs = bodyText.split('\n\n').map(block => {
-    const safe = escapeHtml(block).replace(/\n/g, '<br>')
+    const safe = escapeHtml(block)
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#2f4232;">$1</strong>') // **destaque** → negrito na cor da marca
+      .replace(/\n/g, '<br>')
     return `<p style="margin:0 0 18px;">${safe}</p>`
   }).join('')
 
@@ -53,8 +55,8 @@ function buildHtml(subject: string, bodyText: string, category: string | null): 
 <html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-    <div style="background:#1c1917;padding:28px 40px;">
-      <p style="margin:0;color:#a8a29e;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-family:Arial,sans-serif;">A Vida Não Colabora</p>
+    <div style="background:#2f4232;padding:28px 40px;">
+      <p style="margin:0;color:#a9c0a9;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-family:Arial,sans-serif;">A Vida Não Colabora</p>
       <h1 style="margin:8px 0 0;color:#ffffff;font-size:20px;font-weight:400;line-height:1.4;">${escapeHtml(subject)}</h1>
     </div>
     <div style="padding:36px 40px;color:#44403c;font-size:16px;line-height:1.75;">

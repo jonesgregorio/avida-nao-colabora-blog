@@ -14,6 +14,30 @@ const CORS_HEADERS = {
 // Ações suportadas
 type Action = 'cancel' | 'downgrade' | 'reactivate'
 
+const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
+
+// Rótulos amigáveis (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito', essential: 'Essencial', therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+}
+const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
+
+// Dispara e-mail transacional (nunca quebra o fluxo — erro só é logado).
+async function sendTxEmail(templateKey: string, toEmail: string | null | undefined, variables: Record<string, unknown>, idempotencyKey: string, userId?: string | null): Promise<void> {
+  if (!toEmail) return
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    await fetch(`${url}/functions/v1/send-transactional-email`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'apikey': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId ?? null, to_email: toEmail, template_key: templateKey, variables, idempotency_key: idempotencyKey }),
+    })
+  } catch (e) {
+    console.error('sendTxEmail falhou:', templateKey, (e as Error).message)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS })
@@ -85,7 +109,7 @@ Deno.serve(async (req) => {
   // Busca plano atual
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, stripe_customer_id')
+    .select('plan, stripe_customer_id, email, full_name')
     .eq('user_id', user.id)
     .single()
 
@@ -128,6 +152,14 @@ Deno.serve(async (req) => {
         type: 'info',
         action_view: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif cancel:', error) })
+
+      // E-mail de confirmação de cancelamento solicitado (não bloqueia o fluxo)
+      await sendTxEmail('plan_cancel_requested', profile?.email ?? user.email, {
+        nome: profile?.full_name || 'você',
+        plano_atual: planLabel(currentPlan),
+        data_fim_ciclo: new Date(effectiveAt).toLocaleDateString('pt-BR'),
+        link_meu_plano: `${SITE}/meu-plano`,
+      }, `plan_cancel_requested:${user.id}:${effectiveAt}`, user.id)
 
       return jsonResponse({
         ok: true,
@@ -173,6 +205,15 @@ Deno.serve(async (req) => {
         type: 'info',
         action_view: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif downgrade:', error) })
+
+      // E-mail de downgrade agendado (não bloqueia o fluxo)
+      await sendTxEmail('plan_downgrade_scheduled', profile?.email ?? user.email, {
+        nome: profile?.full_name || 'você',
+        plano_atual: planLabel(currentPlan),
+        plano_novo: planLabel(targetPlan),
+        data_fim_ciclo: new Date(effectiveAt).toLocaleDateString('pt-BR'),
+        link_meu_plano: `${SITE}/meu-plano`,
+      }, `plan_downgrade_scheduled:${user.id}:${effectiveAt}`, user.id)
 
       return jsonResponse({
         ok: true,

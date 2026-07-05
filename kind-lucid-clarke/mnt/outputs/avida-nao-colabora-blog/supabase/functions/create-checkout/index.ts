@@ -18,6 +18,20 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Origens permitidas para o retorno pós-checkout (evita open-redirect).
+// Aceita a origem que o navegador enviou SÓ se estiver na lista; senão usa SITE_URL.
+const ALLOWED_ORIGINS = new Set([
+  'https://avidanaocolabora.com',
+  'https://www.avidanaocolabora.com',
+  'https://avida-nao-colabora-blog.vercel.app',
+])
+function resolveSiteUrl(origin: unknown): string {
+  if (typeof origin === 'string') {
+    if (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) return origin
+  }
+  return Deno.env.get('SITE_URL') || 'http://localhost:5173'
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -34,11 +48,12 @@ Deno.serve(async (req) => {
     )
     if (authError || !user) throw new Error('Não autorizado')
 
-    const { plan } = await req.json()
+    const { plan, origin } = await req.json()
     const priceId = PRICE_IDS[plan]
     if (!priceId) throw new Error(`Plano inválido ou Price ID não configurado: ${plan}`)
 
-    const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:5173'
+    // Retorno na MESMA origem do navegador (validada) — evita logout apex vs www.
+    const siteUrl = resolveSiteUrl(origin)
 
     // Busca ou cria o Stripe Customer vinculado ao usuário
     const { data: profile } = await supabase

@@ -187,7 +187,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     try {
       // Chama Edge Function que cria sessão de checkout no Stripe
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plan: targetPlan },
+        body: { plan: targetPlan, origin: window.location.origin },
       })
 
       if (error || !data?.url) {

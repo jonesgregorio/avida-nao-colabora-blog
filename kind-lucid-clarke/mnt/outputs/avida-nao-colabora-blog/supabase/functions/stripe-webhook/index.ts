@@ -33,6 +33,15 @@ const PLAN_BENEFITS: Record<string, string> = {
     '- Tudo do Terapêutico\n- 1 sessão mensal de 30 min com Psicanalista\n- Revisão mensal do plano de autocuidado\n- Comentário profissional sobre o relatório do mês\n- Suporte prioritário máximo',
 }
 
+// Rótulos amigáveis dos planos (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito',
+  essential: 'Essencial',
+  therapeutic: 'Terapêutico',
+  'therapeutic-plus': 'Terapêutico Plus',
+}
+const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
+
 // Dispara e-mail transacional via Edge Function (service role).
 // NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
 async function sendTxEmail(
@@ -173,16 +182,16 @@ Deno.serve(async (req) => {
     const { email, nome } = await getRecipient(supabase, userId)
     const valor = ((session.amount_total ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     await sendTxEmail('payment_confirmed', email, {
-      nome, plano: plan, valor,
+      nome, plano: planLabel(plan), valor,
       data_pagamento: new Date().toLocaleDateString('pt-BR'),
       inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
       fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
       link_meu_plano: `${SITE}/meu-plano`,
     }, `payment_confirmed:${session.id}`, userId)
     if (oldPlan === 'free') {
-      await sendTxEmail('plan_activated', email, { nome, plano: plan, beneficios_do_plano: PLAN_BENEFITS[plan] ?? '', link_meu_plano: `${SITE}/meu-plano` }, `plan_activated:${session.id}`, userId)
+      await sendTxEmail('plan_activated', email, { nome, plano: planLabel(plan), beneficios_do_plano: PLAN_BENEFITS[plan] ?? '', link_meu_plano: `${SITE}/meu-plano` }, `plan_activated:${session.id}`, userId)
     } else if (oldPlan !== plan) {
-      await sendTxEmail('plan_upgraded', email, { nome, plano_antigo: oldPlan, plano_novo: plan, link_meu_plano: `${SITE}/meu-plano` }, `plan_upgraded:${session.id}`, userId)
+      await sendTxEmail('plan_upgraded', email, { nome, plano_antigo: planLabel(oldPlan), plano_novo: planLabel(plan), link_meu_plano: `${SITE}/meu-plano` }, `plan_upgraded:${session.id}`, userId)
     }
   }
 
@@ -283,7 +292,7 @@ Deno.serve(async (req) => {
     const { email: rEmail, nome: rNome } = await getRecipient(supabase, userId)
     const rValor = ((invoice.amount_paid ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     await sendTxEmail('payment_confirmed', rEmail, {
-      nome: rNome, plano: plan, valor: rValor,
+      nome: rNome, plano: planLabel(plan), valor: rValor,
       data_pagamento: new Date().toLocaleDateString('pt-BR'),
       inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
       fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
