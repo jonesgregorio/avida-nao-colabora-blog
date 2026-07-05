@@ -94,6 +94,24 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
+  // ── Idempotência: ignora eventos que o Stripe já entregou (reenvia em
+  //    timeout/erro) para não duplicar payment_events, histórico, plano e
+  //    notificações. Insere o event.id ANTES de processar; índice único
+  //    acusa duplicado.
+  const dedup = await supabase
+    .from('stripe_webhook_events')
+    .insert({ stripe_event_id: event.id, event_type: event.type })
+  if (dedup.error) {
+    if (String(dedup.error.code) === '23505' || /duplicate|unique/i.test(dedup.error.message)) {
+      console.log(`webhook: evento ${event.id} já processado — ignorado`)
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Falha ao registrar (ex.: tabela ausente) não deve travar o pagamento — apenas loga.
+    console.error('stripe_webhook_events: falha ao registrar (segue processando):', dedup.error.message)
+  }
+
   // ────────────────────────────────────────────────────────────
   // Pagamento confirmado via checkout → ativa o plano
   // ────────────────────────────────────────────────────────────
