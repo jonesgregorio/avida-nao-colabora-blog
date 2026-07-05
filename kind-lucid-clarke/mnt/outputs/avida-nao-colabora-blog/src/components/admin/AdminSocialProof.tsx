@@ -52,7 +52,7 @@ export default function AdminSocialProof() {
     } else {
       // Initialize default metrics if none exist
       const defaults = [
-        { key: 'users_count', label: 'Usuárias', value: '0' },
+        { key: 'users_count', label: 'Usuários', value: '0' },
         { key: 'articles_count', label: 'Artigos publicados', value: '0' },
         { key: 'diary_entries', label: 'Entradas de diário', value: '0' },
         { key: 'satisfaction', label: 'Taxa de satisfação', value: '98%' },

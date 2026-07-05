@@ -194,7 +194,6 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
       </section>
 
       {/* Prova Social */}
-      {/* Dados demonstrativos temporários. Substituir por métricas reais do banco futuramente. */}
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-10">
@@ -224,8 +223,6 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
               </div>
             ))}
           </div>
-
-          <p className="text-center text-sage-400 text-xs mt-6">* Dados demonstrativos temporários. Avaliações são de usuários da plataforma em fase inicial.</p>
         </div>
       </section>
 
