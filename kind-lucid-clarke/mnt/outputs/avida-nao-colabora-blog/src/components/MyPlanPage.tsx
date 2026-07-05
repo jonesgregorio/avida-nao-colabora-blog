@@ -541,7 +541,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       {/* Modal de downgrade */}
       {modal?.type === 'downgrade' && modal.targetPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sage-800">Confirmar downgrade de plano</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
@@ -612,7 +612,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       {/* Modal de cancelamento */}
       {modal?.type === 'cancel' && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-red-700">Cancelar assinatura</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
