@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "blog",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog",
+      "port": 5173
+    }
+  ]
+}
