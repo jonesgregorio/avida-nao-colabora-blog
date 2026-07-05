@@ -42,6 +42,10 @@ const PLAN_LABELS: Record<string, string> = {
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
 
+// Hierarquia dos planos — para distinguir upgrade (subiu) de downgrade (desceu).
+const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3 }
+const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
+
 // Dispara e-mail transacional via Edge Function (service role).
 // NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
 async function sendTxEmail(
@@ -316,6 +320,102 @@ Deno.serve(async (req) => {
       fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
       link_meu_plano: `${SITE}/meu-plano`,
     }, `payment_confirmed:${invoice.id}`, userId)
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Assinatura criada → apenas sincroniza user_subscriptions.
+  // A ATIVAÇÃO + e-mail de plano ativado vêm de checkout.session.completed
+  // (não duplicar aqui).
+  // ────────────────────────────────────────────────────────────
+  if (event.type === 'customer.subscription.created') {
+    const subscription = event.data.object as Stripe.Subscription
+    const customerId = subscription.customer as string
+    const plan = PLAN_BY_PRICE[subscription.items.data[0]?.price.id]
+    const { data: prof } = await supabase.from('profiles').select('user_id').eq('stripe_customer_id', customerId).maybeSingle()
+    const userId = (prof as { user_id?: string } | null)?.user_id ?? null
+    if (userId && plan) {
+      await supabase.from('user_subscriptions').upsert({
+        user_id: userId,
+        plan_key: plan,
+        status: subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : subscription.status,
+        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        provider_subscription_id: subscription.id,
+      }, { onConflict: 'user_id' })
+    }
+    return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Assinatura atualizada → SINCRONIZA Stripe → Supabase (fonte da verdade).
+  // Cobre: upgrade aplicado, downgrade aplicado no fim do ciclo,
+  // cancel_at_period_end (liga/desliga), reativação e renovação de período.
+  // ────────────────────────────────────────────────────────────
+  if (event.type === 'customer.subscription.updated') {
+    const subscription = event.data.object as Stripe.Subscription
+    const customerId = subscription.customer as string
+    const priceId = subscription.items.data[0]?.price.id
+    const newPlan = PLAN_BY_PRICE[priceId]
+
+    const { data: prof } = await supabase
+      .from('profiles').select('user_id, plan').eq('stripe_customer_id', customerId).maybeSingle()
+    const profRow = prof as { user_id?: string; plan?: string } | null
+    const userId = profRow?.user_id ?? null
+
+    if (!userId || !newPlan) {
+      console.error(`subscription.updated: ${!userId ? 'usuário' : 'price'} não encontrado (customer ${customerId}, price ${priceId})`)
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+
+    const oldPlan = profRow?.plan ?? 'free'
+    const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
+    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    const active = subscription.status === 'active' || subscription.status === 'trialing'
+
+    // Sincroniza user_subscriptions com o estado do Stripe.
+    const { error: subErr } = await supabase.from('user_subscriptions').upsert({
+      user_id: userId,
+      plan_key: newPlan,
+      status: active ? 'active' : subscription.status,
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      provider_subscription_id: subscription.id,
+    }, { onConflict: 'user_id' })
+    if (subErr) console.error('Erro user_subscriptions (sub.updated):', subErr)
+
+    // profiles.plan segue o plano ATIVO no Stripe (só quando a assinatura está ativa).
+    if (active) {
+      const { error: pErr } = await supabase.from('profiles').update({ plan: newPlan }).eq('user_id', userId)
+      if (pErr) console.error('Erro profiles.plan (sub.updated):', pErr)
+    }
+
+    // Mudança de plano (upgrade aplicado agora, ou downgrade aplicado no fim do ciclo).
+    if (newPlan !== oldPlan && active) {
+      const isUpgrade = rankOf(newPlan) > rankOf(oldPlan)
+      await supabase.from('plan_change_history').insert({
+        user_id: userId, old_plan: oldPlan, new_plan: newPlan,
+        change_type: isUpgrade ? 'upgrade' : 'downgrade',
+        amount_charged: 0, effective_at: new Date().toISOString(),
+        source: 'stripe_webhook', notes: `subscription.updated — sub ${subscription.id}`,
+      }).then(({ error }) => { if (error) console.error('hist (sub.updated):', error) })
+
+      const { email, nome } = await getRecipient(supabase, userId)
+      if (isUpgrade) {
+        await sendTxEmail('plan_upgraded', email, {
+          nome, plano_antigo: planLabel(oldPlan), plano_novo: planLabel(newPlan), link_meu_plano: `${SITE}/meu-plano`,
+        }, `plan_upgraded:${subscription.id}:${newPlan}`, userId)
+      }
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: isUpgrade ? 'Plano atualizado' : 'Plano alterado',
+        body: `Seu plano agora é ${planLabel(newPlan)}.`,
+        type: 'info', action_view: 'my-plan',
+      }).then(({ error }) => { if (error) console.error('notif (sub.updated):', error) })
+    }
+
+    return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
   }
 
   // ────────────────────────────────────────────────────────────
