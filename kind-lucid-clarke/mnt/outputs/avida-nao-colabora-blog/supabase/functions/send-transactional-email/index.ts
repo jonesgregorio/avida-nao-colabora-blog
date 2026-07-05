@@ -38,6 +38,18 @@ function render(tpl: string, vars: Record<string, unknown>): string {
   })
 }
 
+// Variáveis que representam o NOME DO PLANO — recebem **negrito** (só no HTML,
+// não no assunto nem no texto puro, para não vazar '**' onde não vira negrito).
+const PLAN_VAR_KEYS = ['plano', 'plano_atual', 'plano_novo', 'plano_antigo', 'plano_anterior']
+function boldPlanVars(vars: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...vars }
+  for (const k of PLAN_VAR_KEYS) {
+    const v = out[k]
+    if (typeof v === 'string' && v.trim() && !v.includes('**')) out[k] = `**${v.trim()}**`
+  }
+  return out
+}
+
 // Monta o HTML de marca a partir do texto (quando o template não tem body_html próprio)
 function buildHtml(subject: string, bodyText: string, category: string | null): string {
   const paragraphs = bodyText.split('\n\n').map(block => {
@@ -165,7 +177,7 @@ Deno.serve(async (req: Request) => {
   const bodyText = render(tpl.body_text, vars)
   const bodyHtml = tpl.body_html && String(tpl.body_html).trim()
     ? render(tpl.body_html, vars)
-    : buildHtml(subject, bodyText, tpl.category)
+    : buildHtml(subject, render(tpl.body_text, boldPlanVars(vars)), tpl.category)
 
   // ── Provider ────────────────────────────────────────────────────────────────
   if (!RESEND_API_KEY) {

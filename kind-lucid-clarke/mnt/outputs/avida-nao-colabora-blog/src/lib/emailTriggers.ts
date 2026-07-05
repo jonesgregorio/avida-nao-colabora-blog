@@ -10,7 +10,7 @@ import { supabase } from './supabase'
 
 const APP: string =
   (import.meta.env?.VITE_APP_URL as string | undefined) ||
-  (typeof window !== 'undefined' ? window.location.origin : 'https://avidanaocolabora.com.br')
+  (typeof window !== 'undefined' ? window.location.origin : 'https://avidanaocolabora.com')
 
 // Links para dentro da conta (conteúdo sensível fica sempre dentro do app)
 export const LINKS = {

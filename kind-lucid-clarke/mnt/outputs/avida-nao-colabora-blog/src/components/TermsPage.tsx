@@ -132,8 +132,8 @@ export default function TermsPage({ onNavigate }: TermsPageProps) {
           <h2 className="font-serif text-xl text-sage-800 mb-3">7. Contato</h2>
           <p className="text-sm leading-relaxed">
             Dúvidas sobre estes termos:{' '}
-            <a href="mailto:contato@avidanaocolabora.com.br" className="text-purple-600 underline">
-              contato@avidanaocolabora.com.br
+            <a href="mailto:contato@avidanaocolabora.com" className="text-purple-600 underline">
+              contato@avidanaocolabora.com
             </a>
           </p>
         </section>

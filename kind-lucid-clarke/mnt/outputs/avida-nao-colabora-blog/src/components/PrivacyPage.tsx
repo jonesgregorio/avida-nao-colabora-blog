@@ -129,8 +129,8 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
           <h2 className="font-serif text-xl text-sage-800 mb-3">8. Contato</h2>
           <p className="text-sm leading-relaxed">
             Para exercer seus direitos, solicitar exclusão de dados ou tirar dúvidas sobre esta política, entre em contato pelo e-mail:{' '}
-            <a href="mailto:privacidade@avidanaocolabora.com.br" className="text-purple-600 underline">
-              privacidade@avidanaocolabora.com.br
+            <a href="mailto:privacidade@avidanaocolabora.com" className="text-purple-600 underline">
+              privacidade@avidanaocolabora.com
             </a>
           </p>
         </section>

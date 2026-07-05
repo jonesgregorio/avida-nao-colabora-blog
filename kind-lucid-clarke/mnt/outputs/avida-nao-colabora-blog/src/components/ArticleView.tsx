@@ -506,7 +506,7 @@ export default function ArticleView({
         <p>
           Este conteúdo é de caráter informativo e educativo. Não substitui acompanhamento
           profissional de saúde mental. Se você está passando por dificuldades severas, procure
-          um psicólogo ou profissional de saúde. Fonte: avidanaocolabora.com.br
+          um psicólogo ou profissional de saúde. Fonte: avidanaocolabora.com
         </p>
       </div>
 
