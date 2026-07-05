@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
   let custId: string | undefined
   let subId: string | undefined
   let scheduleId: string | undefined
+  let clockId: string | undefined
 
   try {
     // ── Setup: cliente de teste + assinatura Essencial ativa ──
@@ -93,6 +94,43 @@ Deno.serve(async (req) => {
       await supabase.from('stripe_webhook_events').delete().eq('stripe_event_id', evtId)
       results.idempotencia = { primeiro_ok: !i1.error, segundo_rejeitado: !!i2.error, ok: !i1.error && !!i2.error }
     } catch (e) { results.idempotencia = { ok: false, error: (e as Error).message } }
+
+    // ── Teste 4: DOWNGRADE APLICA no fim do ciclo (Stripe Test Clock avança o tempo) ──
+    try {
+      const now = Math.floor(Date.now() / 1000)
+      const clock = await stripe.testHelpers.testClocks.create({ frozen_time: now })
+      clockId = clock.id
+      const c2 = await stripe.customers.create({ test_clock: clock.id, name: 'SELFTEST-CLOCK', metadata: { selftest: '1' } })
+      const pm2 = await stripe.paymentMethods.attach('pm_card_visa', { customer: c2.id })
+      await stripe.customers.update(c2.id, { invoice_settings: { default_payment_method: pm2.id } })
+      const s2 = await stripe.subscriptions.create({ customer: c2.id, items: [{ price: PRICE_IDS.therapeutic! }] })
+      const periodEnd = s2.current_period_end
+      const sch2 = await stripe.subscriptionSchedules.create({ from_subscription: s2.id })
+      await stripe.subscriptionSchedules.update(sch2.id, {
+        end_behavior: 'release',
+        phases: [
+          { items: [{ price: PRICE_IDS.therapeutic!, quantity: 1 }], start_date: sch2.phases[0].start_date, end_date: periodEnd },
+          { items: [{ price: PRICE_IDS.essential!, quantity: 1 }] },
+        ],
+      })
+      // Avança o relógio para 1h depois do fim do ciclo → o schedule deve trocar o price.
+      await stripe.testHelpers.testClocks.advance(clock.id, { frozen_time: periodEnd + 3600 })
+      let ready = false
+      for (let i = 0; i < 15; i++) {
+        const ck = await stripe.testHelpers.testClocks.retrieve(clock.id)
+        if (ck.status === 'ready') { ready = true; break }
+        if (ck.status === 'internal_failure') break
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+      const s2after = await stripe.subscriptions.retrieve(s2.id)
+      const newPrice = s2after.items.data[0]?.price.id
+      results.downgrade_aplica_no_fim = {
+        clock_pronto: ready,
+        price_virou_essencial: newPrice === PRICE_IDS.essential,
+        assinatura_ativa: s2after.status === 'active' || s2after.status === 'trialing',
+        ok: ready && newPrice === PRICE_IDS.essential && (s2after.status === 'active' || s2after.status === 'trialing'),
+      }
+    } catch (e) { results.downgrade_aplica_no_fim = { ok: false, error: (e as Error).message } }
   } catch (e) {
     results.fatal = (e as Error).message
   } finally {
@@ -103,6 +141,6 @@ Deno.serve(async (req) => {
   }
 
   const r = results as Record<string, { ok?: boolean }>
-  const allOk = !!(r.upgrade_sem_duplicata?.ok && r.downgrade_via_schedule?.ok && r.idempotencia?.ok)
+  const allOk = !!(r.upgrade_sem_duplicata?.ok && r.downgrade_via_schedule?.ok && r.idempotencia?.ok && r.downgrade_aplica_no_fim?.ok)
   return json({ ok: allOk, results })
 })
