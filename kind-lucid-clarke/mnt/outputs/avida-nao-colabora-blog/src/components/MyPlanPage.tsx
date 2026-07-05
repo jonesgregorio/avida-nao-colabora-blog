@@ -185,27 +185,29 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
     setActing(true)
     setActionMsg(null)
     try {
-      // Chama Edge Function que cria sessão de checkout no Stripe
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plan: targetPlan, origin: window.location.origin },
-      })
-
-      if (error || !data?.url) {
-        throw new Error(error?.message ?? 'URL de checkout não retornada')
+      // Sem plano pago (Gratuito) → PRIMEIRA assinatura via checkout do Stripe.
+      if (currentPlan === 'free') {
+        const { data, error } = await supabase.functions.invoke('create-checkout', {
+          body: { plan: targetPlan, origin: window.location.origin },
+        })
+        if (error || !data?.url) throw new Error(error?.message ?? 'URL de checkout não retornada')
+        setModal(null)
+        window.location.href = data.url  // plano só muda via webhook após pagamento
+        return
       }
-
+      // Já tem plano pago → UPGRADE altera a assinatura existente (proration), sem novo checkout.
+      const { data, error } = await supabase.functions.invoke('manage-subscription', {
+        body: { action: 'upgrade', targetPlan },
+      })
+      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao fazer upgrade')
       setModal(null)
-      // Redireciona para o checkout Stripe — plano só muda via webhook após pagamento
-      // O histórico de mudança é registrado pelo webhook (service role), não pelo frontend
-      window.location.href = data.url
+      setActionMsg({ type: 'ok', text: data.message ?? `Upgrade para ${PLAN_LABELS[targetPlan]} em processamento.` })
+      loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
       console.error('handleUpgrade:', msg)
       setModal(null)
-      setActionMsg({
-        type: 'err',
-        text: 'Não foi possível iniciar o pagamento agora. Seu plano atual foi mantido.',
-      })
+      setActionMsg({ type: 'err', text: msg })
     } finally {
       setActing(false)
     }

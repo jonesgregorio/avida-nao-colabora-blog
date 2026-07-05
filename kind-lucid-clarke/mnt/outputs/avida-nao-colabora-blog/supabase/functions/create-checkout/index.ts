@@ -77,6 +77,16 @@ Deno.serve(async (req) => {
         .eq('user_id', user.id)
     }
 
+    // Impede assinatura DUPLICADA: se o cliente já tem assinatura ativa, a troca de plano
+    // deve ir por manage-subscription (upgrade/downgrade), não um novo checkout.
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 })
+    if (existing.data.length > 0) {
+      return new Response(JSON.stringify({ error: 'Você já tem uma assinatura ativa. Use "Mudar plano" para trocar de plano.' }), {
+        status: 400,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      })
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',

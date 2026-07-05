@@ -449,8 +449,9 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // Se havia um pending_plan (downgrade agendado), usa ele; senão vai para 'free'
-    const finalPlan = subData?.pending_plan ?? 'free'
+    // Downgrades agora usam Subscription Schedule (NÃO deletam a assinatura). Portanto
+    // uma deleção = cancelamento total → sempre volta para o Gratuito.
+    const finalPlan = 'free'
     const oldPlan = subData?.plan_key ?? 'unknown'
 
     // Atualiza profiles.plan
