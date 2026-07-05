@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Printer, Heart,
 import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
+import { markArticleRead } from '../lib/readingProgress'
 
 interface ArticleViewProps {
   slug?: string
@@ -132,6 +133,11 @@ export default function ArticleView({
         }
       })
   }, [user, article])
+
+  // ---- Marca o artigo como lido (progresso de trilhas + histórico) ----
+  useEffect(() => {
+    if (user && article?.slug) void markArticleRead(user.id, article.slug)
+  }, [user, article?.slug])
 
   async function loadArticle(s: string) {
     setLoading(true)

@@ -4,6 +4,7 @@ import { DiaryEntry, Plan } from '../types'
 import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
+import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
 
 const moodOptions = [
   { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
@@ -95,14 +96,20 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
   const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus'
   const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus'
 
+  // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
+  const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
+  useEffect(() => { fetchDiaryConfig(plan).then(setCfg) }, [plan])
+  const fieldOn = (key: string) => cfg.fields[key] !== false
+  const canExportPDF = cfg.exportPDF
+
   const currentMonthEntries = entries.filter(e => {
     const d = new Date(e.created_at)
     const now = new Date()
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
+  const entryLimit = cfg.entriesPerMonth // null = ilimitado
   const freeEntryCount = currentMonthEntries.length
-  const freeEntryLimit = 5
-  const freeAtLimit = plan === 'free' && freeEntryCount >= freeEntryLimit
+  const atLimit = entryLimit != null && freeEntryCount >= entryLimit
 
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
@@ -128,10 +135,12 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       .in('plan_level', planFilter)
       .or(`day_of_week.eq.${day},day_of_week.is.null`)
       .limit(20)
-    if (data && data.length > 0) {
-      setPrompt(data[Math.floor(Math.random() * data.length)].text)
+    // Combina perguntas do banco com as configuradas pelo admin (Diário por Plano).
+    const pool = [...((data ?? []).map((d: { text: string }) => d.text)), ...cfg.guidedQuestions]
+    if (pool.length > 0) {
+      setPrompt(pool[Math.floor(Math.random() * pool.length)])
     }
-  }, [isEssential, isTherapeutic])
+  }, [isEssential, isTherapeutic, cfg.guidedQuestions])
 
   useEffect(() => {
     fetchEntries()
@@ -140,7 +149,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
 
   // When arriving from article with a prompt context, auto-open form and pre-fill
   useEffect(() => {
-    if (promptContext && !freeAtLimit) {
+    if (promptContext && !atLimit) {
       setShowForm(true)
       setWhatHappened(promptContext.prompt)
     }
@@ -165,8 +174,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       setError('Escreva algo antes de salvar.')
       return
     }
-    if (freeAtLimit) {
-      setError('Você atingiu o limite de 5 entradas para este mês no plano gratuito.')
+    if (atLimit) {
+      setError('Você atingiu o limite de entradas deste mês no seu plano.')
       return
     }
     setSaving(true)
@@ -185,25 +194,25 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     }
 
     if (isEssential) {
-      payload.energy = energy
-      payload.anxiety_level = anxietyLevel
-      payload.stress_level = stressLevel
-      payload.gratitude = gratitude || undefined
-      payload.small_pride = smallPride || undefined
-      payload.free_note = freeNote || undefined
-      payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
+      if (fieldOn('energy')) payload.energy = energy
+      if (fieldOn('anxiety_level')) payload.anxiety_level = anxietyLevel
+      if (fieldOn('stress_level')) payload.stress_level = stressLevel
+      if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
+      if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
+      if (fieldOn('free_note')) payload.free_note = freeNote || undefined
+      if (fieldOn('emotional_tags')) payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
     }
 
     if (isTherapeutic) {
-      payload.sleep_quality = sleepQuality
-      payload.self_esteem = selfEsteem
-      payload.irritability = irritability
-      payload.overload = overload
-      payload.emotional_triggers = emotionalTriggers || undefined
-      payload.recurring_thoughts = recurringThoughts || undefined
-      payload.emotional_need = emotionalNeed || undefined
-      payload.relationships = relationships || undefined
-      payload.habits = habits || undefined
+      if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
+      if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
+      if (fieldOn('irritability')) payload.irritability = irritability
+      if (fieldOn('overload')) payload.overload = overload
+      if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
+      if (fieldOn('recurring_thoughts')) payload.recurring_thoughts = recurringThoughts || undefined
+      if (fieldOn('emotional_need')) payload.emotional_need = emotionalNeed || undefined
+      if (fieldOn('relationships')) payload.relationships = relationships || undefined
+      if (fieldOn('habits')) payload.habits = habits || undefined
     }
 
     const { data, error: err } = await supabase.from('diary_entries').insert(payload).select().single()
@@ -211,11 +220,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     if (data) {
       setEntries(prev => [data, ...prev])
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status
-      if (!isEssential && !isTherapeutic) {
+      if (plan === 'free' && entryLimit != null) {
         const monthKey = new Date().toISOString().slice(0, 7)
         const count = [data, ...entries].filter(e => String(e.date ?? '').startsWith(monthKey) && e.entry_type === 'diary').length
-        if (count === 4) void emailDiaryLimitWarningForUser(user!.id, monthKey)
-        else if (count >= 5) void emailDiaryLimitReachedForUser(user!.id, monthKey)
+        if (count === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
+        else if (count >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
       }
     }
     resetForm()
@@ -246,7 +255,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
           <button onClick={fetchEntries} className="p-2 text-sage-400 hover:text-sage-600">
             <RefreshCw className="w-4 h-4" />
           </button>
-          {isEssential && (
+          {canExportPDF && (
             <button
               onClick={() => window.print()}
               title="Exportar como PDF"
@@ -256,8 +265,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
             </button>
           )}
           <button
-            onClick={() => { if (!freeAtLimit) setShowForm(!showForm) }}
-            disabled={freeAtLimit}
+            onClick={() => { if (!atLimit) setShowForm(!showForm) }}
+            disabled={atLimit}
             className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" /> Nova entrada
@@ -265,22 +274,24 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
         </div>
       </div>
 
-      {/* Free plan usage counter */}
-      {plan === 'free' && (
+      {/* Contador de uso do mês (planos com limite de entradas) */}
+      {entryLimit != null && (
         <div className="bg-sand-50 border border-sand-200 rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-sage-600 mb-2">
-            <span>{freeEntryCount} de {freeEntryLimit} entradas usadas neste mês</span>
-            <span>{freeEntryLimit - freeEntryCount} restantes</span>
+            <span>{freeEntryCount} de {entryLimit} entradas usadas neste mês</span>
+            <span>{Math.max(entryLimit - freeEntryCount, 0)} restantes</span>
           </div>
           <div className="h-2 bg-sand-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${freeAtLimit ? 'bg-red-400' : 'bg-sage-400'}`}
-              style={{ width: `${Math.min((freeEntryCount / freeEntryLimit) * 100, 100)}%` }}
+              className={`h-full rounded-full transition-all ${atLimit ? 'bg-red-400' : 'bg-sage-400'}`}
+              style={{ width: `${Math.min((freeEntryCount / entryLimit) * 100, 100)}%` }}
             />
           </div>
-          {freeAtLimit && (
+          {atLimit && (
             <p className="text-xs text-sage-600 mt-2">
-              Você usou todas as entradas do mês. <button onClick={onNavigatePricing} className="text-purple-600 underline font-medium">Faça upgrade para continuar registrando.</button>
+              Você usou todas as entradas do mês.{plan === 'free' && (
+                <> <button onClick={onNavigatePricing} className="text-purple-600 underline font-medium">Faça upgrade para continuar registrando.</button></>
+              )}
             </p>
           )}
         </div>
@@ -299,7 +310,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       )}
 
       {/* New entry form */}
-      {showForm && !freeAtLimit && (
+      {showForm && !atLimit && (
         <div className="bg-white border border-sand-200 rounded-xl p-5 mb-6 shadow-sm">
           <h3 className="font-serif text-lg text-sage-800 mb-5">Como você está hoje?</h3>
 
@@ -395,11 +406,12 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
               <p className="text-xs text-sage-400 font-medium uppercase tracking-wider">Marcadores emocionais</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SliderField label="Humor (1-10)" value={moodScore} onChange={setMoodScore} />
-                <SliderField label="Energia (1-10)" value={energy} onChange={setEnergy} />
-                <SliderField label="Ansiedade (1-10)" value={anxietyLevel} onChange={setAnxietyLevel} />
-                <SliderField label="Estresse (1-10)" value={stressLevel} onChange={setStressLevel} />
+                {fieldOn('energy') && <SliderField label="Energia (1-10)" value={energy} onChange={setEnergy} />}
+                {fieldOn('anxiety_level') && <SliderField label="Ansiedade (1-10)" value={anxietyLevel} onChange={setAnxietyLevel} />}
+                {fieldOn('stress_level') && <SliderField label="Estresse (1-10)" value={stressLevel} onChange={setStressLevel} />}
               </div>
 
+              {fieldOn('emotional_tags') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-2">Tags emocionais</label>
                 <div className="flex flex-wrap gap-2">
@@ -418,7 +430,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   ))}
                 </div>
               </div>
+              )}
 
+              {fieldOn('gratitude') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Gratidão</label>
                 <input
@@ -429,6 +443,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('small_pride') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Pequeno orgulho do dia</label>
                 <input
@@ -439,6 +455,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('free_note') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Nota livre</label>
                 <textarea
@@ -449,6 +467,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
             </div>
           )}
 
@@ -457,11 +476,12 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
             <div className="border-t border-sand-100 pt-4 mt-4 space-y-4">
               <p className="text-xs text-sage-400 font-medium uppercase tracking-wider">Marcadores avançados</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SliderField label="Qualidade do sono (1-10)" value={sleepQuality} onChange={setSleepQuality} />
-                <SliderField label="Autoestima (1-10)" value={selfEsteem} onChange={setSelfEsteem} />
-                <SliderField label="Irritabilidade (1-10)" value={irritability} onChange={setIrritability} />
-                <SliderField label="Sobrecarga (1-10)" value={overload} onChange={setOverload} />
+                {fieldOn('sleep_quality') && <SliderField label="Qualidade do sono (1-10)" value={sleepQuality} onChange={setSleepQuality} />}
+                {fieldOn('self_esteem') && <SliderField label="Autoestima (1-10)" value={selfEsteem} onChange={setSelfEsteem} />}
+                {fieldOn('irritability') && <SliderField label="Irritabilidade (1-10)" value={irritability} onChange={setIrritability} />}
+                {fieldOn('overload') && <SliderField label="Sobrecarga (1-10)" value={overload} onChange={setOverload} />}
               </div>
+              {fieldOn('emotional_triggers') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Gatilhos emocionais</label>
                 <textarea
@@ -472,6 +492,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('recurring_thoughts') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Pensamentos recorrentes</label>
                 <textarea
@@ -482,6 +504,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('emotional_need') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Necessidade emocional principal</label>
                 <input
@@ -492,6 +516,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('relationships') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Relações e limites</label>
                 <textarea
@@ -502,6 +528,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
+              {fieldOn('habits') && (
               <div>
                 <label className="text-xs text-sage-600 font-medium block mb-1">Hábitos do dia</label>
                 <input
@@ -512,6 +540,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
                   className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+              )}
             </div>
           )}
 
@@ -558,7 +587,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       ) : filteredEntries.length === 0 ? (
         <div className="text-center py-12 text-sage-400">
           <p className="mb-3">Nenhum registro ainda.</p>
-          {!freeAtLimit && (
+          {!atLimit && (
             <button onClick={() => setShowForm(true)} className="text-sage-600 font-medium text-sm hover:underline">
               Criar primeira entrada
             </button>
