@@ -407,20 +407,6 @@ export const TASK_DEFS: TaskDef[] = [
     dueParam: 2,
     expiresAfterDueDays: 5,
   },
-  {
-    key: 'monthly_session',
-    title: 'Sessão mensal Plus',
-    description: 'Usuário tem direito a sessão mensal Plus e ainda não foi agendada.',
-    contentType: 'session_summary',
-    targetArea: 'session_plus',
-    notificationTitle: 'Sessão Plus disponível',
-    notificationBody: 'Você tem direito a uma sessão Plus este mês. Solicite quando quiser.',
-    frequency: 'monthly',
-    minPlan: 'therapeutic-plus',
-    priority: 'high',
-    dueType: 'end_of_month',
-    expiresAfterDueDays: null,
-  },
 ]
 
 export function getTaskDefsForPlan(plan: string): TaskDef[] {
@@ -824,16 +810,16 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const TARGET_AREA_LABELS: Record<string, string> = {
   'para-voce': 'Para você',
-  resumo: 'Minha Evolução → Resumo',
+  resumo: 'Mapa emocional → Resumo',
   diary: 'Diário',
   meditations: 'Meditações',
   exercises: 'Exercícios',
   reports: 'Relatórios',
-  self_care_plan: 'Plano de Autocuidado',
-  guidance: 'Orientações',
-  professional_comments: 'Comentários Profissionais',
-  session_plus: 'Sessão Plus',
-  my_evolution: 'Minha Evolução',
+  self_care_plan: 'Plano de autocuidado',
+  guidance: 'Orientação profissional',
+  professional_comments: 'Comentário profissional',
+  session_plus: 'Orientação profissional',
+  my_evolution: 'Mapa emocional',
 }
 
 // PERSONALIZED_CONTENT_LABELS mantido para compatibilidade com código legado.

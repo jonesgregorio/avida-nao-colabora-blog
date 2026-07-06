@@ -221,13 +221,12 @@ export default function AdminNotifications() {
             <label className="block text-xs text-stone-500 mb-1">Ação ao clicar (opcional)</label>
             <select value={actionView} onChange={e => setActionView(e.target.value)} className={inputCls}>
               <option value="">Sem ação</option>
-              <option value="my-evolution">Minha Evolução</option>
-              <option value="my-evolution?tab=para-voce">Para Você</option>
-              <option value="my-evolution?tab=orientacoes">Orientações</option>
+              <option value="my-evolution">Mapa emocional</option>
+              <option value="my-evolution?tab=para-voce">Para você</option>
+              <option value="my-evolution?tab=orientacoes">Orientação profissional</option>
               <option value="my-evolution?tab=relatorios">Relatórios</option>
-              <option value="my-evolution?tab=autocuidado">Plano de Autocuidado</option>
-              <option value="my-evolution?tab=sessao">Sessão Plus</option>
-              <option value="my-evolution?tab=comentarios">Comentários Profissionais</option>
+              <option value="my-evolution?tab=autocuidado">Plano de autocuidado</option>
+              <option value="my-evolution?tab=comentarios">Comentário profissional</option>
               <option value="my-plan">Meu Plano</option>
               <option value="support">Suporte</option>
               <option value="blog">Blog</option>
