@@ -263,7 +263,7 @@ export default function App() {
   if (view === 'article' && selectedArticleSlug) {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ArticleView
             slug={selectedArticleSlug}
@@ -284,7 +284,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <DiaryPage
             user={user}
@@ -304,7 +304,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ProfilePage
             user={user}
@@ -325,7 +325,7 @@ export default function App() {
     }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <GuidedMeditations onBack={() => setView('home')} />
         </main>
@@ -337,7 +337,7 @@ export default function App() {
   if (view === 'challenges') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <MiniChallenges onBack={() => setView('home')} />
         </main>
@@ -352,7 +352,7 @@ export default function App() {
     }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <TherapeuticQuestionnaire user={user} onBack={() => setView('home')} />
         </main>
@@ -364,7 +364,7 @@ export default function App() {
   if (view === 'notifications') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <NotificationsPage user={user} navigate={navigate} onBack={() => navigate('home')} />
         </main>
@@ -376,7 +376,7 @@ export default function App() {
   if (view === 'contact') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ContactPage user={user} profile={profile} onBack={() => setView('home')} navigate={navigate} />
         </main>
@@ -388,7 +388,7 @@ export default function App() {
   if (view === 'about') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <AboutPage onNavigate={navigate} />
         </main>
@@ -400,7 +400,7 @@ export default function App() {
   if (view === 'privacy') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <PrivacyPage onNavigate={navigate} />
         </main>
@@ -412,7 +412,7 @@ export default function App() {
   if (view === 'terms') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <TermsPage onNavigate={navigate} />
         </main>
@@ -424,7 +424,7 @@ export default function App() {
   if (view === 'responsibility') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ResponsibilityPage />
         </main>
@@ -436,7 +436,7 @@ export default function App() {
   if (view === 'questionarios') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <QuestionnairesPage
             user={user}
@@ -458,7 +458,7 @@ export default function App() {
   if (view === 'questionnaire' && activeQuestionnaireId) {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <QuestionnairePlayer
             questionnaireId={activeQuestionnaireId}
@@ -478,7 +478,7 @@ export default function App() {
   if (view === 'articles') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <Articles
             onSelectArticle={(articleOrSlug) => {
@@ -498,7 +498,7 @@ export default function App() {
   if (view === 'pricing') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <Pricing
             user={user}
@@ -514,7 +514,7 @@ export default function App() {
   if (view === 'trails') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <TrailsPage
             user={user}
@@ -531,7 +531,7 @@ export default function App() {
   if (view === 'saved') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <SavedItemsPage
             user={user}
@@ -558,7 +558,7 @@ export default function App() {
   if (view === 'support') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <SupportPage
             user={user}
@@ -576,7 +576,7 @@ export default function App() {
   if (view === 'support-ticket' && activeSupportTicketId) {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50 pt-2">
           <SupportTicketDetail
             ticketId={activeSupportTicketId}
@@ -593,7 +593,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <MonthlyGuidancePage
             user={user}
@@ -611,7 +611,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50 max-w-2xl mx-auto px-4 py-8">
           <ProfessionalCommentsSection
             user={user}
@@ -629,7 +629,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <MyEvolutionPage
             user={user}
@@ -649,7 +649,7 @@ export default function App() {
     if (!user) { navigate('auth'); return null }
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <MyReportPage
             user={user}
@@ -668,7 +668,7 @@ export default function App() {
   if (view === 'my-plan') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <MyPlanPage
             user={user}
@@ -698,23 +698,12 @@ export default function App() {
   // Home
   return (
     <>
-      <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} />
+      <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
 
-      {!user && (
-        <div className="bg-purple-50 border-b border-purple-100 py-2.5 px-4 text-center">
-          <p className="text-sm text-purple-700">
-            Crie sua conta gratuita para acessar o diário de bem-estar.{' '}
-            <button onClick={() => navigate('auth')} className="text-purple-800 font-semibold underline hover:text-purple-900">
-              Cadastrar agora
-            </button>
-          </p>
-        </div>
-      )}
-
-      <main className="min-h-screen bg-stone-50">
+      <main className="min-h-screen bg-paper">
         <Hero onNavigate={navigate} />
 
-        <DailyContentWidget user={user} profile={profile} />
+        {user && <DailyContentWidget user={user} profile={profile} />}
 
         <HomeContent onNavigate={navigate} />
 

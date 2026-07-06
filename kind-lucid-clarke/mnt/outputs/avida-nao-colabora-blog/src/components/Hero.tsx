@@ -16,15 +16,15 @@ const MOODS = [
 ]
 
 const PLUS_ITEMS = [
-  { Icon: CalendarCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Plano de autocuidado', desc: 'Crie um plano personalizado com práticas que fazem sentido para você.' },
-  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentários profissionais', desc: 'Receba comentários de profissionais sobre entradas do seu diário.' },
-  { Icon: BarChart3, bg: 'bg-lilac', color: 'text-[#7c5cbf]', title: 'Relatório mensal', desc: 'Veja padrões, percepções e insights sobre o seu bem-estar emocional.' },
+  { Icon: CalendarCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Plano de autocuidado', desc: 'Ações práticas para rotina, sono, limites e ansiedade.' },
+  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário profissional', desc: 'Um olhar profissional sobre seus registros.' },
+  { Icon: BarChart3, bg: 'bg-lilac', color: 'text-[#7c5cbf]', title: 'Relatório mensal', desc: 'Padrões emocionais do mês.' },
 ]
 
 const PATHS = [
   { Icon: BookOpen, bg: 'bg-mint', color: 'text-forest-600', title: 'Ler um texto', desc: 'Conteúdos escritos com carinho para acolher, informar e inspirar você.', cta: 'Explorar o blog', to: 'articles' },
   { Icon: PenLine, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Escrever no diário', desc: 'Um espaço seguro para colocar em palavras o que você sente.', cta: 'Ir para meu diário', to: 'diary' },
-  { Icon: LineChart, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Ver minha evolução', desc: 'Acompanhe seus padrões, emoções e progressos ao longo do tempo.', cta: 'Ver minha evolução', to: 'my-evolution' },
+  { Icon: LineChart, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Ver meu mapa emocional', desc: 'Acompanhe seus padrões, emoções e progressos ao longo do tempo.', cta: 'Ver meu mapa emocional', to: 'my-evolution' },
 ]
 
 function PlusTag() {
@@ -45,7 +45,7 @@ export default function Hero({ onNavigate }: HeroProps) {
             </h1>
             <p className="mt-5 text-ink-soft leading-relaxed max-w-md">
               Escreva, reflita e cuide de você com apoio e estrutura. Pequenos passos, reais e
-              possíveis, para viver melhor — um dia de cada vez.
+              possíveis, um dia de cada vez.
             </p>
 
             <button
