@@ -40,7 +40,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="border-b border-stone-200 bg-white sticky top-0 z-10">
+      <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Conteúdo">
           {TABS.map(t => {
             const Icon = t.icon
@@ -50,8 +50,8 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
                 onClick={() => switchTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                    ? 'border-forest-700 text-forest-900'
+                    : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'
                 }`}
               >
                 <Icon className="w-4 h-4" />

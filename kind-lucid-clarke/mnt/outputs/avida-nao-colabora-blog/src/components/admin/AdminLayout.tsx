@@ -25,9 +25,34 @@ const NAV: NavItem[] = [
   { id: 'sistema', label: 'Sistema', icon: Settings2, target: 'system-health' },
 ]
 
-const NAV_KEY = 'avnc-admin-nav'
+function readTab(key: string): string {
+  try { return localStorage.getItem(key) || '' } catch { return '' }
+}
+
+// Deriva o item ativo do menu a partir da view atual (+ aba interna).
+// Assim a sidebar fica SEMPRE em sincronia com o conteúdo mostrado (sem desync).
+function deriveActive(view: string): string {
+  switch (view) {
+    case 'painel': return 'visao-geral'
+    case 'usuarios-planos':
+      return ['planos', 'financeiro'].includes(readTab('admin-usuarios-tab')) ? 'planos' : 'usuarios'
+    case 'conteudo':
+      return readTab('admin-conteudo-tab') === 'questionarios' ? 'diario-mapa' : 'conteudos'
+    case 'article-editor': return 'conteudos'
+    case 'atendimento': {
+      const t = readTab('admin-atendimento-tab')
+      if (t === 'suporte') return 'suporte'
+      if (t === 'autocuidado') return 'autocuidado'
+      return 'orientacao'
+    }
+    case 'comunicacao': return 'comunicacao'
+    case 'sistema': return 'sistema'
+    default: return 'visao-geral'
+  }
+}
 
 interface Props {
+  currentView: string
   onNavigate: (v: AdminView) => void
   onExit: () => void
   userEmail?: string
@@ -35,18 +60,14 @@ interface Props {
   children: ReactNode
 }
 
-export default function AdminLayout({ onNavigate, onExit, userEmail, userName, children }: Props) {
+export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [active, setActive] = useState<string>(() => {
-    try { return localStorage.getItem(NAV_KEY) || 'visao-geral' } catch { return 'visao-geral' }
-  })
+  const active = deriveActive(currentView)
 
   const name = userName || (userEmail ? userEmail.split('@')[0] : 'Administrador')
   const initials = (name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'AD').toUpperCase()
 
   function go(item: NavItem) {
-    setActive(item.id)
-    try { localStorage.setItem(NAV_KEY, item.id) } catch { /* noop */ }
     onNavigate(item.target)
     setSidebarOpen(false)
   }

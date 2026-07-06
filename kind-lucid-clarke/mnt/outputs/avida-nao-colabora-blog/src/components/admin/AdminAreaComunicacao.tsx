@@ -48,8 +48,8 @@ function AutomacaoConteudo() {
               onClick={() => switchAutoTab(t.id)}
               className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t border-b-2 transition-colors whitespace-nowrap ${
                 autoTab === t.id
-                  ? 'border-emerald-500 text-emerald-700 font-medium'
-                  : 'border-transparent text-stone-500 hover:text-stone-700'
+                  ? 'border-forest-700 text-forest-900 font-medium'
+                  : 'border-transparent text-ink-soft hover:text-forest-900'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -79,7 +79,7 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="border-b border-stone-200 bg-white sticky top-0 z-10">
+      <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Comunicação">
           {TABS.map(t => {
             const Icon = t.icon
@@ -89,8 +89,8 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
                 onClick={() => switchTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                    ? 'border-forest-700 text-forest-900'
+                    : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'
                 }`}
               >
                 <Icon className="w-4 h-4" />

@@ -59,12 +59,8 @@ function resolveView(raw: string): AdminView {
 
 export default function AdminPanel() {
   const { profile, loading } = useAuth()
-  const [view, setView] = useState<AdminView>(() => {
-    try {
-      const raw = localStorage.getItem(ADMIN_KEY) ?? 'painel'
-      return resolveView(raw)
-    } catch { return 'painel' }
-  })
+  // Abre sempre na Visão geral (landing do admin, como nos mockups).
+  const [view, setView] = useState<AdminView>('painel')
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -162,6 +158,7 @@ export default function AdminPanel() {
 
   return (
     <AdminLayout
+      currentView={view}
       onNavigate={v => navigate(v)}
       onExit={handleExit}
       userName={profile?.full_name || profile?.display_name || profile?.preferred_name || undefined}
