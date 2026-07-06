@@ -13,11 +13,13 @@ interface ProfileProps {
 }
 
 const planInfo: Record<string, { label: string; color: string; price: string }> = {
-  free: { label: 'Gratuito', color: 'bg-stone-100 text-stone-600', price: 'R$ 0' },
-  essential: { label: 'Essencial', color: 'bg-blue-100 text-blue-700', price: 'R$ 19,90/mês' },
-  therapeutic: { label: 'Terapêutico', color: 'bg-emerald-100 text-emerald-700', price: 'R$ 39,90/mês' },
-  'therapeutic-plus': { label: 'Terapêutico Plus', color: 'bg-purple-100 text-purple-700', price: 'R$ 79,90/mês' },
+  free: { label: 'Gratuito', color: 'bg-mint text-forest-700', price: 'R$ 0' },
+  essential: { label: 'Essencial', color: 'bg-sky text-[#3d6ea5]', price: 'R$ 19,90/mês' },
+  plus: { label: 'Plus', color: 'bg-coral text-[#c05f3c]', price: 'R$ 39,90/mês' },
 }
+// Perfis legados podem trazer therapeutic*; exibimos como Plus.
+const normalizePlanKey = (p: string): string =>
+  p === 'therapeutic' || p === 'therapeutic-plus' || p === 'therapeutic_plus' ? 'plus' : p
 
 export default function ProfilePage({ user, profile, onBack, onNavigatePricing, onRefreshProfile }: ProfileProps) {
   const [displayName, setDisplayName] = useState(profile?.display_name || profile?.full_name || '')
@@ -108,7 +110,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     onBack()
   }
 
-  const plan = profile?.plan || 'free'
+  const plan = normalizePlanKey(profile?.plan || 'free')
   const planDetails = planInfo[plan] || planInfo.free
 
   const initials = (preferredName || displayName || user?.email || 'U').slice(0, 2).toUpperCase()
@@ -152,13 +154,13 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
             {planDetails.label}
           </span>
         </div>
-        {plan !== 'therapeutic-plus' && plan !== 'plus' && (
+        {plan !== 'plus' && (
           <button onClick={onNavigatePricing} className="ml-auto flex items-center gap-1 text-sage-600 text-sm hover:underline">
             <TrendingUp className="w-4 h-4" /> Ver planos
           </button>
         )}
-        {plan !== 'free' && (plan === 'therapeutic-plus' || plan === 'plus') && (
-          <Crown className="ml-auto w-5 h-5 text-purple-500" />
+        {plan === 'plus' && (
+          <Crown className="ml-auto w-5 h-5 text-[#c05f3c]" />
         )}
       </div>
 

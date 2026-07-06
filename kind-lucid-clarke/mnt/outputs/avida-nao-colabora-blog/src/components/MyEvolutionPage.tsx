@@ -147,10 +147,9 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
     { id: 'resumo', label: 'Resumo', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
     { id: 'graficos', label: 'Gráficos', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
     { id: 'relatorios', label: 'Relatórios', icon: <FileText className="w-4 h-4" />, minPlan: 'essential' },
-    { id: 'autocuidado', label: 'Plano de Autocuidado', icon: <Leaf className="w-4 h-4" />, minPlan: 'therapeutic' },
-    { id: 'orientacoes', label: 'Orientações', icon: <MessageSquare className="w-4 h-4" />, minPlan: 'therapeutic' },
-    { id: 'comentarios', label: 'Comentários Profissionais', icon: <Heart className="w-4 h-4" />, minPlan: 'therapeutic-plus' },
-    { id: 'sessao', label: 'Sessão Plus', icon: <Video className="w-4 h-4" />, minPlan: 'therapeutic-plus' },
+    { id: 'autocuidado', label: 'Plano de autocuidado', icon: <Leaf className="w-4 h-4" />, minPlan: 'plus' },
+    { id: 'orientacoes', label: 'Orientação profissional', icon: <MessageSquare className="w-4 h-4" />, minPlan: 'plus' },
+    { id: 'comentarios', label: 'Comentário profissional', icon: <Heart className="w-4 h-4" />, minPlan: 'plus' },
     { id: 'para-voce', label: 'Para você', icon: <Sparkles className="w-4 h-4" />, minPlan: 'free' },
   ]
 
@@ -347,11 +346,11 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
-      {/* Plus: próxima sessão / comentário */}
-      {hasPlan(plan, 'therapeutic-plus') && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-purple-800 mb-2">✦ Recursos Terapêutico Plus</h3>
-          <p className="text-sm text-purple-700">Acesse as abas "Sessão Plus" e "Comentários Profissionais" para ver sua sessão mensal e os comentários sobre seu relatório.</p>
+      {/* Plus: orientação e comentário profissional */}
+      {hasPlan(plan, 'plus') && (
+        <div className="bg-coral/40 border border-[#f0c3b4] rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-[#b0532f] mb-2">✦ Recursos Plus</h3>
+          <p className="text-sm text-[#a65834]">Acesse as abas "Orientação profissional" e "Comentário profissional" para ver a orientação do mês e os comentários sobre o seu relatório.</p>
         </div>
       )}
 
