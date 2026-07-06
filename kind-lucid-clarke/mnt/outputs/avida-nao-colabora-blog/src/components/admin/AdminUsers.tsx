@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { sendUserMessage } from '../../lib/messaging'
 import { generateUserProfileSummary, type UserProfileData } from '../../lib/aiContent'
 import {
-  Search, X, Users, Crown, Bell, FileText,
+  Search, X, Users, Crown, Bell, FileText, Star, XCircle,
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
   LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
 } from 'lucide-react'
@@ -163,7 +163,8 @@ export default function AdminUsers() {
   // Summary stats
   const [stats, setStats] = useState({
     total: 0, newThisMonth: 0, paying: 0, blocked: 0,
-    withDiscount: 0, unlimitedAccess: 0, openTickets: 0, plus: 0,
+    withDiscount: 0, unlimitedAccess: 0, openTickets: 0,
+    plus: 0, essential: 0, free: 0, cancelled: 0,
   })
 
   // Notes form
@@ -270,7 +271,10 @@ export default function AdminUsers() {
       withDiscount: rows.filter(r => (r.discount_percent ?? 0) > 0 || (r.discount_fixed ?? 0) > 0).length,
       unlimitedAccess: rows.filter(r => r.unlimited_access === true).length,
       openTickets: openTicketCountRes.count ?? 0,
-      plus: rows.filter(r => r.plan === 'plus' || r.plan === 'therapeutic-plus').length,
+      plus: rows.filter(r => r.plan === 'plus' || r.plan === 'therapeutic-plus' || r.plan === 'therapeutic').length,
+      essential: rows.filter(r => r.plan === 'essential').length,
+      free: rows.filter(r => r.plan === 'free').length,
+      cancelled: rows.filter(r => r.account_status === 'cancelled').length,
     })
 
     setLoading(false)
@@ -766,23 +770,24 @@ export default function AdminUsers() {
       <div className={`flex flex-col flex-1 min-w-0 ${selectedUser ? 'hidden lg:flex' : 'flex'}`}>
         {/* Summary cards */}
         <div className="px-6 pt-6 pb-4 border-b border-stone-100 flex-shrink-0">
-          <h1 className="text-xl font-bold text-stone-800 mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5" /> Usuários
-          </h1>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div className="mb-4">
+            <h1 className="font-serif text-3xl text-forest-900">Usuários</h1>
+            <p className="text-sm text-ink-soft mt-0.5">Gerencie planos, status e acompanhamento.</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
             {[
-              { label: 'Total', value: stats.total, color: 'text-stone-700' },
-              { label: 'Novos este mês', value: stats.newThisMonth, color: 'text-emerald-700' },
-              { label: 'Pagantes', value: stats.paying, color: 'text-blue-700' },
-              { label: 'Bloqueados', value: stats.blocked, color: 'text-red-700' },
-              { label: 'Com desconto', value: stats.withDiscount, color: 'text-amber-700' },
-              { label: 'Acesso ilimitado', value: stats.unlimitedAccess, color: 'text-emerald-700' },
-              { label: 'Tickets abertos', value: stats.openTickets, color: 'text-orange-700' },
-              { label: 'Terap. Plus', value: stats.plus, color: 'text-purple-700' },
+              { label: 'Total de usuários', value: stats.total, Icon: Users, bg: 'bg-mint', color: 'text-forest-600' },
+              { label: 'Plus ativos', value: stats.plus, Icon: Crown, bg: 'bg-coral', color: 'text-[#c05f3c]' },
+              { label: 'Essencial ativos', value: stats.essential, Icon: Star, bg: 'bg-sky', color: 'text-[#3d6ea5]' },
+              { label: 'Gratuitos', value: stats.free, Icon: Users, bg: 'bg-paper-soft', color: 'text-ink-soft' },
+              { label: 'Cancelados', value: stats.cancelled, Icon: XCircle, bg: 'bg-[#fbf1d5]', color: 'text-[#c9971f]' },
             ].map(s => (
-              <div key={s.label} className="bg-stone-50 border border-stone-100 rounded-xl p-3 text-center">
-                <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-[10px] text-stone-400 mt-0.5 leading-tight">{s.label}</p>
+              <div key={s.label} className="bg-white border border-line rounded-2xl p-4">
+                <span className={`w-9 h-9 rounded-full ${s.bg} flex items-center justify-center mb-2`}>
+                  <s.Icon className={`w-4 h-4 ${s.color}`} />
+                </span>
+                <p className="font-serif text-2xl text-forest-900 leading-tight">{s.value}</p>
+                <p className="text-xs text-ink-soft mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
