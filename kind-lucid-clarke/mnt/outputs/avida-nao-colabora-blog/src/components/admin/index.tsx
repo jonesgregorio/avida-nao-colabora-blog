@@ -161,7 +161,11 @@ export default function AdminPanel() {
   }
 
   return (
-    <AdminLayout currentView={view} onNavigate={v => navigate(v)} onExit={handleExit}>
+    <AdminLayout
+      onNavigate={v => navigate(v)}
+      onExit={handleExit}
+      userName={profile?.full_name || profile?.display_name || profile?.preferred_name || undefined}
+    >
       {renderView()}
     </AdminLayout>
   )
