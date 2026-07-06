@@ -1,169 +1,159 @@
+import { Fragment } from 'react'
 import {
-  NotebookPen, Compass, BookOpen, CalendarCheck, MessageSquare,
-  ShieldCheck, Lock, EyeOff, ArrowRight, Sprout, Star, Heart,
+  ClipboardCheck, PenLine, PieChart, Sparkles, Sprout, Star, Heart,
+  ShieldCheck, HeartHandshake, ArrowRight, Check,
 } from 'lucide-react'
 
 interface HomeContentProps {
   onNavigate: (section: string) => void
 }
 
-// ── As 5 funcionalidades principais ──
-const FEATURES = [
-  { Icon: NotebookPen, bg: 'bg-mint', color: 'text-forest-600', title: 'Diário emocional', desc: 'Registre como está, escreva o que aconteceu e crie seu histórico pessoal.' },
-  { Icon: Compass, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Mapa emocional', desc: 'Enxergue padrões no que você sente, repete e precisa observar com mais cuidado.' },
-  { Icon: BookOpen, bg: 'bg-lilac', color: 'text-[#7c5cbf]', title: 'Conteúdos guiados', desc: 'Textos, práticas e exercícios de acordo com o que você está vivendo agora.' },
-  { Icon: CalendarCheck, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Plano de autocuidado', desc: 'Ações práticas para o mês: sono, rotina, limites, ansiedade e relações.', plus: true },
-  { Icon: MessageSquare, bg: 'bg-mint', color: 'text-forest-600', title: 'Orientação profissional', desc: 'Comentário e orientação mensal de apoio. Não é terapia nem diagnóstico.', plus: true },
+// ── Tudo em um fluxo simples de cuidado (5 passos) ──
+const FLOW = [
+  { n: '1', Icon: ClipboardCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Faça seu check-in', desc: 'Conte como está se sentindo em poucos segundos.' },
+  { n: '2', Icon: PenLine, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Escreva no diário', desc: 'Registre o que viveu, reflexões e aprendizados do seu dia.' },
+  { n: '3', Icon: PieChart, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Descubra padrões', desc: 'Seu mapa emocional mostra o que se repete e o que melhora.' },
+  { n: '4', Icon: Sparkles, bg: 'bg-lilac', color: 'text-[#7c5cbf]', title: 'Receba sugestões', desc: 'Conteúdos e práticas personalizadas para seu momento.' },
+  { n: '5', Icon: Sprout, bg: 'bg-mint', color: 'text-forest-600', title: 'Dê pequenos passos', desc: 'Ações simples que fazem sentido para sua rotina.' },
 ]
 
-// ── Como funciona ──
-const STEPS = [
-  { n: '01', title: 'Faça seu check-in', desc: 'Diga como você está se sentindo hoje, sem julgamento.' },
-  { n: '02', title: 'Escreva no diário', desc: 'Coloque em palavras o que passou por você.' },
-  { n: '03', title: 'Veja seu mapa emocional', desc: 'Padrões, gráficos e evolução ao longo do tempo.' },
-  { n: '04', title: 'Receba conteúdos e um plano', desc: 'Práticas e direção no seu ritmo.' },
+// ── Planos que crescem com você ──
+const PLANS = [
+  {
+    key: 'free', name: 'Gratuito', promise: 'Comece a se entender', price: 'R$ 0', per: false,
+    Icon: Sprout, iconBg: 'bg-mint', iconColor: 'text-forest-600',
+    benefits: ['Blog aberto', 'Diário emocional básico', 'Questionário inicial', 'Algumas práticas guiadas'],
+    cta: 'Começar agora', variant: 'outline' as const,
+  },
+  {
+    key: 'essential', name: 'Essencial', promise: 'Acompanhe seus padrões', price: 'R$ 19,90', per: true,
+    Icon: Star, iconBg: 'bg-sky', iconColor: 'text-[#3d6ea5]', featured: true,
+    benefits: ['Diário ilimitado', 'Mapa emocional completo', 'Histórico e gráficos', 'Conteúdos guiados completos', 'Relatório semanal automático'],
+    cta: 'Assinar Essencial', variant: 'solid' as const,
+  },
+  {
+    key: 'plus', name: 'Plus', promise: 'Receba orientação para agir', price: 'R$ 39,90', per: true,
+    Icon: Heart, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
+    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
+    cta: 'Assinar Plus', variant: 'coral' as const,
+  },
 ]
 
-// ── Planos (prévia compacta — "Escolha seu plano") ──
-const MINI_PLANS = [
-  { key: 'free', name: 'Gratuito', nameColor: 'text-forest-900', price: 'R$ 0', per: false, promise: 'Para começar', Icon: Sprout, bg: 'bg-mint', color: 'text-forest-600' },
-  { key: 'essential', name: 'Essencial', nameColor: 'text-forest-900', price: 'R$ 19,90', per: true, promise: 'Acompanhe seus padrões', Icon: Star, bg: 'bg-sky', color: 'text-[#3d6ea5]' },
-  { key: 'plus', name: 'Plus', nameColor: 'text-[#c05f3c]', price: 'R$ 39,90', per: true, promise: 'Receba orientação para agir', Icon: Heart, bg: 'bg-coral', color: 'text-[#c05f3c]' },
+// ── Um apoio, não um diagnóstico ──
+const SUPPORT = [
+  { Icon: ShieldCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Privacidade em primeiro lugar', desc: 'Seus dados são seus. Nada é compartilhado sem sua permissão.' },
+  { Icon: HeartHandshake, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Autoconhecimento com respeito', desc: 'Ferramentas para você entender a si mesmo sem julgamento.' },
+  { Icon: Heart, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Você no centro', desc: 'Cuidado prático e humano para viver melhor, um dia de cada vez.' },
 ]
-
-function PlusTag() {
-  return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-coral text-[#b0532f]">Plus</span>
-}
 
 export default function HomeContent({ onNavigate }: HomeContentProps) {
   return (
     <>
-      {/* ── Escolha seu plano (prévia compacta) ── */}
-      <section className="bg-paper-soft border-y border-line">
-        <div className="max-w-6xl mx-auto px-4 py-14">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-serif text-2xl md:text-3xl text-forest-900">Escolha seu plano</h2>
-            <button
-              onClick={() => onNavigate('pricing')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors"
-            >
-              Ver todos os planos
-              <ArrowRight className="w-4 h-4" />
-            </button>
+      {/* ── Tudo em um fluxo simples de cuidado ── */}
+      <section className="bg-paper">
+        <div className="max-w-6xl mx-auto px-4 py-16">
+          <div className="text-center mb-12">
+            <h2 className="font-serif text-3xl md:text-4xl text-forest-900">Tudo em um fluxo simples de cuidado</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {MINI_PLANS.map(({ key, name, nameColor, price, per, promise, Icon, bg, color }) => (
-              <button
-                key={key}
-                onClick={() => onNavigate('pricing')}
-                className="relative text-left bg-white border border-line rounded-2xl p-5 hover:shadow-md hover:border-forest-200 transition-all"
-              >
-                <h3 className={`font-serif text-xl ${nameColor}`}>{name}</h3>
-                <div className="mt-1">
-                  <span className="font-serif text-2xl text-forest-900">{price}</span>
-                  {per && <span className="text-sm text-ink-soft"> /mês</span>}
+          <div className="flex flex-col md:flex-row md:items-start gap-8 md:gap-2">
+            {FLOW.map((step, i) => (
+              <Fragment key={step.n}>
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className={`w-14 h-14 rounded-full ${step.bg} flex items-center justify-center mb-4`}>
+                    <step.Icon className={`w-6 h-6 ${step.color}`} />
+                  </span>
+                  <h3 className="font-serif text-lg text-forest-900">{step.n}. {step.title}</h3>
+                  <p className="mt-1.5 text-sm text-ink-soft leading-relaxed max-w-[210px]">{step.desc}</p>
                 </div>
-                <p className="mt-1 text-sm text-ink-soft max-w-[65%]">{promise}</p>
-                <span className={`absolute bottom-4 right-4 w-11 h-11 rounded-full ${bg} flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 ${color}`} />
-                </span>
-              </button>
+                {i < FLOW.length - 1 && (
+                  <ArrowRight className="hidden md:block w-5 h-5 text-line flex-shrink-0 mt-5" />
+                )}
+              </Fragment>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 5 funcionalidades principais ── */}
-      <section className="bg-forest-900 text-white">
+      {/* ── Planos que crescem com você ── */}
+      <section className="bg-paper-soft border-y border-line">
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-10">
-            <p className="text-forest-300 text-sm uppercase tracking-widest mb-2">O que você encontra aqui</p>
-            <h2 className="font-serif text-3xl md:text-4xl">Cinco formas de cuidar de você</h2>
+            <h2 className="font-serif text-3xl md:text-4xl text-forest-900">Planos que crescem com você</h2>
+            <p className="mt-2 text-ink-soft">Comece grátis. Evolua quando fizer sentido.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {FEATURES.map(({ Icon, bg, color, title, desc, plus }) => (
-              <div key={title} className="bg-paper-soft rounded-3xl p-5 text-ink">
-                <span className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center mb-4`}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+            {PLANS.map(p => {
+              const featured = 'featured' in p && p.featured
+              return (
+                <div
+                  key={p.key}
+                  className={`relative bg-white rounded-3xl p-6 flex flex-col ${
+                    featured ? 'border-2 border-forest-900 shadow-md md:-mt-2' : 'border border-line'
+                  }`}
+                >
+                  {featured && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-forest-900 text-white text-[11px] font-medium px-4 py-1 rounded-full whitespace-nowrap">
+                      Mais escolhido
+                    </span>
+                  )}
+                  <span className={`w-14 h-14 rounded-full ${p.iconBg} flex items-center justify-center mx-auto mt-2`}>
+                    <p.Icon className={`w-7 h-7 ${p.iconColor}`} />
+                  </span>
+                  <h3 className="font-serif text-2xl text-forest-900 text-center mt-4">{p.name}</h3>
+                  <p className="text-sm text-ink-soft text-center">{p.promise}</p>
+                  <div className="text-center mt-4">
+                    <span className="font-serif text-3xl text-forest-900">{p.price}</span>
+                    {p.per && <span className="text-sm text-ink-soft">/mês</span>}
+                  </div>
+                  <div className="border-t border-line my-5" />
+                  <ul className="space-y-3 flex-1 mb-6">
+                    {p.benefits.map(b => (
+                      <li key={b} className="flex items-start gap-2.5 text-sm">
+                        <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${p.variant === 'coral' ? 'text-[#c05f3c]' : 'text-forest-600'}`} />
+                        <span className="text-ink">{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => onNavigate('pricing')}
+                    className={`w-full py-3 rounded-2xl text-sm font-medium transition-colors ${
+                      p.variant === 'solid'
+                        ? 'bg-forest-900 hover:bg-forest-800 text-white'
+                        : p.variant === 'coral'
+                          ? 'border border-[#e8664d] text-[#c8502f] hover:bg-[#fbeae4]'
+                          : 'border border-forest-800 text-forest-900 hover:bg-forest-900 hover:text-white'
+                    }`}
+                  >
+                    {p.cta}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Um apoio, não um diagnóstico ── */}
+      <section className="bg-paper">
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <div className="text-center mb-4">
+            <h2 className="font-serif text-3xl md:text-4xl text-forest-900">Um apoio, não um diagnóstico</h2>
+          </div>
+          <p className="text-center text-sm text-ink-soft max-w-2xl mx-auto leading-relaxed mb-10">
+            O A Vida Não Colabora é uma ferramenta de apoio ao autoconhecimento e à organização emocional.
+            Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {SUPPORT.map(({ Icon, bg, color, title, desc }) => (
+              <div key={title} className="bg-paper-soft border border-line rounded-3xl p-6 text-center">
+                <span className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center mx-auto mb-4`}>
                   <Icon className={`w-6 h-6 ${color}`} />
                 </span>
-                <h3 className="font-serif text-lg text-forest-900 flex items-center gap-1.5">
-                  {title} {plus && <PlusTag />}
-                </h3>
-                <p className="mt-1.5 text-sm text-ink-soft leading-relaxed">{desc}</p>
+                <h3 className="font-serif text-lg text-forest-900">{title}</h3>
+                <p className="mt-2 text-sm text-ink-soft leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Como funciona ── */}
-      <section className="bg-paper">
-        <div className="max-w-5xl mx-auto px-4 py-16">
-          <div className="text-center mb-10">
-            <h2 className="font-serif text-3xl md:text-4xl text-forest-900">Como funciona</h2>
-            <p className="mt-2 text-ink-soft">Simples, seguro e no seu ritmo.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {STEPS.map(({ n, title, desc }) => (
-              <div key={n} className="flex gap-4 bg-paper-soft border border-line rounded-3xl p-5">
-                <span className="w-10 h-10 rounded-full bg-mint text-forest-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">{n}</span>
-                <div>
-                  <h3 className="font-medium text-forest-900">{title}</h3>
-                  <p className="text-sm text-ink-soft mt-0.5 leading-relaxed">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Segurança e privacidade ── */}
-      <section className="bg-paper">
-        <div className="max-w-5xl mx-auto px-4 py-16">
-          <div className="text-center mb-8">
-            <h2 className="font-serif text-3xl text-forest-900">Seu espaço é privado</h2>
-            <p className="mt-2 text-ink-soft">O que você escreve é seu. Ponto.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { Icon: Lock, title: 'Dados protegidos', desc: 'Seus registros ficam guardados com segurança e criptografia.' },
-              { Icon: EyeOff, title: 'Ninguém te julga', desc: 'Um lugar só seu para colocar em palavras o que sente.' },
-              { Icon: ShieldCheck, title: 'Você no controle', desc: 'Você decide o que registrar, quando e por quanto tempo manter.' },
-            ].map(({ Icon, title, desc }) => (
-              <div key={title} className="bg-paper-soft border border-line rounded-3xl p-5 text-center">
-                <span className="w-11 h-11 rounded-full bg-mint flex items-center justify-center mx-auto mb-3">
-                  <Icon className="w-5 h-5 text-forest-600" />
-                </span>
-                <h3 className="font-medium text-forest-900">{title}</h3>
-                <p className="text-sm text-ink-soft mt-1 leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA final ── */}
-      <section className="bg-paper pb-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-forest-900 rounded-3xl px-6 py-12 text-center text-white">
-            <h2 className="font-serif text-3xl md:text-4xl">Comece a se entender hoje</h2>
-            <p className="mt-3 text-forest-100 max-w-lg mx-auto">
-              Quando a cabeça está cheia, comece escrevendo. Pequenos passos, reais e possíveis, para dias difíceis.
-            </p>
-            <button
-              onClick={() => onNavigate('diary')}
-              className="mt-7 inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-forest-50 font-medium text-sm px-7 py-3.5 rounded-2xl transition-colors"
-            >
-              Ir para meu diário
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Aviso de não substituição */}
-          <p className="mt-8 text-center text-xs text-ink-soft max-w-2xl mx-auto leading-relaxed">
-            Este serviço é uma ferramenta de apoio ao autoconhecimento e à organização emocional.
-            Não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.
-          </p>
         </div>
       </section>
     </>

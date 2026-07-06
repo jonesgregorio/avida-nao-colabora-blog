@@ -67,7 +67,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
 
   return (
     <header className="sticky top-0 z-50 bg-paper/90 backdrop-blur border-b border-line">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
         <Logo onClick={() => handleNav('home')} compact />
 
         {/* Nav desktop */}
@@ -146,12 +146,19 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
           )}
         </div>
 
-        {/* Mobile: bell + hamburger */}
-        <div className="md:hidden flex items-center gap-1">
-          {user && (
+        {/* Mobile: Entrar (visitante) / bell (logado) + hamburger */}
+        <div className="md:hidden flex items-center gap-1.5">
+          {user ? (
             <button onClick={() => handleNav('notifications')} className="relative p-2 text-ink-soft">
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-coral text-[#7a3320] text-[8px] font-bold rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            </button>
+          ) : (
+            <button
+              onClick={() => handleNav('auth')}
+              className="flex items-center gap-1.5 text-sm font-medium text-forest-900 border border-forest-800 px-3 py-1.5 rounded-xl hover:bg-forest-900 hover:text-white transition-colors"
+            >
+              <LogIn className="w-4 h-4" /> Entrar
             </button>
           )}
           <button className="p-2 text-forest-900" onClick={() => setMobileOpen(o => !o)} aria-label="Abrir menu">

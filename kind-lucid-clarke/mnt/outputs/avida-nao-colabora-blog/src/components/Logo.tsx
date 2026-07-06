@@ -27,8 +27,8 @@ export default function Logo({ onClick, compact = false, className = '' }: LogoP
       className={`flex items-center gap-2.5 flex-shrink-0 group ${className}`}
       aria-label="A Vida Não Colabora — página inicial"
     >
-      <LogoIcon className="w-7 h-7 text-forest-800 group-hover:text-forest-900 transition-colors" />
-      <span className={`font-serif text-forest-900 leading-none ${compact ? 'text-lg hidden sm:inline' : 'text-xl'}`}>
+      <LogoIcon className="w-8 h-8 text-forest-800 group-hover:text-forest-900 transition-colors" />
+      <span className={`font-serif text-forest-900 leading-none whitespace-nowrap ${compact ? 'text-lg sm:text-xl' : 'text-xl'}`}>
         A Vida Não Colabora
       </span>
     </button>

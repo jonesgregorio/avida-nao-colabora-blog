@@ -8,8 +8,6 @@ import Hero from './components/Hero'
 import HomeContent from './components/HomeContent'
 import Articles from './components/Articles'
 import ArticleView from './components/ArticleView'
-import Questionnaire from './components/Questionnaire'
-import DiaryCard from './components/DiaryCard'
 import DiaryPage from './components/DiaryPage'
 import Pricing from './components/Pricing'
 import Auth from './components/Auth'
@@ -26,7 +24,6 @@ import GuidedContent from './components/GuidedContent'
 import SavedItemsPage from './components/SavedItemsPage'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
-import DailyContentWidget from './components/DailyContentWidget'
 import ContactPage from './components/ContactPage'
 import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
@@ -139,7 +136,6 @@ export default function App() {
   const saved = restoreNav()
   const [view, setView] = useState<View>(saved?.view ?? 'home')
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
-  const [, setShowDiaryForm] = useState(false)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
   const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
@@ -716,103 +712,8 @@ export default function App() {
       <main className="min-h-screen bg-paper">
         <Hero onNavigate={navigate} />
 
-        {user && <DailyContentWidget user={user} profile={profile} />}
-
         <HomeContent onNavigate={navigate} />
-
-        {user && profile && (
-          <div className="max-w-6xl mx-auto px-4 py-6">
-            <div className="flex flex-wrap gap-3 justify-center">
-              <button
-                onClick={() => navigate('challenges')}
-                className="text-sm bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-full hover:bg-green-100 transition-colors"
-              >
-                🏆 Mini-Desafios
-              </button>
-              <button
-                onClick={() => navigate('trails')}
-                className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors"
-              >
-                🗺️ Trilhas de Autocuidado
-              </button>
-              <button
-                onClick={() => navigate('saved')}
-                className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-full hover:bg-emerald-100 transition-colors"
-              >
-                📦 Caixa de Cuidado
-              </button>
-              {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
-                <button
-                  onClick={() => navigate('meditations')}
-                  className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors"
-                >
-                  🧘 Meditações Guiadas
-                </button>
-              )}
-              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
-                <button
-                  onClick={() => navigate('therapeutic-q')}
-                  className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
-                >
-                  📋 Questionário Aprofundado
-                </button>
-              )}
-              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
-                <button
-                  onClick={() => navigate('monthly-guidance')}
-                  className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
-                >
-                  💬 Orientação Mensal
-                </button>
-              )}
-              {(profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
-                <button
-                  onClick={() => navigate('professional-comments')}
-                  className="text-sm bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-full hover:bg-amber-100 transition-colors"
-                >
-                  ⭐ Comentários do Profissional
-                </button>
-              )}
-              <button
-                onClick={() => navigate('my-report')}
-                className="text-sm bg-violet-50 border border-violet-200 text-violet-700 px-4 py-2 rounded-full hover:bg-violet-100 transition-colors"
-              >
-                📊 Meu Relatório
-              </button>
-              <button
-                onClick={() => navigate('my-plan')}
-                className="text-sm bg-stone-50 border border-stone-200 text-stone-700 px-4 py-2 rounded-full hover:bg-stone-100 transition-colors"
-              >
-                👑 Meu Plano
-              </button>
-            </div>
-          </div>
-        )}
-
-        <Articles
-          onSelectArticle={(articleOrSlug) => {
-            const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
-            setSelectedArticleSlug(slug)
-            setView('article')
-            pushURL('article', slug)
-            window.scrollTo(0, 0)
-          }}
-        />
-
-        <DiaryCard
-          user={user}
-          onOpenDiary={() => navigate('diary')}
-          onNewEntry={() => { navigate('diary'); setShowDiaryForm(true) }}
-        />
-
-        <Questionnaire
-          user={user}
-          onNavigateDiary={() => navigate('diary')}
-          onNavigatePricing={() => navigate('pricing')}
-          onNavigateArticles={() => navigate('articles')}
-        />
-
-        </main>
+      </main>
 
       <Footer onNavigate={navigate} />
     </>
