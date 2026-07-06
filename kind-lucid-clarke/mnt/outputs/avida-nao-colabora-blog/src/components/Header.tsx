@@ -51,7 +51,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
     { id: 'articles', label: 'Blog', match: ['articles', 'article'] },
     { id: 'diary', label: 'Diário', match: ['diary'] },
     { id: 'my-evolution', label: 'Mapa emocional', match: ['my-evolution', 'my-report', 'questionarios'] },
-    { id: 'trails', label: 'Conteúdos', match: ['trails', 'saved', 'meditations', 'challenges'] },
+    { id: 'content', label: 'Conteúdos', match: ['content', 'trails', 'saved', 'meditations', 'challenges'] },
     user
       ? { id: 'my-plan', label: 'Meu plano', match: ['my-plan'] }
       : { id: 'pricing', label: 'Planos', match: ['pricing'] },

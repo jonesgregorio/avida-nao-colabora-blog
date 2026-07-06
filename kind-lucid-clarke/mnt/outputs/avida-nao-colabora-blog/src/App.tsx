@@ -22,6 +22,7 @@ import PrivacyPage from './components/PrivacyPage'
 import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
 import TrailsPage from './components/TrailsPage'
+import GuidedContent from './components/GuidedContent'
 import SavedItemsPage from './components/SavedItemsPage'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
@@ -43,7 +44,7 @@ const AdminPanel = lazy(() => import('./components/admin'))
 
 const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
-  'home','auth','diary','profile','meditations','challenges',
+  'home','auth','diary','profile','meditations','challenges','content',
   'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','trails','saved','admin','contact','success',
   'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
@@ -203,7 +204,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
-      'pricing', 'articles', 'article', 'responsibility', 'trails', 'saved', 'admin', 'contact', 'success',
+      'pricing', 'articles', 'article', 'responsibility', 'content', 'trails', 'saved', 'admin', 'contact', 'success',
       'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
     ]
     if (directViews.includes(section as View)) {
@@ -505,6 +506,18 @@ export default function App() {
             currentPlan={profile?.plan || 'free'}
             onNavigateAuth={() => navigate('auth')}
           />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'content') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <main className="min-h-screen bg-paper">
+          <GuidedContent onNavigate={navigate} onBack={() => setView('home')} />
         </main>
         <Footer onNavigate={navigate} />
       </>

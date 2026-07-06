@@ -20,8 +20,8 @@ interface QItem {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 
 const PLAN_ORDER: Record<string, number> = {

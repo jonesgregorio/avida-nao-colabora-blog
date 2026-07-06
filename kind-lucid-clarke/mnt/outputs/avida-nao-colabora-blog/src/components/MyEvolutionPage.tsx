@@ -33,8 +33,8 @@ function hasPlan(userPlan: string, required: string) {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 
 // ─── Subcomponentes utilitários ────────────────────────────────────────────────
@@ -163,7 +163,7 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-stone-800">Minha Evolução</h1>
+            <h1 className="text-2xl font-bold text-stone-800">Mapa emocional</h1>
             <p className="text-sm text-stone-500">Plano {PLAN_LABELS[plan]}</p>
           </div>
         </div>

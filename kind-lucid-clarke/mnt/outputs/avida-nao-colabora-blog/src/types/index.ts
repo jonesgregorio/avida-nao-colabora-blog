@@ -2,7 +2,7 @@
 // LEGADOS (mantidos por compatibilidade de dados) e tratados como 'plus'.
 export type Plan = 'free' | 'essential' | 'plus' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'content' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution'
 
 export interface Profile {
   id: string
