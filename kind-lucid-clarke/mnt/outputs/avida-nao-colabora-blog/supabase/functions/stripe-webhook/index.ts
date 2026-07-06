@@ -14,8 +14,9 @@ function buildPlanByPrice(): Record<string, string> {
   const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
   const plus = Deno.env.get('STRIPE_PRICE_PLUS')
   if (essential) map[essential] = 'essential'
-  if (therapeutic) map[therapeutic] = 'therapeutic'
-  if (plus) map[plus] = 'therapeutic-plus'
+  // R$ 39,90 (antigo Terapêutico) e o antigo R$ 79,90 → ambos viram 'plus'.
+  if (therapeutic) map[therapeutic] = 'plus'
+  if (plus) map[plus] = 'plus'
   return map
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
@@ -26,7 +27,9 @@ const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avi
 // Apenas EXIBE os benefícios oficiais — não altera plano/preço/hierarquia.
 const PLAN_BENEFITS: Record<string, string> = {
   essential:
-    '- Diário ilimitado e histórico completo\n- Avaliações semanais e gráficos de evolução\n- Meditações guiadas em texto\n- Relatórios mensais em PDF\n- Resumo do diário, humor e sintomas\n- Sem anúncios e suporte por e-mail prioritário',
+    '- Diário ilimitado e histórico completo\n- Mapa emocional completo com gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático\n- Sem anúncios e suporte por e-mail prioritário',
+  plus:
+    '- Tudo do Essencial\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Comentário profissional mensal\n- Orientação mensal por mensagem',
   therapeutic:
     '- Tudo do Essencial\n- Questionário aprofundado e plano de autocuidado personalizado\n- Diário avançado com marcadores extras\n- Gráficos comparativos e relatório mensal avançado\n- Recomendações personalizadas de conteúdo\n- Orientação mensal por mensagem',
   'therapeutic-plus':
@@ -37,13 +40,14 @@ const PLAN_BENEFITS: Record<string, string> = {
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito',
   essential: 'Essencial',
-  therapeutic: 'Terapêutico',
-  'therapeutic-plus': 'Terapêutico Plus',
+  plus: 'Plus',
+  therapeutic: 'Plus',
+  'therapeutic-plus': 'Plus',
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
 
 // Hierarquia dos planos — para distinguir upgrade (subiu) de downgrade (desceu).
-const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3 }
+const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
 // Dispara e-mail transacional via Edge Function (service role).

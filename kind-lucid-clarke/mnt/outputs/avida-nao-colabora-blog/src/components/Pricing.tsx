@@ -21,8 +21,8 @@ function normalize(p: Plan | string): PlanKey {
   return 'free'
 }
 
-// 'plus' usa o price de R$ 39,90 (antigo "therapeutic") até a Fase 2 renomear no backend.
-const CHECKOUT_PLAN: Record<string, string> = { essential: 'essential', plus: 'therapeutic' }
+// O backend (create-checkout) já mapeia 'plus' para o price de R$ 39,90.
+const CHECKOUT_PLAN: Record<string, string> = { essential: 'essential', plus: 'plus' }
 
 const PLANS = [
   {

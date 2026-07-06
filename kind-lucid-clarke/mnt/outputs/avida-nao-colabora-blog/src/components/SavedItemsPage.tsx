@@ -52,6 +52,7 @@ const TYPE_COLORS: Record<SavedItem['item_type'], string> = {
 const PLAN_LIMITS: Record<Plan, number | null> = {
   free: 3,
   essential: null,
+  plus: null,
   therapeutic: null,
   'therapeutic-plus': null,
 }

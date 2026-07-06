@@ -7,7 +7,7 @@ import { supabase } from './supabase'
 //   - DiaryPage (usuário: respeita limites, campos, PDF e perguntas)
 // ─────────────────────────────────────────────────────────────
 
-export type PlanKey = 'free' | 'essential' | 'therapeutic' | 'therapeutic-plus'
+export type PlanKey = 'free' | 'essential' | 'plus'
 
 export interface DiaryPlanConfig {
   plan: PlanKey
@@ -60,36 +60,37 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     graphs: ['Humor ao longo do tempo', 'Nível de energia'], reports: ['Relatório mensal simples'],
   },
   {
-    plan: 'therapeutic', label: 'Terapêutico', entriesPerMonth: null, exportPDF: true,
+    plan: 'plus', label: 'Plus', entriesPerMonth: null, exportPDF: true,
     history: 'Completo',
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
-    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?'],
-    graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Padrões emocionais', 'Mapa de gatilhos'],
-    reports: ['Relatório mensal simples', 'Relatório avançado', 'Plano de autocuidado'],
-  },
-  {
-    plan: 'therapeutic-plus', label: 'Terapêutico Plus', entriesPerMonth: null, exportPDF: true,
-    history: 'Completo',
-    fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
-    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?', 'Como posso me preparar melhor para minha próxima sessão?'],
+    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?', 'Como posso me preparar melhor para o próximo mês?'],
     graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Padrões emocionais', 'Mapa de gatilhos', 'Evolução semanal'],
     reports: ['Relatório mensal simples', 'Relatório avançado', 'Plano de autocuidado'],
   },
 ]
 
-export function defaultDiaryConfig(plan: PlanKey): DiaryPlanConfig {
-  return DEFAULT_DIARY_CONFIGS.find(c => c.plan === plan) ?? DEFAULT_DIARY_CONFIGS[0]
+// Normaliza qualquer valor de plano (inclusive legado do banco) para os 3 atuais.
+export function normalizeDiaryPlan(raw: string): PlanKey {
+  if (raw === 'essential') return 'essential'
+  if (raw === 'plus' || raw === 'therapeutic' || raw === 'therapeutic-plus' || raw === 'therapeutic_plus') return 'plus'
+  return 'free'
+}
+
+export function defaultDiaryConfig(plan: string): DiaryPlanConfig {
+  const key = normalizeDiaryPlan(plan)
+  return DEFAULT_DIARY_CONFIGS.find(c => c.plan === key) ?? DEFAULT_DIARY_CONFIGS[0]
 }
 
 // Busca a config do plano em diary_plan_configs e mescla sobre o padrão.
 // Se não houver linha salva (ou erro), retorna o padrão — nunca quebra o diário.
-export async function fetchDiaryConfig(plan: PlanKey): Promise<DiaryPlanConfig> {
-  const base = defaultDiaryConfig(plan)
+export async function fetchDiaryConfig(plan: string): Promise<DiaryPlanConfig> {
+  const key = normalizeDiaryPlan(plan)
+  const base = defaultDiaryConfig(key)
   try {
     const { data } = await supabase
       .from('diary_plan_configs')
       .select('config')
-      .eq('plan_key', plan)
+      .eq('plan_key', key)
       .maybeSingle()
     const saved = (data as { config?: Partial<DiaryPlanConfig> } | null)?.config
     if (saved && typeof saved === 'object') {

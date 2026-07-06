@@ -19,17 +19,18 @@ const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avi
 // Price IDs por env var (mesma fonte do create-checkout — nunca hardcoded).
 const PRICE_IDS: Record<string, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
+  plus: Deno.env.get('STRIPE_PRICE_THERAPEUTIC'), // Plus (R$ 39,90) = price do antigo Terapêutico
   therapeutic: Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
   'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS'),
 }
 
 // Rótulos amigáveis (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus', therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
 // Hierarquia — distingue upgrade (subiu) de downgrade (desceu).
-const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3 }
+const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
 // Dispara e-mail transacional (nunca quebra o fluxo — erro só é logado).

@@ -4,15 +4,17 @@ import type { Plan, View } from '../types'
 const planLabels: Record<Plan, string> = {
   free: 'Gratuito',
   essential: 'Essencial',
-  therapeutic: 'Terapêutico',
-  'therapeutic-plus': 'Terapêutico Plus',
+  plus: 'Plus',
+  therapeutic: 'Plus',
+  'therapeutic-plus': 'Plus',
 }
 
 const planColors: Record<Plan, string> = {
   free: 'emerald',
   essential: 'emerald',
-  therapeutic: 'blue',
-  'therapeutic-plus': 'purple',
+  plus: 'emerald',
+  therapeutic: 'emerald',
+  'therapeutic-plus': 'emerald',
 }
 
 interface Props {

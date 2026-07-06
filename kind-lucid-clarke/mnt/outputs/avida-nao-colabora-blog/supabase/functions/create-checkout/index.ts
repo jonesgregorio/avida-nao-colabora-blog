@@ -9,6 +9,9 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 //   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_THERAPEUTIC, STRIPE_PRICE_PLUS
 const PRICE_IDS: Record<string, string | undefined> = {
   essential:          Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
+  // Plus (R$ 39,90) usa o price do antigo Terapêutico. No go-live, criar
+  // STRIPE_PRICE_PLUS de R$ 39,90 e trocar a linha abaixo por STRIPE_PRICE_PLUS.
+  plus:               Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
   therapeutic:        Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
   'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS'),
 }

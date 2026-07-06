@@ -105,7 +105,7 @@ serve(async (req) => {
 
     for (const content of todayContents) {
       // Buscar usuários elegíveis pelo plano
-      const planOrder = ['free', 'essential', 'therapeutic', 'therapeutic-plus']
+      const planOrder = ['free', 'essential', 'therapeutic', 'therapeutic-plus', 'plus']
       const minPlanIndex = planOrder.indexOf(content.plan_required)
       const eligiblePlans = planOrder.slice(minPlanIndex)
 
