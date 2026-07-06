@@ -1509,7 +1509,7 @@ export default function AdminUsers() {
                             ['Tickets', metrics.tickets],
                             ['Orientações', aiExtraMetrics.guidanceCount],
                             ['Orient. pendentes', aiExtraMetrics.guidancePending],
-                            ['Sessões Plus', aiExtraMetrics.sessionsCount],
+                            ['Sessões (legado)', aiExtraMetrics.sessionsCount],
                             ['Coment. profissionais', aiExtraMetrics.commentsCount],
                             ['Relatórios', aiExtraMetrics.reportsCount],
                           ].map(([l, v]) => (

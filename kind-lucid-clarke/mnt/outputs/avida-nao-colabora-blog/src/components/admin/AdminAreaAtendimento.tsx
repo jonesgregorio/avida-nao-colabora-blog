@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { Sparkles, HeadphonesIcon, MessageSquare, Video, Star, Leaf, Briefcase } from 'lucide-react'
+import { Sparkles, HeadphonesIcon, MessageSquare, Star, Leaf, Briefcase } from 'lucide-react'
 import AdminPersonalization from './AdminPersonalization'
 import AdminSupport from './AdminSupport'
 import AdminGuidanceRequests from './AdminGuidanceRequests'
-import AdminEvolutionSessions from './AdminEvolutionSessions'
 import AdminProfessionalComments from './AdminProfessionalComments'
 import AdminSelfCarePlans from './AdminSelfCarePlans'
 import AdminProfessionals from './AdminProfessionals'
@@ -11,9 +10,8 @@ import AdminProfessionals from './AdminProfessionals'
 const TABS = [
   { id: 'fila',        label: 'Fila de Pendências',       icon: Sparkles },
   { id: 'suporte',     label: 'Suporte',                  icon: HeadphonesIcon },
-  { id: 'orientacoes', label: 'Orientações',              icon: MessageSquare },
-  { id: 'sessoes',     label: 'Sessões Plus',             icon: Video },
-  { id: 'comentarios', label: 'Comentários Profissionais',icon: Star },
+  { id: 'orientacoes', label: 'Orientação profissional',  icon: MessageSquare },
+  { id: 'comentarios', label: 'Comentário profissional',  icon: Star },
   { id: 'autocuidado', label: 'Planos de Autocuidado',    icon: Leaf },
   { id: 'equipe',      label: 'Equipe Profissional',      icon: Briefcase },
 ] as const
@@ -49,8 +47,8 @@ export default function AdminAreaAtendimento({ initialTab }: Props) {
                 onClick={() => switchTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                    ? 'border-forest-700 text-forest-900'
+                    : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -64,7 +62,6 @@ export default function AdminAreaAtendimento({ initialTab }: Props) {
         {tab === 'fila'        && <AdminPersonalization />}
         {tab === 'suporte'     && <AdminSupport />}
         {tab === 'orientacoes' && <AdminGuidanceRequests />}
-        {tab === 'sessoes'     && <AdminEvolutionSessions />}
         {tab === 'comentarios' && <AdminProfessionalComments />}
         {tab === 'autocuidado' && <AdminSelfCarePlans />}
         {tab === 'equipe'      && <AdminProfessionals />}

@@ -277,7 +277,10 @@ export default function AdminPlans() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-stone-800">Planos</h1>
+        <div>
+          <h1 className="font-serif text-3xl text-forest-900">Planos e assinaturas</h1>
+          <p className="text-sm text-ink-soft mt-0.5">Configure preços, limites e permissões.</p>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={load} title="Recarregar" className="p-2 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100">
             <RefreshCw className="w-4 h-4" />
