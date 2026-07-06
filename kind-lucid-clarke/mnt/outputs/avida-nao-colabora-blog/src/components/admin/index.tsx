@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { logAdminAction } from '../../lib/adminAudit'
 import AdminLayout from './AdminLayout'
 import AdminArticleEditor from './AdminArticleEditor'
-import AdminAreaPainel from './AdminAreaPainel'
+import AdminOverview from './AdminOverview'
 import AdminAreaConteudo from './AdminAreaConteudo'
 import AdminAreaUsuariosPlanos from './AdminAreaUsuariosPlanos'
 import AdminAreaAtendimento from './AdminAreaAtendimento'
@@ -124,7 +124,7 @@ export default function AdminPanel() {
     switch (view) {
       // ── Áreas principais ──────────────────────────────────────────────────
       case 'painel':
-        return <AdminAreaPainel onNavigate={v => navigate(v)} />
+        return <AdminOverview onNavigate={v => navigate(v)} />
       case 'conteudo':
         return <AdminAreaConteudo onEditArticle={handleEditArticle} />
       case 'usuarios-planos':
