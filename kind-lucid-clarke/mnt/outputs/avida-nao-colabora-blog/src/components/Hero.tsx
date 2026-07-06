@@ -97,14 +97,15 @@ export default function Hero({ onNavigate }: HeroProps) {
               Seus dados são privados e protegidos.
             </p>
 
-            {/* Elemento natural (planta + xícara) — como na imagem de referência.
+            {/* Elemento natural — planta + xícara sobre livros, sangrando pela esquerda
+                (como no print de referência). Visível também no mobile, sem borda de card.
                 Para trocar pela foto/ilustração exata: substitua a src abaixo. */}
-            <div className="hidden lg:block mt-10 -ml-6">
+            <div className="mt-8 -ml-6 sm:-ml-8">
               <img
                 src="https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=80"
-                alt="Planta em um ambiente calmo e acolhedor"
+                alt="Planta e xícara sobre livros, em um ambiente calmo e acolhedor"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                className="w-80 h-52 object-cover rounded-3xl border border-line shadow-sm"
+                className="w-full max-w-xs sm:max-w-sm h-48 sm:h-56 object-cover rounded-2xl"
               />
             </div>
           </div>
