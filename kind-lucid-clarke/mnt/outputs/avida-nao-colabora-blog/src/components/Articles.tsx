@@ -140,13 +140,13 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
       </div>
 
       {/* Mood filter */}
-      <div className="mb-8 bg-purple-50 rounded-2xl p-5 border border-purple-100">
+      <div className="mb-8 bg-paper-soft rounded-2xl p-5 border border-line">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-purple-800">Estou me sentindo…</p>
+          <p className="text-sm font-semibold text-forest-900">Estou me sentindo…</p>
           {selectedMood && (
             <button
               onClick={clearMood}
-              className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700"
+              className="flex items-center gap-1 text-xs text-ink-soft hover:text-forest-700"
             >
               <X size={12} /> limpar filtro
             </button>
@@ -159,8 +159,8 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
               onClick={() => handleMoodSelect(mood)}
               className={`px-3 py-1.5 rounded-full text-sm transition-all border ${
                 selectedMood === mood
-                  ? 'bg-purple-600 text-white border-purple-600'
-                  : 'bg-white border-purple-200 text-purple-700 hover:border-purple-400'
+                  ? 'bg-forest-900 text-white border-forest-900'
+                  : 'bg-white border-line text-ink hover:border-forest-300'
               }`}
             >
               {mood}
@@ -168,7 +168,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
           ))}
         </div>
         {selectedMood && (
-          <p className="text-xs text-purple-500 mt-3">
+          <p className="text-xs text-forest-600 mt-3">
             Mostrando artigos sobre: <strong>{MOOD_MAP[selectedMood].join(', ')}</strong>
           </p>
         )}
@@ -181,7 +181,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar artigos..."
-          className="w-full pl-11 pr-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-emerald-300 outline-none bg-white"
+          className="w-full pl-11 pr-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-forest-300 outline-none bg-white"
         />
       </div>
 
@@ -225,7 +225,7 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
         <div className="text-center py-20 text-sage-400">
           <p className="mb-2 font-medium">Nenhum artigo encontrado.</p>
           {selectedMood ? (
-            <button onClick={clearMood} className="text-sm text-purple-500 underline">
+            <button onClick={clearMood} className="text-sm text-forest-600 underline">
               Ver todos os artigos
             </button>
           ) : (

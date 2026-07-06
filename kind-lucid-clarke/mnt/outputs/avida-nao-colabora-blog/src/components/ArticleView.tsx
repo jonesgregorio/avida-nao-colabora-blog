@@ -279,7 +279,7 @@ export default function ArticleView({
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -327,8 +327,8 @@ export default function ArticleView({
             title={saved ? 'Remover da Caixa de Cuidado' : 'Salvar na Caixa de Cuidado'}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all ${
               saved
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                : 'border-stone-200 text-stone-500 hover:border-emerald-300 hover:text-emerald-600'
+                ? 'bg-mint/40 border-forest-300 text-forest-700'
+                : 'border-stone-200 text-stone-500 hover:border-forest-300 hover:text-forest-600'
             }`}
           >
             {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
@@ -361,32 +361,32 @@ export default function ArticleView({
 
       {/* A) Quick Summary Card */}
       {showSummary && (
-        <div className="no-print mb-8 bg-purple-50 border border-purple-100 rounded-2xl p-5 relative">
+        <div className="no-print mb-8 bg-lilac/40 border border-purple-100 rounded-2xl p-5 relative">
           <button
             onClick={() => setShowSummary(false)}
-            className="absolute top-3 right-3 text-purple-300 hover:text-purple-500 text-xs"
+            className="absolute top-3 right-3 text-purple-300 hover:text-forest-600 text-xs"
           >
             ✕ fechar
           </button>
-          <p className="text-xs uppercase tracking-wider text-purple-400 mb-3 font-medium">
+          <p className="text-xs uppercase tracking-wider text-forest-400 mb-3 font-medium">
             Se você está sem energia para ler tudo agora, aqui está o resumo.
           </p>
           <div className="space-y-2.5">
             <div className="flex gap-2">
-              <span className="text-purple-400 font-bold text-sm w-5 flex-shrink-0">📌</span>
-              <p className="text-sm text-purple-800"><strong>O que aborda:</strong> {summary.topic}</p>
+              <span className="text-forest-400 font-bold text-sm w-5 flex-shrink-0">📌</span>
+              <p className="text-sm text-forest-900"><strong>O que aborda:</strong> {summary.topic}</p>
             </div>
             <div className="flex gap-2">
-              <span className="text-purple-400 font-bold text-sm w-5 flex-shrink-0">💡</span>
-              <p className="text-sm text-purple-800"><strong>Ideia principal:</strong> {summary.mainIdea}</p>
+              <span className="text-forest-400 font-bold text-sm w-5 flex-shrink-0">💡</span>
+              <p className="text-sm text-forest-900"><strong>Ideia principal:</strong> {summary.mainIdea}</p>
             </div>
             <div className="flex gap-2">
-              <span className="text-purple-400 font-bold text-sm w-5 flex-shrink-0">🌱</span>
-              <p className="text-sm text-purple-800"><strong>Ação pequena para hoje:</strong> {summary.smallAction}</p>
+              <span className="text-forest-400 font-bold text-sm w-5 flex-shrink-0">🌱</span>
+              <p className="text-sm text-forest-900"><strong>Ação pequena para hoje:</strong> {summary.smallAction}</p>
             </div>
             <div className="flex gap-2">
-              <span className="text-purple-400 font-bold text-sm w-5 flex-shrink-0">📖</span>
-              <p className="text-sm text-purple-800"><strong>Pergunta para o diário:</strong> {summary.diaryQuestion}</p>
+              <span className="text-forest-400 font-bold text-sm w-5 flex-shrink-0">📖</span>
+              <p className="text-sm text-forest-900"><strong>Pergunta para o diário:</strong> {summary.diaryQuestion}</p>
             </div>
           </div>
         </div>
@@ -417,7 +417,7 @@ export default function ArticleView({
                 <p className="text-sage-700 text-sm leading-relaxed">{q}</p>
                 <button
                   onClick={() => handleAnswerInDiary(q)}
-                  className="self-start text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                  className="self-start text-xs font-medium text-forest-700 border border-forest-200 bg-mint/40 px-3 py-1.5 rounded-full hover:bg-mint transition-colors flex items-center gap-1"
                 >
                   <NotebookPen size={12} />
                   {user ? 'Responder no diário' : 'Entrar para responder'}
@@ -464,7 +464,7 @@ export default function ArticleView({
       </div>
 
       {/* CTA buttons */}
-      <div className="mt-10 bg-emerald-50 rounded-2xl p-6 border border-emerald-100 article-cta-buttons" data-noprint>
+      <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
         <h3 className="font-bold text-stone-800 mb-2">Quer explorar isso mais de perto?</h3>
         <p className="text-stone-600 text-sm mb-4">
           Use o diário para registrar o que você está sentindo agora.
@@ -473,7 +473,7 @@ export default function ArticleView({
           {/* E) Register how I'm feeling */}
           <button
             onClick={() => doNavigate(user ? 'diary' : 'auth')}
-            className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2"
+            className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
           >
             <NotebookPen size={15} /> Registrar como estou hoje
           </button>
@@ -482,8 +482,8 @@ export default function ArticleView({
             onClick={handleSave}
             className={`px-5 py-2.5 rounded-lg text-sm font-medium border flex items-center gap-2 transition-all ${
               saved
-                ? 'bg-white border-emerald-300 text-emerald-700'
-                : 'bg-white border-stone-200 text-stone-600 hover:border-emerald-300 hover:text-emerald-700'
+                ? 'bg-white border-forest-300 text-forest-700'
+                : 'bg-white border-stone-200 text-stone-600 hover:border-forest-300 hover:text-forest-700'
             }`}
           >
             {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
