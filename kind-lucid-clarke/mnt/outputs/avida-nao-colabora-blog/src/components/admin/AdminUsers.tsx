@@ -72,14 +72,15 @@ interface PlanHistoryRow {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus', // legado → exibe Plus
 }
 const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-stone-100 text-stone-500',
-  essential: 'bg-blue-100 text-blue-700',
-  therapeutic: 'bg-purple-100 text-purple-700',
-  'therapeutic-plus': 'bg-emerald-100 text-emerald-700',
+  free: 'bg-mint text-forest-700',
+  essential: 'bg-sky text-[#3d6ea5]',
+  plus: 'bg-coral text-[#c05f3c]',
+  therapeutic: 'bg-coral text-[#c05f3c]',
+  'therapeutic-plus': 'bg-coral text-[#c05f3c]',
 }
 const STATUS_LABELS: Record<string, string> = {
   open: 'Aberto', in_progress: 'Em andamento',
@@ -134,8 +135,7 @@ type ViewMode = 'list' | 'kanban'
 const KANBAN_COLUMNS = [
   { key: 'free', label: 'Gratuito', color: 'border-stone-300 bg-stone-50', badge: 'bg-stone-100 text-stone-600' },
   { key: 'essential', label: 'Essencial', color: 'border-blue-300 bg-blue-50', badge: 'bg-blue-100 text-blue-700' },
-  { key: 'therapeutic', label: 'Terapêutico', color: 'border-purple-300 bg-purple-50', badge: 'bg-purple-100 text-purple-700' },
-  { key: 'therapeutic-plus', label: 'Plus', color: 'border-emerald-300 bg-emerald-50', badge: 'bg-emerald-100 text-emerald-700' },
+  { key: 'plus', label: 'Plus', color: 'border-[#f0c3b4] bg-coral/30', badge: 'bg-coral text-[#c05f3c]' },
 ]
 
 export default function AdminUsers() {
