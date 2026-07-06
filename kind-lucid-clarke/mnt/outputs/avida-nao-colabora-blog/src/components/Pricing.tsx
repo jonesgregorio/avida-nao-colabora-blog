@@ -46,16 +46,16 @@ const PLANS = [
 ]
 
 const COMPARISON = [
-  { Icon: NotebookPen, label: 'Diário emocional', free: 'Básico, com limite de entradas', essential: 'Ilimitado', plus: 'Ilimitado' },
-  { Icon: Compass, label: 'Mapa emocional', free: 'Questionário inicial', essential: 'Completo, com histórico e gráficos', plus: 'Completo, com histórico e gráficos' },
-  { Icon: BookOpen, label: 'Conteúdos guiados', free: 'Algumas práticas guiadas', essential: 'Completo', plus: 'Completo' },
-  { Icon: CalendarCheck, label: 'Plano de autocuidado', free: false, essential: false, plus: true },
-  { Icon: MessageSquare, label: 'Orientação profissional', free: false, essential: false, plus: true },
+  { Icon: NotebookPen, label: 'Diário emocional', free: 'Básico', essential: 'Ilimitado', plus: 'Ilimitado' },
+  { Icon: Compass, label: 'Mapa emocional', free: 'Básico', essential: 'Completo', plus: 'Completo' },
+  { Icon: BookOpen, label: 'Conteúdos guiados', free: 'Limitados', essential: 'Todos os conteúdos', plus: 'Todos os conteúdos' },
+  // Plano de autocuidado e Orientação profissional são recursos exclusivos do Plus (gating real).
+  { Icon: CalendarCheck, label: 'Plano de autocuidado', free: '—', essential: '—', plus: 'Incluído' },
+  { Icon: MessageSquare, label: 'Orientação profissional', free: '—', essential: '—', plus: 'Incluída' },
 ] as const
 
-function Cell({ value }: { value: string | boolean }) {
-  if (value === true) return <Check className="w-4 h-4 text-forest-600 mx-auto" />
-  if (value === false) return <span className="text-ink-soft/50">×</span>
+function Cell({ value }: { value: string }) {
+  if (value === '—') return <span className="text-ink-soft/50">—</span>
   return <span className="text-ink">{value}</span>
 }
 
@@ -84,8 +84,8 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     <section id="pricing" className="bg-paper">
       <div className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
-          <h1 className="font-serif text-4xl md:text-5xl text-forest-900">Escolha seu caminho</h1>
-          <p className="mt-3 text-ink-soft">Comece gratuitamente. Evolua quando fizer sentido.</p>
+          <h1 className="font-serif text-4xl md:text-5xl text-forest-900">Planos que crescem com você</h1>
+          <p className="mt-3 text-ink-soft">Comece grátis. Evolua quando fizer sentido.</p>
         </div>
 
         {/* Cards */}

@@ -1,6 +1,6 @@
 import {
   NotebookPen, Compass, BookOpen, CalendarCheck, MessageSquare,
-  CheckCircle2, ShieldCheck, Lock, EyeOff, ArrowRight,
+  ShieldCheck, Lock, EyeOff, ArrowRight, Sprout, Star, Heart,
 } from 'lucide-react'
 
 interface HomeContentProps {
@@ -24,26 +24,11 @@ const STEPS = [
   { n: '04', title: 'Receba conteúdos e um plano', desc: 'Práticas e direção no seu ritmo.' },
 ]
 
-// ── Planos (prévia) ──
-const PLANS = [
-  {
-    key: 'free', name: 'Gratuito', price: 'R$ 0', promise: 'Comece a se entender',
-    tagline: 'Para começar com leveza e conhecer os primeiros caminhos de autocuidado.',
-    benefits: ['Blog aberto', 'Diário emocional básico', 'Questionário inicial', 'Algumas práticas guiadas'],
-    cta: 'Começar grátis', to: 'auth', highlight: false,
-  },
-  {
-    key: 'essential', name: 'Essencial', price: 'R$ 19,90', promise: 'Acompanhe seus padrões',
-    tagline: 'Para transformar registros soltos em clareza sobre o que sente e repete.',
-    benefits: ['Diário ilimitado', 'Mapa emocional completo', 'Histórico e gráficos', 'Conteúdos guiados completos', 'Relatório semanal automático'],
-    cta: 'Assinar Essencial', to: 'pricing', highlight: true,
-  },
-  {
-    key: 'plus', name: 'Plus', price: 'R$ 39,90', promise: 'Receba orientação para agir',
-    tagline: 'Para transformar percepção em próximos passos, com apoio mensal.',
-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
-    cta: 'Assinar Plus', to: 'pricing', highlight: false,
-  },
+// ── Planos (prévia compacta — "Escolha seu plano") ──
+const MINI_PLANS = [
+  { key: 'free', name: 'Gratuito', nameColor: 'text-forest-900', price: 'R$ 0', per: false, promise: 'Para começar', Icon: Sprout, bg: 'bg-mint', color: 'text-forest-600' },
+  { key: 'essential', name: 'Essencial', nameColor: 'text-forest-900', price: 'R$ 19,90', per: true, promise: 'Acompanhe seus padrões', Icon: Star, bg: 'bg-sky', color: 'text-[#3d6ea5]' },
+  { key: 'plus', name: 'Plus', nameColor: 'text-[#c05f3c]', price: 'R$ 39,90', per: true, promise: 'Receba orientação para agir', Icon: Heart, bg: 'bg-coral', color: 'text-[#c05f3c]' },
 ]
 
 function PlusTag() {
@@ -53,6 +38,41 @@ function PlusTag() {
 export default function HomeContent({ onNavigate }: HomeContentProps) {
   return (
     <>
+      {/* ── Escolha seu plano (prévia compacta) ── */}
+      <section className="bg-paper-soft border-y border-line">
+        <div className="max-w-6xl mx-auto px-4 py-14">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-serif text-2xl md:text-3xl text-forest-900">Escolha seu plano</h2>
+            <button
+              onClick={() => onNavigate('pricing')}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors"
+            >
+              Ver todos os planos
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {MINI_PLANS.map(({ key, name, nameColor, price, per, promise, Icon, bg, color }) => (
+              <button
+                key={key}
+                onClick={() => onNavigate('pricing')}
+                className="relative text-left bg-white border border-line rounded-2xl p-5 hover:shadow-md hover:border-forest-200 transition-all"
+              >
+                <h3 className={`font-serif text-xl ${nameColor}`}>{name}</h3>
+                <div className="mt-1">
+                  <span className="font-serif text-2xl text-forest-900">{price}</span>
+                  {per && <span className="text-sm text-ink-soft"> /mês</span>}
+                </div>
+                <p className="mt-1 text-sm text-ink-soft max-w-[65%]">{promise}</p>
+                <span className={`absolute bottom-4 right-4 w-11 h-11 rounded-full ${bg} flex items-center justify-center`}>
+                  <Icon className={`w-5 h-5 ${color}`} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── 5 funcionalidades principais ── */}
       <section className="bg-forest-900 text-white">
         <div className="max-w-6xl mx-auto px-4 py-16">
@@ -91,53 +111,6 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
                   <h3 className="font-medium text-forest-900">{title}</h3>
                   <p className="text-sm text-ink-soft mt-0.5 leading-relaxed">{desc}</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Planos ── */}
-      <section className="bg-paper-soft border-y border-line">
-        <div className="max-w-6xl mx-auto px-4 py-16">
-          <div className="text-center mb-10">
-            <h2 className="font-serif text-3xl md:text-4xl text-forest-900">Planos que crescem com você</h2>
-            <p className="mt-2 text-ink-soft">Comece grátis. Evolua quando fizer sentido.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-            {PLANS.map(p => (
-              <div
-                key={p.key}
-                className={`rounded-3xl p-6 flex flex-col ${p.highlight ? 'bg-forest-900 text-white ring-2 ring-forest-900 shadow-lg md:-mt-2' : 'bg-white border border-line'}`}
-              >
-                {p.highlight && (
-                  <span className="self-start text-[11px] font-semibold px-2.5 py-1 rounded-full bg-coral text-[#b0532f] mb-3">Recomendado</span>
-                )}
-                <h3 className={`font-serif text-2xl ${p.highlight ? 'text-white' : 'text-forest-900'}`}>{p.name}</h3>
-                <p className={`text-sm mt-0.5 ${p.highlight ? 'text-forest-100' : 'text-ink-soft'}`}>{p.promise}</p>
-                <div className="mt-4 mb-1">
-                  <span className={`font-serif text-3xl ${p.highlight ? 'text-white' : 'text-forest-900'}`}>{p.price}</span>
-                  {p.key !== 'free' && <span className={`text-sm ${p.highlight ? 'text-forest-100' : 'text-ink-soft'}`}>/mês</span>}
-                </div>
-                <p className={`text-sm leading-relaxed mb-5 ${p.highlight ? 'text-forest-100' : 'text-ink-soft'}`}>{p.tagline}</p>
-                <ul className="space-y-2.5 mb-6 flex-1">
-                  {p.benefits.map(b => (
-                    <li key={b} className="flex items-start gap-2 text-sm">
-                      <CheckCircle2 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${p.highlight ? 'text-coral' : 'text-forest-500'}`} />
-                      <span className={p.highlight ? 'text-forest-50' : 'text-ink'}>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => onNavigate(p.to)}
-                  className={`w-full py-3 rounded-2xl font-medium text-sm transition-colors ${
-                    p.highlight
-                      ? 'bg-white text-forest-900 hover:bg-forest-50'
-                      : 'bg-forest-900 text-white hover:bg-forest-800'
-                  }`}
-                >
-                  {p.cta}
-                </button>
               </div>
             ))}
           </div>
