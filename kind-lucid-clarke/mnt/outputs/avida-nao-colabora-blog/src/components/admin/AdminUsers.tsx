@@ -838,22 +838,22 @@ export default function AdminUsers() {
                   <button
                     key={u.id}
                     onClick={() => openDrawer(u)}
-                    className={`w-full text-left px-6 py-3 hover:bg-stone-50 transition-colors flex items-center gap-3 ${selectedUser?.user_id === u.user_id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+                    className={`w-full text-left px-6 py-3 hover:bg-paper-soft transition-colors flex items-center gap-3 ${selectedUser?.user_id === u.user_id ? 'bg-mint/50 border-l-2 border-forest-600' : ''}`}
                   >
-                    <div className="w-9 h-9 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-sm font-semibold flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-700 text-sm font-semibold flex-shrink-0">
                       {(u.full_name ?? 'U')[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-stone-800 truncate">{u.full_name || 'Sem nome'}</p>
+                        <p className="text-sm font-medium text-forest-900 truncate">{u.full_name || 'Sem nome'}</p>
                         {u.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
                       </div>
-                      {u.email && <p className="text-xs text-stone-400 truncate">{u.email}</p>}
+                      {u.email && <p className="text-xs text-ink-soft truncate">{u.email}</p>}
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[u.plan] ?? 'bg-stone-100 text-stone-500'}`}>
                           {PLAN_LABELS[u.plan] ?? u.plan}
                         </span>
-                        <span className="text-xs text-stone-400">{timeSince(u.created_at)}</span>
+                        <span className="text-xs text-ink-soft">{timeSince(u.created_at)}</span>
                         {u.account_status && u.account_status !== 'active' && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ACCOUNT_STATUS_COLORS[u.account_status] ?? 'bg-stone-100'}`}>
                             {u.account_status}
@@ -863,7 +863,7 @@ export default function AdminUsers() {
                         {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
                         {isBlocked && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
                         {isTrial && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Trial</span>}
-                        {isPlus && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Plus</span>}
+                        {isPlus && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-coral text-[#c05f3c] font-medium">Plus</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -877,7 +877,7 @@ export default function AdminUsers() {
                           <Bell className="w-3 h-3" />{u.unread_notifs}
                         </span>
                       )}
-                      <ChevronRight className="w-4 h-4 text-stone-300" />
+                      <ChevronRight className="w-4 h-4 text-ink-soft" />
                     </div>
                   </button>
                 )
