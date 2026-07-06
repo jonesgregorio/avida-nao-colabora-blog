@@ -61,13 +61,15 @@ export default function Hero({ onNavigate }: HeroProps) {
               Seus dados são privados e protegidos.
             </p>
 
-            {/* Acento natural discreto */}
-            <div className="hidden lg:flex items-end gap-3 mt-10 opacity-90">
-              <div className="w-24 h-16 rounded-2xl bg-gradient-to-br from-mint to-paper border border-line" />
-              <svg viewBox="0 0 48 48" className="w-10 h-10 text-forest-300" fill="none" aria-hidden>
-                <path d="M24 44c0-14 6-24 20-28C42 30 36 40 24 44Z" fill="currentColor" opacity="0.5" />
-                <path d="M24 44C24 30 18 20 4 16c2 14 8 24 20 28Z" fill="currentColor" opacity="0.35" />
-              </svg>
+            {/* Elemento natural (planta + xícara + caderno) — como na imagem de referência.
+                Para trocar pela foto exata: substitua a src abaixo. */}
+            <div className="hidden lg:block mt-10 -ml-6">
+              <img
+                src="https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=80"
+                alt="Planta em um ambiente calmo e acolhedor"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                className="w-80 h-52 object-cover rounded-3xl border border-line shadow-sm"
+              />
             </div>
           </div>
 
