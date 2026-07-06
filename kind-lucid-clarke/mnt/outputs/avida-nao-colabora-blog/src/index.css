@@ -8,11 +8,11 @@
   }
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #faf8f4;
-    color: #2f4232;
+    background-color: #FBFAF7;
+    color: #0F2F25;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-family: 'Playfair Display', Georgia, serif;
   }
 }
 

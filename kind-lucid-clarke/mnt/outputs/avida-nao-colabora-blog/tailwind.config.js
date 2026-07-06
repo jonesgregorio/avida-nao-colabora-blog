@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        serif: ['"Playfair Display"', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
@@ -47,20 +47,23 @@ export default {
           900: '#243d5c',
         },
         // fundo das telas antigas (mains usam bg-stone-50) → paper
-        stone: { 50: '#faf8f3' },
-        // ── Paleta da repaginação (imagem de referência) ──
+        stone: { 50: '#FBFAF7' },
+        // ── Paleta oficial da marca (guia visual) ──
+        //  principal #1A4A3A · fundo #FBFAF7 · texto #0F2F25 · secundário #5F6661
         forest: {
           50: '#eef3f0', 100: '#dcebe2', 200: '#b9d3c3', 300: '#8fb5a1',
           400: '#5c8a72', 500: '#2f5d47', 600: '#1c4a37', 700: '#153e2f',
-          800: '#123528', 900: '#0f3328',
+          800: '#123528', 900: '#1A4A3A',
         },
-        paper: { DEFAULT: '#faf8f3', soft: '#fbfaf7' },
-        ink: { DEFAULT: '#14251f', soft: '#5e6660' },
-        mint: '#dcebe2',
-        sky: '#ddeaf3',
-        coral: '#f7d6cc',
-        lilac: '#e6dff3',
-        line: '#e8e1d7',
+        paper: { DEFAULT: '#FBFAF7', soft: '#FFFFFF' },
+        ink: { DEFAULT: '#0F2F25', soft: '#5F6661' },
+        mint: '#E8F0EB',
+        sky: '#E4EEF7',
+        coral: '#F7D8CE',
+        lilac: '#E9E1F3',
+        line: '#E6E1D8',
+        // coral principal do Plus (acento forte)
+        plus: '#E8664D',
       },
     },
   },
