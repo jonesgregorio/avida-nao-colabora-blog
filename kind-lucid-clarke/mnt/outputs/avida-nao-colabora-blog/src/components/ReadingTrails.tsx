@@ -87,7 +87,7 @@ interface Props {
   onSelectArticle: (slug: string) => void
 }
 
-const planOrder: Plan[] = ['free', 'essential', 'therapeutic', 'therapeutic-plus']
+const planOrder: Plan[] = ['free', 'essential', 'therapeutic', 'therapeutic-plus', 'plus']
 const hasAccess = (userPlan: Plan, required: Plan) =>
   planOrder.indexOf(userPlan) >= planOrder.indexOf(required)
 

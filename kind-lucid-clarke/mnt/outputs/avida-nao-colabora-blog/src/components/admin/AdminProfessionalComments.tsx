@@ -59,7 +59,7 @@ export default function AdminProfessionalComments() {
   useEffect(() => {
     supabase.from('profiles')
       .select('user_id,full_name,plan')
-      .in('plan', ['therapeutic-plus'])
+      .in('plan', ['therapeutic-plus', 'plus'])
       .order('full_name')
       .then(({ data }) => setUsers((data as UserProfile[]) ?? []))
   }, [])

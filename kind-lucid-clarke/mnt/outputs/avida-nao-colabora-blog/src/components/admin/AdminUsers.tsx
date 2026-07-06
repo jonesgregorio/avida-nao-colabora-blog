@@ -270,7 +270,7 @@ export default function AdminUsers() {
       withDiscount: rows.filter(r => (r.discount_percent ?? 0) > 0 || (r.discount_fixed ?? 0) > 0).length,
       unlimitedAccess: rows.filter(r => r.unlimited_access === true).length,
       openTickets: openTicketCountRes.count ?? 0,
-      plus: rows.filter(r => r.plan === 'therapeutic-plus').length,
+      plus: rows.filter(r => r.plan === 'plus' || r.plan === 'therapeutic-plus').length,
     })
 
     setLoading(false)
@@ -827,7 +827,7 @@ export default function AdminUsers() {
                 const hasDiscount = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
                 const isBlocked = u.account_status === 'blocked'
                 const isTrial = u.account_status === 'trial'
-                const isPlus = u.plan === 'therapeutic-plus'
+                const isPlus = u.plan === 'plus' || u.plan === 'therapeutic-plus'
                 const isUnlimited = u.unlimited_access === true
                 return (
                   <button

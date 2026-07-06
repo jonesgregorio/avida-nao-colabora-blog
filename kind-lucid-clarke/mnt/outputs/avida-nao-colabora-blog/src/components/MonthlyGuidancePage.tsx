@@ -63,7 +63,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [showCreate, setShowCreate] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const allowed = profile?.plan === 'therapeutic' || profile?.plan === 'therapeutic-plus'
+  const allowed = profile?.plan === 'therapeutic' || profile?.plan === 'therapeutic-plus' || profile?.plan === 'plus'
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }

@@ -54,7 +54,7 @@ export default function AdminSelfCarePlans() {
     // o embed do PostgREST (user:profiles) falha com 400. Resolve-se o nome à parte.
     const [{ data: ps }, { data: users }] = await Promise.all([
       supabase.from('self_care_plan_reviews').select('*').order('created_at', { ascending: false }).limit(100),
-      supabase.from('profiles').select('id, full_name, user_id').in('plan', ['therapeutic', 'therapeutic-plus']).limit(200),
+      supabase.from('profiles').select('id, full_name, user_id').in('plan', ['therapeutic', 'therapeutic-plus', 'plus']).limit(200),
     ])
     const list = (ps ?? []) as SelfCarePlan[]
     const ids = [...new Set(list.map(p => p.user_id).filter(Boolean))]

@@ -152,12 +152,12 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
             {planDetails.label}
           </span>
         </div>
-        {plan !== 'therapeutic-plus' && (
+        {plan !== 'therapeutic-plus' && plan !== 'plus' && (
           <button onClick={onNavigatePricing} className="ml-auto flex items-center gap-1 text-sage-600 text-sm hover:underline">
             <TrendingUp className="w-4 h-4" /> Ver planos
           </button>
         )}
-        {plan !== 'free' && plan === 'therapeutic-plus' && (
+        {plan !== 'free' && (plan === 'therapeutic-plus' || plan === 'plus') && (
           <Crown className="ml-auto w-5 h-5 text-purple-500" />
         )}
       </div>

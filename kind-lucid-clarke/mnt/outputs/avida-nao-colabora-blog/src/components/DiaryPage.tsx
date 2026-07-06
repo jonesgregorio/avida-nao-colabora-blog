@@ -93,8 +93,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
   const [relationships, setRelationships] = useState('')
   const [habits, setHabits] = useState('')
 
-  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus'
-  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus'
+  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
+  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))

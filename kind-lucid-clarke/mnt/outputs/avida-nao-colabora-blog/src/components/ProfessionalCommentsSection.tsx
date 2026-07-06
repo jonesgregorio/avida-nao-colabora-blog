@@ -29,7 +29,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
 
-  const allowed = profile?.plan === 'therapeutic-plus'
+  const allowed = profile?.plan === 'therapeutic-plus' || profile?.plan === 'plus'
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }

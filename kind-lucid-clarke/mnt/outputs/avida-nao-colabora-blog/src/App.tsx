@@ -320,7 +320,7 @@ export default function App() {
   }
 
   if (view === 'meditations') {
-    if (!user || (profile?.plan !== 'essential' && profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus')) {
+    if (!user || (profile?.plan !== 'essential' && profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus' && profile?.plan !== 'plus')) {
       navigate('pricing'); return null
     }
     return (
@@ -347,7 +347,7 @@ export default function App() {
   }
 
   if (view === 'therapeutic-q') {
-    if (!user || (profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus')) {
+    if (!user || (profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus' && profile?.plan !== 'plus')) {
       navigate('pricing'); return null
     }
     return (
@@ -728,7 +728,7 @@ export default function App() {
               >
                 📦 Caixa de Cuidado
               </button>
-              {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
+              {(profile.plan === 'essential' || profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
                 <button
                   onClick={() => navigate('meditations')}
                   className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors"
@@ -736,7 +736,7 @@ export default function App() {
                   🧘 Meditações Guiadas
                 </button>
               )}
-              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
+              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
                 <button
                   onClick={() => navigate('therapeutic-q')}
                   className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
@@ -744,7 +744,7 @@ export default function App() {
                   📋 Questionário Aprofundado
                 </button>
               )}
-              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus') && (
+              {(profile.plan === 'therapeutic' || profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
                 <button
                   onClick={() => navigate('monthly-guidance')}
                   className="text-sm bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors"
@@ -752,7 +752,7 @@ export default function App() {
                   💬 Orientação Mensal
                 </button>
               )}
-              {profile.plan === 'therapeutic-plus' && (
+              {(profile.plan === 'therapeutic-plus' || profile.plan === 'plus') && (
                 <button
                   onClick={() => navigate('professional-comments')}
                   className="text-sm bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-full hover:bg-amber-100 transition-colors"

@@ -167,9 +167,9 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
 
 export default function MyReportPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
-  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus'
-  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus'
-  const isPlus = plan === 'therapeutic-plus'
+  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
+  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
+  const isPlus = plan === 'therapeutic-plus' || plan === 'plus'
 
   const monthOptions = buildMonthOptions()
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value)

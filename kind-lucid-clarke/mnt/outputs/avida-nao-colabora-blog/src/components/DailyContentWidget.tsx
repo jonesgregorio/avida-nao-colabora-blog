@@ -21,7 +21,7 @@ interface Props {
   profile: Profile | null
 }
 
-const PLAN_ORDER = ['free', 'essential', 'therapeutic', 'therapeutic-plus']
+const PLAN_ORDER = ['free', 'essential', 'therapeutic', 'therapeutic-plus', 'plus']
 
 const FREQ_LABEL: Record<string, string> = {
   Diário: 'Conteúdo de hoje',

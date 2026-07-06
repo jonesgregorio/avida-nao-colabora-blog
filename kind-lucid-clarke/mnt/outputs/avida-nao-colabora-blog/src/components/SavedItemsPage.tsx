@@ -67,7 +67,7 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
 
   const plan: Plan = profile?.plan || 'free'
   const isPremium = plan !== 'free'
-  const isPlus = plan === 'therapeutic-plus'
+  const isPlus = plan === 'therapeutic-plus' || plan === 'plus'
   const limit = PLAN_LIMITS[plan]
 
   const loadItems = useCallback(async () => {
