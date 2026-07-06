@@ -1,8 +1,46 @@
 -- ============================================================
 -- Migration 057: Migração de planos — 4 → 3 (free, essential, plus)
 --   'therapeutic' e 'therapeutic-plus' passam a ser 'plus'.
---   Idempotente. Blocos incertos protegidos contra coluna/tabela ausente.
+--   Idempotente. Amplia os CHECK constraints ANTES de mexer nos dados
+--   (senão SET plan='plus' viola o constraint antigo e aborta tudo).
 -- ============================================================
+
+-- 0. Ampliar CHECK constraints para aceitar 'plus' (mantém legado p/ não invalidar
+--    linhas existentes durante o ALTER). Cada um protegido contra tabela ausente.
+DO $$ BEGIN
+  ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
+  ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+    CHECK (plan IN ('free','essential','plus','therapeutic','therapeutic-plus'));
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guided_meditations DROP CONSTRAINT IF EXISTS guided_meditations_plan_level_check;
+  ALTER TABLE guided_meditations ADD CONSTRAINT guided_meditations_plan_level_check
+    CHECK (plan_level IN ('free','essential','plus','therapeutic','therapeutic-plus'));
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE mini_challenges DROP CONSTRAINT IF EXISTS mini_challenges_plan_level_check;
+  ALTER TABLE mini_challenges ADD CONSTRAINT mini_challenges_plan_level_check
+    CHECK (plan_level IN ('free','essential','plus','therapeutic','therapeutic-plus'));
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guided_prompts DROP CONSTRAINT IF EXISTS guided_prompts_plan_level_check;
+  ALTER TABLE guided_prompts ADD CONSTRAINT guided_prompts_plan_level_check
+    CHECK (plan_level IN ('free','essential','plus','therapeutic','therapeutic-plus'));
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE articles DROP CONSTRAINT IF EXISTS articles_plan_required_check;
+  ALTER TABLE articles ADD CONSTRAINT articles_plan_required_check
+    CHECK (plan_required IN ('free','essential','plus','therapeutic','therapeutic-plus'));
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+-- user_subscriptions.plan_key: remove CHECK restritivo se existir (não recria).
+DO $$ BEGIN
+  ALTER TABLE user_subscriptions DROP CONSTRAINT IF EXISTS user_subscriptions_plan_key_check;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 -- 1. profiles.plan
 UPDATE profiles SET plan = 'plus'
@@ -34,13 +72,15 @@ UPDATE plan_configs SET is_recommended = (plan_key = 'essential');
 
 -- 5. plan_feature_access: cria linhas 'plus' herdando o acesso do maior legado
 --    (respeita a FK: só feature_keys existentes em plan_features)
-INSERT INTO plan_feature_access (plan_key, feature_key, enabled)
-SELECT 'plus', pfa.feature_key, bool_or(pfa.enabled)
-  FROM plan_feature_access pfa
- WHERE pfa.plan_key IN ('therapeutic', 'therapeutic-plus')
-   AND EXISTS (SELECT 1 FROM plan_features pf WHERE pf.feature_key = pfa.feature_key)
- GROUP BY pfa.feature_key
-ON CONFLICT (plan_key, feature_key) DO UPDATE SET enabled = EXCLUDED.enabled;
+DO $$ BEGIN
+  INSERT INTO plan_feature_access (plan_key, feature_key, enabled)
+  SELECT 'plus', pfa.feature_key, bool_or(pfa.enabled)
+    FROM plan_feature_access pfa
+   WHERE pfa.plan_key IN ('therapeutic', 'therapeutic-plus')
+     AND EXISTS (SELECT 1 FROM plan_features pf WHERE pf.feature_key = pfa.feature_key)
+   GROUP BY pfa.feature_key
+  ON CONFLICT (plan_key, feature_key) DO UPDATE SET enabled = EXCLUDED.enabled;
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END $$;
 
 -- 6. diary_plan_configs: copia a config do legado para 'plus' (se ainda não existir)
 DO $$ BEGIN
