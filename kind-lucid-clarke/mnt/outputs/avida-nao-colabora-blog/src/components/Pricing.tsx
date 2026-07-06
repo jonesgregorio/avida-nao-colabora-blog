@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
 import {
-  Check, Loader2, Sprout, Star, Heart,
+  Check, Loader2, Sprout, Star, LineChart,
   NotebookPen, Compass, BookOpen, CalendarCheck, MessageSquare,
 } from 'lucide-react'
 
@@ -33,13 +33,13 @@ const PLANS = [
   },
   {
     key: 'essential' as const, name: 'Essencial', promise: 'Acompanhe seus padrões', price: 'R$ 19,90', period: '/mês',
-    Icon: Star, iconBg: 'bg-mint', iconColor: 'text-forest-600', featured: true,
+    Icon: LineChart, iconBg: 'bg-mint', iconColor: 'text-forest-600', featured: true,
     benefits: ['Diário ilimitado', 'Mapa emocional completo', 'Histórico e gráficos', 'Conteúdos guiados completos', 'Relatório semanal automático'],
     cta: 'Assinar Essencial',
   },
   {
     key: 'plus' as const, name: 'Plus', promise: 'Receba orientação para agir', price: 'R$ 39,90', period: '/mês',
-    Icon: Heart, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
+    Icon: Star, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
     benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
     cta: 'Assinar Plus',
   },
@@ -144,7 +144,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                     onClick={() => handleSubscribe(plan.key)}
                     disabled={loadingPlan === plan.key}
                     className={`w-full py-3 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 ${
-                      coral ? 'bg-[#d85a30] hover:bg-[#c34e28] text-white' : 'bg-forest-900 hover:bg-forest-800 text-white'
+                      coral ? 'border border-[#e8664d] text-[#c8502f] hover:bg-[#fbeae4]' : 'bg-forest-900 hover:bg-forest-800 text-white'
                     }`}
                   >
                     {loadingPlan === plan.key
@@ -166,34 +166,51 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
         {/* Tabela comparativa */}
         <div className="mt-14">
           <h2 className="font-serif text-2xl md:text-3xl text-forest-900 text-center mb-6">O que muda em cada plano</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse">
-              <thead>
-                <tr className="text-sm">
-                  <th className="text-left font-medium text-ink-soft px-4 py-3"></th>
-                  <th className="font-serif text-lg text-forest-900 px-4 py-3">Gratuito</th>
-                  <th className="font-serif text-lg text-forest-900 px-4 py-3 bg-mint/40 rounded-t-2xl">Essencial</th>
-                  <th className="font-serif text-lg text-forest-900 px-4 py-3">Plus</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON.map((row, i) => (
-                  <tr key={row.label} className={i > 0 ? 'border-t border-line' : ''}>
-                    <td className="px-4 py-4 text-sm">
-                      <span className="flex items-center gap-2.5">
-                        <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center flex-shrink-0">
-                          <row.Icon className="w-4 h-4 text-forest-600" />
-                        </span>
-                        <span className="font-medium text-forest-900">{row.label}</span>
+          <div className="border border-line rounded-3xl overflow-hidden bg-paper-soft">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse">
+                <thead>
+                  <tr className="text-sm bg-white/50">
+                    <th className="text-left px-4 py-4"></th>
+                    <th className="px-4 py-4">
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Sprout className="w-4 h-4 text-forest-600" />
+                        <span className="font-serif text-lg text-forest-900">Gratuito</span>
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-center text-sm"><Cell value={row.free} /></td>
-                    <td className="px-4 py-4 text-center text-sm bg-mint/40"><Cell value={row.essential} /></td>
-                    <td className="px-4 py-4 text-center text-sm"><Cell value={row.plus} /></td>
+                    </th>
+                    <th className="px-4 py-4 bg-mint/40">
+                      <span className="flex items-center justify-center gap-1.5">
+                        <LineChart className="w-4 h-4 text-forest-600" />
+                        <span className="font-serif text-lg text-forest-900">Essencial</span>
+                      </span>
+                    </th>
+                    <th className="px-4 py-4">
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Star className="w-4 h-4 text-[#c05f3c]" />
+                        <span className="font-serif text-lg text-forest-900">Plus</span>
+                      </span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {COMPARISON.map(row => (
+                    <tr key={row.label} className="border-t border-line">
+                      <td className="px-4 py-4 text-sm">
+                        <span className="flex items-center gap-2.5">
+                          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center flex-shrink-0">
+                            <row.Icon className="w-4 h-4 text-forest-600" />
+                          </span>
+                          <span className="font-medium text-forest-900">{row.label}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.free} /></td>
+                      <td className="px-4 py-4 text-center text-sm bg-mint/40"><Cell value={row.essential} /></td>
+                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.plus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
