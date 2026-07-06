@@ -5,15 +5,20 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
-// Configure obrigatoriamente no Supabase Dashboard → Edge Functions → Secrets:
-//   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_THERAPEUTIC, STRIPE_PRICE_PLUS
+// Modelo NOVO: apenas dois planos pagos — Essencial (R$ 19,90) e Plus (R$ 39,90).
+// Secrets em Supabase Dashboard → Edge Functions → Secrets.
+//
+// Preço do Plus (R$ 39,90): hoje o price de 39,90 vive em STRIPE_PRICE_THERAPEUTIC.
+// GO-LIVE (ação externa sua): crie/repponte o secret STRIPE_PRICE_PLUS para o price
+// de R$ 39,90 e ele passa a ter prioridade. NUNCA aponte STRIPE_PRICE_PLUS para o
+// antigo price de R$ 79,90 — o fallback abaixo garante 39,90 enquanto isso.
+const PLUS_PRICE_ID =
+  Deno.env.get('STRIPE_PRICE_PLUS_3990')      // preferencial no go-live (R$ 39,90)
+  || Deno.env.get('STRIPE_PRICE_THERAPEUTIC') // transição: já é o price de 39,90
+
 const PRICE_IDS: Record<string, string | undefined> = {
-  essential:          Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
-  // Plus (R$ 39,90) usa o price do antigo Terapêutico. No go-live, criar
-  // STRIPE_PRICE_PLUS de R$ 39,90 e trocar a linha abaixo por STRIPE_PRICE_PLUS.
-  plus:               Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
-  therapeutic:        Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
-  'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS'),
+  essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
+  plus:      PLUS_PRICE_ID,
 }
 
 const cors = {

@@ -11,12 +11,15 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 function buildPlanByPrice(): Record<string, string> {
   const map: Record<string, string> = {}
   const essential = Deno.env.get('STRIPE_PRICE_ESSENTIAL')
-  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
-  const plus = Deno.env.get('STRIPE_PRICE_PLUS')
+  const plusNew = Deno.env.get('STRIPE_PRICE_PLUS_3990') // novo price de R$ 39,90 (go-live)
+  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC') // price de 39,90 hoje
+  const plusLegacy = Deno.env.get('STRIPE_PRICE_PLUS') // pode ser o antigo R$ 79,90
   if (essential) map[essential] = 'essential'
-  // R$ 39,90 (antigo Terapêutico) e o antigo R$ 79,90 → ambos viram 'plus'.
+  // Todos os prices pagos de Plus (novo 39,90, transição 39,90, e legado 79,90 de
+  // assinantes grandfathered) mapeiam para 'plus' — garante renovação correta.
+  if (plusNew) map[plusNew] = 'plus'
   if (therapeutic) map[therapeutic] = 'plus'
-  if (plus) map[plus] = 'plus'
+  if (plusLegacy) map[plusLegacy] = 'plus'
   return map
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
@@ -30,10 +33,6 @@ const PLAN_BENEFITS: Record<string, string> = {
     '- Diário ilimitado e histórico completo\n- Mapa emocional completo com gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático\n- Sem anúncios e suporte por e-mail prioritário',
   plus:
     '- Tudo do Essencial\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Comentário profissional mensal\n- Orientação mensal por mensagem',
-  therapeutic:
-    '- Tudo do Essencial\n- Questionário aprofundado e plano de autocuidado personalizado\n- Diário avançado com marcadores extras\n- Gráficos comparativos e relatório mensal avançado\n- Recomendações personalizadas de conteúdo\n- Orientação mensal por mensagem',
-  'therapeutic-plus':
-    '- Tudo do Terapêutico\n- 1 sessão mensal de 30 min com Psicanalista\n- Revisão mensal do plano de autocuidado\n- Comentário profissional sobre o relatório do mês\n- Suporte prioritário máximo',
 }
 
 // Rótulos amigáveis dos planos (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).
