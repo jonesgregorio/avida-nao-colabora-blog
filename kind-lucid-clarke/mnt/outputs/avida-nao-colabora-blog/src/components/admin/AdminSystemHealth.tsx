@@ -45,15 +45,15 @@ const DEFAULT_SETTINGS: MonitorSettings = {
 // ── Helpers visuais ───────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<CheckStatus, string> = {
-  ok:         'text-emerald-600 bg-emerald-50 border-emerald-200',
+  ok:         'text-forest-700 bg-mint border-forest-200',
   warning:    'text-amber-600 bg-amber-50 border-amber-200',
   error:      'text-red-600 bg-red-50 border-red-200',
-  not_tested: 'text-stone-400 bg-stone-50 border-stone-200',
+  not_tested: 'text-stone-400 bg-stone-50 border-line',
   running:    'text-blue-600 bg-blue-50 border-blue-200',
 }
 
 const STATUS_DOT: Record<CheckStatus, string> = {
-  ok:         'bg-emerald-500',
+  ok:         'bg-forest-600',
   warning:    'bg-amber-400',
   error:      'bg-red-500',
   not_tested: 'bg-stone-300',
@@ -419,14 +419,14 @@ export default function AdminSystemHealth() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>{toast.msg}</div>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>{toast.msg}</div>
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
-            <Activity className="w-6 h-6 text-emerald-600" /> Monitoramento do Sistema
+          <h1 className="text-2xl font-bold text-forest-900 flex items-center gap-2">
+            <Activity className="w-6 h-6 text-forest-700" /> Monitoramento do Sistema
           </h1>
           <p className="text-sm text-stone-500 mt-0.5">
             Saúde e diagnóstico das funcionalidades · {settings.autoEnabled ? `Auto a cada ${settings.quickIntervalSec}s` : 'Manual'}
@@ -440,13 +440,13 @@ export default function AdminSystemHealth() {
               {isFixingAll ? 'Corrigindo...' : `Corrigir ${fixableErrorCount} erro${fixableErrorCount !== 1 ? 's' : ''} com 1 clique`}
             </button>
           )}
-          <button onClick={doAICheck} disabled={runningKeys.has('ai_provider')} className="flex items-center gap-1.5 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+          <button onClick={doAICheck} disabled={runningKeys.has('ai_provider')} className="flex items-center gap-1.5 text-sm border border-line text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
             <Sparkles className="w-4 h-4" /> Testar IA
           </button>
-          <button onClick={doQuickCheck} disabled={isRunningQuick} className="flex items-center gap-1.5 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+          <button onClick={doQuickCheck} disabled={isRunningQuick} className="flex items-center gap-1.5 text-sm border border-line text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
             {isRunningQuick ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Testar agora
           </button>
-          <button onClick={doFullDiagnostic} disabled={isRunningFull} className="flex items-center gap-1.5 text-sm bg-emerald-600 text-white px-3 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+          <button onClick={doFullDiagnostic} disabled={isRunningFull} className="flex items-center gap-1.5 text-sm bg-forest-700 text-white px-3 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
             {isRunningFull ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {isRunningFull ? 'Diagnosticando...' : 'Diagnóstico completo'}
           </button>
@@ -454,9 +454,9 @@ export default function AdminSystemHealth() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-stone-200 mb-5 overflow-x-auto">
+      <div className="flex gap-0.5 border-b border-line mb-5 overflow-x-auto">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap ${activeTab === t.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap ${activeTab === t.id ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
             {t.label}
           </button>
         ))}
@@ -522,15 +522,15 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
   const notifResult = results.find(r => r.checkKey === 'db_notifications')
 
   const summaryCards = [
-    { label: 'Status geral', value: STATUS_LABEL[overall], color: STATUS_DOT[overall], bg: overall === 'ok' ? 'bg-emerald-50' : overall === 'error' ? 'bg-red-50' : 'bg-amber-50' },
+    { label: 'Status geral', value: STATUS_LABEL[overall], color: STATUS_DOT[overall], bg: overall === 'ok' ? 'bg-mint' : overall === 'error' ? 'bg-red-50' : 'bg-amber-50' },
     { label: 'Último teste', value: lastQuickAt ? timeAgo(lastQuickAt) : 'nunca', color: 'bg-stone-300', bg: 'bg-stone-50' },
-    { label: 'Erros críticos', value: String(errorCount), color: errorCount > 0 ? 'bg-red-500' : 'bg-emerald-500', bg: errorCount > 0 ? 'bg-red-50' : 'bg-emerald-50' },
-    { label: 'Alertas', value: String(warnCount), color: warnCount > 0 ? 'bg-amber-400' : 'bg-emerald-500', bg: warnCount > 0 ? 'bg-amber-50' : 'bg-emerald-50' },
+    { label: 'Erros críticos', value: String(errorCount), color: errorCount > 0 ? 'bg-red-500' : 'bg-forest-600', bg: errorCount > 0 ? 'bg-red-50' : 'bg-mint' },
+    { label: 'Alertas', value: String(warnCount), color: warnCount > 0 ? 'bg-amber-400' : 'bg-forest-600', bg: warnCount > 0 ? 'bg-amber-50' : 'bg-mint' },
     { label: 'IA', value: aiResult ? STATUS_LABEL[aiResult.status] : '—', color: aiResult ? STATUS_DOT[aiResult.status] : 'bg-stone-300', bg: 'bg-stone-50' },
     { label: 'Pagamentos', value: payResult ? STATUS_LABEL[payResult.status] : '—', color: payResult ? STATUS_DOT[payResult.status] : 'bg-stone-300', bg: 'bg-stone-50' },
     { label: 'Banco de dados', value: dbResult ? STATUS_LABEL[dbResult.status] : '—', color: dbResult ? STATUS_DOT[dbResult.status] : 'bg-stone-300', bg: 'bg-stone-50' },
     { label: 'Notificações', value: notifResult ? STATUS_LABEL[notifResult.status] : '—', color: notifResult ? STATUS_DOT[notifResult.status] : 'bg-stone-300', bg: 'bg-stone-50' },
-    { label: 'Incidentes abertos', value: String(openIncidents), color: openIncidents > 0 ? 'bg-red-500' : 'bg-emerald-500', bg: openIncidents > 0 ? 'bg-red-50' : 'bg-emerald-50' },
+    { label: 'Incidentes abertos', value: String(openIncidents), color: openIncidents > 0 ? 'bg-red-500' : 'bg-forest-600', bg: openIncidents > 0 ? 'bg-red-50' : 'bg-mint' },
   ]
 
   return (
@@ -540,22 +540,22 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
         {summaryCards.map(c => (
           <div key={c.label} className={`${c.bg} rounded-xl p-3 text-center`}>
             <div className={`w-2 h-2 rounded-full ${c.color} mx-auto mb-1`} />
-            <p className="text-xs font-bold text-stone-800 truncate">{c.value}</p>
+            <p className="text-xs font-bold text-forest-900 truncate">{c.value}</p>
             <p className="text-[10px] text-stone-500 leading-tight">{c.label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabela de funcionalidades */}
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
-          <h2 className="font-semibold text-stone-800 text-sm">Funcionalidades</h2>
+      <div className="bg-white rounded-xl border border-line overflow-hidden">
+        <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+          <h2 className="font-semibold text-forest-900 text-sm">Funcionalidades</h2>
           <span className="text-xs text-stone-400">{results.length} verificações</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-stone-100 bg-stone-50">
+              <tr className="border-b border-line bg-stone-50">
                 {['Área', 'Status', 'Última verificação', 'Tempo resp.', 'Ação'].map(h => (
                   <th key={h} className="py-2.5 px-4 text-left text-xs font-semibold text-stone-500 whitespace-nowrap">{h}</th>
                 ))}
@@ -570,7 +570,7 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
                 const isExpanded = expanded === r.checkKey
                 return (
                   <>
-                    <tr key={r.checkKey} className="border-b border-stone-100 hover:bg-stone-50/50">
+                    <tr key={r.checkKey} className="border-b border-line hover:bg-stone-50/50">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Icon className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
@@ -596,7 +596,7 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
                               {isAutofixable(r.checkKey) ? 'Corrigir' : 'Tentar corrigir'}
                             </button>
                           )}
-                          <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg">
+                          <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-forest-700 hover:text-forest-800 border border-forest-200 px-2 py-1 rounded-lg">
                             {runningKeys.has(r.checkKey) ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Testar'}
                           </button>
                           {(r.details || r.errorMessage) && (
@@ -608,9 +608,9 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr key={r.checkKey + '-detail'} className="border-b border-stone-100 bg-stone-50">
+                      <tr key={r.checkKey + '-detail'} className="border-b border-line bg-stone-50">
                         <td colSpan={5} className="px-4 pb-3 pt-1">
-                          <div className="bg-white rounded-lg border border-stone-100 p-3 text-xs text-stone-600 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                          <div className="bg-white rounded-lg border border-line p-3 text-xs text-stone-600 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
                             {r.errorMessage && <p className="text-red-500 mb-1">Erro: {r.errorMessage}</p>}
                             {r.details && JSON.stringify(r.details, null, 2)}
                           </div>
@@ -644,7 +644,7 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={onQuickCheck} disabled={isRunningQuick} className="flex items-center gap-2 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-900 disabled:opacity-50">
+        <button onClick={onQuickCheck} disabled={isRunningQuick} className="flex items-center gap-2 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-900 disabled:opacity-50">
           {isRunningQuick ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Rodar teste rápido agora
         </button>
         {lastAt && <span className="text-xs text-stone-400">Último: {timeAgo(lastAt)}</span>}
@@ -658,9 +658,9 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
 
 function CheckGroup({ title, subtitle, results }: { title: string; subtitle: string; results: HealthCheckResult[] }) {
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-stone-100 bg-stone-50">
-        <h3 className="text-sm font-semibold text-stone-800">{title}</h3>
+    <div className="bg-white rounded-xl border border-line overflow-hidden">
+      <div className="px-4 py-3 border-b border-line bg-stone-50">
+        <h3 className="text-sm font-semibold text-forest-900">{title}</h3>
         <p className="text-xs text-stone-400">{subtitle}</p>
       </div>
       <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -694,18 +694,18 @@ function DiagnosticTab({ results, isRunning, onRun, onAI, onPayments, runningKey
 
   return (
     <div className="space-y-5">
-      <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-stone-800">Diagnóstico completo</p>
+      <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-forest-900">Diagnóstico completo</p>
         <p className="text-sm text-stone-500">Executa todos os testes, incluindo IA e verificações de segurança. Pode levar até 60 segundos.</p>
         <div className="flex flex-wrap gap-2">
-          <button onClick={onRun} disabled={isRunning} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+          <button onClick={onRun} disabled={isRunning} className="flex items-center gap-2 bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
             {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {isRunning ? 'Diagnosticando...' : 'Rodar diagnóstico completo agora'}
           </button>
-          <button onClick={onAI} disabled={runningKeys.has('ai_provider')} className="flex items-center gap-2 border border-stone-200 text-stone-600 text-sm px-3 py-2 rounded-lg hover:bg-stone-100 disabled:opacity-50">
+          <button onClick={onAI} disabled={runningKeys.has('ai_provider')} className="flex items-center gap-2 border border-line text-stone-600 text-sm px-3 py-2 rounded-lg hover:bg-stone-100 disabled:opacity-50">
             <Sparkles className="w-4 h-4" /> Testar IA
           </button>
-          <button onClick={onPayments} disabled={runningKeys.has('payments')} className="flex items-center gap-2 border border-stone-200 text-stone-600 text-sm px-3 py-2 rounded-lg hover:bg-stone-100 disabled:opacity-50">
+          <button onClick={onPayments} disabled={runningKeys.has('payments')} className="flex items-center gap-2 border border-line text-stone-600 text-sm px-3 py-2 rounded-lg hover:bg-stone-100 disabled:opacity-50">
             <CreditCard className="w-4 h-4" /> Testar Pagamentos Sandbox
           </button>
         </div>
@@ -716,8 +716,8 @@ function DiagnosticTab({ results, isRunning, onRun, onAI, onPayments, runningKey
         const catResults = results.filter(r => r.category === cat)
         const Icon = CATEGORY_ICON[cat] ?? Activity
         return (
-          <div key={cat} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50 flex items-center gap-2">
+          <div key={cat} className="bg-white rounded-xl border border-line overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-line bg-stone-50 flex items-center gap-2">
               <Icon className="w-4 h-4 text-stone-400" />
               <h3 className="text-sm font-semibold text-stone-700 capitalize">{cat}</h3>
               <span className="text-xs text-stone-400 ml-auto">{catResults.length} itens</span>
@@ -731,7 +731,7 @@ function DiagnosticTab({ results, isRunning, onRun, onAI, onPayments, runningKey
                     {r.errorMessage && <p className="text-xs text-red-500 truncate">{r.errorMessage}</p>}
                   </div>
                   {r.responseTimeMs != null && <span className="text-xs text-stone-400 whitespace-nowrap">{r.responseTimeMs}ms</span>}
-                  <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-stone-400 hover:text-emerald-600 whitespace-nowrap">
+                  <button onClick={() => onSingleCheck(r.checkKey)} className="text-xs text-stone-400 hover:text-forest-700 whitespace-nowrap">
                     {runningKeys.has(r.checkKey) ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Retestar'}
                   </button>
                 </div>
@@ -752,14 +752,14 @@ function ReportsTab({ reports, onRefresh }: { reports: HealthReport[]; onRefresh
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-stone-700">{reports.length} relatório{reports.length !== 1 ? 's' : ''}</h2>
-        <button onClick={onRefresh} className="flex items-center gap-1.5 text-xs border border-stone-200 text-stone-500 px-2 py-1.5 rounded-lg hover:bg-stone-50"><RefreshCw className="w-3 h-3" /> Atualizar</button>
+        <button onClick={onRefresh} className="flex items-center gap-1.5 text-xs border border-line text-stone-500 px-2 py-1.5 rounded-lg hover:bg-stone-50"><RefreshCw className="w-3 h-3" /> Atualizar</button>
       </div>
       {reports.length === 0 && <p className="text-center py-12 text-stone-400 text-sm">Nenhum relatório gerado ainda. Rode o diagnóstico completo.</p>}
       {reports.map(r => {
         const isExp = expanded === r.id
         const total = r.total_checks
         return (
-          <div key={r.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div key={r.id} className="bg-white rounded-xl border border-line overflow-hidden">
             <button className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-stone-50" onClick={() => setExpanded(isExp ? null : r.id)}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -768,7 +768,7 @@ function ReportsTab({ reports, onRefresh }: { reports: HealthReport[]; onRefresh
                 </div>
                 <p className="text-sm text-stone-700">{r.summary}</p>
                 <div className="flex gap-3 mt-1.5 text-xs">
-                  <span className="text-emerald-600">{r.ok_count} OK</span>
+                  <span className="text-forest-700">{r.ok_count} OK</span>
                   {r.warning_count > 0 && <span className="text-amber-600">{r.warning_count} alertas</span>}
                   {r.error_count > 0 && <span className="text-red-600">{r.error_count} erros</span>}
                   {r.critical_count > 0 && <span className="text-red-700 font-medium">{r.critical_count} críticos</span>}
@@ -778,7 +778,7 @@ function ReportsTab({ reports, onRefresh }: { reports: HealthReport[]; onRefresh
               {isExp ? <ChevronUp className="w-4 h-4 text-stone-400 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-stone-400 flex-shrink-0 mt-0.5" />}
             </button>
             {isExp && Array.isArray((r.details as Record<string, unknown>)?.results) && (
-              <div className="border-t border-stone-100 px-4 pb-3">
+              <div className="border-t border-line px-4 pb-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-2 max-h-60 overflow-y-auto">
                   {((r.details as Record<string, unknown>).results as Record<string, unknown>[]).map((item) => (
                     <div key={String(item.key)} className={`flex items-center gap-2 text-xs rounded-lg px-2 py-1 border ${STATUS_COLOR[item.status as CheckStatus] ?? ''}`}>
@@ -815,24 +815,24 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         {[['all', 'Todos'], ['open', 'Abertos'], ['investigating', 'Investigando'], ['resolved', 'Resolvidos'], ['ignored', 'Ignorados']].map(([v, l]) => (
-          <button key={v} onClick={() => setFilter(v)} className={`text-xs px-3 py-1.5 rounded-lg border ${filter === v ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}>{l}</button>
+          <button key={v} onClick={() => setFilter(v)} className={`text-xs px-3 py-1.5 rounded-lg border ${filter === v ? 'bg-forest-900 text-white border-stone-800' : 'border-line text-stone-600 hover:bg-stone-50'}`}>{l}</button>
         ))}
-        <button onClick={onRefresh} className="ml-auto flex items-center gap-1 text-xs border border-stone-200 text-stone-500 px-2 py-1.5 rounded-lg hover:bg-stone-50"><RefreshCw className="w-3 h-3" /> Atualizar</button>
+        <button onClick={onRefresh} className="ml-auto flex items-center gap-1 text-xs border border-line text-stone-500 px-2 py-1.5 rounded-lg hover:bg-stone-50"><RefreshCw className="w-3 h-3" /> Atualizar</button>
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center py-14">
-          <CheckCircle className="w-10 h-10 mx-auto mb-3 text-emerald-200" />
+          <CheckCircle className="w-10 h-10 mx-auto mb-3 text-forest-200" />
           <p className="text-sm text-stone-400">Nenhum incidente {filter !== 'all' ? `com status "${filter}"` : ''}.</p>
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-line overflow-hidden">
         {filtered.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-100 bg-stone-50">
+                <tr className="border-b border-line bg-stone-50">
                   {['Data', 'Área', 'Título', 'Gravidade', 'Ocorrências', 'Status', 'Ações'].map(h => (
                     <th key={h} className="py-2.5 px-4 text-left text-xs font-semibold text-stone-500 whitespace-nowrap">{h}</th>
                   ))}
@@ -840,7 +840,7 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
               </thead>
               <tbody>
                 {filtered.map(inc => (
-                  <tr key={inc.id} className="border-b border-stone-100 hover:bg-stone-50/50">
+                  <tr key={inc.id} className="border-b border-line hover:bg-stone-50/50">
                     <td className="py-3 px-4 text-xs text-stone-500 whitespace-nowrap">{new Date(inc.first_detected_at).toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 px-4 text-xs text-stone-600 font-mono">{inc.check_key ?? '—'}</td>
                     <td className="py-3 px-4">
@@ -852,7 +852,7 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
                     </td>
                     <td className="py-3 px-4 text-xs text-stone-600">{inc.occurrences}x</td>
                     <td className="py-3 px-4">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${inc.status === 'open' ? 'bg-red-50 text-red-600 border-red-200' : inc.status === 'resolved' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-stone-100 text-stone-500 border-stone-200'}`}>{inc.status}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${inc.status === 'open' ? 'bg-red-50 text-red-600 border-red-200' : inc.status === 'resolved' ? 'bg-mint text-forest-700 border-forest-200' : 'bg-stone-100 text-stone-500 border-line'}`}>{inc.status}</span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
@@ -868,10 +868,10 @@ function IncidentsTab({ incidents, filter, setFilter, onResolve, onIgnore, onRet
                           </button>
                         )}
                         {inc.check_key && (
-                          <button onClick={() => onRetest(inc.check_key!)} className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">Retestar</button>
+                          <button onClick={() => onRetest(inc.check_key!)} className="text-xs text-forest-700 hover:text-forest-800 border border-forest-200 px-1.5 py-0.5 rounded">Retestar</button>
                         )}
                         {inc.status !== 'resolved' && (
-                          <button onClick={() => onResolve(inc.id)} className="text-xs text-stone-600 hover:text-stone-800 border border-stone-200 px-1.5 py-0.5 rounded">Resolver</button>
+                          <button onClick={() => onResolve(inc.id)} className="text-xs text-stone-600 hover:text-forest-900 border border-line px-1.5 py-0.5 rounded">Resolver</button>
                         )}
                         {inc.status === 'open' && (
                           <button onClick={() => onIgnore(inc.id)} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded">Ignorar</button>
@@ -896,18 +896,18 @@ function SettingsTab({ settings, onChange }: { settings: MonitorSettings; onChan
     onChange({ ...settings, [key]: value })
   }
 
-  const inputCls = 'px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
+  const inputCls = 'px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
   return (
     <div className="max-w-xl space-y-6">
-      <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
-        <h2 className="font-semibold text-stone-800">Monitoramento automático</h2>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+        <h2 className="font-semibold text-forest-900">Monitoramento automático</h2>
         <label className="flex items-center justify-between">
           <div>
             <p className="text-sm text-stone-700">Ativar monitoramento automático</p>
             <p className="text-xs text-stone-400">Executa testes em segundo plano enquanto você está no admin</p>
           </div>
-          <button onClick={() => set('autoEnabled', !settings.autoEnabled)} className={`w-11 h-6 rounded-full transition-colors relative ${settings.autoEnabled ? 'bg-emerald-500' : 'bg-stone-300'}`}>
+          <button onClick={() => set('autoEnabled', !settings.autoEnabled)} className={`w-11 h-6 rounded-full transition-colors relative ${settings.autoEnabled ? 'bg-forest-600' : 'bg-stone-300'}`}>
             <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.autoEnabled ? 'left-5' : 'left-0.5'}`} />
           </button>
         </label>
@@ -923,8 +923,8 @@ function SettingsTab({ settings, onChange }: { settings: MonitorSettings; onChan
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
-        <h2 className="font-semibold text-stone-800">Testes específicos</h2>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+        <h2 className="font-semibold text-forest-900">Testes específicos</h2>
         {([
           ['testAI', 'Ativar teste de IA', 'Testa a Pollinations.ai nos testes intermediários/completos'],
           ['testPayments', 'Ativar verificação de pagamento (sandbox)', 'Verifica configuração, não cria cobranças reais'],
@@ -935,15 +935,15 @@ function SettingsTab({ settings, onChange }: { settings: MonitorSettings; onChan
               <p className="text-sm text-stone-700">{label}</p>
               {desc && <p className="text-xs text-stone-400">{desc}</p>}
             </div>
-            <button onClick={() => set(key, !settings[key])} className={`w-11 h-6 rounded-full transition-colors relative ${settings[key] ? 'bg-emerald-500' : 'bg-stone-300'}`}>
+            <button onClick={() => set(key, !settings[key])} className={`w-11 h-6 rounded-full transition-colors relative ${settings[key] ? 'bg-forest-600' : 'bg-stone-300'}`}>
               <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings[key] ? 'left-5' : 'left-0.5'}`} />
             </button>
           </label>
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
-        <h2 className="font-semibold text-stone-800">Limites de tempo</h2>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+        <h2 className="font-semibold text-forest-900">Limites de tempo</h2>
         <div className="flex gap-4 flex-wrap">
           <div>
             <label className="text-xs text-stone-500 block mb-1">Resp. IA máxima (ms)</label>

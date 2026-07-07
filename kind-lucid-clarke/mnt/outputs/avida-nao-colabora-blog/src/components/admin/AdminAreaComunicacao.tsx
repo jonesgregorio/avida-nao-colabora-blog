@@ -39,7 +39,7 @@ function AutomacaoConteudo() {
 
   return (
     <div>
-      <div className="flex gap-2 px-6 pt-4 border-b border-stone-100">
+      <div className="flex gap-2 px-6 pt-4 border-b border-line">
         {AUTO_TABS.map(t => {
           const Icon = t.icon
           return (

@@ -76,13 +76,13 @@ export default function AdminPDF() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800 mb-1">Relatórios PDF</h1>
+          <h1 className="text-2xl font-bold text-forest-900 mb-1">Relatórios PDF</h1>
           <p className="text-stone-400 text-sm">Geração de relatórios em PDF para usuários com planos Terapêutico e Terapêutico Plus.</p>
         </div>
         {stats && (
           <button
             onClick={() => exportCSV(stats)}
-            className="flex items-center gap-2 border border-stone-200 text-stone-600 px-4 py-2 rounded-lg text-sm hover:bg-stone-50"
+            className="flex items-center gap-2 border border-line text-stone-600 px-4 py-2 rounded-lg text-sm hover:bg-stone-50"
           >
             <TableIcon className="w-4 h-4" /> Exportar CSV
           </button>
@@ -91,7 +91,7 @@ export default function AdminPDF() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Usuários elegíveis</span>
             <Users className="w-4 h-4 text-stone-300" />
@@ -99,7 +99,7 @@ export default function AdminPDF() {
           <p className="text-2xl font-bold text-violet-600">{stats?.totalEligible ?? 0}</p>
           <p className="text-xs text-stone-400 mt-1">Com acesso a exportação PDF</p>
         </div>
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Planos com PDF</span>
             <FileText className="w-4 h-4 text-stone-300" />
@@ -107,7 +107,7 @@ export default function AdminPDF() {
           <p className="text-2xl font-bold text-stone-700">2</p>
           <p className="text-xs text-stone-400 mt-1">Terapêutico e Terapêutico Plus</p>
         </div>
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Tipos de relatório</span>
             <Download className="w-4 h-4 text-stone-300" />
@@ -118,18 +118,18 @@ export default function AdminPDF() {
       </div>
 
       {/* Report types */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6">
         <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
           <FileText className="w-4 h-4" />
           Tipos de relatório disponíveis
         </h2>
         <div className="space-y-3">
           {REPORT_TYPES.map(rt => (
-            <div key={rt.id} className="flex items-start gap-3 p-3 rounded-lg border border-stone-100 hover:bg-stone-50">
-              <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+            <div key={rt.id} className="flex items-start gap-3 p-3 rounded-lg border border-line hover:bg-stone-50">
+              <CheckCircle className="w-4 h-4 text-forest-600 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-medium text-stone-800">{rt.label}</p>
+                  <p className="text-sm font-medium text-forest-900">{rt.label}</p>
                   <div className="flex gap-1">
                     {rt.plans.map(p => (
                       <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p === 'therapeutic-plus' ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'}`}>
@@ -146,7 +146,7 @@ export default function AdminPDF() {
       </div>
 
       {/* Plan access table */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6">
         <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
           <Settings className="w-4 h-4" />
           Acesso por plano
@@ -154,7 +154,7 @@ export default function AdminPDF() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-stone-100">
+              <tr className="border-b border-line">
                 <th className="text-left py-2 text-stone-400 font-medium">Plano</th>
                 <th className="text-center py-2 text-stone-400 font-medium">Exportação PDF</th>
                 <th className="text-center py-2 text-stone-400 font-medium">Rel. emocional</th>
@@ -167,11 +167,11 @@ export default function AdminPDF() {
               {(['free', 'essential', 'therapeutic', 'therapeutic-plus'] as const).map(plan => {
                 const eligible = PDF_PLANS.includes(plan)
                 const plus = plan === 'therapeutic-plus'
-                const Check = () => <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+                const Check = () => <CheckCircle className="w-4 h-4 text-forest-600 mx-auto" />
                 const X = () => <XCircle className="w-4 h-4 text-stone-200 mx-auto" />
                 return (
                   <tr key={plan} className="border-b border-stone-50">
-                    <td className="py-2.5 font-medium text-stone-800">{PLAN_LABELS[plan]}</td>
+                    <td className="py-2.5 font-medium text-forest-900">{PLAN_LABELS[plan]}</td>
                     <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>
                     <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>
                     <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>

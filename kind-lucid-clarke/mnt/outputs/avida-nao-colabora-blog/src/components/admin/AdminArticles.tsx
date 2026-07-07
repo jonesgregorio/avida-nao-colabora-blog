@@ -94,16 +94,16 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
   return (
     <div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Artigos</h1>
+        <h1 className="text-2xl font-bold text-forest-900">Artigos</h1>
         <button
           onClick={onNew}
-          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 transition-colors"
+          className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 transition-colors"
         >
           <Plus className="w-4 h-4" /> Novo artigo
         </button>
@@ -117,13 +117,13 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por título ou slug..."
-            className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+            className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
           />
         </div>
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
         >
           <option value="all">Todos os status</option>
           <option value="published">Publicados</option>
@@ -138,9 +138,9 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
       ) : filtered.length === 0 ? (
         <p className="text-stone-400 text-sm">Nenhum artigo encontrado.</p>
       ) : (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-stone-50 border-b border-line">
               <tr>
                 <th className="text-left px-4 py-3 text-stone-500 font-medium">Título</th>
                 <th className="text-left px-4 py-3 text-stone-500 font-medium hidden md:table-cell">Categoria</th>
@@ -153,7 +153,7 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
               {filtered.map(article => (
                 <tr key={article.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-800 leading-snug">{article.title}</p>
+                    <p className="font-medium text-forest-900 leading-snug">{article.title}</p>
                     <p className="text-xs text-stone-400 mt-0.5">{article.slug}</p>
                   </td>
                   <td className="px-4 py-3 text-stone-500 hidden md:table-cell">{article.category || '—'}</td>

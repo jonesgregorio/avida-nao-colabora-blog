@@ -77,7 +77,7 @@ export default function AdminPanel() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-forest-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -95,7 +95,7 @@ export default function AdminPanel() {
               Voltar ao site
             </a>
             {!profile && (
-              <a href="/login" className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+              <a href="/login" className="px-4 py-2 text-sm bg-forest-700 text-white rounded-lg hover:bg-forest-800">
                 Entrar
               </a>
             )}

@@ -32,7 +32,7 @@ const TYPES: { value: string; label: string }[] = [
   { value: 'system', label: 'Sistema' },
 ]
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminNotifications() {
   const [items, setItems] = useState<Notification[]>([])
@@ -134,7 +134,7 @@ export default function AdminNotifications() {
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+      {toast && <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
       {showAI && (
         <AIContentAssistant
@@ -151,19 +151,19 @@ export default function AdminNotifications() {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Notificações</h1>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700">
+        <h1 className="text-2xl font-bold text-forest-900">Notificações</h1>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
           <Plus className="w-4 h-4" /> Nova notificação
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
+        <div className="bg-white rounded-xl border border-line p-5 mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Nova notificação</h2>
             <button
               onClick={() => setShowAI(true)}
-              className="flex items-center gap-1.5 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs bg-mint border border-forest-200 text-forest-800 px-3 py-1.5 rounded-lg hover:bg-mint transition-colors font-medium"
             >
               <Sparkles className="w-3.5 h-3.5" /> Gerar com IA
             </button>
@@ -175,7 +175,7 @@ export default function AdminNotifications() {
             <div className="flex gap-3">
               {(['all', 'plan', 'user'] as const).map(m => (
                 <label key={m} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" checked={targetMode === m} onChange={() => setTargetMode(m)} className="accent-stone-800" />
+                  <input type="radio" checked={targetMode === m} onChange={() => setTargetMode(m)} className="accent-forest-700" />
                   <span className="text-sm text-stone-700">
                     {m === 'all' ? 'Todos' : m === 'plan' ? 'Por plano' : 'Usuário específico'}
                   </span>
@@ -237,11 +237,11 @@ export default function AdminNotifications() {
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={3} placeholder="Texto da notificação..." className={inputCls} />
           </div>
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2">
+            <button onClick={save} disabled={saving} className="px-4 py-2 bg-forest-700 text-white text-sm rounded-lg hover:bg-forest-800 disabled:opacity-50 flex items-center gap-2">
               <Send className="w-3.5 h-3.5" />
               {saving ? 'Enviando...' : 'Enviar notificação'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-stone-200 text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-line text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
           </div>
         </div>
       )}
@@ -256,7 +256,7 @@ export default function AdminNotifications() {
       ) : (
         <div className="space-y-3">
           {items.map(n => (
-            <div key={n.id} className="bg-white rounded-xl border border-stone-200 p-4">
+            <div key={n.id} className="bg-white rounded-xl border border-line p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -266,7 +266,7 @@ export default function AdminNotifications() {
                     <span className="text-xs text-stone-400">{typeLabel(n.type)}</span>
                     {n.user_id && <span className="text-xs text-stone-400 font-mono truncate max-w-[120px]">{n.user_id.slice(0, 8)}…</span>}
                   </div>
-                  <p className="font-medium text-stone-800 text-sm">{n.title}</p>
+                  <p className="font-medium text-forest-900 text-sm">{n.title}</p>
                   {n.body && <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{n.body}</p>}
                   <p className="text-xs text-stone-400 mt-1">{new Date(n.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>
                 </div>

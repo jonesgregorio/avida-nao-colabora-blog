@@ -18,7 +18,7 @@ const ACTION_COLORS: Record<string, string> = {
   update: 'bg-blue-100 text-blue-700',
   delete: 'bg-red-100 text-red-700',
   login: 'bg-amber-100 text-amber-700',
-  publish: 'bg-emerald-100 text-emerald-700',
+  publish: 'bg-mint text-forest-800',
 }
 
 export default function AdminLogs() {
@@ -64,10 +64,13 @@ export default function AdminLogs() {
     : logs
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Logs de Auditoria</h1>
-        <button onClick={load} className="flex items-center gap-2 border border-stone-200 px-3 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-50">
+        <div>
+          <h1 className="font-serif text-3xl text-forest-900">Logs de auditoria</h1>
+          <p className="text-sm text-ink-soft mt-0.5">Ações administrativas registradas no sistema.</p>
+        </div>
+        <button onClick={load} className="flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-ink hover:border-forest-300">
           <RefreshCw className="w-3.5 h-3.5" /> Atualizar
         </button>
       </div>
@@ -77,48 +80,48 @@ export default function AdminLogs() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="Filtrar por ação, tipo, detalhes..."
-          className="w-full max-w-sm px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className="w-full max-w-sm px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
         />
       </div>
 
       {loading ? (
-        <p className="text-stone-400 text-sm">Carregando...</p>
+        <p className="text-ink-soft text-sm">Carregando...</p>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-stone-400">
+        <div className="text-center py-16 text-ink-soft">
           <Shield className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">Nenhum log encontrado.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-paper-soft border-b border-line">
               <tr>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs">Data/Hora</th>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs">Admin</th>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs">Ação</th>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs hidden md:table-cell">Alvo</th>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs hidden lg:table-cell">Detalhes</th>
+                <th className="text-left px-4 py-3 text-ink-soft font-medium text-xs">Data/Hora</th>
+                <th className="text-left px-4 py-3 text-ink-soft font-medium text-xs">Admin</th>
+                <th className="text-left px-4 py-3 text-ink-soft font-medium text-xs">Ação</th>
+                <th className="text-left px-4 py-3 text-ink-soft font-medium text-xs hidden md:table-cell">Alvo</th>
+                <th className="text-left px-4 py-3 text-ink-soft font-medium text-xs hidden lg:table-cell">Detalhes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-line">
               {filtered.map(log => (
-                <tr key={log.id} className="hover:bg-stone-50">
-                  <td className="px-4 py-3 text-xs text-stone-400 whitespace-nowrap">
+                <tr key={log.id} className="hover:bg-paper-soft">
+                  <td className="px-4 py-3 text-xs text-ink-soft whitespace-nowrap">
                     {new Date(log.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
-                  <td className="px-4 py-3 text-xs text-stone-600">
+                  <td className="px-4 py-3 text-xs text-ink">
                     {log.admin?.full_name || log.admin_id?.slice(0, 8) || '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[log.action] || 'bg-stone-100 text-stone-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[log.action] || 'bg-stone-100 text-ink'}`}>
                       {log.action}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-stone-500 hidden md:table-cell">
+                  <td className="px-4 py-3 text-xs text-ink-soft hidden md:table-cell">
                     {log.target_type && <span className="capitalize">{log.target_type}</span>}
                     {log.target_id && <span className="text-stone-300 ml-1">#{log.target_id.slice(0, 8)}</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-stone-500 hidden lg:table-cell max-w-xs truncate">
+                  <td className="px-4 py-3 text-xs text-ink-soft hidden lg:table-cell max-w-xs truncate">
                     {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
                   </td>
                 </tr>
@@ -128,7 +131,7 @@ export default function AdminLogs() {
         </div>
       )}
 
-      <p className="text-xs text-stone-400 mt-4">Exibindo até 200 registros mais recentes.</p>
+      <p className="text-xs text-ink-soft mt-4">Exibindo até 200 registros mais recentes.</p>
     </div>
   )
 }

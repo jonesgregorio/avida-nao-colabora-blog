@@ -119,7 +119,7 @@ function timeSince(iso: string): string {
     : `há ${y} ano${y !== 1 ? 's' : ''}`
 }
 
-const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
+const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
 type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
 
@@ -769,7 +769,7 @@ export default function AdminUsers() {
       {/* Left panel */}
       <div className={`flex flex-col flex-1 min-w-0 ${selectedUser ? 'hidden lg:flex' : 'flex'}`}>
         {/* Summary cards */}
-        <div className="px-6 pt-6 pb-4 border-b border-stone-100 flex-shrink-0">
+        <div className="px-6 pt-6 pb-4 border-b border-line flex-shrink-0">
           <div className="mb-4">
             <h1 className="font-serif text-3xl text-forest-900">Usuários</h1>
             <p className="text-sm text-ink-soft mt-0.5">Gerencie planos, status e acompanhamento.</p>
@@ -798,21 +798,21 @@ export default function AdminUsers() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por nome, e-mail ou ID..."
-                className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+                className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
               />
             </div>
-            <div className="flex rounded-lg border border-stone-200 overflow-hidden flex-shrink-0">
+            <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setViewMode('list')}
                 title="Lista"
-                className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-stone-800 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+                className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-forest-900 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
               >
                 <LayoutList className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('kanban')}
                 title="Kanban"
-                className={`px-3 py-2 transition-colors ${viewMode === 'kanban' ? 'bg-stone-800 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+                className={`px-3 py-2 transition-colors ${viewMode === 'kanban' ? 'bg-forest-900 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
               >
                 <Columns className="w-4 h-4" />
               </button>
@@ -859,7 +859,7 @@ export default function AdminUsers() {
                             {u.account_status}
                           </span>
                         )}
-                        {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Ilimitado</span>}
+                        {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
                         {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
                         {isBlocked && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
                         {isTrial && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Trial</span>}
@@ -910,14 +910,14 @@ export default function AdminUsers() {
                           <button
                             key={u.id}
                             onClick={() => openDrawer(u)}
-                            className={`w-full text-left bg-white rounded-lg border px-3 py-2.5 hover:shadow-md transition-shadow ${selectedUser?.user_id === u.user_id ? 'ring-2 ring-blue-400 border-blue-200' : 'border-stone-100'}`}
+                            className={`w-full text-left bg-white rounded-lg border px-3 py-2.5 hover:shadow-md transition-shadow ${selectedUser?.user_id === u.user_id ? 'ring-2 ring-blue-400 border-blue-200' : 'border-line'}`}
                           >
                             <div className="flex items-center gap-2 mb-1.5">
                               <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-xs font-bold flex-shrink-0">
                                 {(u.full_name ?? 'U')[0]?.toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-stone-800 truncate leading-tight">
+                                <p className="text-xs font-semibold text-forest-900 truncate leading-tight">
                                   {u.full_name || 'Sem nome'}
                                 </p>
                                 {u.email && <p className="text-[10px] text-stone-400 truncate">{u.email}</p>}
@@ -928,7 +928,7 @@ export default function AdminUsers() {
                             <div className="flex flex-wrap gap-1">
                               {isBlocked && <span className="text-[10px] px-1.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
                               {isSuspended && <span className="text-[10px] px-1.5 rounded-full bg-orange-100 text-orange-700 font-medium">Suspenso</span>}
-                              {isUnlimited && <span className="text-[10px] px-1.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Ilimitado</span>}
+                              {isUnlimited && <span className="text-[10px] px-1.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
                               {hasDiscount && <span className="text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
                               {hasOpenTickets && (
                                 <span className="text-[10px] px-1.5 rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-0.5">
@@ -955,13 +955,13 @@ export default function AdminUsers() {
 
       {/* Drawer */}
       {selectedUser && (
-        <div className="flex flex-col w-full lg:w-[560px] border-l border-stone-100 bg-white flex-shrink-0 overflow-hidden">
+        <div className="flex flex-col w-full lg:w-[560px] border-l border-line bg-white flex-shrink-0 overflow-hidden">
           {/* Drawer header */}
-          <div className="px-5 py-4 border-b border-stone-100 flex-shrink-0">
+          <div className="px-5 py-4 border-b border-line flex-shrink-0">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-stone-800">{selectedUser.full_name || 'Sem nome'}</p>
+                  <p className="font-semibold text-forest-900">{selectedUser.full_name || 'Sem nome'}</p>
                   {selectedUser.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                 </div>
                 {selectedUser.email && (
@@ -989,7 +989,7 @@ export default function AdminUsers() {
                 <button
                   key={t.key}
                   onClick={() => setDrawerTab(t.key)}
-                  className={`text-xs px-3 py-1.5 rounded-full transition-colors ${drawerTab === t.key ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                  className={`text-xs px-3 py-1.5 rounded-full transition-colors ${drawerTab === t.key ? 'bg-forest-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
                 >
                   {t.label}
                 </button>
@@ -1018,9 +1018,9 @@ export default function AdminUsers() {
                         ['Desde', timeSince(selectedUser.created_at)],
                         ['Status', selectedUser.account_status ?? 'active'],
                       ].map(([label, value]) => (
-                        <div key={label} className="bg-stone-50 rounded-xl p-3 border border-stone-100">
+                        <div key={label} className="bg-stone-50 rounded-xl p-3 border border-line">
                           <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
-                          <p className="text-sm font-medium text-stone-800">{value}</p>
+                          <p className="text-sm font-medium text-forest-900">{value}</p>
                         </div>
                       ))}
                     </div>
@@ -1028,7 +1028,7 @@ export default function AdminUsers() {
                     {/* Benefit badges */}
                     <div className="flex flex-wrap gap-2">
                       {selectedUser.unlimited_access && (
-                        <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">Acesso ilimitado</span>
+                        <span className="text-xs px-2 py-1 rounded-full bg-mint text-forest-800 font-medium">Acesso ilimitado</span>
                       )}
                       {((selectedUser.discount_percent ?? 0) > 0 || (selectedUser.discount_fixed ?? 0) > 0) && (
                         <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">
@@ -1054,7 +1054,7 @@ export default function AdminUsers() {
                       <select
                         onChange={e => { if (e.target.value) { addTag(e.target.value); e.target.value = '' } }}
                         defaultValue=""
-                        className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none"
+                        className="text-xs px-2 py-1.5 border border-line rounded-lg bg-white focus:outline-none"
                       >
                         <option value="">Adicionar tag...</option>
                         {PREDEFINED_TAGS.filter(t => !(selectedUser.admin_tags ?? []).includes(t)).map(t => (
@@ -1069,7 +1069,7 @@ export default function AdminUsers() {
                         type="checkbox"
                         checked={selectedUser.role === 'admin'}
                         onChange={e => setAdmin(selectedUser.user_id, e.target.checked)}
-                        className="accent-stone-800"
+                        className="accent-forest-700"
                         id="admin-toggle"
                       />
                       <label htmlFor="admin-toggle" className="text-sm text-stone-700 cursor-pointer flex items-center gap-1.5">
@@ -1090,12 +1090,12 @@ export default function AdminUsers() {
                     {!changingPlan ? (
                       <button
                         onClick={() => setChangingPlan(true)}
-                        className="flex items-center gap-2 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700"
+                        className="flex items-center gap-2 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800"
                       >
                         Alterar plano
                       </button>
                     ) : (
-                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                      <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                         <p className="text-xs font-semibold text-stone-700">Alterar plano</p>
                         <div>
                           <label className="block text-xs text-stone-500 mb-1">Novo plano</label>
@@ -1109,10 +1109,10 @@ export default function AdminUsers() {
                         </div>
                         <p className="text-[10px] text-stone-400">Integração com checkout real depende do Stripe/Mercado Pago.</p>
                         <div className="flex gap-2">
-                          <button onClick={handlePlanChange} disabled={savingPlan} className="text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-50">
+                          <button onClick={handlePlanChange} disabled={savingPlan} className="text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
                             {savingPlan ? 'Salvando...' : 'Confirmar alteração'}
                           </button>
-                          <button onClick={() => setChangingPlan(false)} className="text-sm border border-stone-200 px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
+                          <button onClick={() => setChangingPlan(false)} className="text-sm border border-line px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
                         </div>
                       </div>
                     )}
@@ -1122,11 +1122,11 @@ export default function AdminUsers() {
                         <p className="text-xs font-semibold text-stone-700 mb-2">Histórico de planos</p>
                         <div className="space-y-2">
                           {planHistory.map(h => (
-                            <div key={h.id} className="bg-stone-50 border border-stone-100 rounded-xl p-3">
+                            <div key={h.id} className="bg-stone-50 border border-line rounded-xl p-3">
                               <div className="flex items-center gap-2 text-xs">
                                 <span className="text-stone-400">{PLAN_LABELS[h.old_plan ?? ''] ?? h.old_plan ?? '—'}</span>
                                 <span className="text-stone-300">→</span>
-                                <span className="font-medium text-stone-800">{PLAN_LABELS[h.new_plan ?? ''] ?? h.new_plan ?? '—'}</span>
+                                <span className="font-medium text-forest-900">{PLAN_LABELS[h.new_plan ?? ''] ?? h.new_plan ?? '—'}</span>
                               </div>
                               {h.reason && <p className="text-xs text-stone-400 mt-0.5">{h.reason}</p>}
                               <p className="text-xs text-stone-300 mt-0.5">{new Date(h.created_at).toLocaleDateString('pt-BR')}</p>
@@ -1149,7 +1149,7 @@ export default function AdminUsers() {
                     {adminSubLoading ? (
                       <div className="h-12 bg-stone-100 rounded-xl animate-pulse" />
                     ) : (
-                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                      <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                         <p className="text-xs font-semibold text-stone-700">Dados da assinatura</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {[
@@ -1160,7 +1160,7 @@ export default function AdminUsers() {
                             ['Início do ciclo', adminSub?.current_period_start ? new Date(adminSub.current_period_start).toLocaleDateString('pt-BR') : '—'],
                             ['Fim do ciclo', adminSub?.current_period_end ? new Date(adminSub.current_period_end).toLocaleDateString('pt-BR') : '—'],
                           ].map(([label, value]) => (
-                            <div key={label} className="bg-white rounded-lg p-2 border border-stone-100">
+                            <div key={label} className="bg-white rounded-lg p-2 border border-line">
                               <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
                               <p className="font-medium text-stone-700 text-xs">{value}</p>
                             </div>
@@ -1169,7 +1169,7 @@ export default function AdminUsers() {
                       </div>
                     )}
 
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Alterar plano (admin)</p>
                       <div className="flex gap-2">
                         <select
@@ -1182,7 +1182,7 @@ export default function AdminUsers() {
                         <button
                           onClick={() => adminChangePlan(adminSubPlan, selectedUser!.user_id)}
                           disabled={adminSubActing || adminSubPlan === selectedUser?.plan}
-                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors"
+                          className="flex-shrink-0 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-40 transition-colors"
                         >
                           {adminSubActing ? '...' : 'Aplicar'}
                         </button>
@@ -1215,7 +1215,7 @@ export default function AdminUsers() {
                 {/* Tab: Acesso */}
                 {drawerTab === 'acesso' && (
                   <div className="space-y-4">
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Acesso ilimitado</p>
                       <div className="flex items-center gap-2">
                         <input
@@ -1223,7 +1223,7 @@ export default function AdminUsers() {
                           id="unlimited-toggle"
                           checked={unlimitedAccessForm.enabled}
                           onChange={e => setUnlimitedAccessForm(f => ({ ...f, enabled: e.target.checked }))}
-                          className="accent-stone-800"
+                          className="accent-forest-700"
                         />
                         <label htmlFor="unlimited-toggle" className="text-sm text-stone-700 cursor-pointer">Ativar acesso ilimitado</label>
                       </div>
@@ -1239,18 +1239,18 @@ export default function AdminUsers() {
                           </div>
                         </>
                       )}
-                      <button onClick={saveUnlimitedAccess} disabled={savingUnlimited} className="text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-50">
+                      <button onClick={saveUnlimitedAccess} disabled={savingUnlimited} className="text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
                         {savingUnlimited ? 'Salvando...' : 'Salvar'}
                       </button>
                     </div>
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4">
                       <p className="text-xs font-semibold text-stone-700 mb-3">Recursos desbloqueados pelo plano</p>
                       <div className="space-y-1 text-xs text-stone-500">
                         {selectedUser.plan === 'free' && <p>Acesso básico: artigos públicos, diário limitado</p>}
                         {selectedUser.plan === 'essential' && <p>Acesso essencial: diário completo, questionários, artigos premium</p>}
                         {selectedUser.plan === 'therapeutic' && <p>Acesso terapêutico: todos os recursos + trilhas + exportação</p>}
                         {selectedUser.plan === 'therapeutic-plus' && <p>Acesso Plus: todos os recursos + suporte prioritário + atendimento exclusivo</p>}
-                        {selectedUser.unlimited_access && <p className="text-emerald-700 font-medium">Acesso ilimitado ativo — sem restrições</p>}
+                        {selectedUser.unlimited_access && <p className="text-forest-800 font-medium">Acesso ilimitado ativo — sem restrições</p>}
                       </div>
                     </div>
                   </div>
@@ -1262,7 +1262,7 @@ export default function AdminUsers() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowMsgModal(true)}
-                        className="flex items-center gap-1.5 text-xs bg-stone-800 text-white px-3 py-2 rounded-lg hover:bg-stone-700"
+                        className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800"
                       >
                         <MessageCircle className="w-3.5 h-3.5" /> Enviar mensagem
                       </button>
@@ -1275,14 +1275,14 @@ export default function AdminUsers() {
                     ) : (
                       <div className="space-y-2">
                         {userTickets.map(t => (
-                          <div key={t.id} className="bg-stone-50 border border-stone-100 rounded-xl p-3">
+                          <div key={t.id} className="bg-stone-50 border border-line rounded-xl p-3">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="text-xs text-stone-400 font-mono">#{t.ticket_number}</span>
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[t.status] ?? 'bg-stone-100'}`}>
                                 {STATUS_LABELS[t.status] ?? t.status}
                               </span>
                             </div>
-                            <p className="text-sm font-medium text-stone-800 truncate">{t.subject}</p>
+                            <p className="text-sm font-medium text-forest-900 truncate">{t.subject}</p>
                             <p className="text-xs text-stone-400 mt-0.5">{new Date(t.updated_at).toLocaleDateString('pt-BR')}</p>
                           </div>
                         ))}
@@ -1296,7 +1296,7 @@ export default function AdminUsers() {
                   <div className="space-y-3">
                     <button
                       onClick={() => setShowMsgModal(true)}
-                      className="flex items-center gap-1.5 text-xs bg-stone-800 text-white px-3 py-2 rounded-lg hover:bg-stone-700"
+                      className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800"
                     >
                       <Bell className="w-3.5 h-3.5" /> Enviar notificação
                     </button>
@@ -1308,12 +1308,12 @@ export default function AdminUsers() {
                     ) : (
                       <div className="space-y-2">
                         {userNotifs.map(n => (
-                          <div key={n.id} className={`rounded-xl p-3 border ${n.is_read ? 'bg-stone-50 border-stone-100' : 'bg-blue-50 border-blue-100'}`}>
+                          <div key={n.id} className={`rounded-xl p-3 border ${n.is_read ? 'bg-stone-50 border-line' : 'bg-blue-50 border-blue-100'}`}>
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">{TYPE_LABELS[n.type] ?? n.type}</span>
                               {!n.is_read && <span className="w-2 h-2 bg-blue-500 rounded-full" />}
                             </div>
-                            <p className="text-sm font-medium text-stone-800">{n.title}</p>
+                            <p className="text-sm font-medium text-forest-900">{n.title}</p>
                             <p className="text-xs text-stone-400">{new Date(n.created_at).toLocaleDateString('pt-BR')}</p>
                           </div>
                         ))}
@@ -1326,16 +1326,16 @@ export default function AdminUsers() {
                 {drawerTab === 'uso' && (
                   <div className="grid grid-cols-1 gap-3">
                     {[
-                      { label: 'Entradas no diário', value: metrics.diary, icon: <FileText className="w-5 h-5 text-emerald-600" /> },
+                      { label: 'Entradas no diário', value: metrics.diary, icon: <FileText className="w-5 h-5 text-forest-700" /> },
                       { label: 'Itens salvos', value: metrics.saved, icon: <Bell className="w-5 h-5 text-blue-600" /> },
                       { label: 'Questionários respondidos', value: metrics.questionnaires, icon: <MessageCircle className="w-5 h-5 text-purple-600" /> },
                       { label: 'Tickets de suporte', value: metrics.tickets, icon: <Ticket className="w-5 h-5 text-orange-600" /> },
                       { label: 'Notificações não lidas', value: metrics.unreadNotifs, icon: <Bell className="w-5 h-5 text-red-500" /> },
                     ].map(m => (
-                      <div key={m.label} className="bg-stone-50 border border-stone-100 rounded-xl p-4 flex items-center gap-3">
+                      <div key={m.label} className="bg-stone-50 border border-line rounded-xl p-4 flex items-center gap-3">
                         {m.icon}
                         <div>
-                          <p className="text-2xl font-bold text-stone-800">{m.value}</p>
+                          <p className="text-2xl font-bold text-forest-900">{m.value}</p>
                           <p className="text-xs text-stone-500">{m.label}</p>
                         </div>
                       </div>
@@ -1346,7 +1346,7 @@ export default function AdminUsers() {
                 {/* Tab: Descontos */}
                 {drawerTab === 'descontos' && (
                   <div className="space-y-4">
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Desconto administrativo</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1382,7 +1382,7 @@ export default function AdminUsers() {
                       </div>
                       <p className="text-[10px] text-stone-400">Desconto administrativo registrado. Integração com cobrança real depende do checkout.</p>
                       <div className="flex gap-2">
-                        <button onClick={saveDiscount} disabled={savingDiscount} className="text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-50">
+                        <button onClick={saveDiscount} disabled={savingDiscount} className="text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
                           {savingDiscount ? 'Salvando...' : 'Salvar desconto'}
                         </button>
                         <button onClick={clearDiscount} disabled={savingDiscount} className="text-sm border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-50">
@@ -1396,7 +1396,7 @@ export default function AdminUsers() {
                 {/* Tab: Notas */}
                 {drawerTab === 'notas' && (
                   <div className="space-y-4">
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Adicionar nota interna</p>
                       <textarea
                         value={newNote}
@@ -1408,21 +1408,21 @@ export default function AdminUsers() {
                       <div className="flex gap-3 flex-wrap">
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-stone-500">Prioridade:</label>
-                          <select value={notePriority} onChange={e => setNotePriority(e.target.value)} className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white">
+                          <select value={notePriority} onChange={e => setNotePriority(e.target.value)} className="text-xs px-2 py-1 border border-line rounded-lg bg-white">
                             <option value="normal">Normal</option>
                             <option value="alta">Alta</option>
                             <option value="urgente">Urgente</option>
                           </select>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" id="pin-note" checked={notePinned} onChange={e => setNotePinned(e.target.checked)} className="accent-stone-800" />
+                          <input type="checkbox" id="pin-note" checked={notePinned} onChange={e => setNotePinned(e.target.checked)} className="accent-forest-700" />
                           <label htmlFor="pin-note" className="text-xs text-stone-700 cursor-pointer">Fixar</label>
                         </div>
                       </div>
                       <button
                         onClick={saveNote}
                         disabled={savingNote || !newNote.trim()}
-                        className="flex items-center gap-2 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 disabled:opacity-50"
+                        className="flex items-center gap-2 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         {savingNote ? 'Salvando...' : 'Adicionar nota'}
@@ -1436,7 +1436,7 @@ export default function AdminUsers() {
                           <div key={n.id} className={`bg-amber-50 border rounded-xl p-3 ${n.is_pinned ? 'border-amber-300' : 'border-amber-100'}`}>
                             {n.is_pinned && <p className="text-[10px] text-amber-600 font-semibold mb-1">Fixado</p>}
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm text-stone-800 whitespace-pre-wrap flex-1">{n.note}</p>
+                              <p className="text-sm text-forest-900 whitespace-pre-wrap flex-1">{n.note}</p>
                               <div className="flex gap-1 flex-shrink-0">
                                 <button
                                   onClick={() => togglePinNote(n.id, n.is_pinned)}
@@ -1476,7 +1476,7 @@ export default function AdminUsers() {
 
                     {/* Dados agregados */}
                     {!aiExtraLoaded ? (
-                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                      <div className="bg-stone-50 border border-line rounded-xl p-4">
                         <p className="text-xs text-stone-500 mb-3 font-semibold">Dados de uso para o resumo</p>
                         <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                           {[
@@ -1485,7 +1485,7 @@ export default function AdminUsers() {
                             ['Itens salvos', metrics.saved],
                             ['Tickets', metrics.tickets],
                           ].map(([l, v]) => (
-                            <div key={l as string} className="bg-white rounded-lg p-2 border border-stone-100">
+                            <div key={l as string} className="bg-white rounded-lg p-2 border border-line">
                               <p className="text-[10px] text-stone-400 mb-0.5">{l}</p>
                               <p className="font-bold text-stone-700">{v}</p>
                             </div>
@@ -1493,13 +1493,13 @@ export default function AdminUsers() {
                         </div>
                         <button
                           onClick={() => loadAiExtraMetrics(selectedUser!.user_id)}
-                          className="text-xs bg-stone-800 text-white px-3 py-1.5 rounded-lg hover:bg-stone-700"
+                          className="text-xs bg-forest-900 text-white px-3 py-1.5 rounded-lg hover:bg-forest-800"
                         >
                           Carregar dados completos
                         </button>
                       </div>
                     ) : (
-                      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                      <div className="bg-stone-50 border border-line rounded-xl p-4">
                         <p className="text-xs text-stone-500 mb-3 font-semibold">Dados de uso agregados</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {[
@@ -1513,7 +1513,7 @@ export default function AdminUsers() {
                             ['Coment. profissionais', aiExtraMetrics.commentsCount],
                             ['Relatórios', aiExtraMetrics.reportsCount],
                           ].map(([l, v]) => (
-                            <div key={l as string} className="bg-white rounded-lg p-2 border border-stone-100">
+                            <div key={l as string} className="bg-white rounded-lg p-2 border border-line">
                               <p className="text-[10px] text-stone-400 mb-0.5">{l}</p>
                               <p className="font-bold text-stone-700">{v}</p>
                             </div>
@@ -1524,7 +1524,7 @@ export default function AdminUsers() {
                             <p className="text-[10px] text-stone-400 mb-1">Marcadores mais frequentes no diário</p>
                             <div className="flex flex-wrap gap-1">
                               {aiExtraMetrics.topTags.map(t => (
-                                <span key={t} className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">{t}</span>
+                                <span key={t} className="text-[10px] px-1.5 py-0.5 bg-mint text-forest-800 rounded-full border border-mint">{t}</span>
                               ))}
                             </div>
                           </div>
@@ -1536,7 +1536,7 @@ export default function AdminUsers() {
                     )}
 
                     {/* Gerar resumo com IA */}
-                    <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+                    <div className="bg-white border border-line rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold text-stone-700 flex items-center gap-1.5">
                           <Brain className="w-3.5 h-3.5" /> Resumo inteligente
@@ -1546,7 +1546,7 @@ export default function AdminUsers() {
                             onClick={generateAiSummary}
                             disabled={aiGenerating || !aiExtraLoaded}
                             title={!aiExtraLoaded ? 'Carregue os dados completos primeiro' : 'Gerar resumo com IA'}
-                            className="flex items-center gap-1 text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                            className="flex items-center gap-1 text-xs bg-forest-700 text-white px-2.5 py-1 rounded-lg hover:bg-forest-800 disabled:opacity-40 transition-colors"
                           >
                             {aiGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                             {aiGenerating ? 'Gerando...' : aiCurrentSummary ? 'Atualizar' : 'Gerar com IA'}
@@ -1556,7 +1556,7 @@ export default function AdminUsers() {
                               <button
                                 onClick={() => navigator.clipboard.writeText(aiCurrentSummary)}
                                 title="Copiar resumo"
-                                className="flex items-center gap-1 text-xs border border-stone-200 text-stone-600 px-2.5 py-1 rounded-lg hover:bg-stone-50"
+                                className="flex items-center gap-1 text-xs border border-line text-stone-600 px-2.5 py-1 rounded-lg hover:bg-stone-50"
                               >
                                 <Copy className="w-3 h-3" />
                               </button>
@@ -1564,7 +1564,7 @@ export default function AdminUsers() {
                                 onClick={saveAiSummary}
                                 disabled={aiSaving}
                                 title="Salvar resumo"
-                                className="flex items-center gap-1 text-xs bg-stone-800 text-white px-2.5 py-1 rounded-lg hover:bg-stone-700 disabled:opacity-40"
+                                className="flex items-center gap-1 text-xs bg-forest-900 text-white px-2.5 py-1 rounded-lg hover:bg-forest-800 disabled:opacity-40"
                               >
                                 {aiSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                               </button>
@@ -1574,7 +1574,7 @@ export default function AdminUsers() {
                       </div>
 
                       {aiMsg && (
-                        <div className={`text-xs px-3 py-2 rounded-lg ${aiMsg.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                        <div className={`text-xs px-3 py-2 rounded-lg ${aiMsg.type === 'ok' ? 'bg-mint border border-forest-200 text-forest-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
                           {aiMsg.text}
                         </div>
                       )}
@@ -1584,7 +1584,7 @@ export default function AdminUsers() {
                           value={aiCurrentSummary}
                           onChange={e => setAiCurrentSummary(e.target.value)}
                           rows={10}
-                          className="w-full text-xs text-stone-700 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-300 resize-y leading-relaxed"
+                          className="w-full text-xs text-stone-700 border border-line rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-300 resize-y leading-relaxed"
                         />
                       ) : aiSummaryLoading ? (
                         <div className="flex items-center gap-2 py-4 text-stone-400 text-xs">
@@ -1608,7 +1608,7 @@ export default function AdminUsers() {
                             <button
                               key={s.id}
                               onClick={() => setAiCurrentSummary(s.summary)}
-                              className="w-full text-left bg-stone-50 border border-stone-100 rounded-xl p-3 hover:bg-stone-100 transition-colors"
+                              className="w-full text-left bg-stone-50 border border-line rounded-xl p-3 hover:bg-stone-100 transition-colors"
                             >
                               <p className="text-[10px] text-stone-400 mb-1">
                                 Salvo em {new Date(s.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
@@ -1625,7 +1625,7 @@ export default function AdminUsers() {
                 {/* Tab: Segurança */}
                 {drawerTab === 'seguranca' && (
                   <div className="space-y-4">
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4">
                       <p className="text-xs font-semibold text-stone-700 mb-3">Status da conta</p>
                       <div className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full font-medium mb-4 ${ACCOUNT_STATUS_COLORS[selectedUser.account_status ?? 'active'] ?? 'bg-stone-100'}`}>
                         <Shield className="w-3.5 h-3.5" />
@@ -1670,7 +1670,7 @@ export default function AdminUsers() {
                                 >
                                   {blockingUser ? 'Bloqueando...' : 'Confirmar bloqueio'}
                                 </button>
-                                <button onClick={() => setShowBlockForm(false)} className="text-sm border border-stone-200 px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
+                                <button onClick={() => setShowBlockForm(false)} className="text-sm border border-line px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
                               </div>
                             </div>
                           )}
@@ -1696,7 +1696,7 @@ export default function AdminUsers() {
                     )}
 
                     {/* Reset / change password */}
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Redefinir senha</p>
                       <p className="text-xs text-stone-400">Define uma nova senha temporária para o usuário. O usuário deverá alterar no próximo acesso.</p>
                       <div className="flex gap-2">
@@ -1711,7 +1711,7 @@ export default function AdminUsers() {
                         <button
                           onClick={handleResetPassword}
                           disabled={savingAuthOp || newPassword.trim().length < 8}
-                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-900 disabled:opacity-40 transition-colors"
+                          className="flex-shrink-0 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-900 disabled:opacity-40 transition-colors"
                         >
                           {savingAuthOp ? 'Salvando...' : 'Definir'}
                         </button>
@@ -1719,7 +1719,7 @@ export default function AdminUsers() {
                     </div>
 
                     {/* Change email */}
-                    <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 space-y-3">
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Alterar e-mail</p>
                       <p className="text-xs text-stone-400">Atualiza o e-mail de login do usuário imediatamente, sem necessidade de confirmação.</p>
                       <div className="flex gap-2">
@@ -1734,7 +1734,7 @@ export default function AdminUsers() {
                         <button
                           onClick={handleChangeEmail}
                           disabled={savingAuthOp || !newEmail.trim()}
-                          className="flex-shrink-0 text-sm bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-900 disabled:opacity-40 transition-colors"
+                          className="flex-shrink-0 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-900 disabled:opacity-40 transition-colors"
                         >
                           {savingAuthOp ? 'Salvando...' : 'Alterar'}
                         </button>
@@ -1753,7 +1753,7 @@ export default function AdminUsers() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-stone-800">Enviar mensagem para {selectedUser.full_name || 'usuário'}</h3>
+              <h3 className="font-semibold text-forest-900">Enviar mensagem para {selectedUser.full_name || 'usuário'}</h3>
               <button onClick={() => { setShowMsgModal(false); setMsgResult(null) }} className="p-1 text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div>
@@ -1777,7 +1777,7 @@ export default function AdminUsers() {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="modal-create-ticket" checked={msgCreateTicket} onChange={e => setMsgCreateTicket(e.target.checked)} className="accent-stone-800" />
+              <input type="checkbox" id="modal-create-ticket" checked={msgCreateTicket} onChange={e => setMsgCreateTicket(e.target.checked)} className="accent-forest-700" />
               <label htmlFor="modal-create-ticket" className="text-sm text-stone-700 cursor-pointer">Criar ticket de suporte</label>
             </div>
             {msgCreateTicket && (
@@ -1798,14 +1798,14 @@ export default function AdminUsers() {
               </div>
             )}
             {msgResult && (
-              <div className={`text-sm px-3 py-2 rounded-lg border ${msgResult.startsWith('Erro') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+              <div className={`text-sm px-3 py-2 rounded-lg border ${msgResult.startsWith('Erro') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-mint border-forest-200 text-forest-800'}`}>
                 {msgResult}
               </div>
             )}
             <button
               onClick={sendMsg}
               disabled={sendingMsg || !msgTitle.trim() || !msgBody.trim()}
-              className="w-full bg-stone-800 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-stone-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-forest-900 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50 transition-colors"
             >
               {sendingMsg ? 'Enviando...' : 'Enviar mensagem'}
             </button>

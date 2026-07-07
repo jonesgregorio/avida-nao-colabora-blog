@@ -37,7 +37,7 @@ export default function AdminAreaAtendimento({ initialTab }: Props) {
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="border-b border-stone-200 bg-white sticky top-0 z-10">
+      <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Atendimento">
           {TABS.map(t => {
             const Icon = t.icon

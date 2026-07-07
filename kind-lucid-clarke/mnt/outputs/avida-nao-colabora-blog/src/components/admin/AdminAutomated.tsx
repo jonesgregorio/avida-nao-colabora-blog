@@ -51,7 +51,7 @@ const FREQ_COLORS: Record<string, string> = {
   monthly:  'bg-stone-100 text-stone-600',
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 const GENERATE_TIMEOUT_MS = 30_000
 
@@ -196,7 +196,7 @@ export default function AdminAutomated() {
     <div>
       {toast && (
         <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 text-sm px-4 py-2.5 rounded-lg shadow-lg ${
-          toast.type === 'ok' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
+          toast.type === 'ok' ? 'bg-forest-800 text-white' : 'bg-red-600 text-white'
         }`}>
           {toast.type === 'ok' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
           {toast.msg}
@@ -213,7 +213,7 @@ export default function AdminAutomated() {
                 </span>
                 <button onClick={() => setPreview(null)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
               </div>
-              <h2 className="text-lg font-bold text-stone-800 mb-1">{preview.title}</h2>
+              <h2 className="text-lg font-bold text-forest-900 mb-1">{preview.title}</h2>
               <p className="text-xs text-stone-400 mb-4">{TYPE_LABELS[preview.type] || preview.type} · {PLAN_LABELS[preview.plan_required]}</p>
               <div className="text-stone-700 text-sm leading-relaxed whitespace-pre-line">{preview.content}</div>
             </div>
@@ -223,25 +223,25 @@ export default function AdminAutomated() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">Conteúdos Automáticos</h1>
+          <h1 className="text-2xl font-bold text-forest-900">Conteúdos Automáticos</h1>
           <p className="text-stone-400 text-xs mt-1">Gere com IA e entregue aos usuários no app</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700">
+        <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
           <Plus size={14} /> Novo conteúdo
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
+        <div className="bg-white rounded-xl border border-line p-5 mb-6 space-y-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">
             {editing ? 'Editar conteúdo' : 'Novo conteúdo automático'}
           </h2>
 
-          <div className="bg-gradient-to-r from-emerald-50 to-stone-50 border border-emerald-200 rounded-xl p-4">
+          <div className="bg-gradient-to-r from-mint to-stone-50 border border-forest-200 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} className="text-emerald-600" />
-              <span className="text-sm font-semibold text-emerald-800">Gerar com IA</span>
-              <span className="text-xs text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
+              <Sparkles size={16} className="text-forest-700" />
+              <span className="text-sm font-semibold text-forest-900">Gerar com IA</span>
+              <span className="text-xs text-forest-700 bg-mint px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
             </div>
             <div className="flex gap-2">
               <input
@@ -249,12 +249,12 @@ export default function AdminAutomated() {
                 onChange={e => setTema(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleGenerate()}
                 placeholder="Ex: ansiedade no trabalho, luto, relacionamentos..."
-                className="flex-1 px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                className="flex-1 px-3 py-2 border border-forest-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
               />
               <button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
+                className="flex items-center gap-2 bg-forest-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-50 whitespace-nowrap"
               >
                 {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 {generating ? 'Gerando...' : 'Gerar'}
@@ -292,7 +292,7 @@ export default function AdminAutomated() {
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditing(null) }} className="px-4 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50">Cancelar</button>
-            <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-700 disabled:opacity-50">
+            <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-forest-900 text-white rounded-lg hover:bg-forest-800 disabled:opacity-50">
               <Save size={14} />{saving ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
             </button>
           </div>
@@ -310,14 +310,14 @@ export default function AdminAutomated() {
             <div key={item.id} className="bg-white border rounded-xl p-4 flex items-start gap-3">
               <button
                 onClick={() => toggle(item.id, isActive)}
-                className={"mt-0.5 flex-shrink-0 " + (isActive ? 'text-emerald-500' : 'text-stone-300')}
+                className={"mt-0.5 flex-shrink-0 " + (isActive ? 'text-forest-600' : 'text-stone-300')}
                 title={isActive ? 'Desativar' : 'Ativar'}
               >
                 {isActive ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
               </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-stone-800 text-sm">{item.title}</span>
+                  <span className="font-medium text-forest-900 text-sm">{item.title}</span>
                   <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{TYPE_LABELS[item.type] || item.type}</span>
                   {!isActive && <span className="text-xs text-orange-500">Inativo</span>}
                 </div>

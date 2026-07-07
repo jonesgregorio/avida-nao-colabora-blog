@@ -68,11 +68,11 @@ export default function AdminDiaryConfig() {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Diário por Plano</h1>
+        <h1 className="text-2xl font-bold text-forest-900">Diário por Plano</h1>
         <button
           onClick={save}
           disabled={saving || loading}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60"
+          className="flex items-center gap-2 bg-forest-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-60"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
           {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar'}
@@ -83,7 +83,7 @@ export default function AdminDiaryConfig() {
       <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl">
         {configs.map(c => (
           <button key={c.plan} onClick={() => setActiveTab(c.plan)}
-            className={`flex-1 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === c.plan ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}
+            className={`flex-1 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === c.plan ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500'}`}
           >
             {c.label}
           </button>
@@ -92,7 +92,7 @@ export default function AdminDiaryConfig() {
 
       <div className="space-y-5">
         {/* Limits */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-line p-5 space-y-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Limites e acesso</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -117,26 +117,26 @@ export default function AdminDiaryConfig() {
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-            <input type="checkbox" checked={cfg.exportPDF} onChange={e => updateCfg('exportPDF', e.target.checked)} className="accent-emerald-600" />
+            <input type="checkbox" checked={cfg.exportPDF} onChange={e => updateCfg('exportPDF', e.target.checked)} className="accent-forest-700" />
             Permitir exportação em PDF
           </label>
         </div>
 
         {/* Fields */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Campos disponíveis</h2>
           <div className="grid grid-cols-2 gap-2">
             {FIELDS.map(f => (
               <label key={f.key} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
-                <input type="checkbox" checked={!!cfg.fields[f.key]} onChange={() => toggleField(f.key)} className="accent-emerald-600" />
-                <span className={cfg.fields[f.key] ? 'text-stone-800' : 'text-stone-400'}>{f.label}</span>
+                <input type="checkbox" checked={!!cfg.fields[f.key]} onChange={() => toggleField(f.key)} className="accent-forest-700" />
+                <span className={cfg.fields[f.key] ? 'text-forest-900' : 'text-stone-400'}>{f.label}</span>
               </label>
             ))}
           </div>
         </div>
 
         {/* Guided questions */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Perguntas guiadas</h2>
           <div className="space-y-2 mb-3">
             {cfg.guidedQuestions.map((q, i) => (
@@ -154,7 +154,7 @@ export default function AdminDiaryConfig() {
               placeholder="Nova pergunta guiada..."
               className={`${inputCls} flex-1`}
             />
-            <button onClick={addQuestion} className="px-3 py-2 bg-stone-800 text-white rounded-lg text-sm hover:bg-stone-700">
+            <button onClick={addQuestion} className="px-3 py-2 bg-forest-900 text-white rounded-lg text-sm hover:bg-forest-800">
               Adicionar
             </button>
           </div>
@@ -162,7 +162,7 @@ export default function AdminDiaryConfig() {
 
         {/* Reports & graphs */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-3">Gráficos disponíveis</h2>
             <div className="space-y-1">
               {cfg.graphs.length === 0
@@ -171,7 +171,7 @@ export default function AdminDiaryConfig() {
               }
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-3">Relatórios disponíveis</h2>
             <div className="space-y-1">
               {cfg.reports.length === 0
@@ -186,4 +186,4 @@ export default function AdminDiaryConfig() {
   )
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"

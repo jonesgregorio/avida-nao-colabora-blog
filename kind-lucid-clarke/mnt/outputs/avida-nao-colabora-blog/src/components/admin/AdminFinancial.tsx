@@ -19,7 +19,7 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-200',
-  essential: 'bg-emerald-400',
+  essential: 'bg-forest-500',
   therapeutic: 'bg-violet-400',
   'therapeutic-plus': 'bg-amber-400',
 }
@@ -47,7 +47,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-stone-700' }: {
   color?: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5">
+    <div className="bg-white rounded-xl border border-line p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">{label}</span>
         <Icon className="w-4 h-4 text-stone-300" />
@@ -125,23 +125,23 @@ export default function AdminFinancial() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-stone-800 mb-1">Gestão Financeira</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-1">Gestão Financeira</h1>
       <p className="text-stone-400 text-sm mb-1">Receita estimada com base nos planos ativos dos usuários.</p>
       <p className="text-xs text-stone-400 mb-6">
         Preços: {pricesFromDB
-          ? <span className="text-emerald-600 font-medium">carregados da tabela plan_configs</span>
+          ? <span className="text-forest-700 font-medium">carregados da tabela plan_configs</span>
           : <span className="text-amber-600 font-medium">valores padrão (configure em Planos para sincronizar)</span>
         }
       </p>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={DollarSign} label="MRR Estimado" value={fmt(stats.mrr)} sub="Receita mensal recorrente" color="text-emerald-600" />
+        <StatCard icon={DollarSign} label="MRR Estimado" value={fmt(stats.mrr)} sub="Receita mensal recorrente" color="text-forest-700" />
         <StatCard icon={TrendingUp} label="ARR Estimado" value={fmt(stats.arr)} sub="Receita anual recorrente" color="text-violet-600" />
         <StatCard icon={Users} label="Usuários pagantes" value={String(stats.payingUsers)} sub={`de ${stats.totalUsers} total`} />
-        <StatCard icon={CreditCard} label="Conversão" value={`${stats.conversionRate}%`} sub="Free → pago" color={stats.conversionRate > 20 ? 'text-emerald-600' : 'text-amber-600'} />
+        <StatCard icon={CreditCard} label="Conversão" value={`${stats.conversionRate}%`} sub="Free → pago" color={stats.conversionRate > 20 ? 'text-forest-700' : 'text-amber-600'} />
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6">
         <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-5">Receita por plano</h2>
         <div className="space-y-4">
           {stats.planStats.map(ps => (
@@ -153,7 +153,7 @@ export default function AdminFinancial() {
                   <span className="text-xs text-stone-400">{ps.count} usuário{ps.count !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-stone-800">{fmt(ps.revenue)}</span>
+                  <span className="text-sm font-semibold text-forest-900">{fmt(ps.revenue)}</span>
                   <span className="text-xs text-stone-400 ml-1">/ mês</span>
                 </div>
               </div>
@@ -168,12 +168,12 @@ export default function AdminFinancial() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6">
         <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Tabela de preços</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-stone-100">
+              <tr className="border-b border-line">
                 <th className="text-left py-2 text-stone-400 font-medium">Plano</th>
                 <th className="text-right py-2 text-stone-400 font-medium">Preço/mês</th>
                 <th className="text-right py-2 text-stone-400 font-medium">Usuários</th>
@@ -184,18 +184,18 @@ export default function AdminFinancial() {
             <tbody>
               {stats.planStats.map(ps => (
                 <tr key={ps.plan} className="border-b border-stone-50 hover:bg-stone-50">
-                  <td className="py-2.5 font-medium text-stone-800">{PLAN_LABELS[ps.plan] || ps.plan}</td>
+                  <td className="py-2.5 font-medium text-forest-900">{PLAN_LABELS[ps.plan] || ps.plan}</td>
                   <td className="py-2.5 text-right text-stone-500">{fmt(planPrices[ps.plan] ?? 0)}</td>
                   <td className="py-2.5 text-right text-stone-700">{ps.count}</td>
-                  <td className="py-2.5 text-right font-medium text-emerald-700">{fmt(ps.revenue)}</td>
+                  <td className="py-2.5 text-right font-medium text-forest-800">{fmt(ps.revenue)}</td>
                   <td className="py-2.5 text-right text-stone-500">{fmt(ps.revenue * 12)}</td>
                 </tr>
               ))}
               <tr className="bg-stone-50 font-bold">
-                <td className="py-2.5 text-stone-800">Total</td>
+                <td className="py-2.5 text-forest-900">Total</td>
                 <td />
                 <td className="py-2.5 text-right text-stone-700">{stats.totalUsers}</td>
-                <td className="py-2.5 text-right text-emerald-700">{fmt(stats.mrr)}</td>
+                <td className="py-2.5 text-right text-forest-800">{fmt(stats.mrr)}</td>
                 <td className="py-2.5 text-right text-stone-600">{fmt(stats.arr)}</td>
               </tr>
             </tbody>

@@ -16,7 +16,7 @@ interface SelfCarePlan {
   user?: { full_name?: string }
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 function monthLabel(key: string) {
   const [y, m] = key.split('-')
@@ -144,7 +144,7 @@ export default function AdminSelfCarePlans() {
   return (
     <div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
@@ -164,9 +164,9 @@ export default function AdminSelfCarePlans() {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Planos de Autocuidado</h1>
+        <h1 className="text-2xl font-bold text-forest-900">Planos de Autocuidado</h1>
         {!isForm && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700">
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
             <Plus className="w-4 h-4" /> Novo plano
           </button>
         )}
@@ -175,7 +175,7 @@ export default function AdminSelfCarePlans() {
       {isForm ? (
         <div className="max-w-2xl space-y-5">
           <button onClick={() => { setSelected(null); setShowForm(false); resetForm() }} className="text-sm text-stone-500 hover:text-stone-700">← Voltar</button>
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700">{selected ? `Editar plano de ${monthLabel(selected.month_key)}` : 'Novo plano de autocuidado'}</h2>
 
             {!selected && (
@@ -202,7 +202,7 @@ export default function AdminSelfCarePlans() {
               <div key={field.key}>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs text-stone-500">{field.label}</label>
-                  <button type="button" onClick={() => setShowAI(field.key)} className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded hover:bg-emerald-100">
+                  <button type="button" onClick={() => setShowAI(field.key)} className="text-xs text-forest-800 bg-mint border border-forest-200 px-2 py-0.5 rounded hover:bg-mint">
                     ✦ IA
                   </button>
                 </div>
@@ -211,7 +211,7 @@ export default function AdminSelfCarePlans() {
             ))}
 
             <div className="flex gap-2">
-              <button onClick={save} disabled={saving || !summary.trim()} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+              <button onClick={save} disabled={saving || !summary.trim()} className="flex items-center gap-2 bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Salvando...' : 'Salvar e notificar'}
               </button>
@@ -228,9 +228,9 @@ export default function AdminSelfCarePlans() {
       ) : (
         <div className="space-y-3">
           {plans.map(p => (
-            <div key={p.id} className="bg-white rounded-xl border border-stone-200 p-4 hover:border-stone-300 cursor-pointer" onClick={() => openEdit(p)}>
+            <div key={p.id} className="bg-white rounded-xl border border-line p-4 hover:border-stone-300 cursor-pointer" onClick={() => openEdit(p)}>
               <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-stone-800 text-sm">{p.user?.full_name ?? p.user_id}</p>
+                <p className="font-medium text-forest-900 text-sm">{p.user?.full_name ?? p.user_id}</p>
                 <span className="text-xs text-stone-400">{monthLabel(p.month_key)}</span>
               </div>
               {p.summary && <p className="text-xs text-stone-500 line-clamp-2">{p.summary}</p>}

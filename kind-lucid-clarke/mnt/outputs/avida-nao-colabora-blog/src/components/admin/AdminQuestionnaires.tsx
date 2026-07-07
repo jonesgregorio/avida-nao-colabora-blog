@@ -87,7 +87,7 @@ interface QListItem {
 
 const STATUS_CONFIG: Record<QStatus, { label: string; color: string; bg: string }> = {
   draft:     { label: 'Rascunho',   color: 'text-stone-600', bg: 'bg-stone-100' },
-  published: { label: 'Publicado',  color: 'text-emerald-700', bg: 'bg-emerald-100' },
+  published: { label: 'Publicado',  color: 'text-forest-800', bg: 'bg-mint' },
   scheduled: { label: 'Agendado',   color: 'text-blue-700', bg: 'bg-blue-100' },
   inactive:  { label: 'Inativo',    color: 'text-orange-700', bg: 'bg-orange-100' },
   archived:  { label: 'Arquivado',  color: 'text-red-700', bg: 'bg-red-100' },
@@ -253,7 +253,7 @@ function QuestionEditor({ question, index, onChange, onRemove, onMove }: {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-stone-500">Opções</span>
-                <button onClick={addOption} className="text-xs text-emerald-600 hover:underline flex items-center gap-1"><Plus size={12} />Adicionar opção</button>
+                <button onClick={addOption} className="text-xs text-forest-700 hover:underline flex items-center gap-1"><Plus size={12} />Adicionar opção</button>
               </div>
               {question.options.map((opt, i) => (
                 <OptionEditor key={opt.id} option={opt} onChange={o => updateOption(i, o)} onRemove={() => removeOption(i)} />
@@ -402,10 +402,10 @@ export default function AdminQuestionnaires() {
 
   if (view === 'list') return (
     <div className="p-6 max-w-5xl mx-auto">
-      {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
+      {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-mint text-forest-800' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-stone-800 flex items-center gap-2"><List size={20} />Questionários</h1>
-        <button onClick={openNew} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700"><Plus size={16} />Novo</button>
+        <h1 className="text-xl font-bold text-forest-900 flex items-center gap-2"><List size={20} />Questionários</h1>
+        <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800"><Plus size={16} />Novo</button>
       </div>
       <div className="flex gap-3 mb-4">
         <input className="flex-1 border rounded-lg px-3 py-2 text-sm" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -422,7 +422,7 @@ export default function AdminQuestionnaires() {
               <div key={q.id} className="flex items-center gap-3 bg-white border rounded-lg px-4 py-3 hover:border-stone-300">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-medium text-stone-800 text-sm truncate">{q.title}</span>
+                    <span className="font-medium text-forest-900 text-sm truncate">{q.title}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.color} ${sc.bg}`}>{sc.label}</span>
                   </div>
                   <div className="text-xs text-stone-400 flex gap-3"><span>{q.category}</span><span>{q.question_count} perguntas</span><span>{q.estimated_time} min</span></div>
@@ -460,22 +460,22 @@ export default function AdminQuestionnaires() {
           onClose={() => setShowAI(false)}
         />
       )}
-      {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
+      {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-mint text-forest-800' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
       <div className="flex items-center gap-3 mb-4">
         <button onClick={() => setView('list')} className="text-stone-400 hover:text-stone-700"><X size={20} /></button>
-        <h1 className="text-xl font-bold text-stone-800 flex-1">{editing.id ? 'Editar' : 'Novo questionário'}</h1>
+        <h1 className="text-xl font-bold text-forest-900 flex-1">{editing.id ? 'Editar' : 'Novo questionário'}</h1>
         <button
           onClick={() => setShowAI(true)}
-          className="flex items-center gap-1.5 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+          className="flex items-center gap-1.5 text-sm bg-mint border border-forest-200 text-forest-800 px-3 py-2 rounded-lg hover:bg-mint transition-colors font-medium"
         >
           <Sparkles size={14} /> Gerar com IA
         </button>
         <button onClick={() => save()} disabled={saving} className="flex items-center gap-2 border rounded-lg px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"><Save size={14} />{saving ? 'Salvando...' : 'Rascunho'}</button>
-        <button onClick={() => save('published')} disabled={saving} className="flex items-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50"><Send size={14} />Publicar</button>
+        <button onClick={() => save('published')} disabled={saving} className="flex items-center gap-2 bg-forest-700 text-white rounded-lg px-4 py-2 text-sm hover:bg-forest-800 disabled:opacity-50"><Send size={14} />Publicar</button>
       </div>
       <div className="flex border-b mb-6">
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 ${activeTab === t.key ? 'border-stone-800 text-stone-800 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
+          <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 ${activeTab === t.key ? 'border-stone-800 text-forest-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
             {t.icon}{t.label}
           </button>
         ))}
@@ -499,7 +499,7 @@ export default function AdminQuestionnaires() {
       {activeTab === 'questions' && (
         <div>
           {editing.questions.map((q, i) => <QuestionEditor key={q.id} question={q} index={i} onChange={nq => updQ(i, nq)} onRemove={() => delQ(i)} onMove={dir => movQ(i, dir)} />)}
-          <button onClick={addQ} className="flex items-center gap-2 text-sm text-emerald-600 hover:underline mt-2"><Plus size={14} />Adicionar pergunta</button>
+          <button onClick={addQ} className="flex items-center gap-2 text-sm text-forest-700 hover:underline mt-2"><Plus size={14} />Adicionar pergunta</button>
         </div>
       )}
 
@@ -520,7 +520,7 @@ export default function AdminQuestionnaires() {
               <textarea className="w-full border rounded px-2 py-1 text-sm resize-none" rows={2} placeholder="Recomendação" value={r.recommendation} onChange={e => updR(i, { ...r, recommendation: e.target.value })} />
             </div>
           ))}
-          <button onClick={addR} className="flex items-center gap-2 text-sm text-emerald-600 hover:underline"><Plus size={14} />Adicionar resultado</button>
+          <button onClick={addR} className="flex items-center gap-2 text-sm text-forest-700 hover:underline"><Plus size={14} />Adicionar resultado</button>
         </div>
       )}
 

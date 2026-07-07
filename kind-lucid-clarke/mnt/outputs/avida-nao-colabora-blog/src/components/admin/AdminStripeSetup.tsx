@@ -22,10 +22,10 @@ export default function AdminStripeSetup() {
   const ok = (result?.data as { ok?: boolean })?.ok
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+    <div className="bg-white rounded-xl border border-line p-5 mb-6">
       <div className="flex items-center gap-2 mb-1">
         <CreditCard className="w-4 h-4 text-sage-600" />
-        <h3 className="font-semibold text-stone-800 text-sm">Stripe — setup &amp; autoteste</h3>
+        <h3 className="font-semibold text-forest-900 text-sm">Stripe — setup &amp; autoteste</h3>
       </div>
       <p className="text-xs text-stone-500 mb-4">
         Configura os eventos do webhook e roda um autoteste da lógica de cobrança (upgrade, downgrade, idempotência) em modo teste, sem cobrança real.
@@ -45,10 +45,10 @@ export default function AdminStripeSetup() {
       {result && (
         <div className="mt-4">
           <div className="flex items-center gap-2 mb-2 text-sm">
-            {ok ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+            {ok ? <CheckCircle className="w-4 h-4 text-forest-700" /> : <XCircle className="w-4 h-4 text-red-600" />}
             <span className="font-medium text-stone-700">{result.fn}: {ok ? 'OK' : 'ver detalhes'}</span>
           </div>
-          <pre className="text-xs bg-stone-900 text-stone-100 rounded-lg p-3 overflow-auto max-h-72">{JSON.stringify(result.data, null, 2)}</pre>
+          <pre className="text-xs bg-forest-900 text-stone-100 rounded-lg p-3 overflow-auto max-h-72">{JSON.stringify(result.data, null, 2)}</pre>
         </div>
       )}
     </div>

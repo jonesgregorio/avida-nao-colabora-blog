@@ -18,7 +18,7 @@ const SPECIALTIES = [
   'Coaching', 'Nutrição', 'Fisioterapia', 'Outro',
 ]
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 const empty = (): Omit<Professional, 'id' | 'created_at'> => ({
   name: '', specialty: 'Psicologia', email: '', phone: '', bio: '', active: true,
@@ -91,7 +91,7 @@ export default function AdminProfessionals() {
 
   if (!tableExists) return (
     <div>
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">Parceiros Profissionais</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">Parceiros Profissionais</h1>
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-700">
         <strong>Tabela não encontrada.</strong> Execute o SQL de migração no Supabase para criar a tabela <code>professionals</code>:
         <pre className="mt-3 bg-amber-100 rounded p-3 text-xs overflow-x-auto">{`CREATE TABLE IF NOT EXISTS professionals (
@@ -115,14 +115,14 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+      {toast && <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">Parceiros Profissionais</h1>
+          <h1 className="text-2xl font-bold text-forest-900">Parceiros Profissionais</h1>
           <p className="text-stone-400 text-sm mt-1">{list.length} profissional{list.length !== 1 ? 'is' : ''} cadastrado{list.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg hover:bg-stone-700">
+        <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800">
           <Plus className="w-4 h-4" /> Cadastrar profissional
         </button>
       </div>
@@ -131,7 +131,7 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
       <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
         <input
-          className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
           placeholder="Buscar por nome ou especialidade…"
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -143,7 +143,7 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
         <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-semibold text-stone-800">{editId ? 'Editar profissional' : 'Novo profissional'}</h2>
+              <h2 className="font-semibold text-forest-900">{editId ? 'Editar profissional' : 'Novo profissional'}</h2>
               <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-stone-400" /></button>
             </div>
             <div className="space-y-3">
@@ -177,8 +177,8 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
               </label>
             </div>
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50">Cancelar</button>
-              <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-700 disabled:opacity-50">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-stone-600 border border-line rounded-lg hover:bg-stone-50">Cancelar</button>
+              <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-forest-900 text-white rounded-lg hover:bg-forest-800 disabled:opacity-50">
                 <Save className="w-4 h-4" />{saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
@@ -197,14 +197,14 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
       ) : (
         <div className="space-y-3">
           {filtered.map(p => (
-            <div key={p.id} className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-4">
+            <div key={p.id} className="bg-white rounded-xl border border-line p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
                 <span className="text-violet-700 font-bold text-sm">{p.name.charAt(0).toUpperCase()}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-stone-800 truncate">{p.name}</p>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                  <p className="text-sm font-semibold text-forest-900 truncate">{p.name}</p>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p.active ? 'bg-mint text-forest-800' : 'bg-stone-100 text-stone-500'}`}>
                     {p.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
@@ -214,7 +214,7 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => toggleActive(p)}
-                  className={`text-xs px-2 py-1 rounded border ${p.active ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                  className={`text-xs px-2 py-1 rounded border ${p.active ? 'border-line text-stone-500 hover:bg-stone-50' : 'border-forest-200 text-forest-700 hover:bg-mint'}`}
                 >
                   {p.active ? 'Desativar' : 'Ativar'}
                 </button>

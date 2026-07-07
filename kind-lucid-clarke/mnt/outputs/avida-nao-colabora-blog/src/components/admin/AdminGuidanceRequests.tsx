@@ -26,10 +26,10 @@ const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-100 text-stone-500',
   essential: 'bg-blue-100 text-blue-700',
   therapeutic: 'bg-purple-100 text-purple-700',
-  'therapeutic-plus': 'bg-emerald-100 text-emerald-700',
+  'therapeutic-plus': 'bg-mint text-forest-800',
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 function monthLabel(key: string) {
   const [y, m] = key.split('-')
@@ -143,14 +143,14 @@ export default function AdminGuidanceRequests() {
   return (
     <div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">Orientações Mensais</h1>
+          <h1 className="text-2xl font-bold text-forest-900">Orientações Mensais</h1>
           {openCount > 0 && (
             <p className="text-sm text-amber-600 font-medium mt-0.5">{openCount} aguardando resposta</p>
           )}
@@ -163,30 +163,30 @@ export default function AdminGuidanceRequests() {
           <button
             key={f}
             onClick={() => setStatusFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === f ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === f ? 'bg-forest-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
           >
             {f === 'all' ? 'Todas' : f === 'open' ? 'Aguardando' : f === 'answered' ? 'Respondidas' : 'Fechadas'}
           </button>
         ))}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showFilters ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showFilters ? 'bg-mint text-forest-800' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
         >
           <Filter className="w-3.5 h-3.5" /> Filtros
           {(planFilter !== 'all' || monthFilter !== 'all') && (
-            <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+            <span className="w-2 h-2 bg-forest-600 rounded-full" />
           )}
         </button>
       </div>
 
       {showFilters && (
-        <div className="flex flex-wrap gap-3 mb-4 bg-stone-50 border border-stone-100 rounded-xl p-3">
+        <div className="flex flex-wrap gap-3 mb-4 bg-stone-50 border border-line rounded-xl p-3">
           <div>
             <label className="block text-xs text-stone-500 mb-1">Plano</label>
             <select
               value={planFilter}
               onChange={e => setPlanFilter(e.target.value)}
-              className="text-sm px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none"
+              className="text-sm px-2 py-1.5 border border-line rounded-lg bg-white focus:outline-none"
             >
               <option value="all">Todos os planos</option>
               {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -197,7 +197,7 @@ export default function AdminGuidanceRequests() {
             <select
               value={monthFilter}
               onChange={e => setMonthFilter(e.target.value)}
-              className="text-sm px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none"
+              className="text-sm px-2 py-1.5 border border-line rounded-lg bg-white focus:outline-none"
             >
               <option value="all">Todos os meses</option>
               {monthOptions.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
@@ -222,10 +222,10 @@ export default function AdminGuidanceRequests() {
             ← Voltar
           </button>
 
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-3">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div>
-                <p className="font-semibold text-stone-800">{selected.user?.full_name ?? 'Usuário'}</p>
+                <p className="font-semibold text-forest-900">{selected.user?.full_name ?? 'Usuário'}</p>
                 {selected.user?.email && (
                   <p className="text-xs text-stone-400">{selected.user.email}</p>
                 )}
@@ -237,7 +237,7 @@ export default function AdminGuidanceRequests() {
                     {PLAN_LABELS[selected.user.plan] ?? selected.user.plan}
                   </span>
                 )}
-                <span className={`text-xs px-2 py-1 rounded-full ${selected.status === 'answered' ? 'bg-emerald-100 text-emerald-700' : selected.status === 'closed' ? 'bg-stone-100 text-stone-500' : 'bg-amber-100 text-amber-700'}`}>
+                <span className={`text-xs px-2 py-1 rounded-full ${selected.status === 'answered' ? 'bg-mint text-forest-800' : selected.status === 'closed' ? 'bg-stone-100 text-stone-500' : 'bg-amber-100 text-amber-700'}`}>
                   {selected.status === 'answered' ? 'Respondida' : selected.status === 'closed' ? 'Fechada' : 'Aguardando'}
                 </span>
               </div>
@@ -263,8 +263,8 @@ export default function AdminGuidanceRequests() {
             </div>
 
             {selected.response ? (
-              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
-                <p className="text-xs text-emerald-600 font-medium mb-1">Resposta enviada</p>
+              <div className="bg-mint border border-mint rounded-lg p-4">
+                <p className="text-xs text-forest-700 font-medium mb-1">Resposta enviada</p>
                 <p className="text-sm text-stone-700">{selected.response}</p>
                 {selected.responded_at && (
                   <p className="text-xs text-stone-400 mt-2">{new Date(selected.responded_at).toLocaleDateString('pt-BR')}</p>
@@ -277,7 +277,7 @@ export default function AdminGuidanceRequests() {
                   <button
                     type="button"
                     onClick={() => setShowAI(true)}
-                    className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 font-medium"
+                    className="flex items-center gap-1 text-xs text-forest-800 bg-mint border border-forest-200 px-2.5 py-1 rounded-lg hover:bg-mint font-medium"
                   >
                     ✦ Rascunho com IA
                   </button>
@@ -303,7 +303,7 @@ export default function AdminGuidanceRequests() {
                   <button
                     onClick={respond}
                     disabled={saving || !response.trim()}
-                    className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     {saving ? 'Enviando...' : 'Enviar resposta + Notificar usuário'}
@@ -327,13 +327,13 @@ export default function AdminGuidanceRequests() {
               {filtered.map(r => (
                 <div
                   key={r.id}
-                  className="bg-white rounded-xl border border-stone-200 p-4 hover:border-stone-300 cursor-pointer transition-colors"
+                  className="bg-white rounded-xl border border-line p-4 hover:border-stone-300 cursor-pointer transition-colors"
                   onClick={() => { setSelected(r); setResponse(r.response ?? '') }}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="font-medium text-stone-800 text-sm">{r.user?.full_name ?? 'Usuário'}</p>
+                        <p className="font-medium text-forest-900 text-sm">{r.user?.full_name ?? 'Usuário'}</p>
                         {r.user?.plan && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[r.user.plan] ?? 'bg-stone-100'}`}>
                             {PLAN_LABELS[r.user.plan] ?? r.user.plan}
@@ -353,7 +353,7 @@ export default function AdminGuidanceRequests() {
                           <Clock className="w-3 h-3" /> Aguardando
                         </span>
                       ) : r.status === 'answered' ? (
-                        <span className="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-xs bg-mint text-forest-800 px-2 py-1 rounded-full">
                           <CheckCircle className="w-3 h-3" /> Respondida
                         </span>
                       ) : (

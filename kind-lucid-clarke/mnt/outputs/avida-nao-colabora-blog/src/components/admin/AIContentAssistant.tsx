@@ -301,11 +301,11 @@ export default function AIContentAssistant({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center gap-3 p-5 border-b border-stone-100">
+        <div className="flex items-center gap-3 p-5 border-b border-line">
           <div className="flex items-center gap-2 flex-1">
-            <Sparkles className="w-5 h-5 text-emerald-600" />
-            <h2 className="font-semibold text-stone-800">{label || TYPE_LABELS[contentType]}</h2>
-            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+            <Sparkles className="w-5 h-5 text-forest-700" />
+            <h2 className="font-semibold text-forest-900">{label || TYPE_LABELS[contentType]}</h2>
+            <span className="text-[10px] bg-mint text-forest-800 px-2 py-0.5 rounded-full font-medium">
               Gratuito · Sem chave
             </span>
           </div>
@@ -326,7 +326,7 @@ export default function AIContentAssistant({
                 onChange={e => setTheme(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && generate()}
                 placeholder={placeholder || 'Ex: ansiedade no trabalho, autoestima, luto...'}
-                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             </div>
           )}
@@ -338,7 +338,7 @@ export default function AIContentAssistant({
               <select
                 value={tone}
                 onChange={e => setTone(e.target.value as AITone)}
-                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
               >
                 {TONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -348,7 +348,7 @@ export default function AIContentAssistant({
               <select
                 value={size}
                 onChange={e => setSize(e.target.value as AISize)}
-                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
               >
                 {SIZES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
@@ -370,7 +370,7 @@ export default function AIContentAssistant({
                 onChange={e => setExtras(e.target.value)}
                 placeholder="Ex: incluir referência a sono, evitar mencionar remédios..."
                 rows={2}
-                className="mt-2 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="mt-2 w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             )}
           </div>
@@ -379,7 +379,7 @@ export default function AIContentAssistant({
           <button
             onClick={generate}
             disabled={status === 'generating'}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             {status === 'generating' ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
@@ -408,25 +408,25 @@ export default function AIContentAssistant({
           {status === 'done' && result && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-emerald-700 font-medium">Gerado com sucesso</span>
+                <CheckCircle className="w-4 h-4 text-forest-600" />
+                <span className="text-xs text-forest-800 font-medium">Gerado com sucesso</span>
                 <span className="text-xs text-stone-400 ml-auto">Revise antes de inserir</span>
               </div>
               <textarea
                 value={result}
                 onChange={e => setResult(e.target.value)}
                 rows={10}
-                className="w-full px-3 py-2.5 border border-emerald-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-emerald-50/30 font-mono text-xs leading-relaxed resize-y"
+                className="w-full px-3 py-2.5 border border-forest-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-mint/30 font-mono text-xs leading-relaxed resize-y"
               />
             </div>
           )}
         </div>
 
         {/* Footer com ações */}
-        <div className="p-4 border-t border-stone-100 flex items-center gap-2">
+        <div className="p-4 border-t border-line flex items-center gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-stone-500 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
+            className="px-4 py-2 text-sm text-stone-500 border border-line rounded-lg hover:bg-stone-50 transition-colors"
           >
             Cancelar
           </button>
@@ -435,20 +435,20 @@ export default function AIContentAssistant({
             <>
               <button
                 onClick={copy}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border border-line rounded-lg hover:bg-stone-50 transition-colors"
               >
-                {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <CheckCircle className="w-3.5 h-3.5 text-forest-600" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
               <button
                 onClick={generate}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border border-line rounded-lg hover:bg-stone-50 transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
               </button>
               <button
                 onClick={() => { onInsert(result); onClose() }}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-forest-700 text-white rounded-lg hover:bg-forest-800 transition-colors font-medium"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Inserir no formulário
               </button>

@@ -64,16 +64,16 @@ export default function AdminImages() {
   return (
     <div>
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {toast}
         </div>
       )}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Biblioteca de Imagens</h1>
+        <h1 className="text-2xl font-bold text-forest-900">Biblioteca de Imagens</h1>
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-50"
+          className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-50"
         >
           <Upload className="w-4 h-4" /> {uploading ? 'Enviando...' : 'Upload'}
         </button>
@@ -94,7 +94,7 @@ export default function AdminImages() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {images.map(img => (
-            <div key={img.name} className="group relative bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div key={img.name} className="group relative bg-white rounded-xl border border-line overflow-hidden">
               <img src={img.url} alt={img.name} className="w-full h-28 object-cover" />
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button onClick={() => copy(img.url)} className="p-1.5 bg-white/20 hover:bg-white/40 rounded text-white" title="Copiar URL">

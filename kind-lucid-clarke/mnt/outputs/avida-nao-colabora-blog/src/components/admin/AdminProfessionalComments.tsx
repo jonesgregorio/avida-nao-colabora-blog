@@ -133,7 +133,7 @@ export default function AdminProfessionalComments() {
   return (
     <div className="flex gap-6 h-full overflow-hidden">
       {/* Left: user selector */}
-      <div className="w-64 flex-shrink-0 flex flex-col border-r border-stone-100 pr-4">
+      <div className="w-64 flex-shrink-0 flex flex-col border-r border-line pr-4">
         <div className="mb-3">
           <h2 className="text-sm font-semibold text-sage-800 mb-3 flex items-center gap-2">
             <Star className="w-4 h-4 text-purple-500" />
@@ -145,7 +145,7 @@ export default function AdminProfessionalComments() {
               value={userSearch}
               onChange={e => setUserSearch(e.target.value)}
               placeholder="Buscar usuário Plus..."
-              className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300"
+              className="w-full pl-8 pr-3 py-2 text-xs border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-300"
             />
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function AdminProfessionalComments() {
                   <select
                     value={reportMonth}
                     onChange={e => setReportMonth(e.target.value)}
-                    className="w-full text-xs px-2.5 py-2 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-200"
+                    className="w-full text-xs px-2.5 py-2 border border-line rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-200"
                   >
                     {last12Months().map(m => (
                       <option key={m} value={m}>{monthLabel(m)}</option>
@@ -199,7 +199,7 @@ export default function AdminProfessionalComments() {
                     value={professionalName}
                     onChange={e => setProfessionalName(e.target.value)}
                     placeholder="Nome ou deixe em branco"
-                    className="w-full text-xs px-2.5 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
+                    className="w-full text-xs px-2.5 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
                   />
                 </div>
               </div>
@@ -209,7 +209,7 @@ export default function AdminProfessionalComments() {
                   <button
                     type="button"
                     onClick={() => setShowAI(true)}
-                    className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                    className="flex items-center gap-1 text-xs text-forest-800 bg-mint border border-forest-200 px-2.5 py-1 rounded-lg hover:bg-mint transition-colors font-medium"
                   >
                     <Sparkles className="w-3 h-3" /> Gerar rascunho com IA
                   </button>
@@ -229,7 +229,7 @@ export default function AdminProfessionalComments() {
                   onChange={e => setCommentText(e.target.value)}
                   placeholder="Escreva sua observação sobre o mês do usuário..."
                   rows={6}
-                  className="w-full text-sm px-3 py-2.5 border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full text-sm px-3 py-2.5 border border-line rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
                 />
               </div>
               {submitError && <p className="text-xs text-red-600 mb-2">{submitError}</p>}
@@ -252,7 +252,7 @@ export default function AdminProfessionalComments() {
               ) : comments.length === 0 ? (
                 <p className="text-xs text-stone-400 text-center py-6">Nenhum comentário enviado ainda</p>
               ) : comments.map(c => (
-                <div key={c.id} className="bg-stone-50 border border-stone-100 rounded-xl p-4 mb-2">
+                <div key={c.id} className="bg-stone-50 border border-line rounded-xl p-4 mb-2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-purple-700 capitalize">{monthLabel(c.report_month)}</span>
                     <span className="text-[10px] text-stone-400">{new Date(c.created_at).toLocaleDateString('pt-BR')}</span>

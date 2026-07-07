@@ -57,25 +57,25 @@ export default function AdminSavedItems() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">Itens Salvos</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">Itens Salvos</h1>
 
       {/* Stats por tipo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {Object.entries(byType).map(([type, count]) => (
-          <div key={type} className="bg-white rounded-xl border border-stone-200 p-4">
-            <p className="text-2xl font-bold text-stone-800">{count}</p>
+          <div key={type} className="bg-white rounded-xl border border-line p-4">
+            <p className="text-2xl font-bold text-forest-900">{count}</p>
             <p className="text-xs text-stone-500">{TYPE_LABELS[type] || type}s salvos</p>
           </div>
         ))}
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <p className="text-2xl font-bold text-stone-800">{items.length}</p>
+        <div className="bg-white rounded-xl border border-line p-4">
+          <p className="text-2xl font-bold text-forest-900">{items.length}</p>
           <p className="text-xs text-stone-500">Total de saves</p>
         </div>
       </div>
 
       {/* Artigos mais salvos */}
       {topArticles.length > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+        <div className="bg-white rounded-xl border border-line p-5 mb-6">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Artigos mais salvos</h2>
           <div className="space-y-2">
             {topArticles.map(([id, art]) => (
@@ -100,7 +100,7 @@ export default function AdminSavedItems() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por título, tipo ou usuário..."
-          className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
         />
       </div>
 
@@ -112,9 +112,9 @@ export default function AdminSavedItems() {
           <p className="text-sm">Nenhum item salvo encontrado.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-stone-50 border-b border-line">
               <tr>
                 <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs">Item</th>
                 <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs hidden md:table-cell">Tipo</th>
@@ -147,7 +147,7 @@ export default function AdminSavedItems() {
             </tbody>
           </table>
           {filtered.length > 100 && (
-            <p className="text-xs text-stone-400 px-4 py-3 border-t border-stone-100">
+            <p className="text-xs text-stone-400 px-4 py-3 border-t border-line">
               Exibindo 100 de {filtered.length} registros.
             </p>
           )}

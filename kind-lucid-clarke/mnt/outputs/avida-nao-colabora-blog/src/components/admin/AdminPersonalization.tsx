@@ -25,10 +25,10 @@ const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-100 text-stone-600',
   essential: 'bg-blue-100 text-blue-700',
   therapeutic: 'bg-purple-100 text-purple-700',
-  'therapeutic-plus': 'bg-emerald-100 text-emerald-700',
+  'therapeutic-plus': 'bg-mint text-forest-800',
 }
 const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
-const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
+const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -389,15 +389,15 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
 
         {/* Header */}
-        <div className="p-5 border-b border-stone-100 flex items-start justify-between gap-3">
+        <div className="p-5 border-b border-line flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[task.plan_key] ?? 'bg-stone-100'}`}>{PLAN_LABELS[task.plan_key] ?? task.plan_key}</span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dueCls}`}>{dueLabel}</span>
               {def && <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${priorityBadgeColors(def.priority)}`}>{PRIORITY_LABELS[def.priority]}</span>}
-              {delivery?.id && <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">Rascunho salvo</span>}
+              {delivery?.id && <span className="text-[10px] text-forest-700 font-medium bg-mint px-1.5 py-0.5 rounded">Rascunho salvo</span>}
             </div>
-            <h2 className="font-bold text-stone-800 text-lg">{task.task_title}</h2>
+            <h2 className="font-bold text-forest-900 text-lg">{task.task_title}</h2>
             <p className="text-sm text-stone-500">{profile?.full_name ?? '(sem nome)'} · {profile?.email ?? '—'}</p>
           </div>
           {!generating && !saving && !sending && (
@@ -418,7 +418,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
           {/* Fase: gerando */}
           {phase === 'generate' && generating && (
             <div className="flex flex-col items-center justify-center gap-3 py-10">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              <Loader2 className="w-8 h-8 animate-spin text-forest-600" />
               <p className="text-sm font-medium text-stone-700">Gerando conteúdo personalizado com IA...</p>
               <p className="text-xs text-stone-400">Isso pode levar alguns segundos.</p>
             </div>
@@ -429,7 +429,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
             <div className="text-center py-8 space-y-3">
               <AlertCircle className="w-8 h-8 mx-auto text-amber-400" />
               <p className="text-sm text-stone-600">Não foi possível gerar o conteúdo. Tente novamente.</p>
-              <button onClick={generateContent} className="flex items-center gap-2 mx-auto bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700">
+              <button onClick={generateContent} className="flex items-center gap-2 mx-auto bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800">
                 <Sparkles className="w-4 h-4" /> Tentar novamente
               </button>
             </div>
@@ -453,7 +453,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
               <div className="bg-stone-50 rounded-xl p-4 space-y-3">
                 <div>
                   <p className="text-xs text-stone-400 mb-1">Título</p>
-                  <p className="text-sm font-semibold text-stone-800">{editTitle}</p>
+                  <p className="text-sm font-semibold text-forest-900">{editTitle}</p>
                 </div>
                 <div>
                   <p className="text-xs text-stone-400 mb-1">Conteúdo</p>
@@ -465,13 +465,13 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
                 <button onClick={() => setPhase('edit')} className="flex items-center gap-1.5 bg-stone-100 text-stone-700 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-200">
                   <FileText className="w-3.5 h-3.5" /> Editar
                 </button>
-                <button onClick={() => setPhase('confirm-regen')} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
+                <button onClick={() => setPhase('confirm-regen')} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
                   <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
                 </button>
-                <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
+                <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
                   <Copy className="w-3.5 h-3.5" /> Copiar
                 </button>
-                <button onClick={send} disabled={sending} className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 ml-auto">
+                <button onClick={send} disabled={sending} className="flex items-center gap-1.5 bg-forest-700 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-forest-800 disabled:opacity-50 ml-auto">
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar ao usuário
                 </button>
               </div>
@@ -491,16 +491,16 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
               </div>
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-700 italic">{DISCLAIMER}</div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setPhase('confirm-regen')} disabled={generating} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+                <button onClick={() => setPhase('confirm-regen')} disabled={generating} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
                   <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
                 </button>
-                <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
+                <button onClick={() => navigator.clipboard.writeText(editBody).catch(() => {})} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50">
                   <Copy className="w-3.5 h-3.5" /> Copiar
                 </button>
-                <button onClick={saveDraft} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 border border-stone-200 text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+                <button onClick={saveDraft} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Salvar rascunho
                 </button>
-                <button onClick={send} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                <button onClick={send} disabled={saving || sending || !hasContent} className="flex items-center gap-1.5 bg-forest-700 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-forest-800 disabled:opacity-50">
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar ao usuário
                 </button>
               </div>
@@ -511,7 +511,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
           )}
 
           {/* Cancelar pendência */}
-          <div className="border-t border-stone-100 pt-3">
+          <div className="border-t border-line pt-3">
             {!showCancel ? (
               <button onClick={() => setShowCancel(true)} className="text-xs text-stone-400 hover:text-red-500">Cancelar esta pendência</button>
             ) : (
@@ -520,7 +520,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
                 <input value={cancelNote} onChange={e => setCancelNote(e.target.value)} className={inputCls} placeholder="Ex: não aplicável, usuário solicitou..." />
                 <div className="flex gap-2">
                   <button onClick={cancelTask} className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg">Confirmar cancelamento</button>
-                  <button onClick={() => setShowCancel(false)} className="text-xs border border-stone-200 text-stone-600 px-3 py-1.5 rounded-lg">Voltar</button>
+                  <button onClick={() => setShowCancel(false)} className="text-xs border border-line text-stone-600 px-3 py-1.5 rounded-lg">Voltar</button>
                 </div>
               </div>
             )}
@@ -616,8 +616,8 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
-        <div className="p-5 border-b border-stone-100 flex items-start justify-between">
-          <h2 className="font-bold text-stone-800">Gerar conteúdos com IA</h2>
+        <div className="p-5 border-b border-line flex items-start justify-between">
+          <h2 className="font-bold text-forest-900">Gerar conteúdos com IA</h2>
           {!progress?.active && <button onClick={onClose}><X className="w-5 h-5 text-stone-400" /></button>}
         </div>
 
@@ -625,7 +625,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
           {!progress && (
             <>
               <div className="bg-stone-50 rounded-xl p-4 space-y-2">
-                <p className="text-sm font-medium text-stone-700">Você está prestes a gerar conteúdos para <span className="text-emerald-700">{tasks.length} pendências</span>.</p>
+                <p className="text-sm font-medium text-stone-700">Você está prestes a gerar conteúdos para <span className="text-forest-800">{tasks.length} pendências</span>.</p>
                 <p className="text-sm text-stone-500">Cada conteúdo será criado individualmente de acordo com o plano, perfil do usuário e tipo da pendência.</p>
                 <p className="text-sm text-stone-500 font-semibold">Os conteúdos serão salvos como <span className="text-blue-600">rascunho</span>. Nenhum será enviado automaticamente.</p>
               </div>
@@ -643,10 +643,10 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
                 })}
               </div>
               <div className="flex gap-2">
-                <button onClick={run} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700">
+                <button onClick={run} className="flex items-center gap-2 bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800">
                   <Sparkles className="w-4 h-4" /> Confirmar geração
                 </button>
-                <button onClick={onClose} className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
+                <button onClick={onClose} className="text-sm border border-line text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
               </div>
             </>
           )}
@@ -659,7 +659,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
                   <span className="text-stone-500">{progress.done} / {progress.total}</span>
                 </div>
                 <div className="w-full bg-stone-100 rounded-full h-2">
-                  <div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+                  <div className="bg-forest-600 h-2 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
                 </div>
               </div>
 
@@ -671,8 +671,8 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
 
               {progress.complete && (
                 <div className="space-y-2">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-1">
-                    <p className="text-sm font-semibold text-emerald-700">{generated} rascunho{generated !== 1 ? 's' : ''} gerado{generated !== 1 ? 's' : ''} com sucesso.</p>
+                  <div className="bg-mint border border-forest-200 rounded-xl p-3 space-y-1">
+                    <p className="text-sm font-semibold text-forest-800">{generated} rascunho{generated !== 1 ? 's' : ''} gerado{generated !== 1 ? 's' : ''} com sucesso.</p>
                     <p className="text-xs text-stone-500">0 conteúdos enviados automaticamente. Revise cada rascunho antes de enviar ao usuário.</p>
                     {progress.skipped.length > 0 && <p className="text-xs text-stone-500">{progress.skipped.length} ignorado{progress.skipped.length !== 1 ? 's' : ''} (já tinham rascunho).</p>}
                     {progress.failed.length > 0 && <p className="text-xs text-red-600">{progress.failed.length} falhou{progress.failed.length !== 1 ? 'ram' : ''}.</p>}
@@ -685,7 +685,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
                       ))}
                     </div>
                   )}
-                  <button onClick={onClose} className="w-full text-sm bg-stone-700 text-white py-2 rounded-lg hover:bg-stone-800">Fechar e ir para Rascunhos</button>
+                  <button onClick={onClose} className="w-full text-sm bg-stone-700 text-white py-2 rounded-lg hover:bg-forest-900">Fechar e ir para Rascunhos</button>
                 </div>
               )}
             </div>
@@ -703,12 +703,12 @@ function CancelModal({ count, onConfirm, onClose }: { count: number; onConfirm: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
-        <h2 className="font-bold text-stone-800">Cancelar {count} pendência{count !== 1 ? 's' : ''}</h2>
+        <h2 className="font-bold text-forest-900">Cancelar {count} pendência{count !== 1 ? 's' : ''}</h2>
         <p className="text-sm text-stone-500">Motivo do cancelamento (opcional):</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} className={inputCls + ' resize-none'} placeholder="Ex: usuário mudou de plano, não aplicável este mês..." />
         <div className="flex gap-2">
           <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-red-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-red-600"><Ban className="w-4 h-4" /> Confirmar</button>
-          <button onClick={onClose} className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Voltar</button>
+          <button onClick={onClose} className="text-sm border border-line text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Voltar</button>
         </div>
       </div>
     </div>
@@ -722,12 +722,12 @@ function ResolveModal({ count, onConfirm, onClose }: { count: number; onConfirm:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
-        <h2 className="font-bold text-stone-800">Marcar {count} pendência{count !== 1 ? 's' : ''} como resolvida{count !== 1 ? 's' : ''}</h2>
+        <h2 className="font-bold text-forest-900">Marcar {count} pendência{count !== 1 ? 's' : ''} como resolvida{count !== 1 ? 's' : ''}</h2>
         <p className="text-sm text-stone-500">Como foi resolvid{count !== 1 ? 'as' : 'a'}?</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} className={inputCls + ' resize-none'} placeholder="Ex: respondido por e-mail, resolvido fora do sistema..." />
         <div className="flex gap-2">
-          <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700"><Check className="w-4 h-4" /> Confirmar</button>
-          <button onClick={onClose} className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Voltar</button>
+          <button onClick={() => onConfirm(note)} className="flex items-center gap-2 bg-forest-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800"><Check className="w-4 h-4" /> Confirmar</button>
+          <button onClick={onClose} className="text-sm border border-line text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50">Voltar</button>
         </div>
       </div>
     </div>
@@ -750,7 +750,7 @@ function SummaryCards({ allTasks, deliveryCount: _deliveryCount, onFilter }: {
     { label: 'Atrasadas',             value: allTasks.filter(t => t.status === 'overdue' || (t.due_at != null && new Date(t.due_at).getTime() < now && ['pending','draft','generated'].includes(t.status))).length, color: 'text-rose-700', bg: 'bg-rose-50 hover:bg-rose-100', tab: 'overdue' as AdminTab },
     { label: 'Vencem hoje',           value: allTasks.filter(t => t.due_at && new Date(t.due_at).toDateString() === today && ['pending','overdue'].includes(t.status)).length, color: 'text-orange-600',  bg: 'bg-orange-50 hover:bg-orange-100', tab: 'queue'    as AdminTab },
     { label: 'Rascunhos',             value: allTasks.filter(t => ['draft','generated'].includes(t.status)).length,                                            color: 'text-blue-600',    bg: 'bg-blue-50 hover:bg-blue-100',     tab: 'drafts'   as AdminTab },
-    { label: 'Resolvidas este mês',   value: allTasks.filter(t => ['sent','resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100', tab: 'resolved' as AdminTab },
+    { label: 'Resolvidas este mês',   value: allTasks.filter(t => ['sent','resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-forest-700', bg: 'bg-mint hover:bg-mint', tab: 'resolved' as AdminTab },
     { label: 'Usuários c/ pendência', value: new Set(allTasks.filter(t => ['pending','overdue'].includes(t.status)).map(t => t.user_id)).size,                 color: 'text-purple-600',  bg: 'bg-purple-50 hover:bg-purple-100', tab: 'queue'    as AdminTab },
   ]
   return (
@@ -773,24 +773,24 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Part
     <div className="flex flex-wrap gap-2 mb-3">
       <div className="relative flex-1 min-w-[160px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-        <input value={filters.search} onChange={e => onChange({ search: e.target.value })} placeholder="Buscar usuário, e-mail ou tipo..." className="w-full pl-9 pr-8 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-300" />
+        <input value={filters.search} onChange={e => onChange({ search: e.target.value })} placeholder="Buscar usuário, e-mail ou tipo..." className="w-full pl-9 pr-8 py-2 text-sm border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-300" />
         {filters.search && <button onClick={() => onChange({ search: '' })} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-stone-400" /></button>}
       </div>
-      <select value={filters.plan} onChange={e => onChange({ plan: e.target.value })} className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white">
+      <select value={filters.plan} onChange={e => onChange({ plan: e.target.value })} className="text-sm border border-line rounded-lg px-2 py-2 bg-white">
         <option value="all">Todos os planos</option>
         {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
       </select>
-      <select value={filters.taskKey} onChange={e => onChange({ taskKey: e.target.value })} className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white">
+      <select value={filters.taskKey} onChange={e => onChange({ taskKey: e.target.value })} className="text-sm border border-line rounded-lg px-2 py-2 bg-white">
         <option value="all">Todos os tipos</option>
         {taskTypes.map(d => <option key={d.key} value={d.key}>{d.title}</option>)}
       </select>
-      <select value={filters.priority} onChange={e => onChange({ priority: e.target.value })} className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white">
+      <select value={filters.priority} onChange={e => onChange({ priority: e.target.value })} className="text-sm border border-line rounded-lg px-2 py-2 bg-white">
         <option value="all">Todas as prioridades</option>
         <option value="high">Alta</option>
         <option value="medium">Média</option>
         <option value="low">Baixa</option>
       </select>
-      <select value={filters.deadline} onChange={e => onChange({ deadline: e.target.value })} className="text-sm border border-stone-200 rounded-lg px-2 py-2 bg-white">
+      <select value={filters.deadline} onChange={e => onChange({ deadline: e.target.value })} className="text-sm border border-line rounded-lg px-2 py-2 bg-white">
         <option value="all">Qualquer prazo</option>
         <option value="today">Vence hoje</option>
         <option value="tomorrow">Vence amanhã</option>
@@ -799,7 +799,7 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Part
         <option value="overdue7">Atrasado há mais de 7 dias</option>
       </select>
       {(filters.search || filters.plan !== 'all' || filters.taskKey !== 'all' || filters.priority !== 'all' || filters.deadline !== 'all') && (
-        <button onClick={() => onChange({ search: '', plan: 'all', taskKey: 'all', priority: 'all', deadline: 'all' })} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-1 border border-stone-200 rounded-lg">Limpar filtros</button>
+        <button onClick={() => onChange({ search: '', plan: 'all', taskKey: 'all', priority: 'all', deadline: 'all' })} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-1 border border-line rounded-lg">Limpar filtros</button>
       )}
     </div>
   )
@@ -812,10 +812,10 @@ function BulkActionBar({ count, onGenerate, onCancel, onResolve, onClear }: {
 }) {
   if (count === 0) return null
   return (
-    <div className="flex items-center gap-2 bg-stone-800 text-white rounded-xl px-4 py-2.5 mb-3 flex-wrap">
+    <div className="flex items-center gap-2 bg-forest-900 text-white rounded-xl px-4 py-2.5 mb-3 flex-wrap">
       <span className="text-sm font-medium">{count} pendência{count !== 1 ? 's' : ''} selecionada{count !== 1 ? 's' : ''}</span>
       <div className="flex gap-1.5 ml-auto flex-wrap">
-        <button onClick={onGenerate} className="flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg">
+        <button onClick={onGenerate} className="flex items-center gap-1 text-xs bg-forest-700 hover:bg-forest-800 px-3 py-1.5 rounded-lg">
           <Sparkles className="w-3 h-3" /> Gerar com IA
         </button>
         <button onClick={onResolve} className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg">
@@ -870,14 +870,14 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
   }
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-line overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-stone-100 bg-stone-50">
+            <tr className="border-b border-line bg-stone-50">
               <th className="py-2.5 px-3 w-8">
                 <button onClick={toggleAll} className="text-stone-400 hover:text-stone-600">
-                  {allSelected ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : someSelected ? <CheckSquare className="w-4 h-4 text-stone-400" /> : <Square className="w-4 h-4" />}
+                  {allSelected ? <CheckSquare className="w-4 h-4 text-forest-700" /> : someSelected ? <CheckSquare className="w-4 h-4 text-stone-400" /> : <Square className="w-4 h-4" />}
                 </button>
               </th>
               {['Usuário', 'Plano', 'Pendência / Título rascunho', 'Prazo', 'Prioridade', 'Status', 'Ação'].map(h => (
@@ -897,14 +897,14 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
               const inconsistent = isDraft && task.delivery_id && !hasDelivery
 
               return (
-                <tr key={task.id} className={`border-b border-stone-100 transition-colors ${isSelected ? 'bg-emerald-50/40' : 'hover:bg-stone-50/40'}`}>
+                <tr key={task.id} className={`border-b border-line transition-colors ${isSelected ? 'bg-mint/40' : 'hover:bg-stone-50/40'}`}>
                   <td className="py-3 px-3">
                     <button onClick={() => toggle(task.id)}>
-                      {isSelected ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4 text-stone-300" />}
+                      {isSelected ? <CheckSquare className="w-4 h-4 text-forest-700" /> : <Square className="w-4 h-4 text-stone-300" />}
                     </button>
                   </td>
                   <td className="py-3 px-3">
-                    <p className="text-sm font-medium text-stone-800">{profile?.full_name ?? '(sem nome)'}</p>
+                    <p className="text-sm font-medium text-forest-900">{profile?.full_name ?? '(sem nome)'}</p>
                     <p className="text-xs text-stone-400">{profile?.email ?? '—'}</p>
                   </td>
                   <td className="py-3 px-3">
@@ -931,7 +931,7 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
                   <td className="py-3 px-3 text-xs text-stone-500 whitespace-nowrap">{STATUS_LABELS[task.status] ?? task.status}</td>
                   <td className="py-3 px-3">
                     {!showResolved && (
-                      <button onClick={() => onOpen(task)} className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium whitespace-nowrap border ${isDraft && hasDelivery ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
+                      <button onClick={() => onOpen(task)} className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium whitespace-nowrap border ${isDraft && hasDelivery ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' : 'bg-mint border-forest-200 text-forest-800 hover:bg-mint'}`}>
                         <Sparkles className="w-3 h-3" />
                         {isDraft && hasDelivery ? 'Revisar rascunho' : isDraft ? 'Gerar novamente' : 'Gerar com IA'}
                       </button>
@@ -943,9 +943,9 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400">
+      <div className="px-4 py-2 border-t border-line flex items-center justify-between text-xs text-stone-400">
         <span>{tasks.length} item{tasks.length !== 1 ? 's' : ''}</span>
-        {someSelected && <span className="text-emerald-600 font-medium">{selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}</span>}
+        {someSelected && <span className="text-forest-700 font-medium">{selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}</span>}
       </div>
     </div>
   )
@@ -970,7 +970,7 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-4">
-        <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="text-sm border border-stone-200 rounded-lg px-3 py-2" />
+        <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="text-sm border border-line rounded-lg px-3 py-2" />
         <span className="text-sm text-stone-400">{deliveries.length} envio{deliveries.length !== 1 ? 's' : ''}</span>
       </div>
       {loading ? (
@@ -978,11 +978,11 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
       ) : deliveries.length === 0 ? (
         <p className="text-center py-12 text-stone-400 text-sm">Nenhum envio neste mês.</p>
       ) : (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-100 bg-stone-50">
+                <tr className="border-b border-line bg-stone-50">
                   {['Data', 'Usuário', 'Plano', 'Título enviado', 'Destino', 'Lido', ''].map(h => (
                     <th key={h} className="py-2.5 px-3 text-left text-xs font-semibold text-stone-500 whitespace-nowrap">{h}</th>
                   ))}
@@ -992,7 +992,7 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
                 {deliveries.map(d => {
                   const profile = profileMap[d.user_id]
                   return (
-                    <tr key={d.id} className="border-b border-stone-100 hover:bg-stone-50/50">
+                    <tr key={d.id} className="border-b border-line hover:bg-stone-50/50">
                       <td className="py-2.5 px-3 text-xs text-stone-500 whitespace-nowrap">{d.sent_at ? new Date(d.sent_at).toLocaleDateString('pt-BR') : '—'}</td>
                       <td className="py-2.5 px-3">
                         <p className="text-sm font-medium text-stone-700">{profile?.full_name ?? '(sem nome)'}</p>
@@ -1002,10 +1002,10 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
                       <td className="py-2.5 px-3 text-sm text-stone-700 max-w-xs truncate">{d.title}</td>
                       <td className="py-2.5 px-3 text-xs text-stone-500">{TARGET_AREA_LABELS[d.target_area ?? ''] ?? d.target_area ?? '—'}</td>
                       <td className="py-2.5 px-3">
-                        {d.read_at ? <span className="text-xs text-emerald-600">✓ Lido</span> : <span className="text-xs text-stone-400">Não lido</span>}
+                        {d.read_at ? <span className="text-xs text-forest-700">✓ Lido</span> : <span className="text-xs text-stone-400">Não lido</span>}
                       </td>
                       <td className="py-2.5 px-3">
-                        <button onClick={() => setExpanded(expanded === d.id ? null : d.id)} className="text-xs text-emerald-600 hover:text-emerald-700">{expanded === d.id ? 'Fechar' : 'Ver'}</button>
+                        <button onClick={() => setExpanded(expanded === d.id ? null : d.id)} className="text-xs text-forest-700 hover:text-forest-800">{expanded === d.id ? 'Fechar' : 'Ver'}</button>
                         {expanded === d.id && (
                           <div className="mt-2 bg-stone-50 rounded-lg p-2 max-w-xs">
                             <p className="text-xs text-stone-600 whitespace-pre-wrap line-clamp-6">{d.body}</p>
@@ -1166,7 +1166,7 @@ export default function AdminPersonalization() {
   return (
     <div>
       {/* Toast */}
-      {toast && <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>{toast.msg}</div>}
+      {toast && <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>{toast.msg}</div>}
 
       {/* Editor / DraftEditor */}
       {editorTask && (
@@ -1197,12 +1197,12 @@ export default function AdminPersonalization() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-emerald-600" /> Personalização por Plano
+          <h1 className="text-2xl font-bold text-forest-900 flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-forest-700" /> Personalização por Plano
           </h1>
           <p className="text-sm text-stone-500 mt-0.5">Fila inteligente de entregas personalizadas por plano</p>
         </div>
-        <button onClick={doRefreshTasks} disabled={refreshing} className="flex items-center gap-2 text-sm border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
+        <button onClick={doRefreshTasks} disabled={refreshing} className="flex items-center gap-2 text-sm border border-line text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
           {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {refreshing ? 'Atualizando...' : 'Atualizar pendências'}
         </button>
@@ -1212,12 +1212,12 @@ export default function AdminPersonalization() {
       <SummaryCards allTasks={allTasks} deliveryCount={sentDeliveryCount} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()); setPage(1) }} />
 
       {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-stone-200 mb-4 overflow-x-auto">
+      <div className="flex gap-0.5 border-b border-line mb-4 overflow-x-auto">
         {TAB_CONFIG.map(t => (
-          <button key={t.id} onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); setPage(1) }} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap flex items-center gap-1.5 ${activeTab === t.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
+          <button key={t.id} onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); setPage(1) }} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap flex items-center gap-1.5 ${activeTab === t.id ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>
             {t.label}
             {tabCounts[t.id] > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === t.id ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>{tabCounts[t.id]}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === t.id ? 'bg-mint text-forest-800' : 'bg-stone-100 text-stone-500'}`}>{tabCounts[t.id]}</span>
             )}
           </button>
         ))}
@@ -1259,7 +1259,7 @@ export default function AdminPersonalization() {
             <div className="flex justify-center mt-4">
               <button
                 onClick={() => setPage(p => p + 1)}
-                className="text-sm border border-stone-200 text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50"
+                className="text-sm border border-line text-stone-600 px-4 py-2 rounded-lg hover:bg-stone-50"
               >
                 Carregar mais ({filteredTasks.length - pagedTasks.length} restantes)
               </button>

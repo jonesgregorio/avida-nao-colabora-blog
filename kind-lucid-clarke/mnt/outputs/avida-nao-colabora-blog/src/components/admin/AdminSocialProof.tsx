@@ -23,7 +23,7 @@ interface SiteMetric {
   updated_at: string
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminSocialProof() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
@@ -107,15 +107,15 @@ export default function AdminSocialProof() {
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
+      {toast && <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">Prova Social</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">Prova Social</h1>
 
       {/* Metrics */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Métricas do site</h2>
-          <button onClick={saveMetrics} disabled={savingMetrics} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-emerald-700 disabled:opacity-50">
+          <button onClick={saveMetrics} disabled={savingMetrics} className="flex items-center gap-2 bg-forest-700 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-forest-800 disabled:opacity-50">
             <Save className="w-3 h-3" /> {savingMetrics ? 'Salvando...' : 'Salvar métricas'}
           </button>
         </div>
@@ -140,13 +140,13 @@ export default function AdminSocialProof() {
       {/* Testimonials */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Depoimentos</h2>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-stone-800 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-stone-700">
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-forest-900 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-forest-800">
           <Plus className="w-3.5 h-3.5" /> Novo depoimento
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-5 space-y-4">
+        <div className="bg-white rounded-xl border border-line p-5 mb-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-stone-500 mb-1">Nome</label>
@@ -169,7 +169,7 @@ export default function AdminSocialProof() {
               <button
                 type="button"
                 onClick={() => setShowAI(true)}
-                className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                className="flex items-center gap-1 text-xs text-forest-800 bg-mint border border-forest-200 px-2.5 py-1 rounded-lg hover:bg-mint transition-colors font-medium"
               >
                 <Sparkles className="w-3 h-3" /> Gerar com IA
               </button>
@@ -186,26 +186,26 @@ export default function AdminSocialProof() {
             <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="O que a pessoa disse sobre a plataforma..." className={inputCls} />
           </div>
           <div className="flex gap-2">
-            <button onClick={saveTestimonial} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+            <button onClick={saveTestimonial} disabled={saving} className="px-4 py-2 bg-forest-700 text-white text-sm rounded-lg hover:bg-forest-800 disabled:opacity-50">
               {saving ? 'Salvando...' : 'Salvar'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-stone-200 text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-line text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
           </div>
         </div>
       )}
 
       {loading ? null : testimonials.length === 0 ? (
-        <div className="text-center py-12 text-stone-400 bg-white rounded-xl border border-stone-200">
+        <div className="text-center py-12 text-stone-400 bg-white rounded-xl border border-line">
           <Star className="w-8 h-8 mx-auto mb-3 opacity-40" />
           <p className="text-sm">Nenhum depoimento cadastrado ainda.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {testimonials.map(t => (
-            <div key={t.id} className={`bg-white rounded-xl border p-4 ${!t.active ? 'opacity-60' : 'border-stone-200'}`}>
+            <div key={t.id} className={`bg-white rounded-xl border p-4 ${!t.active ? 'opacity-60' : 'border-line'}`}>
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-semibold text-stone-800 text-sm">{t.name}</p>
+                  <p className="font-semibold text-forest-900 text-sm">{t.name}</p>
                   {t.role && <p className="text-xs text-stone-400">{t.role}</p>}
                   <div className="flex mt-1">
                     {Array.from({ length: 5 }).map((_, i) => (

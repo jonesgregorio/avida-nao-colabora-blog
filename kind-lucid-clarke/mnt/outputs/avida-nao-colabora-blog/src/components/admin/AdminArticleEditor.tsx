@@ -178,7 +178,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   return (
     <div className="max-w-4xl">
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
@@ -200,14 +200,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         <button onClick={onBack} className="text-stone-400 hover:text-stone-700">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-stone-800 flex-1">
+        <h1 className="text-2xl font-bold text-forest-900 flex-1">
           {articleId ? 'Editar artigo' : 'Novo artigo'}
         </h1>
         <div className="flex gap-2">
           <button
             onClick={() => save('draft')}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> Salvar rascunho
           </button>
@@ -224,11 +224,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* Painel de IA */}
-          <div className="bg-gradient-to-r from-emerald-50 to-stone-50 border border-emerald-200 rounded-xl p-4">
+          <div className="bg-gradient-to-r from-mint to-stone-50 border border-forest-200 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-semibold text-emerald-800">Assistente de IA</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
+              <Sparkles className="w-4 h-4 text-forest-700" />
+              <span className="text-sm font-semibold text-forest-900">Assistente de IA</span>
+              <span className="text-[10px] bg-mint text-forest-800 px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {([
@@ -244,7 +244,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <button
                   key={btn.type}
                   onClick={() => setAiModal(btn)}
-                  className="text-xs bg-white border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors font-medium"
+                  className="text-xs bg-white border border-forest-200 text-forest-800 px-3 py-1.5 rounded-lg hover:bg-mint transition-colors font-medium"
                 >
                   ✦ {btn.label}
                 </button>
@@ -252,7 +252,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Conteúdo</h2>
             <Field label="Título">
               <input value={data.title} onChange={e => set('title', e.target.value)} placeholder="Título do artigo" className={inputCls} />
@@ -271,7 +271,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </Field>
           </div>
 
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">SEO</h2>
             <Field label="Título SEO">
               <input value={data.seo_title} onChange={e => set('seo_title', e.target.value)} placeholder="Título para mecanismos de busca" className={inputCls} />
@@ -282,7 +282,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </Field>
           </div>
 
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">CTA</h2>
             <Field label="Texto do CTA">
               <input value={data.cta_text} onChange={e => set('cta_text', e.target.value)} placeholder="Ex: Abra seu diário agora" className={inputCls} />
@@ -294,7 +294,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Publicação</h2>
             <Field label="Status">
               <select value={data.status} onChange={e => set('status', e.target.value)} className={inputCls}>
@@ -332,7 +332,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </Field>
           </div>
 
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Imagem de capa</h2>
             <Field label="URL da imagem">
               <input value={data.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://..." className={inputCls} />
@@ -341,7 +341,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <input value={data.image_alt} onChange={e => set('image_alt', e.target.value)} placeholder="Descrição da imagem" className={inputCls} />
             </Field>
             {data.image_url && (
-              <img src={data.image_url} alt={data.image_alt || 'Capa'} className="w-full h-32 object-cover rounded-lg border border-stone-200" />
+              <img src={data.image_url} alt={data.image_alt || 'Capa'} className="w-full h-32 object-cover rounded-lg border border-line" />
             )}
           </div>
         </div>
@@ -350,7 +350,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   )
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300 bg-white"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300 bg-white"
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

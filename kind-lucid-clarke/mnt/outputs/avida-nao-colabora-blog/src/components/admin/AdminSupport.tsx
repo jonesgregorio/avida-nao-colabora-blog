@@ -163,7 +163,7 @@ const SUMMARY_CARDS = [
   { key: 'in_progress', label: 'Em atendimento', color: 'bg-orange-50 border-orange-200 text-orange-700' },
   { key: 'awaiting_user', label: 'Aguardando cliente', color: 'bg-purple-50 border-purple-200 text-purple-700' },
   { key: 'resolved', label: 'Resolvidos', color: 'bg-green-50 border-green-200 text-green-700' },
-  { key: 'closed', label: 'Fechados', color: 'bg-stone-50 border-stone-200 text-stone-500' },
+  { key: 'closed', label: 'Fechados', color: 'bg-stone-50 border-line text-stone-500' },
 ]
 
 const KANBAN_COLUMNS = [
@@ -432,7 +432,7 @@ export default function AdminSupport() {
     ? [descriptionAsMessage(selectedTicket), ...messages]
     : []
 
-  const selectCls = 'px-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 disabled:opacity-50'
+  const selectCls = 'px-2 py-1.5 text-xs border border-line rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 disabled:opacity-50'
   const isClosed = selectedTicket?.status === 'closed' || selectedTicket?.status === 'resolved'
 
   return (
@@ -440,13 +440,13 @@ export default function AdminSupport() {
       {/* Left panel */}
       <div className={`flex flex-col flex-1 min-w-0 ${selectedTicket ? 'hidden lg:flex' : 'flex'}`}>
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-stone-100 flex-shrink-0">
+        <div className="px-6 pt-6 pb-4 border-b border-line flex-shrink-0">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
               <MessageSquare className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <h1 className="font-semibold text-stone-800">Central de Suporte</h1>
+              <h1 className="font-semibold text-forest-900">Central de Suporte</h1>
               {unreadCount > 0 && (
                 <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
                   {unreadCount} não lido{unreadCount !== 1 ? 's' : ''}
@@ -456,14 +456,14 @@ export default function AdminSupport() {
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-forest-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
                 title="Lista"
               >
                 <LayoutList className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('kanban')}
-                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'kanban' ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'kanban' ? 'bg-forest-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
                 title="Kanban"
               >
                 <Columns className="w-4 h-4" />
@@ -492,7 +492,7 @@ export default function AdminSupport() {
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input
-              className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+              className="w-full pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
               placeholder="Buscar por usuário, assunto ou nº..."
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -511,7 +511,7 @@ export default function AdminSupport() {
             <select
               value={priorityFilter}
               onChange={e => setPriorityFilter(e.target.value)}
-              className="text-xs px-2 py-1.5 border border-stone-200 rounded-full bg-white focus:outline-none"
+              className="text-xs px-2 py-1.5 border border-line rounded-full bg-white focus:outline-none"
             >
               <option value="">Prioridade</option>
               <option value="low">Baixa</option>
@@ -527,7 +527,7 @@ export default function AdminSupport() {
               <button
                 key={tab.key}
                 onClick={() => setStatusTab(tab.key)}
-                className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusTab === tab.key ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusTab === tab.key ? 'bg-forest-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
               >
                 {tab.label}
               </button>
@@ -569,7 +569,7 @@ export default function AdminSupport() {
                             <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium animate-pulse">Nova mensagem</span>
                           )}
                         </div>
-                        <p className="text-sm font-medium text-stone-800 truncate">{ticket.subject}</p>
+                        <p className="text-sm font-medium text-forest-900 truncate">{ticket.subject}</p>
                         <div className="flex items-center gap-2 mt-0.5 text-xs text-stone-400">
                           <span>{ticket.user_name ?? 'Usuário'}</span>
                           {ticket.user_plan && (
@@ -603,7 +603,7 @@ export default function AdminSupport() {
                         <button
                           key={ticket.id}
                           onClick={() => openDrawer(ticket)}
-                          className="w-full text-left bg-white border border-stone-100 rounded-xl p-3 hover:shadow-sm transition-shadow"
+                          className="w-full text-left bg-white border border-line rounded-xl p-3 hover:shadow-sm transition-shadow"
                         >
                           <div className="flex items-center gap-1.5 mb-1">
                             <span className="text-[10px] text-stone-400 font-mono">#{ticket.ticket_number}</span>
@@ -614,7 +614,7 @@ export default function AdminSupport() {
                               <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                             )}
                           </div>
-                          <p className="text-xs font-medium text-stone-800 line-clamp-2">{ticket.subject}</p>
+                          <p className="text-xs font-medium text-forest-900 line-clamp-2">{ticket.subject}</p>
                           <p className="text-[10px] text-stone-400 mt-1">{ticket.user_name ?? 'Usuário'} · {timeAgo(ticket.created_at)}</p>
                         </button>
                       ))}
@@ -632,9 +632,9 @@ export default function AdminSupport() {
 
       {/* Right drawer */}
       {selectedTicket && (
-        <div className="flex flex-col w-full lg:w-[560px] border-l border-stone-100 bg-white flex-shrink-0 overflow-hidden">
+        <div className="flex flex-col w-full lg:w-[560px] border-l border-line bg-white flex-shrink-0 overflow-hidden">
           {/* Drawer header */}
-          <div className="px-5 py-4 border-b border-stone-100 flex-shrink-0">
+          <div className="px-5 py-4 border-b border-line flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -650,7 +650,7 @@ export default function AdminSupport() {
                     </span>
                   )}
                 </div>
-                <p className="font-semibold text-stone-800 leading-snug">{selectedTicket.subject}</p>
+                <p className="font-semibold text-forest-900 leading-snug">{selectedTicket.subject}</p>
                 {/* User info row */}
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-stone-500">{selectedTicket.user_name ?? 'Usuário'}</span>
@@ -724,7 +724,7 @@ export default function AdminSupport() {
                 <button
                   onClick={() => updateTicket('status', 'closed')}
                   disabled={updatingStatus}
-                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-stone-50 border border-line text-stone-600 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-50"
                 >
                   Fechar ticket
                 </button>
@@ -756,7 +756,7 @@ export default function AdminSupport() {
               }
               return (
                 <div key={msg.id} className={`flex ${isAdminMsg ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-blue-600 text-white' : 'bg-white border border-stone-100 text-stone-800'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-blue-600 text-white' : 'bg-white border border-line text-forest-900'}`}>
                     {!isAdminMsg && (
                       <p className="text-[10px] font-semibold text-blue-600 mb-1">{msg.sender_name ?? 'Usuário'}</p>
                     )}
@@ -772,7 +772,7 @@ export default function AdminSupport() {
           </div>
 
           {/* Reply area */}
-          <div className="flex-shrink-0 p-4 border-t border-stone-100 bg-white">
+          <div className="flex-shrink-0 p-4 border-t border-line bg-white">
             {sendError && (
               <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-2">
                 <AlertTriangle className="w-3.5 h-3.5" /> {sendError}
@@ -780,7 +780,7 @@ export default function AdminSupport() {
             )}
 
             {isClosed ? (
-              <div className="flex items-center justify-between gap-2 text-sm text-stone-400 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between gap-2 text-sm text-stone-400 bg-stone-50 border border-line rounded-xl px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 flex-shrink-0" />
                   {selectedTicket.status === 'resolved' ? 'Ticket resolvido.' : 'Ticket fechado.'}
@@ -800,7 +800,7 @@ export default function AdminSupport() {
                   <button
                     type="button"
                     onClick={() => setShowTemplatePanel(v => !v)}
-                    className="w-full flex items-center justify-between text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    className="w-full flex items-center justify-between text-xs px-2 py-1.5 border border-line rounded-lg bg-white hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
                   >
                     <span className="text-stone-500">{selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.title ?? 'Usar template...' : 'Usar template...'}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${showTemplatePanel ? 'rotate-180' : ''}`} />
@@ -811,8 +811,8 @@ export default function AdminSupport() {
                       .filter(t => !templateCategory || t.category === templateCategory)
                       .filter(t => !templateSearch || t.title.toLowerCase().includes(templateSearch.toLowerCase()) || t.body.toLowerCase().includes(templateSearch.toLowerCase()))
                     return (
-                      <div className="mt-1 border border-stone-200 rounded-xl bg-white shadow-lg z-10 overflow-hidden">
-                        <div className="p-2 border-b border-stone-100 flex gap-2">
+                      <div className="mt-1 border border-line rounded-xl bg-white shadow-lg z-10 overflow-hidden">
+                        <div className="p-2 border-b border-line flex gap-2">
                           <div className="relative flex-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
                             <input
@@ -820,13 +820,13 @@ export default function AdminSupport() {
                               value={templateSearch}
                               onChange={e => setTemplateSearch(e.target.value)}
                               placeholder="Buscar template..."
-                              className="w-full pl-6 pr-2 py-1 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300"
+                              className="w-full pl-6 pr-2 py-1 text-xs border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300"
                             />
                           </div>
                           <select
                             value={templateCategory}
                             onChange={e => setTemplateCategory(e.target.value)}
-                            className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none"
+                            className="text-xs px-2 py-1 border border-line rounded-lg bg-white focus:outline-none"
                           >
                             <option value="">Todas categorias</option>
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -861,7 +861,7 @@ export default function AdminSupport() {
                 <div className="flex items-center gap-2 mb-2">
                   <button
                     onClick={() => setIsInternal(v => !v)}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${isInternal ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-white border-stone-200 text-stone-500 hover:bg-stone-50'}`}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${isInternal ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-white border-line text-stone-500 hover:bg-stone-50'}`}
                   >
                     <Lock className="w-3 h-3" />
                     {isInternal ? 'Nota interna ativada' : 'Nota interna'}
@@ -879,7 +879,7 @@ export default function AdminSupport() {
                     onKeyDown={handleKeyDown}
                     rows={3}
                     disabled={sending}
-                    className={`flex-1 resize-none px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${isInternal ? 'border-amber-300 focus:ring-amber-200' : 'border-stone-200 focus:ring-blue-200'}`}
+                    className={`flex-1 resize-none px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${isInternal ? 'border-amber-300 focus:ring-amber-200' : 'border-line focus:ring-blue-200'}`}
                   />
                   <button
                     onClick={handleSend}

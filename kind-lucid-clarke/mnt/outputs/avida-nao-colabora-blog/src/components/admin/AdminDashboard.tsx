@@ -143,7 +143,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">Dashboard</h1>
 
       {loading ? (
         <div className="flex items-center gap-3 text-stone-400">
@@ -160,12 +160,12 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
                 <div
                   key={i}
                   onClick={() => onNavigate(card.nav)}
-                  className="bg-white rounded-xl p-4 border border-stone-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl p-4 border border-line shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <div className={`w-9 h-9 rounded-lg ${card.color} flex items-center justify-center mb-3`}>
                     <Icon className="w-4 h-4" />
                   </div>
-                  <p className="text-2xl font-bold text-stone-800">{card.value}</p>
+                  <p className="text-2xl font-bold text-forest-900">{card.value}</p>
                   <p className="text-xs text-stone-500 mt-0.5 leading-snug">{card.label}</p>
                 </div>
               )
@@ -203,7 +203,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
             </div>
 
             {/* Plan distribution */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <div className="bg-white rounded-xl border border-line p-5">
               <h2 className="font-semibold text-stone-700 text-sm mb-3">Distribuição de planos</h2>
               {Object.keys(stats.planCounts).length === 0 ? (
                 <p className="text-stone-400 text-sm">Sem dados</p>
@@ -219,7 +219,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
                           <span>{count} ({pct}%)</span>
                         </div>
                         <div className="w-full bg-stone-100 rounded-full h-1.5">
-                          <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                          <div className="bg-forest-600 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     )
@@ -230,8 +230,8 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
           </div>
 
           {/* Quick actions */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <h2 className="font-semibold text-stone-800 mb-3 text-sm">Ações rápidas</h2>
+          <div className="bg-white rounded-xl border border-line p-5">
+            <h2 className="font-semibold text-forest-900 mb-3 text-sm">Ações rápidas</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { label: '✏️ Novo artigo', nav: 'article-editor' as AdminView },

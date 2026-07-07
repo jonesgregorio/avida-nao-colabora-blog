@@ -92,7 +92,7 @@ export default function AdminSEO() {
   return (
     <div>
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {toast}
         </div>
       )}
@@ -114,19 +114,19 @@ export default function AdminSEO() {
         />
       )}
 
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">SEO</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">SEO</h1>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <p className="text-2xl font-bold text-stone-800">{articles.length}</p>
+        <div className="bg-white rounded-xl border border-line p-4">
+          <p className="text-2xl font-bold text-forest-900">{articles.length}</p>
           <p className="text-xs text-stone-500">Artigos publicados</p>
         </div>
-        <div className={`rounded-xl border p-4 ${ok === articles.length ? 'bg-green-50 border-green-200' : 'bg-white border-stone-200'}`}>
+        <div className={`rounded-xl border p-4 ${ok === articles.length ? 'bg-green-50 border-green-200' : 'bg-white border-line'}`}>
           <p className="text-2xl font-bold text-green-600">{ok}</p>
           <p className="text-xs text-stone-500">Sem problemas</p>
         </div>
-        <div className={`rounded-xl border p-4 ${totalIssues > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-stone-200'}`}>
+        <div className={`rounded-xl border p-4 ${totalIssues > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-line'}`}>
           <p className="text-2xl font-bold text-red-600">{totalIssues}</p>
           <p className="text-xs text-stone-500">Com problemas SEO</p>
         </div>
@@ -136,13 +136,13 @@ export default function AdminSEO() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setFilter('issues')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'issues' ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'issues' ? 'bg-forest-900 text-white' : 'bg-white border border-line text-stone-600 hover:bg-stone-50'}`}
         >
           Com problemas ({totalIssues})
         </button>
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-forest-900 text-white' : 'bg-white border border-line text-stone-600 hover:bg-stone-50'}`}
         >
           Todos ({articles.length})
         </button>
@@ -161,7 +161,7 @@ export default function AdminSEO() {
             const probs = issues(a)
             const isEditing = editId === a.id
             return (
-              <div key={a.id} className={`bg-white rounded-xl border p-4 ${probs.length > 0 ? 'border-red-100' : 'border-stone-200'}`}>
+              <div key={a.id} className={`bg-white rounded-xl border p-4 ${probs.length > 0 ? 'border-red-100' : 'border-line'}`}>
                 <div className="flex items-start gap-3">
                   {probs.length > 0
                     ? <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -170,13 +170,13 @@ export default function AdminSEO() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-medium text-stone-800 text-sm leading-snug">{a.title}</p>
+                        <p className="font-medium text-forest-900 text-sm leading-snug">{a.title}</p>
                         <p className="text-xs text-stone-400 mt-0.5">{a.slug}</p>
                       </div>
                       {!isEditing && (
                         <button
                           onClick={() => openEdit(a)}
-                          className="flex-shrink-0 text-xs px-3 py-1 border border-stone-200 rounded-lg text-stone-600 hover:bg-stone-50"
+                          className="flex-shrink-0 text-xs px-3 py-1 border border-line rounded-lg text-stone-600 hover:bg-stone-50"
                         >
                           Editar SEO
                         </button>
@@ -184,7 +184,7 @@ export default function AdminSEO() {
                     </div>
 
                     {isEditing ? (
-                      <div className="mt-3 space-y-3 border-t border-stone-100 pt-3">
+                      <div className="mt-3 space-y-3 border-t border-line pt-3">
                         <div>
                           <label className="block text-xs text-stone-500 mb-1">
                             Título SEO{' '}
@@ -219,21 +219,21 @@ export default function AdminSEO() {
                         <div className="flex gap-2 flex-wrap">
                           <button
                             onClick={() => setAiArticle(a)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-mint border border-forest-200 text-forest-800 text-xs rounded-lg hover:bg-mint transition-colors font-medium"
                           >
                             <Sparkles className="w-3 h-3" /> Gerar SEO com IA
                           </button>
                           <button
                             onClick={saveEdit}
                             disabled={saving}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-forest-700 text-white text-xs rounded-lg hover:bg-forest-800 disabled:opacity-50"
                           >
                             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                             {saving ? 'Salvando...' : 'Salvar'}
                           </button>
                           <button
                             onClick={() => setEditId(null)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 text-stone-600 text-xs rounded-lg hover:bg-stone-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 border border-line text-stone-600 text-xs rounded-lg hover:bg-stone-50"
                           >
                             <X className="w-3 h-3" /> Cancelar
                           </button>
@@ -270,4 +270,4 @@ export default function AdminSEO() {
   )
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"

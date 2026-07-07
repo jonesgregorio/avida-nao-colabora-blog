@@ -26,7 +26,7 @@ const _STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-stone-100 text-stone-400',
 }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminScheduled() {
   const [items, setItems] = useState<ScheduledContent[]>([])
@@ -121,14 +121,14 @@ export default function AdminScheduled() {
   return (
     <div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Conteúdos Programados</h1>
-        <button onClick={openNew} className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700">
+        <h1 className="text-2xl font-bold text-forest-900">Conteúdos Programados</h1>
+        <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
           <Plus className="w-4 h-4" /> Novo programado
         </button>
       </div>
@@ -144,7 +144,7 @@ export default function AdminScheduled() {
       )}
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-4">
+        <div className="bg-white rounded-xl border border-line p-5 mb-6 space-y-4">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">{editing ? 'Editar' : 'Novo conteúdo programado'}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -177,7 +177,7 @@ export default function AdminScheduled() {
                 <button
                   type="button"
                   onClick={() => setShowAI(true)}
-                  className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+                  className="flex items-center gap-1 text-xs text-forest-800 bg-mint border border-forest-200 px-2.5 py-1 rounded-lg hover:bg-mint transition-colors font-medium"
                 >
                   <Sparkles className="w-3 h-3" /> Gerar com IA
                 </button>
@@ -186,10 +186,10 @@ export default function AdminScheduled() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+            <button onClick={save} disabled={saving} className="px-4 py-2 bg-forest-700 text-white text-sm rounded-lg hover:bg-forest-800 disabled:opacity-50">
               {saving ? 'Salvando...' : 'Salvar'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-stone-200 text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-line text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
           </div>
         </div>
       )}
@@ -233,9 +233,9 @@ function ContentTable({ items, onEdit, onCancel, onDelete }: {
     cancelled: 'bg-stone-100 text-stone-400',
   }
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-line overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-stone-50 border-b border-stone-200">
+        <thead className="bg-stone-50 border-b border-line">
           <tr>
             <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs">Título</th>
             <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs hidden md:table-cell">Tipo</th>
@@ -248,7 +248,7 @@ function ContentTable({ items, onEdit, onCancel, onDelete }: {
           {items.map(item => (
             <tr key={item.id} className="hover:bg-stone-50">
               <td className="px-4 py-3">
-                <p className="font-medium text-stone-800 leading-snug">{item.title}</p>
+                <p className="font-medium text-forest-900 leading-snug">{item.title}</p>
                 {item.recurrence && <p className="text-xs text-stone-400">🔁 {item.recurrence}</p>}
               </td>
               <td className="px-4 py-3 text-stone-500 text-xs hidden md:table-cell">{item.type}</td>

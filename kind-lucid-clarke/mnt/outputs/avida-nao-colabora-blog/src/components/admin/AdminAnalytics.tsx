@@ -90,14 +90,14 @@ export default function AdminAnalytics() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-stone-800">Analytics</h1>
+        <h1 className="text-2xl font-bold text-forest-900">Analytics</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => load(true)} disabled={refreshing}
             className="p-2 text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors">
             <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
           </button>
           <select value={period} onChange={e => setPeriod(e.target.value)}
-            className="border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none">
+            className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none">
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
             <option value="90">Últimos 90 dias</option>
@@ -127,7 +127,7 @@ export default function AdminAnalytics() {
                 <div className={`inline-flex p-2 rounded-lg mb-3 ${color.split(' ')[1]}`}>
                   <Icon size={18} className={color.split(' ')[0]} />
                 </div>
-                <p className="text-2xl font-bold text-stone-800">{loading ? '…' : value}</p>
+                <p className="text-2xl font-bold text-forest-900">{loading ? '…' : value}</p>
                 <p className="text-xs text-stone-500 mt-1">{label}</p>
               </div>
             ))}

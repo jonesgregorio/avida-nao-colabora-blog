@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 
 interface Category { id: string; name: string; slug: string; description: string; is_active: boolean }
 
-const inputCls = "w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminCategories() {
   const [cats, setCats] = useState<Category[]>([])
@@ -70,14 +70,14 @@ export default function AdminCategories() {
   return (
     <div className="max-w-2xl">
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-stone-800'}`}>
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>
           {toast.msg}
         </div>
       )}
 
-      <h1 className="text-2xl font-bold text-stone-800 mb-6">Categorias</h1>
+      <h1 className="text-2xl font-bold text-forest-900 mb-6">Categorias</h1>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-6 space-y-3">
+      <div className="bg-white rounded-xl border border-line p-5 mb-6 space-y-3">
         <h2 className="font-semibold text-stone-700 text-sm">Nova categoria</h2>
         <input
           value={newName}
@@ -95,18 +95,18 @@ export default function AdminCategories() {
         <button
           onClick={create}
           disabled={saving}
-          className="flex items-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-50"
+          className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-50"
         >
           <Plus className="w-4 h-4" /> {saving ? 'Criando...' : 'Criar'}
         </button>
       </div>
 
       {loading ? <p className="text-stone-400 text-sm">Carregando...</p> : (
-        <div className="bg-white rounded-xl border border-stone-200 divide-y divide-stone-100">
+        <div className="bg-white rounded-xl border border-line divide-y divide-stone-100">
           {cats.map(cat => (
             <div key={cat.id} className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className={`text-sm font-medium ${cat.is_active ? 'text-stone-800' : 'text-stone-400'}`}>{cat.name}</p>
+                <p className={`text-sm font-medium ${cat.is_active ? 'text-forest-900' : 'text-stone-400'}`}>{cat.name}</p>
                 <p className="text-xs text-stone-400">{cat.slug}{cat.description ? ` — ${cat.description}` : ''}</p>
               </div>
               <div className="flex items-center gap-1">

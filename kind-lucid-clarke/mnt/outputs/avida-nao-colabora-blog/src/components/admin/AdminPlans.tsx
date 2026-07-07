@@ -41,7 +41,7 @@ const DEFAULT_PLAN_CONFIGS: PlanConfig[] = OFFICIAL_PLANS.map(p => ({
   inheritPreviousPlan: DEFAULT_INHERIT[p.key],
 }))
 
-const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
+const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 const categories = Array.from(new Set(OFFICIAL_FEATURES.map(f => f.category))).sort()
 
 export default function AdminPlans() {
@@ -260,7 +260,7 @@ export default function AdminPlans() {
   return (
     <div className="max-w-6xl">
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white max-w-sm ${toast.ok ? 'bg-emerald-600' : 'bg-red-600'}`}>
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white max-w-sm ${toast.ok ? 'bg-forest-700' : 'bg-red-600'}`}>
           {toast.msg}
         </div>
       )}
@@ -294,8 +294,8 @@ export default function AdminPlans() {
             Restaurar padrão oficial
           </button>
           <div className="flex bg-stone-100 rounded-lg p-1 gap-1">
-            <button onClick={() => setViewMode('cards')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === 'cards' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Cards</button>
-            <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === 'table' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Tabela</button>
+            <button onClick={() => setViewMode('cards')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === 'cards' ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Cards</button>
+            <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === 'table' ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Tabela</button>
           </div>
         </div>
       </div>
@@ -304,13 +304,13 @@ export default function AdminPlans() {
       {confirmRestore && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-semibold text-stone-800 mb-2">Restaurar padrão oficial?</h3>
+            <h3 className="font-semibold text-forest-900 mb-2">Restaurar padrão oficial?</h3>
             <p className="text-sm text-stone-500 mb-5">
               Isso irá restaurar os benefícios e a herança oficial dos planos, sobrescrevendo alterações manuais. Deseja continuar?
             </p>
             <div className="flex gap-2">
               <button onClick={restoreDefaults} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-xl text-sm font-medium">Restaurar</button>
-              <button onClick={() => setConfirmRestore(false)} className="flex-1 border border-stone-200 text-stone-600 py-2 rounded-xl text-sm hover:bg-stone-50">Cancelar</button>
+              <button onClick={() => setConfirmRestore(false)} className="flex-1 border border-line text-stone-600 py-2 rounded-xl text-sm hover:bg-stone-50">Cancelar</button>
             </div>
           </div>
         </div>
@@ -326,32 +326,32 @@ export default function AdminPlans() {
           <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl overflow-x-auto">
             {plans.map(p => (
               <button key={p.key} onClick={() => { setActiveTab(p.key); setExpandedInherited(false) }}
-                className={`flex-1 min-w-[110px] px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === p.key ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex-1 min-w-[110px] px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === p.key ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
               >
-                {p.label}{p.recommended && <span className="ml-1 text-xs text-emerald-600">★</span>}
+                {p.label}{p.recommended && <span className="ml-1 text-xs text-forest-700">★</span>}
               </button>
             ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
             {/* Informações do plano */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+            <div className="bg-white rounded-xl border border-line p-5 space-y-4">
               <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Informações do plano</h2>
 
               {/* Switch de herança */}
               {parentLabel && (
-                <div className={`rounded-xl p-3 border ${plan.inheritPreviousPlan ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className={`rounded-xl p-3 border ${plan.inheritPreviousPlan ? 'bg-mint border-forest-200' : 'bg-amber-50 border-amber-200'}`}>
                   <label className="flex items-center gap-3 cursor-pointer">
                     <button
                       role="switch"
                       aria-checked={plan.inheritPreviousPlan}
                       onClick={() => updatePlan(plan.key, 'inheritPreviousPlan', !plan.inheritPreviousPlan)}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors ${plan.inheritPreviousPlan ? 'bg-emerald-500' : 'bg-stone-300'}`}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors ${plan.inheritPreviousPlan ? 'bg-forest-600' : 'bg-stone-300'}`}
                     >
                       <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${plan.inheritPreviousPlan ? 'translate-x-4' : 'translate-x-0'}`} />
                     </button>
                     <div>
-                      <p className={`text-sm font-medium ${plan.inheritPreviousPlan ? 'text-emerald-800' : 'text-amber-800'}`}>
+                      <p className={`text-sm font-medium ${plan.inheritPreviousPlan ? 'text-forest-900' : 'text-amber-800'}`}>
                         Incluir todos os benefícios do plano {parentLabel}
                       </p>
                       {!plan.inheritPreviousPlan && (
@@ -382,25 +382,25 @@ export default function AdminPlans() {
               </div>
               <div className="flex items-center gap-4 pt-1">
                 <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-                  <input type="checkbox" checked={plan.recommended} onChange={e => updatePlan(plan.key, 'recommended', e.target.checked)} className="accent-emerald-600" />
+                  <input type="checkbox" checked={plan.recommended} onChange={e => updatePlan(plan.key, 'recommended', e.target.checked)} className="accent-forest-700" />
                   Mais recomendado
                 </label>
                 <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-                  <input type="checkbox" checked={plan.active} onChange={e => updatePlan(plan.key, 'active', e.target.checked)} className="accent-emerald-600" />
+                  <input type="checkbox" checked={plan.active} onChange={e => updatePlan(plan.key, 'active', e.target.checked)} className="accent-forest-700" />
                   Plano ativo
                 </label>
               </div>
-              <button onClick={savePlans} disabled={saving} className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60">
+              <button onClick={savePlans} disabled={saving} className="w-full flex items-center justify-center gap-2 bg-forest-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-60">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Salvando...' : 'Salvar informações'}
               </button>
             </div>
 
             {/* Benefícios */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5 flex flex-col">
+            <div className="bg-white rounded-xl border border-line p-5 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Benefícios</h2>
-                <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-mint text-forest-800 border border-forest-200 px-2 py-0.5 rounded-full">
                   {activeCount(plan.key)} ativos
                 </span>
               </div>
@@ -409,10 +409,10 @@ export default function AdminPlans() {
 
                 {/* Bloco de herança */}
                 {parentLabel && plan.inheritPreviousPlan && inheritedKeys.size > 0 && (
-                  <div className="border border-emerald-200 rounded-xl overflow-hidden">
+                  <div className="border border-forest-200 rounded-xl overflow-hidden">
                     <button
                       onClick={() => setExpandedInherited(v => !v)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-emerald-50 text-sm font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-mint text-sm font-medium text-forest-900 hover:bg-mint transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5" />
@@ -423,8 +423,8 @@ export default function AdminPlans() {
                     {expandedInherited && (
                       <div className="px-4 py-3 space-y-1.5">
                         {OFFICIAL_FEATURES.filter(f => inheritedKeys.has(f.key)).map(feat => (
-                          <div key={feat.key} className="flex items-center gap-2 text-xs text-emerald-700">
-                            <span className="text-emerald-400">↳</span>
+                          <div key={feat.key} className="flex items-center gap-2 text-xs text-forest-800">
+                            <span className="text-forest-500">↳</span>
                             {feat.name}
                           </div>
                         ))}
@@ -452,9 +452,9 @@ export default function AdminPlans() {
                               <label key={feat.key} className="flex items-center gap-3 cursor-pointer py-0.5">
                                 {isSaving
                                   ? <Loader2 className="w-4 h-4 animate-spin text-stone-400 flex-shrink-0" />
-                                  : <input type="checkbox" checked={enabled} onChange={() => toggleOwnFeature(plan.key, feat.key, enabled)} className="accent-emerald-600 w-4 h-4 flex-shrink-0" />
+                                  : <input type="checkbox" checked={enabled} onChange={() => toggleOwnFeature(plan.key, feat.key, enabled)} className="accent-forest-700 w-4 h-4 flex-shrink-0" />
                                 }
-                                <span className={`text-sm leading-tight ${enabled ? 'text-stone-800' : 'text-stone-400'}`}>{feat.name}</span>
+                                <span className={`text-sm leading-tight ${enabled ? 'text-forest-900' : 'text-stone-400'}`}>{feat.name}</span>
                               </label>
                             )
                           })}
@@ -465,7 +465,7 @@ export default function AdminPlans() {
                 </div>
               </div>
 
-              <button onClick={saveAllAccess} disabled={saving} className="mt-4 w-full flex items-center justify-center gap-2 bg-stone-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-stone-700 disabled:opacity-60">
+              <button onClick={saveAllAccess} disabled={saving} className="mt-4 w-full flex items-center justify-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-60">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Salvando...' : 'Salvar permissões'}
               </button>
@@ -474,17 +474,17 @@ export default function AdminPlans() {
         </>
       ) : (
         /* ── Tabela ──────────────────────────────────────────────────────── */
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-          <div className="p-4 border-b border-stone-100 flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
+          <div className="p-4 border-b border-line flex items-center justify-between flex-wrap gap-2">
             <div className="flex bg-stone-100 rounded-lg p-1 gap-1">
-              <button onClick={() => setTableMode('commercial')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${tableMode === 'commercial' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
+              <button onClick={() => setTableMode('commercial')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${tableMode === 'commercial' ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
                 Visualização comercial
               </button>
-              <button onClick={() => setTableMode('technical')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${tableMode === 'technical' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
+              <button onClick={() => setTableMode('technical')} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${tableMode === 'technical' ? 'bg-white text-forest-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
                 Visualização técnica
               </button>
             </div>
-            <button onClick={saveAllAccess} disabled={saving} className="flex items-center gap-1.5 bg-stone-800 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-stone-700 disabled:opacity-60">
+            <button onClick={saveAllAccess} disabled={saving} className="flex items-center gap-1.5 bg-forest-900 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-forest-800 disabled:opacity-60">
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar permissões
             </button>
@@ -512,15 +512,15 @@ export default function AdminPlans() {
                       })),
                     ]
                     return (
-                      <tr key={pk} className="border-t border-stone-100 align-top">
+                      <tr key={pk} className="border-t border-line align-top">
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-stone-800 text-sm">{p.label}</p>
+                          <p className="font-semibold text-forest-900 text-sm">{p.label}</p>
                           <p className="text-stone-400 text-[11px]">{p.price}</p>
                         </td>
                         <td className="px-4 py-3">
                           <ul className="space-y-1">
                             {items.map((item, i) => (
-                              <li key={i} className={`flex items-start gap-1.5 ${item.inherited ? 'text-emerald-700 font-medium' : 'text-stone-600'}`}>
+                              <li key={i} className={`flex items-start gap-1.5 ${item.inherited ? 'text-forest-800 font-medium' : 'text-stone-600'}`}>
                                 <Check className="w-3 h-3 flex-shrink-0 mt-0.5" />
                                 {item.text}
                               </li>
@@ -544,14 +544,14 @@ export default function AdminPlans() {
                       <th key={p.key} className="px-3 py-3 text-center text-stone-600 font-semibold min-w-[110px]">
                         <div>{p.label}</div>
                         <div className="font-normal text-stone-400 text-[11px]">{p.price}</div>
-                        <div className="text-[10px] text-emerald-600 mt-0.5">{activeCount(p.key)} ativos</div>
+                        <div className="text-[10px] text-forest-700 mt-0.5">{activeCount(p.key)} ativos</div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {/* Legenda */}
-                  <tr className="bg-stone-50 border-t border-stone-100">
+                  <tr className="bg-stone-50 border-t border-line">
                     <td colSpan={5} className="px-4 py-1.5 text-[10px] text-stone-400">
                       ✅ próprio &nbsp;·&nbsp; ↳ herdado &nbsp;·&nbsp; ○ não possui
                     </td>
@@ -573,7 +573,7 @@ export default function AdminPlans() {
                             if (isInherited) {
                               return (
                                 <td key={pk} className="px-3 py-2.5 text-center">
-                                  <span className="text-emerald-500 text-sm" title="Herdado do plano anterior">↳</span>
+                                  <span className="text-forest-600 text-sm" title="Herdado do plano anterior">↳</span>
                                 </td>
                               )
                             }
@@ -585,7 +585,7 @@ export default function AdminPlans() {
                                     <button
                                       onClick={() => toggleOwnFeature(pk, feat.key, isOwn)}
                                       title={isOwn ? 'Desativar' : 'Ativar como benefício próprio'}
-                                      className={`w-5 h-5 rounded-full border-2 mx-auto flex items-center justify-center transition-colors ${isOwn ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-stone-300 hover:border-stone-500'}`}
+                                      className={`w-5 h-5 rounded-full border-2 mx-auto flex items-center justify-center transition-colors ${isOwn ? 'bg-forest-600 border-forest-600 text-white' : 'border-stone-300 hover:border-stone-500'}`}
                                     >
                                       {isOwn && <Check className="w-3 h-3" />}
                                     </button>
