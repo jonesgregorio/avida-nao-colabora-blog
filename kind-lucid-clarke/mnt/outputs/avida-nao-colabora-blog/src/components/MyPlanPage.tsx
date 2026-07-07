@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Check, Crown, ChevronLeft, Loader2, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react'
+import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldCheck, Sprout, Leaf } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
@@ -53,6 +53,17 @@ const PLAN_COLORS: Record<string, string> = {
   essential: 'border-forest-200 bg-mint/40',
   plus: 'border-coral/50 bg-coral/10',
 }
+
+// Matriz de comparação (alinhada à referência visual de "Meu plano").
+type CellValue = boolean | string
+const COMPARE_ROWS: { label: string; values: Record<string, CellValue> }[] = [
+  { label: 'Diário emocional',        values: { free: 'Limitado',      essential: 'Ilimitado',  plus: 'Ilimitado' } },
+  { label: 'Relatórios e insights',   values: { free: false,           essential: true,          plus: true } },
+  { label: 'Questionários e avaliações', values: { free: 'Limitado',   essential: true,          plus: true } },
+  { label: 'Conteúdos guiados',       values: { free: 'Acesso básico', essential: true,          plus: true } },
+  { label: 'Suporte',                 values: { free: false,           essential: 'Por e-mail',  plus: 'Prioritário' } },
+  { label: 'Orientação profissional', values: { free: false,           essential: false,         plus: '1 sessão/mês' } },
+]
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Ativa',
@@ -122,7 +133,7 @@ function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscri
   return Math.max(0, (diff / total) * remaining)
 }
 
-export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRefreshProfile: _onRefreshProfile }: Props) {
+export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateAuth, onRefreshProfile: _onRefreshProfile }: Props) {
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
@@ -291,18 +302,17 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
   const effectivePeriodEnd = calcEffectivePeriodEnd(sub, getPlanAnchor())
 
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
-  const isDowngrade = (plan: string) => PLAN_ORDER.indexOf(plan) < PLAN_ORDER.indexOf(currentPlan)
   const isCancelPending = sub?.cancel_at_period_end || sub?.status === 'cancel_pending'
   const hasPendingDowngrade = !!sub?.pending_plan && sub.pending_plan !== currentPlan && !isCancelPending
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6">
-        <ChevronLeft className="w-4 h-4" /> Voltar
-      </button>
-
-      <h1 className="font-serif text-3xl text-sage-800 mb-1">Meu Plano</h1>
-      <p className="text-sage-500 text-sm mb-8">Gerencie sua assinatura e recursos disponíveis.</p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-6">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+          Meu plano <Sprout className="w-6 h-6 text-forest-400" />
+        </h1>
+        <p className="mt-2 text-ink-soft">Gerencie sua assinatura e descubra tudo o que cada plano pode fazer por você.</p>
+      </header>
 
       {actionMsg && (
         <div className={`mb-6 flex items-start gap-2 px-4 py-3 rounded-xl border text-sm ${actionMsg.type === 'ok' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
@@ -316,11 +326,12 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       <div className={`rounded-2xl border-2 p-6 mb-6 shadow-sm ${PLAN_COLORS[currentPlan]}`}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
+            <p className="text-[11px] uppercase tracking-wide text-forest-600 font-medium mb-1">Seu plano atual</p>
             <div className="flex items-center gap-2 mb-1">
-              <Crown className="w-5 h-5 text-purple-500" />
-              <span className="font-serif text-xl text-sage-800">{PLAN_LABELS[currentPlan]}</span>
+              <Crown className="w-5 h-5 text-forest-500" />
+              <span className="font-serif text-2xl text-forest-900">{PLAN_LABELS[currentPlan]}</span>
             </div>
-            <p className="text-2xl font-bold text-sage-700">{formatPrice(PLAN_PRICES[currentPlan])}<span className="text-sm font-normal text-sage-400">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
+            <p className="text-2xl font-bold text-forest-800">{formatPrice(PLAN_PRICES[currentPlan])}<span className="text-sm font-normal text-ink-soft">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
           </div>
           {(() => {
             const effectiveStatus = sub?.status ?? (currentPlan !== 'free' ? 'active' : 'inactive')
@@ -375,76 +386,62 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
         </div>
       </div>
 
-      {/* Recursos do plano atual */}
-      <div className="bg-white border border-stone-100 rounded-2xl p-5 mb-6 shadow-sm">
-        <h2 className="font-semibold text-sage-800 mb-3 text-sm">Recursos incluídos no seu plano</h2>
-        <ul className="space-y-1.5">
-          {PLAN_FEATURES[currentPlan].map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-sage-600">
-              <Check className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-              {f}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Comparação de planos */}
-      <h2 className="font-semibold text-sage-800 mb-4">Outros planos disponíveis</h2>
-      <div className="space-y-4 mb-8">
-        {PLAN_ORDER.filter(p => p !== currentPlan && !(p === 'free' && currentPlan !== 'free')).map(plan => {
-          const upgrade = isUpgrade(plan)
-          const downgrade = isDowngrade(plan)
-          const proration = upgrade && currentPlan !== 'free'
-            ? calcUpgradeProration(currentPlan, plan, sub)
-            : null
-
+      {/* Comparação dos planos */}
+      <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mb-4">Compare os planos e escolha o ideal para você</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+        {OFFICIAL_PLANS.map(p => {
+          const isCurrent = p.key === currentPlan
+          const up = isUpgrade(p.key)
           return (
-            <div key={plan} className={`bg-white border-2 rounded-2xl p-5 shadow-sm ${PLAN_COLORS[plan]}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {upgrade && <ArrowUp className="w-4 h-4 text-emerald-500" />}
-                    {downgrade && <ArrowDown className="w-4 h-4 text-amber-500" />}
-                    <span className="font-semibold text-sage-800">{PLAN_LABELS[plan]}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-white/70 text-stone-600">
-                      {upgrade ? 'Upgrade' : 'Downgrade'}
-                    </span>
-                  </div>
-                  <p className="text-lg font-bold text-sage-700">
-                    {formatPrice(PLAN_PRICES[plan])}
-                    {plan !== 'free' && <span className="text-xs font-normal text-sage-400">/mês</span>}
-                  </p>
-                  {upgrade && proration !== null && proration > 0 && (
-                    <p className="text-xs text-emerald-700 mt-0.5">
-                      Hoje: {formatPrice(proration)} proporcional · {daysRemaining(effectivePeriodEnd)} dias restantes
-                    </p>
-                  )}
-                  {downgrade && currentPlan !== 'free' && (
-                    <p className="text-xs text-amber-700 mt-0.5">Entra em vigor no fim do ciclo atual</p>
-                  )}
+            <div key={p.key} className={`relative rounded-3xl border bg-paper-soft p-5 flex flex-col ${p.recommended ? 'border-forest-300 shadow-sm' : 'border-line'}`}>
+              {p.recommended && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide bg-coral text-[#7a3320] px-3 py-1 rounded-full">Mais escolhido</span>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Leaf className="w-4 h-4" /></span>
+                <div className="min-w-0">
+                  <p className="font-serif text-lg text-forest-900 leading-tight">{p.label}</p>
+                  <p className="text-[11px] text-ink-soft leading-tight">{p.tagline}</p>
                 </div>
-                {!isCancelPending && (
+              </div>
+              <p className="mt-3 font-serif text-2xl text-forest-900">
+                {p.price}<span className="text-sm font-normal text-ink-soft">{p.priceValue > 0 ? '/mês' : ''}</span>
+              </p>
+              <div className="mt-4">
+                {isCurrent ? (
+                  <span className="block text-center text-sm font-medium bg-mint text-forest-700 rounded-xl py-2.5">Plano atual</span>
+                ) : isCancelPending ? (
+                  <span className="block text-center text-sm text-ink-soft rounded-xl py-2.5 border border-line">Indisponível agora</span>
+                ) : (
                   <button
-                    onClick={() => setModal({ type: upgrade ? 'upgrade' : 'downgrade', targetPlan: plan })}
-                    className={`flex-shrink-0 text-sm font-medium px-4 py-2 rounded-xl transition-colors ${upgrade ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'border border-stone-300 text-stone-600 hover:bg-stone-50'}`}
+                    onClick={() => setModal({ type: up ? 'upgrade' : 'downgrade', targetPlan: p.key })}
+                    className={`w-full text-sm font-medium rounded-xl py-2.5 transition-colors ${up ? 'bg-forest-900 text-white hover:bg-forest-800' : 'border border-line text-forest-700 hover:bg-mint/50'}`}
                   >
-                    {upgrade ? 'Fazer upgrade' : plan === 'free' ? 'Cancelar para Gratuito' : 'Fazer downgrade'}
+                    {up ? 'Fazer upgrade' : p.key === 'free' ? 'Mudar para Gratuito' : 'Fazer downgrade'}
                   </button>
                 )}
               </div>
-              <ul className="mt-3 space-y-1">
-                {PLAN_FEATURES[plan].slice(0, 4).map((f, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-xs text-sage-500">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />{f}
-                  </li>
-                ))}
-                {PLAN_FEATURES[plan].length > 4 && (
-                  <li className="text-xs text-stone-400 pl-5">+{PLAN_FEATURES[plan].length - 4} recursos</li>
-                )}
-              </ul>
             </div>
           )
         })}
+      </div>
+
+      {/* Matriz de recursos */}
+      <div className="bg-paper-soft border border-line rounded-3xl overflow-hidden mb-6">
+        <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 px-4 sm:px-5 py-2.5 bg-mint/40 text-[11px] font-semibold text-forest-700">
+          <span>Recurso</span>
+          <span className="text-center">Gratuito</span>
+          <span className="text-center">Essencial</span>
+          <span className="text-center">Plus</span>
+        </div>
+        {COMPARE_ROWS.map((row, i) => (
+          <div key={row.label} className={`grid grid-cols-[1.4fr_1fr_1fr_1fr] items-center gap-2 px-4 sm:px-5 py-3 text-xs sm:text-sm ${i > 0 ? 'border-t border-line' : ''}`}>
+            <span className="text-ink-soft">{row.label}</span>
+            {(['free', 'essential', 'plus'] as const).map(k => (
+              <span key={k} className="text-center"><Cell value={row.values[k]} /></span>
+            ))}
+          </div>
+        ))}
       </div>
 
       {/* Histórico */}
@@ -477,9 +474,14 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
         </div>
       )}
 
-      {/* Aviso de segurança */}
-      <div className="mt-8 bg-stone-50 border border-stone-200 rounded-xl p-4 text-xs text-stone-500">
-        <strong>Pagamentos processados com segurança pelo Stripe.</strong> Seu plano só é ativado após confirmação do pagamento. Nenhuma cobrança é feita sem sua autorização.
+      {/* Aviso */}
+      <div className="mt-6 rounded-3xl border border-line bg-mint/40 px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <span className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0 text-forest-600">
+          <ShieldCheck className="w-5 h-5" />
+        </span>
+        <p className="text-sm text-forest-800 leading-relaxed flex-1">
+          Todos os planos podem ser cancelados a qualquer momento, sem taxas escondidas. Pagamentos são processados com segurança pelo Stripe — seu plano só é ativado após a confirmação.
+        </p>
       </div>
 
       {/* Modal de upgrade */}
@@ -704,4 +706,11 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
       )}
     </div>
   )
+}
+
+// Célula da matriz de comparação: booleano → check/traço; texto → rótulo.
+function Cell({ value }: { value: CellValue }) {
+  if (value === true) return <Check className="w-4 h-4 text-forest-600 inline" aria-label="Incluído" />
+  if (value === false) return <span className="text-ink-soft/40" aria-label="Não incluído">—</span>
+  return <span className="text-forest-800 font-medium">{value}</span>
 }
