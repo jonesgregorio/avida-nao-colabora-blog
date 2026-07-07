@@ -6,10 +6,10 @@ import AdminLayout from './AdminLayout'
 import AdminArticleEditor from './AdminArticleEditor'
 import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
-import AdminPlans from './AdminPlans'
+import AdminPlanosPage from './AdminPlanosPage'
 import AdminSelfCarePlans from './AdminSelfCarePlans'
 import AdminGuidanceRequests from './AdminGuidanceRequests'
-import AdminSupport from './AdminSupport'
+import AdminSuportePage from './AdminSuportePage'
 import AdminAreaConteudo from './AdminAreaConteudo'
 import AdminAreaComunicacao from './AdminAreaComunicacao'
 import AdminAreaSistema from './AdminAreaSistema'
@@ -123,13 +123,13 @@ export default function AdminPanel() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
       case 'usuarios': return <AdminUsers />
-      case 'planos': return <AdminPlans />
+      case 'planos': return <AdminPlanosPage />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
       case 'mapa': return <AdminMapaArea />
       case 'autocuidado': return <AdminSelfCarePlans />
       case 'orientacao': return <AdminGuidanceRequests />
       case 'comunicacao': return <AdminAreaComunicacao />
-      case 'suporte': return <AdminSupport />
+      case 'suporte': return <AdminSuportePage />
       case 'sistema': return <AdminAreaSistema />
       case 'article-editor':
         return (
