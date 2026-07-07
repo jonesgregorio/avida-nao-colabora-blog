@@ -76,7 +76,7 @@ export default function AdminPDF() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900 mb-1">Relatórios PDF</h1>
+          <h1 className="font-serif text-2xl text-forest-900 mb-1">Relatórios PDF</h1>
           <p className="text-stone-400 text-sm">Geração de relatórios em PDF para usuários com planos Terapêutico e Terapêutico Plus.</p>
         </div>
         {stats && (
@@ -96,7 +96,7 @@ export default function AdminPDF() {
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Usuários elegíveis</span>
             <Users className="w-4 h-4 text-stone-300" />
           </div>
-          <p className="text-2xl font-bold text-violet-600">{stats?.totalEligible ?? 0}</p>
+          <p className="font-serif text-2xl text-violet-600">{stats?.totalEligible ?? 0}</p>
           <p className="text-xs text-stone-400 mt-1">Com acesso a exportação PDF</p>
         </div>
         <div className="bg-white rounded-xl border border-line p-5">
@@ -104,7 +104,7 @@ export default function AdminPDF() {
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Planos com PDF</span>
             <FileText className="w-4 h-4 text-stone-300" />
           </div>
-          <p className="text-2xl font-bold text-stone-700">2</p>
+          <p className="font-serif text-2xl text-stone-700">2</p>
           <p className="text-xs text-stone-400 mt-1">Terapêutico e Terapêutico Plus</p>
         </div>
         <div className="bg-white rounded-xl border border-line p-5">
@@ -112,7 +112,7 @@ export default function AdminPDF() {
             <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">Tipos de relatório</span>
             <Download className="w-4 h-4 text-stone-300" />
           </div>
-          <p className="text-2xl font-bold text-stone-700">{REPORT_TYPES.length}</p>
+          <p className="font-serif text-2xl text-stone-700">{REPORT_TYPES.length}</p>
           <p className="text-xs text-stone-400 mt-1">Disponíveis na plataforma</p>
         </div>
       </div>

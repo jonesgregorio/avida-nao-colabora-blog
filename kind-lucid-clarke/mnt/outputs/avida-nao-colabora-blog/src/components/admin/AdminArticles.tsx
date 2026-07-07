@@ -100,7 +100,7 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-forest-900">Artigos</h1>
+        <h1 className="font-serif text-2xl text-forest-900">Artigos</h1>
         <button
           onClick={onNew}
           className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 transition-colors"

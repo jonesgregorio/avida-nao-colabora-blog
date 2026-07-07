@@ -75,7 +75,7 @@ export default function AdminCategories() {
         </div>
       )}
 
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">Categorias</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">Categorias</h1>
 
       <div className="bg-white rounded-xl border border-line p-5 mb-6 space-y-3">
         <h2 className="font-semibold text-stone-700 text-sm">Nova categoria</h2>

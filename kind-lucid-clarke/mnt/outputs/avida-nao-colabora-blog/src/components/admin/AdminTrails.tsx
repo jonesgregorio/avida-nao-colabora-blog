@@ -162,7 +162,7 @@ export default function AdminTrails() {
           <button onClick={() => setScreen('list')} className="text-stone-400 hover:text-stone-700">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold text-forest-900 flex-1">{editingId ? 'Editar trilha' : 'Nova trilha'}</h1>
+          <h1 className="font-serif text-2xl text-forest-900 flex-1">{editingId ? 'Editar trilha' : 'Nova trilha'}</h1>
           <button onClick={save} disabled={saving} className="flex items-center gap-2 bg-forest-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-50">
             <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -273,7 +273,7 @@ export default function AdminTrails() {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-forest-900">Trilhas</h1>
+        <h1 className="font-serif text-2xl text-forest-900">Trilhas</h1>
         <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
           <Plus className="w-4 h-4" /> Nova trilha
         </button>

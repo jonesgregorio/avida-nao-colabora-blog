@@ -223,7 +223,7 @@ export default function AdminAutomated() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900">Conteúdos Automáticos</h1>
+          <h1 className="font-serif text-2xl text-forest-900">Conteúdos Automáticos</h1>
           <p className="text-stone-400 text-xs mt-1">Gere com IA e entregue aos usuários no app</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">

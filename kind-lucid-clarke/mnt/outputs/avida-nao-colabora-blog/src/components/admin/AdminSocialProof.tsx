@@ -109,7 +109,7 @@ export default function AdminSocialProof() {
     <div>
       {toast && <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">Prova Social</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">Prova Social</h1>
 
       {/* Metrics */}
       <div className="bg-white rounded-xl border border-line p-5 mb-6">

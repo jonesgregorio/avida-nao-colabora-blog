@@ -150,7 +150,7 @@ export default function AdminGuidanceRequests() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900">Orientações Mensais</h1>
+          <h1 className="font-serif text-2xl text-forest-900">Orientações Mensais</h1>
           {openCount > 0 && (
             <p className="text-sm text-amber-600 font-medium mt-0.5">{openCount} aguardando resposta</p>
           )}

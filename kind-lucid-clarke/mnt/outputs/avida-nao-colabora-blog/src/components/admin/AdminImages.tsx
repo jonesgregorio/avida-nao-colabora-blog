@@ -69,7 +69,7 @@ export default function AdminImages() {
         </div>
       )}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-forest-900">Biblioteca de Imagens</h1>
+        <h1 className="font-serif text-2xl text-forest-900">Biblioteca de Imagens</h1>
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}

@@ -52,7 +52,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-stone-700' }: {
         <span className="text-xs text-stone-400 uppercase tracking-wide font-medium">{label}</span>
         <Icon className="w-4 h-4 text-stone-300" />
       </div>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+      <p className={`font-serif text-2xl ${color}`}>{value}</p>
       {sub && <p className="text-xs text-stone-400 mt-1">{sub}</p>}
     </div>
   )
@@ -125,7 +125,7 @@ export default function AdminFinancial() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-forest-900 mb-1">Gestão Financeira</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-1">Gestão Financeira</h1>
       <p className="text-stone-400 text-sm mb-1">Receita estimada com base nos planos ativos dos usuários.</p>
       <p className="text-xs text-stone-400 mb-6">
         Preços: {pricesFromDB

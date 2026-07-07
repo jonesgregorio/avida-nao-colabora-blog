@@ -425,7 +425,7 @@ export default function AdminSystemHealth() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900 flex items-center gap-2">
+          <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2">
             <Activity className="w-6 h-6 text-forest-700" /> Monitoramento do Sistema
           </h1>
           <p className="text-sm text-stone-500 mt-0.5">

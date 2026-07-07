@@ -1335,7 +1335,7 @@ export default function AdminUsers() {
                       <div key={m.label} className="bg-stone-50 border border-line rounded-xl p-4 flex items-center gap-3">
                         {m.icon}
                         <div>
-                          <p className="text-2xl font-bold text-forest-900">{m.value}</p>
+                          <p className="font-serif text-2xl text-forest-900">{m.value}</p>
                           <p className="text-xs text-stone-500">{m.label}</p>
                         </div>
                       </div>

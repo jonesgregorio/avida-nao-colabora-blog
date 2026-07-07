@@ -91,7 +91,7 @@ export default function AdminProfessionals() {
 
   if (!tableExists) return (
     <div>
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">Parceiros Profissionais</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">Parceiros Profissionais</h1>
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-700">
         <strong>Tabela não encontrada.</strong> Execute o SQL de migração no Supabase para criar a tabela <code>professionals</code>:
         <pre className="mt-3 bg-amber-100 rounded p-3 text-xs overflow-x-auto">{`CREATE TABLE IF NOT EXISTS professionals (
@@ -119,7 +119,7 @@ CREATE POLICY "professionals_read" ON professionals FOR SELECT USING (active = t
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900">Parceiros Profissionais</h1>
+          <h1 className="font-serif text-2xl text-forest-900">Parceiros Profissionais</h1>
           <p className="text-stone-400 text-sm mt-1">{list.length} profissional{list.length !== 1 ? 'is' : ''} cadastrado{list.length !== 1 ? 's' : ''}</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-forest-800">

@@ -114,20 +114,20 @@ export default function AdminSEO() {
         />
       )}
 
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">SEO</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">SEO</h1>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-line p-4">
-          <p className="text-2xl font-bold text-forest-900">{articles.length}</p>
+          <p className="font-serif text-2xl text-forest-900">{articles.length}</p>
           <p className="text-xs text-stone-500">Artigos publicados</p>
         </div>
         <div className={`rounded-xl border p-4 ${ok === articles.length ? 'bg-green-50 border-green-200' : 'bg-white border-line'}`}>
-          <p className="text-2xl font-bold text-green-600">{ok}</p>
+          <p className="font-serif text-2xl text-green-600">{ok}</p>
           <p className="text-xs text-stone-500">Sem problemas</p>
         </div>
         <div className={`rounded-xl border p-4 ${totalIssues > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-line'}`}>
-          <p className="text-2xl font-bold text-red-600">{totalIssues}</p>
+          <p className="font-serif text-2xl text-red-600">{totalIssues}</p>
           <p className="text-xs text-stone-500">Com problemas SEO</p>
         </div>
       </div>

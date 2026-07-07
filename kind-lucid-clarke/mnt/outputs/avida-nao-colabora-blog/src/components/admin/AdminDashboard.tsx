@@ -143,7 +143,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">Dashboard</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">Dashboard</h1>
 
       {loading ? (
         <div className="flex items-center gap-3 text-stone-400">
@@ -165,7 +165,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (v: AdminVi
                   <div className={`w-9 h-9 rounded-lg ${card.color} flex items-center justify-center mb-3`}>
                     <Icon className="w-4 h-4" />
                   </div>
-                  <p className="text-2xl font-bold text-forest-900">{card.value}</p>
+                  <p className="font-serif text-2xl text-forest-900">{card.value}</p>
                   <p className="text-xs text-stone-500 mt-0.5 leading-snug">{card.label}</p>
                 </div>
               )

@@ -106,7 +106,7 @@ export default function AdminEmails() {
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-forest-900 flex items-center gap-2">
+        <h1 className="font-serif text-xl text-forest-900 flex items-center gap-2">
           <Mail className="w-5 h-5 text-forest-700" /> E-mails transacionais
         </h1>
         <button onClick={load} className="flex items-center gap-1.5 text-sm border border-line text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">

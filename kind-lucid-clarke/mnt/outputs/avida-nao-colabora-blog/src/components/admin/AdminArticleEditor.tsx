@@ -200,7 +200,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         <button onClick={onBack} className="text-stone-400 hover:text-stone-700">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-forest-900 flex-1">
+        <h1 className="font-serif text-2xl text-forest-900 flex-1">
           {articleId ? 'Editar artigo' : 'Novo artigo'}
         </h1>
         <div className="flex gap-2">

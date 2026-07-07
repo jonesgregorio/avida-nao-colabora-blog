@@ -757,7 +757,7 @@ function SummaryCards({ allTasks, deliveryCount: _deliveryCount, onFilter }: {
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-5">
       {cards.map(c => (
         <button key={c.label} onClick={() => onFilter(c.tab)} className={`${c.bg} rounded-xl p-3 text-center transition-colors`}>
-          <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
+          <p className={`font-serif text-xl ${c.color}`}>{c.value}</p>
           <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">{c.label}</p>
         </button>
       ))}
@@ -1197,7 +1197,7 @@ export default function AdminPersonalization() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-forest-900 flex items-center gap-2">
+          <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-forest-700" /> Personalização por Plano
           </h1>
           <p className="text-sm text-stone-500 mt-0.5">Fila inteligente de entregas personalizadas por plano</p>

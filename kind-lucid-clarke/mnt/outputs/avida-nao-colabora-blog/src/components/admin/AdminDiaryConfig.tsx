@@ -68,7 +68,7 @@ export default function AdminDiaryConfig() {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-forest-900">Diário por Plano</h1>
+        <h1 className="font-serif text-2xl text-forest-900">Diário por Plano</h1>
         <button
           onClick={save}
           disabled={saving || loading}

@@ -43,7 +43,7 @@ export default function AdminPermissions() {
     <div>
       {toast && <div className="fixed top-4 right-4 z-50 bg-forest-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">{toast}</div>}
 
-      <h1 className="text-2xl font-bold text-forest-900 mb-2">Permissões</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-2">Permissões</h1>
       <p className="text-stone-500 text-sm mb-6">
         Gerencie quem tem acesso ao painel administrativo. Para promover um usuário a admin, vá em <strong>Usuários</strong> e ative o toggle de admin.
       </p>

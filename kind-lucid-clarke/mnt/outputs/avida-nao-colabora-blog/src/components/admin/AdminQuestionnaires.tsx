@@ -404,7 +404,7 @@ export default function AdminQuestionnaires() {
     <div className="p-6 max-w-5xl mx-auto">
       {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-mint text-forest-800' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-forest-900 flex items-center gap-2"><List size={20} />Questionários</h1>
+        <h1 className="font-serif text-xl text-forest-900 flex items-center gap-2"><List size={20} />Questionários</h1>
         <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800"><Plus size={16} />Novo</button>
       </div>
       <div className="flex gap-3 mb-4">
@@ -463,7 +463,7 @@ export default function AdminQuestionnaires() {
       {msg && <div className={`mb-4 px-4 py-2 rounded text-sm ${msg.type === 'ok' ? 'bg-mint text-forest-800' : 'bg-red-50 text-red-700'}`}>{msg.text}</div>}
       <div className="flex items-center gap-3 mb-4">
         <button onClick={() => setView('list')} className="text-stone-400 hover:text-stone-700"><X size={20} /></button>
-        <h1 className="text-xl font-bold text-forest-900 flex-1">{editing.id ? 'Editar' : 'Novo questionário'}</h1>
+        <h1 className="font-serif text-xl text-forest-900 flex-1">{editing.id ? 'Editar' : 'Novo questionário'}</h1>
         <button
           onClick={() => setShowAI(true)}
           className="flex items-center gap-1.5 text-sm bg-mint border border-forest-200 text-forest-800 px-3 py-2 rounded-lg hover:bg-mint transition-colors font-medium"

@@ -127,7 +127,7 @@ export default function AdminScheduled() {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-forest-900">Conteúdos Programados</h1>
+        <h1 className="font-serif text-2xl text-forest-900">Conteúdos Programados</h1>
         <button onClick={openNew} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
           <Plus className="w-4 h-4" /> Novo programado
         </button>

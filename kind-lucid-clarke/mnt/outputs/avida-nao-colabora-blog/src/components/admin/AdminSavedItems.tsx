@@ -57,18 +57,18 @@ export default function AdminSavedItems() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-forest-900 mb-6">Itens Salvos</h1>
+      <h1 className="font-serif text-2xl text-forest-900 mb-6">Itens Salvos</h1>
 
       {/* Stats por tipo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {Object.entries(byType).map(([type, count]) => (
           <div key={type} className="bg-white rounded-xl border border-line p-4">
-            <p className="text-2xl font-bold text-forest-900">{count}</p>
+            <p className="font-serif text-2xl text-forest-900">{count}</p>
             <p className="text-xs text-stone-500">{TYPE_LABELS[type] || type}s salvos</p>
           </div>
         ))}
         <div className="bg-white rounded-xl border border-line p-4">
-          <p className="text-2xl font-bold text-forest-900">{items.length}</p>
+          <p className="font-serif text-2xl text-forest-900">{items.length}</p>
           <p className="text-xs text-stone-500">Total de saves</p>
         </div>
       </div>

@@ -482,7 +482,7 @@ export default function AdminSupport() {
                 onClick={() => setStatusTab(prev => prev === card.key ? '' : card.key)}
                 className={`border rounded-xl p-2 text-center transition-all ${card.color} ${statusTab === card.key ? 'ring-2 ring-offset-1 ring-current' : 'hover:opacity-80'}`}
               >
-                <p className="text-xl font-bold">{countByStatus(card.key)}</p>
+                <p className="font-serif text-xl">{countByStatus(card.key)}</p>
                 <p className="text-[10px] leading-tight">{card.label}</p>
               </button>
             ))}
