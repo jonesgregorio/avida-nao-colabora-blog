@@ -39,8 +39,8 @@ export default function LoggedHome({ profile, onNavigate }: LoggedHomeProps) {
     {
       Icon: BookOpen, bg: 'bg-lilac', color: 'text-[#7c5cbf]',
       title: 'Conteúdos guiados',
-      desc: paid ? 'Blog, práticas, trilhas e meditações.' : 'Blog aberto e algumas práticas guiadas.',
-      to: 'content', locked: false,
+      desc: paid ? 'Artigos, práticas, trilhas e meditações.' : 'Conteúdos abertos e algumas práticas guiadas.',
+      to: 'articles', locked: false,
     },
     {
       Icon: CalendarCheck, bg: 'bg-coral', color: 'text-[#c05f3c]',

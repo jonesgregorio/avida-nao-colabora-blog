@@ -46,12 +46,12 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
 
   const isAdmin = profile?.role === 'admin'
 
-  // Menu público / logado — as 5 áreas + Blog. "Planos" vira "Meu plano" logado.
+  // Menu público / logado. "Conteúdos" abre a página de conteúdos guiados
+  // (antigo Blog) e concentra as demais áreas. "Planos" vira "Meu plano" logado.
   const nav = [
-    { id: 'articles', label: 'Blog', match: ['articles', 'article'] },
     { id: 'diary', label: 'Diário', match: ['diary'] },
     { id: 'my-evolution', label: 'Mapa emocional', match: ['my-evolution', 'my-report', 'questionarios'] },
-    { id: 'content', label: 'Conteúdos', match: ['content', 'trails', 'saved', 'meditations', 'challenges'] },
+    { id: 'articles', label: 'Conteúdos', match: ['articles', 'article', 'content', 'trails', 'saved', 'meditations', 'challenges'] },
     user
       ? { id: 'my-plan', label: 'Meu plano', match: ['my-plan'] }
       : { id: 'pricing', label: 'Planos', match: ['pricing'] },

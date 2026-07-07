@@ -10,10 +10,9 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
   {
     title: 'Navegação',
     links: [
-      { label: 'Blog', id: 'articles' },
+      { label: 'Conteúdos', id: 'articles' },
       { label: 'Diário', id: 'diary' },
       { label: 'Mapa emocional', id: 'my-evolution' },
-      { label: 'Conteúdos', id: 'content' },
       { label: 'Planos', id: 'pricing' },
     ],
   },

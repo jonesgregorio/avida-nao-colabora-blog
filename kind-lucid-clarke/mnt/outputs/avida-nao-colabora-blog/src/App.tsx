@@ -479,6 +479,7 @@ export default function App() {
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <Articles
+            onNavigate={navigate}
             onSelectArticle={(articleOrSlug) => {
               const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
               setSelectedArticleSlug(slug)

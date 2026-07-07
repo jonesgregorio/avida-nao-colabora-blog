@@ -50,7 +50,7 @@ const PLUS_ITEMS = [
 ]
 
 const PATHS = [
-  { Icon: BookOpen, bg: 'bg-mint', color: 'text-forest-600', cardBg: 'bg-[#f1f6f2]', title: 'Ler um conteúdo guiado', desc: 'Artigos e reflexões com carinho para acolher, informar e inspirar você.', cta: 'Explorar conteúdos', to: 'content' },
+  { Icon: BookOpen, bg: 'bg-mint', color: 'text-forest-600', cardBg: 'bg-[#f1f6f2]', title: 'Ler um conteúdo guiado', desc: 'Artigos e reflexões com carinho para acolher, informar e inspirar você.', cta: 'Explorar conteúdos', to: 'articles' },
   { Icon: PenLine, bg: 'bg-sky', color: 'text-[#3d6ea5]', cardBg: 'bg-[#eff5fb]', title: 'Escrever no diário', desc: 'Um espaço seguro para colocar em palavras o que você sente.', cta: 'Ir para meu diário', to: 'diary' },
   { Icon: LineChart, bg: 'bg-coral', color: 'text-[#c05f3c]', cardBg: 'bg-[#fdf2ee]', title: 'Ver meu mapa emocional', desc: 'Acompanhe seus padrões, emoções e progressos ao longo do tempo.', cta: 'Ver meu mapa', to: 'my-evolution' },
 ]

@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { Search, Clock, ArrowRight, X, BookOpen, Sparkles } from 'lucide-react'
+import { Search, Clock, ArrowRight, X, BookOpen, Sparkles, Route, Wind, Target, Bookmark } from 'lucide-react'
 import type { Article } from '../types'
 
 interface ArticlesProps {
   onSelectArticle: (article: Article | string) => void
+  onNavigate?: (section: string) => void
 }
+
+// Demais áreas de conteúdo — mantêm Trilhas, Meditações, Práticas e a Caixa
+// de cuidado acessíveis a partir da página de conteúdos guiados.
+const EXPLORE_AREAS = [
+  { to: 'trails', Icon: Route, title: 'Trilhas de leitura', desc: 'Sequências guiadas por tema, no seu ritmo.' },
+  { to: 'meditations', Icon: Wind, title: 'Meditações guiadas', desc: 'Práticas curtas em texto para acalmar.' },
+  { to: 'challenges', Icon: Target, title: 'Práticas e desafios', desc: 'Pequenos exercícios de autocuidado.' },
+  { to: 'saved', Icon: Bookmark, title: 'Caixa de cuidado', desc: 'O que você salvou para acessar depois.' },
+]
 
 const FALLBACK_CATEGORIES = [
   'Ansiedade', 'Autoestima', 'Cansaço emocional', 'Autoconhecimento',
@@ -67,7 +77,7 @@ function planBadge(article: Article) {
   return PLAN_BADGE[p] ?? null
 }
 
-export default function Articles({ onSelectArticle }: ArticlesProps) {
+export default function Articles({ onSelectArticle, onNavigate }: ArticlesProps) {
   const { track } = useAnalytics()
   const [articles, setArticles] = useState<Article[]>([])
   const [filtered, setFiltered] = useState<Article[]>([])
@@ -303,6 +313,32 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* Explorar também — demais áreas de conteúdo */}
+      {onNavigate && (
+        <div className="mt-14 pt-8 border-t border-line">
+          <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mb-1">Explorar também</h2>
+          <p className="text-sm text-ink-soft mb-5">Outras formas de cuidar do seu momento.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {EXPLORE_AREAS.map(({ to, Icon, title, desc }) => (
+              <button
+                key={to}
+                onClick={() => onNavigate(to)}
+                className="group text-left bg-paper-soft border border-line rounded-2xl p-5 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+              >
+                <span className="w-11 h-11 rounded-full bg-mint flex items-center justify-center mb-3">
+                  <Icon className="w-5 h-5 text-forest-600" />
+                </span>
+                <h3 className="font-serif text-base text-forest-900">{title}</h3>
+                <p className="mt-1 text-sm text-ink-soft leading-relaxed">{desc}</p>
+                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700">
+                  Acessar <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   )
