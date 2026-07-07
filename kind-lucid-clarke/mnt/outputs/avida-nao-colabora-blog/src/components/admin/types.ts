@@ -1,18 +1,28 @@
-// ── 6 áreas principais (menu lateral) ─────────────────────────────────────────
+// ── 10 áreas principais do novo admin (mockup admin-mockup-avnc.html) ──────────
 export type AdminAreaView =
+  | 'visao-geral'
+  | 'usuarios'
+  | 'planos'
+  | 'conteudos'
+  | 'mapa'
+  | 'autocuidado'
+  | 'orientacao'
+  | 'comunicacao'
+  | 'suporte'
+  | 'sistema'
+
+// ── Views auxiliares + legadas (resolvidas via LEGACY_MAP em index.tsx) ────────
+export type AdminView =
+  | AdminAreaView
+  | 'article-editor'
+  // legadas (backward compat com ?view=X / localStorage antigo)
   | 'painel'
   | 'conteudo'
   | 'usuarios-planos'
   | 'atendimento'
-  | 'comunicacao'
-  | 'sistema'
-
-// ── Views legadas (backward compat — resolúveis via AREA_ALIAS em index.tsx) ──
-export type AdminView =
-  | AdminAreaView
+  | 'sistema-legacy'
   | 'dashboard'
   | 'articles'
-  | 'article-editor'
   | 'images'
   | 'categories'
   | 'questionnaires'

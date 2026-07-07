@@ -8,47 +8,25 @@ import {
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
 
-type NavItem = { id: string; label: string; icon: LucideIcon; target: AdminView }
+type NavItem = { id: AdminView; label: string; icon: LucideIcon }
 
-// Menu lateral — as 10 áreas do novo admin. Cada item aponta para uma view
-// legada que o index resolve para (área + aba interna correta).
+// Menu lateral — as 10 áreas dedicadas do novo admin (contrato: admin-mockup-avnc.html).
 const NAV: NavItem[] = [
-  { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard, target: 'dashboard' },
-  { id: 'usuarios', label: 'Usuários', icon: Users, target: 'users' },
-  { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard, target: 'plans' },
-  { id: 'conteudos', label: 'Conteúdos guiados', icon: BookOpen, target: 'articles' },
-  { id: 'diario-mapa', label: 'Diário e mapa emocional', icon: LineChart, target: 'questionnaires' },
-  { id: 'autocuidado', label: 'Plano de autocuidado', icon: CalendarCheck, target: 'self-care-plans' },
-  { id: 'orientacao', label: 'Orientação profissional', icon: MessageSquare, target: 'guidance-requests' },
-  { id: 'comunicacao', label: 'Comunicação', icon: Mail, target: 'notifications' },
-  { id: 'suporte', label: 'Suporte', icon: LifeBuoy, target: 'support' },
-  { id: 'sistema', label: 'Sistema', icon: Settings2, target: 'system-health' },
+  { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
+  { id: 'usuarios', label: 'Usuários', icon: Users },
+  { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard },
+  { id: 'conteudos', label: 'Conteúdos guiados', icon: BookOpen },
+  { id: 'mapa', label: 'Diário e mapa emocional', icon: LineChart },
+  { id: 'autocuidado', label: 'Plano de autocuidado', icon: CalendarCheck },
+  { id: 'orientacao', label: 'Orientação profissional', icon: MessageSquare },
+  { id: 'comunicacao', label: 'Comunicação', icon: Mail },
+  { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
+  { id: 'sistema', label: 'Sistema', icon: Settings2 },
 ]
 
-function readTab(key: string): string {
-  try { return localStorage.getItem(key) || '' } catch { return '' }
-}
-
-// Deriva o item ativo do menu a partir da view atual (+ aba interna).
-// Assim a sidebar fica SEMPRE em sincronia com o conteúdo mostrado (sem desync).
+// O editor de artigo mora dentro de Conteúdos; o resto é 1:1 com a view.
 function deriveActive(view: string): string {
-  switch (view) {
-    case 'painel': return 'visao-geral'
-    case 'usuarios-planos':
-      return ['planos', 'financeiro'].includes(readTab('admin-usuarios-tab')) ? 'planos' : 'usuarios'
-    case 'conteudo':
-      return readTab('admin-conteudo-tab') === 'questionarios' ? 'diario-mapa' : 'conteudos'
-    case 'article-editor': return 'conteudos'
-    case 'atendimento': {
-      const t = readTab('admin-atendimento-tab')
-      if (t === 'suporte') return 'suporte'
-      if (t === 'autocuidado') return 'autocuidado'
-      return 'orientacao'
-    }
-    case 'comunicacao': return 'comunicacao'
-    case 'sistema': return 'sistema'
-    default: return 'visao-geral'
-  }
+  return view === 'article-editor' ? 'conteudos' : view
 }
 
 interface Props {
@@ -68,7 +46,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
   const initials = (name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'AD').toUpperCase()
 
   function go(item: NavItem) {
-    onNavigate(item.target)
+    onNavigate(item.id)
     setSidebarOpen(false)
   }
 
