@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 
@@ -239,6 +239,21 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  // Moldura das páginas "app": usuário logado → sidebar (UserLayout);
+  // visitante → header público. Mantém a navegação coerente em toda a área logada.
+  const appShell = (content: ReactNode) =>
+    user ? (
+      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={signOut}>
+        {content}
+      </UserLayout>
+    ) : (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <main className="min-h-screen bg-stone-50">{content}</main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
@@ -281,40 +296,28 @@ export default function App() {
 
   if (view === 'diary') {
     if (!user) { navigate('auth'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <DiaryPage
-            user={user}
-            plan={profile?.plan || 'free'}
-            onBack={() => setView('home')}
-            onNavigatePricing={() => navigate('pricing')}
-            promptContext={diaryPromptContext}
-            onClearPromptContext={() => setDiaryPromptContext(null)}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <DiaryPage
+        user={user}
+        plan={profile?.plan || 'free'}
+        onBack={() => setView('home')}
+        onNavigatePricing={() => navigate('pricing')}
+        promptContext={diaryPromptContext}
+        onClearPromptContext={() => setDiaryPromptContext(null)}
+      />
     )
   }
 
   if (view === 'profile') {
     if (!user) { navigate('auth'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <ProfilePage
-            user={user}
-            profile={profile}
-            onBack={() => setView('home')}
-            onNavigatePricing={() => navigate('pricing')}
-            onRefreshProfile={refreshProfile}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <ProfilePage
+        user={user}
+        profile={profile}
+        onBack={() => setView('home')}
+        onNavigatePricing={() => navigate('pricing')}
+        onRefreshProfile={refreshProfile}
+      />
     )
   }
 
@@ -361,14 +364,8 @@ export default function App() {
   }
 
   if (view === 'notifications') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <NotificationsPage user={user} navigate={navigate} onBack={() => navigate('home')} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <NotificationsPage user={user} navigate={navigate} onBack={() => navigate('home')} />
     )
   }
 
@@ -433,24 +430,18 @@ export default function App() {
   }
 
   if (view === 'questionarios') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <QuestionnairesPage
-            user={user}
-            profile={profile}
-            onStart={(id) => {
-              setActiveQuestionnaireId(id)
-              navigate('questionnaire')
-            }}
-            onBack={() => navigate('home')}
-            onNavigatePricing={() => navigate('pricing')}
-            onNavigateAuth={() => navigate('auth')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <QuestionnairesPage
+        user={user}
+        profile={profile}
+        onStart={(id) => {
+          setActiveQuestionnaireId(id)
+          navigate('questionnaire')
+        }}
+        onBack={() => navigate('home')}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateAuth={() => navigate('auth')}
+      />
     )
   }
 
@@ -541,19 +532,13 @@ export default function App() {
   }
 
   if (view === 'saved') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <SavedItemsPage
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onBack={() => setView('home')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <SavedItemsPage
+        user={user}
+        profile={profile}
+        navigate={navigate}
+        onBack={() => setView('home')}
+      />
     )
   }
 
@@ -568,20 +553,14 @@ export default function App() {
   }
 
   if (view === 'support') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <SupportPage
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onBack={() => navigate('home')}
-            onOpenTicket={(id) => { setActiveSupportTicketId(id); setView('support-ticket') }}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <SupportPage
+        user={user}
+        profile={profile}
+        navigate={navigate}
+        onBack={() => navigate('home')}
+        onOpenTicket={(id) => { setActiveSupportTicketId(id); setView('support-ticket') }}
+      />
     )
   }
 
@@ -603,19 +582,13 @@ export default function App() {
 
   if (view === 'monthly-guidance') {
     if (!user) { navigate('auth'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <MonthlyGuidancePage
-            user={user}
-            profile={profile}
-            onBack={() => navigate('home')}
-            onNavigatePricing={() => navigate('pricing')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <MonthlyGuidancePage
+        user={user}
+        profile={profile}
+        onBack={() => navigate('home')}
+        onNavigatePricing={() => navigate('pricing')}
+      />
     )
   }
 
@@ -639,59 +612,41 @@ export default function App() {
 
   if (view === 'my-evolution') {
     if (!user) { navigate('auth'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <MyEvolutionPage
-            user={user}
-            profile={profile}
-            onBack={() => navigate('home')}
-            onNavigatePricing={() => navigate('pricing')}
-            onNavigateDiary={() => navigate('diary')}
-            initialTab={initialEvolutionTab as Tab}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <MyEvolutionPage
+        user={user}
+        profile={profile}
+        onBack={() => navigate('home')}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateDiary={() => navigate('diary')}
+        initialTab={initialEvolutionTab as Tab}
+      />
     )
   }
 
   if (view === 'my-report') {
     if (!user) { navigate('auth'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <MyReportPage
-            user={user}
-            profile={profile}
-            onBack={() => navigate('home')}
-            onNavigatePricing={() => navigate('pricing')}
-            onNavigateDiary={() => navigate('diary')}
-            onNavigateGuidance={() => navigate('monthly-guidance')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <MyReportPage
+        user={user}
+        profile={profile}
+        onBack={() => navigate('home')}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateDiary={() => navigate('diary')}
+        onNavigateGuidance={() => navigate('monthly-guidance')}
+      />
     )
   }
 
   if (view === 'my-plan') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <MyPlanPage
-            user={user}
-            profile={profile}
-            onBack={() => navigate('home')}
-            onNavigateAuth={() => navigate('auth')}
-            onRefreshProfile={refreshProfile}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <MyPlanPage
+        user={user}
+        profile={profile}
+        onBack={() => navigate('home')}
+        onNavigateAuth={() => navigate('auth')}
+        onRefreshProfile={refreshProfile}
+      />
     )
   }
 
