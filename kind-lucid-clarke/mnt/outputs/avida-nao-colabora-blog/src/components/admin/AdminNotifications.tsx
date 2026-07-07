@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Plus, Trash2, Bell, Send, Sparkles } from 'lucide-react'
 import AIContentAssistant from './AIContentAssistant'
+import { logAdminAction } from '../../lib/adminAudit'
 
 interface Notification {
   id: string
@@ -114,6 +115,7 @@ export default function AdminNotifications() {
       showToastMsg(`Notificação enviada para ${rows.length} usuário(s)!`)
     }
 
+    void logAdminAction('create', 'notification', null, { title, type, target: targetMode })
     setShowForm(false); setTitle(''); setBody(''); setActionView('')
     load()
   }

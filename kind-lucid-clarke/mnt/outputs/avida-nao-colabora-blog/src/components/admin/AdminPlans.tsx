@@ -15,6 +15,7 @@ import {
   resolveKey,
   type PlanKey,
 } from '../../lib/officialPlans'
+import { logAdminAction } from '../../lib/adminAudit'
 
 interface PlanConfig {
   key: PlanKey
@@ -170,7 +171,7 @@ export default function AdminPlans() {
     }
     setSaving(false)
     if (hasError) showToast('Erro ao salvar planos. Verifique o console.', false)
-    else showToast('Informações dos planos salvas!')
+    else { void logAdminAction('config', 'plan_configs', null, null); showToast('Informações dos planos salvas!') }
   }
 
   async function toggleOwnFeature(planKey: string, featureKey: string, current: boolean) {

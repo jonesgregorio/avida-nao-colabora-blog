@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { sendUserMessage } from '../../lib/messaging'
+import { logAdminAction } from '../../lib/adminAudit'
 import { generateUserProfileSummary, type UserProfileData } from '../../lib/aiContent'
 import {
   Search, X, Users, Crown, Bell, FileText, Star, XCircle,
@@ -436,6 +437,7 @@ export default function AdminUsers() {
     await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
     await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: planReason || null })
     await supabase.from('notifications').insert({ user_id: userId, title: 'Plano atualizado pelo suporte', body: `Seu plano foi alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.`, type: 'plan_change', is_read: false })
+    void logAdminAction('update', 'user_plan', userId, { from: oldPlan, to: targetPlan, reason: planReason || null })
     setUsers(u => u.map(r => r.user_id === userId ? { ...r, plan: targetPlan } : r))
     setSelectedUser(s => s ? { ...s, plan: targetPlan } : s)
     setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: planReason || 'admin_change', created_at: new Date().toISOString() }, ...prev])
@@ -450,6 +452,7 @@ export default function AdminUsers() {
     await supabase.from('user_subscriptions').upsert({ user_id: userId, status: 'cancel_pending', cancel_at_period_end: true }, { onConflict: 'user_id' })
     await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: selectedUser?.plan, new_plan: 'free', change_type: 'cancel', changed_by: adminUser?.id ?? null, source: 'admin', notes: 'Cancelado pelo admin' })
     await supabase.from('notifications').insert({ user_id: userId, title: 'Plano cancelado pelo suporte', body: 'Seu plano foi cancelado. Você continuará com acesso até o fim do ciclo atual.', type: 'plan_change', is_read: false })
+    void logAdminAction('update', 'subscription_cancel', userId, { plan: selectedUser?.plan ?? null })
     setAdminSubMsg({ type: 'ok', text: 'Cancelamento agendado com sucesso.' })
     loadAdminSub(userId)
     setAdminSubActing(false)
