@@ -7,6 +7,7 @@ import Footer from './components/Footer'
 import Hero from './components/Hero'
 import HomeContent from './components/HomeContent'
 import LoggedHome from './components/LoggedHome'
+import UserLayout from './components/user/UserLayout'
 import Articles from './components/Articles'
 import ArticleView from './components/ArticleView'
 import DiaryPage from './components/DiaryPage'
@@ -706,22 +707,23 @@ export default function App() {
     )
   }
 
-  // Home
+  // Home logado → nova experiência com sidebar (UserLayout)
+  if (user) {
+    return (
+      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={signOut}>
+        <LoggedHome user={user} profile={profile} onNavigate={navigate} />
+      </UserLayout>
+    )
+  }
+
+  // Home pública (visitante)
   return (
     <>
       <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-
       <main className="min-h-screen bg-paper">
-        {user ? (
-          <LoggedHome profile={profile} onNavigate={navigate} />
-        ) : (
-          <>
-            <Hero onNavigate={navigate} />
-            <HomeContent onNavigate={navigate} />
-          </>
-        )}
+        <Hero onNavigate={navigate} />
+        <HomeContent onNavigate={navigate} />
       </main>
-
       <Footer onNavigate={navigate} />
     </>
   )
