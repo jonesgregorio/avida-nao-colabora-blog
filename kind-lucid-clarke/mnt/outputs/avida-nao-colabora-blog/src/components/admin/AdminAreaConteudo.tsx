@@ -1,21 +1,25 @@
 import { useState } from 'react'
-import { FileText, Tag, Image, HelpCircle, BookOpen, Search, Star } from 'lucide-react'
+import { FileText, Wind, Moon, BookOpen, Sparkles, Tag, Image, Search, Star } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminImages from './AdminImages'
-import AdminQuestionnaires from './AdminQuestionnaires'
 import AdminTrails from './AdminTrails'
 import AdminSEO from './AdminSEO'
 import AdminSocialProof from './AdminSocialProof'
+import AdminPersonalization from './AdminPersonalization'
 
+// Conteúdos guiados (#conteudos). Abas do mockup primeiro; ferramentas de apoio depois.
+// Questionários migraram para Diário e mapa emocional.
 const TABS = [
-  { id: 'artigos',       label: 'Artigos',            icon: FileText },
-  { id: 'categorias',    label: 'Categorias',         icon: Tag },
-  { id: 'imagens',       label: 'Imagens',            icon: Image },
-  { id: 'questionarios', label: 'Questionários',      icon: HelpCircle },
-  { id: 'trilhas',       label: 'Trilhas',            icon: BookOpen },
-  { id: 'seo',           label: 'SEO',                icon: Search },
-  { id: 'depoimentos',   label: 'Home e Depoimentos', icon: Star },
+  { id: 'artigos',      label: 'Artigos',            icon: FileText },
+  { id: 'praticas',     label: 'Práticas',           icon: Wind },
+  { id: 'meditacoes',   label: 'Meditações',         icon: Moon },
+  { id: 'trilhas',      label: 'Trilhas',            icon: BookOpen },
+  { id: 'recomendacoes', label: 'Recomendações IA',  icon: Sparkles },
+  { id: 'categorias',   label: 'Categorias',         icon: Tag },
+  { id: 'imagens',      label: 'Imagens',            icon: Image },
+  { id: 'seo',          label: 'SEO',                icon: Search },
+  { id: 'depoimentos',  label: 'Home e Depoimentos', icon: Star },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -40,6 +44,10 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
 
   return (
     <div className="flex flex-col min-h-0">
+      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
+        <h1 className="font-serif text-3xl text-forest-900">Conteúdos guiados</h1>
+        <p className="text-sm text-ink-soft mt-1">Gerencie textos, práticas, meditações, trilhas e recomendações de IA.</p>
+      </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Conteúdo">
           {TABS.map(t => {
@@ -62,13 +70,15 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         </nav>
       </div>
       <div className="flex-1">
-        {tab === 'artigos'       && <AdminArticles onEdit={onEditArticle} onNew={() => onEditArticle()} />}
-        {tab === 'categorias'    && <AdminCategories />}
-        {tab === 'imagens'       && <AdminImages />}
-        {tab === 'questionarios' && <AdminQuestionnaires />}
-        {tab === 'trilhas'       && <AdminTrails />}
-        {tab === 'seo'           && <AdminSEO />}
-        {tab === 'depoimentos'   && <AdminSocialProof />}
+        {tab === 'artigos'      && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
+        {tab === 'praticas'     && <AdminArticles contentType="practice" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
+        {tab === 'meditacoes'   && <AdminArticles contentType="meditation" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
+        {tab === 'trilhas'      && <AdminTrails />}
+        {tab === 'recomendacoes' && <AdminPersonalization />}
+        {tab === 'categorias'   && <AdminCategories />}
+        {tab === 'imagens'      && <AdminImages />}
+        {tab === 'seo'          && <AdminSEO />}
+        {tab === 'depoimentos'  && <AdminSocialProof />}
       </div>
     </div>
   )

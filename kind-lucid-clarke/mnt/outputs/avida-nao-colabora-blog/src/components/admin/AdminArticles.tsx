@@ -8,13 +8,23 @@ interface Article {
   slug: string
   status: string
   category: string
+  content_type?: string | null
   created_at: string
   published_at: string | null
 }
 
+type ContentType = 'article' | 'practice' | 'meditation'
+
 interface Props {
   onNew: () => void
   onEdit: (id: string) => void
+  contentType?: ContentType
+}
+
+const TYPE_COPY: Record<ContentType, { title: string; novo: string; vazio: string }> = {
+  article: { title: 'Artigos', novo: 'Novo artigo', vazio: 'Nenhum artigo ainda.' },
+  practice: { title: 'Práticas', novo: 'Nova prática', vazio: 'Nenhuma prática ainda. Crie um conteúdo e escolha o tipo "Prática".' },
+  meditation: { title: 'Meditações', novo: 'Nova meditação', vazio: 'Nenhuma meditação ainda. Crie um conteúdo e escolha o tipo "Meditação".' },
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -31,7 +41,8 @@ const STATUS_COLORS: Record<string, string> = {
   scheduled: 'bg-blue-100 text-blue-700',
 }
 
-export default function AdminArticles({ onNew, onEdit }: Props) {
+export default function AdminArticles({ onNew, onEdit, contentType = 'article' }: Props) {
+  const copy = TYPE_COPY[contentType]
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -45,9 +56,10 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
 
   async function load() {
     setLoading(true)
+    // select('*') é tolerante caso a migration 059 (content_type) ainda não tenha aplicado.
     const { data, error } = await supabase
       .from('articles')
-      .select('id, title, slug, status, category, created_at, published_at')
+      .select('*')
       .order('created_at', { ascending: false })
     if (error) showToast('Erro ao carregar artigos: ' + error.message, true)
     setArticles(data || [])
@@ -88,7 +100,8 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
   const filtered = articles.filter(a => {
     const matchSearch = a.title.toLowerCase().includes(search.toLowerCase()) || a.slug.includes(search.toLowerCase())
     const matchStatus = filterStatus === 'all' || a.status === filterStatus
-    return matchSearch && matchStatus
+    const matchType = (a.content_type ?? 'article') === contentType
+    return matchSearch && matchStatus && matchType
   })
 
   return (
@@ -100,12 +113,12 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl text-forest-900">Artigos</h1>
+        <h1 className="font-serif text-2xl text-forest-900">{copy.title}</h1>
         <button
           onClick={onNew}
           className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 transition-colors"
         >
-          <Plus className="w-4 h-4" /> Novo artigo
+          <Plus className="w-4 h-4" /> {copy.novo}
         </button>
       </div>
 
@@ -136,7 +149,7 @@ export default function AdminArticles({ onNew, onEdit }: Props) {
       {loading ? (
         <p className="text-stone-400 text-sm">Carregando artigos...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-stone-400 text-sm">Nenhum artigo encontrado.</p>
+        <p className="text-stone-400 text-sm">{copy.vazio}</p>
       ) : (
         <div className="bg-white rounded-xl border border-line overflow-hidden">
           <table className="w-full text-sm">

@@ -122,7 +122,7 @@ function timeSince(iso: string): string {
 
 const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
-type DrawerTab = 'resumo' | 'plano' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
+type DrawerTab = 'resumo' | 'plano' | 'mapa' | 'orientacoes' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
 
 interface AISummaryRow {
   id: string
@@ -159,6 +159,8 @@ export default function AdminUsers() {
   const [userNotes, setUserNotes] = useState<NoteRow[]>([])
   const [planHistory, setPlanHistory] = useState<PlanHistoryRow[]>([])
   const [metrics, setMetrics] = useState({ diary: 0, saved: 0, questionnaires: 0, tickets: 0, unreadNotifs: 0 })
+  const [userGuidance, setUserGuidance] = useState<{ id: string; month_key: string; status: string; created_at: string; message: string | null }[]>([])
+  const [lastDiary, setLastDiary] = useState<string | null>(null)
   const [loadingDrawer, setLoadingDrawer] = useState(false)
 
   // Summary stats
@@ -295,7 +297,7 @@ export default function AdminUsers() {
 
   async function loadDrawerData(userId: string) {
     setLoadingDrawer(true)
-    const [ticketRes, notifRes, noteRes, planHistRes, diaryRes, savedRes, qRes] = await Promise.all([
+    const [ticketRes, notifRes, noteRes, planHistRes, diaryRes, savedRes, qRes, guidanceRes, lastDiaryRes] = await Promise.all([
       supabase.from('support_tickets').select('id, ticket_number, subject, status, priority, updated_at').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('notifications').select('id, title, type, is_read, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(30),
       supabase.from('user_internal_notes').select('id, note, admin_id, is_pinned, priority, created_at').eq('user_id', userId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
@@ -303,11 +305,15 @@ export default function AdminUsers() {
       supabase.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('questionnaire_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('monthly_guidance_requests').select('id, month_key, status, created_at, message').eq('user_id', userId).order('created_at', { ascending: false }).limit(20).then(r => r, () => ({ data: [] })),
+      supabase.from('diary_entries').select('created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
     ])
     setUserTickets(ticketRes.data || [])
     setUserNotifs(notifRes.data || [])
     setUserNotes(noteRes.data || [])
     setPlanHistory(planHistRes.data || [])
+    setUserGuidance((guidanceRes as { data: typeof userGuidance }).data || [])
+    setLastDiary((lastDiaryRes.data?.[0] as { created_at?: string } | undefined)?.created_at ?? null)
     setMetrics({
       diary: diaryRes.count ?? 0,
       saved: savedRes.count ?? 0,
@@ -750,6 +756,8 @@ export default function AdminUsers() {
   const DRAWER_TABS: { key: DrawerTab; label: string }[] = [
     { key: 'resumo', label: 'Resumo' },
     { key: 'plano', label: 'Plano' },
+    { key: 'mapa', label: 'Mapa emocional' },
+    { key: 'orientacoes', label: 'Orientações' },
     { key: 'assinatura', label: 'Assinatura' },
     { key: 'acesso', label: 'Acesso' },
     { key: 'suporte', label: 'Suporte' },
@@ -1138,6 +1146,54 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Tab: Mapa emocional */}
+                {drawerTab === 'mapa' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-stone-50 border border-line rounded-xl p-4">
+                        <p className="text-2xl font-serif text-forest-900">{metrics.diary}</p>
+                        <p className="text-xs text-stone-500 mt-1">Entradas no diário</p>
+                      </div>
+                      <div className="bg-stone-50 border border-line rounded-xl p-4">
+                        <p className="text-2xl font-serif text-forest-900">{metrics.questionnaires}</p>
+                        <p className="text-xs text-stone-500 mt-1">Questionários respondidos</p>
+                      </div>
+                    </div>
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 text-xs text-stone-600">
+                      Último registro no diário: <strong>{lastDiary ? new Date(lastDiary).toLocaleDateString('pt-BR') : '—'}</strong>
+                    </div>
+                    <p className="text-xs text-stone-400">
+                      O mapa emocional detalhado (marcadores, gráficos e relatórios) fica na área <strong>Diário e mapa emocional</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {/* Tab: Orientações */}
+                {drawerTab === 'orientacoes' && (
+                  <div className="space-y-3">
+                    {loadingDrawer ? (
+                      <div className="h-16 bg-stone-100 rounded-xl animate-pulse" />
+                    ) : userGuidance.length === 0 ? (
+                      <p className="text-sm text-stone-400">Nenhuma orientação registrada para este usuário.</p>
+                    ) : userGuidance.map(g => {
+                      const [y, m] = (g.month_key || '').split('-')
+                      const mLabel = y && m ? new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : (g.month_key || '—')
+                      const sLabel = g.status === 'answered' ? 'Respondida' : g.status === 'closed' ? 'Fechada' : 'Aguardando'
+                      const sCls = g.status === 'answered' ? 'bg-mint text-forest-800' : g.status === 'closed' ? 'bg-stone-100 text-stone-500' : 'bg-amber-100 text-amber-700'
+                      return (
+                        <div key={g.id} className="bg-stone-50 border border-line rounded-xl p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-forest-900 capitalize">{mLabel}</p>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full ${sCls}`}>{sLabel}</span>
+                          </div>
+                          {g.message && <p className="text-xs text-stone-500 mt-1 line-clamp-2">{g.message}</p>}
+                          <p className="text-[11px] text-stone-400 mt-1">{new Date(g.created_at).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 

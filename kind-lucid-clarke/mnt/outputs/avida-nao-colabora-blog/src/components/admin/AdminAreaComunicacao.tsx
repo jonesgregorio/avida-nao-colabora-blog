@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Zap, Calendar, Mail } from 'lucide-react'
+import { Bell, Zap, Calendar, Mail, FileText } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminAutomated from './AdminAutomated'
 import AdminScheduled from './AdminScheduled'
@@ -13,10 +13,12 @@ const AUTO_TABS = [
 
 type AutoTab = typeof AUTO_TABS[number]['id']
 
+// Abas do mockup (#comunicacao): Notificações / E-mails enviados / Templates / Campanhas
 const TABS = [
-  { id: 'notificacoes', label: 'Notificações',          icon: Bell },
-  { id: 'emails',       label: 'E-mails',               icon: Mail },
-  { id: 'automaticos',  label: 'Automação de Conteúdo', icon: Zap },
+  { id: 'notificacoes', label: 'Notificações',    icon: Bell },
+  { id: 'emails',       label: 'E-mails enviados', icon: Mail },
+  { id: 'templates',    label: 'Templates',        icon: FileText },
+  { id: 'campanhas',    label: 'Campanhas',        icon: Zap },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -79,6 +81,10 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
 
   return (
     <div className="flex flex-col min-h-0">
+      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
+        <h1 className="font-serif text-3xl text-forest-900">Comunicação</h1>
+        <p className="text-sm text-ink-soft mt-1">Envie notificações, acompanhe e-mails, templates e campanhas.</p>
+      </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Comunicação">
           {TABS.map(t => {
@@ -102,8 +108,9 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
       </div>
       <div className="flex-1">
         {tab === 'notificacoes' && <AdminNotifications />}
-        {tab === 'emails'       && <AdminEmails />}
-        {tab === 'automaticos'  && <AutomacaoConteudo />}
+        {tab === 'emails'       && <AdminEmails initialTab="logs" />}
+        {tab === 'templates'    && <AdminEmails initialTab="templates" />}
+        {tab === 'campanhas'    && <AutomacaoConteudo />}
       </div>
     </div>
   )

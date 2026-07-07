@@ -141,6 +141,17 @@ export default function AdminSelfCarePlans() {
 
   const isForm = showForm || selected !== null
 
+  // Métricas do mockup (#autocuidado): Pendentes / Em revisão / Enviados / Com erro.
+  const curMonth = monthKey()
+  const sentThisMonth = plans.filter(p => p.month_key === curMonth).length
+  const pending = plusUsers.filter(u => !plans.some(p => p.user_id === u.id && p.month_key === curMonth)).length
+  const metrics = [
+    { n: pending, label: 'Pendentes' },
+    { n: 0, label: 'Em revisão' },
+    { n: sentThisMonth, label: 'Enviados' },
+    { n: 0, label: 'Com erro' },
+  ]
+
   return (
     <div>
       {toast && (
@@ -163,14 +174,33 @@ export default function AdminSelfCarePlans() {
         />
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl text-forest-900">Planos de Autocuidado</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+        <div>
+          <h1 className="font-serif text-3xl text-forest-900">Plano de autocuidado</h1>
+          <p className="text-sm text-ink-soft mt-1">Gere, revise e envie planos mensais para usuários Plus.</p>
+        </div>
         {!isForm && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800">
-            <Plus className="w-4 h-4" /> Novo plano
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800">
+            <Plus className="w-4 h-4" /> Gerar planos pendentes
           </button>
         )}
       </div>
+
+      {!isForm && (
+        <>
+          <div className="border border-[#eeb7a7] bg-[#fff5f1] text-[#783426] rounded-xl px-4 py-3 text-sm mb-5">
+            Revisão humana obrigatória antes de enviar qualquer plano gerado por IA.
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {metrics.map(m => (
+              <div key={m.label} className="bg-white border border-line rounded-2xl p-5">
+                <p className="font-serif text-3xl text-forest-900">{loading ? '—' : m.n}</p>
+                <p className="text-sm text-ink-soft mt-1">{m.label}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {isForm ? (
         <div className="max-w-2xl space-y-5">

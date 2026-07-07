@@ -40,8 +40,8 @@ function fmt(iso: string | null): string {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function AdminEmails() {
-  const [tab, setTab] = useState<'logs' | 'templates'>('logs')
+export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'templates' }) {
+  const [tab, setTab] = useState<'logs' | 'templates'>(initialTab ?? 'logs')
   const [logs, setLogs] = useState<EmailLog[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending'>('all')

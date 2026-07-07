@@ -313,13 +313,26 @@ export default function ArticleView({
         <p className="text-sm text-stone-500">{article.category} · {formattedDate}</p>
       </div>
 
+      {/* Breadcrumb */}
+      <nav aria-label="Trilha de navegação" className="mb-4 no-print">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
+          <li>
+            <button onClick={onBack} className="hover:text-forest-900 transition-colors focus:outline-none focus-visible:underline">
+              Conteúdos guiados
+            </button>
+          </li>
+          <li aria-hidden className="text-ink-soft/50">›</li>
+          <li className="text-forest-700 font-medium truncate max-w-[60vw]">{article.category}</li>
+        </ol>
+      </nav>
+
       {/* Back + actions bar */}
-      <div className="flex items-center justify-between mb-8 no-print">
+      <div className="flex items-center justify-between gap-3 mb-8 no-print">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sage-500 hover:text-sage-700 text-sm"
+          className="flex items-center gap-2 text-ink-soft hover:text-forest-900 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 rounded"
         >
-          <ArrowLeft className="w-4 h-4" /> Voltar para o blog
+          <ArrowLeft className="w-4 h-4" /> Voltar para conteúdos
         </button>
         <div className="flex items-center gap-2">
           <button
@@ -345,8 +358,8 @@ export default function ArticleView({
       </div>
 
       {/* Category + title */}
-      <div className="mb-4">
-        <span className="text-sm font-medium text-sage-600 bg-sage-50 px-3 py-1 rounded-full">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-forest-700 bg-mint px-3 py-1 rounded-full">
           {article.category}
         </span>
       </div>
@@ -361,14 +374,14 @@ export default function ArticleView({
 
       {/* A) Quick Summary Card */}
       {showSummary && (
-        <div className="no-print mb-8 bg-lilac/40 border border-purple-100 rounded-2xl p-5 relative">
+        <div className="no-print mb-8 bg-mint/50 border border-forest-100 rounded-2xl p-5 relative">
           <button
             onClick={() => setShowSummary(false)}
-            className="absolute top-3 right-3 text-purple-300 hover:text-forest-600 text-xs"
+            className="absolute top-3 right-3 text-ink-soft hover:text-forest-700 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 rounded"
           >
             ✕ fechar
           </button>
-          <p className="text-xs uppercase tracking-wider text-forest-400 mb-3 font-medium">
+          <p className="text-xs uppercase tracking-wider text-forest-500 mb-3 font-medium">
             Se você está sem energia para ler tudo agora, aqui está o resumo.
           </p>
           <div className="space-y-2.5">
@@ -503,7 +516,7 @@ export default function ArticleView({
       {/* Disclaimer */}
       <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-4 no-print">
         <p className="text-amber-800 text-sm">
-          <strong>Importante:</strong> Os conteúdos deste blog são informativos e educativos. Não substituem acompanhamento profissional de saúde mental. Se você está passando por dificuldades severas, procure um psicólogo ou profissional de saúde.
+          <strong>Importante:</strong> Estes conteúdos são informativos e educativos. Não substituem acompanhamento profissional de saúde mental. Se você está passando por dificuldades severas, procure um psicólogo ou profissional de saúde.
         </p>
       </div>
 
@@ -519,7 +532,7 @@ export default function ArticleView({
       {/* F) Related articles */}
       {related.length > 0 && (
         <div className="mt-12 no-print">
-          <h3 className="text-lg font-bold text-sage-800 mb-4">Artigos relacionados</h3>
+          <h3 className="text-lg font-bold text-sage-800 mb-4">Conteúdos relacionados</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {related.map(rel => (
               <button

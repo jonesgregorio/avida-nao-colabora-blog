@@ -29,6 +29,10 @@ export default function AdminMapaArea() {
 
   return (
     <div className="flex flex-col min-h-0">
+      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
+        <h1 className="font-serif text-3xl text-forest-900">Diário e mapa emocional</h1>
+        <p className="text-sm text-ink-soft mt-1">Configure questionários, marcadores, relatórios, gráficos e padrões emocionais.</p>
+      </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas do Diário e mapa emocional">
           {TABS.map(t => {

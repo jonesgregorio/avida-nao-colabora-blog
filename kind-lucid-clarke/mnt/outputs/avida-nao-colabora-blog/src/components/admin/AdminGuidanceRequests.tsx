@@ -19,13 +19,14 @@ interface GuidanceRequest {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-100 text-stone-500',
   essential: 'bg-blue-100 text-blue-700',
-  therapeutic: 'bg-purple-100 text-purple-700',
+  plus: 'bg-mint text-forest-800',
+  therapeutic: 'bg-mint text-forest-800',
   'therapeutic-plus': 'bg-mint text-forest-800',
 }
 
@@ -140,6 +141,19 @@ export default function AdminGuidanceRequests() {
 
   const monthOptions = getMonthOptions()
 
+  // Métricas do mockup (#orientacao).
+  const nowD = new Date()
+  const answeredThisMonth = requests.filter(r =>
+    r.status === 'answered' && r.responded_at &&
+    new Date(r.responded_at).getMonth() === nowD.getMonth() &&
+    new Date(r.responded_at).getFullYear() === nowD.getFullYear()).length
+  const gMetrics = [
+    { n: openCount, label: 'Aguardando resposta' },
+    { n: 0, label: 'Vence hoje' },
+    { n: 0, label: 'Em revisão' },
+    { n: answeredThisMonth, label: 'Respondidas no mês' },
+  ]
+
   return (
     <div>
       {toast && (
@@ -148,13 +162,18 @@ export default function AdminGuidanceRequests() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-serif text-2xl text-forest-900">Orientações Mensais</h1>
-          {openCount > 0 && (
-            <p className="text-sm text-amber-600 font-medium mt-0.5">{openCount} aguardando resposta</p>
-          )}
-        </div>
+      <div className="mb-5">
+        <h1 className="font-serif text-3xl text-forest-900">Orientação profissional</h1>
+        <p className="text-sm text-ink-soft mt-1">Responda mensagens mensais e revise comentários do plano Plus.</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {gMetrics.map(m => (
+          <div key={m.label} className="bg-white border border-line rounded-2xl p-5">
+            <p className="font-serif text-3xl text-forest-900">{loading ? '—' : m.n}</p>
+            <p className="text-sm text-ink-soft mt-1">{m.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}

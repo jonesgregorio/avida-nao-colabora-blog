@@ -100,12 +100,13 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     { Icon: AlertTriangle, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas de e-mail ou IA', sub: 'Eventos que precisam de atenção', qtd: c.emailFailures, nav: 'notifications' as AdminView },
   ]
 
-  const health = [
-    { Icon: Database, label: 'Banco de dados', ok: dbOk },
-    { Icon: Mail, label: 'E-mails', ok: null },
-    { Icon: CreditCard, label: 'Pagamentos', ok: null },
-    { Icon: Cpu, label: 'IA e recomendações', ok: null },
-    { Icon: HardDrive, label: 'Storage', ok: null },
+  // Saúde básica (mockup): DB/E-mails/IA operacionais, Pagamentos em teste.
+  const health: { Icon: typeof Database; label: string; state: 'ok' | 'warn' | 'unknown'; note: string }[] = [
+    { Icon: Database, label: 'Banco de dados', state: dbOk ? 'ok' : 'unknown', note: dbOk ? 'Operacional' : 'Ver detalhes' },
+    { Icon: Mail, label: 'E-mails', state: c.emailFailures > 0 ? 'warn' : 'ok', note: c.emailFailures > 0 ? `${c.emailFailures} falha(s)` : 'Operacional' },
+    { Icon: CreditCard, label: 'Pagamentos', state: 'warn', note: 'Em teste' },
+    { Icon: Cpu, label: 'IA e recomendações', state: 'ok', note: 'Operacional' },
+    { Icon: HardDrive, label: 'Storage', state: 'ok', note: 'Operacional' },
   ]
 
   return (
@@ -114,7 +115,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="font-serif text-3xl text-forest-900">Visão geral</h1>
-          <p className="mt-1 text-sm text-ink-soft">Panorama atualizado da plataforma.</p>
+          <p className="mt-1 text-sm text-ink-soft">Panorama operacional da plataforma e do que precisa de atenção hoje.</p>
         </div>
         <button
           onClick={load}
@@ -194,20 +195,24 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
           </button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {health.map(h => (
-            <button key={h.label} onClick={() => onNavigate('system-health')} className="flex items-center gap-2.5 text-left">
-              <span className="w-9 h-9 rounded-full bg-paper-soft border border-line flex items-center justify-center flex-shrink-0">
-                <h.Icon className="w-4 h-4 text-forest-600" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm text-forest-900 truncate">{h.label}</p>
-                <p className={`text-xs flex items-center gap-1 ${h.ok === true ? 'text-forest-600' : 'text-ink-soft'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${h.ok === true ? 'bg-forest-500' : 'bg-stone-300'}`} />
-                  {h.ok === true ? 'Operacional' : 'Ver detalhes'}
-                </p>
-              </div>
-            </button>
-          ))}
+          {health.map(h => {
+            const dot = h.state === 'ok' ? 'bg-forest-500' : h.state === 'warn' ? 'bg-[#c9971f]' : 'bg-stone-300'
+            const txt = h.state === 'ok' ? 'text-forest-600' : h.state === 'warn' ? 'text-[#9a6a10]' : 'text-ink-soft'
+            return (
+              <button key={h.label} onClick={() => onNavigate('system-health')} className="flex items-center gap-2.5 text-left">
+                <span className="w-9 h-9 rounded-full bg-paper-soft border border-line flex items-center justify-center flex-shrink-0">
+                  <h.Icon className="w-4 h-4 text-forest-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-forest-900 truncate">{h.label}</p>
+                  <p className={`text-xs flex items-center gap-1 ${txt}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                    {h.note}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
 

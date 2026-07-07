@@ -7,6 +7,7 @@ interface ArticleData {
   title: string
   slug: string
   status: string
+  content_type: string
   category: string
   content: string
   summary: string
@@ -24,7 +25,7 @@ interface ArticleData {
 }
 
 const EMPTY: ArticleData = {
-  title: '', slug: '', status: 'draft', category: '',
+  title: '', slug: '', status: 'draft', content_type: 'article', category: '',
   content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
   diary_question: '', cta_text: '', cta_link: '',
@@ -60,6 +61,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           title: a.title || '',
           slug: a.slug || '',
           status: a.status || 'draft',
+          content_type: a.content_type || 'article',
           category: a.category || '',
           content: a.content || '',
           summary: a.summary || a.excerpt || '',
@@ -103,6 +105,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       title: data.title,
       slug: data.slug,
       status: targetStatus,
+      content_type: data.content_type,
       category: data.category,
       content: data.content,
       summary: data.summary,
@@ -309,6 +312,13 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <input type="datetime-local" value={data.scheduled_at} onChange={e => set('scheduled_at', e.target.value)} className={inputCls} />
               </Field>
             )}
+            <Field label="Tipo de conteúdo">
+              <select value={data.content_type} onChange={e => set('content_type', e.target.value)} className={inputCls}>
+                <option value="article">Artigo</option>
+                <option value="practice">Prática</option>
+                <option value="meditation">Meditação</option>
+              </select>
+            </Field>
             <Field label="Categoria">
               {categories.length > 0 ? (
                 <select value={data.category} onChange={e => set('category', e.target.value)} className={inputCls}>
@@ -323,8 +333,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <select value={data.plan_required} onChange={e => set('plan_required', e.target.value)} className={inputCls}>
                 <option value="free">Gratuito</option>
                 <option value="essential">Essencial</option>
-                <option value="therapeutic">Terapêutico</option>
-                <option value="therapeutic-plus">Terapêutico Plus</option>
+                <option value="plus">Plus</option>
               </select>
             </Field>
             <Field label="Tempo de leitura (min)">
