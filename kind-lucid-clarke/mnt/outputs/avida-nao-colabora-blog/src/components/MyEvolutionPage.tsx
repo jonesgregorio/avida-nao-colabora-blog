@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { getContentTypeLabel, getTargetAreaLabel } from '../lib/personalizedContentLabels'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { hasPlanAccess, getPlanLabel } from '../lib/officialPlans'
 import {
   BarChart2, FileText, Heart, Leaf, MessageSquare, Video,
   Lock, ChevronLeft, Download, Send, RefreshCw, CheckCircle,
@@ -12,10 +13,6 @@ import {
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
 const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
-
-const PLAN_RANK: Record<string, number> = {
-  free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3,
-}
 
 export type Tab = 'resumo' | 'graficos' | 'relatorios' | 'autocuidado' | 'orientacoes' | 'comentarios' | 'sessao' | 'para-voce'
 
@@ -28,13 +25,9 @@ function monthLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
+// Delega para a fonte única (normaliza legados e reconhece 'plus' corretamente).
 function hasPlan(userPlan: string, required: string) {
-  return (PLAN_RANK[userPlan] ?? 0) >= (PLAN_RANK[required] ?? 99)
-}
-
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
-  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
+  return hasPlanAccess(userPlan, required)
 }
 
 // ─── Subcomponentes utilitários ────────────────────────────────────────────────
@@ -54,7 +47,7 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
         onClick={onNavigatePricing}
         className="bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
       >
-        Conhecer plano {PLAN_LABELS[requiredPlan]}
+        Conhecer plano {getPlanLabel(requiredPlan)}
       </button>
     </div>
   )
@@ -163,7 +156,7 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
           </button>
           <div>
             <h1 className="text-2xl font-bold text-stone-800">Mapa emocional</h1>
-            <p className="text-sm text-stone-500">Plano {PLAN_LABELS[plan]}</p>
+            <p className="text-sm text-stone-500">Plano {getPlanLabel(plan)}</p>
           </div>
         </div>
 
@@ -510,7 +503,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
 
           {!hasPlan(plan, 'therapeutic') && (
             <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
-              <p className="text-xs text-stone-500">Gráficos comparativos mensais e marcadores avançados estão disponíveis no plano Terapêutico.</p>
+              <p className="text-xs text-stone-500">Gráficos comparativos mensais e marcadores avançados estão disponíveis no plano Plus.</p>
               <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
             </div>
           )}
@@ -713,7 +706,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
 
       {!hasPlan(plan, 'therapeutic') && (
         <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
-          <p className="text-xs text-stone-500">Relatório avançado, gráficos comparativos e recomendações personalizadas estão no plano Terapêutico.</p>
+          <p className="text-xs text-stone-500">Relatório avançado, gráficos comparativos e recomendações personalizadas estão no plano Plus.</p>
           <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
         </div>
       )}
@@ -825,7 +818,7 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
     return (
       <LockedSection
         requiredPlan="therapeutic"
-        message="O Plano de Autocuidado personalizado está disponível no plano Terapêutico."
+        message="O Plano de Autocuidado personalizado está disponível no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
     )
@@ -901,7 +894,7 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
       {!hasPlan(plan, 'therapeutic-plus') && (
         <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
           <Lock className="w-4 h-4 text-stone-300 mx-auto" />
-          <p className="text-xs text-stone-500">Revisão mensal do plano de autocuidado com comentário profissional está disponível no plano Terapêutico Plus.</p>
+          <p className="text-xs text-stone-500">Revisão mensal do plano de autocuidado com comentário profissional está disponível no plano Plus.</p>
           <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
         </div>
       )}
@@ -958,7 +951,7 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
     return (
       <LockedSection
         requiredPlan="therapeutic"
-        message="Orientação mensal por mensagem está disponível no plano Terapêutico."
+        message="Orientação mensal por mensagem está disponível no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
     )
@@ -1223,7 +1216,7 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
     return (
       <LockedSection
         requiredPlan="therapeutic-plus"
-        message="Comentários individuais sobre o relatório do mês estão disponíveis no plano Terapêutico Plus."
+        message="Comentários individuais sobre o relatório do mês estão disponíveis no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
     )
@@ -1357,7 +1350,7 @@ function TabSessaoPlus({ plan, user, onNavigatePricing }: {
     return (
       <LockedSection
         requiredPlan="therapeutic-plus"
-        message="Sessão mensal de 30 minutos com Psicanalista está disponível no plano Terapêutico Plus."
+        message="Sessão mensal de 30 minutos com Psicanalista está disponível no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
     )
@@ -1735,12 +1728,6 @@ interface PersonalizedDelivery {
   sent_at: string | null
   created_at: string
   read_at: string | null
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _PLAN_LABELS_USER: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
 }
 
 function TabParaVoce({ user }: { user: User | null }) {

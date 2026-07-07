@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
+import { hasPlanAccess } from '../lib/officialPlans'
 import {
   ArrowLeft, Lock, TrendingUp, BarChart2, FileText, Star,
   Loader2, Calendar, BookOpen, MessageCircle,
@@ -167,9 +168,9 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
 
 export default function MyReportPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
-  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
-  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
-  const isPlus = plan === 'therapeutic-plus' || plan === 'plus'
+  const isEssential = hasPlanAccess(plan, 'essential')
+  const isTherapeutic = hasPlanAccess(plan, 'plus')
+  const isPlus = hasPlanAccess(plan, 'plus')
 
   const monthOptions = buildMonthOptions()
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value)
@@ -390,7 +391,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
 
         {/* ─── SEÇÃO 3: Relatório comparativo (Terapêutico+) ─────────── */}
         {isTherapeutic ? (
-          <Section icon={<BarChart2 className="w-4 h-4" />} title="Análise comparativa" badge="Terapêutico+">
+          <Section icon={<BarChart2 className="w-4 h-4" />} title="Análise comparativa" badge="Plus">
             <div className="space-y-5">
               {/* Comparação com mês anterior */}
               {prevAvgMood > 0 && (
@@ -445,7 +446,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
         ) : (
           <LockedSection
             title="Análise comparativa mensal"
-            description="Compare seu progresso mês a mês — sono, autoestima, estresse e mais. Disponível no plano Terapêutico."
+            description="Compare seu progresso mês a mês — sono, autoestima, estresse e mais. Disponível no plano Plus."
             onUpgrade={onNavigatePricing}
           />
         )}
@@ -483,7 +484,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
         ) : (
           <LockedSection
             title="Comentário individual do profissional"
-            description="Receba um comentário personalizado sobre seu mês por um profissional parceiro. Disponível no plano Terapêutico Plus."
+            description="Receba um comentário personalizado sobre seu mês por um profissional parceiro. Disponível no plano Plus."
             onUpgrade={onNavigatePricing}
           />
         )}

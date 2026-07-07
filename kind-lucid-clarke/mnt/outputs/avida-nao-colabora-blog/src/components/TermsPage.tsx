@@ -99,7 +99,7 @@ export default function TermsPage({ onNavigate }: TermsPageProps) {
                 'Não prescrevemos tratamentos, medicamentos ou intervenções clínicas',
                 'Não garantimos resultados terapêuticos de qualquer natureza',
                 'Relatórios e gráficos são para fins de autoconhecimento, não clínicos',
-                'O Plano Terapêutico Plus inclui sessão com profissional parceiro — não é psicoterapia clínica',
+                'O Plano Plus inclui sessão com profissional parceiro — não é psicoterapia clínica',
                 'Não substituímos acompanhamento profissional continuado',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-amber-700">

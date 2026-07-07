@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Check, Crown, ChevronLeft, Loader2, AlertTriangle, ArrowUp, ArrowDown, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
-import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES } from '../lib/officialPlans'
+import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
 
 interface Props {
   user: User | null
@@ -49,10 +49,9 @@ const PLAN_ORDER: string[] = OFFICIAL_PLANS.map(p => p.key)
 const PLAN_FEATURES = PUBLIC_PLAN_FEATURES as Record<string, string[]>
 
 const PLAN_COLORS: Record<string, string> = {
-  free: 'border-stone-300 bg-stone-50',
-  essential: 'border-blue-300 bg-blue-50',
-  therapeutic: 'border-purple-400 bg-purple-50',
-  'therapeutic-plus': 'border-emerald-400 bg-emerald-50',
+  free: 'border-line bg-paper-soft',
+  essential: 'border-forest-200 bg-mint/40',
+  plus: 'border-coral/50 bg-coral/10',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -132,7 +131,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
   const [acting, setActing] = useState(false)
   const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  const currentPlan = profile?.plan ?? 'free'
+  const currentPlan = normalizePlan(profile?.plan)
 
   useEffect(() => {
     if (!user) return
@@ -142,7 +141,7 @@ export default function MyPlanPage({ user, profile, onBack, onNavigateAuth, onRe
 
   async function loadData() {
     setLoading(true)
-    const cp = profile?.plan ?? 'free'
+    const cp = normalizePlan(profile?.plan)
     const [subRes, histRes, planHistRes] = await Promise.all([
       supabase.from('user_subscriptions').select('*').eq('user_id', user!.id).maybeSingle(),
       supabase.from('plan_change_history').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(20),

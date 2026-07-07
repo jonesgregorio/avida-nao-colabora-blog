@@ -144,6 +144,39 @@ export const OFFICIAL_PLANS: OfficialPlan[] = [
 
 export const PLAN_KEYS: PlanKey[] = ['free', 'essential', 'plus']
 
+// ─── Hierarquia de acesso (free < essential < plus) ──────────────────────────
+// Fonte ÚNICA para comparar planos. Não duplique esta ordem em componentes.
+
+export const PLAN_RANK: Record<PlanKey, number> = { free: 0, essential: 1, plus: 2 }
+
+/**
+ * Retorna true se `userPlan` dá acesso a um recurso que exige `requiredPlan`.
+ * Ambos são normalizados (legados therapeutic/therapeutic-plus → plus;
+ * null/undefined → free). Ordem: free < essential < plus.
+ */
+export function hasPlanAccess(
+  userPlan: string | null | undefined,
+  requiredPlan: string | null | undefined,
+): boolean {
+  return PLAN_RANK[normalizePlan(userPlan)] >= PLAN_RANK[normalizePlan(requiredPlan)]
+}
+
+/** Objeto oficial do plano (sempre normalizado — nunca retorna undefined). */
+export function getPlan(plan: string | null | undefined): OfficialPlan {
+  const key = normalizePlan(plan)
+  return OFFICIAL_PLANS.find(p => p.key === key) ?? OFFICIAL_PLANS[0]
+}
+
+/** Rótulo de exibição do plano: Gratuito / Essencial / Plus. */
+export function getPlanLabel(plan: string | null | undefined): string {
+  return getPlan(plan).label
+}
+
+/** true se o plano é pago (Essencial ou Plus). */
+export function isPaidPlan(plan: string | null | undefined): boolean {
+  return normalizePlan(plan) !== 'free'
+}
+
 // ─── Lista de exibição PÚBLICA (curta, comercial) — casada com o brief ────────
 
 export const PUBLIC_PLAN_FEATURES: Record<PlanKey, string[]> = {

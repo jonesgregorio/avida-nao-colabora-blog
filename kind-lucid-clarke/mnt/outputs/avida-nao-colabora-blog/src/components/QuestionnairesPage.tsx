@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Clock, Lock, ChevronRight, HelpCircle, ArrowLeft } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 
 interface QItem {
   id: string
@@ -22,10 +23,6 @@ interface QItem {
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
   therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
-}
-
-const PLAN_ORDER: Record<string, number> = {
-  free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3,
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -57,8 +54,6 @@ export default function QuestionnairesPage({
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos')
   const [lockedModal, setLockedModal] = useState<QItem | null>(null)
 
-  const userPlanLevel = PLAN_ORDER[profile?.plan || 'free'] ?? 0
-
   useEffect(() => {
     async function load() {
       const now = new Date().toISOString()
@@ -86,9 +81,9 @@ export default function QuestionnairesPage({
   const filtered = selectedCategory === 'Todos' ? items : items.filter(i => i.category === selectedCategory)
 
   function handleStart(item: QItem) {
-    const requiredLevel = PLAN_ORDER[item.plan_required] ?? 0
-    if (requiredLevel > 0 && !user) { setLockedModal(item); return }
-    if (requiredLevel > userPlanLevel) { setLockedModal(item); return }
+    const requiresPaid = normalizePlan(item.plan_required) !== 'free'
+    if (requiresPaid && !user) { setLockedModal(item); return }
+    if (!hasPlanAccess(profile?.plan, item.plan_required)) { setLockedModal(item); return }
     onStart(item.id)
   }
 
@@ -146,8 +141,8 @@ export default function QuestionnairesPage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map(item => {
-              const requiredLevel = PLAN_ORDER[item.plan_required] ?? 0
-              const locked = requiredLevel > 0 && (!user || requiredLevel > userPlanLevel)
+              const requiresPaid = normalizePlan(item.plan_required) !== 'free'
+              const locked = !hasPlanAccess(profile?.plan, item.plan_required) || (requiresPaid && !user)
               const catColor = CATEGORY_COLORS[item.category] || 'bg-stone-100 text-stone-600'
 
               return (

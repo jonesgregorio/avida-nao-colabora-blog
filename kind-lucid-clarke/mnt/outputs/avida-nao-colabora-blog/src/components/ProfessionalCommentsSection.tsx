@@ -53,7 +53,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
       <div className="bg-white border border-stone-100 rounded-2xl p-6 text-center">
         <Star className="w-8 h-8 text-stone-200 mx-auto mb-3" />
         <p className="text-sm font-semibold text-sage-800 mb-1">Comentário individual do profissional</p>
-        <p className="text-xs text-sage-500 mb-4">Disponível no plano Terapêutico Plus — um comentário personalizado sobre seu relatório mensal.</p>
+        <p className="text-xs text-sage-500 mb-4">Disponível no plano Plus — um comentário personalizado sobre seu relatório mensal.</p>
         {onNavigatePricing && (
           <button onClick={onNavigatePricing} className="text-xs text-purple-600 hover:underline font-medium">Ver planos</button>
         )}

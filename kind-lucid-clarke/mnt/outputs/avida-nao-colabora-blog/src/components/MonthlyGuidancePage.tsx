@@ -174,7 +174,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           <MessageSquare className="w-7 h-7 text-purple-600" />
         </div>
         <h1 className="font-serif text-2xl text-sage-800 mb-2">Orientação mensal por mensagem</h1>
-        <p className="text-sage-500 mb-6">Este recurso está disponível nos planos Terapêutico e Terapêutico Plus.</p>
+        <p className="text-sage-500 mb-6">Este recurso está disponível no plano Plus.</p>
         <button onClick={onNavigatePricing} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors">
           Ver planos
         </button>
