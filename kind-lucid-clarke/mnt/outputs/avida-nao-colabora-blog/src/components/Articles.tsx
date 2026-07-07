@@ -91,10 +91,8 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
         .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
         .order('published_at', { ascending: false, nullsFirst: false })
       if (error) { setLoadError(true); return }
-      let seed = data || []
-      try { if (!seed.length) { const m = localStorage.getItem('__MOCK__'); if (m) seed = JSON.parse(m) } } catch { /* noop */ }
-      setArticles(seed)
-      setFiltered(seed)
+      setArticles(data || [])
+      setFiltered(data || [])
     } catch {
       setLoadError(true)
     } finally {
