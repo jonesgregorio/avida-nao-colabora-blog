@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
-import { ArrowLeft, Plus, ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown } from 'lucide-react'
+import { ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown, Save, Sprout, CalendarDays } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
 import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
+import { hasPlanAccess } from '../lib/officialPlans'
+import { MoodChip } from './user/ui'
+import { MOODS } from './user/moods'
 
 const moodOptions = [
   { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
@@ -15,9 +18,23 @@ const moodOptions = [
   { value: 'sobrecarregado', emoji: '😩', label: 'Sobrecarregado(a)', score: 2 },
 ]
 
+// Mapa entre os chips de check-in (identidade visual) e o valor de humor salvo.
+const CHIP_TO_MOOD: Record<string, string> = {
+  tranquila: 'bem', bem: 'bem', ansiosa: 'ansioso', cansada: 'neutro',
+  sobrecarregada: 'sobrecarregado', outro: 'neutro',
+}
+
 const emotionalTags = [
   'ansiedade', 'tristeza', 'alegria', 'irritação', 'medo',
   'esperança', 'cansaço', 'energia', 'calma', 'confusão',
+]
+
+const PROMPTS = [
+  'Como você está hoje?',
+  'O que mais pesou no seu dia?',
+  'O que te fez bem hoje?',
+  'Do que você precisa neste momento?',
+  'O que você quer soltar?',
 ]
 
 interface DiaryPageProps {
@@ -40,8 +57,8 @@ function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: str
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-sage-600 font-medium">{label}</label>
-        <span className="text-xs text-sage-400">{emoji} {value}/{max}</span>
+        <label className="text-xs text-ink-soft font-medium">{label}</label>
+        <span className="text-xs text-forest-500">{emoji} {value}/{max}</span>
       </div>
       <input
         type="range"
@@ -49,15 +66,23 @@ function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: str
         max={max}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="w-full accent-purple-500"
+        className="w-full accent-forest-600"
       />
     </div>
   )
 }
 
-export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promptContext, onClearPromptContext }: DiaryPageProps) {
+// Sequência de dias consecutivos de escrita, terminando hoje ou ontem.
+function calcStreak(days: Set<string>): number {
+  const d = new Date()
+  if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1)
+  let s = 0
+  while (days.has(d.toISOString().slice(0, 10))) { s++; d.setDate(d.getDate() - 1) }
+  return s
+}
+
+export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePricing, promptContext, onClearPromptContext }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
-  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -67,6 +92,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
 
   // Free fields
   const [mood, setMood] = useState('neutro')
+  const [checkinChip, setCheckinChip] = useState<string | null>(null)
   const [mainEmotion, setMainEmotion] = useState('')
   const [whatHappened, setWhatHappened] = useState('')
   const [whatINeed, setWhatINeed] = useState('')
@@ -93,8 +119,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
   const [relationships, setRelationships] = useState('')
   const [habits, setHabits] = useState('')
 
-  const isEssential = plan === 'essential' || plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
-  const isTherapeutic = plan === 'therapeutic' || plan === 'therapeutic-plus' || plan === 'plus'
+  const isEssential = hasPlanAccess(plan, 'essential')
+  const isTherapeutic = hasPlanAccess(plan, 'plus')
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
@@ -110,6 +136,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
   const entryLimit = cfg.entriesPerMonth // null = ilimitado
   const freeEntryCount = currentMonthEntries.length
   const atLimit = entryLimit != null && freeEntryCount >= entryLimit
+
+  const writeDays = new Set(entries.filter(e => e.entry_type === 'diary').map(e => String(e.date ?? '').slice(0, 10)))
+  const streak = calcStreak(writeDays)
 
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
@@ -147,10 +176,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     fetchPrompt()
   }, [fetchEntries, fetchPrompt])
 
-  // When arriving from article with a prompt context, auto-open form and pre-fill
+  // When arriving from article with a prompt context, pre-fill
   useEffect(() => {
     if (promptContext && !atLimit) {
-      setShowForm(true)
       setWhatHappened(promptContext.prompt)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,8 +188,17 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
   }
 
+  const selectChip = (chipKey: string) => {
+    setCheckinChip(chipKey)
+    setMood(CHIP_TO_MOOD[chipKey] ?? 'neutro')
+  }
+
+  const applyPrompt = (p: string) => {
+    setWhatHappened(prev => prev.trim() ? prev : p + '\n\n')
+  }
+
   const resetForm = () => {
-    setMood('neutro'); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
+    setMood('neutro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
     setMoodScore(5); setEnergy(5); setAnxietyLevel(5); setStressLevel(5)
     setGratitude(''); setSmallPride(''); setFreeNote(''); setSelectedTags([])
     setSleepQuality(5); setSelfEsteem(5); setIrritability(5); setOverload(5)
@@ -228,7 +265,6 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
       }
     }
     resetForm()
-    setShowForm(false)
     setSaving(false)
     if (onClearPromptContext) onClearPromptContext()
   }
@@ -239,424 +275,301 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, promp
 
   const formatDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+  const formatShort = (d: string) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+
+  const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <button onClick={onBack} className="flex items-center gap-2 text-sage-500 hover:text-sage-700 mb-6 text-sm">
-        <ArrowLeft className="w-4 h-4" /> Voltar
-      </button>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-6">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+          Diário emocional <Sprout className="w-6 h-6 text-forest-400" />
+        </h1>
+        <p className="mt-2 text-ink-soft">Escreva, acolha e organize o que sente. Aqui é o seu espaço seguro.</p>
+      </header>
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-serif text-3xl text-sage-800">Meu Diário</h1>
-          <p className="text-sage-500 text-sm mt-1">{entries.length} registros</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchEntries} className="p-2 text-sage-400 hover:text-sage-600">
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          {canExportPDF && (
-            <button
-              onClick={() => window.print()}
-              title="Exportar como PDF"
-              className="flex items-center gap-1 p-2 text-sage-400 hover:text-sage-600"
-            >
-              <FileDown className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            onClick={() => { if (!atLimit) setShowForm(!showForm) }}
-            disabled={atLimit}
-            className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" /> Nova entrada
-          </button>
-        </div>
-      </div>
-
-      {/* Contador de uso do mês (planos com limite de entradas) */}
-      {entryLimit != null && (
-        <div className="bg-sand-50 border border-sand-200 rounded-xl p-4 mb-4">
-          <div className="flex justify-between text-xs text-sage-600 mb-2">
-            <span>{freeEntryCount} de {entryLimit} entradas usadas neste mês</span>
-            <span>{Math.max(entryLimit - freeEntryCount, 0)} restantes</span>
-          </div>
-          <div className="h-2 bg-sand-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${atLimit ? 'bg-red-400' : 'bg-sage-400'}`}
-              style={{ width: `${Math.min((freeEntryCount / entryLimit) * 100, 100)}%` }}
-            />
-          </div>
-          {atLimit && (
-            <p className="text-xs text-sage-600 mt-2">
-              Você usou todas as entradas do mês.{plan === 'free' && (
-                <> <button onClick={onNavigatePricing} className="text-purple-600 underline font-medium">Faça upgrade para continuar registrando.</button></>
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Guided prompt */}
-      {prompt && (
-        <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <Lightbulb className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-xs text-purple-500 font-medium mb-1">Reflexão do dia</p>
-            <p className="text-sm text-purple-700 italic">"{prompt}"</p>
-          </div>
-          <button onClick={fetchPrompt} className="text-purple-300 hover:text-purple-500 text-xs">↻</button>
-        </div>
-      )}
-
-      {/* New entry form */}
-      {showForm && !atLimit && (
-        <div className="bg-white border border-sand-200 rounded-xl p-5 mb-6 shadow-sm">
-          <h3 className="font-serif text-lg text-sage-800 mb-5">Como você está hoje?</h3>
-
-          {/* Prompt context from article */}
-          {promptContext && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="text-sm text-emerald-700 font-medium mb-1">
-                    Pergunta do artigo: <span className="italic">"{promptContext.articleTitle}"</span>
-                  </p>
-                  <p className="text-emerald-800 font-semibold">"{promptContext.prompt}"</p>
-                  <p className="text-xs text-emerald-600 mt-2">Escreva sua resposta abaixo</p>
-                </div>
-                {onClearPromptContext && (
-                  <button
-                    onClick={onClearPromptContext}
-                    className="text-emerald-400 hover:text-emerald-600 text-xs flex-shrink-0"
-                    title="Limpar contexto"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6">
+        {/* ─── Coluna principal ─── */}
+        <div className="space-y-5 min-w-0">
+          {/* Intro */}
+          <div className="grid sm:grid-cols-[1.4fr_1fr] bg-paper-soft border border-line rounded-3xl overflow-hidden">
+            <div className="p-6 flex flex-col justify-center">
+              <p className="text-xs text-ink-soft flex items-center gap-1.5 capitalize"><CalendarDays className="w-3.5 h-3.5" /> {today}</p>
+              <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mt-2">Que bom ter você aqui.</h2>
+              <p className="text-sm text-ink-soft mt-1.5 leading-relaxed">
+                Registrar o que sente é um ato de cuidado que traz clareza, alívio e leveza para o seu dia.
+              </p>
+              <p className="text-xs text-forest-600 mt-3 flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5" /> Respire fundo e escreva no seu tempo.</p>
             </div>
-          )}
+            <div className="hidden sm:block bg-mint min-h-[160px]">
+              <img
+                src="https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&q=80"
+                alt=""
+                className="w-full h-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            </div>
+          </div>
 
-          {/* Mood selector */}
-          <div className="mb-5">
-            <p className="text-xs text-sage-600 mb-2 font-medium">Humor</p>
-            <div className="flex gap-2 flex-wrap">
-              {moodOptions.map(m => (
+          {/* Área de escrita */}
+          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+            {/* Contexto vindo de um artigo */}
+            {promptContext && (
+              <div className="bg-mint/60 border border-forest-100 rounded-2xl p-4 mb-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-xs text-forest-600 mb-1">Pergunta do conteúdo <span className="italic">"{promptContext.articleTitle}"</span></p>
+                    <p className="text-forest-900 font-medium">"{promptContext.prompt}"</p>
+                  </div>
+                  {onClearPromptContext && (
+                    <button onClick={onClearPromptContext} className="text-ink-soft hover:text-forest-700 text-xs flex-shrink-0" title="Limpar">✕</button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Check-in emocional */}
+            <h2 className="font-serif text-lg sm:text-xl text-forest-900">Check-in emocional</h2>
+            <p className="text-sm text-ink-soft mt-1 mb-3">Como você está se sentindo agora? Escolha o que mais faz sentido para você.</p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {MOODS.map(m => (
+                <MoodChip key={m.key} mood={m} active={checkinChip === m.key} onClick={() => selectChip(m.key)} />
+              ))}
+            </div>
+
+            {/* Prompts */}
+            <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>
+            <p className="text-sm text-ink-soft mt-1 mb-3">Use as sugestões ou escreva livremente.</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {PROMPTS.map(p => (
                 <button
-                  key={m.value}
-                  onClick={() => setMood(m.value)}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border transition-all ${
-                    mood === m.value ? 'bg-sage-600 text-white border-sage-600' : 'border-sand-200 text-sage-600 hover:bg-sage-50'
-                  }`}
+                  key={p}
+                  onClick={() => applyPrompt(p)}
+                  className="text-sm px-3 py-1.5 rounded-full border border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
                 >
-                  {m.emoji} {m.label}
+                  {p}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Free plan fields */}
-          <div className="space-y-3 mb-4">
-            <div>
-              <label className="text-xs text-sage-600 font-medium block mb-1">Qual emoção marcou meu dia?</label>
-              <input
-                type="text"
-                value={mainEmotion}
-                onChange={e => setMainEmotion(e.target.value)}
-                placeholder="Ex.: alívio, frustração, nostalgia..."
-                className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-sage-600 font-medium block mb-1">O que aconteceu?</label>
+            {/* Reflexão sugerida do dia */}
+            {prompt && (
+              <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
+                <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
+                <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
+                <button onClick={fetchPrompt} className="text-ink-soft hover:text-forest-700 text-xs" title="Outra sugestão">↻</button>
+              </div>
+            )}
+
+            {/* Textarea principal */}
+            <div className="relative">
               <textarea
                 value={whatHappened}
                 onChange={e => setWhatHappened(e.target.value)}
-                placeholder={prompt || 'Como foi o seu dia? O que você está sentindo?'}
-                rows={3}
-                className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
+                placeholder="Escreva aqui o que está sentindo…"
+                rows={6}
+                disabled={atLimit}
+                className="w-full border border-line rounded-2xl px-4 py-3 text-sm resize-none bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 disabled:opacity-60"
               />
+              <span className="absolute bottom-3 right-4 text-[11px] text-ink-soft/70">{whatHappened.length} caracteres</span>
             </div>
-            <div>
-              <label className="text-xs text-sage-600 font-medium block mb-1">O que eu preciso agora?</label>
-              <input
-                type="text"
-                value={whatINeed}
-                onChange={e => setWhatINeed(e.target.value)}
-                placeholder="Ex.: descanso, uma conversa, silêncio..."
-                className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-sage-600 font-medium block mb-1">Uma coisa pequena que consegui fazer hoje foi…</label>
-              <input
-                type="text"
-                value={smallThing}
-                onChange={e => setSmallThing(e.target.value)}
-                placeholder="Ex.: tomei água, saí de casa, respirei fundo..."
-                className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-              />
-            </div>
-          </div>
 
-          {/* Essencial+ fields */}
-          {isEssential && (
-            <div className="border-t border-sand-100 pt-4 mt-4 space-y-4">
-              <p className="text-xs text-sage-400 font-medium uppercase tracking-wider">Marcadores emocionais</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SliderField label="Humor (1-10)" value={moodScore} onChange={setMoodScore} />
-                {fieldOn('energy') && <SliderField label="Energia (1-10)" value={energy} onChange={setEnergy} />}
-                {fieldOn('anxiety_level') && <SliderField label="Ansiedade (1-10)" value={anxietyLevel} onChange={setAnxietyLevel} />}
-                {fieldOn('stress_level') && <SliderField label="Estresse (1-10)" value={stressLevel} onChange={setStressLevel} />}
-              </div>
+            {/* Campos livres complementares */}
+            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+              <input type="text" value={mainEmotion} onChange={e => setMainEmotion(e.target.value)} placeholder="Qual emoção marcou seu dia?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+              <input type="text" value={whatINeed} onChange={e => setWhatINeed(e.target.value)} placeholder="O que você precisa agora?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+              <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="sm:col-span-2 border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+            </div>
 
-              {fieldOn('emotional_tags') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-2">Tags emocionais</label>
-                <div className="flex flex-wrap gap-2">
-                  {emotionalTags.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                        selectedTags.includes(tag)
-                          ? 'bg-purple-500 text-white border-purple-500'
-                          : 'border-sand-200 text-sage-600 hover:border-purple-300 hover:bg-purple-50'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+            {/* Indicadores — Essencial+ */}
+            {isEssential && (
+              <div className="border-t border-line pt-5 mt-5">
+                <h3 className="font-serif text-base text-forest-900 mb-1">Como está o seu corpo e sua mente agora?</h3>
+                <p className="text-sm text-ink-soft mb-4">Atualize seus indicadores do momento.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SliderField label="Humor" value={moodScore} onChange={setMoodScore} />
+                  {fieldOn('energy') && <SliderField label="Energia" value={energy} onChange={setEnergy} />}
+                  {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxietyLevel} onChange={setAnxietyLevel} />}
+                  {fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
+                  {isTherapeutic && fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
+                  {isTherapeutic && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
+                  {isTherapeutic && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
+                  {isTherapeutic && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
                 </div>
-              </div>
-              )}
 
-              {fieldOn('gratitude') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Gratidão</label>
-                <input
-                  type="text"
-                  value={gratitude}
-                  onChange={e => setGratitude(e.target.value)}
-                  placeholder="Pelo que você é grato(a) hoje?"
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('small_pride') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Pequeno orgulho do dia</label>
-                <input
-                  type="text"
-                  value={smallPride}
-                  onChange={e => setSmallPride(e.target.value)}
-                  placeholder="Uma conquista pequena que você celebra..."
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('free_note') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Nota livre</label>
-                <textarea
-                  value={freeNote}
-                  onChange={e => setFreeNote(e.target.value)}
-                  placeholder="Escreva livremente o que quiser..."
-                  rows={2}
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-            </div>
-          )}
-
-          {/* Therapeutic+ fields */}
-          {isTherapeutic && (
-            <div className="border-t border-sand-100 pt-4 mt-4 space-y-4">
-              <p className="text-xs text-sage-400 font-medium uppercase tracking-wider">Marcadores avançados</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fieldOn('sleep_quality') && <SliderField label="Qualidade do sono (1-10)" value={sleepQuality} onChange={setSleepQuality} />}
-                {fieldOn('self_esteem') && <SliderField label="Autoestima (1-10)" value={selfEsteem} onChange={setSelfEsteem} />}
-                {fieldOn('irritability') && <SliderField label="Irritabilidade (1-10)" value={irritability} onChange={setIrritability} />}
-                {fieldOn('overload') && <SliderField label="Sobrecarga (1-10)" value={overload} onChange={setOverload} />}
-              </div>
-              {fieldOn('emotional_triggers') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Gatilhos emocionais</label>
-                <textarea
-                  value={emotionalTriggers}
-                  onChange={e => setEmotionalTriggers(e.target.value)}
-                  placeholder="O que desencadeou alguma emoção intensa hoje?"
-                  rows={2}
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('recurring_thoughts') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Pensamentos recorrentes</label>
-                <textarea
-                  value={recurringThoughts}
-                  onChange={e => setRecurringThoughts(e.target.value)}
-                  placeholder="Algum pensamento que voltou várias vezes?"
-                  rows={2}
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('emotional_need') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Necessidade emocional principal</label>
-                <input
-                  type="text"
-                  value={emotionalNeed}
-                  onChange={e => setEmotionalNeed(e.target.value)}
-                  placeholder="Ex.: ser ouvido(a), ter limites respeitados, descansar..."
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('relationships') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Relações e limites</label>
-                <textarea
-                  value={relationships}
-                  onChange={e => setRelationships(e.target.value)}
-                  placeholder="Como estão suas relações hoje? Algo relacionado a limites?"
-                  rows={2}
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-              {fieldOn('habits') && (
-              <div>
-                <label className="text-xs text-sage-600 font-medium block mb-1">Hábitos do dia</label>
-                <input
-                  type="text"
-                  value={habits}
-                  onChange={e => setHabits(e.target.value)}
-                  placeholder="Ex.: dormi bem, me exercitei, tomei remédios..."
-                  className="w-full border border-sand-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              )}
-            </div>
-          )}
-
-          {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
-
-          <div className="flex gap-2 mt-5">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-sage-600 hover:bg-sage-700 text-white text-sm px-5 py-2 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Salvando...' : 'Salvar entrada'}
-            </button>
-            <button
-              onClick={() => { setShowForm(false); resetForm(); if (onClearPromptContext) onClearPromptContext() }}
-              className="text-sage-500 text-sm px-4 py-2 rounded-lg hover:bg-sage-50"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter */}
-      <div className="flex gap-2 mb-4">
-        {(['all', 'diary', 'questionnaire'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              filter === f ? 'bg-sage-600 text-white border-sage-600' : 'border-sand-200 text-sage-600 hover:bg-sage-50'
-            }`}
-          >
-            {f === 'all' ? 'Tudo' : f === 'diary' ? 'Diário' : 'Avaliações'}
-          </button>
-        ))}
-      </div>
-
-      {/* Entries list */}
-      {loading ? (
-        <div className="space-y-2">
-          {[1,2,3].map(i => <div key={i} className="h-14 bg-sand-100 animate-pulse rounded-lg" />)}
-        </div>
-      ) : filteredEntries.length === 0 ? (
-        <div className="text-center py-12 text-sage-400">
-          <p className="mb-3">Nenhum registro ainda.</p>
-          {!atLimit && (
-            <button onClick={() => setShowForm(true)} className="text-sage-600 font-medium text-sm hover:underline">
-              Criar primeira entrada
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filteredEntries.map(entry => {
-            const moodObj = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)
-            const isOpen = expanded === entry.id
-            return (
-              <div key={entry.id} className="bg-white border border-sand-100 rounded-xl overflow-hidden shadow-sm">
-                <button
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-sand-50 transition-colors"
-                  onClick={() => setExpanded(isOpen ? null : entry.id)}
-                >
-                  <span className="text-xl">{moodObj?.emoji || '📝'}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-sage-600">{entry.mood}</span>
-                      {entry.entry_type === 'questionnaire' && (
-                        <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Avaliação</span>
-                      )}
+                {fieldOn('emotional_tags') && (
+                  <div className="mt-4">
+                    <label className="text-xs text-ink-soft font-medium block mb-2">Marque o que aparecer</label>
+                    <div className="flex flex-wrap gap-2">
+                      {emotionalTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedTags.includes(tag) ? 'bg-forest-900 text-white border-forest-900' : 'border-line text-ink-soft hover:border-forest-300 bg-white'}`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
                     </div>
-                    <p className="text-xs text-sage-400 mt-0.5">{formatDate(entry.date ?? '')}</p>
                   </div>
-                  <span className="text-xs text-sage-400 truncate max-w-[120px] hidden sm:block">{entry.text?.slice(0, 40)}...</span>
-                  {isOpen ? <ChevronUp className="w-4 h-4 text-sage-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-sage-400 flex-shrink-0" />}
-                </button>
-
-                {isOpen && (
-                  <div className="px-4 pb-4 border-t border-sand-100">
-                    <p className="text-sm text-sage-600 mt-3 leading-relaxed whitespace-pre-line">{entry.text}</p>
-                    {(entry.energy !== undefined || entry.anxiety_level !== undefined) && (
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-sage-500">
-                        {entry.energy !== undefined && <span>⚡ Energia: {entry.energy}/10</span>}
-                        {entry.anxiety_level !== undefined && <span>😰 Ansiedade: {entry.anxiety_level}/10</span>}
-                        {entry.stress_level !== undefined && <span>😤 Estresse: {entry.stress_level}/10</span>}
-                        {entry.sleep_quality !== undefined && <span>💤 Sono: {entry.sleep_quality}/10</span>}
-                        {entry.self_esteem !== undefined && <span>🌟 Autoestima: {entry.self_esteem}/10</span>}
-                        {entry.irritability !== undefined && <span>😡 Irritabilidade: {entry.irritability}/10</span>}
-                        {entry.overload !== undefined && <span>🎒 Sobrecarga: {entry.overload}/10</span>}
-                      </div>
-                    )}
-                    {entry.emotional_tags && entry.emotional_tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {entry.emotional_tags.map(tag => (
-                          <span key={tag} className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                    {entry.emotional_triggers && (
-                      <p className="text-xs text-sage-400 mt-2">Gatilhos: {entry.emotional_triggers}</p>
-                    )}
-                    {entry.gratitude && (
-                      <p className="text-xs text-sage-500 mt-1">🙏 Gratidão: {entry.gratitude}</p>
-                    )}
-                    {entry.questionnaire_score !== undefined && (
-                      <p className="text-xs text-purple-500 mt-2">
-                        Pontuação: {entry.questionnaire_score} — {entry.questionnaire_category}
-                      </p>
-                    )}
+                )}
+                <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                  {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você é grato(a) hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                  {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                </div>
+                {isTherapeutic && (
+                  <div className="grid gap-3 mt-3">
+                    {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                    {fieldOn('recurring_thoughts') && <input type="text" value={recurringThoughts} onChange={e => setRecurringThoughts(e.target.value)} placeholder="Pensamentos recorrentes…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                    {fieldOn('emotional_need') && <input type="text" value={emotionalNeed} onChange={e => setEmotionalNeed(e.target.value)} placeholder="Necessidade emocional principal…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                    {fieldOn('relationships') && <input type="text" value={relationships} onChange={e => setRelationships(e.target.value)} placeholder="Relações e limites hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                    {fieldOn('habits') && <input type="text" value={habits} onChange={e => setHabits(e.target.value)} placeholder="Hábitos do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   </div>
                 )}
               </div>
-            )
-          })}
+            )}
+
+            {error && <p className="text-coral text-sm mt-4">{error}</p>}
+            {atLimit && (
+              <p className="text-sm text-ink-soft mt-4">
+                Você usou todas as entradas do mês.{plan === 'free' && onNavigatePricing && (
+                  <> <button onClick={onNavigatePricing} className="text-forest-700 underline font-medium">Faça upgrade para continuar registrando.</button></>
+                )}
+              </p>
+            )}
+
+            {/* Ações */}
+            <div className="flex flex-wrap gap-3 mt-5">
+              <button
+                onClick={handleSave}
+                disabled={saving || atLimit}
+                className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : 'Salvar entrada'}
+              </button>
+              {canExportPDF && (
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 border border-line text-forest-700 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/50 transition-colors"
+                >
+                  <FileDown className="w-4 h-4" /> Exportar resumo
+                </button>
+              )}
+            </div>
+          </section>
+
+          {/* Lista de entradas */}
+          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="font-serif text-lg sm:text-xl text-forest-900">Suas entradas</h2>
+              <div className="flex items-center gap-2">
+                {(['all', 'diary', 'questionnaire'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filter === f ? 'bg-forest-900 text-white border-forest-900' : 'border-line text-ink-soft hover:border-forest-300 bg-white'}`}
+                  >
+                    {f === 'all' ? 'Tudo' : f === 'diary' ? 'Diário' : 'Avaliações'}
+                  </button>
+                ))}
+                <button onClick={fetchEntries} className="p-1.5 text-ink-soft hover:text-forest-700" title="Atualizar"><RefreshCw className="w-4 h-4" /></button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-14 bg-mint/40 animate-pulse rounded-2xl" />)}</div>
+            ) : filteredEntries.length === 0 ? (
+              <p className="text-center py-10 text-ink-soft text-sm">Nenhum registro ainda. Comece escrevendo acima. 🌿</p>
+            ) : (
+              <div className="space-y-2">
+                {filteredEntries.map(entry => {
+                  const moodObj = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)
+                  const isOpen = expanded === entry.id
+                  return (
+                    <div key={entry.id} className="bg-white border border-line rounded-2xl overflow-hidden">
+                      <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-mint/30 transition-colors" onClick={() => setExpanded(isOpen ? null : entry.id)}>
+                        <span className="text-xl">{moodObj?.emoji || '📝'}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-forest-700">{entry.mood}</span>
+                            {entry.entry_type === 'questionnaire' && <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full">Avaliação</span>}
+                          </div>
+                          <p className="text-xs text-ink-soft mt-0.5 capitalize">{formatDate(entry.date ?? '')}</p>
+                        </div>
+                        {isOpen ? <ChevronUp className="w-4 h-4 text-ink-soft flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-ink-soft flex-shrink-0" />}
+                      </button>
+                      {isOpen && (
+                        <div className="px-4 pb-4 border-t border-line">
+                          <p className="text-sm text-ink leading-relaxed whitespace-pre-line mt-3">{entry.text}</p>
+                          {entry.emotional_tags && entry.emotional_tags.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {entry.emotional_tags.map(tag => <span key={tag} className="text-xs bg-mint text-forest-700 px-2 py-0.5 rounded-full">{tag}</span>)}
+                            </div>
+                          )}
+                          {entry.gratitude && <p className="text-xs text-ink-soft mt-2">🙏 Gratidão: {entry.gratitude}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </div>
-      )}
+
+        {/* ─── Coluna lateral ─── */}
+        <aside className="space-y-5">
+          {/* Registros recentes */}
+          <div className="bg-paper-soft border border-line rounded-3xl p-5">
+            <h2 className="font-serif text-lg text-forest-900 mb-3">Seus registros recentes</h2>
+            {entries.length === 0 ? (
+              <p className="text-sm text-ink-soft">Seus registros aparecerão aqui.</p>
+            ) : (
+              <ul className="space-y-2.5">
+                {entries.slice(0, 5).map(e => {
+                  const moodObj = moodOptions.find(m => m.label === e.mood || m.value === e.mood)
+                  return (
+                    <li key={e.id} className="flex items-center gap-2.5 text-sm">
+                      <span>{moodObj?.emoji || '📝'}</span>
+                      <span className="text-ink-soft capitalize flex-1 min-w-0 truncate">{formatShort(e.date ?? '')}</span>
+                      <span className="text-xs text-forest-700">{e.mood}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Sua jornada */}
+          <div className="bg-paper-soft border border-line rounded-3xl p-5">
+            <h2 className="font-serif text-lg text-forest-900 flex items-center gap-2"><Sprout className="w-4 h-4 text-forest-500" /> Sua jornada</h2>
+            <div className="flex items-baseline gap-2 mt-3">
+              <span className="font-serif text-3xl text-forest-900">{streak}</span>
+              <span className="text-sm text-ink-soft">{streak === 1 ? 'dia de escrita' : 'dias de escrita seguidos'}</span>
+            </div>
+            <p className="mt-3 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">
+              {streak > 0 ? 'Manter o hábito transforma. Você está criando algo que faz bem para você. 🌿' : 'Um registro por dia já é um ato de cuidado. Comece hoje. 🌿'}
+            </p>
+          </div>
+
+          {/* Limite do plano */}
+          {entryLimit != null && (
+            <div className="bg-paper-soft border border-line rounded-3xl p-5">
+              <h2 className="font-serif text-lg text-forest-900">Limite do plano gratuito</h2>
+              <p className="text-sm text-ink-soft mt-1">Você utilizou <strong>{freeEntryCount} de {entryLimit}</strong> registros este mês.</p>
+              <div className="h-2 bg-mint rounded-full overflow-hidden mt-3">
+                <div className={`h-full rounded-full transition-all ${atLimit ? 'bg-coral' : 'bg-forest-600'}`} style={{ width: `${Math.min((freeEntryCount / entryLimit) * 100, 100)}%` }} />
+              </div>
+              {plan === 'free' && onNavigatePricing && (
+                <button onClick={onNavigatePricing} className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-forest-900 text-white text-sm font-medium px-4 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
+                  Ter registros ilimitados
+                </button>
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }
