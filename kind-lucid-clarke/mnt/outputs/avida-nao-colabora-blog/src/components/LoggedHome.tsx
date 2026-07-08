@@ -224,7 +224,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           <HeartHandshake className="w-5 h-5" />
         </span>
         <p className="text-sm text-forest-800 leading-relaxed">
-          <strong className="font-medium">Você não está sozinha.</strong> Aqui é um espaço seguro para você se ouvir, se cuidar e seguir no seu tempo.
+          <strong className="font-medium">Você encontra apoio aqui.</strong> Este é um espaço seguro para você se ouvir, se cuidar e seguir no seu tempo.
         </p>
       </div>
     </div>

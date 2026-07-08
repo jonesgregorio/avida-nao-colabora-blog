@@ -85,7 +85,7 @@ export default function ArticleView({
   const [showSummary, setShowSummary] = useState(true)
 
   const plan: Plan = profile?.plan || 'free'
-  const isPremium = plan !== 'free'
+  const isPaid = plan !== 'free'
 
   // ---- Load article ----
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function ArticleView({
       return
     }
     // Check quota for free plan
-    if (!isPremium && savedCount >= 3) {
+    if (!isPaid && savedCount >= 3) {
       setUpgradeModal({ open: true, feature: 'Caixa de Cuidado ilimitada' })
       return
     }
@@ -207,7 +207,7 @@ export default function ArticleView({
       setSavedCount(c => c + 1)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [article, user, saved, isPremium, savedCount])
+  }, [article, user, saved, isPaid, savedCount])
 
   // ---- Feedback ----
   const handleFeedback = useCallback(async (type: FeedbackType) => {
@@ -507,7 +507,7 @@ export default function ArticleView({
             {saved ? 'Salvo na Caixa de Cuidado' : 'Salvar na Caixa de Cuidado'}
           </button>
         </div>
-        {!isPremium && savedCount >= 3 && !saved && (
+        {!isPaid && savedCount >= 3 && !saved && (
           <p className="text-xs text-amber-600 mt-2">
             Você atingiu o limite de 3 itens salvos no plano gratuito.{' '}
             <button onClick={() => setUpgradeModal({ open: true, feature: 'Caixa de Cuidado ilimitada' })} className="underline">

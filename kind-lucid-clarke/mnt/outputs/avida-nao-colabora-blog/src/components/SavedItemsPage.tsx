@@ -4,6 +4,7 @@ import { ArrowLeft, Bookmark, Trash2, FileText, NotebookPen, Dumbbell, ChevronDo
 import type { Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
+import { hasPlanAccess } from '../lib/officialPlans'
 
 interface SavedItem {
   id: string
@@ -66,8 +67,8 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
   const plan: Plan = profile?.plan || 'free'
-  const isPremium = plan !== 'free'
-  const isPlus = plan === 'therapeutic-plus' || plan === 'plus'
+  const isPaid = plan !== 'free'
+  const isPlus = hasPlanAccess(plan, 'plus')
   const limit = PLAN_LIMITS[plan]
 
   const loadItems = useCallback(async () => {
@@ -156,7 +157,7 @@ export default function SavedItemsPage({ user, profile, navigate, onBack }: Save
       </div>
 
       {/* Quota info for free users */}
-      {!isPremium && limit !== null && (
+      {!isPaid && limit !== null && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-amber-800">

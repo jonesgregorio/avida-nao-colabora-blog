@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
-  Home, NotebookPen, LineChart, BookOpen, Sprout, MessageCircle, CreditCard,
+  Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
   BarChart3, Heart, Bell, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
   LifeBuoy, Leaf,
 } from 'lucide-react'
@@ -31,7 +31,8 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'home',                        label: 'Início',              Icon: Home,          match: ['home'] },
   { id: 'diary',                       label: 'Diário',              Icon: NotebookPen,   match: ['diary'] },
   { id: 'my-evolution',                label: 'Mapa Emocional',      Icon: LineChart,     match: ['my-evolution'] },
-  { id: 'articles',                    label: 'Conteúdos',           Icon: BookOpen,      match: ['articles', 'article', 'content', 'trails', 'saved', 'meditations', 'challenges'] },
+  { id: 'articles',                    label: 'Conteúdos',           Icon: BookOpen,      match: ['articles', 'article', 'content', 'trails', 'meditations', 'challenges'] },
+  { id: 'questionarios',               label: 'Questionários',       Icon: ClipboardList, match: ['questionarios', 'questionnaire'] },
   { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,      match: [] },
   { id: 'monthly-guidance',            label: 'Orientação',          Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
   { id: 'my-plan',                     label: 'Meu Plano',           Icon: CreditCard,    match: ['my-plan'] },
@@ -197,7 +198,7 @@ function SidebarContent({
         <span className="font-serif text-lg leading-tight">A Vida Não Colabora</span>
       </button>
       <div className="px-5 pb-5">
-        <p className="text-xs text-white/50">Bem-vinda de volta,</p>
+        <p className="text-xs text-white/50">Que bom ter você por aqui,</p>
         <p className="font-serif text-2xl text-white leading-tight capitalize">{name}</p>
       </div>
 

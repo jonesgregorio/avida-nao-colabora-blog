@@ -66,7 +66,6 @@ const URL_TO_VIEW: Record<string, View> = {
   '/perfil':                     'profile',
   '/meditacoes':                 'meditations',
   '/desafios':                   'challenges',
-  '/questionario-terapeutico':   'therapeutic-q',
   '/questionarios':              'questionarios',
   '/trilhas':                    'trails',
   '/itens-salvos':               'saved',
@@ -98,6 +97,11 @@ function parseURLNav(): { view: View; articleSlug: string | null; ticketId: stri
     if (path.startsWith('/suporte/') && path.length > 9) {
       const ticketId = path.slice(9)
       return { view: 'support-ticket', articleSlug: null, ticketId }
+    }
+
+    // Redireciona a rota antiga do questionário terapêutico para a área de Questionários.
+    if (path === '/questionario-terapeutico') {
+      return { view: 'questionarios', articleSlug: null, ticketId: null }
     }
 
     // URL param ?view=X (compatibilidade com links antigos e redirecionamentos Stripe)

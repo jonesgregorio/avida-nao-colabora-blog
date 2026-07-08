@@ -50,7 +50,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
   const [expandedTrail, setExpandedTrail] = useState<string | null>(null)
 
   const plan: Plan = profile?.plan || 'free'
-  const isPremium = plan !== 'free'
+  const isPaid = plan !== 'free'
 
   useEffect(() => {
     async function loadTrails() {
@@ -103,20 +103,20 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
   }, [user])
 
   const getProgress = (trail: DbTrail) => {
-    if (!isPremium || trail.articles.length === 0) return null
+    if (!isPaid || trail.articles.length === 0) return null
     const read = trail.articles.filter(a => readSlugs.has(a.slug)).length
     return Math.round((read / trail.articles.length) * 100)
   }
 
   const handleArticleClick = (trail: DbTrail, slug: string, index: number) => {
-    if (!isPremium && index > 0) { setUpgradeModal(true); return }
-    if (trail.plan_required !== 'free' && !isPremium) { setUpgradeModal(true); return }
+    if (!isPaid && index > 0) { setUpgradeModal(true); return }
+    if (trail.plan_required !== 'free' && !isPaid) { setUpgradeModal(true); return }
     navigate('article', slug)
   }
 
   const canAccessTrail = (trail: DbTrail) => {
     if (trail.plan_required === 'free') return true
-    return isPremium
+    return isPaid
   }
 
   if (loading) {
@@ -161,7 +161,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
         </p>
       </div>
 
-      {!isPremium && (
+      {!isPaid && (
         <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           <strong>Plano gratuito:</strong> você pode acessar o primeiro artigo de cada trilha.
           Para desbloquear todas,{' '}
@@ -203,7 +203,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
                   </div>
                   <p className="text-sm text-stone-600">{trail.description}</p>
 
-                  {isPremium && progress !== null && (
+                  {isPaid && progress !== null && (
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs text-stone-500 mb-1">
                         <span>Progresso</span>
@@ -228,7 +228,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
                     <p className="text-sm text-stone-400 py-2">Nenhum artigo nesta trilha ainda.</p>
                   ) : trail.articles.map((article, index) => {
                     const isRead = readSlugs.has(article.slug)
-                    const locked = (!isPremium && index > 0) || (!accessible && index > 0)
+                    const locked = (!isPaid && index > 0) || (!accessible && index > 0)
 
                     return (
                       <button
@@ -270,7 +270,7 @@ export default function TrailsPage({ user, profile, navigate, onBack }: TrailsPa
         <UpgradeModal
           isOpen={upgradeModal}
           requiredPlan="essential"
-          featureName="Trilhas premium"
+          featureName="Trilhas exclusivas"
           onClose={() => setUpgradeModal(false)}
           navigate={(v) => navigate(v)}
         />

@@ -40,6 +40,7 @@ export default function QuestionnairesPage({
   const [items, setItems] = useState<QItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos')
+  const [sortBy, setSortBy] = useState<'recent' | 'name'>('recent')
   const [lockedModal, setLockedModal] = useState<QItem | null>(null)
 
   useEffect(() => {
@@ -66,7 +67,9 @@ export default function QuestionnairesPage({
   }, [])
 
   const categories = ['Todos', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))]
-  const filtered = selectedCategory === 'Todos' ? items : items.filter(i => i.category === selectedCategory)
+  const filtered = (selectedCategory === 'Todos' ? items : items.filter(i => i.category === selectedCategory))
+    .slice()
+    .sort((a, b) => (sortBy === 'name' ? a.title.localeCompare(b.title, 'pt-BR') : 0))
   const recommended = filtered.find(i => !isLocked(i)) ?? filtered[0]
   const isPlus = normalizePlan(profile?.plan) === 'plus'
 
@@ -113,24 +116,34 @@ export default function QuestionnairesPage({
             </div>
           </div>
 
-          {/* Filtros por categoria */}
-          {categories.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {categories.map(cat => {
-                const active = selectedCategory === cat
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    aria-pressed={active}
-                    className={`px-3.5 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}
-                  >
-                    {cat}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          {/* Filtros por categoria + ordenação */}
+          <div className="flex flex-wrap items-center gap-2">
+            {categories.length > 1 && categories.map(cat => {
+              const active = selectedCategory === cat
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  aria-pressed={active}
+                  className={`px-3.5 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+            <label className="ml-auto flex items-center gap-1.5 text-sm bg-paper-soft border border-line rounded-full px-3 py-1.5">
+              <span className="text-ink-soft">Ordenar:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as 'recent' | 'name')}
+                aria-label="Ordenar questionários"
+                className="bg-transparent text-forest-800 focus:outline-none cursor-pointer"
+              >
+                <option value="recent">Mais recentes</option>
+                <option value="name">Nome (A-Z)</option>
+              </select>
+            </label>
+          </div>
 
           {/* Recomendado */}
           {!loading && recommended && (
@@ -233,7 +246,7 @@ export default function QuestionnairesPage({
           )}
 
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <p className="font-serif text-lg text-forest-900 leading-snug">"Você não precisa ter todas as respostas agora. Só precisa estar disposta a se ouvir."</p>
+            <p className="font-serif text-lg text-forest-900 leading-snug">"Você não precisa ter todas as respostas agora. Só precisa se permitir ouvir o que sente."</p>
             <p className="text-xs text-ink-soft mt-3">A Vida Não Colabora</p>
           </div>
         </aside>
