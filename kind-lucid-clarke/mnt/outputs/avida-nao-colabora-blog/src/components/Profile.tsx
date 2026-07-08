@@ -174,7 +174,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
               >
                 <Camera size={14} />
               </button>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} aria-label="Enviar foto de perfil" className="hidden" />
             </div>
             <div className="text-center sm:text-left flex-1 min-w-0">
               <h2 className="font-serif text-2xl text-forest-900">{name}</h2>
@@ -282,12 +282,12 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-forest-800 mb-1.5">
+    <label className="block">
+      <span className="block text-sm font-medium text-forest-800 mb-1.5">
         {label} {hint && <span className="text-ink-soft font-normal">{hint}</span>}
-      </label>
+      </span>
       {children}
-    </div>
+    </label>
   )
 }
 

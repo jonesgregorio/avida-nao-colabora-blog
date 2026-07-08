@@ -166,7 +166,7 @@ export default function SupportPage({ user, profile, navigate, onBack: _onBack, 
               </div>
               <div>
                 <label className="block text-sm font-medium text-forest-800 mb-1.5">Prioridade</label>
-                <select className={inputCls} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                <select aria-label="Prioridade" className={inputCls} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                   <option value="low">Baixa</option>
                   <option value="medium">Média</option>
                   <option value="high">Alta</option>

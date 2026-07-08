@@ -67,6 +67,8 @@ function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: str
         max={max}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
+        aria-label={label}
+        aria-valuetext={`${value} de ${max}`}
         className="w-full accent-forest-600"
       />
     </div>

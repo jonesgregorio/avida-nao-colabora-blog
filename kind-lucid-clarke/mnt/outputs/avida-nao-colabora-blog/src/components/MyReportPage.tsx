@@ -317,6 +317,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
+            aria-label="Selecionar mês do relatório"
             className="text-sm bg-transparent text-forest-800 focus:outline-none"
           >
             {monthOptions.map(o => (
