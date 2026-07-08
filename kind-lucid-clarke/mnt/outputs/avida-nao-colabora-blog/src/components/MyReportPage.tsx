@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { hasPlanAccess } from '../lib/officialPlans'
 import {
-  ArrowLeft, Lock, TrendingUp, BarChart2, FileText, Star,
+  Lock, TrendingUp, BarChart2, FileText, Star,
   Loader2, Calendar, BookOpen, MessageCircle,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
@@ -103,16 +103,16 @@ function LockedSection({ title, description, onUpgrade }: {
   onUpgrade: () => void
 }) {
   return (
-    <div className="relative rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-5 overflow-hidden">
-      <div className="absolute inset-0 backdrop-blur-[1px] bg-white/40 flex flex-col items-center justify-center z-10 gap-3">
-        <div className="flex items-center gap-2 text-stone-400">
+    <div className="relative rounded-2xl border border-dashed border-line bg-mint/30 p-5 overflow-hidden">
+      <div className="absolute inset-0 backdrop-blur-[1px] bg-paper-soft/50 flex flex-col items-center justify-center z-10 gap-3">
+        <div className="flex items-center gap-2 text-forest-600">
           <Lock className="w-4 h-4" />
-          <span className="text-sm font-medium text-stone-500">{title}</span>
+          <span className="text-sm font-medium text-forest-700">{title}</span>
         </div>
-        <p className="text-xs text-stone-400 text-center max-w-xs">{description}</p>
+        <p className="text-xs text-ink-soft text-center max-w-xs">{description}</p>
         <button
           onClick={onUpgrade}
-          className="text-xs text-purple-600 font-semibold border border-purple-200 bg-white px-4 py-1.5 rounded-full hover:bg-purple-50 transition-colors"
+          className="text-xs text-forest-700 font-semibold border border-forest-200 bg-white px-4 py-1.5 rounded-full hover:bg-mint/50 transition-colors"
         >
           Ver planos
         </button>
@@ -136,12 +136,12 @@ function Section({ icon, title, badge, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-5">
+    <div className="bg-paper-soft rounded-2xl border border-line p-5">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-purple-400">{icon}</span>
-        <h3 className="text-sm font-semibold text-sage-800">{title}</h3>
+        <span className="text-forest-500">{icon}</span>
+        <h3 className="text-sm font-semibold text-forest-900">{title}</h3>
         {badge && (
-          <span className="ml-auto text-[10px] bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded-full font-medium">
+          <span className="ml-auto text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">
             {badge}
           </span>
         )}
@@ -155,10 +155,10 @@ function Section({ icon, title, badge, children }: {
 
 function StatPill({ label, value, unit = '' }: { label: string; value: string | number; unit?: string }) {
   return (
-    <div className="bg-stone-50 rounded-xl px-3 py-2 text-center">
-      <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
-      <p className="text-base font-bold text-sage-800">
-        {value}<span className="text-xs font-normal text-stone-400 ml-0.5">{unit}</span>
+    <div className="bg-mint/40 rounded-xl px-3 py-2 text-center">
+      <p className="text-[10px] text-ink-soft mb-0.5">{label}</p>
+      <p className="text-base font-bold text-forest-900">
+        {value}<span className="text-xs font-normal text-ink-soft ml-0.5">{unit}</span>
       </p>
     </div>
   )
@@ -166,7 +166,7 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MyReportPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
+export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
   const isEssential = hasPlanAccess(plan, 'essential')
   const isTherapeutic = hasPlanAccess(plan, 'plus')
@@ -282,43 +282,41 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
   if (loading) {
     return (
       <div className="flex justify-center items-center py-24">
-        <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+        <Loader2 className="w-6 h-6 text-forest-400 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 print:px-0 print:py-4">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 print:px-0 print:py-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 print:hidden">
-        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors">
-          <ArrowLeft className="w-4 h-4 text-sage-600" />
-        </button>
-        <div>
-          <h1 className="font-serif text-xl text-sage-800">Meu Relatório</h1>
-          <p className="text-xs text-sage-500">Resumo mensal do seu bem-estar</p>
-        </div>
-      </div>
+      <header className="mb-6 print:hidden">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+          Relatórios e evolução <BarChart2 className="w-6 h-6 text-forest-400" />
+        </h1>
+        <p className="mt-2 text-ink-soft">Acompanhe sua jornada de autocuidado e perceba o quanto você já evoluiu.</p>
+      </header>
 
       {/* Month selector */}
-      <div className="flex items-center gap-3 mb-6 print:hidden">
-        <Calendar className="w-4 h-4 text-purple-400 flex-shrink-0" />
-        <select
-          value={selectedMonth}
-          onChange={e => setSelectedMonth(e.target.value)}
-          className="text-sm border border-stone-200 rounded-xl px-3 py-1.5 bg-white text-sage-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-        >
-          {monthOptions.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+      <div className="flex flex-wrap items-center gap-3 mb-6 print:hidden">
+        <div className="flex items-center gap-2 bg-paper-soft border border-line rounded-2xl px-3 py-1.5">
+          <Calendar className="w-4 h-4 text-forest-500 flex-shrink-0" />
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="text-sm bg-transparent text-forest-800 focus:outline-none"
+          >
+            {monthOptions.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
         {isEssential && (
           <button
             onClick={handlePrint}
-            className="ml-auto text-xs text-sage-500 hover:text-sage-700 border border-stone-200 px-3 py-1.5 rounded-xl hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+            className="ml-auto text-xs text-forest-700 border border-line px-3.5 py-2 rounded-2xl hover:bg-mint/50 transition-colors flex items-center gap-1.5"
           >
-            <FileText className="w-3.5 h-3.5" />
-            Exportar PDF
+            <FileText className="w-3.5 h-3.5" /> Baixar PDF
           </button>
         )}
       </div>
@@ -332,7 +330,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
               <p className="text-sm text-stone-400 mb-3">Nenhuma entrada no diário em {monthLabel(selectedMonth)}.</p>
               <button
                 onClick={onNavigateDiary}
-                className="text-xs text-purple-600 font-medium border border-purple-200 px-4 py-1.5 rounded-full hover:bg-purple-50 transition-colors"
+                className="text-xs text-forest-700 font-medium border border-forest-200 px-4 py-1.5 rounded-full hover:bg-mint transition-colors"
               >
                 Abrir diário
               </button>
@@ -353,8 +351,8 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
                   <p className="text-[10px] text-stone-400 uppercase tracking-wider mb-2">Emoções mais registradas</p>
                   <div className="flex flex-wrap gap-1.5">
                     {topTags.map(([tag, count]) => (
-                      <span key={tag} className="text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full">
-                        {tag} <span className="text-purple-400">×{count}</span>
+                      <span key={tag} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">
+                        {tag} <span className="text-forest-500">×{count}</span>
                       </span>
                     ))}
                   </div>
@@ -435,7 +433,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
                 <p className="text-xs text-stone-400 mb-2">Tem dúvidas sobre seu relatório?</p>
                 <button
                   onClick={onNavigateGuidance}
-                  className="flex items-center gap-1.5 text-xs text-purple-600 font-medium hover:text-purple-800 transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-forest-700 font-medium hover:text-forest-900 transition-colors"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   Orientação mensal por mensagem
@@ -457,7 +455,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
             {comment ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-purple-700 capitalize">{monthLabel(comment.report_month)}</p>
+                  <p className="text-xs font-medium text-forest-700 capitalize">{monthLabel(comment.report_month)}</p>
                   {comment.professional_name && (
                     <p className="text-[10px] text-stone-400">{comment.professional_name}</p>
                   )}
@@ -465,7 +463,7 @@ export default function MyReportPage({ user, profile, onBack, onNavigatePricing,
                 <p className="text-sm text-sage-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
                 <button
                   onClick={onNavigateDiary}
-                  className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-medium transition-colors mt-1"
+                  className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium transition-colors mt-1"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                   Responder no diário
