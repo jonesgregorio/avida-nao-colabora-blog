@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
+import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -223,6 +224,23 @@ export default function App() {
     }, 50)
   }
 
+  // Leva ao login guardando a ação pretendida, para retornar a ela após autenticar.
+  const goAuth = (targetView: string) => {
+    setPendingAction({ view: targetView })
+    navigate('auth')
+  }
+
+  // Após autenticar, retoma a ação protegida que o visitante tentou antes.
+  useEffect(() => {
+    if (!user) return
+    const pending = getPendingAction()
+    if (!pending) return
+    clearPendingAction()
+    if (pending.diaryContext) setDiaryPromptContext(pending.diaryContext)
+    navigate(pending.view)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
   // Suporte ao botão Voltar/Avançar do navegador
   useEffect(() => {
     function handlePopState() {
@@ -295,7 +313,7 @@ export default function App() {
   }
 
   if (view === 'diary') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('diary'); return null }
     return appShell(
       <DiaryPage
         user={user}
@@ -309,7 +327,7 @@ export default function App() {
   }
 
   if (view === 'profile') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('profile'); return null }
     return appShell(
       <ProfilePage
         user={user}
@@ -440,7 +458,7 @@ export default function App() {
         }}
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
-        onNavigateAuth={() => navigate('auth')}
+        onNavigateAuth={() => goAuth('questionarios')}
       />
     )
   }
@@ -581,7 +599,7 @@ export default function App() {
   }
 
   if (view === 'monthly-guidance') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('monthly-guidance'); return null }
     return appShell(
       <MonthlyGuidancePage
         user={user}
@@ -593,7 +611,7 @@ export default function App() {
   }
 
   if (view === 'professional-comments') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('professional-comments'); return null }
     return (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
@@ -611,7 +629,7 @@ export default function App() {
   }
 
   if (view === 'my-evolution') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('my-evolution'); return null }
     return appShell(
       <MyEvolutionPage
         user={user}
@@ -625,7 +643,7 @@ export default function App() {
   }
 
   if (view === 'my-report') {
-    if (!user) { navigate('auth'); return null }
+    if (!user) { goAuth('my-report'); return null }
     return appShell(
       <MyReportPage
         user={user}
@@ -644,7 +662,7 @@ export default function App() {
         user={user}
         profile={profile}
         onBack={() => navigate('home')}
-        onNavigateAuth={() => navigate('auth')}
+        onNavigateAuth={() => goAuth('my-plan')}
         onRefreshProfile={refreshProfile}
       />
     )

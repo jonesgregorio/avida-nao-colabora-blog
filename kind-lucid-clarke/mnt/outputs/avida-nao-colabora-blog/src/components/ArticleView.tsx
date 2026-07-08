@@ -5,6 +5,7 @@ import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
 import { markArticleRead } from '../lib/readingProgress'
+import { setPendingAction } from '../lib/pendingAction'
 
 interface ArticleViewProps {
   slug?: string
@@ -230,12 +231,15 @@ export default function ArticleView({
   function handleAnswerInDiary(prompt: string) {
     if (!article) return
     if (!user) {
-      sessionStorage.setItem('pendingDiaryPrompt', JSON.stringify({
-        prompt,
-        articleTitle: article.title,
-        articleSlug: article.slug,
-        category: article.category,
-      }))
+      setPendingAction({
+        view: 'diary',
+        diaryContext: {
+          prompt,
+          articleTitle: article.title,
+          articleSlug: article.slug,
+          category: article.category,
+        },
+      })
       doNavigate('auth')
       return
     }
