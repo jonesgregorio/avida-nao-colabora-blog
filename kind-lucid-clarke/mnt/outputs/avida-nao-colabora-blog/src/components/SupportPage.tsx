@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, MessageCircle, Clock, AlertCircle, ChevronRight, X } from 'lucide-react'
+import {
+  MessageCircle, Clock, ChevronRight, Send, AlertTriangle, Crown, ArrowRight, HeartHandshake, ShieldCheck,
+} from 'lucide-react'
+import { normalizePlan } from '../lib/officialPlans'
 
 interface Ticket {
   id: string
@@ -23,41 +26,42 @@ interface Props {
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Aberto',
-  in_progress: 'Em andamento',
+  in_progress: 'Em análise',
   waiting_client: 'Aguardando resposta',
   awaiting_admin: 'Aguardando suporte',
   awaiting_user: 'Aguardando você',
-  resolved: 'Resolvido',
+  resolved: 'Respondido',
   closed: 'Fechado',
 }
+// Paleta suave alinhada à marca (âmbar / mint / coral).
 const STATUS_COLOR: Record<string, string> = {
-  open: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-orange-100 text-orange-700',
-  waiting_client: 'bg-purple-100 text-purple-700',
-  awaiting_admin: 'bg-yellow-100 text-yellow-700',
-  awaiting_user: 'bg-purple-100 text-purple-700',
-  resolved: 'bg-green-100 text-green-700',
-  closed: 'bg-stone-100 text-stone-500',
-}
-const PRIORITY_LABEL: Record<string, string> = {
-  low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente',
-}
-const PRIORITY_COLOR: Record<string, string> = {
-  low: 'bg-stone-100 text-stone-500',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  urgent: 'bg-red-100 text-red-700',
+  open: 'bg-amber-50 text-amber-700',
+  in_progress: 'bg-sky text-[#3d6ea5]',
+  waiting_client: 'bg-coral/40 text-[#8a3b23]',
+  awaiting_admin: 'bg-amber-50 text-amber-700',
+  awaiting_user: 'bg-coral/40 text-[#8a3b23]',
+  resolved: 'bg-mint text-forest-700',
+  closed: 'bg-paper-soft text-ink-soft border border-line',
 }
 
-const inputCls = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300 bg-white'
+const HELP_TOPICS = [
+  'Como funciona o Plano Plus?',
+  'Como cancelar assinatura?',
+  'Privacidade e segurança',
+  'Como usar os recursos',
+]
 
-export default function SupportPage({ user, profile, navigate, onBack, onOpenTicket }: Props) {
+const inputCls = 'w-full px-3.5 py-2.5 border border-line rounded-xl text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 transition-colors'
+
+export default function SupportPage({ user, profile, navigate, onBack: _onBack, onOpenTicket }: Props) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
   const [form, setForm] = useState({ subject: '', description: '', priority: 'medium' })
+
+  const isPlus = normalizePlan(profile?.plan) === 'plus'
 
   useEffect(() => {
     if (!user) return
@@ -75,7 +79,6 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
 
     if (!ticketData) { setLoading(false); return }
 
-    // Enrich with message counts
     const ids = ticketData.map(t => t.id)
     const { data: msgs } = ids.length > 0
       ? await supabase.from('ticket_messages').select('ticket_id').in('ticket_id', ids).eq('is_internal', false)
@@ -92,11 +95,12 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
 
   async function handleCreate() {
     setCreateError(null)
+    setSent(false)
     if (!form.subject.trim() || !form.description.trim()) {
-      setCreateError('Preencha o assunto e a descrição.'); return
+      setCreateError('Preencha o assunto e a mensagem.'); return
     }
     if (form.description.trim().length < 20) {
-      setCreateError('Descrição deve ter pelo menos 20 caracteres.'); return
+      setCreateError('A mensagem deve ter pelo menos 20 caracteres.'); return
     }
     setCreating(true)
 
@@ -115,23 +119,23 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
       .single()
 
     if (error) {
-      setCreateError('Erro ao criar ticket. Tente novamente.')
+      setCreateError('Erro ao enviar. Tente novamente.')
       setCreating(false)
       return
     }
 
     setTickets(prev => [{ ...ticket, message_count: 0 }, ...prev])
-    setDialogOpen(false)
     setForm({ subject: '', description: '', priority: 'medium' })
     setCreating(false)
+    setSent(true)
   }
 
   if (!user) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <MessageCircle className="w-10 h-10 text-stone-300 mx-auto mb-4" />
-        <p className="text-stone-500 mb-4">Faça login para acessar o suporte.</p>
-        <button onClick={() => navigate('auth')} className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700">
+        <MessageCircle className="w-10 h-10 text-forest-300 mx-auto mb-4" />
+        <p className="text-ink-soft mb-4">Faça login para acessar o suporte.</p>
+        <button onClick={() => navigate('auth')} className="bg-forest-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
           Entrar
         </button>
       </div>
@@ -139,152 +143,152 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <button onClick={onBack} className="text-xs text-stone-400 hover:text-stone-600 mb-1">← Voltar</button>
-          <h1 className="text-2xl font-bold text-stone-800">Suporte</h1>
-          <p className="text-stone-500 text-sm">Acompanhe e abra tickets de suporte</p>
-        </div>
-        <button
-          onClick={() => { setDialogOpen(true); setCreateError(null) }}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Novo ticket
-        </button>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-6">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+          Suporte e contato <HeartHandshake className="w-6 h-6 text-forest-400" />
+        </h1>
+        <p className="mt-2 text-ink-soft">Estamos aqui para te ouvir e ajudar no que for preciso.</p>
+      </header>
 
-      {/* List */}
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-20 bg-stone-100 rounded-xl animate-pulse" />)}
-        </div>
-      ) : tickets.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-100 p-12 text-center">
-          <MessageCircle className="w-10 h-10 text-stone-200 mx-auto mb-3" />
-          <p className="font-medium text-stone-700 mb-1">Nenhum ticket aberto</p>
-          <p className="text-sm text-stone-400 mb-5">Abra um ticket sempre que precisar de ajuda</p>
-          <button
-            onClick={() => { setDialogOpen(true); setCreateError(null) }}
-            className="flex items-center gap-2 mx-auto border border-stone-200 text-stone-600 px-4 py-2 rounded-lg text-sm hover:bg-stone-50"
-          >
-            <Plus className="w-4 h-4" /> Abrir ticket
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {tickets.map(ticket => (
-            <button
-              key={ticket.id}
-              onClick={() => onOpenTicket(ticket.id)}
-              className="w-full text-left bg-white border border-stone-100 rounded-lg px-4 py-2.5 flex items-center gap-3 hover:shadow-sm hover:border-stone-200 transition-all group"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] text-stone-400 font-mono">#{ticket.ticket_number}</span>
-                  <span className={`text-[11px] px-1.5 py-0 rounded-full font-medium ${STATUS_COLOR[ticket.status] ?? 'bg-stone-100 text-stone-500'}`}>
-                    {STATUS_LABEL[ticket.status] ?? ticket.status}
-                  </span>
-                  <span className={`text-[11px] px-1.5 py-0 rounded-full font-medium ${PRIORITY_COLOR[ticket.priority] ?? 'bg-stone-100 text-stone-500'}`}>
-                    {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
-                  </span>
-                  <span className="ml-auto flex items-center gap-2 text-[11px] text-stone-400">
-                    {(ticket.message_count ?? 0) > 0 && (
-                      <span className="flex items-center gap-0.5">
-                        <MessageCircle className="w-3 h-3" />
-                        {ticket.message_count}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" />
-                      {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </span>
-                </div>
-                <p className="font-medium text-sm text-stone-800 truncate mt-0.5">{ticket.subject}</p>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-stone-300 flex-shrink-0" />
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6">
+        {/* ─── Coluna principal ─── */}
+        <div className="space-y-5 min-w-0">
+          {/* Formulário */}
+          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+            <h2 className="font-serif text-lg sm:text-xl text-forest-900">Fale com a nossa equipe</h2>
+            <p className="text-sm text-ink-soft mt-1 mb-4">Envie sua mensagem e responderemos com carinho.</p>
 
-      {/* Create Dialog */}
-      {dialogOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-emerald-600" />
-                <h2 className="font-semibold text-stone-800">Abrir ticket de suporte</h2>
-              </div>
-              <button onClick={() => setDialogOpen(false)} className="text-stone-400 hover:text-stone-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="px-6 py-5 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Assunto</label>
-                <input
-                  className={inputCls}
-                  placeholder="Resumo do problema..."
-                  value={form.subject}
-                  onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                />
+                <label className="block text-sm font-medium text-forest-800 mb-1.5">Assunto</label>
+                <input className={inputCls} placeholder="Em que podemos te ajudar?" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Prioridade</label>
-                <select
-                  className={inputCls}
-                  value={form.priority}
-                  onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
-                >
+                <label className="block text-sm font-medium text-forest-800 mb-1.5">Prioridade</label>
+                <select className={inputCls} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                   <option value="low">Baixa</option>
                   <option value="medium">Média</option>
                   <option value="high">Alta</option>
                   <option value="urgent">Urgente</option>
                 </select>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Descrição</label>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-forest-800 mb-1.5">Mensagem</label>
+              <div className="relative">
                 <textarea
                   className={inputCls + ' resize-none'}
                   rows={5}
-                  placeholder="Descreva o problema com detalhes (mínimo 20 caracteres)..."
+                  maxLength={1000}
+                  placeholder="Escreva sua mensagem aqui…"
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 />
-                <p className="text-xs text-stone-400 text-right mt-0.5">{form.description.length} caracteres</p>
+                <span className="absolute bottom-2.5 right-3 text-[11px] text-ink-soft/70">{form.description.length}/1000</span>
               </div>
-
-              {createError && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{createError}</p>
-              )}
             </div>
 
-            <div className="flex gap-3 px-6 pb-6">
-              <button
-                onClick={() => setDialogOpen(false)}
-                disabled={creating}
-                className="flex-1 border border-stone-200 text-stone-600 py-2.5 rounded-xl text-sm hover:bg-stone-50 transition-colors"
-              >
-                Cancelar
-              </button>
+            {createError && <p className="text-sm text-coral mt-3">{createError}</p>}
+            {sent && <p className="text-sm text-forest-700 mt-3">Mensagem enviada! Nossa equipe responde em breve. 💚</p>}
+
+            <div className="flex flex-wrap items-center gap-3 mt-4">
               <button
                 onClick={handleCreate}
                 disabled={creating}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60"
+                className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-60"
               >
-                {creating ? 'Enviando...' : 'Enviar ticket'}
+                <Send className="w-4 h-4" /> {creating ? 'Enviando…' : 'Enviar mensagem'}
               </button>
+              <span className="text-xs text-ink-soft">Tempo médio de resposta: <strong className="text-forest-700 font-medium">até 24h úteis</strong></span>
             </div>
-          </div>
+          </section>
+
+          {/* Acompanhe seus chamados */}
+          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+            <h2 className="font-serif text-lg sm:text-xl text-forest-900 mb-1">Acompanhe seus chamados</h2>
+            <p className="text-sm text-ink-soft mb-4">Veja o status das suas solicitações recentes.</p>
+            {loading ? (
+              <div className="space-y-2">{[1, 2].map(i => <div key={i} className="h-14 bg-mint/40 rounded-2xl animate-pulse" />)}</div>
+            ) : tickets.length === 0 ? (
+              <p className="text-sm text-ink-soft text-center py-6">Você ainda não abriu nenhum chamado.</p>
+            ) : (
+              <div className="space-y-2">
+                {tickets.map(ticket => (
+                  <button
+                    key={ticket.id}
+                    onClick={() => onOpenTicket(ticket.id)}
+                    className="w-full text-left bg-white border border-line rounded-2xl px-4 py-3 flex items-center gap-3 hover:border-forest-200 hover:shadow-sm transition-all"
+                  >
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[ticket.status] ?? 'bg-mint text-forest-700'}`}>
+                      {STATUS_LABEL[ticket.status] ?? ticket.status}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-forest-900 truncate">{ticket.subject}</p>
+                      <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5">
+                        <span className="font-mono">#{ticket.ticket_number}</span>
+                        <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}</span>
+                        {(ticket.message_count ?? 0) > 0 && <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {ticket.message_count}</span>}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-ink-soft flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-      )}
+
+        {/* ─── Coluna lateral ─── */}
+        <aside className="space-y-5">
+          {/* Emergência */}
+          <div className="rounded-3xl border border-coral/40 bg-coral/15 p-5">
+            <div className="flex items-center gap-2 text-[#8a3b23] mb-2">
+              <AlertTriangle className="w-5 h-5" />
+              <h2 className="font-serif text-lg">Não é atendimento de emergência</h2>
+            </div>
+            <p className="text-sm text-[#7a3320] leading-relaxed">
+              Se você estiver em crise ou precisar de ajuda imediata, procure o <strong>CVV (188)</strong>, o <strong>SAMU (192)</strong> ou o serviço de emergência mais próximo.
+            </p>
+          </div>
+
+          {/* Tópicos de ajuda */}
+          <div className="bg-paper-soft border border-line rounded-3xl p-5">
+            <h2 className="font-serif text-lg text-forest-900 mb-3">Tópicos de ajuda</h2>
+            <ul className="space-y-1.5">
+              {HELP_TOPICS.map(t => (
+                <li key={t}>
+                  <span className="flex items-center gap-2 text-sm text-ink-soft py-1">
+                    <ShieldCheck className="w-4 h-4 text-forest-500 flex-shrink-0" /> {t}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Orientação profissional (Plus) */}
+          <div className="rounded-3xl bg-forest-900 text-white p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-serif text-lg">Orientação profissional</h2>
+              <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full flex items-center gap-1"><Crown className="w-3 h-3" /> Plus</span>
+            </div>
+            <p className="text-sm text-forest-50/90 leading-relaxed">Apoio individual com orientação especializada — conversas 1:1, acolhimento e direcionamento prático, com sigilo e respeito.</p>
+            <button
+              onClick={() => navigate(isPlus ? 'monthly-guidance' : 'pricing')}
+              className="mt-4 inline-flex items-center gap-2 bg-white text-forest-900 text-sm font-medium px-4 py-2 rounded-xl hover:bg-mint transition-colors"
+            >
+              {isPlus ? 'Agendar orientação' : 'Conhecer o Plus'} <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      {/* Banner */}
+      <div className="mt-6 rounded-3xl border border-line bg-mint/40 px-5 sm:px-6 py-4 flex items-center gap-4">
+        <span className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0 text-forest-600"><HeartHandshake className="w-5 h-5" /></span>
+        <p className="text-sm text-forest-800 leading-relaxed">Agradecemos sua confiança. Nosso time está aqui para caminhar com você.</p>
+      </div>
     </div>
   )
 }
