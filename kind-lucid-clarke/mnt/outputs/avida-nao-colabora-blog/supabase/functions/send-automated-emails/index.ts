@@ -104,10 +104,11 @@ serve(async (req) => {
     const logs: Record<string, unknown>[] = []
 
     for (const content of todayContents) {
-      // Buscar usuários elegíveis pelo plano
-      const planOrder = ['free', 'essential', 'therapeutic', 'therapeutic-plus', 'plus']
-      const minPlanIndex = planOrder.indexOf(content.plan_required)
-      const eligiblePlans = planOrder.slice(minPlanIndex)
+      // Elegibilidade por tier (free < essential < plus). Planos legados
+      // (therapeutic/therapeutic-plus) contam como Plus para não excluir esses usuários.
+      const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
+      const requiredRank = PLAN_RANK[content.plan_required] ?? 0
+      const eligiblePlans = Object.keys(PLAN_RANK).filter(p => PLAN_RANK[p] >= requiredRank)
 
       const { data: profiles } = await supabase
         .from('profiles')

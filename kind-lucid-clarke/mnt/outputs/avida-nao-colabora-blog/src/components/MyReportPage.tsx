@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { exportElementToPdf } from '../lib/exportPdf'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { hasPlanAccess } from '../lib/officialPlans'
@@ -178,6 +179,8 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const [prevEntries, setPrevEntries] = useState<DiaryEntry[]>([])
   const [comment, setComment] = useState<ProfessionalComment | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -277,7 +280,17 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
   // ─── Print/PDF ────────────────────────────────────────────────────────────
 
-  const handlePrint = () => window.print()
+  async function handleExportPdf() {
+    if (!reportRef.current || generating) return
+    setGenerating(true)
+    try {
+      await exportElementToPdf(reportRef.current, `relatorio-${selectedMonth}.pdf`)
+    } catch {
+      // silencioso — em caso de falha, o usuário pode tentar novamente
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -313,15 +326,17 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </div>
         {isEssential && (
           <button
-            onClick={handlePrint}
-            className="ml-auto text-xs text-forest-700 border border-line px-3.5 py-2 rounded-2xl hover:bg-mint/50 transition-colors flex items-center gap-1.5"
+            onClick={handleExportPdf}
+            disabled={generating}
+            className="ml-auto text-xs text-forest-700 border border-line px-3.5 py-2 rounded-2xl hover:bg-mint/50 transition-colors flex items-center gap-1.5 disabled:opacity-60"
           >
-            <FileText className="w-3.5 h-3.5" /> Baixar PDF
+            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+            {generating ? 'Gerando…' : 'Baixar PDF'}
           </button>
         )}
       </div>
 
-      <div className="space-y-4">
+      <div ref={reportRef} className="space-y-4 bg-paper">
 
         {/* ─── SEÇÃO 1: Resumo de humor (todos os planos) ────────────── */}
         <Section icon={<BookOpen className="w-4 h-4" />} title="Resumo do mês">
