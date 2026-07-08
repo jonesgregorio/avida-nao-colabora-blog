@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { exportElementToPdf } from '../lib/exportPdf'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown, Save, Sprout, CalendarDays } from 'lucide-react'
@@ -89,6 +90,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const [filter, setFilter] = useState<'all' | 'diary' | 'questionnaire'>('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const entriesRef = useRef<HTMLElement>(null)
 
   // Free fields
   const [mood, setMood] = useState('neutro')
@@ -280,6 +283,18 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
 
   const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 
+  async function handleExportSummary() {
+    if (!entriesRef.current || exporting) return
+    setExporting(true)
+    try {
+      await exportElementToPdf(entriesRef.current, `diario-${new Date().toISOString().slice(0, 7)}.pdf`)
+    } catch {
+      // silencioso — o usuário pode tentar novamente
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <header className="mb-6">
@@ -450,17 +465,18 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
               </button>
               {canExportPDF && (
                 <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 border border-line text-forest-700 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/50 transition-colors"
+                  onClick={handleExportSummary}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-2 border border-line text-forest-700 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/50 transition-colors disabled:opacity-60"
                 >
-                  <FileDown className="w-4 h-4" /> Exportar resumo
+                  <FileDown className={`w-4 h-4 ${exporting ? 'animate-pulse' : ''}`} /> {exporting ? 'Gerando…' : 'Exportar resumo'}
                 </button>
               )}
             </div>
           </section>
 
           {/* Lista de entradas */}
-          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+          <section ref={entriesRef} className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="font-serif text-lg sm:text-xl text-forest-900">Suas entradas</h2>
               <div className="flex items-center gap-2">
