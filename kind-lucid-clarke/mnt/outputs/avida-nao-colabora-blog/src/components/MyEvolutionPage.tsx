@@ -9,7 +9,9 @@ import {
   BarChart2, FileText, Heart, Leaf, MessageSquare, Video,
   Lock, Download, Send, RefreshCw, CheckCircle,
   Clock, Calendar, AlertCircle, TrendingUp, BookOpen, Loader2, Sparkles,
+  Smile, Zap, Moon, Waves,
 } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
@@ -283,88 +285,185 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
 
 // ─── ABA: Resumo ─────────────────────────────────────────────────────────────
 
+const Y_LABELS: Record<number, string> = { 1: 'Muito difícil', 2: 'Difícil', 3: 'Neutro', 4: 'Bem', 5: 'Ótimo' }
+
+function heatColor(mood: number) {
+  if (mood >= 4.5) return 'bg-forest-600'
+  if (mood >= 3.5) return 'bg-forest-300'
+  if (mood >= 2.5) return 'bg-amber-200'
+  if (mood >= 1.5) return 'bg-coral/60'
+  return 'bg-coral'
+}
+
+function BigRing({ pct }: { pct: number }) {
+  const r = 46
+  const circ = 2 * Math.PI * r
+  return (
+    <div className="relative w-[132px] h-[132px] flex-shrink-0">
+      <svg viewBox="0 0 110 110" className="w-full h-full -rotate-90">
+        <circle cx="55" cy="55" r={r} fill="none" stroke="#E8F0EB" strokeWidth="9" />
+        <circle cx="55" cy="55" r={r} fill="none" stroke="#1c4a37" strokeWidth="9" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - Math.min(100, Math.max(0, pct)) / 100)} />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="font-serif text-3xl text-forest-900 leading-none">{pct}%</span>
+      </div>
+    </div>
+  )
+}
+
+function MetricTile({ icon, label, value, sub, trend, goodDown = false }: {
+  icon: React.ReactNode; label: string; value: React.ReactNode; sub?: string
+  trend?: number | null; goodDown?: boolean
+}) {
+  const showTrend = typeof trend === 'number' && trend !== 0
+  const up = (trend ?? 0) > 0
+  const good = goodDown ? !up : up
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0">{icon}</span>
+        <p className="text-sm text-ink-soft leading-tight">{label}</p>
+      </div>
+      <p className="font-serif text-2xl text-forest-900 leading-none">{value}</p>
+      {showTrend ? (
+        <p className={`mt-1.5 text-xs flex items-center gap-1 ${good ? 'text-forest-600' : 'text-coral'}`}>
+          {up ? '↗' : '↘'} {Math.abs(trend as number).toFixed(1)} vs. mês anterior
+        </p>
+      ) : sub ? (
+        <p className="mt-1.5 text-xs text-ink-soft truncate">{sub}</p>
+      ) : null}
+    </div>
+  )
+}
+
 function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   plan: string; user: User | null; onNavigatePricing: () => void; onNavigateDiary: () => void
 }) {
   const current = monthKey()
   const { stats, loading } = useDiaryStats(user?.id, current)
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-stone-400" /></div>
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
+
+  const isEssential = hasPlan(plan, 'essential')
+  const chartData = [...stats.dailyMoods].sort((a, b) => a.day - b.day).map(d => ({ day: d.day, humor: d.mood }))
+  const positiveDays = stats.dailyMoods.filter(d => d.mood >= 4).length
+  const positivePct = stats.dailyMoods.length ? Math.round((positiveDays / stats.dailyMoods.length) * 100) : 0
+  const trend = (curr: number, prev: number) => (prev > 0 && curr > 0 ? +(curr - prev).toFixed(1) : null)
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-stone-500">Resumo de {monthLabel(current)}</p>
+    <div className="space-y-5">
+      {/* Visão geral: anel + gráfico */}
+      <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+        <h3 className="font-serif text-lg sm:text-xl text-forest-900">Visão geral da sua evolução emocional</h3>
+        <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(current)}.</p>
+        <div className="grid md:grid-cols-[auto_1fr] gap-6 items-center">
+          <div className="flex flex-col items-center">
+            <BigRing pct={positivePct} />
+            <p className="text-xs text-ink-soft text-center mt-2 max-w-[130px] leading-snug">dos dias com emoções positivas</p>
+          </div>
+          <div className="h-56 min-w-0">
+            {chartData.length > 1 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="humorFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2f5d47" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#2f5d47" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#5F6661' }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tickFormatter={(v: number) => Y_LABELS[v] ?? String(v)} tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} width={78} />
+                  <Tooltip
+                    formatter={(v: number) => [Y_LABELS[Math.round(v)] ?? v, 'Humor']}
+                    labelFormatter={(l) => `Dia ${l}`}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="humor" stroke="#1c4a37" strokeWidth={2} fill="url(#humorFill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-ink-soft text-center px-4">Registre no diário para ver sua evolução emocional aqui.</div>
+            )}
+          </div>
+        </div>
+      </div>
 
-      {/* Cards base — todos os planos */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Registros no mês" value={stats.totalEntries} sub={plan === 'free' ? `de 5 disponíveis` : undefined} color="emerald" />
-        <StatCard label="Humor predominante" value={stats.dominantMood} sub={stats.avgMood > 0 ? `média ${stats.avgMood.toFixed(1)}/5` : 'sem registros'} color="amber" />
-        {hasPlan(plan, 'essential') && (
+      {/* Métricas */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <MetricTile icon={<Smile className="w-4 h-4" />} label="Humor médio" value={stats.avgMood > 0 ? `${stats.avgMood.toFixed(1)}/5` : '—'} trend={trend(stats.avgMood, stats.prevMonthAvgMood)} />
+        {isEssential ? (
           <>
-            <StatCard label="Energia média" value={stats.avgEnergy > 0 ? `${stats.avgEnergy.toFixed(1)}/5` : '—'} color="blue" />
-            <StatCard label="Sono médio" value={stats.avgSleep > 0 ? `${stats.avgSleep.toFixed(1)}/5` : '—'} color="purple" />
+            <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia" value={stats.avgEnergy > 0 ? `${stats.avgEnergy.toFixed(1)}/5` : '—'} trend={trend(stats.avgEnergy, stats.prevMonthAvgEnergy)} />
+            <MetricTile icon={<Moon className="w-4 h-4" />} label="Sono" value={stats.avgSleep > 0 ? `${stats.avgSleep.toFixed(1)}/5` : '—'} trend={trend(stats.avgSleep, stats.prevMonthAvgSleep)} />
+            <MetricTile icon={<Waves className="w-4 h-4" />} label="Ansiedade" value={stats.avgAnxiety > 0 ? `${stats.avgAnxiety.toFixed(1)}/5` : '—'} goodDown />
+            <MetricTile icon={<Heart className="w-4 h-4" />} label="Autoestima" value={stats.avgSelfEsteem > 0 ? `${stats.avgSelfEsteem.toFixed(1)}/5` : '—'} />
+            <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Gatilhos frequentes" value={stats.topTags[0] ?? '—'} sub={stats.topTags.slice(0, 3).join(' · ') || undefined} />
           </>
-        )}
-        {!hasPlan(plan, 'essential') && (
-          <>
-            <div className="rounded-xl border border-dashed border-stone-200 p-4 flex flex-col items-center justify-center gap-2 col-span-2">
-              <Lock className="w-4 h-4 text-stone-300" />
-              <p className="text-xs text-stone-400 text-center">Energia, sono e mais estão no plano Essencial</p>
-              <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
-            </div>
-          </>
+        ) : (
+          <div className="col-span-2 rounded-2xl border border-dashed border-line bg-mint/20 p-4 flex flex-col items-center justify-center gap-2 text-center">
+            <Lock className="w-4 h-4 text-forest-400" />
+            <p className="text-xs text-ink-soft">Energia, sono, ansiedade e mais no plano Essencial.</p>
+            <button onClick={onNavigatePricing} className="text-xs text-forest-700 underline">Conhecer o Essencial</button>
+          </div>
         )}
       </div>
 
-      {/* Tags emocionais */}
-      {hasPlan(plan, 'essential') && stats.topTags.length > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
-          <h3 className="text-sm font-semibold text-stone-700 mb-3">Marcadores mais registrados por você</h3>
+      {/* Marcadores */}
+      {isEssential && stats.topTags.length > 0 && (
+        <div className="bg-paper-soft border border-line rounded-3xl p-5">
+          <h3 className="font-serif text-base text-forest-900 mb-3">Marcadores mais registrados por você</h3>
           <div className="flex flex-wrap gap-2">
             {stats.topTags.map(tag => (
-              <span key={tag} className="bg-emerald-50 text-emerald-700 text-xs px-3 py-1 rounded-full border border-emerald-100">{tag}</span>
+              <span key={tag} className="bg-mint text-forest-700 text-xs px-3 py-1 rounded-full">{tag}</span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Terapêutico: comparativo */}
-      {hasPlan(plan, 'therapeutic') && stats.prevMonthAvgMood > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-5">
-          <h3 className="text-sm font-semibold text-stone-700 mb-4">Comparativo com mês anterior</h3>
-          <div className="space-y-3">
-            <MoodBar label="Humor (este mês)" value={stats.avgMood} />
-            <MoodBar label="Humor (mês anterior)" value={stats.prevMonthAvgMood} />
-            {stats.avgEnergy > 0 && <MoodBar label="Energia (este mês)" value={stats.avgEnergy} />}
-            {stats.avgSleep > 0 && <MoodBar label="Sono (este mês)" value={stats.avgSleep} />}
+      {/* Linha do tempo emocional */}
+      {chartData.length > 0 && (
+        <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+          <h3 className="font-serif text-base sm:text-lg text-forest-900">Linha do tempo emocional</h3>
+          <p className="text-sm text-ink-soft mt-1 mb-4">Seu mês em cores, um registro por dia.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {chartData.map(d => (
+              <span key={d.day} title={`Dia ${d.day} · ${Y_LABELS[Math.round(d.humor)] ?? ''}`} className={`w-5 h-5 rounded-md ${heatColor(d.humor)}`} />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mt-4 text-[11px] text-ink-soft">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-forest-600" /> Ótimo</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-forest-300" /> Bem</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-200" /> Neutro</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-coral/60" /> Difícil</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-coral" /> Muito difícil</span>
           </div>
         </div>
       )}
 
-      {/* Plus: orientação e comentário profissional */}
-      {hasPlan(plan, 'plus') && (
-        <div className="bg-coral/40 border border-[#f0c3b4] rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-[#b0532f] mb-2">✦ Recursos Plus</h3>
-          <p className="text-sm text-[#a65834]">Acesse as abas "Orientação profissional" e "Comentário profissional" para ver a orientação do mês e os comentários sobre o seu relatório.</p>
-        </div>
-      )}
+      {/* Resumo da jornada */}
+      <div className="rounded-3xl border border-line bg-mint/40 p-5 sm:p-6">
+        <h3 className="font-serif text-base sm:text-lg text-forest-900 flex items-center gap-2"><Leaf className="w-4 h-4 text-forest-500" /> Resumo da sua jornada</h3>
+        <p className="text-sm text-forest-800 mt-2 leading-relaxed">
+          {stats.totalEntries > 0
+            ? `Você fez ${stats.totalEntries} ${stats.totalEntries === 1 ? 'registro' : 'registros'} em ${monthLabel(current)}. Olhar para o que sente, um dia de cada vez, já é uma forma de cuidado. Continue assim.`
+            : 'Ainda não há registros neste mês. Um pequeno registro por dia já ajuda a entender seus padrões. Comece quando quiser.'}
+        </p>
+        <button onClick={onNavigateDiary} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:gap-2 transition-all">
+          <BookOpen className="w-4 h-4" /> Ir para o diário
+        </button>
+      </div>
 
       {/* Gratuito: CTA */}
-      {!hasPlan(plan, 'essential') && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center space-y-2">
-          <p className="text-sm text-emerald-800 font-medium">Quer ver gráficos, relatórios mensais e resumos completos?</p>
-          <p className="text-xs text-emerald-700">Gráficos, relatórios mensais e resumos completos estão disponíveis a partir do plano Essencial.</p>
-          <button onClick={onNavigatePricing} className="bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-emerald-700 font-medium">
-            Conhecer plano Essencial
-          </button>
+      {!isEssential && (
+        <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">Gráficos completos, relatórios mensais e marcadores avançados estão disponíveis a partir do plano Essencial.</p>
+          <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap">Conhecer o Essencial</button>
         </div>
       )}
 
-      <button onClick={onNavigateDiary} className="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700 underline">
-        <BookOpen className="w-4 h-4" /> Ir para o diário
-      </button>
-
-      <p className="text-xs text-stone-400 border-t border-stone-100 pt-4">{DISCLAIMER}</p>
+      <p className="text-xs text-ink-soft border-t border-line pt-4">{DISCLAIMER}</p>
     </div>
   )
 }
