@@ -4,9 +4,10 @@ import { getContentTypeLabel, getTargetAreaLabel } from '../lib/personalizedCont
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { hasPlanAccess, getPlanLabel } from '../lib/officialPlans'
+import PlanBadge from './PlanBadge'
 import {
   BarChart2, FileText, Heart, Leaf, MessageSquare, Video,
-  Lock, ChevronLeft, Download, Send, RefreshCw, CheckCircle,
+  Lock, Download, Send, RefreshCw, CheckCircle,
   Clock, Calendar, AlertCircle, TrendingUp, BookOpen, Loader2, Sparkles,
 } from 'lucide-react'
 
@@ -57,17 +58,17 @@ function StatCard({ label, value, sub, color = 'stone' }: {
   label: string; value: string | number; sub?: string; color?: string
 }) {
   const colors: Record<string, string> = {
-    stone: 'bg-stone-50 border-stone-200',
-    emerald: 'bg-emerald-50 border-emerald-200',
-    blue: 'bg-blue-50 border-blue-200',
-    purple: 'bg-purple-50 border-purple-200',
-    amber: 'bg-amber-50 border-amber-200',
+    stone: 'bg-paper-soft border-line',
+    emerald: 'bg-mint/50 border-forest-100',
+    blue: 'bg-sky/60 border-sky',
+    purple: 'bg-lilac/50 border-lilac',
+    amber: 'bg-amber-50 border-amber-100',
   }
   return (
-    <div className={`rounded-xl border p-4 ${colors[color] ?? colors.stone}`}>
-      <p className="text-xs text-stone-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-stone-800">{value}</p>
-      {sub && <p className="text-xs text-stone-400 mt-0.5">{sub}</p>}
+    <div className={`rounded-2xl border p-4 ${colors[color] ?? colors.stone}`}>
+      <p className="text-xs text-ink-soft mb-1">{label}</p>
+      <p className="font-serif text-2xl text-forest-900">{value}</p>
+      {sub && <p className="text-xs text-ink-soft mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -76,12 +77,12 @@ function MoodBar({ label, value, max = 5 }: { label: string; value: number; max?
   const pct = Math.min(100, Math.round((value / max) * 100))
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs text-stone-500">
+      <div className="flex justify-between text-xs text-ink-soft">
         <span>{label}</span>
         <span>{value.toFixed(1)}/{max}</span>
       </div>
-      <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
-        <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-2 bg-mint rounded-full overflow-hidden">
+        <div className="h-full bg-forest-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
@@ -128,7 +129,7 @@ const MOOD_LABELS: Record<number, string> = {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MyEvolutionPage({ user, profile, onBack, onNavigatePricing, onNavigateDiary, initialTab }: Props) {
+export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
 
@@ -147,53 +148,54 @@ export default function MyEvolutionPage({ user, profile, onBack, onNavigatePrici
   ]
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button onClick={onBack} className="text-stone-400 hover:text-stone-700 p-1">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Header */}
+      <header className="mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-stone-800">Mapa emocional</h1>
-            <p className="text-sm text-stone-500">Plano {getPlanLabel(plan)}</p>
+            <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+              Mapa emocional <Leaf className="w-6 h-6 text-forest-400" />
+            </h1>
+            <p className="mt-2 text-ink-soft">Entenda seus padrões emocionais e veja sua evolução ao longo do tempo.</p>
           </div>
+          <PlanBadge plan={plan} member size="sm" className="mt-1" />
         </div>
+      </header>
 
-        {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto pb-1 mb-6 border-b border-stone-200">
-          {tabs.map(t => {
-            const locked = !hasPlan(plan, t.minPlan)
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-lg whitespace-nowrap transition-colors border-b-2 -mb-px font-medium ${
-                  tab === t.id
-                    ? 'border-emerald-600 text-emerald-700 bg-white'
-                    : locked
-                    ? 'border-transparent text-stone-300 cursor-pointer'
-                    : 'border-transparent text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {locked ? <Lock className="w-3.5 h-3.5 opacity-50" /> : t.icon}
-                {t.label}
-              </button>
-            )
-          })}
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 -mx-1 px-1">
+        {tabs.map(t => {
+          const locked = !hasPlan(plan, t.minPlan)
+          const active = tab === t.id
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-sm rounded-full whitespace-nowrap transition-colors border flex-shrink-0 ${
+                active
+                  ? 'bg-forest-900 text-white border-forest-900'
+                  : locked
+                  ? 'bg-paper-soft border-line text-ink-soft/50'
+                  : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'
+              }`}
+            >
+              {locked ? <Lock className="w-3.5 h-3.5" /> : t.icon}
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-        {/* Tab content */}
-        <div>
-          {tab === 'resumo' && <TabResumo plan={plan} user={user} onNavigatePricing={onNavigatePricing} onNavigateDiary={onNavigateDiary} />}
-          {tab === 'graficos' && <TabGraficos plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'relatorios' && <TabRelatorios plan={plan} user={user} profile={profile} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'autocuidado' && <TabAutocuidado plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'orientacoes' && <TabOrientacoes plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'comentarios' && <TabComentarios plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'sessao' && <TabSessaoPlus plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
-          {tab === 'para-voce' && <TabParaVoce user={user} />}
-        </div>
+      {/* Tab content */}
+      <div>
+        {tab === 'resumo' && <TabResumo plan={plan} user={user} onNavigatePricing={onNavigatePricing} onNavigateDiary={onNavigateDiary} />}
+        {tab === 'graficos' && <TabGraficos plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'relatorios' && <TabRelatorios plan={plan} user={user} profile={profile} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'autocuidado' && <TabAutocuidado plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'orientacoes' && <TabOrientacoes plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'comentarios' && <TabComentarios plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'sessao' && <TabSessaoPlus plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
+        {tab === 'para-voce' && <TabParaVoce user={user} />}
       </div>
     </div>
   )
