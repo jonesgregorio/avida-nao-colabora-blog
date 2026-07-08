@@ -552,8 +552,8 @@ export default function QuestionnairePlayer({
 
   // ── RESULT ────────────────────────────────────────────────────────────────
   if (phase === 'result') {
-    const resultText = matchedResult?.message || questionnaire.default_result_text || 'Obrigado(a) por compartilhar como você está.'
-    const resultTitle = matchedResult?.title || 'Obrigado(a) por compartilhar'
+    const resultText = matchedResult?.message || questionnaire.default_result_text || 'Que bom que você compartilhou como está.'
+    const resultTitle = matchedResult?.title || 'Recebemos suas respostas'
     const disclaimer = matchedResult?.disclaimer || questionnaire.disclaimer
 
     return (

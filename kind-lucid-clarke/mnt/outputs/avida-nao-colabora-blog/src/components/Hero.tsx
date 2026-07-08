@@ -34,12 +34,13 @@ function StonesIcon({ className }: { className?: string }) {
   )
 }
 
+// Rótulos neutros (substantivos) — sem marcação de gênero.
 const MOODS = [
-  { id: 'ansioso', label: 'Ansioso', Icon: TangleIcon, color: 'text-forest-600' },
-  { id: 'triste', label: 'Triste', Icon: CloudRain, color: 'text-[#3d6ea5]' },
-  { id: 'sobrecarregado', label: 'Sobrecarregado', Icon: StonesIcon, color: 'text-[#c05f3c]' },
+  { id: 'ansioso', label: 'Ansiedade', Icon: TangleIcon, color: 'text-forest-600' },
+  { id: 'triste', label: 'Tristeza', Icon: CloudRain, color: 'text-[#3d6ea5]' },
+  { id: 'sobrecarregado', label: 'Sobrecarga', Icon: StonesIcon, color: 'text-[#c05f3c]' },
   { id: 'sem-energia', label: 'Sem energia', Icon: BatteryLow, color: 'text-stone-400' },
-  { id: 'confuso', label: 'Confuso', Icon: HelpCircle, color: 'text-[#7c5cbf]' },
+  { id: 'confuso', label: 'Confusão', Icon: HelpCircle, color: 'text-[#7c5cbf]' },
 ]
 
 const PLUS_ITEMS = [

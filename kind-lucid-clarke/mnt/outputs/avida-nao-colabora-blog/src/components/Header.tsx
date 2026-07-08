@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  LogIn, Menu, X, Bell, LifeBuoy, User, LogOut, Shield, ChevronDown, CreditCard,
+  LogIn, Menu, X, LifeBuoy, User, LogOut, Shield, ChevronDown, CreditCard,
 } from 'lucide-react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Profile } from '../types'
-import { supabase } from '../lib/supabase'
 import Logo from './Logo'
 
 interface HeaderProps {
@@ -23,18 +22,7 @@ const PLAN_LABELS: Record<string, string> = {
 export default function Header({ onNavigate, user, profile, onSignOut, currentView }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
   const profileRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!user) { setUnreadCount(0); return }
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-      .then(({ count }) => setUnreadCount(count ?? 0))
-  }, [user])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -51,7 +39,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
   const nav = [
     { id: 'diary', label: 'Diário', match: ['diary'] },
     { id: 'my-evolution', label: 'Mapa emocional', match: ['my-evolution', 'my-report', 'questionarios'] },
-    { id: 'articles', label: 'Conteúdos', match: ['articles', 'article', 'content', 'trails', 'saved', 'meditations', 'challenges'] },
+    { id: 'articles', label: 'Conteúdos', match: ['articles', 'article', 'content'] },
     user
       ? { id: 'my-plan', label: 'Meu plano', match: ['my-plan'] }
       : { id: 'pricing', label: 'Planos', match: ['pricing'] },
@@ -94,14 +82,6 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
             <>
               <button onClick={() => handleNav('support')} title="Suporte" className="p-2 text-ink-soft hover:text-forest-900 rounded-lg transition-colors">
                 <LifeBuoy className="w-[18px] h-[18px]" />
-              </button>
-              <button onClick={() => handleNav('notifications')} title="Notificações" className="relative p-2 text-ink-soft hover:text-forest-900 rounded-lg transition-colors">
-                <Bell className="w-[18px] h-[18px]" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-coral text-[#7a3320] text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
               </button>
               <div className="relative" ref={profileRef}>
                 <button
@@ -148,12 +128,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
 
         {/* Mobile: Entrar (visitante) / bell (logado) + hamburger */}
         <div className="md:hidden flex items-center gap-1.5">
-          {user ? (
-            <button onClick={() => handleNav('notifications')} className="relative p-2 text-ink-soft">
-              <Bell className="w-[18px] h-[18px]" />
-              {unreadCount > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-coral text-[#7a3320] text-[8px] font-bold rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-            </button>
-          ) : (
+          {!user && (
             <button
               onClick={() => handleNav('auth')}
               className="flex items-center gap-1.5 text-sm font-medium text-forest-900 border border-forest-800 px-3 py-1.5 rounded-xl hover:bg-forest-900 hover:text-white transition-colors"

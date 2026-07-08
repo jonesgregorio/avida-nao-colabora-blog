@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   NotebookPen, LineChart, BookOpen, Sprout, MessageCircle, CreditCard,
-  BarChart3, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf,
+  BarChart3, ClipboardList, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
@@ -23,14 +23,16 @@ function greeting() {
   return 'Boa noite'
 }
 
+// Atalhos — SOMENTE funções que existem nos planos oficiais.
 const QUICK = [
-  { title: 'Diário',              desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',                        Icon: NotebookPen },
-  { title: 'Mapa Emocional',      desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',                 Icon: LineChart },
-  { title: 'Conteúdos',           desc: 'Artigos, áudios e práticas para inspirar você.', to: 'articles',                     Icon: BookOpen },
+  { title: 'Diário',               desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',                        Icon: NotebookPen },
+  { title: 'Questionários',        desc: 'Autopercepção guiada, no seu tempo.',            to: 'questionarios',                Icon: ClipboardList },
+  { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',                 Icon: LineChart },
+  { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',                     Icon: BookOpen },
+  { title: 'Relatórios',           desc: 'Veja sua evolução ao longo do tempo.',           to: 'my-report',                    Icon: BarChart3 },
   { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'my-evolution?tab=autocuidado', Icon: Sprout },
-  { title: 'Orientação',          desc: 'Fale com orientação especializada.',             to: 'monthly-guidance',             Icon: MessageCircle },
-  { title: 'Meu Plano',           desc: 'Acompanhe seus objetivos e práticas.',           to: 'my-plan',                      Icon: CreditCard },
-  { title: 'Relatórios',          desc: 'Veja sua evolução ao longo do tempo.',           to: 'my-report',                    Icon: BarChart3 },
+  { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance',             Icon: MessageCircle },
+  { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',                      Icon: CreditCard },
 ]
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {

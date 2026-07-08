@@ -2,11 +2,10 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
   Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
-  BarChart3, Heart, Bell, BellRing, Trophy, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
+  BarChart3, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
   LifeBuoy, Leaf,
 } from 'lucide-react'
 import type { Profile } from '../../types'
-import { supabase } from '../../lib/supabase'
 import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
 
@@ -26,24 +25,20 @@ interface NavItem {
   match: string[]
 }
 
-// Navegação lateral — as áreas logadas do usuário. Cada item mapeia para uma view real.
+// Navegação lateral — SOMENTE as funções dos 3 planos oficiais (Gratuito, Essencial, Plus).
+// Ordem e itens definidos no brief. Não adicionar módulos fora dos planos.
 const PRIMARY_NAV: NavItem[] = [
-  { id: 'home',                        label: 'Início',              Icon: Home,          match: ['home'] },
-  { id: 'diary',                       label: 'Diário',              Icon: NotebookPen,   match: ['diary'] },
-  { id: 'my-evolution',                label: 'Mapa Emocional',      Icon: LineChart,     match: ['my-evolution'] },
-  { id: 'articles',                    label: 'Conteúdos',           Icon: BookOpen,      match: ['articles', 'article', 'content', 'trails', 'meditations', 'challenges'] },
-  { id: 'questionarios',               label: 'Questionários',       Icon: ClipboardList, match: ['questionarios', 'questionnaire'] },
-  { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,      match: [] },
-  { id: 'monthly-guidance',            label: 'Orientação',          Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
-  { id: 'my-plan',                     label: 'Meu Plano',           Icon: CreditCard,    match: ['my-plan'] },
-  { id: 'my-report',                   label: 'Relatórios',          Icon: BarChart3,     match: ['my-report'] },
-]
-
-const SECONDARY_NAV: NavItem[] = [
-  { id: 'saved',         label: 'Favoritos',             Icon: Heart,    match: ['saved'] },
-  { id: 'notifications', label: 'Notificações e salvos', Icon: Bell,     match: ['notifications'] },
-  { id: 'conquistas',    label: 'Conquistas',            Icon: Trophy,   match: ['conquistas'] },
-  { id: 'lembretes',     label: 'Lembretes',             Icon: BellRing, match: ['lembretes'] },
+  { id: 'home',                         label: 'Início',               Icon: Home,          match: ['home'] },
+  { id: 'diary',                        label: 'Diário',               Icon: NotebookPen,   match: ['diary'] },
+  { id: 'questionarios',                label: 'Questionários',        Icon: ClipboardList, match: ['questionarios', 'questionnaire'] },
+  { id: 'my-evolution',                 label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
+  { id: 'articles',                     label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
+  { id: 'my-report',                    label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
+  { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,        match: [] },
+  { id: 'monthly-guidance',             label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
+  { id: 'my-plan',                      label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
+  { id: 'profile',                      label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },
+  { id: 'support',                      label: 'Suporte',              Icon: LifeBuoy,      match: ['support', 'support-ticket'] },
 ]
 
 function displayName(profile: Profile | null, user: SupabaseUser | null) {
@@ -53,21 +48,10 @@ function displayName(profile: Profile | null, user: SupabaseUser | null) {
 export default function UserLayout({ user, profile, currentView, onNavigate, onSignOut, children }: UserLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [unread, setUnread] = useState(0)
   const profileRef = useRef<HTMLDivElement>(null)
 
   const name = displayName(profile, user)
   const isAdmin = profile?.role === 'admin'
-
-  useEffect(() => {
-    if (!user) { setUnread(0); return }
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-      .then(({ count }) => setUnread(count ?? 0))
-  }, [user])
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -87,7 +71,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
     <div className="min-h-screen bg-paper flex">
       {/* ─── Sidebar (desktop) ─── */}
       <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 bg-forest-900 text-white/90 sticky top-0 h-screen overflow-y-auto">
-        <SidebarContent name={name} nav={PRIMARY_NAV} secondary={SECONDARY_NAV} isActive={isActive} go={go} onNavigate={onNavigate} />
+        <SidebarContent name={name} nav={PRIMARY_NAV} isActive={isActive} go={go} onNavigate={onNavigate} />
       </aside>
 
       {/* ─── Sidebar (mobile drawer) ─── */}
@@ -102,7 +86,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
             >
               <X className="w-5 h-5" />
             </button>
-            <SidebarContent name={name} nav={PRIMARY_NAV} secondary={SECONDARY_NAV} isActive={isActive} go={go} onNavigate={onNavigate} />
+            <SidebarContent name={name} nav={PRIMARY_NAV} isActive={isActive} go={go} onNavigate={onNavigate} />
           </aside>
         </div>
       )}
@@ -126,19 +110,6 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
             </div>
 
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <button
-                onClick={() => go('notifications')}
-                aria-label="Notificações"
-                className="relative p-2 text-ink-soft hover:text-forest-900 rounded-lg transition-colors"
-              >
-                <Bell className="w-[18px] h-[18px]" />
-                {unread > 0 && (
-                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-coral text-[#7a3320] text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unread > 9 ? '9+' : unread}
-                  </span>
-                )}
-              </button>
-
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileOpen(o => !o)}
@@ -183,11 +154,10 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
 }
 
 function SidebarContent({
-  name, nav, secondary, isActive, go, onNavigate,
+  name, nav, isActive, go, onNavigate,
 }: {
   name: string
   nav: NavItem[]
-  secondary: NavItem[]
   isActive: (i: NavItem) => boolean
   go: (id: string) => void
   onNavigate: (id: string) => void
@@ -207,10 +177,6 @@ function SidebarContent({
       {/* Navegação */}
       <nav className="flex-1 px-3 space-y-0.5">
         {nav.map(item => (
-          <NavButton key={item.id} item={item} active={isActive(item)} onClick={() => go(item.id)} />
-        ))}
-        <div className="my-3 border-t border-white/10 mx-2" />
-        {secondary.map(item => (
           <NavButton key={item.id} item={item} active={isActive(item)} onClick={() => go(item.id)} />
         ))}
       </nav>

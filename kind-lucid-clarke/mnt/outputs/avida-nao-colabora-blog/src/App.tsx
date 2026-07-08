@@ -15,48 +15,40 @@ import DiaryPage from './components/DiaryPage'
 import Pricing from './components/Pricing'
 import Auth from './components/Auth'
 import ProfilePage from './components/Profile'
-import GuidedMeditations from './components/GuidedMeditations'
-import MiniChallenges from './components/MiniChallenges'
-import TherapeuticQuestionnaire from './components/TherapeuticQuestionnaire'
 import AboutPage from './components/AboutPage'
 import PrivacyPage from './components/PrivacyPage'
 import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
-import TrailsPage from './components/TrailsPage'
-import GuidedContent from './components/GuidedContent'
-import SavedItemsPage from './components/SavedItemsPage'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
 import ContactPage from './components/ContactPage'
 import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
-import NotificationsPage from './components/NotificationsPage'
 import ForceChangePassword from './components/ForceChangePassword'
 import MonthlyGuidancePage from './components/MonthlyGuidancePage'
 import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
 import MyEvolutionPage, { type Tab } from './components/MyEvolutionPage'
-import ConquistasPage from './components/ConquistasPage'
-import LembretesPage from './components/LembretesPage'
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle
 const AdminPanel = lazy(() => import('./components/admin'))
 
 const PERSIST_KEY = 'avida_nav'
+// Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
 const VALID_VIEWS: View[] = [
-  'home','auth','diary','profile','meditations','challenges','content',
-  'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
-  'articles','article','responsibility','trails','saved','admin','contact','success',
-  'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
-  'conquistas','lembretes',
+  'home','auth','diary','profile',
+  'about','privacy','terms','questionnaire','questionarios','pricing',
+  'articles','article','responsibility','admin','contact','success',
+  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
 ]
 
 // Mapeamento bidirecional URL ↔ view
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
   '/blog':                       'articles',
+  '/conteudos':                  'articles',
   '/planos':                     'pricing',
   '/sobre':                      'about',
   '/contato':                    'contact',
@@ -67,21 +59,42 @@ const URL_TO_VIEW: Record<string, View> = {
   '/login':                      'auth',
   '/diario':                     'diary',
   '/perfil':                     'profile',
-  '/meditacoes':                 'meditations',
-  '/desafios':                   'challenges',
   '/questionarios':              'questionarios',
-  '/trilhas':                    'trails',
-  '/itens-salvos':               'saved',
   '/sucesso':                    'success',
   '/suporte':                    'support',
-  '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
   '/comentarios-profissional':   'professional-comments',
   '/minha-evolucao':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/meu-plano':                  'my-plan',
-  '/conquistas':                 'conquistas',
-  '/lembretes':                  'lembretes',
+}
+
+// Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
+// Práticas/meditações/desafios/trilhas viram Conteúdos Guiados; o resto volta ao Início.
+const LEGACY_PATH_REDIRECT: Record<string, View> = {
+  '/meditacoes': 'articles',
+  '/desafios':   'articles',
+  '/trilhas':    'articles',
+  '/conquistas': 'home',
+  '/lembretes':  'home',
+  '/notificacoes': 'home',
+  '/itens-salvos': 'home',
+  '/favoritos':  'home',
+  '/sessoes':    'home',
+  '/sessao':     'home',
+}
+
+// Views antigas ainda referenciadas por chamadas navigate() em telas legadas.
+const LEGACY_VIEW_REDIRECT: Record<string, View> = {
+  meditations: 'articles',
+  challenges:  'articles',
+  trails:      'articles',
+  content:     'articles',
+  'therapeutic-q': 'questionarios',
+  saved:         'home',
+  notifications: 'home',
+  conquistas:    'home',
+  lembretes:     'home',
 }
 
 const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
@@ -107,6 +120,11 @@ function parseURLNav(): { view: View; articleSlug: string | null; ticketId: stri
     // Redireciona a rota antiga do questionário terapêutico para a área de Questionários.
     if (path === '/questionario-terapeutico') {
       return { view: 'questionarios', articleSlug: null, ticketId: null }
+    }
+
+    // Rotas de módulos removidos do MVP → destino válido nos novos planos.
+    if (LEGACY_PATH_REDIRECT[path]) {
+      return { view: LEGACY_PATH_REDIRECT[path], articleSlug: null, ticketId: null }
     }
 
     // URL param ?view=X (compatibilidade com links antigos e redirecionamentos Stripe)
@@ -189,6 +207,9 @@ export default function App() {
   }
 
   const navigate = (section: string, articleSlug?: string) => {
+    // Redireciona views de módulos removidos do MVP para destinos válidos.
+    if (LEGACY_VIEW_REDIRECT[section]) section = LEGACY_VIEW_REDIRECT[section]
+
     // Suporte a navegação com aba: 'my-evolution?tab=relatorios'
     if (section.startsWith('my-evolution?tab=')) {
       const tab = section.split('tab=')[1]
@@ -210,11 +231,10 @@ export default function App() {
     }
 
     const directViews: View[] = [
-      'home', 'auth', 'diary', 'profile', 'meditations', 'challenges',
-      'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
-      'pricing', 'articles', 'article', 'responsibility', 'content', 'trails', 'saved', 'admin', 'contact', 'success',
-      'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
-      'conquistas', 'lembretes',
+      'home', 'auth', 'diary', 'profile',
+      'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
+      'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success',
+      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
@@ -239,6 +259,16 @@ export default function App() {
     setPendingAction({ view: targetView })
     navigate('auth')
   }
+
+  // Canonicaliza a URL quando a rota inicial é uma rota legada removida do MVP.
+  // Ex.: abrir /conquistas renderiza o Início; a barra de endereço passa a mostrar "/".
+  useEffect(() => {
+    const path = window.location.pathname
+    if (LEGACY_PATH_REDIRECT[path]) {
+      const canonical = VIEW_TO_URL[LEGACY_PATH_REDIRECT[path]] ?? '/'
+      window.history.replaceState({}, '', canonical)
+    }
+  }, [])
 
   // Após autenticar, retoma a ação protegida que o visitante tentou antes.
   useEffect(() => {
@@ -349,68 +379,6 @@ export default function App() {
     )
   }
 
-  if (view === 'meditations') {
-    if (!user || (profile?.plan !== 'essential' && profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus' && profile?.plan !== 'plus')) {
-      navigate('pricing'); return null
-    }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <GuidedMeditations onBack={() => setView('home')} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  if (view === 'challenges') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <MiniChallenges onBack={() => setView('home')} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  if (view === 'therapeutic-q') {
-    if (!user || (profile?.plan !== 'therapeutic' && profile?.plan !== 'therapeutic-plus' && profile?.plan !== 'plus')) {
-      navigate('pricing'); return null
-    }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <TherapeuticQuestionnaire user={user} onBack={() => setView('home')} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  if (view === 'notifications') {
-    return appShell(
-      <NotificationsPage user={user} navigate={navigate} onBack={() => navigate('home')} />
-    )
-  }
-
-  if (view === 'conquistas') {
-    if (!user) { goAuth('conquistas'); return null }
-    return appShell(
-      <ConquistasPage user={user} profile={profile} onNavigate={navigate} />
-    )
-  }
-
-  if (view === 'lembretes') {
-    if (!user) { goAuth('lembretes'); return null }
-    return appShell(
-      <LembretesPage user={user} profile={profile} onRefreshProfile={refreshProfile} onNavigate={navigate} />
-    )
-  }
-
   if (view === 'contact') {
     return (
       <>
@@ -514,7 +482,6 @@ export default function App() {
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <Articles
-            onNavigate={navigate}
             onSelectArticle={(articleOrSlug) => {
               const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
               setSelectedArticleSlug(slug)
@@ -542,46 +509,6 @@ export default function App() {
         </main>
         <Footer onNavigate={navigate} />
       </>
-    )
-  }
-
-  if (view === 'content') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-paper">
-          <GuidedContent onNavigate={navigate} onBack={() => setView('home')} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  if (view === 'trails') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <TrailsPage
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onBack={() => setView('home')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
-  }
-
-  if (view === 'saved') {
-    return appShell(
-      <SavedItemsPage
-        user={user}
-        profile={profile}
-        navigate={navigate}
-        onBack={() => setView('home')}
-      />
     )
   }
 

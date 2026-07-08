@@ -14,7 +14,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           Um espaço para quem sente
         </h1>
         <p className="text-sage-600 leading-relaxed max-w-xl mx-auto">
-          O <strong>A Vida Não Colabora</strong> nasceu para ser um espaço de acolhimento, reflexão e organização emocional — para quem sente que as coisas às vezes pesam demais, e que carrega tudo sozinho(a).
+          O <strong>A Vida Não Colabora</strong> nasceu para ser um espaço de acolhimento, reflexão e organização emocional — para quem sente que as coisas às vezes pesam demais, e que carrega tudo sem apoio.
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           </h2>
           <div className="text-sage-600 leading-relaxed space-y-3 text-sm">
             <p>
-              O autoconhecimento é um processo contínuo, não linear e profundamente pessoal. Ele não exige perfeição — exige presença e disposição para olhar para si mesmo(a) com honestidade e gentileza.
+              O autoconhecimento é um processo contínuo, não linear e profundamente pessoal. Ele não exige perfeição — exige presença e disposição para olhar para si com honestidade e gentileza.
             </p>
             <p>
               Registrar o que sentimos, perceber padrões e nomear emoções são práticas simples que, ao longo do tempo, podem transformar nossa relação conosco e com o mundo ao redor.

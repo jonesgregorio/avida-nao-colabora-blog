@@ -10,13 +10,14 @@ import { hasPlanAccess } from '../lib/officialPlans'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
+// Rótulos neutros (substantivos) — sem marcação de gênero.
 const moodOptions = [
-  { value: 'bem', emoji: '😊', label: 'Bem', score: 8 },
+  { value: 'bem', emoji: '😊', label: 'Bem-estar', score: 8 },
   { value: 'neutro', emoji: '😐', label: 'Neutro', score: 5 },
-  { value: 'triste', emoji: '😔', label: 'Triste', score: 3 },
-  { value: 'ansioso', emoji: '😰', label: 'Ansioso(a)', score: 3 },
-  { value: 'irritado', emoji: '😤', label: 'Irritado(a)', score: 3 },
-  { value: 'sobrecarregado', emoji: '😩', label: 'Sobrecarregado(a)', score: 2 },
+  { value: 'triste', emoji: '😔', label: 'Tristeza', score: 3 },
+  { value: 'ansioso', emoji: '😰', label: 'Ansiedade', score: 3 },
+  { value: 'irritado', emoji: '😤', label: 'Irritação', score: 3 },
+  { value: 'sobrecarregado', emoji: '😩', label: 'Sobrecarga', score: 2 },
 ]
 
 // Mapa entre os chips de check-in (identidade visual) e o valor de humor salvo.
@@ -432,7 +433,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                   </div>
                 )}
                 <div className="grid sm:grid-cols-2 gap-3 mt-4">
-                  {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você é grato(a) hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                  {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você sente gratidão hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                 </div>
                 {isTherapeutic && (

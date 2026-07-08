@@ -198,7 +198,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
               <Field label="Nome completo">
                 <input value={displayName} onChange={e => setDisplayName(e.target.value)} className={inputCls} placeholder="Seu nome" />
               </Field>
-              <Field label="Como gostaria de ser chamado(a)?">
+              <Field label="Como prefere que a gente te chame?">
                 <input value={preferredName} onChange={e => setPreferredName(e.target.value)} className={inputCls} placeholder="Ex.: Mari, Rafa, Carol…" />
               </Field>
               <Field label="Frase de status" hint="(opcional)">

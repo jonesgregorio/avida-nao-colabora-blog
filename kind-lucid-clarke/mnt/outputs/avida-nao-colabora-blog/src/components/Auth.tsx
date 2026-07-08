@@ -113,7 +113,7 @@ export default function Auth({ onBack }: AuthProps) {
           <div className="grid lg:grid-cols-2 bg-paper-soft border border-line rounded-3xl overflow-hidden shadow-sm">
             {/* ─── Lado esquerdo ─── */}
             <div className="p-7 sm:p-9 flex flex-col justify-center">
-              <p className="text-sm text-forest-600 flex items-center gap-1.5"><Leaf className="w-4 h-4" /> Bem-vindo(a) ao seu espaço</p>
+              <p className="text-sm text-forest-600 flex items-center gap-1.5"><Leaf className="w-4 h-4" /> Boas-vindas ao seu espaço</p>
               <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 leading-tight mt-3">
                 Cuidar da mente<br className="hidden sm:block" /> é um ato de coragem.
               </h1>
