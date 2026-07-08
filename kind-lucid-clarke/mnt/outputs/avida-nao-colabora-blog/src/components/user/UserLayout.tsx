@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
   Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
-  BarChart3, Heart, Bell, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
+  BarChart3, Heart, Bell, BellRing, Trophy, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
   LifeBuoy, Leaf,
 } from 'lucide-react'
 import type { Profile } from '../../types'
@@ -40,8 +40,10 @@ const PRIMARY_NAV: NavItem[] = [
 ]
 
 const SECONDARY_NAV: NavItem[] = [
-  { id: 'saved',         label: 'Favoritos',            Icon: Heart, match: ['saved'] },
-  { id: 'notifications', label: 'Notificações e salvos', Icon: Bell,  match: ['notifications'] },
+  { id: 'saved',         label: 'Favoritos',             Icon: Heart,    match: ['saved'] },
+  { id: 'notifications', label: 'Notificações e salvos', Icon: Bell,     match: ['notifications'] },
+  { id: 'conquistas',    label: 'Conquistas',            Icon: Trophy,   match: ['conquistas'] },
+  { id: 'lembretes',     label: 'Lembretes',             Icon: BellRing, match: ['lembretes'] },
 ]
 
 function displayName(profile: Profile | null, user: SupabaseUser | null) {

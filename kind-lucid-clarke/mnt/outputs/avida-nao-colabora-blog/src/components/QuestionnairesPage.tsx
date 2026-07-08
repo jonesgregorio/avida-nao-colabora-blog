@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Clock, Lock, ChevronRight, HelpCircle, Sprout, ArrowRight, Crown, Check } from 'lucide-react'
+import { Clock, Lock, ChevronRight, HelpCircle, Sprout, ArrowRight, Crown, Check, CheckCircle2 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
@@ -32,16 +32,38 @@ interface Props {
   onBack: () => void
   onNavigatePricing: () => void
   onNavigateAuth: () => void
+  onNavigateReport: () => void
 }
 
 export default function QuestionnairesPage({
-  user, profile, onStart, onBack, onNavigatePricing, onNavigateAuth,
+  user, profile, onStart, onBack, onNavigatePricing, onNavigateAuth, onNavigateReport,
 }: Props) {
   const [items, setItems] = useState<QItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos')
   const [sortBy, setSortBy] = useState<'recent' | 'name'>('recent')
   const [lockedModal, setLockedModal] = useState<QItem | null>(null)
+  const [completed, setCompleted] = useState<Set<string>>(new Set())
+  const [inProgress, setInProgress] = useState<Set<string>>(new Set())
+
+  // Progresso real do usuário a partir de questionnaire_responses.
+  useEffect(() => {
+    if (!user) { setCompleted(new Set()); setInProgress(new Set()); return }
+    supabase
+      .from('questionnaire_responses')
+      .select('questionnaire_id,status')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        const done = new Set<string>()
+        const prog = new Set<string>()
+        for (const r of (data ?? []) as { questionnaire_id: string; status: string }[]) {
+          if (r.status === 'completed') done.add(r.questionnaire_id)
+          else prog.add(r.questionnaire_id)
+        }
+        setCompleted(done)
+        setInProgress(prog)
+      })
+  }, [user])
 
   useEffect(() => {
     async function load() {
@@ -70,8 +92,13 @@ export default function QuestionnairesPage({
   const filtered = (selectedCategory === 'Todos' ? items : items.filter(i => i.category === selectedCategory))
     .slice()
     .sort((a, b) => (sortBy === 'name' ? a.title.localeCompare(b.title, 'pt-BR') : 0))
-  const recommended = filtered.find(i => !isLocked(i)) ?? filtered[0]
+  const recommended = filtered.find(i => !isLocked(i) && !completed.has(i.id)) ?? filtered.find(i => !isLocked(i)) ?? filtered[0]
   const isPlus = normalizePlan(profile?.plan) === 'plus'
+
+  const totalQ = items.length
+  const doneCount = items.filter(i => completed.has(i.id)).length
+  const progCount = items.filter(i => !completed.has(i.id) && inProgress.has(i.id)).length
+  const availCount = Math.max(0, totalQ - doneCount - progCount)
 
   function isLocked(item: QItem) {
     const requiresPaid = normalizePlan(item.plan_required) !== 'free'
@@ -179,6 +206,8 @@ export default function QuestionnairesPage({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filtered.map(item => {
                 const locked = isLocked(item)
+                const isDone = completed.has(item.id)
+                const isProg = !isDone && inProgress.has(item.id)
                 return (
                   <div
                     key={item.id}
@@ -188,10 +217,16 @@ export default function QuestionnairesPage({
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><HelpCircle className="w-5 h-5" /></span>
-                        {locked && (
+                        {locked ? (
                           <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full">
                             <Lock className="w-3 h-3" /> {PLAN_LABELS[item.plan_required] ?? 'Plus'}
                           </span>
+                        ) : isDone ? (
+                          <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3" /> Concluído</span>
+                        ) : isProg ? (
+                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Em andamento</span>
+                        ) : (
+                          <span className="text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full">Disponível</span>
                         )}
                       </div>
                       <h3 className="font-serif text-lg text-forest-900 leading-snug mb-1.5 group-hover:text-forest-700 transition-colors">{item.title}</h3>
@@ -206,7 +241,9 @@ export default function QuestionnairesPage({
                             <Lock className="w-3 h-3" /> Ver planos
                           </button>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-sm font-medium text-forest-700">Responder <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" /></span>
+                          <span className="inline-flex items-center gap-1 text-sm font-medium text-forest-700">
+                            {isDone ? 'Refazer' : isProg ? 'Continuar' : 'Responder'} <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
                         )}
                       </div>
                     </div>
@@ -220,11 +257,30 @@ export default function QuestionnairesPage({
         {/* ─── Coluna lateral ─── */}
         <aside className="space-y-5">
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <h2 className="font-serif text-lg text-forest-900">Seu progresso</h2>
-            <p className="text-sm text-ink-soft mt-1">
-              {items.length > 0 ? `${items.length} ${items.length === 1 ? 'questionário disponível' : 'questionários disponíveis'} para explorar.` : 'Novos questionários aparecerão aqui.'}
-            </p>
-            <p className="mt-3 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">Cada reflexão te aproxima de mais leveza e equilíbrio.</p>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-serif text-lg text-forest-900">Seu progresso</h2>
+              {user && (
+                <button onClick={onNavigateReport} className="text-xs text-forest-700 hover:underline flex items-center gap-1">Ver relatório <ArrowRight className="w-3 h-3" /></button>
+              )}
+            </div>
+            {totalQ === 0 ? (
+              <p className="text-sm text-ink-soft">Novos questionários aparecerão aqui.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-4">
+                  <Ring done={doneCount} total={totalQ} />
+                  <p className="text-sm text-ink-soft leading-snug">
+                    <span className="font-semibold text-forest-900">{doneCount} de {totalQ}</span><br />questionários concluídos
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+                  <div><p className="font-serif text-lg text-forest-900">{doneCount}</p><p className="text-[11px] text-ink-soft">Concluídos</p></div>
+                  <div><p className="font-serif text-lg text-forest-900">{progCount}</p><p className="text-[11px] text-ink-soft">Em andamento</p></div>
+                  <div><p className="font-serif text-lg text-forest-900">{availCount}</p><p className="text-[11px] text-ink-soft">Disponíveis</p></div>
+                </div>
+                <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">Cada reflexão te aproxima de mais leveza e equilíbrio.</p>
+              </>
+            )}
           </div>
 
           {!isPlus && (
@@ -281,6 +337,25 @@ export default function QuestionnairesPage({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Anel de progresso dos questionários concluídos.
+function Ring({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? done / total : 0
+  const r = 30
+  const circ = 2 * Math.PI * r
+  return (
+    <div className="relative w-[84px] h-[84px] flex-shrink-0">
+      <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
+        <circle cx="36" cy="36" r={r} fill="none" stroke="#E8F0EB" strokeWidth="6" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke="#1c4a37" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-serif text-2xl text-forest-900 leading-none">{done}</span>
+        <span className="text-[9px] text-ink-soft">de {total}</span>
+      </div>
     </div>
   )
 }

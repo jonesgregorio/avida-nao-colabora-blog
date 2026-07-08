@@ -38,6 +38,8 @@ import ProfessionalCommentsSection from './components/ProfessionalCommentsSectio
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
 import MyEvolutionPage, { type Tab } from './components/MyEvolutionPage'
+import ConquistasPage from './components/ConquistasPage'
+import LembretesPage from './components/LembretesPage'
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle
 const AdminPanel = lazy(() => import('./components/admin'))
@@ -48,6 +50,7 @@ const VALID_VIEWS: View[] = [
   'therapeutic-q','about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','trails','saved','admin','contact','success',
   'support','support-ticket','notifications','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
+  'conquistas','lembretes',
 ]
 
 // Mapeamento bidirecional URL ↔ view
@@ -77,6 +80,8 @@ const URL_TO_VIEW: Record<string, View> = {
   '/minha-evolucao':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/meu-plano':                  'my-plan',
+  '/conquistas':                 'conquistas',
+  '/lembretes':                  'lembretes',
 }
 
 const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
@@ -209,6 +214,7 @@ export default function App() {
       'therapeutic-q', 'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'content', 'trails', 'saved', 'admin', 'contact', 'success',
       'support', 'support-ticket', 'notifications', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
+      'conquistas', 'lembretes',
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
@@ -391,6 +397,20 @@ export default function App() {
     )
   }
 
+  if (view === 'conquistas') {
+    if (!user) { goAuth('conquistas'); return null }
+    return appShell(
+      <ConquistasPage user={user} profile={profile} onNavigate={navigate} />
+    )
+  }
+
+  if (view === 'lembretes') {
+    if (!user) { goAuth('lembretes'); return null }
+    return appShell(
+      <LembretesPage user={user} profile={profile} onRefreshProfile={refreshProfile} onNavigate={navigate} />
+    )
+  }
+
   if (view === 'contact') {
     return (
       <>
@@ -463,6 +483,7 @@ export default function App() {
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateAuth={() => goAuth('questionarios')}
+        onNavigateReport={() => navigate('my-report')}
       />
     )
   }
