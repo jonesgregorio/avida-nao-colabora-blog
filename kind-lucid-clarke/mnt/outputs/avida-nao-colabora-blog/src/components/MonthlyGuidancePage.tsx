@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { MessageSquare, Send, ChevronLeft, Loader2, Lock } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { normalizePlan } from '../lib/officialPlans'
 
 interface Props {
   user: User | null
@@ -63,7 +64,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [showCreate, setShowCreate] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const allowed = profile?.plan === 'therapeutic' || profile?.plan === 'therapeutic-plus' || profile?.plan === 'plus'
+  const allowed = normalizePlan(profile?.plan) === 'plus'
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }
@@ -131,7 +132,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       subject: subject.trim(),
       description: body.trim(),
       category: 'monthly_guidance',
-      plan_at_creation: profile?.plan ?? 'therapeutic',
+      plan_at_creation: normalizePlan(profile?.plan),
       priority: 'medium',
       status: 'open',
       source: 'monthly_guidance',

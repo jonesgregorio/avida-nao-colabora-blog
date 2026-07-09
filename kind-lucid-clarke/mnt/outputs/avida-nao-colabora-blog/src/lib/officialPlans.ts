@@ -33,38 +33,26 @@ export interface OfficialPlan {
 // (Alguns recursos do antigo Terapêutico Plus — sessão presencial — saíram do
 //  produto; permanecem no catálogo apenas como referência, sem plano que os conceda.)
 
+// Catálogo oficial ENXUTO — somente os recursos dos 3 planos (§3). Nada de
+// histórico limitado, anúncios, avaliações semanais, meditações/relatórios/suporte
+// como benefícios isolados, diário avançado, marcadores extras, acesso antecipado etc.
 export const OFFICIAL_FEATURES: OfficialFeature[] = [
-  { key: 'articles_free',                             name: 'Artigos gratuitos',                                                                                         category: 'Conteúdo',            order: 1  },
-  { key: 'basic_self_assessment',                     name: 'Questionário básico de autoavaliação',                                                                      category: 'Avaliações',          order: 2  },
-  { key: 'wellbeing_diary_5_month',                   name: 'Diário de bem-estar com até 5 entradas por mês',                                                            category: 'Diário',              order: 3,  aliases: ['wellbeing_diary_limited', 'diary_monthly_limit_5'] },
-  { key: 'simple_mood_checkin',                       name: 'Registro simples de humor',                                                                                 category: 'Diário',              order: 4  },
-  { key: 'biweekly_auto_challenges',                  name: 'Práticas guiadas',                                                                                          category: 'Conteúdo',            order: 5  },
-  { key: 'limited_history',                           name: 'Histórico limitado',                                                                                        category: 'Histórico',           order: 6  },
-  { key: 'ads_enabled',                               name: 'Conteúdos com anúncios',                                                                                    category: 'Anúncios',            order: 7  },
-  { key: 'diary_unlimited',                           name: 'Diário ilimitado',                                                                                          category: 'Diário',              order: 8  },
-  { key: 'full_history',                              name: 'Histórico completo',                                                                                        category: 'Histórico',           order: 9  },
-  { key: 'weekly_assessments',                        name: 'Avaliações semanais',                                                                                       category: 'Avaliações',          order: 10 },
-  { key: 'simple_evolution_charts',                   name: 'Gráficos de evolução',                                                                                      category: 'Mapa emocional',      order: 11 },
-  { key: 'guided_text_meditations',                   name: 'Meditações guiadas em texto',                                                                               category: 'Conteúdo',            order: 12 },
-  { key: 'guided_diary_notes',                        name: 'Notas guiadas no diário',                                                                                   category: 'Diário',              order: 13 },
-  { key: 'monthly_pdf_reports',                       name: 'Relatórios em PDF',                                                                                         category: 'Relatórios',          order: 14 },
-  { key: 'diary_mood_symptoms_summary',               name: 'Resumo do diário, humor e sintomas',                                                                       category: 'Mapa emocional',      order: 15 },
-  { key: 'evolution_highlights_no_clinical_analysis', name: 'Destaques de evolução',                                                                                     category: 'Mapa emocional',      order: 16 },
-  { key: 'emotional_exercise_library',                name: 'Biblioteca de exercícios emocionais',                                                                       category: 'Conteúdo',            order: 17 },
-  { key: 'no_ads',                                    name: 'Sem anúncios',                                                                                              category: 'Anúncios',            order: 18 },
-  { key: 'priority_email_support',                    name: 'Suporte por e-mail prioritário',                                                                            category: 'Suporte',             order: 19 },
-  { key: 'deep_questionnaire',                        name: 'Questionário aprofundado',                                                                                  category: 'Avaliações',          order: 20 },
-  { key: 'personalized_self_care_plan',               name: 'Plano de autocuidado mensal',                                                                               category: 'Autocuidado',         order: 21 },
-  { key: 'advanced_diary',                            name: 'Diário avançado',                                                                                           category: 'Diário',              order: 22 },
-  { key: 'extra_emotional_markers',                   name: 'Marcadores extras: sono, medo, compulsão, gatilhos, ansiedade, autoestima e energia',                       category: 'Diário',              order: 23, aliases: ['extra_markers_sleep_depression_fear_compulsion_triggers_anxiety_selfesteem_energy'] },
-  { key: 'monthly_comparative_charts',                name: 'Gráficos comparativos mensais',                                                                             category: 'Mapa emocional',      order: 24 },
-  { key: 'advanced_monthly_report',                   name: 'Relatório mensal aprofundado',                                                                              category: 'Relatórios',          order: 25 },
-  { key: 'personalized_content_recommendations',      name: 'Recomendações personalizadas de conteúdo',                                                                  category: 'Conteúdo',            order: 26 },
-  { key: 'weekly_self_care_plan',                     name: 'Plano semanal de autocuidado',                                                                              category: 'Autocuidado',         order: 27 },
-  { key: 'early_access_content',                      name: 'Acesso antecipado a novos conteúdos',                                                                       category: 'Conteúdo',            order: 28 },
-  { key: 'monthly_message_guidance',                  name: 'Orientação mensal por mensagem',                                                                            category: 'Orientação profissional', order: 29 },
-  { key: 'professional_comment_on_monthly_report',    name: 'Comentário profissional mensal',                                                                            category: 'Orientação profissional', order: 30 },
-  { key: 'maximum_priority_support',                  name: 'Suporte prioritário máximo',                                                                                category: 'Suporte',             order: 31 },
+  // Gratuito
+  { key: 'articles_free',                          name: 'Blog aberto',                     category: 'Conteúdo',                order: 1, aliases: ['articles_free'] },
+  { key: 'wellbeing_diary_5_month',                name: 'Diário emocional básico',         category: 'Diário',                  order: 2, aliases: ['wellbeing_diary_limited', 'diary_monthly_limit_5', 'simple_mood_checkin'] },
+  { key: 'basic_self_assessment',                  name: 'Questionário inicial',            category: 'Questionários',           order: 3 },
+  { key: 'biweekly_auto_challenges',               name: 'Algumas práticas guiadas',        category: 'Conteúdo',                order: 4 },
+  // Essencial
+  { key: 'diary_unlimited',                        name: 'Diário ilimitado',                category: 'Diário',                  order: 5 },
+  { key: 'diary_mood_symptoms_summary',            name: 'Mapa emocional completo',         category: 'Mapa emocional',          order: 6, aliases: ['evolution_highlights_no_clinical_analysis', 'monthly_comparative_charts', 'extra_emotional_markers'] },
+  { key: 'full_history',                           name: 'Histórico e gráficos',            category: 'Histórico',               order: 7, aliases: ['simple_evolution_charts', 'limited_history'] },
+  { key: 'emotional_exercise_library',             name: 'Conteúdos guiados completos',     category: 'Conteúdo',                order: 8, aliases: ['guided_text_meditations', 'guided_diary_notes'] },
+  { key: 'weekly_assessments',                     name: 'Relatório semanal automático',    category: 'Relatórios',              order: 9, aliases: ['monthly_pdf_reports'] },
+  // Plus
+  { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
+  { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },
+  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional mensal',  category: 'Orientação profissional', order: 12 },
+  { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 13 },
 ]
 
 // ─── Mapa de aliases → chave principal ───────────────────────────────────────
@@ -97,24 +85,15 @@ export const DEFAULT_INHERIT: Record<PlanKey, boolean> = {
 // ─── Features PRÓPRIAS de cada plano (excluindo herdadas) ────────────────────
 
 const FREE_KEYS = [
-  'articles_free', 'basic_self_assessment', 'wellbeing_diary_5_month',
-  'simple_mood_checkin', 'biweekly_auto_challenges', 'limited_history', 'ads_enabled',
+  'articles_free', 'wellbeing_diary_5_month', 'basic_self_assessment', 'biweekly_auto_challenges',
 ]
-// Essencial absorve o conteúdo/gráficos do antigo Terapêutico (Mapa emocional e Conteúdos guiados completos).
 const ESSENTIAL_OWN_KEYS = [
-  'diary_unlimited', 'full_history', 'weekly_assessments', 'simple_evolution_charts',
-  'guided_text_meditations', 'guided_diary_notes', 'monthly_pdf_reports',
-  'diary_mood_symptoms_summary', 'evolution_highlights_no_clinical_analysis',
-  'emotional_exercise_library', 'no_ads', 'priority_email_support',
-  'deep_questionnaire', 'advanced_diary', 'extra_emotional_markers',
-  'monthly_comparative_charts', 'personalized_content_recommendations',
-  'weekly_self_care_plan', 'early_access_content',
+  'diary_unlimited', 'diary_mood_symptoms_summary', 'full_history',
+  'emotional_exercise_library', 'weekly_assessments',
 ]
-// Plus adiciona autocuidado mensal, relatório aprofundado e orientação profissional.
 const PLUS_OWN_KEYS = [
   'personalized_self_care_plan', 'advanced_monthly_report',
   'professional_comment_on_monthly_report', 'monthly_message_guidance',
-  'maximum_priority_support',
 ]
 
 export const OWN_FEATURE_KEYS: Record<PlanKey, string[]> = {

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Star, Loader2, BookOpen } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { normalizePlan } from '../lib/officialPlans'
 
 interface Props {
   user: User | null
@@ -29,7 +30,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
 
-  const allowed = profile?.plan === 'therapeutic-plus' || profile?.plan === 'plus'
+  const allowed = normalizePlan(profile?.plan) === 'plus'
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }

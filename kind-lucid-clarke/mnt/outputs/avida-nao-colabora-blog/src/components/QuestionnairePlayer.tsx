@@ -333,6 +333,7 @@ export default function QuestionnairePlayer({
 
     try {
       let respId = await ensureResponse()
+      // Conclusão com colunas garantidas (existem desde as migrations base).
       const completion = {
         status: 'completed',
         total_score: totalScore,
@@ -352,20 +353,15 @@ export default function QuestionnairePlayer({
         if (respId) setResponseId(respId)
       }
 
+      // As respostas ficam em questionnaire_responses.answers (JSONB) — NÃO usamos
+      // questionnaire_answers (question_id 'q1' não é UUID e causaria erro de schema). §10.3
       if (respId) {
-        // Idempotente: limpa respostas antigas desta resposta antes de regravar.
-        await supabase.from('questionnaire_answers').delete().eq('response_id', respId)
-        for (const [questionId, ans] of Object.entries(answers)) {
-          await supabase.from('questionnaire_answers').insert({
-            response_id: respId,
-            question_id: questionId,
-            answer_value: Array.isArray(ans.value) ? ans.value.join(',') : ans.value,
-            answer_text: Array.isArray(ans.value) ? ans.value.join(', ') : ans.value,
-            selected_options: Array.isArray(ans.value) ? JSON.stringify(ans.value) : null,
-            score: ans.score,
-            generated_tags: ans.tags.join(','),
-          })
-        }
+        try {
+          await supabase
+            .from('questionnaire_responses')
+            .update({ answers, current_step: questions.length, updated_at: new Date().toISOString() })
+            .eq('id', respId)
+        } catch { /* colunas answers/current_step vêm da migration — não crítico */ }
         setSaved(true)
       }
     } catch {

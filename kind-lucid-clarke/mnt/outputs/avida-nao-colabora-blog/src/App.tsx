@@ -117,6 +117,11 @@ function parseURLNav(): { view: View; articleSlug: string | null; ticketId: stri
       return { view: 'support-ticket', articleSlug: null, ticketId }
     }
 
+    // Rota própria do Plano de Autocuidado (§21) → aba autocuidado do Mapa Emocional.
+    if (path === '/plano-de-autocuidado') {
+      return { view: 'my-evolution', articleSlug: null, ticketId: null }
+    }
+
     // Redireciona a rota antiga do questionário terapêutico para a área de Questionários.
     if (path === '/questionario-terapeutico') {
       return { view: 'questionarios', articleSlug: null, ticketId: null }
@@ -168,7 +173,9 @@ export default function App() {
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
-  const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
+  const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(
+    typeof window !== 'undefined' && window.location.pathname === '/plano-de-autocuidado' ? 'autocuidado' : undefined
+  )
   const [diaryMood, setDiaryMood] = useState<string | null>(null)
 
   // Persist navigation state so refresh keeps the user on the same page
@@ -216,7 +223,12 @@ export default function App() {
       const tab = section.split('tab=')[1]
       setInitialEvolutionTab(tab)
       setView('my-evolution')
-      pushURL('my-evolution')
+      // Plano de Autocuidado tem rota própria (§21); demais abas ficam em /minha-evolucao.
+      if (tab === 'autocuidado') {
+        if (window.location.pathname !== '/plano-de-autocuidado') window.history.pushState({}, '', '/plano-de-autocuidado')
+      } else {
+        pushURL('my-evolution')
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -302,6 +314,8 @@ export default function App() {
     function handlePopState() {
       const fromURL = parseURLNav()
       if (fromURL) {
+        // Rota própria do Plano de Autocuidado → abre a aba correta ao voltar/avançar.
+        setInitialEvolutionTab(window.location.pathname === '/plano-de-autocuidado' ? 'autocuidado' : undefined)
         setView(fromURL.view)
         if (fromURL.articleSlug) setSelectedArticleSlug(fromURL.articleSlug)
         if (fromURL.ticketId) setActiveSupportTicketId(fromURL.ticketId)

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
+import { normalizePlan } from '../lib/officialPlans'
 
 interface Profile {
   plan: string
@@ -20,8 +21,6 @@ interface Props {
   user: User | null
   profile: Profile | null
 }
-
-const PLAN_ORDER = ['free', 'essential', 'therapeutic', 'therapeutic-plus', 'plus']
 
 const FREQ_LABEL: Record<string, string> = {
   Diário: 'Conteúdo de hoje',
@@ -63,8 +62,13 @@ export default function DailyContentWidget({ user, profile }: Props) {
 
   async function loadContent() {
     setLoading(true)
-    const userPlanIndex = PLAN_ORDER.indexOf(profile?.plan || 'free')
-    const eligiblePlans = PLAN_ORDER.slice(0, userPlanIndex + 1)
+    // Planos elegíveis (do usuário para baixo), incluindo legados no tier Plus.
+    const norm = normalizePlan(profile?.plan)
+    const eligiblePlans = norm === 'plus'
+      ? ['free', 'essential', 'plus', 'therapeutic', 'therapeutic-plus']
+      : norm === 'essential'
+        ? ['free', 'essential']
+        : ['free']
 
     const { data } = await supabase
       .from('automated_contents')

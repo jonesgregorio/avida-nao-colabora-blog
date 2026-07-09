@@ -23,6 +23,8 @@ interface NavItem {
   label: string
   Icon: typeof Home
   match: string[]
+  /** Rotas (pathname) que também ativam este item — ex.: /plano-de-autocuidado. */
+  matchPath?: string[]
 }
 
 // Navegação lateral — SOMENTE as funções dos 3 planos oficiais (Gratuito, Essencial, Plus).
@@ -34,7 +36,7 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'my-evolution',                 label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
   { id: 'articles',                     label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
   { id: 'my-report',                    label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
-  { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,        match: [] },
+  { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,        match: [], matchPath: ['/plano-de-autocuidado'] },
   { id: 'monthly-guidance',             label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
   { id: 'my-plan',                      label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
   { id: 'profile',                      label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },
@@ -64,7 +66,13 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
   // Fecha o drawer mobile ao trocar de view
   useEffect(() => { setMobileOpen(false) }, [currentView])
 
-  const isActive = (item: NavItem) => item.match.includes(currentView)
+  const isActive = (item: NavItem) => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    if (item.matchPath?.includes(path)) return true
+    // Mapa Emocional não fica ativo quando estamos na rota do Plano de Autocuidado.
+    if (item.id === 'my-evolution' && path === '/plano-de-autocuidado') return false
+    return item.match.includes(currentView)
+  }
   const go = (id: string) => { onNavigate(id); setMobileOpen(false); setProfileOpen(false) }
 
   return (
@@ -184,13 +192,13 @@ function SidebarContent({
       {/* Card de apoio */}
       <div className="p-3 mt-3">
         <div className="rounded-2xl bg-white/[0.07] border border-white/10 p-4">
-          <p className="text-sm font-medium text-white">Precisa de apoio agora?</p>
-          <p className="text-xs text-white/60 mt-1 leading-relaxed">Fale com nosso time de orientação.</p>
+          <p className="text-sm font-medium text-white">Precisa de ajuda?</p>
+          <p className="text-xs text-white/60 mt-1 leading-relaxed">Fale com o suporte.</p>
           <button
             onClick={() => onNavigate('support')}
             className="mt-3 w-full flex items-center justify-between gap-2 bg-white text-forest-900 text-sm font-medium px-3.5 py-2 rounded-xl hover:bg-mint transition-colors"
           >
-            Buscar orientação
+            Buscar suporte
             <span aria-hidden>→</span>
           </button>
         </div>

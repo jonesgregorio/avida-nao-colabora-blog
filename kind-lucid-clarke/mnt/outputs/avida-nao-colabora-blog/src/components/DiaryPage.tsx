@@ -246,7 +246,13 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   }
 
   const handleSave = async () => {
-    if (!whatHappened.trim() && !mainEmotion.trim() && !freeNote.trim()) {
+    if (entryMode === 'quick') {
+      // Check-in rápido (§11.1): basta escolher um estado emocional; a nota é opcional.
+      if (!checkinChip && !whatHappened.trim()) {
+        setError('Escolha como você está para registrar o check-in.')
+        return
+      }
+    } else if (!whatHappened.trim() && !mainEmotion.trim() && !freeNote.trim()) {
       setError('Escreva algo antes de salvar.')
       return
     }

@@ -80,7 +80,8 @@ export interface PersonalizationTask {
 // ── Planos ────────────────────────────────────────────────────────────────────
 
 const PLAN_RANK: Record<string, number> = {
-  free: 0, essential: 1, therapeutic: 2, 'therapeutic-plus': 3,
+  free: 0, essential: 1, plus: 2,
+  therapeutic: 2, 'therapeutic-plus': 2, // legados → tier Plus
 }
 
 function hasPlan(userPlan: string, minPlan: string) {
@@ -241,7 +242,7 @@ export const TASK_DEFS: TaskDef[] = [
     expiresAfterDueDays: null,
   },
 
-  // ── Terapêutico ──
+  // ── Essencial (avançado) ──
   {
     key: 'weekly_self_care',
     title: 'Plano semanal de autocuidado',
@@ -347,7 +348,7 @@ export const TASK_DEFS: TaskDef[] = [
     expiresAfterDueDays: 20,
   },
 
-  // ── Terapêutico Plus ──
+  // ── Plus ──
   {
     key: 'monthly_plan_review',
     title: 'Revisão mensal do plano de autocuidado',
@@ -357,7 +358,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Revisão mensal disponível',
     notificationBody: 'A revisão mensal do seu plano de autocuidado está disponível.',
     frequency: 'monthly',
-    minPlan: 'therapeutic-plus',
+    minPlan: 'plus',
     priority: 'high',
     dueType: 'day_of_month',
     dueParam: 10,
@@ -372,40 +373,26 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Comentário sobre seu relatório disponível',
     notificationBody: 'Seu comentário individual sobre o relatório do mês está disponível.',
     frequency: 'on_report',
-    minPlan: 'therapeutic-plus',
+    minPlan: 'plus',
     priority: 'high',
     dueType: 'days_after_event',
     dueParam: 5,
     expiresAfterDueDays: null,
   },
   {
-    key: 'session_themes',
-    title: 'Sugestões de temas para sessão',
-    description: 'Sessão solicitada/agendada — preparar sugestões de temas.',
-    contentType: 'session_themes',
-    targetArea: 'session_plus',
-    notificationTitle: 'Sugestões para sua sessão',
-    notificationBody: 'Preparamos sugestões de temas para sua próxima sessão.',
-    frequency: 'on_session',
-    minPlan: 'therapeutic-plus',
+    key: 'monthly_guidance',
+    title: 'Orientação mensal por mensagem',
+    description: 'Preparar a orientação mensal por mensagem do usuário Plus.',
+    contentType: 'monthly_guidance',
+    targetArea: 'guidance',
+    notificationTitle: 'Sua orientação do mês está disponível',
+    notificationBody: 'Preparamos a sua orientação mensal por mensagem.',
+    frequency: 'monthly',
+    minPlan: 'plus',
     priority: 'high',
-    dueType: 'before_session',
+    dueType: 'day_of_month',
+    dueParam: 15,
     expiresAfterDueDays: null,
-  },
-  {
-    key: 'post_session_message',
-    title: 'Mensagem personalizada pós-sessão',
-    description: 'Sessão realizada — enviar mensagem personalizada de acompanhamento.',
-    contentType: 'post_session_message',
-    targetArea: 'session_plus',
-    notificationTitle: 'Mensagem pós-sessão disponível',
-    notificationBody: 'Preparamos uma mensagem personalizada após sua sessão.',
-    frequency: 'post_session',
-    minPlan: 'therapeutic-plus',
-    priority: 'high',
-    dueType: 'days_after_event',
-    dueParam: 2,
-    expiresAfterDueDays: 5,
   },
 ]
 
@@ -873,7 +860,7 @@ export const ACTION_VIEW_MAP: Record<string, string> = {
 // ── Prompt da IA por tipo de pendência ───────────────────────────────────────
 
 export function buildTaskPrompt(task: { task_key: string; task_title: string; plan_key: string }, snapshot: TaskSnapshot): string {
-  const planLabel = { free: 'Gratuito', essential: 'Essencial', therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus' }[task.plan_key] ?? task.plan_key
+  const planLabel = { free: 'Gratuito', essential: 'Essencial', plus: 'Plus', therapeutic: 'Plus', 'therapeutic-plus': 'Plus' }[task.plan_key] ?? task.plan_key
   const snapshotText = JSON.stringify(snapshot, null, 2)
 
   return `Você é um assistente de personalização do projeto "A Vida Não Colabora".
