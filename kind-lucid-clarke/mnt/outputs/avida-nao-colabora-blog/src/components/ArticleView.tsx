@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Printer, Heart, Brain, CloudRain, Clock3, Feather } from 'lucide-react'
+import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Heart, Brain, CloudRain, Clock3, Feather } from 'lucide-react'
 import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { UpgradeModal } from './UpgradeModal'
@@ -192,7 +192,7 @@ export default function ArticleView({
     }
     // Check quota for free plan
     if (!isPaid && savedCount >= 3) {
-      setUpgradeModal({ open: true, feature: 'Caixa de Cuidado ilimitada' })
+      setUpgradeModal({ open: true, feature: 'conteúdos salvos ilimitados' })
       return
     }
     const { error } = await supabase.from('saved_items').insert({
@@ -341,7 +341,7 @@ export default function ArticleView({
         <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
-            title={saved ? 'Remover da Caixa de Cuidado' : 'Salvar na Caixa de Cuidado'}
+            title={saved ? 'Remover dos salvos' : 'Salvar conteúdo'}
             className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all ${
               saved
                 ? 'bg-mint/40 border-forest-300 text-forest-700'
@@ -350,13 +350,6 @@ export default function ArticleView({
           >
             {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
             {saved ? 'Salvo' : 'Salvar'}
-          </button>
-          <button
-            onClick={() => window.print()}
-            title="Imprimir / exportar PDF"
-            className="no-print flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border border-stone-200 text-stone-500 hover:border-sage-300 hover:text-sage-600 transition-all"
-          >
-            <Printer size={15} /> PDF
           </button>
         </div>
       </div>
@@ -494,7 +487,7 @@ export default function ArticleView({
           >
             <NotebookPen size={15} /> Registrar como estou hoje
           </button>
-          {/* D) Save to Caixa de Cuidado */}
+          {/* D) Salvar conteúdo */}
           <button
             onClick={handleSave}
             className={`px-5 py-2.5 rounded-lg text-sm font-medium border flex items-center gap-2 transition-all ${
@@ -504,13 +497,13 @@ export default function ArticleView({
             }`}
           >
             {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
-            {saved ? 'Salvo na Caixa de Cuidado' : 'Salvar na Caixa de Cuidado'}
+            {saved ? 'Conteúdo salvo' : 'Salvar conteúdo'}
           </button>
         </div>
         {!isPaid && savedCount >= 3 && !saved && (
           <p className="text-xs text-amber-600 mt-2">
             Você atingiu o limite de 3 itens salvos no plano gratuito.{' '}
-            <button onClick={() => setUpgradeModal({ open: true, feature: 'Caixa de Cuidado ilimitada' })} className="underline">
+            <button onClick={() => setUpgradeModal({ open: true, feature: 'conteúdos salvos ilimitados' })} className="underline">
               Fazer upgrade
             </button>
           </p>

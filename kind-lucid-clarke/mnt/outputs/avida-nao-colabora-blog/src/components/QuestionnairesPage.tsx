@@ -29,14 +29,15 @@ interface Props {
   user: User | null
   profile: Profile | null
   onStart: (id: string) => void
+  /** Visitante sem login → guarda a intenção e leva ao login, retornando a ESTE questionário (§13). */
+  onStartAuth: (id: string) => void
   onBack: () => void
   onNavigatePricing: () => void
-  onNavigateAuth: () => void
   onNavigateReport: () => void
 }
 
 export default function QuestionnairesPage({
-  user, profile, onStart, onBack, onNavigatePricing, onNavigateAuth, onNavigateReport,
+  user, profile, onStart, onStartAuth, onBack, onNavigatePricing, onNavigateReport,
 }: Props) {
   const [items, setItems] = useState<QItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -106,8 +107,8 @@ export default function QuestionnairesPage({
   }
 
   function handleStart(item: QItem) {
-    const requiresPaid = normalizePlan(item.plan_required) !== 'free'
-    if (requiresPaid && !user) { setLockedModal(item); return }
+    // Visitante: guarda a intenção e vai ao login, voltando a ESTE questionário (§13).
+    if (!user) { onStartAuth(item.id); return }
     if (!hasPlanAccess(profile?.plan, item.plan_required)) { setLockedModal(item); return }
     onStart(item.id)
   }
@@ -325,7 +326,7 @@ export default function QuestionnairesPage({
             </div>
             <div className="space-y-2">
               <button
-                onClick={() => { setLockedModal(null); if (user) onNavigatePricing(); else onNavigateAuth() }}
+                onClick={() => { const id = lockedModal.id; setLockedModal(null); if (user) onNavigatePricing(); else onStartAuth(id) }}
                 className="w-full bg-forest-900 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800 transition-colors"
               >
                 {user ? 'Ver planos' : 'Criar conta gratuita'}

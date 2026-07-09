@@ -8,10 +8,10 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
+// Preço do Plus: prefere o secret de go-live e cai no atual (STRIPE_PRICE_THERAPEUTIC).
 const PRICE_IDS: Record<string, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
-  therapeutic: Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
-  'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS'),
+  plus: Deno.env.get('STRIPE_PRICE_PLUS_3990') || Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
 }
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
   const { data: prof } = await supabase.from('profiles').select('role').eq('user_id', user.id).maybeSingle()
   if ((prof as { role?: string } | null)?.role !== 'admin') return json({ error: 'Apenas admin' }, 403)
 
-  if (!PRICE_IDS.essential || !PRICE_IDS.therapeutic) {
-    return json({ error: 'STRIPE_PRICE_ESSENTIAL / STRIPE_PRICE_THERAPEUTIC não configurados' }, 400)
+  if (!PRICE_IDS.essential || !PRICE_IDS.plus) {
+    return json({ error: 'STRIPE_PRICE_ESSENTIAL / (STRIPE_PRICE_PLUS_3990 ou STRIPE_PRICE_THERAPEUTIC) não configurados' }, 400)
   }
 
   const results: Record<string, unknown> = {}
@@ -54,14 +54,14 @@ Deno.serve(async (req) => {
     try {
       const itemId = sub.items.data[0].id
       const up = await stripe.subscriptions.update(sub.id, {
-        items: [{ id: itemId, price: PRICE_IDS.therapeutic! }],
+        items: [{ id: itemId, price: PRICE_IDS.plus! }],
         proration_behavior: 'always_invoice',
       })
       const subs = await stripe.subscriptions.list({ customer: cust.id })
       results.upgrade_sem_duplicata = {
         assinaturas_ativas: subs.data.length,
-        price_virou_terapeutico: up.items.data[0].price.id === PRICE_IDS.therapeutic,
-        ok: subs.data.length === 1 && up.items.data[0].price.id === PRICE_IDS.therapeutic,
+        price_virou_plus: up.items.data[0].price.id === PRICE_IDS.plus,
+        ok: subs.data.length === 1 && up.items.data[0].price.id === PRICE_IDS.plus,
       }
     } catch (e) { results.upgrade_sem_duplicata = { ok: false, error: (e as Error).message } }
 
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       const usch = await stripe.subscriptionSchedules.update(sch.id, {
         end_behavior: 'release',
         phases: [
-          { items: [{ price: PRICE_IDS.therapeutic!, quantity: 1 }], start_date: sch.phases[0].start_date, end_date: fresh.current_period_end },
+          { items: [{ price: PRICE_IDS.plus!, quantity: 1 }], start_date: sch.phases[0].start_date, end_date: fresh.current_period_end },
           { items: [{ price: PRICE_IDS.essential!, quantity: 1 }] },
         ],
       })
@@ -103,13 +103,13 @@ Deno.serve(async (req) => {
       const c2 = await stripe.customers.create({ test_clock: clock.id, name: 'SELFTEST-CLOCK', metadata: { selftest: '1' } })
       const pm2 = await stripe.paymentMethods.attach('pm_card_visa', { customer: c2.id })
       await stripe.customers.update(c2.id, { invoice_settings: { default_payment_method: pm2.id } })
-      const s2 = await stripe.subscriptions.create({ customer: c2.id, items: [{ price: PRICE_IDS.therapeutic! }] })
+      const s2 = await stripe.subscriptions.create({ customer: c2.id, items: [{ price: PRICE_IDS.plus! }] })
       const periodEnd = s2.current_period_end
       const sch2 = await stripe.subscriptionSchedules.create({ from_subscription: s2.id })
       await stripe.subscriptionSchedules.update(sch2.id, {
         end_behavior: 'release',
         phases: [
-          { items: [{ price: PRICE_IDS.therapeutic!, quantity: 1 }], start_date: sch2.phases[0].start_date, end_date: periodEnd },
+          { items: [{ price: PRICE_IDS.plus!, quantity: 1 }], start_date: sch2.phases[0].start_date, end_date: periodEnd },
           { items: [{ price: PRICE_IDS.essential!, quantity: 1 }] },
         ],
       })

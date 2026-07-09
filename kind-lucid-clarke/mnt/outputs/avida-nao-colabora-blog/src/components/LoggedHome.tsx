@@ -107,7 +107,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
             <p className="text-sm text-ink-soft mt-1 mb-4">Faça um check-in rápido e registre como está se sentindo agora.</p>
             <div className="flex flex-wrap gap-2">
               {MOODS.map(m => (
-                <MoodChip key={m.key} mood={m} active={false} onClick={() => onNavigate('diary')} />
+                <MoodChip key={m.key} mood={m} active={false} onClick={() => onNavigate(`diary?mood=${m.key}`)} />
               ))}
             </div>
           </section>

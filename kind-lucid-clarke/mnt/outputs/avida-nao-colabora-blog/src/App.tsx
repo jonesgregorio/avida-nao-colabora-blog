@@ -169,6 +169,7 @@ export default function App() {
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
   const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
+  const [diaryMood, setDiaryMood] = useState<string | null>(null)
 
   // Persist navigation state so refresh keeps the user on the same page
   useEffect(() => {
@@ -220,6 +221,18 @@ export default function App() {
       return
     }
 
+    // Check-in com humor pré-selecionado: 'diary?mood=ansiosa' (§8.6).
+    // Sem login, guarda a intenção e manda ao login; volta ao diário com o humor depois.
+    if (section.startsWith('diary?mood=')) {
+      const mood = section.split('mood=')[1]
+      if (!user) { setPendingAction({ view: 'diary', mood }); setView('auth'); pushURL('auth'); return }
+      setDiaryMood(mood)
+      setView('diary')
+      pushURL('diary')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     // Suporte a ticket específico: 'support-ticket:<uuid>'
     if (section.startsWith('support-ticket:')) {
       const ticketId = section.split('support-ticket:')[1]
@@ -238,6 +251,7 @@ export default function App() {
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
+      if (section === 'diary') setDiaryMood(null)
       setView(section as View)
       if (articleSlug) setSelectedArticleSlug(articleSlug)
       pushURL(section, articleSlug)
@@ -277,6 +291,8 @@ export default function App() {
     if (!pending) return
     clearPendingAction()
     if (pending.diaryContext) setDiaryPromptContext(pending.diaryContext)
+    if (pending.mood) setDiaryMood(pending.mood)
+    if (pending.questionnaireId) setActiveQuestionnaireId(pending.questionnaireId)
     navigate(pending.view)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -360,6 +376,7 @@ export default function App() {
         plan={profile?.plan || 'free'}
         onBack={() => setView('home')}
         onNavigatePricing={() => navigate('pricing')}
+        initialMood={diaryMood}
         promptContext={diaryPromptContext}
         onClearPromptContext={() => setDiaryPromptContext(null)}
       />
@@ -448,31 +465,29 @@ export default function App() {
           setActiveQuestionnaireId(id)
           navigate('questionnaire')
         }}
+        onStartAuth={(id) => {
+          setPendingAction({ view: 'questionnaire', questionnaireId: id })
+          navigate('auth')
+        }}
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
-        onNavigateAuth={() => goAuth('questionarios')}
         onNavigateReport={() => navigate('my-report')}
       />
     )
   }
 
   if (view === 'questionnaire' && activeQuestionnaireId) {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <QuestionnairePlayer
-            questionnaireId={activeQuestionnaireId}
-            user={user}
-            profile={profile}
-            onBack={() => { setActiveQuestionnaireId(null); navigate('questionarios') }}
-            onNavigateDiary={() => navigate('diary')}
-            onNavigatePricing={() => navigate('pricing')}
-            onNavigateArticles={() => navigate('articles')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    if (!user) { setPendingAction({ view: 'questionnaire', questionnaireId: activeQuestionnaireId }); navigate('auth'); return null }
+    return appShell(
+      <QuestionnairePlayer
+        questionnaireId={activeQuestionnaireId}
+        user={user}
+        profile={profile}
+        onBack={() => { setActiveQuestionnaireId(null); navigate('questionarios') }}
+        onNavigateDiary={() => navigate('diary')}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateArticles={() => navigate('articles')}
+      />
     )
   }
 

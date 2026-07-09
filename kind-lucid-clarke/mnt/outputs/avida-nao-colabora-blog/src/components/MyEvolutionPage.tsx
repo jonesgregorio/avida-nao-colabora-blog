@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { getContentTypeLabel, getTargetAreaLabel } from '../lib/personalizedContentLabels'
+import { exportElementToPdf } from '../lib/exportPdf'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { hasPlanAccess, getPlanLabel } from '../lib/officialPlans'
@@ -702,8 +703,10 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
     setGenerating(false)
   }
 
-  function printReport() {
-    window.print()
+  // Exporta apenas o conteúdo do relatório (sem sidebar/menu/botões) — §16.
+  async function printReport() {
+    const el = document.getElementById('report-print')
+    if (el) await exportElementToPdf(el, `relatorio-${selectedMonth}.pdf`)
   }
 
   return (

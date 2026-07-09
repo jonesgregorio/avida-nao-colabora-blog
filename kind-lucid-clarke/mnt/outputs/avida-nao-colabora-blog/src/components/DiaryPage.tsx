@@ -31,19 +31,34 @@ const emotionalTags = [
   'esperança', 'cansaço', 'energia', 'calma', 'confusão',
 ]
 
-const PROMPTS = [
-  'Como você está hoje?',
-  'O que mais pesou no seu dia?',
-  'O que te fez bem hoje?',
-  'Do que você precisa neste momento?',
-  'O que você quer soltar?',
-]
+// Prompts por plano (brief §8.7). Cada plano vê o conjunto adequado ao seu momento.
+const PROMPTS_BY_PLAN: Record<'free' | 'essential' | 'plus', string[]> = {
+  free: [
+    'Como você está hoje?',
+    'O que mais pesou?',
+    'O que ajudou um pouco?',
+  ],
+  essential: [
+    'O que se repetiu nas suas emoções esta semana?',
+    'Que padrão você percebe entre sono, energia e humor?',
+    'Qual situação gerou mais sobrecarga?',
+    'O que você pode tentar diferente amanhã?',
+  ],
+  plus: [
+    'O que você quer priorizar no seu cuidado este mês?',
+    'Qual padrão emocional apareceu com mais frequência?',
+    'Que tipo de apoio você gostaria de receber na orientação por mensagem?',
+    'Qual pequeno compromisso de autocuidado parece possível agora?',
+  ],
+}
 
 interface DiaryPageProps {
   user: User | null
   plan: Plan
   onBack: () => void
   onNavigatePricing?: () => void
+  /** Humor pré-selecionado ao chegar de um check-in (home/dashboard). */
+  initialMood?: string | null
   promptContext?: {
     prompt: string
     articleTitle: string
@@ -85,12 +100,14 @@ function calcStreak(days: Set<string>): number {
   return s
 }
 
-export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePricing, promptContext, onClearPromptContext }: DiaryPageProps) {
+export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'diary' | 'questionnaire'>('all')
+  // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
+  const [entryMode, setEntryMode] = useState<'quick' | 'full'>('quick')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -127,6 +144,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
 
   const isEssential = hasPlanAccess(plan, 'essential')
   const isTherapeutic = hasPlanAccess(plan, 'plus')
+  const planKey: 'free' | 'essential' | 'plus' = isTherapeutic ? 'plus' : isEssential ? 'essential' : 'free'
+  const planPrompts = PROMPTS_BY_PLAN[planKey]
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
@@ -134,7 +153,10 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const fieldOn = (key: string) => cfg.fields[key] !== false
   const canExportPDF = cfg.exportPDF
 
+  // Limite conta APENAS entradas reais de diário (brief §8.3): não contam
+  // check-ins técnicos, respostas de questionário nem eventos automáticos.
   const currentMonthEntries = entries.filter(e => {
+    if (e.entry_type !== 'diary') return false
     const d = new Date(e.created_at)
     const now = new Date()
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -160,7 +182,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
     const planFilter = isTherapeutic
-      ? ['free', 'essential', 'therapeutic']
+      ? ['free', 'essential', 'plus', 'therapeutic', 'therapeutic-plus']
       : isEssential
       ? ['free', 'essential']
       : ['free']
@@ -189,6 +211,14 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptContext])
+
+  // Chegando de um check-in (home/dashboard), pré-seleciona o humor escolhido (brief §8.6).
+  useEffect(() => {
+    if (initialMood && CHIP_TO_MOOD[initialMood]) {
+      setCheckinChip(initialMood)
+      setMood(CHIP_TO_MOOD[initialMood])
+    }
+  }, [initialMood])
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
@@ -347,9 +377,31 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
               </div>
             )}
 
+            {/* Modo de registro — check-in rápido × diário completo (§8.1/§8.2) */}
+            <div className="inline-flex rounded-full border border-line bg-white p-1 mb-5">
+              <button
+                onClick={() => setEntryMode('quick')}
+                aria-pressed={entryMode === 'quick'}
+                className={`text-sm px-4 py-1.5 rounded-full transition-colors ${entryMode === 'quick' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
+              >
+                Check-in rápido
+              </button>
+              <button
+                onClick={() => setEntryMode('full')}
+                aria-pressed={entryMode === 'full'}
+                className={`text-sm px-4 py-1.5 rounded-full transition-colors ${entryMode === 'full' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
+              >
+                Diário completo
+              </button>
+            </div>
+
             {/* Check-in emocional */}
             <h2 className="font-serif text-lg sm:text-xl text-forest-900">Check-in emocional</h2>
-            <p className="text-sm text-ink-soft mt-1 mb-3">Como você está se sentindo agora? Escolha o que mais faz sentido para você.</p>
+            <p className="text-sm text-ink-soft mt-1 mb-3">
+              {entryMode === 'quick'
+                ? 'Um registro rápido em poucos segundos. Escolha como você está agora.'
+                : 'Como você está se sentindo agora? Escolha o que mais faz sentido para você.'}
+            </p>
             <div className="flex flex-wrap gap-2 mb-6">
               {MOODS.map(m => (
                 <MoodChip key={m.key} mood={m} active={checkinChip === m.key} onClick={() => selectChip(m.key)} />
@@ -360,7 +412,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
             <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>
             <p className="text-sm text-ink-soft mt-1 mb-3">Use as sugestões ou escreva livremente.</p>
             <div className="flex flex-wrap gap-2 mb-4">
-              {PROMPTS.map(p => (
+              {planPrompts.map(p => (
                 <button
                   key={p}
                   onClick={() => applyPrompt(p)}
@@ -393,15 +445,17 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
               <span className="absolute bottom-3 right-4 text-[11px] text-ink-soft/70">{whatHappened.length} caracteres</span>
             </div>
 
-            {/* Campos livres complementares */}
-            <div className="grid sm:grid-cols-2 gap-3 mt-4">
-              <input type="text" value={mainEmotion} onChange={e => setMainEmotion(e.target.value)} placeholder="Qual emoção marcou seu dia?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
-              <input type="text" value={whatINeed} onChange={e => setWhatINeed(e.target.value)} placeholder="O que você precisa agora?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
-              <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="sm:col-span-2 border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
-            </div>
+            {/* Campos livres complementares — só no diário completo (§8.2) */}
+            {entryMode === 'full' && (
+              <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                <input type="text" value={mainEmotion} onChange={e => setMainEmotion(e.target.value)} placeholder="Qual emoção marcou seu dia?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                <input type="text" value={whatINeed} onChange={e => setWhatINeed(e.target.value)} placeholder="O que você precisa agora?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="sm:col-span-2 border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+              </div>
+            )}
 
-            {/* Indicadores — Essencial+ */}
-            {isEssential && (
+            {/* Indicadores — Essencial+ (só no diário completo) */}
+            {entryMode === 'full' && isEssential && (
               <div className="border-t border-line pt-5 mt-5">
                 <h3 className="font-serif text-base text-forest-900 mb-1">Como está o seu corpo e sua mente agora?</h3>
                 <p className="text-sm text-ink-soft mb-4">Atualize seus indicadores do momento.</p>
@@ -571,6 +625,16 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
               {streak > 0 ? 'Manter o hábito transforma. Você está criando algo que faz bem para você. 🌿' : 'Um registro por dia já é um ato de cuidado. Comece hoje. 🌿'}
             </p>
           </div>
+
+          {/* Acompanhamento Plus — o diário alimenta os recursos Plus (§8.5) */}
+          {isTherapeutic && (
+            <div className="bg-forest-900 text-white rounded-3xl p-5">
+              <h2 className="font-serif text-lg flex items-center gap-2"><Sprout className="w-4 h-4 text-forest-300" /> Usar no acompanhamento Plus</h2>
+              <p className="text-sm text-forest-50/90 mt-2 leading-relaxed">
+                Suas reflexões podem ajudar a compor seu relatório mensal, seu plano de autocuidado e sua orientação por mensagem.
+              </p>
+            </div>
+          )}
 
           {/* Limite do plano */}
           {entryLimit != null && (

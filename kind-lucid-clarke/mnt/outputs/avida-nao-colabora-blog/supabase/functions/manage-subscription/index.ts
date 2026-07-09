@@ -17,11 +17,16 @@ type Action = 'cancel' | 'downgrade' | 'reactivate' | 'upgrade'
 const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
 
 // Price IDs por env var (mesma fonte do create-checkout — nunca hardcoded).
+// Preço do Plus (R$ 39,90): prefere o secret de go-live STRIPE_PRICE_PLUS_3990 e cai
+// no STRIPE_PRICE_THERAPEUTIC (que hoje guarda o price de 39,90). Mesmo padrão do
+// create-checkout — não renomeie STRIPE_PRICE_THERAPEUTIC (quebra a cobrança atual).
+const PLUS_PRICE = Deno.env.get('STRIPE_PRICE_PLUS_3990') || Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
 const PRICE_IDS: Record<string, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
-  plus: Deno.env.get('STRIPE_PRICE_THERAPEUTIC'), // Plus (R$ 39,90) = price do antigo Terapêutico
-  therapeutic: Deno.env.get('STRIPE_PRICE_THERAPEUTIC'),
-  'therapeutic-plus': Deno.env.get('STRIPE_PRICE_PLUS'),
+  plus: PLUS_PRICE,
+  // Compat de planos legados no banco → mesmo price do Plus atual.
+  therapeutic: PLUS_PRICE,
+  'therapeutic-plus': PLUS_PRICE,
 }
 
 // Rótulos amigáveis (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).

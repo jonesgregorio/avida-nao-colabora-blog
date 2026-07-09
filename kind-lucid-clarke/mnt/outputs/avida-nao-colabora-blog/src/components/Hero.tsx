@@ -43,6 +43,11 @@ const MOODS = [
   { id: 'confuso', label: 'Confusão', Icon: HelpCircle, color: 'text-[#7c5cbf]' },
 ]
 
+// Mapeia o humor do Hero para a chave de chip do diário, para pré-selecionar após o login (§8.6).
+const HERO_MOOD_TO_CHIP: Record<string, string> = {
+  ansioso: 'ansiosa', triste: 'outro', sobrecarregado: 'sobrecarregada', 'sem-energia': 'cansada', confuso: 'outro',
+}
+
 const PLUS_ITEMS = [
   { Icon: CalendarCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Plano de autocuidado', desc: 'Crie um plano personalizado de ações práticas para sua rotina, sono, limites e ansiedade.' },
   { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário profissional', desc: 'Receba um olhar profissional sobre seus registros uma vez por mês.' },
@@ -145,7 +150,7 @@ export default function Hero({ onNavigate }: HeroProps) {
 
               {selectedMood ? (
                 <button
-                  onClick={() => onNavigate('diary')}
+                  onClick={() => onNavigate(`diary?mood=${HERO_MOOD_TO_CHIP[selectedMood] ?? 'outro'}`)}
                   className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium py-3 rounded-2xl transition-colors"
                 >
                   Continuar para o diário

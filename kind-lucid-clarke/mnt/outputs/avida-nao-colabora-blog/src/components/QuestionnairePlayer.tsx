@@ -313,7 +313,7 @@ export default function QuestionnairePlayer({
   if (phase === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -337,7 +337,7 @@ export default function QuestionnairePlayer({
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
         <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 text-center">
-          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+          <div className="w-16 h-16 bg-forest-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
             {questionnaire.icon || '📋'}
           </div>
           <h1 className="font-serif text-2xl text-stone-800 mb-2">{questionnaire.title}</h1>
@@ -346,7 +346,7 @@ export default function QuestionnairePlayer({
           </p>
 
           {(questionnaire.intro_message || questionnaire.intro_text) && (
-            <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-sm text-stone-700 text-left mb-5">
+            <div className="bg-mint/40 border border-forest-100 rounded-xl p-4 text-sm text-stone-700 text-left mb-5">
               {questionnaire.intro_message || questionnaire.intro_text}
             </div>
           )}
@@ -387,7 +387,7 @@ export default function QuestionnairePlayer({
           <span>{progress}%</span>
         </div>
         <div className="h-1.5 bg-stone-200 rounded-full mb-6">
-          <div className="h-full bg-purple-400 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-forest-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
@@ -406,10 +406,10 @@ export default function QuestionnairePlayer({
                 <button
                   key={opt.id}
                   onClick={() => answerSingle(opt)}
-                  className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm transition-all group ${currentAnswer?.value === opt.option_text ? 'border-purple-400 bg-purple-50 text-purple-800' : 'border-stone-200 hover:border-purple-300 hover:bg-purple-50 text-stone-700'}`}
+                  className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm transition-all group ${currentAnswer?.value === opt.option_text ? 'border-forest-500 bg-mint/40 text-forest-800' : 'border-stone-200 hover:border-forest-300 hover:bg-mint/40 text-stone-700'}`}
                 >
                   <span>{opt.option_text}</span>
-                  <ChevronRight className="w-4 h-4 text-stone-300 group-hover:text-purple-400 shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-stone-300 group-hover:text-forest-500 shrink-0" />
                 </button>
               ))}
             </div>
@@ -422,7 +422,7 @@ export default function QuestionnairePlayer({
                 <button
                   key={opt.id}
                   onClick={() => answerSingle(opt)}
-                  className={`py-4 rounded-xl border text-sm font-medium transition-all ${currentAnswer?.value === opt.option_text ? 'border-purple-400 bg-purple-500 text-white' : 'border-stone-200 text-stone-700 hover:border-purple-300 hover:bg-purple-50'}`}
+                  className={`py-4 rounded-xl border text-sm font-medium transition-all ${currentAnswer?.value === opt.option_text ? 'border-forest-500 bg-forest-600 text-white' : 'border-stone-200 text-stone-700 hover:border-forest-300 hover:bg-mint/40'}`}
                 >
                   {opt.option_text}
                 </button>
@@ -446,9 +446,9 @@ export default function QuestionnairePlayer({
                         const nextTags = (currentQ.options || []).filter(o => next.includes(o.option_text)).flatMap(o => o.tag ? [o.tag] : [])
                         setAnswers(a => ({ ...a, [currentQ.id]: { value: next, score: nextScore, tags: nextTags } }))
                       }}
-                      className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all ${sel ? 'border-purple-400 bg-purple-50 text-purple-800' : 'border-stone-200 text-stone-700 hover:border-purple-200'}`}
+                      className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all ${sel ? 'border-forest-500 bg-mint/40 text-forest-800' : 'border-stone-200 text-stone-700 hover:border-forest-200'}`}
                     >
-                      <span className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${sel ? 'bg-purple-500 border-purple-500' : 'border-stone-300'}`}>
+                      <span className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${sel ? 'bg-forest-600 border-forest-600' : 'border-stone-300'}`}>
                         {sel && <span className="text-white text-xs">✓</span>}
                       </span>
                       {opt.option_text}
@@ -474,7 +474,7 @@ export default function QuestionnairePlayer({
                   <button
                     key={n}
                     onClick={() => answerScale(n)}
-                    className={`w-12 h-12 rounded-full border-2 text-sm font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-purple-500 border-purple-500 text-white scale-110' : 'border-stone-200 text-stone-600 hover:border-purple-300 hover:bg-purple-50'}`}
+                    className={`w-12 h-12 rounded-full border-2 text-sm font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-forest-600 border-forest-600 text-white scale-110' : 'border-stone-200 text-stone-600 hover:border-forest-300 hover:bg-mint/40'}`}
                   >
                     {n}
                   </button>
@@ -494,7 +494,7 @@ export default function QuestionnairePlayer({
                   <button
                     key={n}
                     onClick={() => answerScale(n)}
-                    className={`w-10 h-10 rounded-full border-2 text-xs font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-purple-500 border-purple-500 text-white' : 'border-stone-200 text-stone-600 hover:border-purple-300'}`}
+                    className={`w-10 h-10 rounded-full border-2 text-xs font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-forest-600 border-forest-600 text-white' : 'border-stone-200 text-stone-600 hover:border-forest-300'}`}
                   >
                     {n}
                   </button>
@@ -514,7 +514,7 @@ export default function QuestionnairePlayer({
                 onChange={e => answerText(e.target.value)}
                 placeholder={currentQ.placeholder || 'Escreva aqui...'}
                 maxLength={currentQ.character_limit > 0 ? currentQ.character_limit : undefined}
-                className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 mb-3"
+                className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300 mb-3"
               />
               <button onClick={advance} className="w-full bg-stone-800 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-stone-700">
                 Continuar
@@ -531,7 +531,7 @@ export default function QuestionnairePlayer({
                 placeholder={currentQ.placeholder || 'Escreva aqui...'}
                 rows={4}
                 maxLength={currentQ.character_limit > 0 ? currentQ.character_limit : undefined}
-                className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 mb-3 resize-none"
+                className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300 mb-3 resize-none"
               />
               <button onClick={advance} className="w-full bg-stone-800 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-stone-700">
                 Continuar
@@ -558,16 +558,16 @@ export default function QuestionnairePlayer({
 
     return (
       <section className="max-w-2xl mx-auto px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-forest-100 p-8">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Star className="w-6 h-6 text-purple-500" />
+            <div className="w-14 h-14 bg-forest-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Star className="w-6 h-6 text-forest-600" />
             </div>
             <h2 className="font-serif text-2xl text-stone-800 mb-1">{resultTitle}</h2>
             <p className="text-sm text-stone-400">Com base nas suas respostas:</p>
           </div>
 
-          <div className="bg-purple-50 border border-purple-100 rounded-xl p-5 mb-4">
+          <div className="bg-mint/40 border border-forest-100 rounded-xl p-5 mb-4">
             <p className="text-stone-700 leading-relaxed text-sm">{resultText}</p>
           </div>
 
@@ -611,7 +611,7 @@ export default function QuestionnairePlayer({
             {onNavigatePricing && !user && (
               <button
                 onClick={onNavigatePricing}
-                className="flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+                className="flex items-center justify-center gap-2 bg-forest-100 hover:bg-forest-200 text-forest-700 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
               >
                 Ver planos
               </button>

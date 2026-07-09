@@ -14,6 +14,10 @@ export interface DiaryPromptContext {
 export interface PendingAction {
   view: string
   diaryContext?: DiaryPromptContext
+  /** Humor escolhido num check-in antes do login (§8.6). */
+  mood?: string
+  /** Questionário específico a retomar após login (§13). */
+  questionnaireId?: string
 }
 
 export function setPendingAction(action: PendingAction) {
