@@ -9,57 +9,32 @@ const PLAN_ORDER: Record<string, number> = {
   'therapeutic-plus': 2,
 }
 
-// Static fallback — pisos por recurso na nova estrutura de 3 planos.
+// Pisos por recurso — SOMENTE os recursos dos 3 planos oficiais (§17).
+// Nada de meditações/pdf/suporte isolados, diário avançado, marcadores extras,
+// recomendações, acesso antecipado, avaliações semanais, anúncios etc.
 const FEATURE_PLAN_FLOOR: Record<string, Plan> = {
-  // Conteúdo (Conteúdos guiados)
-  articles_free: 'free',
-  biweekly_auto_challenges: 'free',
-  guided_text_meditations: 'essential',
-  emotional_exercise_library: 'essential',
-  personalized_content_recommendations: 'essential',
-  early_access_content: 'essential',
-
-  // Diário emocional
-  wellbeing_diary_limited: 'free',
-  diary_monthly_limit_5: 'free',
-  wellbeing_diary_5_month: 'free',
+  // Gratuito
+  articles_free: 'free',                 // blog aberto
+  wellbeing_diary_5_month: 'free',       // diário emocional básico
+  wellbeing_diary_limited: 'free',       // (alias de compat)
+  diary_monthly_limit_5: 'free',         // (alias de compat)
   simple_mood_checkin: 'free',
-  diary_unlimited: 'essential',
-  guided_diary_notes: 'essential',
-  advanced_diary: 'essential',
-  extra_emotional_markers: 'essential',
-  extra_markers_sleep_depression_fear_compulsion_triggers_anxiety_selfesteem_energy: 'essential',
+  basic_self_assessment: 'free',         // questionário inicial
+  biweekly_auto_challenges: 'free',      // algumas práticas guiadas
 
-  // Avaliações / Mapa emocional
-  basic_self_assessment: 'free',
-  weekly_assessments: 'essential',
-  deep_questionnaire: 'essential',
+  // Essencial
+  diary_unlimited: 'essential',          // diário ilimitado
+  diary_mood_symptoms_summary: 'essential', // mapa emocional completo
+  full_history: 'essential',             // histórico e gráficos
   simple_evolution_charts: 'essential',
-  monthly_pdf_reports: 'essential',
-  diary_mood_symptoms_summary: 'essential',
-  evolution_highlights_no_clinical_analysis: 'essential',
-  monthly_comparative_charts: 'essential',
+  emotional_exercise_library: 'essential', // conteúdos guiados completos
+  weekly_assessments: 'essential',       // relatório semanal automático
 
-  // Histórico
-  limited_history: 'free',
-  full_history: 'essential',
-
-  // Plano de autocuidado (Plus)
-  personalized_self_care_plan: 'plus',
-  weekly_self_care_plan: 'essential',
-  advanced_monthly_report: 'plus',
-
-  // Orientação profissional (Plus)
-  monthly_message_guidance: 'plus',
-  professional_comment_on_monthly_report: 'plus',
-
-  // Suporte
-  priority_email_support: 'essential',
-  maximum_priority_support: 'plus',
-
-  // Anúncios
-  ads_enabled: 'free',
-  no_ads: 'essential',
+  // Plus
+  personalized_self_care_plan: 'plus',            // plano de autocuidado mensal
+  advanced_monthly_report: 'plus',                // relatório mensal aprofundado
+  professional_comment_on_monthly_report: 'plus', // comentário profissional mensal
+  monthly_message_guidance: 'plus',               // orientação mensal por mensagem
 }
 
 // Runtime cache from plan_feature_access table (populated via loadPlanAccess())

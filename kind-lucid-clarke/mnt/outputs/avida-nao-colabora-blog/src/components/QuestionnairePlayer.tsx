@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { normalizePlan } from '../lib/officialPlans'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { ChevronRight, ArrowLeft, RotateCcw, BookOpen, Star, RefreshCw, X } from 'lucide-react'
+import { ChevronRight, ArrowLeft, BookOpen, Star, RefreshCw, X } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ interface Props {
   onNavigateDiary?: () => void
   onNavigatePricing?: () => void
   onNavigateArticles?: () => void
+  onNavigate?: (v: string) => void
 }
 
 // Normaliza o tipo de pergunta para o formato que o player renderiza.
@@ -132,7 +134,7 @@ function normalizeQType(t: string | undefined): string {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function QuestionnairePlayer({
-  questionnaireId, user, profile: _profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles,
+  questionnaireId, user, profile: _profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles, onNavigate,
 }: Props) {
   const { track } = useAnalytics(user?.id)
   const [phase, setPhase] = useState<Phase>('loading')
@@ -141,6 +143,9 @@ export default function QuestionnairePlayer({
   const [results, setResults] = useState<QResult[]>([])
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, { value: string | string[]; score: number; tags: string[] }>>({})
+  // Espelho síncrono de answers — evita salvar sem a última resposta (setTimeout).
+  const answersRef = useRef(answers)
+  useEffect(() => { answersRef.current = answers }, [answers])
   const [matchedResult, setMatchedResult] = useState<QResult | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -267,8 +272,9 @@ export default function QuestionnairePlayer({
 
   // ── Compute result ─────────────────────────────────────────────────────────
   function computeResult() {
-    const totalScore = Object.values(answers).reduce((sum, a) => sum + (a.score || 0), 0)
-    const allTags = Object.values(answers).flatMap(a => a.tags || [])
+    const cur = answersRef.current
+    const totalScore = Object.values(cur).reduce((sum, a) => sum + (a.score || 0), 0)
+    const allTags = Object.values(cur).flatMap(a => a.tags || [])
 
     // Find matching result by score range
     const match = results.find(r => totalScore >= r.min_score && totalScore <= r.max_score)
@@ -311,7 +317,7 @@ export default function QuestionnairePlayer({
     try {
       await supabase
         .from('questionnaire_responses')
-        .update({ answers, current_step: currentStep, status: 'in_progress', updated_at: new Date().toISOString() })
+        .update({ answers: answersRef.current, current_step: currentStep, status: 'in_progress', updated_at: new Date().toISOString() })
         .eq('id', id)
     } catch { /* colunas ainda não migradas — não crítico */ }
   }
@@ -359,7 +365,7 @@ export default function QuestionnairePlayer({
         try {
           await supabase
             .from('questionnaire_responses')
-            .update({ answers, current_step: questions.length, updated_at: new Date().toISOString() })
+            .update({ answers: answersRef.current, current_step: questions.length, updated_at: new Date().toISOString() })
             .eq('id', respId)
         } catch { /* colunas answers/current_step vêm da migration — não crítico */ }
         setSaved(true)
@@ -393,7 +399,9 @@ export default function QuestionnairePlayer({
 
   function advance() {
     if (step < questions.length - 1) {
-      setStep(s => s + 1)
+      const next = step + 1
+      setStep(next)
+      void persistProgress(next) // auto-save a cada avanço (§9.4)
     } else {
       const { totalScore } = computeResult()
       void totalScore
@@ -661,6 +669,8 @@ export default function QuestionnairePlayer({
     const resultText = matchedResult?.message || questionnaire.default_result_text || 'Que bom que você compartilhou como está.'
     const resultTitle = matchedResult?.title || 'Recebemos suas respostas'
     const disclaimer = matchedResult?.disclaimer || questionnaire.disclaimer
+    const rPlan = normalizePlan(_profile?.plan)
+    const go = (v: string) => onNavigate?.(v)
 
     return (
       <section className="max-w-2xl mx-auto px-4 py-10">
@@ -697,30 +707,33 @@ export default function QuestionnairePlayer({
             </div>
           )}
 
+          {/* Próximos passos por plano (§9.3) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            {onNavigateDiary && user && (
-              <button
-                onClick={onNavigateDiary}
-                className="flex items-center justify-center gap-2 bg-stone-800 hover:bg-stone-700 text-white px-4 py-3 rounded-xl text-sm font-medium transition-colors"
-              >
+            {user && (
+              <button onClick={() => (onNavigate ? go('diary') : onNavigateDiary?.())} className="flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white px-4 py-3 rounded-xl text-sm font-medium transition-colors">
                 <BookOpen className="w-4 h-4" /> Registrar no diário
               </button>
             )}
-            {onNavigateArticles && (
-              <button
-                onClick={onNavigateArticles}
-                className="flex items-center justify-center gap-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
-              >
-                <RotateCcw className="w-4 h-4" /> Ver artigos recomendados
-              </button>
-            )}
-            {onNavigatePricing && !user && (
-              <button
-                onClick={onNavigatePricing}
-                className="flex items-center justify-center gap-2 bg-forest-100 hover:bg-forest-200 text-forest-700 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
-              >
-                Ver planos
-              </button>
+
+            {user && rPlan === 'free' && <>
+              <ResultCTA label="Ver conteúdo gratuito" onClick={() => (onNavigate ? go('articles') : onNavigateArticles?.())} />
+              <ResultCTA label="Conhecer o Essencial" onClick={() => onNavigatePricing?.()} />
+            </>}
+
+            {user && rPlan === 'essential' && <>
+              <ResultCTA label="Ver conteúdo guiado" onClick={() => (onNavigate ? go('articles') : onNavigateArticles?.())} />
+              <ResultCTA label="Ver mapa emocional" onClick={() => go('my-evolution')} />
+              <ResultCTA label="Ver relatório semanal" onClick={() => go('my-report')} />
+            </>}
+
+            {user && rPlan === 'plus' && <>
+              <ResultCTA label="Atualizar plano de autocuidado" onClick={() => go('self-care')} />
+              <ResultCTA label="Usar no relatório mensal" onClick={() => go('my-report')} />
+              <ResultCTA label="Enviar para orientação" onClick={() => go('monthly-guidance')} />
+            </>}
+
+            {!user && onNavigatePricing && (
+              <ResultCTA label="Conhecer os planos" onClick={onNavigatePricing} />
             )}
           </div>
 
@@ -741,4 +754,16 @@ export default function QuestionnairePlayer({
   }
 
   return null
+}
+
+// ─── Botão de próximo passo no resultado (§9.3) ──────────────────────────────
+function ResultCTA({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center gap-2 bg-mint hover:bg-mint/70 text-forest-800 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+    >
+      {label}
+    </button>
+  )
 }

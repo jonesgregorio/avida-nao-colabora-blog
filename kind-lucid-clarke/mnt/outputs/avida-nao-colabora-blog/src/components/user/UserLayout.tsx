@@ -36,7 +36,7 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'my-evolution',                 label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
   { id: 'articles',                     label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
   { id: 'my-report',                    label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
-  { id: 'my-evolution?tab=autocuidado', label: 'Plano de Autocuidado', Icon: Sprout,        match: [], matchPath: ['/plano-de-autocuidado'] },
+  { id: 'self-care',                    label: 'Plano de Autocuidado', Icon: Sprout,        match: ['self-care'], matchPath: ['/plano-de-autocuidado'] },
   { id: 'monthly-guidance',             label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
   { id: 'my-plan',                      label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
   { id: 'profile',                      label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },

@@ -30,7 +30,7 @@ const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avi
 // Apenas EXIBE os benefícios oficiais — não altera plano/preço/hierarquia.
 const PLAN_BENEFITS: Record<string, string> = {
   essential:
-    '- Diário ilimitado e histórico completo\n- Mapa emocional completo com gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático\n- Sem anúncios e suporte por e-mail prioritário',
+    '- Diário ilimitado\n- Mapa emocional completo com histórico e gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático',
   plus:
     '- Tudo do Essencial\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Comentário profissional mensal\n- Orientação mensal por mensagem',
 }

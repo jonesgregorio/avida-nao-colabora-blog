@@ -1,0 +1,164 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import type { User } from '@supabase/supabase-js'
+import type { Profile } from '../types'
+import { normalizePlan } from '../lib/officialPlans'
+import { getContentTypeLabel } from '../lib/personalizedContentLabels'
+import { Sprout, Loader2, Download, ArrowRight, Sparkles } from 'lucide-react'
+import PlanBadge from './PlanBadge'
+
+interface Props {
+  user: User | null
+  profile: Profile | null
+  onNavigatePricing: () => void
+  onNavigate?: (v: string) => void
+}
+
+interface Review {
+  id: string
+  month_key: string
+  summary: string | null
+  suggested_adjustments: string | null
+  next_focus: string | null
+  pdf_url: string | null
+  created_at: string
+}
+interface Extra {
+  id: string; title: string; body: string; content_type: string | null; sent_at: string | null
+}
+
+function monthLabel(key: string) {
+  const [y, m] = String(key).split('-')
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+}
+
+// Área PRÓPRIA do Plano de Autocuidado (§12) — exclusiva do Plus. Transforma os
+// dados de diário/questionários/mapa em ações mensais. Não fica dentro do Mapa.
+export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onNavigate }: Props) {
+  const plan = normalizePlan(profile?.plan)
+  const isPlus = plan === 'plus'
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [extras, setExtras] = useState<Extra[]>([])
+  const [loading, setLoading] = useState(isPlus)
+
+  useEffect(() => {
+    if (!user || !isPlus) { setLoading(false); return }
+    let active = true
+    Promise.all([
+      supabase.from('self_care_plan_reviews').select('*').eq('user_id', user.id).order('month_key', { ascending: false }).limit(6),
+      supabase.from('personalized_content_deliveries')
+        .select('id, title, body, content_type, sent_at')
+        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'self_care_plan')
+        .order('sent_at', { ascending: false }).limit(10),
+    ]).then(([r, d]) => {
+      if (!active) return
+      setReviews((r.data ?? []) as Review[])
+      setExtras((d.data ?? []) as Extra[])
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [user, isPlus])
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+            Plano de Autocuidado <Sprout className="w-6 h-6 text-forest-400" />
+          </h1>
+          <p className="mt-2 text-ink-soft">Suas prioridades e pequenos cuidados do mês, a partir dos seus registros.</p>
+        </div>
+        <PlanBadge plan={profile?.plan} member size="sm" className="mt-1" />
+      </header>
+
+      {!isPlus ? (
+        // Gratuito e Essencial: apresentação + CTA para Plus (§12).
+        <div className="bg-paper-soft border border-line rounded-3xl p-6 sm:p-8 text-center">
+          <span className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto text-forest-600 mb-4">
+            <Sprout className="w-7 h-7" />
+          </span>
+          <h2 className="font-serif text-xl text-forest-900">Disponível no plano Plus</h2>
+          <p className="text-sm text-ink-soft mt-2 max-w-md mx-auto leading-relaxed">
+            O Plano de Autocuidado mensal transforma o que você registra no diário, nos questionários e no
+            Mapa Emocional em prioridades, pequenos cuidados e metas simples para o seu mês.
+          </p>
+          <button
+            onClick={onNavigatePricing}
+            className="mt-5 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+          >
+            Conhecer o Plus <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      ) : loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
+      ) : (
+        <div className="space-y-5">
+          <div className="bg-mint/50 border border-forest-100 rounded-3xl p-5">
+            <p className="text-sm text-forest-800 leading-relaxed">
+              Seu plano é elaborado com base nos seus registros e questionários. Ele reúne prioridade do mês,
+              pequenos cuidados sugeridos, pontos de atenção e metas simples.
+            </p>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="bg-paper-soft border border-line rounded-3xl p-8 text-center space-y-3">
+              <Sparkles className="w-9 h-9 text-forest-300 mx-auto" />
+              <p className="text-ink-soft text-sm">Seu plano de autocuidado do mês chegará em breve.</p>
+              <p className="text-xs text-ink-soft/70">Continue registrando no diário e respondendo aos questionários — eles alimentam o seu plano.</p>
+              {onNavigate && (
+                <div className="flex flex-wrap justify-center gap-2 pt-1">
+                  <button onClick={() => onNavigate('diary')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Registrar no diário</button>
+                  <button onClick={() => onNavigate('questionarios')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Responder questionário</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map(r => (
+                <div key={r.id} className="bg-paper-soft border border-line rounded-3xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthLabel(r.month_key)}</h3>
+                    <span className="text-xs text-ink-soft">{new Date(r.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  {r.summary && <Field label="Resumo" value={r.summary} />}
+                  {r.suggested_adjustments && <Field label="Pequenos cuidados sugeridos" value={r.suggested_adjustments} />}
+                  {r.next_focus && <Field label="Prioridade do próximo período" value={r.next_focus} />}
+                  {r.pdf_url && (
+                    <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-forest-700 hover:underline">
+                      <Download className="w-4 h-4" /> Baixar em PDF
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {extras.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-serif text-lg text-forest-900">Conteúdos personalizados</h3>
+              {extras.map(e => (
+                <div key={e.id} className="bg-paper-soft border border-line rounded-3xl p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-forest-900 text-sm">{e.title}</p>
+                    {e.content_type && <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full flex-shrink-0">{getContentTypeLabel(e.content_type)}</span>}
+                  </div>
+                  <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed">{e.body}</p>
+                  <p className="text-xs text-ink-soft/70">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-ink-soft font-medium mb-1">{label}</p>
+      <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{value}</p>
+    </div>
+  )
+}

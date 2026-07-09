@@ -10,6 +10,8 @@
 begin;
 
 -- 1) Colunas de runtime em questionnaire_responses (todas usadas pelo player).
+-- questionnaire_id não existe no schema base (001) — precisa existir antes do índice.
+alter table questionnaire_responses add column if not exists questionnaire_id uuid references questionnaires(id) on delete set null;
 alter table questionnaire_responses add column if not exists status         text        default 'in_progress';
 alter table questionnaire_responses add column if not exists started_at      timestamptz;
 alter table questionnaire_responses add column if not exists completed_at    timestamptz;

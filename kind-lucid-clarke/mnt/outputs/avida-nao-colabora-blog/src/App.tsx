@@ -31,6 +31,7 @@ import ProfessionalCommentsSection from './components/ProfessionalCommentsSectio
 import MyPlanPage from './components/MyPlanPage'
 import MyReportPage from './components/MyReportPage'
 import MyEvolutionPage, { type Tab } from './components/MyEvolutionPage'
+import SelfCarePlanPage from './components/SelfCarePlanPage'
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle
 const AdminPanel = lazy(() => import('./components/admin'))
@@ -41,7 +42,7 @@ const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
   'about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','admin','contact','success',
-  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution',
+  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','self-care',
 ]
 
 // Mapeamento bidirecional URL ↔ view
@@ -66,6 +67,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/comentarios-profissional':   'professional-comments',
   '/minha-evolucao':             'my-evolution',
   '/meu-relatorio':              'my-report',
+  '/plano-de-autocuidado':       'self-care',
   '/meu-plano':                  'my-plan',
 }
 
@@ -117,10 +119,6 @@ function parseURLNav(): { view: View; articleSlug: string | null; ticketId: stri
       return { view: 'support-ticket', articleSlug: null, ticketId }
     }
 
-    // Rota própria do Plano de Autocuidado (§21) → aba autocuidado do Mapa Emocional.
-    if (path === '/plano-de-autocuidado') {
-      return { view: 'my-evolution', articleSlug: null, ticketId: null }
-    }
 
     // Redireciona a rota antiga do questionário terapêutico para a área de Questionários.
     if (path === '/questionario-terapeutico') {
@@ -173,9 +171,7 @@ export default function App() {
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
-  const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(
-    typeof window !== 'undefined' && window.location.pathname === '/plano-de-autocuidado' ? 'autocuidado' : undefined
-  )
+  const [initialEvolutionTab, setInitialEvolutionTab] = useState<string | undefined>(undefined)
   const [diaryMood, setDiaryMood] = useState<string | null>(null)
 
   // Persist navigation state so refresh keeps the user on the same page
@@ -218,19 +214,18 @@ export default function App() {
     // Redireciona views de módulos removidos do MVP para destinos válidos.
     if (LEGACY_VIEW_REDIRECT[section]) section = LEGACY_VIEW_REDIRECT[section]
 
-    // Suporte a navegação com aba: 'my-evolution?tab=relatorios'
+    // Autocuidado virou área PRÓPRIA (§12); as demais abas ficam no Mapa Emocional.
     if (section.startsWith('my-evolution?tab=')) {
       const tab = section.split('tab=')[1]
-      setInitialEvolutionTab(tab)
-      setView('my-evolution')
-      // Plano de Autocuidado tem rota própria (§21); demais abas ficam em /minha-evolucao.
       if (tab === 'autocuidado') {
-        if (window.location.pathname !== '/plano-de-autocuidado') window.history.pushState({}, '', '/plano-de-autocuidado')
+        section = 'self-care' // cai no fluxo de view direta abaixo → /plano-de-autocuidado
       } else {
+        setInitialEvolutionTab(tab)
+        setView('my-evolution')
         pushURL('my-evolution')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
     }
 
     // Check-in com humor pré-selecionado: 'diary?mood=ansiosa' (§8.6).
@@ -259,7 +254,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success',
-      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report',
+      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
@@ -315,7 +310,6 @@ export default function App() {
       const fromURL = parseURLNav()
       if (fromURL) {
         // Rota própria do Plano de Autocuidado → abre a aba correta ao voltar/avançar.
-        setInitialEvolutionTab(window.location.pathname === '/plano-de-autocuidado' ? 'autocuidado' : undefined)
         setView(fromURL.view)
         if (fromURL.articleSlug) setSelectedArticleSlug(fromURL.articleSlug)
         if (fromURL.ticketId) setActiveSupportTicketId(fromURL.ticketId)
@@ -358,27 +352,42 @@ export default function App() {
     return <ForceChangePassword userId={user.id} onDone={refreshProfile} />
   }
 
+  // Usuário autenticado mas sem perfil (a criação automática do useAuth falhou) — §19.
+  if (user && !profile && view !== 'auth') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+        <div className="max-w-sm w-full bg-paper-soft border border-line rounded-3xl p-8 text-center">
+          <h1 className="font-serif text-2xl text-forest-900">Complete seu perfil</h1>
+          <p className="text-sm text-ink-soft mt-2 leading-relaxed">
+            Para personalizar sua experiência, complete seu perfil. Leva menos de um minuto.
+          </p>
+          <button
+            onClick={() => { void refreshProfile() }}
+            className="mt-5 w-full inline-flex items-center justify-center bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+          >
+            Completar perfil
+          </button>
+          <button onClick={() => signOut()} className="mt-3 text-xs text-ink-soft hover:text-forest-900">Sair</button>
+        </div>
+      </div>
+    )
+  }
+
   if (view === 'auth') {
     return <Auth onBack={() => setView('home')} />
   }
 
   if (view === 'article' && selectedArticleSlug) {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <ArticleView
-            slug={selectedArticleSlug}
-            onBack={() => navigate('articles')}
-            user={user}
-            profile={profile}
-            navigate={navigate}
-            onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
-            onSavePromptToDiary={handleSavePromptToDiary}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <ArticleView
+        slug={selectedArticleSlug}
+        onBack={() => navigate('articles')}
+        user={user}
+        profile={profile}
+        navigate={navigate}
+        onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onSavePromptToDiary={handleSavePromptToDiary}
+      />
     )
   }
 
@@ -501,6 +510,7 @@ export default function App() {
         onNavigateDiary={() => navigate('diary')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateArticles={() => navigate('articles')}
+        onNavigate={navigate}
       />
     )
   }
@@ -564,18 +574,14 @@ export default function App() {
   }
 
   if (view === 'support-ticket' && activeSupportTicketId) {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50 pt-2">
-          <SupportTicketDetail
-            ticketId={activeSupportTicketId}
-            user={user}
-            onBack={() => { setActiveSupportTicketId(null); navigate('support') }}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <div className="pt-2">
+        <SupportTicketDetail
+          ticketId={activeSupportTicketId}
+          user={user}
+          onBack={() => { setActiveSupportTicketId(null); navigate('support') }}
+        />
+      </div>
     )
   }
 
@@ -593,19 +599,15 @@ export default function App() {
 
   if (view === 'professional-comments') {
     if (!user) { goAuth('professional-comments'); return null }
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50 max-w-2xl mx-auto px-4 py-8">
-          <ProfessionalCommentsSection
-            user={user}
-            profile={profile}
-            onNavigateDiary={() => navigate('diary')}
-            onNavigatePricing={() => navigate('pricing')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <ProfessionalCommentsSection
+          user={user}
+          profile={profile}
+          onNavigateDiary={() => navigate('diary')}
+          onNavigatePricing={() => navigate('pricing')}
+        />
+      </div>
     )
   }
 
@@ -618,7 +620,20 @@ export default function App() {
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
+        onNavigate={navigate}
         initialTab={initialEvolutionTab as Tab}
+      />
+    )
+  }
+
+  if (view === 'self-care') {
+    if (!user) { goAuth('self-care'); return null }
+    return appShell(
+      <SelfCarePlanPage
+        user={user}
+        profile={profile}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigate={navigate}
       />
     )
   }

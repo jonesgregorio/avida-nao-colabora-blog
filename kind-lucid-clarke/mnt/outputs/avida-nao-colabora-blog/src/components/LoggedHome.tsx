@@ -30,7 +30,7 @@ const QUICK = [
   { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',                 Icon: LineChart },
   { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',                     Icon: BookOpen },
   { title: 'Relatórios',           desc: 'Veja sua evolução ao longo do tempo.',           to: 'my-report',                    Icon: BarChart3 },
-  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'my-evolution?tab=autocuidado', Icon: Sprout },
+  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'self-care',                    Icon: Sprout },
   { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance',             Icon: MessageCircle },
   { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',                      Icon: CreditCard },
 ]

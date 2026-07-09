@@ -1,67 +1,73 @@
 -- ============================================================================
--- Migration 060: Questionários oficiais do MVP + RLS 3 planos + progresso parcial
--- (§12.2, §12.3, §12.4, §12.5)
---  - Colunas de progresso parcial em questionnaire_responses
---  - RLS de leitura por plano: free (todos) / essential (essential+plus) / plus (plus)
---    normalizando legados therapeutic/therapeutic-plus -> plus
---  - Semeia os 8 questionários oficiais com question type "single_choice"
---  - Idempotente por slug; esconde questionários antigos
+-- Migration 060: Schema + questionários oficiais do MVP + RLS 3 planos + progresso parcial
+-- (§16.1/§16.4) — SELF-SUFICIENTE e idempotente (roda em banco limpo).
 -- ============================================================================
 
 begin;
 
--- 1) Progresso parcial (§12.5): respostas parciais + passo atual + updated_at
+-- 0) Garante o schema da tabela questionnaires (colunas usadas pelo seed/app).
+alter table questionnaires add column if not exists slug                        text;
+alter table questionnaires add column if not exists scheduled_at                timestamptz;
+alter table questionnaires add column if not exists type                        text    default 'wellbeing';
+alter table questionnaires add column if not exists status                      text    default 'draft';
+alter table questionnaires add column if not exists estimated_time              text;
+alter table questionnaires add column if not exists question_count              integer default 0;
+alter table questionnaires add column if not exists show_on_questionnaires_page boolean default true;
+alter table questionnaires add column if not exists show_score                  boolean default false;
+alter table questionnaires add column if not exists show_result                 boolean default true;
+alter table questionnaires add column if not exists allow_anonymous             boolean default true;
+alter table questionnaires add column if not exists allow_retake                boolean default true;
+alter table questionnaires add column if not exists intro_text                  text;
+alter table questionnaires add column if not exists completion_text             text;
+alter table questionnaires add column if not exists active                      boolean default true;
+alter table questionnaires add column if not exists tags                        jsonb   default '[]'::jsonb;
+alter table questionnaires add column if not exists questions                   jsonb   default '[]'::jsonb;
+alter table questionnaires add column if not exists results                     jsonb   default '[]'::jsonb;
+
+create unique index if not exists idx_questionnaires_slug on questionnaires(slug) where slug is not null;
+
+-- Normaliza plan_required legado e corrige a constraint para free/essential/plus.
+update questionnaires set plan_required = 'plus'  where plan_required in ('therapeutic','therapeutic-plus','therapeutic_plus','premium');
+update questionnaires set plan_required = 'free'  where plan_required is null;
+alter table questionnaires drop constraint if exists questionnaires_plan_required_check;
+alter table questionnaires add  constraint questionnaires_plan_required_check check (plan_required in ('free','essential','plus'));
+
+-- 1) Progresso parcial (§12.5): respostas parciais + passo atual + updated_at.
 alter table questionnaire_responses add column if not exists answers      jsonb       not null default '{}'::jsonb;
 alter table questionnaire_responses add column if not exists current_step  integer     not null default 0;
 alter table questionnaire_responses add column if not exists updated_at    timestamptz not null default now();
 
--- 2) Normaliza planos legados no banco (nunca expor therapeutic ao usuário)
-update profiles set plan = 'plus' where plan in ('therapeutic','therapeutic-plus');
+-- 2) Normaliza planos legados no banco (nunca expor therapeutic ao usuário).
+update profiles set plan = 'plus' where plan in ('therapeutic','therapeutic-plus','therapeutic_plus','premium');
 
--- 3) RLS de leitura por plano em questionnaires (substitui a lógica antiga da 036)
-drop policy if exists "any_read_free_questionnaires"            on questionnaires;
-drop policy if exists "auth_read_essential_questionnaires"      on questionnaires;
-drop policy if exists "auth_read_therapeutic_questionnaires"    on questionnaires;
+-- 3) RLS de leitura por plano em questionnaires (substitui a lógica antiga da 036).
+drop policy if exists "Questionários públicos visíveis"            on questionnaires;
+drop policy if exists "questionnaires_public_select"               on questionnaires;
+drop policy if exists "public_read_questionnaires"                 on questionnaires;
+drop policy if exists "any_read_free_questionnaires"              on questionnaires;
+drop policy if exists "auth_read_essential_questionnaires"        on questionnaires;
+drop policy if exists "auth_read_therapeutic_questionnaires"      on questionnaires;
 drop policy if exists "auth_read_therapeutic_plus_questionnaires" on questionnaires;
 drop policy if exists "q_read_free"      on questionnaires;
 drop policy if exists "q_read_essential" on questionnaires;
 drop policy if exists "q_read_plus"      on questionnaires;
 
--- free -> qualquer visitante (autenticado ou anônimo)
 create policy "q_read_free" on questionnaires
   for select using (
     (status = 'published' or coalesce(active,false) = true)
     and coalesce(plan_required,'free') = 'free'
   );
-
--- essential -> usuário essential ou plus (legado therapeutic/-plus = plus) ou admin
 create policy "q_read_essential" on questionnaires
   for select using (
     (status = 'published' or coalesce(active,false) = true)
     and plan_required = 'essential'
-    and (
-      is_admin()
-      or exists (
-        select 1 from profiles p
-        where p.user_id = auth.uid()
-          and p.plan in ('essential','plus','therapeutic','therapeutic-plus')
-      )
-    )
+    and (is_admin() or exists (select 1 from profiles p where p.user_id = auth.uid() and p.plan in ('essential','plus','therapeutic','therapeutic-plus')))
   );
-
--- plus -> usuário plus (legado therapeutic/-plus = plus) ou admin
 create policy "q_read_plus" on questionnaires
   for select using (
     (status = 'published' or coalesce(active,false) = true)
     and plan_required = 'plus'
-    and (
-      is_admin()
-      or exists (
-        select 1 from profiles p
-        where p.user_id = auth.uid()
-          and p.plan in ('plus','therapeutic','therapeutic-plus')
-      )
-    )
+    and (is_admin() or exists (select 1 from profiles p where p.user_id = auth.uid() and p.plan in ('plus','therapeutic','therapeutic-plus')))
   );
 
 -- 4) Semeia os 8 questionários oficiais (question type "single_choice").
