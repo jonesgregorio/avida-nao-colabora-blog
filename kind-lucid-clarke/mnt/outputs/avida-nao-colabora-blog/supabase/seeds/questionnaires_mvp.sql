@@ -44,11 +44,11 @@ values
 (
  'Questionário inicial de bem-estar emocional', 'bem-estar-inicial',
  'Um mapa rápido de como você está chegando: humor, cansaço, ansiedade, sono e vontade de se cuidar.',
- 'Inicial', 'wellbeing', 'free', 6,
+ 'Inicial', 'wellbeing', 'free', '6',
  'published', true, false, true, false, true,
  'Responda com calma. Não existe certo ou errado — existe você, do seu jeito.',
  'Que bom que você reservou esse tempo para se ouvir. Um passo de cada vez já é cuidado.',
- 8, array['inicial','bem-estar'],
+ 8, to_jsonb(array['inicial','bem-estar']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Como está o seu humor na maior parte dos dias?","options":[
      {"id":"o1","text":"Bem, na maioria dos dias","score":0},
@@ -106,11 +106,11 @@ values
 (
  'Compulsão e Fome Emocional', 'compulsao-fome-emocional',
  'Perceba os gatilhos emocionais ligados à comida, sem culpa e sem diagnóstico.',
- 'Fome emocional', 'wellbeing', 'essential', 9,
+ 'Fome emocional', 'wellbeing', 'essential', '9',
  'published', true, false, true, false, true,
  'Responda pensando nas últimas semanas. O objetivo é entender, não julgar.',
  'Reconhecer padrões já é um passo de cuidado. Seja gentil com você.',
- 6, array['fome-emocional','compulsao'],
+ 6, to_jsonb(array['fome-emocional','compulsao']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Você come por ansiedade?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
@@ -140,11 +140,11 @@ values
 (
  'Ansiedade e Sobrecarga', 'ansiedade-sobrecarga',
  'Mapeie sinais percebidos de ansiedade e sobrecarga no seu dia a dia.',
- 'Ansiedade e sobrecarga', 'wellbeing', 'essential', 8,
+ 'Ansiedade e sobrecarga', 'wellbeing', 'essential', '8',
  'published', true, false, true, false, true,
  'Pense nos últimos dias. Responda no seu ritmo.',
  'Perceber os sinais é o começo de cuidar deles. Um passo de cada vez.',
- 7, array['ansiedade','sobrecarga'],
+ 7, to_jsonb(array['ansiedade','sobrecarga']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Você tem pensamentos acelerados?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
@@ -176,11 +176,11 @@ values
 (
  'Sono, Energia e Rotina', 'sono-energia-rotina',
  'Perceba a relação entre o seu sono, a sua energia e a sua rotina.',
- 'Sono e rotina', 'wellbeing', 'essential', 7,
+ 'Sono e rotina', 'wellbeing', 'essential', '7',
  'published', true, false, true, false, true,
  'Pense na sua última semana. Não existe resposta certa.',
  'Pequenos ajustes na rotina podem mudar como você se sente. Comece leve.',
- 6, array['sono','energia','rotina'],
+ 6, to_jsonb(array['sono','energia','rotina']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Como está a qualidade do seu sono?","options":[
      {"id":"o1","text":"Boa","score":0},{"id":"o2","text":"Irregular","score":1},{"id":"o3","text":"Ruim","score":2},{"id":"o4","text":"Muito ruim","score":3}]},
@@ -210,11 +210,11 @@ values
 (
  'Autoestima e Autocobrança', 'autoestima-autocobranca',
  'Perceba sua relação com você: autocrítica, comparação, culpa e reconhecimento.',
- 'Autoestima', 'wellbeing', 'essential', 8,
+ 'Autoestima', 'wellbeing', 'essential', '8',
  'published', true, false, true, false, true,
  'Responda com honestidade e gentileza consigo. Aqui existe espaço para você.',
  'Enxergar a própria cobrança já abre espaço para mais leveza. Você merece cuidado.',
- 6, array['autoestima','autocobranca'],
+ 6, to_jsonb(array['autoestima','autocobranca']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Você se critica com frequência?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
@@ -244,11 +244,11 @@ values
 (
  'Mapa Mensal de Autocuidado', 'mapa-mensal-autocuidado',
  'Gera insumos para o seu plano de autocuidado mensal, o relatório e a orientação por mensagem.',
- 'Autocuidado Plus', 'wellbeing', 'plus', 11,
+ 'Autocuidado Plus', 'wellbeing', 'plus', '11',
  'published', true, false, true, false, true,
  'Reserve um tempo tranquilo. Suas respostas ajudam a compor o seu acompanhamento Plus.',
  'Obrigada por compartilhar. Isso vai ajudar a montar seu plano de autocuidado do mês.',
- 6, array['autocuidado','plus','mensal'],
+ 6, to_jsonb(array['autocuidado','plus','mensal']),
  '[
    {"id":"q1","type":"single","required":true,"text":"Qual foi a maior dificuldade do seu mês?","options":[
      {"id":"o1","text":"Ansiedade","score":1,"tag":"ansiedade"},{"id":"o2","text":"Cansaço","score":1,"tag":"cansaco"},{"id":"o3","text":"Sobrecarga","score":1,"tag":"sobrecarga"},{"id":"o4","text":"Autocobrança","score":1,"tag":"autocobranca"}]},
@@ -275,11 +275,11 @@ values
 (
  'Gatilhos Emocionais e Padrões', 'gatilhos-emocionais-padroes',
  'Ajuda a identificar padrões emocionais que se repetem ao longo do tempo.',
- 'Autocuidado Plus', 'wellbeing', 'plus', 10,
+ 'Autocuidado Plus', 'wellbeing', 'plus', '10',
  'published', true, false, true, false, true,
  'Pense no seu último mês. Não há certo ou errado — só o que é seu.',
  'Reconhecer padrões abre caminho para escolhas mais gentis. Continue se observando.',
- 6, array['gatilhos','padroes','plus'],
+ 6, to_jsonb(array['gatilhos','padroes','plus']),
  '[
    {"id":"q1","type":"single","required":true,"text":"O que mais dispara sua ansiedade?","options":[
      {"id":"o1","text":"Cobrança/prazos","score":1,"tag":"cobranca"},{"id":"o2","text":"Conflitos","score":1,"tag":"conflitos"},{"id":"o3","text":"Incerteza","score":1,"tag":"incerteza"},{"id":"o4","text":"Excesso de tarefas","score":1,"tag":"tarefas"}]},
@@ -306,11 +306,11 @@ values
 (
  'Revisão de Jornada', 'revisao-de-jornada',
  'Um momento para refletir sobre evolução, dificuldades e próximos passos.',
- 'Autocuidado Plus', 'wellbeing', 'plus', 10,
+ 'Autocuidado Plus', 'wellbeing', 'plus', '10',
  'published', true, false, true, false, true,
  'Olhe para o seu percurso com gentileza. Todo passo conta.',
  'Revisar a própria jornada é um ato de cuidado. Que bom seguir com você.',
- 6, array['revisao','jornada','plus'],
+ 6, to_jsonb(array['revisao','jornada','plus']),
  '[
    {"id":"q1","type":"single","required":true,"text":"O que melhorou desde que você começou a se acompanhar?","options":[
      {"id":"o1","text":"Autoconhecimento","score":0,"tag":"autoconhecimento"},{"id":"o2","text":"Rotina","score":0,"tag":"rotina"},{"id":"o3","text":"Emoções","score":0,"tag":"emocoes"},{"id":"o4","text":"Ainda é cedo para dizer","score":1,"tag":"cedo"}]},
