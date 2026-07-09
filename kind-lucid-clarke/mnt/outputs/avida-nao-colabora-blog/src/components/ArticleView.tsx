@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Clock, Bookmark, BookmarkCheck, NotebookPen, Heart, Brain, CloudRain, Clock3, Feather } from 'lucide-react'
+import { ArrowLeft, Clock, NotebookPen, Heart, Brain, CloudRain, Feather } from 'lucide-react'
 import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
-import { UpgradeModal } from './UpgradeModal'
 import { markArticleRead } from '../lib/readingProgress'
 import { setPendingAction } from '../lib/pendingAction'
 
@@ -51,13 +50,12 @@ function parseDiaryQuestions(content: string): string[] {
   return questions.slice(0, 5)
 }
 
-type FeedbackType = 'helped' | 'made_me_think' | 'felt_heavy' | 'save_for_later' | 'want_lighter_content'
+type FeedbackType = 'helped' | 'made_me_think' | 'felt_heavy' | 'want_lighter_content'
 
 const FEEDBACK_OPTIONS: { type: FeedbackType; label: string; icon: React.ReactNode }[] = [
   { type: 'helped', label: 'me ajudou', icon: <Heart size={16} /> },
   { type: 'made_me_think', label: 'me fez pensar', icon: <Brain size={16} /> },
   { type: 'felt_heavy', label: 'foi pesado', icon: <CloudRain size={16} /> },
-  { type: 'save_for_later', label: 'salvar para depois', icon: <Clock3 size={16} /> },
   { type: 'want_lighter_content', label: 'quero algo mais leve', icon: <Feather size={16} /> },
 ]
 
@@ -66,7 +64,6 @@ export default function ArticleView({
   article: initialArticle,
   onBack,
   user,
-  profile,
   navigate,
   onSelectArticle,
   onSavePromptToDiary,
@@ -79,13 +76,7 @@ export default function ArticleView({
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackType | null>(null)
   const [feedbackSaving, setFeedbackSaving] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [savedCount, setSavedCount] = useState(0)
-  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: '' })
   const [showSummary, setShowSummary] = useState(true)
-
-  const plan: Plan = profile?.plan || 'free'
-  const isPaid = plan !== 'free'
 
   // ---- Load article ----
   useEffect(() => {
@@ -97,26 +88,6 @@ export default function ArticleView({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, initialArticle])
-
-  // ---- Load saved status ----
-  useEffect(() => {
-    if (!user || !article) return
-    supabase
-      .from('saved_items')
-      .select('id', { count: 'exact' })
-      .eq('user_id', user.id)
-      .eq('item_type', 'article')
-      .eq('item_id', article.slug)
-      .then(({ data }) => {
-        if (data && data.length > 0) setSaved(true)
-      })
-    // Count total saved
-    supabase
-      .from('saved_items')
-      .select('id', { count: 'exact' })
-      .eq('user_id', user.id)
-      .then(({ count }) => setSavedCount(count || 0))
-  }, [user, article])
 
   // ---- Load feedback ----
   useEffect(() => {
@@ -170,44 +141,6 @@ export default function ArticleView({
       // silencia erro de relacionados — não crítico
     }
   }
-
-  // ---- Save to Caixa de Cuidado ----
-  const handleSave = useCallback(async () => {
-    if (!article) return
-    if (!user) {
-      doNavigate('auth')
-      return
-    }
-    if (saved) {
-      // Remove
-      await supabase
-        .from('saved_items')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('item_type', 'article')
-        .eq('item_id', article.slug)
-      setSaved(false)
-      setSavedCount(c => c - 1)
-      return
-    }
-    // Check quota for free plan
-    if (!isPaid && savedCount >= 3) {
-      setUpgradeModal({ open: true, feature: 'conteúdos salvos ilimitados' })
-      return
-    }
-    const { error } = await supabase.from('saved_items').insert({
-      user_id: user.id,
-      item_type: 'article',
-      item_id: article.slug,
-      title: article.title,
-      category: article.category,
-    })
-    if (!error) {
-      setSaved(true)
-      setSavedCount(c => c + 1)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [article, user, saved, isPaid, savedCount])
 
   // ---- Feedback ----
   const handleFeedback = useCallback(async (type: FeedbackType) => {
@@ -330,28 +263,14 @@ export default function ArticleView({
         </ol>
       </nav>
 
-      {/* Back + actions bar */}
-      <div className="flex items-center justify-between gap-3 mb-8 no-print">
+      {/* Back bar */}
+      <div className="flex items-center gap-3 mb-8 no-print">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-ink-soft hover:text-forest-900 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 rounded"
         >
           <ArrowLeft className="w-4 h-4" /> Voltar para conteúdos
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            title={saved ? 'Remover dos salvos' : 'Salvar conteúdo'}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all ${
-              saved
-                ? 'bg-mint/40 border-forest-300 text-forest-700'
-                : 'border-stone-200 text-stone-500 hover:border-forest-300 hover:text-forest-600'
-            }`}
-          >
-            {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
-            {saved ? 'Salvo' : 'Salvar'}
-          </button>
-        </div>
       </div>
 
       {/* Category + title */}
@@ -443,7 +362,7 @@ export default function ArticleView({
         <h3 className="font-bold text-sage-800 mb-1">Como esse artigo encontrou você hoje?</h3>
         {feedbackDone ? (
           <p className="text-sage-500 text-sm mt-2">
-            Obrigado por compartilhar. Sua resposta foi registrada. 💚
+            Sua resposta foi registrada. Que bom ter você aqui. 💚
           </p>
         ) : (
           <>
@@ -487,27 +406,7 @@ export default function ArticleView({
           >
             <NotebookPen size={15} /> Registrar como estou hoje
           </button>
-          {/* D) Salvar conteúdo */}
-          <button
-            onClick={handleSave}
-            className={`px-5 py-2.5 rounded-lg text-sm font-medium border flex items-center gap-2 transition-all ${
-              saved
-                ? 'bg-white border-forest-300 text-forest-700'
-                : 'bg-white border-stone-200 text-stone-600 hover:border-forest-300 hover:text-forest-700'
-            }`}
-          >
-            {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
-            {saved ? 'Conteúdo salvo' : 'Salvar conteúdo'}
-          </button>
         </div>
-        {!isPaid && savedCount >= 3 && !saved && (
-          <p className="text-xs text-amber-600 mt-2">
-            Você atingiu o limite de 3 itens salvos no plano gratuito.{' '}
-            <button onClick={() => setUpgradeModal({ open: true, feature: 'conteúdos salvos ilimitados' })} className="underline">
-              Fazer upgrade
-            </button>
-          </p>
-        )}
       </div>
 
       {/* Disclaimer */}
@@ -557,16 +456,6 @@ export default function ArticleView({
         </div>
       )}
 
-      {/* G) Upgrade modal */}
-      {upgradeModal.open && (
-        <UpgradeModal
-          isOpen={upgradeModal.open}
-          featureName={upgradeModal.feature}
-          requiredPlan="essential"
-          onClose={() => setUpgradeModal({ open: false, feature: '' })}
-          navigate={(v) => doNavigate(v)}
-        />
-      )}
     </div>
   )
 }

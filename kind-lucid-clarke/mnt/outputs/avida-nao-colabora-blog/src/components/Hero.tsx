@@ -45,7 +45,7 @@ const MOODS = [
 
 // Mapeia o humor do Hero para a chave de chip do diário, para pré-selecionar após o login (§8.6).
 const HERO_MOOD_TO_CHIP: Record<string, string> = {
-  ansioso: 'ansiosa', triste: 'outro', sobrecarregado: 'sobrecarregada', 'sem-energia': 'cansada', confuso: 'outro',
+  ansioso: 'ansiedade', triste: 'outro', sobrecarregado: 'sobrecarga', 'sem-energia': 'cansaco', confuso: 'outro',
 }
 
 const PLUS_ITEMS = [

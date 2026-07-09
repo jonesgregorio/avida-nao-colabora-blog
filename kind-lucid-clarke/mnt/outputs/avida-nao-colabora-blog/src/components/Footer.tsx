@@ -102,7 +102,7 @@ export default function Footer({ onNavigate }: FooterProps) {
             className="flex gap-2 w-full md:justify-end"
           >
             {sent ? (
-              <p className="text-sm text-forest-700 self-center">Obrigado! Em breve você recebe novidades. 💚</p>
+              <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades. 💚</p>
             ) : (
               <>
                 <input

@@ -569,12 +569,12 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             {stats.avgMood > 0 && <MoodBar label="Humor" value={stats.avgMood} />}
             {hasPlan(plan, 'essential') && stats.avgEnergy > 0 && <MoodBar label="Energia" value={stats.avgEnergy} />}
             {hasPlan(plan, 'essential') && stats.avgSleep > 0 && <MoodBar label="Sono" value={stats.avgSleep} />}
-            {hasPlan(plan, 'therapeutic') && stats.avgAnxiety > 0 && <MoodBar label="Ansiedade percebida" value={stats.avgAnxiety} />}
-            {hasPlan(plan, 'therapeutic') && stats.avgSelfEsteem > 0 && <MoodBar label="Autoestima percebida" value={stats.avgSelfEsteem} />}
+            {hasPlan(plan, 'essential') && stats.avgAnxiety > 0 && <MoodBar label="Ansiedade percebida" value={stats.avgAnxiety} />}
+            {hasPlan(plan, 'essential') && stats.avgSelfEsteem > 0 && <MoodBar label="Autoestima percebida" value={stats.avgSelfEsteem} />}
           </div>
 
-          {/* Terapêutico: comparativo */}
-          {hasPlan(plan, 'therapeutic') && (
+          {/* Comparativo mensal — parte do mapa completo (Essencial) */}
+          {hasPlan(plan, 'essential') && (
             <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
               <h3 className="text-sm font-semibold text-stone-700 mb-2">Comparativo com mês anterior</h3>
               {stats.prevMonthAvgMood > 0 ? (
@@ -602,12 +602,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
           )}
 
-          {!hasPlan(plan, 'therapeutic') && (
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
-              <p className="text-xs text-stone-500">Gráficos comparativos mensais e marcadores avançados estão disponíveis no plano Plus.</p>
-              <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
-            </div>
-          )}
         </>
       )}
 
@@ -649,7 +643,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
   const loadReport = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    const type = hasPlan(plan, 'therapeutic') ? 'advanced' : 'simple'
+    const type = hasPlan(plan, 'plus') ? 'advanced' : 'simple'
     const [repRes, extrasRes] = await Promise.all([
       supabase.from('monthly_reports').select('*')
         .eq('user_id', user.id).eq('month_key', selectedMonth).eq('report_type', type).maybeSingle(),
@@ -678,7 +672,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
   async function generateReport() {
     if (!user) return
     setGenerating(true)
-    const type = hasPlan(plan, 'therapeutic') ? 'advanced' : 'simple'
+    const type = hasPlan(plan, 'plus') ? 'advanced' : 'simple'
     const summary = `Registros: ${stats.totalEntries} | Humor predominante: ${stats.dominantMood} | Energia média: ${stats.avgEnergy.toFixed(1)}/5 | Sono médio: ${stats.avgSleep.toFixed(1)}/5`
     const { data, error } = await supabase.from('monthly_reports').upsert({
       user_id: user.id,
@@ -721,7 +715,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
         <span className="text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded-full">
-          {hasPlan(plan, 'therapeutic') ? 'Relatório Avançado' : 'Relatório Simples'}
+          {hasPlan(plan, 'plus') ? 'Relatório Avançado' : 'Relatório Simples'}
         </span>
       </div>
 
@@ -755,7 +749,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
             </div>
           )}
 
-          {hasPlan(plan, 'therapeutic-plus') && (
+          {hasPlan(plan, 'plus') && (
             <ProfessionalCommentStatus userId={user?.id} monthKey={selectedMonth} reportId={report.id} />
           )}
 
@@ -807,7 +801,7 @@ function TabRelatorios({ plan, user, profile: _profile, onNavigatePricing }: {
         </div>
       )}
 
-      {!hasPlan(plan, 'therapeutic') && (
+      {!hasPlan(plan, 'plus') && (
         <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
           <p className="text-xs text-stone-500">Relatório avançado, gráficos comparativos e recomendações personalizadas estão no plano Plus.</p>
           <button onClick={onNavigatePricing} className="text-xs text-emerald-600 underline">Ver planos</button>
@@ -902,7 +896,7 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user || !hasPlan(plan, 'therapeutic')) { setLoading(false); return }
+    if (!user || !hasPlan(plan, 'plus')) { setLoading(false); return }
     Promise.all([
       supabase.from('self_care_plan_reviews').select('*')
         .eq('user_id', user.id).order('month_key', { ascending: false }).limit(6),
@@ -917,10 +911,10 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
     })
   }, [user, plan])
 
-  if (!hasPlan(plan, 'therapeutic')) {
+  if (!hasPlan(plan, 'plus')) {
     return (
       <LockedSection
-        requiredPlan="therapeutic"
+        requiredPlan="plus"
         message="O Plano de Autocuidado personalizado está disponível no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
@@ -994,7 +988,7 @@ function TabAutocuidado({ plan, user, onNavigatePricing }: {
         </div>
       )}
 
-      {!hasPlan(plan, 'therapeutic-plus') && (
+      {!hasPlan(plan, 'plus') && (
         <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center space-y-2">
           <Lock className="w-4 h-4 text-stone-300 mx-auto" />
           <p className="text-xs text-stone-500">Revisão mensal do plano de autocuidado com comentário profissional está disponível no plano Plus.</p>
@@ -1050,10 +1044,10 @@ function TabOrientacoes({ plan, user, onNavigatePricing }: {
 
   useEffect(() => { load() }, [load])
 
-  if (!hasPlan(plan, 'therapeutic')) {
+  if (!hasPlan(plan, 'plus')) {
     return (
       <LockedSection
-        requiredPlan="therapeutic"
+        requiredPlan="plus"
         message="Orientação mensal por mensagem está disponível no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />
@@ -1299,7 +1293,7 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user || !hasPlan(plan, 'therapeutic-plus')) { setLoading(false); return }
+    if (!user || !hasPlan(plan, 'plus')) { setLoading(false); return }
     Promise.all([
       supabase.from('professional_comments')
         .select('id, report_month, comment, comment_text, title, professional_name, created_at')
@@ -1315,10 +1309,10 @@ function TabComentarios({ plan, user, onNavigatePricing }: {
     })
   }, [user, plan])
 
-  if (!hasPlan(plan, 'therapeutic-plus')) {
+  if (!hasPlan(plan, 'plus')) {
     return (
       <LockedSection
-        requiredPlan="therapeutic-plus"
+        requiredPlan="plus"
         message="Comentários individuais sobre o relatório do mês estão disponíveis no plano Plus."
         onNavigatePricing={onNavigatePricing}
       />

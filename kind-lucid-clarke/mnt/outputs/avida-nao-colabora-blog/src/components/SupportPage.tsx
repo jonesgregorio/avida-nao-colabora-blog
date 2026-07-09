@@ -273,12 +273,12 @@ export default function SupportPage({ user, profile, navigate, onBack: _onBack, 
               <h2 className="font-serif text-lg">Orientação profissional</h2>
               <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full flex items-center gap-1"><Crown className="w-3 h-3" /> Plus</span>
             </div>
-            <p className="text-sm text-forest-50/90 leading-relaxed">Apoio individual com orientação especializada — conversas 1:1, acolhimento e direcionamento prático, com sigilo e respeito.</p>
+            <p className="text-sm text-forest-50/90 leading-relaxed">Orientação mensal por mensagem — um direcionamento individual e não emergencial, enviado uma vez por mês com base nos seus registros.</p>
             <button
               onClick={() => navigate(isPlus ? 'monthly-guidance' : 'pricing')}
               className="mt-4 inline-flex items-center gap-2 bg-white text-forest-900 text-sm font-medium px-4 py-2 rounded-xl hover:bg-mint transition-colors"
             >
-              {isPlus ? 'Agendar orientação' : 'Conhecer o Plus'} <ArrowRight className="w-4 h-4" />
+              {isPlus ? 'Enviar mensagem de orientação' : 'Conhecer o Plus'} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </aside>

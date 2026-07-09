@@ -65,9 +65,6 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
   { key: 'monthly_message_guidance',                  name: 'Orientação mensal por mensagem',                                                                            category: 'Orientação profissional', order: 29 },
   { key: 'professional_comment_on_monthly_report',    name: 'Comentário profissional mensal',                                                                            category: 'Orientação profissional', order: 30 },
   { key: 'maximum_priority_support',                  name: 'Suporte prioritário máximo',                                                                                category: 'Suporte',             order: 31 },
-  // Legados (sem plano que concede — sessão presencial saiu do produto)
-  { key: 'monthly_psychoanalyst_session_30min',       name: '(Legado) Sessão mensal com profissional',                                                                  category: 'Legado',              order: 90 },
-  { key: 'monthly_self_care_plan_review',             name: '(Legado) Revisão mensal do plano',                                                                          category: 'Legado',              order: 91 },
 ]
 
 // ─── Mapa de aliases → chave principal ───────────────────────────────────────

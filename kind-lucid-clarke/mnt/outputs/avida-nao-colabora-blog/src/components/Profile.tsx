@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Profile as ProfileType } from '../types'
 import {
-  Camera, Save, Key, LogOut, CheckCircle2, Bookmark, Flame, AlertTriangle, Check,
+  Camera, Save, Key, LogOut, CheckCircle2, Flame, AlertTriangle, Check,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
@@ -29,7 +29,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   const [newPassword, setNewPassword] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [stats, setStats] = useState({ checkins: 0, saved: 0, streak: 0 })
+  const [stats, setStats] = useState({ checkins: 0, streak: 0 })
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -46,10 +46,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     if (!user) return
     let active = true
     ;(async () => {
-      const [entriesRes, savedRes] = await Promise.all([
-        supabase.from('diary_entries').select('date,entry_type').eq('user_id', user.id),
-        supabase.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-      ])
+      const entriesRes = await supabase.from('diary_entries').select('date,entry_type').eq('user_id', user.id)
       if (!active) return
       const days = new Set((entriesRes.data ?? []).filter(e => (e as { entry_type?: string }).entry_type === 'diary').map(e => String((e as { date?: string }).date ?? '').slice(0, 10)))
       // sequência de dias consecutivos terminando hoje/ontem
@@ -57,7 +54,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
       if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1)
       let streak = 0
       while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1) }
-      setStats({ checkins: days.size, saved: savedRes.count ?? 0, streak })
+      setStats({ checkins: days.size, streak })
     })()
     return () => { active = false }
   }, [user])
@@ -263,7 +260,6 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
             <h2 className="font-serif text-lg text-forest-900 mb-4">Resumo da sua jornada</h2>
             <div className="space-y-3">
               <JourneyStat icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label="check-ins realizados" />
-              <JourneyStat icon={<Bookmark className="w-4 h-4" />} value={stats.saved} label="conteúdos salvos" />
               <JourneyStat icon={<Flame className="w-4 h-4" />} value={stats.streak} label={stats.streak === 1 ? 'dia seguido' : 'dias seguidos'} />
             </div>
           </div>

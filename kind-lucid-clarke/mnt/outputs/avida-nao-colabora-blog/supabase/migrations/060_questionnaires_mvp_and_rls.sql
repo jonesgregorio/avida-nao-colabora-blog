@@ -1,26 +1,70 @@
 -- ============================================================================
--- SEED DOS QUESTIONÁRIOS OFICIAIS DO MVP  (brief §9–§12)
--- 1 inicial (free) · 4 intermediários (essential) · 3 avançados (plus)
---
--- Como rodar: Supabase Dashboard → SQL Editor → cole e Run.
--- É idempotente: esconde os antigos e regrava os 8 por slug.
--- Linguagem de autopercepção — SEM diagnóstico clínico (§9).
---
--- Colunas usadas (todas confirmadas no código do app/admin):
---   title, slug, description, category, type, plan_required, estimated_time,
---   status, show_on_questionnaires_page, show_score, show_result,
---   allow_anonymous, allow_retake, intro_text, completion_text,
---   question_count, tags, questions (jsonb), results (jsonb)
--- Formato de questions: [{ "id","type":"single","text","required":true,
---                          "options":[{ "id","text","score","tag" }] }]
--- Formato de results:   [{ "id","min_score","max_score","label",
---                          "description","recommendation","color" }]
---   (o player mostra description como texto principal e recommendation como
---    "próximos passos"; nenhum texto afirma transtorno/doença.)
+-- Migration 060: Questionários oficiais do MVP + RLS 3 planos + progresso parcial
+-- (§12.2, §12.3, §12.4, §12.5)
+--  - Colunas de progresso parcial em questionnaire_responses
+--  - RLS de leitura por plano: free (todos) / essential (essential+plus) / plus (plus)
+--    normalizando legados therapeutic/therapeutic-plus -> plus
+--  - Semeia os 8 questionários oficiais com question type "single_choice"
+--  - Idempotente por slug; esconde questionários antigos
 -- ============================================================================
 
 begin;
 
+-- 1) Progresso parcial (§12.5): respostas parciais + passo atual + updated_at
+alter table questionnaire_responses add column if not exists answers      jsonb       not null default '{}'::jsonb;
+alter table questionnaire_responses add column if not exists current_step  integer     not null default 0;
+alter table questionnaire_responses add column if not exists updated_at    timestamptz not null default now();
+
+-- 2) Normaliza planos legados no banco (nunca expor therapeutic ao usuário)
+update profiles set plan = 'plus' where plan in ('therapeutic','therapeutic-plus');
+
+-- 3) RLS de leitura por plano em questionnaires (substitui a lógica antiga da 036)
+drop policy if exists "any_read_free_questionnaires"            on questionnaires;
+drop policy if exists "auth_read_essential_questionnaires"      on questionnaires;
+drop policy if exists "auth_read_therapeutic_questionnaires"    on questionnaires;
+drop policy if exists "auth_read_therapeutic_plus_questionnaires" on questionnaires;
+drop policy if exists "q_read_free"      on questionnaires;
+drop policy if exists "q_read_essential" on questionnaires;
+drop policy if exists "q_read_plus"      on questionnaires;
+
+-- free -> qualquer visitante (autenticado ou anônimo)
+create policy "q_read_free" on questionnaires
+  for select using (
+    (status = 'published' or coalesce(active,false) = true)
+    and coalesce(plan_required,'free') = 'free'
+  );
+
+-- essential -> usuário essential ou plus (legado therapeutic/-plus = plus) ou admin
+create policy "q_read_essential" on questionnaires
+  for select using (
+    (status = 'published' or coalesce(active,false) = true)
+    and plan_required = 'essential'
+    and (
+      is_admin()
+      or exists (
+        select 1 from profiles p
+        where p.user_id = auth.uid()
+          and p.plan in ('essential','plus','therapeutic','therapeutic-plus')
+      )
+    )
+  );
+
+-- plus -> usuário plus (legado therapeutic/-plus = plus) ou admin
+create policy "q_read_plus" on questionnaires
+  for select using (
+    (status = 'published' or coalesce(active,false) = true)
+    and plan_required = 'plus'
+    and (
+      is_admin()
+      or exists (
+        select 1 from profiles p
+        where p.user_id = auth.uid()
+          and p.plan in ('plus','therapeutic','therapeutic-plus')
+      )
+    )
+  );
+
+-- 4) Semeia os 8 questionários oficiais (question type "single_choice").
 -- Só os 8 oficiais devem aparecer na página de Questionários.
 update questionnaires set show_on_questionnaires_page = false
 where show_on_questionnaires_page = true;
@@ -50,42 +94,42 @@ values
  'Que bom que você reservou esse tempo para se ouvir. Um passo de cada vez já é cuidado.',
  8, to_jsonb(array['inicial','bem-estar']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Como está o seu humor na maior parte dos dias?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Como está o seu humor na maior parte dos dias?","options":[
      {"id":"o1","text":"Bem, na maioria dos dias","score":0},
      {"id":"o2","text":"Oscila bastante","score":1},
      {"id":"o3","text":"Mais para baixo","score":2},
      {"id":"o4","text":"Difícil quase todos os dias","score":3}]},
-   {"id":"q2","type":"single","required":true,"text":"Com que frequência você sente um cansaço que o descanso não resolve?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Com que frequência você sente um cansaço que o descanso não resolve?","options":[
      {"id":"o1","text":"Raramente","score":0},
      {"id":"o2","text":"Às vezes","score":1},
      {"id":"o3","text":"Com frequência","score":2},
      {"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q3","type":"single","required":true,"text":"Como anda a ansiedade percebida no seu dia?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"Como anda a ansiedade percebida no seu dia?","options":[
      {"id":"o1","text":"Tranquila","score":0},
      {"id":"o2","text":"Presente em alguns momentos","score":1},
      {"id":"o3","text":"Presente boa parte do dia","score":2},
      {"id":"o4","text":"Difícil de controlar","score":3}]},
-   {"id":"q4","type":"single","required":true,"text":"Você tem sentido sobrecarga?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Você tem sentido sobrecarga?","options":[
      {"id":"o1","text":"Não","score":0},
      {"id":"o2","text":"Um pouco","score":1},
      {"id":"o3","text":"Bastante","score":2},
      {"id":"o4","text":"No limite","score":3}]},
-   {"id":"q5","type":"single","required":true,"text":"Você percebe que come para aliviar emoções (ansiedade, tédio, tristeza)?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Você percebe que come para aliviar emoções (ansiedade, tédio, tristeza)?","options":[
      {"id":"o1","text":"Raramente","score":0},
      {"id":"o2","text":"Às vezes","score":1},
      {"id":"o3","text":"Com frequência","score":2},
      {"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"Como está o seu sono?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Como está o seu sono?","options":[
      {"id":"o1","text":"Bom e reparador","score":0},
      {"id":"o2","text":"Irregular","score":1},
      {"id":"o3","text":"Durmo mal com frequência","score":2},
      {"id":"o4","text":"Acordo com exaustão","score":3}]},
-   {"id":"q7","type":"single","required":true,"text":"Você sente alguma dor ou limitação física que pesa no seu dia?","options":[
+   {"id":"q7","type":"single_choice","required":true,"text":"Você sente alguma dor ou limitação física que pesa no seu dia?","options":[
      {"id":"o1","text":"Não","score":0},
      {"id":"o2","text":"Leve","score":1},
      {"id":"o3","text":"Moderada","score":2},
      {"id":"o4","text":"Intensa","score":3}]},
-   {"id":"q8","type":"single","required":true,"text":"Qual é a sua vontade de se cuidar neste momento?","options":[
+   {"id":"q8","type":"single_choice","required":true,"text":"Qual é a sua vontade de se cuidar neste momento?","options":[
      {"id":"o1","text":"Bem presente","score":0},
      {"id":"o2","text":"Existe, mas falta energia","score":1},
      {"id":"o3","text":"Pouca","score":2},
@@ -112,17 +156,17 @@ values
  'Reconhecer padrões já é um passo de cuidado. Seja gentil com você.',
  6, to_jsonb(array['fome-emocional','compulsao']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Você come por ansiedade?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Você come por ansiedade?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q2","type":"single","required":true,"text":"Você come por tristeza?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Você come por tristeza?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q3","type":"single","required":true,"text":"Você come por tédio?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"Você come por tédio?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q4","type":"single","required":true,"text":"Depois de comer, você sente culpa?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Depois de comer, você sente culpa?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q5","type":"single","required":true,"text":"Você sente que perde o controle ao comer?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Você sente que perde o controle ao comer?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"Em quais momentos você se sente mais vulnerável à comida?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Em quais momentos você se sente mais vulnerável à comida?","options":[
      {"id":"o1","text":"Manhã","score":1,"tag":"manha"},{"id":"o2","text":"Tarde","score":1,"tag":"tarde"},{"id":"o3","text":"Noite","score":2,"tag":"noite"},{"id":"o4","text":"Madrugada","score":2,"tag":"madrugada"}]}
  ]'::jsonb,
  '[
@@ -146,19 +190,19 @@ values
  'Perceber os sinais é o começo de cuidar deles. Um passo de cada vez.',
  7, to_jsonb(array['ansiedade','sobrecarga']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Você tem pensamentos acelerados?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Você tem pensamentos acelerados?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q2","type":"single","required":true,"text":"Você sente tensão no corpo?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Você sente tensão no corpo?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q3","type":"single","required":true,"text":"Você tem dificuldade de relaxar?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"Você tem dificuldade de relaxar?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q4","type":"single","required":true,"text":"Você sente uma sensação de urgência constante?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Você sente uma sensação de urgência constante?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q5","type":"single","required":true,"text":"Você tem sentido irritação?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Você tem sentido irritação?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"Você se cobra em excesso?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Você se cobra em excesso?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q7","type":"single","required":true,"text":"Você tem dificuldade de descansar sem culpa?","options":[
+   {"id":"q7","type":"single_choice","required":true,"text":"Você tem dificuldade de descansar sem culpa?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]}
  ]'::jsonb,
  '[
@@ -182,17 +226,17 @@ values
  'Pequenos ajustes na rotina podem mudar como você se sente. Comece leve.',
  6, to_jsonb(array['sono','energia','rotina']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Como está a qualidade do seu sono?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Como está a qualidade do seu sono?","options":[
      {"id":"o1","text":"Boa","score":0},{"id":"o2","text":"Irregular","score":1},{"id":"o3","text":"Ruim","score":2},{"id":"o4","text":"Muito ruim","score":3}]},
-   {"id":"q2","type":"single","required":true,"text":"Você acorda com cansaço?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Você acorda com cansaço?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q3","type":"single","required":true,"text":"Como está sua energia ao longo do dia?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"Como está sua energia ao longo do dia?","options":[
      {"id":"o1","text":"Estável","score":0},{"id":"o2","text":"Cai à tarde","score":1},{"id":"o3","text":"Baixa boa parte do dia","score":2},{"id":"o4","text":"Quase sempre no chão","score":3}]},
-   {"id":"q4","type":"single","required":true,"text":"Sua rotina está irregular?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Sua rotina está irregular?","options":[
      {"id":"o1","text":"Não","score":0},{"id":"o2","text":"Um pouco","score":1},{"id":"o3","text":"Bastante","score":2},{"id":"o4","text":"Totalmente","score":3}]},
-   {"id":"q5","type":"single","required":true,"text":"Você usa telas até tarde da noite?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Você usa telas até tarde da noite?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase toda noite","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"Você tem dificuldade de desacelerar antes de dormir?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Você tem dificuldade de desacelerar antes de dormir?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]}
  ]'::jsonb,
  '[
@@ -216,17 +260,17 @@ values
  'Enxergar a própria cobrança já abre espaço para mais leveza. Você merece cuidado.',
  6, to_jsonb(array['autoestima','autocobranca']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Você se critica com frequência?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Você se critica com frequência?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q2","type":"single","required":true,"text":"Você se compara aos outros?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Você se compara aos outros?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q3","type":"single","required":true,"text":"Você sente vergonha de como está?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"Você sente vergonha de como está?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q4","type":"single","required":true,"text":"Você tem dificuldade de reconhecer seus avanços?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Você tem dificuldade de reconhecer seus avanços?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q5","type":"single","required":true,"text":"Você sente culpa ao descansar?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Você sente culpa ao descansar?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"Você sente que nunca é suficiente?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Você sente que nunca é suficiente?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]}
  ]'::jsonb,
  '[
@@ -250,17 +294,17 @@ values
  'Que bom que você compartilhou. Isso vai ajudar a montar seu plano de autocuidado do mês.',
  6, to_jsonb(array['autocuidado','plus','mensal']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"Qual foi a maior dificuldade do seu mês?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"Qual foi a maior dificuldade do seu mês?","options":[
      {"id":"o1","text":"Ansiedade","score":1,"tag":"ansiedade"},{"id":"o2","text":"Cansaço","score":1,"tag":"cansaco"},{"id":"o3","text":"Sobrecarga","score":1,"tag":"sobrecarga"},{"id":"o4","text":"Autocobrança","score":1,"tag":"autocobranca"}]},
-   {"id":"q2","type":"single","required":true,"text":"Qual emoção apareceu com mais frequência?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"Qual emoção apareceu com mais frequência?","options":[
      {"id":"o1","text":"Ansiedade","score":1,"tag":"ansiedade"},{"id":"o2","text":"Tristeza","score":1,"tag":"tristeza"},{"id":"o3","text":"Irritação","score":1,"tag":"irritacao"},{"id":"o4","text":"Cansaço","score":1,"tag":"cansaco"}]},
-   {"id":"q3","type":"single","required":true,"text":"O que mais funcionou como gatilho difícil?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"O que mais funcionou como gatilho difícil?","options":[
      {"id":"o1","text":"Trabalho","score":1,"tag":"trabalho"},{"id":"o2","text":"Relações","score":1,"tag":"relacoes"},{"id":"o3","text":"Rotina/sono","score":1,"tag":"rotina"},{"id":"o4","text":"Cobrança interna","score":1,"tag":"cobranca"}]},
-   {"id":"q4","type":"single","required":true,"text":"Que hábito te ajudou neste mês?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Que hábito te ajudou neste mês?","options":[
      {"id":"o1","text":"Registrar no diário","score":0,"tag":"diario"},{"id":"o2","text":"Pausas/respiração","score":0,"tag":"pausas"},{"id":"o3","text":"Movimento/corpo","score":0,"tag":"corpo"},{"id":"o4","text":"Ainda estou buscando","score":1,"tag":"buscando"}]},
-   {"id":"q5","type":"single","required":true,"text":"Qual área da sua vida foi mais afetada?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Qual área da sua vida foi mais afetada?","options":[
      {"id":"o1","text":"Trabalho/estudos","score":1,"tag":"trabalho"},{"id":"o2","text":"Relações","score":1,"tag":"relacoes"},{"id":"o3","text":"Saúde/corpo","score":1,"tag":"saude"},{"id":"o4","text":"Autoestima","score":1,"tag":"autoestima"}]},
-   {"id":"q6","type":"single","required":true,"text":"Que tipo de apoio você gostaria de receber este mês?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Que tipo de apoio você gostaria de receber este mês?","options":[
      {"id":"o1","text":"Organização da rotina","score":0,"tag":"rotina"},{"id":"o2","text":"Lidar com ansiedade","score":0,"tag":"ansiedade"},{"id":"o3","text":"Autocompaixão","score":0,"tag":"autocompaixao"},{"id":"o4","text":"Constância no autocuidado","score":0,"tag":"constancia"}]}
  ]'::jsonb,
  '[
@@ -281,17 +325,17 @@ values
  'Reconhecer padrões abre caminho para escolhas mais gentis. Continue se observando.',
  6, to_jsonb(array['gatilhos','padroes','plus']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"O que mais dispara sua ansiedade?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"O que mais dispara sua ansiedade?","options":[
      {"id":"o1","text":"Cobrança/prazos","score":1,"tag":"cobranca"},{"id":"o2","text":"Conflitos","score":1,"tag":"conflitos"},{"id":"o3","text":"Incerteza","score":1,"tag":"incerteza"},{"id":"o4","text":"Excesso de tarefas","score":1,"tag":"tarefas"}]},
-   {"id":"q2","type":"single","required":true,"text":"O que costuma disparar sua fome emocional?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"O que costuma disparar sua fome emocional?","options":[
      {"id":"o1","text":"Estresse","score":1,"tag":"estresse"},{"id":"o2","text":"Tédio","score":1,"tag":"tedio"},{"id":"o3","text":"Tristeza","score":1,"tag":"tristeza"},{"id":"o4","text":"Cansaço","score":1,"tag":"cansaco"}]},
-   {"id":"q3","type":"single","required":true,"text":"O que te leva ao isolamento?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"O que te leva ao isolamento?","options":[
      {"id":"o1","text":"Vergonha","score":1,"tag":"vergonha"},{"id":"o2","text":"Cansaço","score":1,"tag":"cansaco"},{"id":"o3","text":"Sensação de rejeição","score":1,"tag":"rejeicao"},{"id":"o4","text":"Sobrecarga","score":1,"tag":"sobrecarga"}]},
-   {"id":"q4","type":"single","required":true,"text":"Onde os conflitos pesam mais?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Onde os conflitos pesam mais?","options":[
      {"id":"o1","text":"Família","score":1,"tag":"familia"},{"id":"o2","text":"Trabalho","score":1,"tag":"trabalho"},{"id":"o3","text":"Relacionamento","score":1,"tag":"relacionamento"},{"id":"o4","text":"Comigo","score":1,"tag":"eu"}]},
-   {"id":"q5","type":"single","required":true,"text":"Com que frequência a necessidade de aprovação te move?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Com que frequência a necessidade de aprovação te move?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]},
-   {"id":"q6","type":"single","required":true,"text":"O cansaço físico influencia suas reações?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"O cansaço físico influencia suas reações?","options":[
      {"id":"o1","text":"Raramente","score":0},{"id":"o2","text":"Às vezes","score":1},{"id":"o3","text":"Com frequência","score":2},{"id":"o4","text":"Quase sempre","score":3}]}
  ]'::jsonb,
  '[
@@ -312,17 +356,17 @@ values
  'Revisar a própria jornada é um ato de cuidado. Que bom seguir com você.',
  6, to_jsonb(array['revisao','jornada','plus']),
  '[
-   {"id":"q1","type":"single","required":true,"text":"O que melhorou desde que você começou a se acompanhar?","options":[
+   {"id":"q1","type":"single_choice","required":true,"text":"O que melhorou desde que você começou a se acompanhar?","options":[
      {"id":"o1","text":"Autoconhecimento","score":0,"tag":"autoconhecimento"},{"id":"o2","text":"Rotina","score":0,"tag":"rotina"},{"id":"o3","text":"Emoções","score":0,"tag":"emocoes"},{"id":"o4","text":"Ainda é cedo para dizer","score":1,"tag":"cedo"}]},
-   {"id":"q2","type":"single","required":true,"text":"O que continua difícil?","options":[
+   {"id":"q2","type":"single_choice","required":true,"text":"O que continua difícil?","options":[
      {"id":"o1","text":"Ansiedade","score":1,"tag":"ansiedade"},{"id":"o2","text":"Constância","score":1,"tag":"constancia"},{"id":"o3","text":"Autocobrança","score":1,"tag":"autocobranca"},{"id":"o4","text":"Sono/energia","score":1,"tag":"sono"}]},
-   {"id":"q3","type":"single","required":true,"text":"O que você aprendeu sobre si?","options":[
+   {"id":"q3","type":"single_choice","required":true,"text":"O que você aprendeu sobre si?","options":[
      {"id":"o1","text":"Meus limites","score":0,"tag":"limites"},{"id":"o2","text":"Meus gatilhos","score":0,"tag":"gatilhos"},{"id":"o3","text":"O que me faz bem","score":0,"tag":"bem"},{"id":"o4","text":"Ainda estou descobrindo","score":1,"tag":"descobrindo"}]},
-   {"id":"q4","type":"single","required":true,"text":"Qual prática funcionou melhor para você?","options":[
+   {"id":"q4","type":"single_choice","required":true,"text":"Qual prática funcionou melhor para você?","options":[
      {"id":"o1","text":"Diário","score":0,"tag":"diario"},{"id":"o2","text":"Respiração/pausas","score":0,"tag":"pausas"},{"id":"o3","text":"Conteúdos guiados","score":0,"tag":"conteudos"},{"id":"o4","text":"Ainda buscando","score":1,"tag":"buscando"}]},
-   {"id":"q5","type":"single","required":true,"text":"Que meta faz sentido para o próximo mês?","options":[
+   {"id":"q5","type":"single_choice","required":true,"text":"Que meta faz sentido para o próximo mês?","options":[
      {"id":"o1","text":"Mais constância","score":0,"tag":"constancia"},{"id":"o2","text":"Menos autocobrança","score":0,"tag":"autocobranca"},{"id":"o3","text":"Melhorar o sono","score":0,"tag":"sono"},{"id":"o4","text":"Cuidar das relações","score":0,"tag":"relacoes"}]},
-   {"id":"q6","type":"single","required":true,"text":"Que tipo de apoio você precisa agora?","options":[
+   {"id":"q6","type":"single_choice","required":true,"text":"Que tipo de apoio você precisa agora?","options":[
      {"id":"o1","text":"Orientação por mensagem","score":0,"tag":"orientacao"},{"id":"o2","text":"Plano de autocuidado","score":0,"tag":"plano"},{"id":"o3","text":"Acompanhar minha evolução","score":0,"tag":"evolucao"},{"id":"o4","text":"Só continuar registrando","score":0,"tag":"registrar"}]}
  ]'::jsonb,
  '[
@@ -333,7 +377,3 @@ values
 );
 
 commit;
-
--- Conferência rápida (opcional): deve listar exatamente 8 linhas.
--- select title, plan_required, category from questionnaires
--- where show_on_questionnaires_page = true order by plan_required, title;

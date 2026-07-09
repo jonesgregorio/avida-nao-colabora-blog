@@ -20,10 +20,13 @@ const moodOptions = [
   { value: 'sobrecarregado', emoji: '😩', label: 'Sobrecarga', score: 2 },
 ]
 
-// Mapa entre os chips de check-in (identidade visual) e o valor de humor salvo.
+// Mapa entre os chips de check-in (slug neutro) e o valor de humor salvo.
+// Mantém os slugs antigos como compatibilidade para links/dados anteriores.
 const CHIP_TO_MOOD: Record<string, string> = {
-  tranquila: 'bem', bem: 'bem', ansiosa: 'ansioso', cansada: 'neutro',
-  sobrecarregada: 'sobrecarregado', outro: 'neutro',
+  tranquilidade: 'bem', bem_estar: 'bem', ansiedade: 'ansioso', cansaco: 'neutro',
+  sobrecarga: 'sobrecarregado', outro: 'neutro',
+  // compat legado
+  tranquila: 'bem', bem: 'bem', ansiosa: 'ansioso', cansada: 'neutro', sobrecarregada: 'sobrecarregado',
 }
 
 const emotionalTags = [
@@ -143,8 +146,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const [habits, setHabits] = useState('')
 
   const isEssential = hasPlanAccess(plan, 'essential')
-  const isTherapeutic = hasPlanAccess(plan, 'plus')
-  const planKey: 'free' | 'essential' | 'plus' = isTherapeutic ? 'plus' : isEssential ? 'essential' : 'free'
+  const isPlus = hasPlanAccess(plan, 'plus')
+  const planKey: 'free' | 'essential' | 'plus' = isPlus ? 'plus' : isEssential ? 'essential' : 'free'
   const planPrompts = PROMPTS_BY_PLAN[planKey]
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
@@ -181,7 +184,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
 
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
-    const planFilter = isTherapeutic
+    const planFilter = isPlus
       ? ['free', 'essential', 'plus', 'therapeutic', 'therapeutic-plus']
       : isEssential
       ? ['free', 'essential']
@@ -197,7 +200,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     if (pool.length > 0) {
       setPrompt(pool[Math.floor(Math.random() * pool.length)])
     }
-  }, [isEssential, isTherapeutic, cfg.guidedQuestions])
+  }, [isEssential, isPlus, cfg.guidedQuestions])
 
   useEffect(() => {
     fetchEntries()
@@ -276,7 +279,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
       if (fieldOn('emotional_tags')) payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
     }
 
-    if (isTherapeutic) {
+    if (isPlus) {
       if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
       if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
       if (fieldOn('irritability')) payload.irritability = irritability
@@ -464,10 +467,10 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                   {fieldOn('energy') && <SliderField label="Energia" value={energy} onChange={setEnergy} />}
                   {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxietyLevel} onChange={setAnxietyLevel} />}
                   {fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
-                  {isTherapeutic && fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
-                  {isTherapeutic && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
-                  {isTherapeutic && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
-                  {isTherapeutic && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
+                  {isPlus && fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
+                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
+                  {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
+                  {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
                 </div>
 
                 {fieldOn('emotional_tags') && (
@@ -490,7 +493,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                   {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você sente gratidão hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                 </div>
-                {isTherapeutic && (
+                {isPlus && (
                   <div className="grid gap-3 mt-3">
                     {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                     {fieldOn('recurring_thoughts') && <input type="text" value={recurringThoughts} onChange={e => setRecurringThoughts(e.target.value)} placeholder="Pensamentos recorrentes…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
@@ -627,7 +630,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
           </div>
 
           {/* Acompanhamento Plus — o diário alimenta os recursos Plus (§8.5) */}
-          {isTherapeutic && (
+          {isPlus && (
             <div className="bg-forest-900 text-white rounded-3xl p-5">
               <h2 className="font-serif text-lg flex items-center gap-2"><Sprout className="w-4 h-4 text-forest-300" /> Usar no acompanhamento Plus</h2>
               <p className="text-sm text-forest-50/90 mt-2 leading-relaxed">

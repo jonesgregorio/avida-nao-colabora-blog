@@ -90,7 +90,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
             ))}
           </ul>
           <p className="text-sm leading-relaxed mt-3">
-            No Plano Plus, o profissional parceiro pode ter acesso ao seu relatório mensal para a sessão individual — somente com sua autorização explícita.
+            No Plano Plus, o profissional parceiro pode ter acesso ao seu relatório mensal para elaborar o comentário e a orientação por mensagem — somente com sua autorização explícita.
           </p>
         </section>
 

@@ -47,13 +47,11 @@ const FEATURE_PLAN_FLOOR: Record<string, Plan> = {
   // Plano de autocuidado (Plus)
   personalized_self_care_plan: 'plus',
   weekly_self_care_plan: 'essential',
-  monthly_self_care_plan_review: 'plus',
   advanced_monthly_report: 'plus',
 
   // Orientação profissional (Plus)
   monthly_message_guidance: 'plus',
   professional_comment_on_monthly_report: 'plus',
-  monthly_psychoanalyst_session_30min: 'plus',
 
   // Suporte
   priority_email_support: 'essential',

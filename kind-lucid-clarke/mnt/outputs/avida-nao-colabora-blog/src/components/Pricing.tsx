@@ -72,7 +72,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
       const { data, error: fnError } = await supabase.functions.invoke('create-checkout', {
         body: { plan: CHECKOUT_PLAN[planKey] ?? planKey, origin: window.location.origin },
       })
-      if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao criar sessão de pagamento')
+      if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao iniciar o pagamento')
       window.location.href = data.url
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao redirecionar para pagamento.')

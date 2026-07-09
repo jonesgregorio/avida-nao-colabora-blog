@@ -57,12 +57,15 @@ const PLAN_COLORS: Record<string, string> = {
 // Matriz de comparação (alinhada à referência visual de "Meu plano").
 type CellValue = boolean | string
 const COMPARE_ROWS: { label: string; values: Record<string, CellValue> }[] = [
-  { label: 'Diário emocional',        values: { free: 'Limitado',      essential: 'Ilimitado',  plus: 'Ilimitado' } },
-  { label: 'Relatórios e insights',   values: { free: false,           essential: true,          plus: true } },
-  { label: 'Questionários e avaliações', values: { free: 'Limitado',   essential: true,          plus: true } },
-  { label: 'Conteúdos guiados',       values: { free: 'Acesso básico', essential: true,          plus: true } },
-  { label: 'Suporte',                 values: { free: false,           essential: 'Por e-mail',  plus: 'Prioritário' } },
-  { label: 'Orientação profissional', values: { free: false,           essential: false,         plus: '1 sessão/mês' } },
+  { label: 'Diário emocional',               values: { free: 'Básico (5/mês)',   essential: 'Ilimitado',      plus: 'Ilimitado' } },
+  { label: 'Questionários',                  values: { free: 'Inicial',          essential: 'Intermediários', plus: 'Avançados' } },
+  { label: 'Mapa emocional e gráficos',      values: { free: false,              essential: true,             plus: true } },
+  { label: 'Conteúdos guiados',              values: { free: 'Algumas práticas', essential: 'Completos',       plus: 'Completos' } },
+  { label: 'Relatório semanal automático',   values: { free: false,              essential: true,             plus: true } },
+  { label: 'Plano de autocuidado mensal',    values: { free: false,              essential: false,            plus: true } },
+  { label: 'Relatório mensal aprofundado',   values: { free: false,              essential: false,            plus: true } },
+  { label: 'Comentário profissional mensal', values: { free: false,              essential: false,            plus: true } },
+  { label: 'Orientação mensal por mensagem', values: { free: false,              essential: false,            plus: true } },
 ]
 
 const STATUS_LABELS: Record<string, string> = {

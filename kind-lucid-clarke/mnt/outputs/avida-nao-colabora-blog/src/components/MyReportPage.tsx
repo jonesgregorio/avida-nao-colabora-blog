@@ -170,7 +170,6 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
 export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
   const isEssential = hasPlanAccess(plan, 'essential')
-  const isTherapeutic = hasPlanAccess(plan, 'plus')
   const isPlus = hasPlanAccess(plan, 'plus')
 
   const monthOptions = buildMonthOptions()
@@ -403,8 +402,8 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           />
         )}
 
-        {/* ─── SEÇÃO 3: Relatório comparativo (Terapêutico+) ─────────── */}
-        {isTherapeutic ? (
+        {/* ─── SEÇÃO 3: Relatório comparativo (Plus) ─────────── */}
+        {isPlus ? (
           <Section icon={<BarChart2 className="w-4 h-4" />} title="Análise comparativa" badge="Plus">
             <div className="space-y-5">
               {/* Comparação com mês anterior */}

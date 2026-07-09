@@ -29,7 +29,7 @@ export default function SuccessPage({ onNavigateDiary, onNavigateHome, onRefresh
 
         <h1 className="font-serif text-3xl text-sage-800 mb-3">Assinatura confirmada!</h1>
         <p className="text-sage-500 text-sm leading-relaxed mb-2">
-          Obrigado por assinar. Seu plano já está ativo e você já pode acessar todos os recursos.
+          Que bom ter você com a gente! Seu plano já está ativo e você já pode acessar todos os recursos.
         </p>
 
         {!refreshed && (

@@ -38,25 +38,21 @@ const QUICK = [
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
   const plan = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
-  const [stats, setStats] = useState({ presence: 0, checkins: 0, reflections: 0, saved: 0, loaded: false })
+  const [stats, setStats] = useState({ presence: 0, checkins: 0, reflections: 0, loaded: false })
 
   useEffect(() => {
     if (!user) return
     let active = true
     ;(async () => {
       const since = new Date(Date.now() - 30 * 864e5).toISOString()
-      const [entriesRes, savedRes] = await Promise.all([
-        supabase.from('diary_entries').select('created_at').eq('user_id', user.id).gte('created_at', since),
-        supabase.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-      ])
+      const { data } = await supabase.from('diary_entries').select('created_at').eq('user_id', user.id).gte('created_at', since)
       if (!active) return
-      const entries = entriesRes.data ?? []
+      const entries = data ?? []
       const days = new Set(entries.map(e => String((e as { created_at?: string }).created_at ?? '').slice(0, 10)))
       setStats({
         presence: Math.min(100, Math.round((days.size / 30) * 100)),
         checkins: days.size,
         reflections: entries.length,
-        saved: savedRes.count ?? 0,
         loaded: true,
       })
     })()
@@ -177,7 +173,6 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               <div className="space-y-2 text-sm">
                 <StatLine icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label="Check-ins" />
                 <StatLine icon={<NotebookPen className="w-4 h-4" />} value={stats.reflections} label="Reflexões no diário" />
-                <StatLine icon={<BookOpen className="w-4 h-4" />} value={stats.saved} label="Conteúdos salvos" />
               </div>
             </div>
             <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">

@@ -98,6 +98,37 @@ interface Props {
   onNavigateArticles?: () => void
 }
 
+// Normaliza o tipo de pergunta para o formato que o player renderiza.
+// Aceita 'single' como alias de 'single_choice' (§12.4) e cobre outras variações.
+const QTYPE_ALIASES: Record<string, string> = {
+  single: 'single_choice',
+  choice: 'single_choice',
+  radio: 'single_choice',
+  multi: 'multiple_choice',
+  multiple: 'multiple_choice',
+  checkbox: 'multiple_choice',
+  boolean: 'yes_no',
+  bool: 'yes_no',
+  emotion: 'emotion_select',
+  scale: 'scale_5',
+  scale5: 'scale_5',
+  scale10: 'scale_10',
+  text: 'text_short',
+  short_text: 'text_short',
+  long_text: 'text_long',
+  textarea: 'text_long',
+  info_text: 'info',
+}
+const SUPPORTED_QTYPES = new Set([
+  'single_choice', 'multiple_choice', 'yes_no', 'emotion_select',
+  'scale_5', 'scale_10', 'text_short', 'text_long', 'info',
+])
+function normalizeQType(t: string | undefined): string {
+  const raw = String(t ?? 'single_choice').trim()
+  const mapped = QTYPE_ALIASES[raw] ?? raw
+  return SUPPORTED_QTYPES.has(mapped) ? mapped : 'single_choice'
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function QuestionnairePlayer({
@@ -114,6 +145,10 @@ export default function QuestionnairePlayer({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  // Progresso parcial (§12.5): id da resposta in_progress e estado do "Salvar e sair".
+  const [responseId, setResponseId] = useState<string | null>(null)
+  const [exiting, setExiting] = useState(false)
+  const [resumed, setResumed] = useState(false)
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -136,7 +171,7 @@ export default function QuestionnairePlayer({
           id: aq.id || String(idx),
           question_text: aq.text,
           helper_text: aq.subtitle || '',
-          question_type: aq.type,
+          question_type: normalizeQType(aq.type),
           is_required: aq.required ?? true,
           order_index: idx,
           weight: 1,
@@ -199,6 +234,31 @@ export default function QuestionnairePlayer({
         setResults(rs || [])
       }
 
+      // Retomar progresso parcial, se houver (§12.5). Colunas answers/current_step
+      // vêm da migration 060; se ainda não existirem, o select falha e seguimos limpos.
+      if (user) {
+        try {
+          const { data: existing } = await supabase
+            .from('questionnaire_responses')
+            .select('id, answers, current_step')
+            .eq('questionnaire_id', questionnaireId)
+            .eq('user_id', user.id)
+            .eq('status', 'in_progress')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (existing?.id) {
+            setResponseId(existing.id)
+            const savedAnswers = (existing as { answers?: unknown }).answers
+            if (savedAnswers && typeof savedAnswers === 'object' && !Array.isArray(savedAnswers)) {
+              setAnswers(savedAnswers as typeof answers)
+            }
+            const savedStep = (existing as { current_step?: number }).current_step
+            if (typeof savedStep === 'number' && savedStep > 0) { setStep(savedStep); setResumed(true) }
+          }
+        } catch { /* colunas ainda não migradas — ignora */ }
+      }
+
       setPhase('intro')
     }
     load()
@@ -226,32 +286,78 @@ export default function QuestionnairePlayer({
     return { totalScore, allTags, resultId: null }
   }
 
-  // ── Save response ──────────────────────────────────────────────────────────
+  // ── Cria (ou reutiliza) a resposta in_progress ao começar (§12.5) ────────────
+  async function ensureResponse(): Promise<string | null> {
+    if (!user) return null
+    if (responseId) return responseId
+    const { data } = await supabase
+      .from('questionnaire_responses')
+      .insert({
+        questionnaire_id: questionnaireId,
+        user_id: user.id,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+    if (data?.id) { setResponseId(data.id); return data.id }
+    return null
+  }
+
+  // ── Persiste respostas parciais + passo atual (colunas da migration 060) ─────
+  async function persistProgress(currentStep: number, rid?: string | null) {
+    const id = rid ?? responseId
+    if (!user || !id) return
+    try {
+      await supabase
+        .from('questionnaire_responses')
+        .update({ answers, current_step: currentStep, status: 'in_progress', updated_at: new Date().toISOString() })
+        .eq('id', id)
+    } catch { /* colunas ainda não migradas — não crítico */ }
+  }
+
+  // ── "Salvar e sair": guarda o progresso e volta (§11 do player) ──────────────
+  async function handleSaveAndExit() {
+    if (exiting) return
+    setExiting(true)
+    const id = await ensureResponse()
+    await persistProgress(step, id)
+    onBack()
+  }
+
+  // ── Conclui: marca a resposta como completed e grava as respostas ────────────
   async function saveResponse() {
     if (!user || saving || saved) return
     setSaving(true)
     const { totalScore, allTags, resultId } = computeResult()
 
     try {
-      const { data: response } = await supabase
-        .from('questionnaire_responses')
-        .insert({
-          questionnaire_id: questionnaireId,
-          user_id: user.id,
-          status: 'completed',
-          total_score: totalScore,
-          generated_tags: allTags.join(','),
-          result_id: resultId,
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
+      let respId = await ensureResponse()
+      const completion = {
+        status: 'completed',
+        total_score: totalScore,
+        generated_tags: allTags.join(','),
+        result_id: resultId,
+        completed_at: new Date().toISOString(),
+      }
+      if (respId) {
+        await supabase.from('questionnaire_responses').update(completion).eq('id', respId)
+      } else {
+        const { data } = await supabase
+          .from('questionnaire_responses')
+          .insert({ questionnaire_id: questionnaireId, user_id: user.id, started_at: new Date().toISOString(), ...completion })
+          .select('id')
+          .single()
+        respId = data?.id ?? null
+        if (respId) setResponseId(respId)
+      }
 
-      if (response) {
+      if (respId) {
+        // Idempotente: limpa respostas antigas desta resposta antes de regravar.
+        await supabase.from('questionnaire_answers').delete().eq('response_id', respId)
         for (const [questionId, ans] of Object.entries(answers)) {
           await supabase.from('questionnaire_answers').insert({
-            response_id: response.id,
+            response_id: respId,
             question_id: questionId,
             answer_value: Array.isArray(ans.value) ? ans.value.join(',') : ans.value,
             answer_text: Array.isArray(ans.value) ? ans.value.join(', ') : ans.value,
@@ -357,10 +463,10 @@ export default function QuestionnairePlayer({
           </div>
 
           <button
-            onClick={() => { setStep(0); setPhase('playing') }}
+            onClick={async () => { await ensureResponse(); if (!resumed) setStep(0); setPhase('playing') }}
             className="w-full bg-stone-800 text-white py-3 rounded-xl text-sm font-medium hover:bg-stone-700 transition-colors"
           >
-            {questionnaire.start_button_text || 'Começar'}
+            {resumed ? 'Continuar de onde parei' : (questionnaire.start_button_text || 'Começar')}
           </button>
 
           <p className="text-xs text-stone-400 mt-4">{questionnaire.disclaimer}</p>
@@ -379,12 +485,16 @@ export default function QuestionnairePlayer({
     return (
       <section className="max-w-2xl mx-auto px-4 py-8">
         {/* Progress */}
-        <div className="flex justify-between text-xs text-stone-400 mb-2">
+        <div className="flex items-center justify-between gap-2 text-xs text-stone-400 mb-2">
           <button onClick={() => step > 0 ? setStep(s => s - 1) : setPhase('intro')} className="text-stone-400 hover:text-stone-700 flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" /> Voltar
           </button>
-          <span>Pergunta {step + 1} de {questions.length}</span>
-          <span>{progress}%</span>
+          <span className="whitespace-nowrap">Pergunta {step + 1} de {questions.length} · {progress}%</span>
+          {user ? (
+            <button onClick={handleSaveAndExit} disabled={exiting} className="text-stone-400 hover:text-forest-700 whitespace-nowrap disabled:opacity-50">
+              {exiting ? 'Salvando…' : 'Salvar e sair'}
+            </button>
+          ) : <span className="w-14" />}
         </div>
         <div className="h-1.5 bg-stone-200 rounded-full mb-6">
           <div className="h-full bg-forest-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
