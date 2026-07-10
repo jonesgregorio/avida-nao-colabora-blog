@@ -48,13 +48,16 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
     ;(async () => {
       const entriesRes = await supabase.from('diary_entries').select('date,entry_type').eq('user_id', user.id)
       if (!active) return
-      const days = new Set((entriesRes.data ?? []).filter(e => (e as { entry_type?: string }).entry_type === 'diary').map(e => String((e as { date?: string }).date ?? '').slice(0, 10)))
-      // sequência de dias consecutivos terminando hoje/ontem
+      const rows = (entriesRes.data ?? []) as { date?: string; entry_type?: string }[]
+      // "check-ins realizados": quantos check-ins o usuário fez (entry_type='checkin')
+      const checkins = rows.filter(e => e.entry_type === 'checkin').length
+      // streak: dias consecutivos (terminando hoje/ontem) com qualquer registro (check-in ou diário)
+      const days = new Set(rows.map(e => String(e.date ?? '').slice(0, 10)).filter(Boolean))
       const d = new Date()
       if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1)
       let streak = 0
       while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1) }
-      setStats({ checkins: days.size, streak })
+      setStats({ checkins, streak })
     })()
     return () => { active = false }
   }, [user])
@@ -240,7 +243,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
                 <button onClick={handleChangePassword} className="bg-forest-800 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-forest-900 transition-colors">
                   Confirmar nova senha
                 </button>
-                {passwordMsg && <p className="text-sm text-forest-600">{passwordMsg}</p>}
+                {passwordMsg && <p className="text-sm text-[#8a3b23]">{passwordMsg}</p>}
               </div>
             )}
           </section>
@@ -259,7 +262,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
             <h2 className="font-serif text-lg text-forest-900 mb-4">Resumo da sua jornada</h2>
             <div className="space-y-3">
-              <JourneyStat icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label="check-ins realizados" />
+              <JourneyStat icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label={stats.checkins === 1 ? 'check-in realizado' : 'check-ins realizados'} />
               <JourneyStat icon={<Flame className="w-4 h-4" />} value={stats.streak} label={stats.streak === 1 ? 'dia seguido' : 'dias seguidos'} />
             </div>
           </div>
