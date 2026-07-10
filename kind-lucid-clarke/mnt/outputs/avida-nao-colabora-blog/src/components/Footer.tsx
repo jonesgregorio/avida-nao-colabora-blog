@@ -19,7 +19,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
   {
     title: 'Recursos',
     links: [
-      { label: 'Perguntas frequentes', id: 'faq' },
+      { label: 'Perguntas frequentes', id: 'contact' },
       { label: 'Privacidade', id: 'privacy' },
       { label: 'Termos de uso', id: 'terms' },
       { label: 'Segurança', id: 'responsibility' },

@@ -20,7 +20,7 @@ const CATEGORIES = [
   'Outro',
 ]
 
-const inputCls = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+const inputCls = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
 
 const DRAFT_KEY = 'contact_draft'
 
@@ -85,8 +85,8 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
+          <div className="w-16 h-16 bg-mint rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="w-8 h-8 text-forest-600" />
           </div>
           <h2 className="text-2xl font-bold text-stone-800 mb-2">Mensagem enviada!</h2>
           <p className="text-stone-500 text-sm mb-6">
@@ -96,7 +96,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             {navigate && (
               <button
                 onClick={() => navigate('support')}
-                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700"
+                className="inline-flex items-center gap-2 bg-forest-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800"
               >
                 Ver meu suporte
               </button>
@@ -125,8 +125,8 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 bg-mint rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-forest-600" />
             </div>
             <h1 className="text-2xl font-bold text-stone-800">Fale conosco</h1>
           </div>
@@ -170,7 +170,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
               </div>
               <button
                 onClick={saveDraftAndLogin}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-forest-900 text-white py-3 rounded-xl text-sm font-medium hover:bg-forest-800 transition-colors"
               >
                 <LogIn className="w-4 h-4" />
                 Entrar e enviar mensagem
@@ -201,7 +201,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
                       value={p}
                       checked={priority === p}
                       onChange={() => setPriority(p)}
-                      className="accent-emerald-600"
+                      className="accent-forest-700"
                     />
                     <span className="text-sm text-stone-600">
                       {p === 'low' ? 'Baixa' : p === 'medium' ? 'Normal' : 'Alta'}
@@ -234,7 +234,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             <button
               type="submit"
               disabled={sending || !description.trim()}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-forest-900 text-white py-3 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50 transition-colors"
             >
               <Send className="w-4 h-4" />
               {sending ? 'Enviando...' : 'Enviar mensagem'}
