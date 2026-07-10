@@ -216,7 +216,16 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
 
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
       type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; emotional_tags?: string[] | string; created_at: string }
-      const moods = (entries as DiaryRow[]).map((e) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
+      // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número (escala
+      // ~1–10: Bem-estar=8, Neutro=5, Sobrecarga=2). O Mapa usa 1–5, então lemos o
+      // mood_score e normalizamos. (Antes fazia Number(e.mood || ...) e, como o rótulo
+      // é string não-vazia, virava sempre NaN → humor 0% para todo mundo.)
+      const moodTo5 = (e: DiaryRow): number => {
+        const s = Number(e.mood_score)
+        if (!Number.isFinite(s) || s <= 0) return 0
+        return Math.min(5, Math.max(1, Math.round(s / 2)))
+      }
+      const moods = (entries as DiaryRow[]).map(moodTo5).filter(Boolean)
       const energies = (entries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
       const sleeps = (entries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
       const anxieties = (entries as DiaryRow[]).map((e) => Number(e.anxiety_level || 0)).filter(Boolean)
@@ -242,10 +251,10 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
 
       const dailyMoods = (entries as DiaryRow[]).map((e) => ({
         day: new Date(e.created_at).getDate(),
-        mood: Number(e.mood || e.mood_score || 0),
+        mood: moodTo5(e),
       })).filter(x => x.mood > 0)
 
-      const prevMoods = (prevEntries as DiaryRow[]).map((e) => Number(e.mood || e.mood_score || 0)).filter(Boolean)
+      const prevMoods = (prevEntries as DiaryRow[]).map(moodTo5).filter(Boolean)
       const prevEnergies = (prevEntries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
       const prevSleeps = (prevEntries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
 

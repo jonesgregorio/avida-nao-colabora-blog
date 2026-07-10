@@ -75,6 +75,7 @@ const STATUS_LABELS: Record<string, string> = {
   past_due: 'Pagamento em atraso',
   trial: 'Trial',
   inactive: 'Inativa',
+  free: 'Ativo',
 }
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -83,6 +84,7 @@ const STATUS_COLORS: Record<string, string> = {
   past_due: 'bg-red-100 text-red-700',
   trial: 'bg-blue-100 text-blue-700',
   inactive: 'bg-stone-100 text-stone-500',
+  free: 'bg-mint text-forest-700',
 }
 
 function formatDate(iso: string | null) {
@@ -337,7 +339,9 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
             <p className="text-2xl font-bold text-forest-800">{formatPrice(PLAN_PRICES[currentPlan])}<span className="text-sm font-normal text-ink-soft">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
           </div>
           {(() => {
-            const effectiveStatus = sub?.status ?? (currentPlan !== 'free' ? 'active' : 'inactive')
+            // No plano Gratuito não há assinatura: mostramos "Ativo" (o plano está
+            // valendo) em vez de "Inativa", que parecia que a conta estava com problema.
+            const effectiveStatus = currentPlan === 'free' ? 'free' : (sub?.status ?? 'active')
             return (
               <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[effectiveStatus]}`}>
                 {STATUS_LABELS[effectiveStatus]}
