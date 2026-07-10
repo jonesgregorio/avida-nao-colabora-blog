@@ -3,8 +3,9 @@ import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
   Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
   BarChart3, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
-  LifeBuoy, Leaf,
+  LifeBuoy, Leaf, Bell,
 } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../types'
 import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
@@ -50,10 +51,27 @@ function displayName(profile: Profile | null, user: SupabaseUser | null) {
 export default function UserLayout({ user, profile, currentView, onNavigate, onSignOut, children }: UserLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [unread, setUnread] = useState(0)
   const profileRef = useRef<HTMLDivElement>(null)
 
   const name = displayName(profile, user)
   const isAdmin = profile?.role === 'admin'
+
+  // Contagem de notificações NÃO lidas (só as pessoais; broadcasts não contam).
+  // Refetch ao trocar de view — assim volta zerado depois de abrir as notificações.
+  useEffect(() => {
+    if (!user) { setUnread(0); return }
+    let active = true
+    ;(async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+      if (active) setUnread(count ?? 0)
+    })()
+    return () => { active = false }
+  }, [user, currentView])
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -118,6 +136,18 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
             </div>
 
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <button
+                onClick={() => onNavigate('notifications')}
+                className="relative p-2 rounded-full hover:bg-mint/50 transition-colors"
+                aria-label={unread > 0 ? `Notificações (${unread} não lidas)` : 'Notificações'}
+              >
+                <Bell className="w-5 h-5 text-forest-800" />
+                {unread > 0 && (
+                  <span className="absolute top-0.5 right-0.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[#c05f3c] text-white text-[10px] font-semibold flex items-center justify-center leading-none">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </button>
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileOpen(o => !o)}
@@ -136,6 +166,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
                       <p className="text-sm font-medium text-forest-900 truncate">Olá, {name}</p>
                       <PlanBadge plan={profile?.plan} member size="sm" className="mt-1" />
                     </div>
+                    <DropItem icon={<Bell className="w-4 h-4" />} label="Notificações" onClick={() => go('notifications')} />
                     <DropItem icon={<UserIcon className="w-4 h-4" />} label="Meu perfil" onClick={() => go('profile')} />
                     <DropItem icon={<CreditCard className="w-4 h-4" />} label="Meu plano" onClick={() => go('my-plan')} />
                     <DropItem icon={<LifeBuoy className="w-4 h-4" />} label="Suporte" onClick={() => go('support')} />

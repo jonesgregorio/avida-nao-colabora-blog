@@ -25,6 +25,7 @@ import ContactPage from './components/ContactPage'
 import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
+import NotificationsPage from './components/NotificationsPage'
 import ForceChangePassword from './components/ForceChangePassword'
 import MonthlyGuidancePage from './components/MonthlyGuidancePage'
 import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
@@ -43,6 +44,7 @@ const VALID_VIEWS: View[] = [
   'about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','admin','contact','success',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','self-care',
+  'notifications',
 ]
 
 // Mapeamento bidirecional URL ↔ view
@@ -63,6 +65,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/questionarios':              'questionarios',
   '/sucesso':                    'success',
   '/suporte':                    'support',
+  '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
   '/comentarios-profissional':   'professional-comments',
   '/minha-evolucao':             'my-evolution',
@@ -79,7 +82,6 @@ const LEGACY_PATH_REDIRECT: Record<string, View> = {
   '/trilhas':    'articles',
   '/conquistas': 'home',
   '/lembretes':  'home',
-  '/notificacoes': 'home',
   '/itens-salvos': 'home',
   '/favoritos':  'home',
   '/sessoes':    'home',
@@ -94,7 +96,6 @@ const LEGACY_VIEW_REDIRECT: Record<string, View> = {
   content:     'articles',
   'therapeutic-q': 'questionarios',
   saved:         'home',
-  notifications: 'home',
   conquistas:    'home',
   lembretes:     'home',
 }
@@ -269,6 +270,7 @@ export default function App() {
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success',
       'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
+      'notifications',
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
@@ -578,6 +580,12 @@ export default function App() {
         onBack={() => navigate('home')}
         onOpenTicket={(id) => { setActiveSupportTicketId(id); setView('support-ticket') }}
       />
+    )
+  }
+
+  if (view === 'notifications') {
+    return appShell(
+      <NotificationsPage user={user} navigate={navigate} />
     )
   }
 
