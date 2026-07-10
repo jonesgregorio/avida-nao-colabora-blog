@@ -249,10 +249,22 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         weeklyEntries[weekIdx]++
       })
 
-      const dailyMoods = (entries as DiaryRow[]).map((e) => ({
-        day: new Date(e.created_at).getDate(),
-        mood: moodTo5(e),
-      })).filter(x => x.mood > 0)
+      // Agrega por DIA do calendário (média do humor do dia). O usuário pode ter
+      // vários registros no mesmo dia (check-ins + diário completo), então isso mantém
+      // 1 ponto por dia: deixa o "% dos dias" honesto e evita pontos/células duplicados
+      // no gráfico de evolução e no heatmap.
+      const moodByDay = new Map<number, number[]>()
+      ;(entries as DiaryRow[]).forEach((e) => {
+        const m = moodTo5(e)
+        if (m <= 0) return
+        const day = new Date(e.created_at).getDate()
+        const arr = moodByDay.get(day) ?? []
+        arr.push(m)
+        moodByDay.set(day, arr)
+      })
+      const dailyMoods = [...moodByDay.entries()]
+        .map(([day, ms]) => ({ day, mood: avg(ms) }))
+        .sort((a, b) => a.day - b.day)
 
       const prevMoods = (prevEntries as DiaryRow[]).map(moodTo5).filter(Boolean)
       const prevEnergies = (prevEntries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
