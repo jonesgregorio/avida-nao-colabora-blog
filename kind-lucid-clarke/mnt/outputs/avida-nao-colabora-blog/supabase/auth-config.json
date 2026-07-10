@@ -1,0 +1,5 @@
+{
+  "site_url": "https://www.avidanaocolabora.com",
+  "uri_allow_list": "https://www.avidanaocolabora.com,https://www.avidanaocolabora.com/**,https://avidanaocolabora.com,https://avidanaocolabora.com/**,http://localhost:3000,http://localhost:3000/**,http://localhost:5173,http://localhost:5173/**",
+  "mailer_autoconfirm": true
+}

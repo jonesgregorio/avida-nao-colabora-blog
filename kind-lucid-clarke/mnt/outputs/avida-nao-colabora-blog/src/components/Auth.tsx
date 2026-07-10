@@ -79,8 +79,8 @@ export default function Auth({ onBack }: AuthProps) {
         })
         if (error) throw error
         if (signUpData.user) void emailWelcome(signUpData.user.id, email, name || 'você')
-        setSuccess('Conta criada com sucesso! Verifique seu e-mail se necessário.')
-        setTimeout(() => onBack(), 2000)
+        setSuccess('Conta criada com sucesso! Entrando…')
+        setTimeout(() => onBack(), 1200)
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
         if (error) throw error
