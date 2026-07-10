@@ -99,7 +99,7 @@ export default function Footer({ onNavigate }: FooterProps) {
           </div>
           <form
             onSubmit={e => { e.preventDefault(); if (email.trim()) setSent(true) }}
-            className="flex gap-2 w-full md:justify-end"
+            className="flex flex-col sm:flex-row gap-2 w-full md:justify-end"
           >
             {sent ? (
               <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades. 💚</p>
@@ -111,7 +111,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="Seu e-mail"
-                  className="flex-1 md:max-w-xs px-4 py-2.5 rounded-2xl border border-line bg-white text-sm outline-none focus:border-forest-400"
+                  className="flex-1 min-w-0 sm:max-w-xs px-4 py-2.5 rounded-2xl border border-line bg-white text-sm outline-none focus:border-forest-400"
                 />
                 <button
                   type="submit"
