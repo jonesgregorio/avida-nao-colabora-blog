@@ -167,6 +167,9 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const entryLimit = cfg.entriesPerMonth // null = ilimitado
   const freeEntryCount = currentMonthEntries.length
   const atLimit = entryLimit != null && freeEntryCount >= entryLimit
+  // O limite bloqueia SÓ o diário completo. Check-in rápido é ilimitado (§8):
+  // não conta e nunca é bloqueado, mesmo com os 5 registros do mês já usados.
+  const saveBlockedByLimit = atLimit && entryMode !== 'quick'
 
   const writeDays = new Set(entries.filter(e => e.entry_type === 'diary').map(e => String(e.date ?? '').slice(0, 10)))
   const streak = calcStreak(writeDays)
@@ -256,7 +259,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
       setError('Escreva algo antes de salvar.')
       return
     }
-    if (atLimit) {
+    if (saveBlockedByLimit) {
       setError('Você atingiu o limite de entradas deste mês no seu plano.')
       return
     }
@@ -462,7 +465,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                 onChange={e => setWhatHappened(e.target.value)}
                 placeholder="Escreva aqui o que está sentindo…"
                 rows={6}
-                disabled={atLimit}
+                disabled={saveBlockedByLimit}
                 className="w-full border border-line rounded-2xl px-4 py-3 text-sm resize-none bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 disabled:opacity-60"
               />
               <span className="absolute bottom-3 right-4 text-[11px] text-ink-soft/70">{whatHappened.length} caracteres</span>
@@ -526,7 +529,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
             )}
 
             {error && <p className="text-coral text-sm mt-4">{error}</p>}
-            {atLimit && (
+            {saveBlockedByLimit && (
               <p className="text-sm text-ink-soft mt-4">
                 Você usou todas as entradas do mês.{plan === 'free' && onNavigatePricing && (
                   <> <button onClick={onNavigatePricing} className="text-forest-700 underline font-medium">Faça upgrade para continuar registrando.</button></>
@@ -538,7 +541,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
             <div className="flex flex-wrap gap-3 mt-5">
               <button
                 onClick={handleSave}
-                disabled={saving || atLimit}
+                disabled={saving || saveBlockedByLimit}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" /> {saving ? 'Salvando…' : 'Salvar entrada'}
