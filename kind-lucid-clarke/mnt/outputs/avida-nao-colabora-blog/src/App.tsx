@@ -99,6 +99,15 @@ const LEGACY_VIEW_REDIRECT: Record<string, View> = {
   lembretes:     'home',
 }
 
+// Aliases amigáveis: URLs alternativas que resolvem para uma view, mas cuja URL
+// canônica (usada ao navegar) continua sendo a de URL_TO_VIEW. Ex.: "Orientação"
+// é o rótulo do menu, então /orientacao aponta para a rota real /guia-mensal.
+// Ficam FORA de URL_TO_VIEW para não sobrescrever o VIEW_TO_URL canônico.
+const URL_ALIASES: Record<string, View> = {
+  '/orientacao':  'monthly-guidance',
+  '/orientacoes': 'monthly-guidance',
+}
+
 const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
   Object.entries(URL_TO_VIEW).map(([url, view]) => [view, url])
 )
@@ -137,7 +146,7 @@ function parseURLNav(): { view: View; articleSlug: string | null; ticketId: stri
       return { view: urlView, articleSlug: null, ticketId: null }
     }
 
-    const mapped = URL_TO_VIEW[path]
+    const mapped = URL_TO_VIEW[path] ?? URL_ALIASES[path]
     if (mapped) return { view: mapped, articleSlug: null, ticketId: null }
 
     return null
@@ -150,6 +159,11 @@ function restoreNav() {
   // URL tem prioridade máxima (permite deep-link e compartilhamento)
   const fromURL = parseURLNav()
   if (fromURL) return fromURL
+
+  // Só retomamos a sessão salva na RAIZ do site. Um path específico que não casa
+  // com nenhuma rota (ex.: /orientacao digitado à mão) deve ir ao Início — não
+  // "cair" na última tela visitada, que era um comportamento confuso.
+  if (window.location.pathname !== '/') return null
 
   try {
     const raw = localStorage.getItem(PERSIST_KEY)
@@ -281,13 +295,17 @@ export default function App() {
     navigate('auth')
   }
 
-  // Canonicaliza a URL quando a rota inicial é uma rota legada removida do MVP.
-  // Ex.: abrir /conquistas renderiza o Início; a barra de endereço passa a mostrar "/".
+  // Canonicaliza a URL inicial: rota legada ou alias → rota canônica da view de
+  // destino; path desconhecido (que não casa com nenhuma rota) → "/" (Início).
+  // Ex.: /conquistas e /orientacao passam a mostrar "/" e "/guia-mensal".
   useEffect(() => {
     const path = window.location.pathname
-    if (LEGACY_PATH_REDIRECT[path]) {
-      const canonical = VIEW_TO_URL[LEGACY_PATH_REDIRECT[path]] ?? '/'
-      window.history.replaceState({}, '', canonical)
+    const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
+    if (target) {
+      window.history.replaceState({}, '', VIEW_TO_URL[target] ?? '/')
+    } else if (path !== '/' && !parseURLNav()) {
+      // Path fora da raiz que não resolve para nenhuma view → Início.
+      window.history.replaceState({}, '', '/')
     }
   }, [])
 
