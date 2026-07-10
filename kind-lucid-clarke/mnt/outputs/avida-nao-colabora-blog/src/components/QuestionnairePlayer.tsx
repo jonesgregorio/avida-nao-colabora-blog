@@ -361,11 +361,14 @@ export default function QuestionnairePlayer({
 
       // As respostas ficam em questionnaire_responses.answers (JSONB) — NÃO usamos
       // questionnaire_answers (question_id 'q1' não é UUID e causaria erro de schema). §10.3
+      // Reforça status='completed' AQUI (mesmo write das respostas, com colunas
+      // sempre conhecidas pelo cache do PostgREST): garante que a conclusão persista
+      // mesmo se o update de conclusão acima falhar por cache de schema desatualizado.
       if (respId) {
         try {
           await supabase
             .from('questionnaire_responses')
-            .update({ answers: answersRef.current, current_step: questions.length, updated_at: new Date().toISOString() })
+            .update({ answers: answersRef.current, current_step: questions.length, status: 'completed', updated_at: new Date().toISOString() })
             .eq('id', respId)
         } catch { /* colunas answers/current_step vêm da migration — não crítico */ }
         setSaved(true)
