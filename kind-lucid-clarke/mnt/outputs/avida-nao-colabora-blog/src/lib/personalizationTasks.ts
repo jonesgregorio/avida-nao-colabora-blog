@@ -13,8 +13,6 @@ export type TaskFrequency =
   | 'monthly'
   | 'on_guidance'
   | 'on_report'
-  | 'on_session'
-  | 'post_session'
 
 export type TaskPriority = 'high' | 'medium' | 'low'
 export type TaskStatus =
@@ -29,7 +27,6 @@ export type DueType =
   | 'end_of_month'
   | 'days_after_event'
   | 'working_days_after_event'
-  | 'before_session'
 
 export interface TaskDef {
   key: string
@@ -242,7 +239,7 @@ export const TASK_DEFS: TaskDef[] = [
     expiresAfterDueDays: null,
   },
 
-  // ── Essencial (avançado) ──
+  // ── Plus (personalização) ──
   {
     key: 'weekly_self_care',
     title: 'Plano semanal de autocuidado',
@@ -252,7 +249,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Seu plano semanal está pronto',
     notificationBody: 'Seu plano semanal de autocuidado está disponível.',
     frequency: 'weekly',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'medium',
     dueType: 'start_of_next_week',
     expiresAfterDueDays: 5,
@@ -266,7 +263,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Recomendações da semana',
     notificationBody: 'Preparamos recomendações personalizadas para você esta semana.',
     frequency: 'weekly',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'medium',
     dueType: 'end_of_week',
     expiresAfterDueDays: 3,
@@ -280,7 +277,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Seu plano de autocuidado',
     notificationBody: 'Seu plano de autocuidado personalizado do mês está disponível.',
     frequency: 'monthly',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'medium',
     dueType: 'day_of_month',
     dueParam: 5,
@@ -295,7 +292,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Relatório avançado disponível',
     notificationBody: 'Seu relatório mensal avançado está disponível.',
     frequency: 'monthly',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'medium',
     dueType: 'day_of_month',
     dueParam: 5,
@@ -311,26 +308,11 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Sua orientação mensal foi respondida',
     notificationBody: 'A equipe respondeu sua orientação mensal.',
     frequency: 'on_guidance',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'high',
     dueType: 'working_days_after_event',
     dueParam: 3,
     expiresAfterDueDays: null,
-  },
-  {
-    key: 'trail_suggestion',
-    title: 'Sugestão de trilha',
-    description: 'Sugestão mensal de trilha baseada nos marcadores do usuário.',
-    contentType: 'trail_suggestion',
-    targetArea: 'my_evolution',
-    notificationTitle: 'Sugestão de trilha disponível',
-    notificationBody: 'Separamos uma sugestão de trilha para você este mês.',
-    frequency: 'monthly',
-    minPlan: 'therapeutic',
-    priority: 'low',
-    dueType: 'day_of_month',
-    dueParam: 10,
-    expiresAfterDueDays: 20,
   },
   {
     key: 'next_steps',
@@ -341,7 +323,7 @@ export const TASK_DEFS: TaskDef[] = [
     notificationTitle: 'Próximos passos disponíveis',
     notificationBody: 'Seus próximos passos de autocuidado para este mês estão prontos.',
     frequency: 'monthly',
-    minPlan: 'therapeutic',
+    minPlan: 'plus',
     priority: 'low',
     dueType: 'day_of_month',
     dueParam: 10,
@@ -424,8 +406,6 @@ export function periodKeyForDef(def: TaskDef, d = new Date(), eventId?: string):
     case 'monthly': return monthKey(d)
     case 'on_guidance': return `guidance-${eventId ?? 'unknown'}`
     case 'on_report': return `report-${eventId ?? 'unknown'}`
-    case 'on_session': return `session-${eventId ?? 'unknown'}`
-    case 'post_session': return `postsession-${eventId ?? 'unknown'}`
     default: return monthKey(d)
   }
 }
@@ -488,13 +468,6 @@ export function dueDateForDef(def: TaskDef, now = new Date(), eventDate?: Date):
     case 'working_days_after_event':
       if (!eventDate) return addWorkingDays(now, def.dueParam ?? 3)
       return addWorkingDays(eventDate, def.dueParam ?? 3)
-    case 'before_session':
-      if (eventDate) {
-        const r = new Date(eventDate)
-        r.setDate(r.getDate() - 1)
-        return r
-      }
-      return endOfWeek(now)
     default: return endOfMonth(now)
   }
 }
@@ -534,7 +507,6 @@ interface ProfileRow {
 
 interface GuidanceRow { id: string; user_id: string; created_at: string; message?: string }
 interface ReportRow { id: string; user_id: string; created_at: string; month_key: string }
-interface SessionRow { id: string; user_id: string; created_at: string; status: string; scheduled_at?: string; completed_at?: string }
 
 export async function refreshTasksForAllUsers(): Promise<{ created: number; updated: number; errors: string[] }> {
   const now = new Date()
@@ -570,16 +542,9 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   const [
     { data: guidances },
     { data: reports },
-    { data: activeSessions },
-    { data: completedSessions },
   ] = await Promise.all([
     supabase.from('monthly_guidance_requests').select('id, user_id, created_at').eq('status', 'open'),
     supabase.from('monthly_reports').select('id, user_id, created_at, month_key').eq('month_key', curMonth),
-    supabase.from('user_sessions').select('id, user_id, created_at, status, scheduled_at').in('status', ['requested', 'scheduled']),
-    supabase.from('user_sessions')
-      .select('id, user_id, created_at, completed_at')
-      .eq('status', 'completed')
-      .gte('completed_at', new Date(now.getTime() - 10 * 86400000).toISOString()),
   ])
 
   const guidanceByUser: Record<string, GuidanceRow[]> = {}
@@ -591,16 +556,6 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   for (const r of (reports ?? []) as ReportRow[]) {
     if (!reportByUser[r.user_id]) reportByUser[r.user_id] = []
     reportByUser[r.user_id].push(r)
-  }
-  const activeSessionByUser: Record<string, SessionRow[]> = {}
-  for (const s of (activeSessions ?? []) as SessionRow[]) {
-    if (!activeSessionByUser[s.user_id]) activeSessionByUser[s.user_id] = []
-    activeSessionByUser[s.user_id].push(s)
-  }
-  const completedSessionByUser: Record<string, SessionRow[]> = {}
-  for (const s of (completedSessions ?? []) as SessionRow[]) {
-    if (!completedSessionByUser[s.user_id]) completedSessionByUser[s.user_id] = []
-    completedSessionByUser[s.user_id].push(s)
   }
 
   // ── 4. Processar cada usuário ──
@@ -655,11 +610,6 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
       } else if (def.frequency === 'biweekly') {
         buildAndQueue(curBiweek)
       } else if (def.frequency === 'monthly') {
-        // Skip monthly_session if user already has a session this month
-        if (def.key === 'monthly_session') {
-          const hasSession = [...(activeSessionByUser[uid] ?? []), ...(completedSessionByUser[uid] ?? [])].length > 0
-          if (hasSession) continue
-        }
         buildAndQueue(curMonth)
       } else if (def.frequency === 'on_guidance') {
         for (const g of (guidanceByUser[uid] ?? [])) {
@@ -668,15 +618,6 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
       } else if (def.frequency === 'on_report') {
         for (const r of (reportByUser[uid] ?? [])) {
           buildAndQueue(`report-${r.id}`, new Date(r.created_at), r.id, { report_id: r.id })
-        }
-      } else if (def.frequency === 'on_session') {
-        for (const s of (activeSessionByUser[uid] ?? [])) {
-          const eventDate = s.scheduled_at ? new Date(s.scheduled_at) : undefined
-          buildAndQueue(`session-${s.id}`, eventDate, s.id, { session_id: s.id })
-        }
-      } else if (def.frequency === 'post_session') {
-        for (const s of (completedSessionByUser[uid] ?? [])) {
-          buildAndQueue(`postsession-${s.id}`, s.completed_at ? new Date(s.completed_at) : undefined, s.id, { session_id: s.id })
         }
       }
     }
@@ -834,7 +775,6 @@ export const PERSONALIZED_CONTENT_LABELS: Record<string, string> = {
   evolution_highlights: 'Destaques de evolução',
   report_suggestion: 'Sugestão de relatório',
   questionnaire_suggestion: 'Questionário recomendado',
-  trail_suggestion: 'Sugestão de trilha',
   next_steps: 'Próximos passos de autocuidado',
 }
 
