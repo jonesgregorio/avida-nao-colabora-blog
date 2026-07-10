@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  MessageCircle, Clock, ChevronRight, Send, AlertTriangle, Crown, ArrowRight, HeartHandshake, ShieldCheck,
+  MessageCircle, Clock, ChevronRight, ChevronDown, Send, AlertTriangle, Crown, ArrowRight, HeartHandshake, ShieldCheck, CheckCircle2, Plus,
 } from 'lucide-react'
 import { normalizePlan } from '../lib/officialPlans'
 
@@ -44,21 +44,34 @@ const STATUS_COLOR: Record<string, string> = {
   closed: 'bg-paper-soft text-ink-soft border border-line',
 }
 
-const HELP_TOPICS = [
-  'Como funciona o Plano Plus?',
-  'Como cancelar assinatura?',
-  'Privacidade e segurança',
-  'Como usar os recursos',
+const HELP_TOPICS: { q: string; a: string }[] = [
+  {
+    q: 'Como funciona o Plano Plus?',
+    a: 'O Plus inclui tudo do Essencial e adiciona um plano de autocuidado mensal, um relatório mensal mais aprofundado, um comentário profissional por mês e a orientação mensal por mensagem — um direcionamento individual e não emergencial, escrito com base nos seus registros. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
+  },
+  {
+    q: 'Como cancelar assinatura?',
+    a: 'Acesse "Meu Plano" no menu e escolha cancelar a assinatura. O cancelamento é agendado para o fim do período já pago — você continua com acesso até lá, sem multa. Depois disso, sua conta volta para o plano Gratuito e todos os seus registros continuam salvos.',
+  },
+  {
+    q: 'Privacidade e segurança',
+    a: 'Seus registros são pessoais e privados. Não vendemos nem compartilhamos suas informações, e o conteúdo sensível fica sempre dentro da sua conta, protegido por login. Você encontra os detalhes nas páginas de Privacidade e Termos de uso.',
+  },
+  {
+    q: 'Como usar os recursos',
+    a: 'Um bom caminho: comece pelo Diário (um check-in rápido de humor ou uma entrada completa), responda ao Questionário inicial para se conhecer melhor, acompanhe seus padrões no Mapa Emocional e explore os Conteúdos Guiados. Conforme você registra, o app organiza tudo em relatórios para você enxergar sua evolução com calma.',
+  },
 ]
 
 const inputCls = 'w-full px-3.5 py-2.5 border border-line rounded-xl text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 transition-colors'
 
-export default function SupportPage({ user, profile, navigate, onBack: _onBack, onOpenTicket }: Props) {
+export default function SupportPage({ user, profile, navigate, onBack, onOpenTicket }: Props) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [openTopic, setOpenTopic] = useState<number | null>(null)
   const [form, setForm] = useState({ subject: '', description: '', priority: 'medium' })
 
   const isPlus = normalizePlan(profile?.plan) === 'plus'
@@ -142,6 +155,36 @@ export default function SupportPage({ user, profile, navigate, onBack: _onBack, 
     )
   }
 
+  // Tela de confirmação: substitui o suporte após enviar uma mensagem.
+  if (sent) {
+    return (
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-mint flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-8 h-8 text-forest-600" />
+        </div>
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900">Mensagem enviada!</h1>
+        <p className="mt-3 text-ink-soft leading-relaxed">
+          Recebemos sua solicitação e nossa equipe responde com carinho — normalmente em até 24h úteis.
+          Você recebe a resposta por aqui e pode acompanhar o status dos seus chamados a qualquer momento.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+          <button
+            onClick={() => setSent(false)}
+            className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Abrir nova solicitação
+          </button>
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 border border-line text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/40 transition-colors"
+          >
+            Voltar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <header className="mb-6">
@@ -191,7 +234,6 @@ export default function SupportPage({ user, profile, navigate, onBack: _onBack, 
             </div>
 
             {createError && <p className="text-sm text-coral mt-3">{createError}</p>}
-            {sent && <p className="text-sm text-forest-700 mt-3">Mensagem enviada! Nossa equipe responde em breve. 💚</p>}
 
             <div className="flex flex-wrap items-center gap-3 mt-4">
               <button
@@ -253,17 +295,29 @@ export default function SupportPage({ user, profile, navigate, onBack: _onBack, 
             </p>
           </div>
 
-          {/* Tópicos de ajuda */}
+          {/* Tópicos de ajuda (acordeão) */}
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
             <h2 className="font-serif text-lg text-forest-900 mb-3">Tópicos de ajuda</h2>
-            <ul className="space-y-1.5">
-              {HELP_TOPICS.map(t => (
-                <li key={t}>
-                  <span className="flex items-center gap-2 text-sm text-ink-soft py-1">
-                    <ShieldCheck className="w-4 h-4 text-forest-500 flex-shrink-0" /> {t}
-                  </span>
-                </li>
-              ))}
+            <ul className="divide-y divide-line/70">
+              {HELP_TOPICS.map((t, i) => {
+                const open = openTopic === i
+                return (
+                  <li key={t.q}>
+                    <button
+                      onClick={() => setOpenTopic(open ? null : i)}
+                      aria-expanded={open}
+                      className="w-full flex items-center gap-2 text-left text-sm text-forest-900 py-2.5 hover:text-forest-700 transition-colors"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-forest-500 flex-shrink-0" />
+                      <span className="flex-1 min-w-0">{t.q}</span>
+                      <ChevronDown className={`w-4 h-4 text-ink-soft flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                    {open && (
+                      <p className="text-sm text-ink-soft leading-relaxed pl-6 pr-1 pb-3">{t.a}</p>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
 

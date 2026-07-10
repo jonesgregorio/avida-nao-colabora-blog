@@ -530,18 +530,14 @@ export default function App() {
   }
 
   if (view === 'pricing') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <Pricing
-            user={user}
-            currentPlan={profile?.plan || 'free'}
-            onNavigateAuth={() => navigate('auth')}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    // Logado → dentro do appShell (sidebar), coerente com a área logada;
+    // visitante → header/rodapé públicos. (appShell decide pelo `user`.)
+    return appShell(
+      <Pricing
+        user={user}
+        currentPlan={profile?.plan || 'free'}
+        onNavigateAuth={() => navigate('auth')}
+      />
     )
   }
 
