@@ -68,8 +68,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-red-100 text-red-700',
 }
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 
 const STATUS_TABS = [
@@ -104,7 +104,7 @@ const REPLY_TEMPLATES_FALLBACK = [
   { id: 'f20', title: 'Solicitação de cancelamento', category: 'Comercial', body: 'Olá! Recebi sua solicitação de cancelamento.\n\nVou verificar as informações da sua assinatura e te orientar sobre os próximos passos.\n\nSe puder, me diga também o motivo do cancelamento. Isso nos ajuda a melhorar o serviço.' },
   { id: 'f21', title: 'Pagamento ou assinatura', category: 'Pagamento', body: 'Olá! Vou te ajudar com sua assinatura.\n\nPara analisar melhor, me informe o que aconteceu:\n- pagamento não aprovado;\n- cobrança duplicada;\n- plano não liberado;\n- desconto não aplicado;\n- dúvida sobre renovação;\n- cancelamento.\n\nCom essas informações, consigo direcionar melhor o atendimento.' },
   { id: 'f22', title: 'Privacidade dos registros', category: 'Privacidade', body: 'Seus registros no diário, respostas de questionários e relatórios são informações pessoais.\n\nA proposta do site é que esses dados sejam usados para melhorar sua própria experiência dentro da plataforma, como gráficos, resumos e sugestões.' },
-  { id: 'f23', title: 'Atendimento prioritário Plus', category: 'Suporte', body: 'Olá! Vi que você está no plano Terapêutico Plus, então sua solicitação será tratada com prioridade máxima.\n\nVou analisar o caso com atenção e te retornar por aqui assim que possível.' },
+  { id: 'f23', title: 'Atendimento ao usuário Plus', category: 'Suporte', body: 'Olá! Vi que você está no plano Plus, então vou dar atenção especial à sua solicitação.\n\nVou analisar o caso com cuidado e te retornar por aqui assim que possível.' },
   { id: 'f24', title: 'Encerramento cordial', category: 'Encerramento', body: 'Olá! Como não tivemos novas mensagens por aqui e a solicitação parece ter sido resolvida, vou encerrar este atendimento.\n\nSe precisar de ajuda novamente, você pode abrir uma nova solicitação pelo Suporte dentro do site.' },
 ]
 
@@ -136,7 +136,7 @@ function getSLA(ticket: Ticket): { label: string; color: string } {
   const now = Date.now()
   const hours = (now - created) / 3600000
   const slaHours: Record<string, number> = {
-    free: 72, essential: 48, therapeutic: 24, 'therapeutic-plus': 8,
+    free: 72, essential: 48, plus: 24, therapeutic: 24, 'therapeutic-plus': 24,
   }
   const limit = slaHours[ticket.user_plan ?? ticket.plan_at_creation ?? 'free'] ?? 72
   if (hours > limit) return { label: 'Atrasado', color: 'bg-red-100 text-red-700' }

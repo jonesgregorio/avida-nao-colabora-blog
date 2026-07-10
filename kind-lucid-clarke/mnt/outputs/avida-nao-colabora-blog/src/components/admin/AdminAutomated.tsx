@@ -26,7 +26,6 @@ const TYPES = [
   { label: 'Plano semanal de autocuidado', value: 'weekly_self_care' },
   { label: 'Lembrete de diário', value: 'diary_reminder' },
   { label: 'Reflexão guiada', value: 'guided_reflection' },
-  { label: 'Técnica terapêutica', value: 'therapeutic_technique' },
 ]
 
 const FREQUENCIES = [
@@ -37,8 +36,8 @@ const FREQUENCIES = [
 ]
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 
 const TYPE_LABELS: Record<string, string> = Object.fromEntries(TYPES.map(t => [t.value, t.label]))

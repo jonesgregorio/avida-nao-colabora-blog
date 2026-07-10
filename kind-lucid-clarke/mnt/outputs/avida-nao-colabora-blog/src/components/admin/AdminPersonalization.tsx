@@ -18,13 +18,14 @@ import { sendPersonalizedDelivery } from '../../services/personalizedDeliverySer
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial',
-  therapeutic: 'Terapêutico', 'therapeutic-plus': 'Terapêutico Plus',
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-100 text-stone-600',
   essential: 'bg-blue-100 text-blue-700',
-  therapeutic: 'bg-purple-100 text-purple-700',
+  plus: 'bg-mint text-forest-800',
+  therapeutic: 'bg-mint text-forest-800',
   'therapeutic-plus': 'bg-mint text-forest-800',
 }
 const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'

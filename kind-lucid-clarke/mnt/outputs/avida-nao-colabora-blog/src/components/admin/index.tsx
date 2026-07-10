@@ -34,7 +34,7 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   articles: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'artigos' },
   categories: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'categorias' },
   images: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'imagens' },
-  trails: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'trilhas' },
+  trails: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'artigos' },
   seo: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'seo' },
   'social-proof': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'depoimentos' },
   'saved-items': { area: 'conteudos' },

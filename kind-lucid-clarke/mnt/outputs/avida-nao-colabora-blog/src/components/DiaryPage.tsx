@@ -263,6 +263,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     setSaving(true)
     setError('')
 
+    const isCheckin = entryMode === 'quick'
     const moodObj = moodOptions.find(m => m.value === mood) || moodOptions[1]
     const entryText = [mainEmotion, whatHappened, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
@@ -272,10 +273,15 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
       mood: moodObj.label,
       mood_score: isEssential ? moodScore : moodObj.score,
       text: entryText,
-      entry_type: 'diary',
+      // Check-in rápido NÃO conta como diário (§8): salva como 'checkin'.
+      entry_type: isCheckin ? 'checkin' : 'diary',
     }
 
-    if (isEssential) {
+    // Check-in rápido (§8.1): energia + ansiedade percebida, para todos os planos.
+    if (isCheckin) {
+      payload.energy = energy
+      payload.anxiety_level = anxietyLevel
+    } else if (isEssential) {
       if (fieldOn('energy')) payload.energy = energy
       if (fieldOn('anxiety_level')) payload.anxiety_level = anxietyLevel
       if (fieldOn('stress_level')) payload.stress_level = stressLevel
@@ -285,7 +291,7 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
       if (fieldOn('emotional_tags')) payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
     }
 
-    if (isPlus) {
+    if (!isCheckin && isPlus) {
       if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
       if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
       if (fieldOn('irritability')) payload.irritability = irritability
@@ -416,6 +422,14 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                 <MoodChip key={m.key} mood={m} active={checkinChip === m.key} onClick={() => selectChip(m.key)} />
               ))}
             </div>
+
+            {/* Check-in rápido: energia + ansiedade percebida (§8.1) — nota opcional abaixo */}
+            {entryMode === 'quick' && (
+              <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                <SliderField label="Energia" value={energy} onChange={setEnergy} />
+                <SliderField label="Ansiedade percebida" value={anxietyLevel} onChange={setAnxietyLevel} />
+              </div>
+            )}
 
             {/* Prompts */}
             <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>

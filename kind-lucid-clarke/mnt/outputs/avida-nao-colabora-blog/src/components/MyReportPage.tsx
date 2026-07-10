@@ -299,6 +299,59 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     )
   }
 
+  // Gratuito: apenas prévia + CTA. Sem relatório completo e sem PDF (§7).
+  if (!isEssential) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <header className="mb-6">
+          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+            Relatórios e evolução <BarChart2 className="w-6 h-6 text-forest-400" />
+          </h1>
+          <p className="mt-2 text-ink-soft">
+            Esta é uma prévia do seu relatório. O relatório semanal completo, com gráficos de evolução, está disponível a partir do plano Essencial.
+          </p>
+        </header>
+
+        <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+          <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">
+            Continue registrando no diário. Ao assinar o Essencial, você desbloqueia o relatório semanal com gráficos de humor, energia e ansiedade.
+          </p>
+          <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap">
+            Conhecer o Essencial
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <LockedSection
+            title="Relatório semanal de bem-estar"
+            description="Resumo do seu humor e das emoções mais registradas na semana. Disponível no plano Essencial."
+            onUpgrade={onNavigatePricing}
+          />
+          <LockedSection
+            title="Gráficos de evolução"
+            description="Acompanhe humor, energia e ansiedade em gráficos ao longo do tempo. Disponível no plano Essencial."
+            onUpgrade={onNavigatePricing}
+          />
+          <LockedSection
+            title="Análise comparativa mensal"
+            description="Compare seu progresso mês a mês — sono, autoestima, estresse e mais. Disponível no plano Plus."
+            onUpgrade={onNavigatePricing}
+          />
+          <LockedSection
+            title="Comentário do profissional"
+            description="Receba um comentário mensal personalizado de um profissional parceiro. Disponível no plano Plus."
+            onUpgrade={onNavigatePricing}
+          />
+        </div>
+
+        <button onClick={onNavigateDiary} className="mt-6 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium hover:text-forest-900 transition-colors">
+          <BookOpen className="w-4 h-4" /> Abrir meu diário
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 print:px-0 print:py-4">
       {/* Header */}
@@ -306,7 +359,11 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
           Relatórios e evolução <BarChart2 className="w-6 h-6 text-forest-400" />
         </h1>
-        <p className="mt-2 text-ink-soft">Acompanhe sua jornada de autocuidado e perceba o quanto você já evoluiu.</p>
+        <p className="mt-2 text-ink-soft">
+          {isPlus
+            ? 'Seu relatório mensal aprofundado — evolução, análise comparativa e comentário do profissional.'
+            : 'Seu acompanhamento semanal de bem-estar. O relatório mensal aprofundado está no plano Plus.'}
+        </p>
       </header>
 
       {/* Month selector */}
@@ -379,7 +436,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
         {/* ─── SEÇÃO 2: Gráficos de evolução (Essencial+) ────────────── */}
         {isEssential ? (
-          <Section icon={<TrendingUp className="w-4 h-4" />} title="Evolução do humor" badge="Essencial+">
+          <Section icon={<TrendingUp className="w-4 h-4" />} title="Evolução do humor" badge="Essencial">
             {moodChartData.length === 0 ? (
               <p className="text-xs text-stone-400 text-center py-4">Sem dados suficientes este mês.</p>
             ) : (

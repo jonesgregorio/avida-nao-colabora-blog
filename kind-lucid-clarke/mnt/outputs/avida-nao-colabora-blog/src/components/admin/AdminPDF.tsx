@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { FileText, Download, Users, CheckCircle, XCircle, Settings, TableIcon } from 'lucide-react'
+import { normalizePlan } from '../../lib/officialPlans'
 
-const PDF_PLANS = ['therapeutic', 'therapeutic-plus']
+// Exportação de PDF é dos planos pagos (Essencial e Plus). Gratuito não exporta.
+const PDF_PLANS = ['essential', 'plus']
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito',
   essential: 'Essencial',
-  therapeutic: 'Terapêutico',
-  'therapeutic-plus': 'Terapêutico Plus',
+  plus: 'Plus',
 }
 
 interface PDFStats {
@@ -40,11 +41,10 @@ function exportCSV(stats: PDFStats) {
 }
 
 const REPORT_TYPES = [
-  { id: 'emotional_monthly', label: 'Relatório Emocional Mensal', desc: 'Resumo do humor, energia e anotações do mês', plans: ['therapeutic', 'therapeutic-plus'] },
-  { id: 'diary_export', label: 'Exportação do Diário', desc: 'Histórico completo de entradas do diário', plans: ['therapeutic', 'therapeutic-plus'] },
-  { id: 'mood_evolution', label: 'Evolução do Humor', desc: 'Gráfico e análise da evolução emocional', plans: ['therapeutic', 'therapeutic-plus'] },
-  { id: 'anxiety_stress', label: 'Relatório de Ansiedade e Estresse', desc: 'Métricas de ansiedade, estresse e sono', plans: ['therapeutic-plus'] },
-  { id: 'therapeutic_goals', label: 'Metas Terapêuticas', desc: 'Progresso nas metas e tarefas terapêuticas', plans: ['therapeutic-plus'] },
+  { id: 'weekly_report', label: 'Relatório semanal', desc: 'Resumo semanal de humor, energia e ansiedade', plans: ['essential', 'plus'] },
+  { id: 'diary_export', label: 'Exportação do diário', desc: 'Histórico completo de entradas do diário', plans: ['essential', 'plus'] },
+  { id: 'mood_evolution', label: 'Evolução do humor', desc: 'Gráfico e análise da evolução emocional', plans: ['essential', 'plus'] },
+  { id: 'advanced_monthly', label: 'Relatório mensal aprofundado', desc: 'Análise comparativa mensal e comentário do profissional', plans: ['plus'] },
 ]
 
 export default function AdminPDF() {
@@ -59,7 +59,8 @@ export default function AdminPDF() {
       const byPlan: Record<string, number> = {}
       let totalEligible = 0
       for (const p of profiles) {
-        const plan = p.plan || 'free'
+        // Normaliza legados (therapeutic/therapeutic-plus → plus) para os 3 planos.
+        const plan = normalizePlan(p.plan)
         byPlan[plan] = (byPlan[plan] || 0) + 1
         if (PDF_PLANS.includes(plan)) totalEligible++
       }
@@ -77,7 +78,7 @@ export default function AdminPDF() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-serif text-2xl text-forest-900 mb-1">Relatórios PDF</h1>
-          <p className="text-stone-400 text-sm">Geração de relatórios em PDF para usuários com planos Terapêutico e Terapêutico Plus.</p>
+          <p className="text-stone-400 text-sm">Geração de relatórios em PDF para usuários dos planos Essencial e Plus.</p>
         </div>
         {stats && (
           <button
@@ -105,7 +106,7 @@ export default function AdminPDF() {
             <FileText className="w-4 h-4 text-stone-300" />
           </div>
           <p className="font-serif text-2xl text-stone-700">2</p>
-          <p className="text-xs text-stone-400 mt-1">Terapêutico e Terapêutico Plus</p>
+          <p className="text-xs text-stone-400 mt-1">Essencial e Plus</p>
         </div>
         <div className="bg-white rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
@@ -132,7 +133,7 @@ export default function AdminPDF() {
                   <p className="text-sm font-medium text-forest-900">{rt.label}</p>
                   <div className="flex gap-1">
                     {rt.plans.map(p => (
-                      <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p === 'therapeutic-plus' ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'}`}>
+                      <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${p === 'plus' ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'}`}>
                         {PLAN_LABELS[p]}
                       </span>
                     ))}
@@ -157,22 +158,20 @@ export default function AdminPDF() {
               <tr className="border-b border-line">
                 <th className="text-left py-2 text-stone-400 font-medium">Plano</th>
                 <th className="text-center py-2 text-stone-400 font-medium">Exportação PDF</th>
-                <th className="text-center py-2 text-stone-400 font-medium">Rel. emocional</th>
-                <th className="text-center py-2 text-stone-400 font-medium">Exp. diário</th>
-                <th className="text-center py-2 text-stone-400 font-medium">Metas terap.</th>
+                <th className="text-center py-2 text-stone-400 font-medium">Rel. semanal</th>
+                <th className="text-center py-2 text-stone-400 font-medium">Rel. mensal aprofundado</th>
                 <th className="text-right py-2 text-stone-400 font-medium">Usuários</th>
               </tr>
             </thead>
             <tbody>
-              {(['free', 'essential', 'therapeutic', 'therapeutic-plus'] as const).map(plan => {
+              {(['free', 'essential', 'plus'] as const).map(plan => {
                 const eligible = PDF_PLANS.includes(plan)
-                const plus = plan === 'therapeutic-plus'
+                const plus = plan === 'plus'
                 const Check = () => <CheckCircle className="w-4 h-4 text-forest-600 mx-auto" />
                 const X = () => <XCircle className="w-4 h-4 text-stone-200 mx-auto" />
                 return (
                   <tr key={plan} className="border-b border-stone-50">
                     <td className="py-2.5 font-medium text-forest-900">{PLAN_LABELS[plan]}</td>
-                    <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>
                     <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>
                     <td className="py-2.5 text-center">{eligible ? <Check /> : <X />}</td>
                     <td className="py-2.5 text-center">{plus ? <Check /> : <X />}</td>
@@ -187,7 +186,7 @@ export default function AdminPDF() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
         <strong>Geração de PDF:</strong> Os relatórios são gerados automaticamente no cliente usando os dados do diário e perfil do usuário.
-        Usuários com planos elegíveis encontram o botão "Exportar PDF" nas seções de diário e relatórios.
+        Usuários com planos elegíveis encontram o botão "Baixar PDF" nas seções de diário e relatórios.
       </div>
     </div>
   )

@@ -22,7 +22,7 @@ export const CONTENT_TYPE_LABELS: Record<string, string> = {
   report_comment: 'Comentário de relatório',
   monthly_report_comment: 'Comentário de relatório',
   self_care_plan: 'Plano de autocuidado',
-  weekly_self_care: 'Plano semanal de autocuidado',
+  weekly_self_care: 'Plano de autocuidado',
   monthly_review: 'Revisão mensal do plano',
   self_care_review: 'Revisão do autocuidado',
   session_themes: 'Temas para a orientação',
@@ -38,7 +38,6 @@ export const CONTENT_TYPE_LABELS: Record<string, string> = {
   guided_diary_notes: 'Notas guiadas para o diário',
   evolution_highlights: 'Destaques de evolução',
   questionnaire_suggestion: 'Questionário recomendado',
-  trail_suggestion: 'Sugestão de trilha',
   next_steps: 'Próximos passos de autocuidado',
 }
 

@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { FileText, Wind, Moon, BookOpen, Sparkles, Tag, Image, Search, Star } from 'lucide-react'
+import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminImages from './AdminImages'
-import AdminTrails from './AdminTrails'
 import AdminSEO from './AdminSEO'
 import AdminSocialProof from './AdminSocialProof'
 import AdminPersonalization from './AdminPersonalization'
@@ -14,7 +13,6 @@ const TABS = [
   { id: 'artigos',      label: 'Artigos',            icon: FileText },
   { id: 'praticas',     label: 'Práticas',           icon: Wind },
   { id: 'meditacoes',   label: 'Meditações',         icon: Moon },
-  { id: 'trilhas',      label: 'Trilhas',            icon: BookOpen },
   { id: 'recomendacoes', label: 'Recomendações IA',  icon: Sparkles },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
   { id: 'imagens',      label: 'Imagens',            icon: Image },
@@ -46,7 +44,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
     <div className="flex flex-col min-h-0">
       <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
         <h1 className="font-serif text-3xl text-forest-900">Conteúdos guiados</h1>
-        <p className="text-sm text-ink-soft mt-1">Gerencie textos, práticas, meditações, trilhas e recomendações de IA.</p>
+        <p className="text-sm text-ink-soft mt-1">Gerencie textos, práticas, meditações e recomendações de IA.</p>
       </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Conteúdo">
@@ -73,7 +71,6 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         {tab === 'artigos'      && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'praticas'     && <AdminArticles contentType="practice" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'meditacoes'   && <AdminArticles contentType="meditation" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
-        {tab === 'trilhas'      && <AdminTrails />}
         {tab === 'recomendacoes' && <AdminPersonalization />}
         {tab === 'categorias'   && <AdminCategories />}
         {tab === 'imagens'      && <AdminImages />}

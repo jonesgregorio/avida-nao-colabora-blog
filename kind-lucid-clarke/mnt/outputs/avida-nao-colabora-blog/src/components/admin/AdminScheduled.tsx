@@ -15,9 +15,9 @@ interface ScheduledContent {
   created_at: string
 }
 
-const TYPES = ['Artigo', 'Desafio', 'Campanha', 'Lembrete', 'Relatório mensal', 'Conteúdo premium']
+const TYPES = ['Artigo', 'Campanha', 'Lembrete', 'Relatório mensal']
 const PLANS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', therapeutic: 'Terapêutico', 'therapeutic-plus': 'Plus',
+  free: 'Gratuito', essential: 'Essencial', therapeutic: 'Plus', 'therapeutic-plus': 'Plus', plus: 'Plus',
 }
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _STATUS_COLORS: Record<string, string> = {

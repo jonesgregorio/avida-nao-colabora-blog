@@ -333,6 +333,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
 
   const isEssential = hasPlan(plan, 'essential')
+  const isPlus = hasPlan(plan, 'plus')
   const chartData = [...stats.dailyMoods].sort((a, b) => a.day - b.day).map(d => ({ day: d.day, humor: d.mood }))
   const positiveDays = stats.dailyMoods.filter(d => d.mood >= 4).length
   const positivePct = stats.dailyMoods.length ? Math.round((positiveDays / stats.dailyMoods.length) * 100) : 0
@@ -442,12 +443,22 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </button>
       </div>
 
-      {/* Gratuito: CTA */}
+      {/* Gratuito: CTA para o Mapa completo */}
       {!isEssential && (
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
-          <p className="flex-1 text-sm leading-relaxed text-forest-50">Gráficos completos, relatórios mensais e marcadores avançados estão disponíveis a partir do plano Essencial.</p>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">O Mapa Emocional completo — com energia, sono, ansiedade, autoestima e a linha do tempo emocional — está disponível a partir do plano Essencial.</p>
           <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap">Conhecer o Essencial</button>
+        </div>
+      )}
+
+      {/* Plus: como o Mapa se conecta às demais funções */}
+      {isPlus && (
+        <div className="rounded-3xl border border-line bg-paper-soft px-6 py-5 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Leaf className="w-4 h-4" /></span>
+          <p className="text-sm text-forest-800 leading-relaxed">
+            No plano Plus, o seu Mapa Emocional também alimenta o <strong>relatório mensal aprofundado</strong>, o <strong>plano de autocuidado</strong> e a <strong>orientação mensal</strong>. Quanto mais você registra no diário, mais personalizado fica esse acompanhamento.
+          </p>
         </div>
       )}
 

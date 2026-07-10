@@ -516,22 +516,16 @@ export default function App() {
   }
 
   if (view === 'articles') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <Articles
-            onSelectArticle={(articleOrSlug) => {
-              const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
-              setSelectedArticleSlug(slug)
-              setView('article')
-              pushURL('article', slug)
-              window.scrollTo(0, 0)
-            }}
-          />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
+    return appShell(
+      <Articles
+        onSelectArticle={(articleOrSlug) => {
+          const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
+          setSelectedArticleSlug(slug)
+          setView('article')
+          pushURL('article', slug)
+          window.scrollTo(0, 0)
+        }}
+      />
     )
   }
 

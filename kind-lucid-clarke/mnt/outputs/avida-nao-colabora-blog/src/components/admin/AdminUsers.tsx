@@ -9,6 +9,7 @@ import {
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
   LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
 } from 'lucide-react'
+import { normalizePlan } from '../../lib/officialPlans'
 
 interface UserRow {
   id: string
@@ -1305,10 +1306,9 @@ export default function AdminUsers() {
                     <div className="bg-stone-50 border border-line rounded-xl p-4">
                       <p className="text-xs font-semibold text-stone-700 mb-3">Recursos desbloqueados pelo plano</p>
                       <div className="space-y-1 text-xs text-stone-500">
-                        {selectedUser.plan === 'free' && <p>Acesso básico: artigos públicos, diário limitado</p>}
-                        {selectedUser.plan === 'essential' && <p>Acesso essencial: diário completo, questionários, artigos premium</p>}
-                        {selectedUser.plan === 'therapeutic' && <p>Acesso terapêutico: todos os recursos + trilhas + exportação</p>}
-                        {selectedUser.plan === 'therapeutic-plus' && <p>Acesso Plus: todos os recursos + suporte prioritário + atendimento exclusivo</p>}
+                        {normalizePlan(selectedUser.plan) === 'free' && <p>Acesso Gratuito: blog aberto, diário emocional básico e questionário inicial</p>}
+                        {normalizePlan(selectedUser.plan) === 'essential' && <p>Acesso Essencial: diário ilimitado, mapa emocional completo, conteúdos guiados e relatório semanal</p>}
+                        {normalizePlan(selectedUser.plan) === 'plus' && <p>Acesso Plus: tudo do Essencial + plano de autocuidado mensal, relatório mensal aprofundado, comentário e orientação profissional</p>}
                         {selectedUser.unlimited_access && <p className="text-forest-800 font-medium">Acesso ilimitado ativo — sem restrições</p>}
                       </div>
                     </div>

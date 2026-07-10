@@ -160,7 +160,7 @@ export default function AdminProfessionalComments() {
               className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors ${selectedUser?.user_id === u.user_id ? 'bg-purple-50 border border-purple-200 text-purple-800' : 'hover:bg-stone-50 text-stone-700'}`}
             >
               <p className="font-medium">{u.full_name ?? 'Sem nome'}</p>
-              <p className="text-[10px] text-stone-400 mt-0.5">Terapêutico Plus</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">Plus</p>
             </button>
           ))}
         </div>

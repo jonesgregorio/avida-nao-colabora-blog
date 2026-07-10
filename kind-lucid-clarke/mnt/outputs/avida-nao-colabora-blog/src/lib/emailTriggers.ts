@@ -20,7 +20,6 @@ export const LINKS = {
   orientacoes:  `${APP}/guia-mensal`,
   minhaEvolucao:`${APP}/minha-evolucao`,
   relatorios:   `${APP}/meu-relatorio`,
-  sessaoPlus:   `${APP}/minha-evolucao`,
   paraVoce:     `${APP}/minha-evolucao`,
   pagamento:    `${APP}/meu-plano`,
 }
@@ -88,38 +87,6 @@ export function emailGuidanceAnswered(userId: string, toEmail: string, nome: str
   })
 }
 
-export function emailSessionScheduled(userId: string, toEmail: string, nome: string, sessionId: string, opts: {
-  scheduledAt: string; data: string; horario: string; profissional: string; link: string
-}) {
-  return sendTransactionalEmail({
-    userId, toEmail, templateKey: 'session_scheduled',
-    variables: {
-      nome, data_sessao: opts.data, horario_sessao: opts.horario,
-      nome_profissional: opts.profissional, link_sessao: opts.link, link_sessao_plus: LINKS.sessaoPlus,
-    },
-    relatedType: 'session', relatedId: sessionId,
-    idempotencyKey: `session_scheduled:${sessionId}:${opts.scheduledAt}`,
-  })
-}
-
-export function emailSessionRescheduled(userId: string, toEmail: string, nome: string, sessionId: string, opts: { scheduledAt: string; data: string; horario: string }) {
-  return sendTransactionalEmail({
-    userId, toEmail, templateKey: 'session_rescheduled',
-    variables: { nome, data_sessao: opts.data, horario_sessao: opts.horario, link_sessao_plus: LINKS.sessaoPlus },
-    relatedType: 'session', relatedId: sessionId,
-    idempotencyKey: `session_rescheduled:${sessionId}:${opts.scheduledAt}`,
-  })
-}
-
-export function emailSessionCancelled(userId: string, toEmail: string, nome: string, sessionId: string) {
-  return sendTransactionalEmail({
-    userId, toEmail, templateKey: 'session_cancelled',
-    variables: { nome, link_sessao_plus: LINKS.sessaoPlus },
-    relatedType: 'session', relatedId: sessionId,
-    idempotencyKey: `session_cancelled:${sessionId}`,
-  })
-}
-
 export function emailMonthlyReport(userId: string, toEmail: string, nome: string, reportId: string) {
   return sendTransactionalEmail({
     userId, toEmail, templateKey: 'monthly_report_available',
@@ -153,15 +120,6 @@ export function emailPersonalizedContent(userId: string, toEmail: string, nome: 
     variables: { nome, link_para_voce: LINKS.paraVoce },
     relatedType: 'personalized_delivery', relatedId: deliveryId,
     idempotencyKey: `personalized_content_available:${deliveryId}`,
-  })
-}
-
-export function emailSessionRequested(userId: string, toEmail: string, nome: string, sessionId: string) {
-  return sendTransactionalEmail({
-    userId, toEmail, templateKey: 'session_requested',
-    variables: { nome, link_sessao_plus: LINKS.sessaoPlus },
-    relatedType: 'session', relatedId: sessionId,
-    idempotencyKey: `session_requested:${sessionId}`,
   })
 }
 
@@ -202,21 +160,6 @@ export async function emailSupportReplyForUser(userId: string, ticketId: string,
 export async function emailGuidanceAnsweredForUser(userId: string, guidanceId: string, respondedAt: string) {
   const { email, nome } = await recipientOf(userId)
   if (email) void emailGuidanceAnswered(userId, email, nome, guidanceId, respondedAt)
-}
-
-export async function emailSessionScheduledForUser(userId: string, sessionId: string, opts: { scheduledAt: string; data: string; horario: string; profissional: string; link: string }) {
-  const { email, nome } = await recipientOf(userId)
-  if (email) void emailSessionScheduled(userId, email, nome, sessionId, opts)
-}
-
-export async function emailSessionRescheduledForUser(userId: string, sessionId: string, opts: { scheduledAt: string; data: string; horario: string }) {
-  const { email, nome } = await recipientOf(userId)
-  if (email) void emailSessionRescheduled(userId, email, nome, sessionId, opts)
-}
-
-export async function emailSessionCancelledForUser(userId: string, sessionId: string) {
-  const { email, nome } = await recipientOf(userId)
-  if (email) void emailSessionCancelled(userId, email, nome, sessionId)
 }
 
 export async function emailMonthlyReportForUser(userId: string, reportId: string) {

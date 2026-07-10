@@ -130,11 +130,11 @@ const EMOTIONAL_CATEGORIES = [
   'Vergonha', 'Culpa', 'Amor', 'Solidão', 'Esperança', 'Gratidão'
 ]
 
+// Somente os 3 planos oficiais — a constraint do banco só aceita free/essential/plus (§9.5).
 const PLAN_OPTIONS = [
   { value: 'free', label: 'Gratuito' },
   { value: 'essential', label: 'Essencial' },
-  { value: 'therapeutic', label: 'Terapêutico' },
-  { value: 'therapeutic-plus', label: 'Terapêutico Plus' },
+  { value: 'plus', label: 'Plus' },
 ]
 
 const RESULT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
