@@ -288,6 +288,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
       if (fieldOn('energy')) payload.energy = energy
       if (fieldOn('anxiety_level')) payload.anxiety_level = anxietyLevel
       if (fieldOn('stress_level')) payload.stress_level = stressLevel
+      if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
+      if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
       if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
       if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
       if (fieldOn('free_note')) payload.free_note = freeNote || undefined
@@ -295,8 +297,6 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     }
 
     if (!isCheckin && isPlus) {
-      if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
-      if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
       if (fieldOn('irritability')) payload.irritability = irritability
       if (fieldOn('overload')) payload.overload = overload
       if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
@@ -490,8 +490,9 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
                   {fieldOn('energy') && <SliderField label="Energia" value={energy} onChange={setEnergy} />}
                   {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxietyLevel} onChange={setAnxietyLevel} />}
                   {fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
-                  {isPlus && fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
-                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
+                  {/* Sono e Autoestima também no Essencial: o Mapa Emocional mostra essas métricas (§ mapa completo). */}
+                  {fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
+                  {fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
                   {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
                   {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
                 </div>
