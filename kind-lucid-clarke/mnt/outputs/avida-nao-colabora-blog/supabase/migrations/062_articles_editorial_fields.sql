@@ -23,3 +23,8 @@ ALTER TABLE articles
 
 -- Backfill de origem para artigos já existentes.
 UPDATE articles SET origin = 'manual' WHERE origin IS NULL;
+
+-- Força o reload do cache de schema do PostgREST (senão INSERT/PATCH com os
+-- campos novos dá PGRST204 até o cache atualizar). DDL real dispara o watch.
+COMMENT ON COLUMN articles.keyword IS 'Palavra-chave principal (062)';
+COMMENT ON COLUMN articles.origin IS 'Origem do conteúdo: manual | ia (062)';

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Loader2, Trash2, ImageOff } from 'lucide-react'
+import { Plus, Loader2, Trash2, ImageOff, Upload } from 'lucide-react'
 
 interface Media {
   id: string
@@ -22,6 +22,7 @@ export default function AdminMediaLibrary() {
   const [missing, setMissing] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   function flash(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3000) }
 
@@ -53,6 +54,20 @@ export default function AdminMediaLibrary() {
     load()
   }
 
+  async function uploadFile(file: File) {
+    setUploading(true)
+    const safe = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+    const path = `${Date.now()}-${safe}`
+    const { error } = await supabase.storage.from('media').upload(path, file, { upsert: false, contentType: file.type })
+    if (error) { flash('Erro no upload: ' + error.message, true); setUploading(false); return }
+    const { data } = supabase.storage.from('media').getPublicUrl(path)
+    setUrl(data.publicUrl)
+    setAlt(prev => prev || safe.replace(/\.[^.]+$/, ''))
+    setShowNew(true)
+    setUploading(false)
+    flash('Arquivo enviado. Complete os campos e salve a mídia.')
+  }
+
   async function remove(m: Media) {
     if (!confirm('Remover esta mídia da biblioteca?')) return
     const { error } = await supabase.from('media_library').delete().eq('id', m.id)
@@ -71,7 +86,13 @@ export default function AdminMediaLibrary() {
           <h1 className="font-serif text-3xl text-forest-900">Estúdio de Mídia</h1>
           <p className="text-sm text-ink-soft mt-1">Biblioteca de imagens com alt, crédito e prompt de IA. Reaproveite nos conteúdos.</p>
         </div>
-        <button onClick={() => setShowNew(v => !v)} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Adicionar mídia</button>
+        <div className="flex gap-2">
+          <label className={`inline-flex items-center gap-2 border border-line bg-white text-forest-800 px-4 py-2 rounded-xl text-sm font-medium hover:border-forest-300 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Enviar arquivo
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = '' }} />
+          </label>
+          <button onClick={() => setShowNew(v => !v)} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Adicionar por URL</button>
+        </div>
       </div>
 
       {showNew && (

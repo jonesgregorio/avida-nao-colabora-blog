@@ -25,3 +25,7 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_articles_content_type ON articles(content_type);
+
+-- Força o reload do cache de schema do PostgREST (senão INSERT com content_type
+-- dá PGRST204 até o cache atualizar). DDL real dispara o pgrst_ddl_watch.
+COMMENT ON COLUMN articles.content_type IS 'Tipo de conteúdo: article | practice | meditation (059)';
