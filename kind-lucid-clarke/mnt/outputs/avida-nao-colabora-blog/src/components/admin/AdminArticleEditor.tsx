@@ -15,6 +15,16 @@ interface ArticleData {
   image_alt: string
   seo_title: string
   seo_description: string
+  keyword: string
+  secondary_keywords: string
+  tags: string
+  emotion: string
+  journey_stage: string
+  intent: string
+  audience: string
+  og_image: string
+  origin: string
+  internal_notes: string
   diary_question: string
   cta_text: string
   cta_link: string
@@ -28,6 +38,8 @@ const EMPTY: ArticleData = {
   title: '', slug: '', status: 'draft', content_type: 'article', category: '',
   content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
+  keyword: '', secondary_keywords: '', tags: '', emotion: '', journey_stage: '',
+  intent: '', audience: '', og_image: '', origin: 'manual', internal_notes: '',
   diary_question: '', cta_text: '', cta_link: '',
   plan_required: 'free', published_at: '', scheduled_at: '',
   read_time: 5,
@@ -79,6 +91,16 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           image_alt: a.image_alt || '',
           seo_title: a.seo_title || '',
           seo_description: a.seo_description || '',
+          keyword: a.keyword || '',
+          secondary_keywords: a.secondary_keywords || '',
+          tags: a.tags || '',
+          emotion: a.emotion || '',
+          journey_stage: a.journey_stage || '',
+          intent: a.intent || '',
+          audience: a.audience || '',
+          og_image: a.og_image || '',
+          origin: a.origin || 'manual',
+          internal_notes: a.internal_notes || '',
           diary_question: a.diary_question || '',
           cta_text: a.cta_text || '',
           cta_link: a.cta_link || '',
@@ -141,6 +163,16 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       image_alt: data.image_alt,
       seo_title: data.seo_title,
       seo_description: data.seo_description,
+      keyword: data.keyword,
+      secondary_keywords: data.secondary_keywords,
+      tags: data.tags,
+      emotion: data.emotion,
+      journey_stage: data.journey_stage,
+      intent: data.intent,
+      audience: data.audience,
+      og_image: data.og_image,
+      origin: data.origin,
+      internal_notes: data.internal_notes,
       diary_question: data.diary_question,
       cta_text: data.cta_text,
       cta_link: data.cta_link,
@@ -156,16 +188,23 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       payload.published_at = new Date(data.published_at).toISOString()
     }
 
-    let error: { message: string } | null
-    let savedId: string | null = articleId
-    if (articleId) {
-      const res = await supabase.from('articles').update(payload).eq('id', articleId)
-      error = res.error
-    } else {
-      const res = await supabase.from('articles').insert(payload).select('id').single()
-      error = res.error
-      savedId = (res.data as { id?: string } | null)?.id ?? null
+    // Salva; se a migration dos campos novos ainda não aplicou, faz fallback
+    // gravando só o essencial (o editor não pode quebrar por causa do deploy).
+    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes']
+    const writeArticle = (p: Record<string, unknown>) =>
+      articleId
+        ? supabase.from('articles').update(p).eq('id', articleId)
+        : supabase.from('articles').insert(p).select('id').single()
+
+    let res = await writeArticle(payload)
+    if (res.error && /column|schema cache|does not exist|PGRST204/i.test(res.error.message)) {
+      const base: Record<string, unknown> = { ...payload }
+      for (const k of EXTRA_KEYS) delete base[k]
+      res = await writeArticle(base)
+      if (!res.error) showToast('Salvo. Os campos editoriais serão gravados após a atualização do banco.')
     }
+    const error: { message: string } | null = res.error
+    const savedId: string | null = articleId ?? ((res.data as { id?: string } | null)?.id ?? null)
 
     if (error) {
       showToast('Erro ao salvar: ' + error.message, true)
@@ -205,7 +244,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   function handleAIInsert(result: string) {
     if (!aiModal) return
     switch (aiModal.type) {
-      case 'article':           set('content', result); break
+      case 'article':           set('content', result); set('origin', 'ia'); break
       case 'article_title':     set('title', result); break
       case 'article_summary':   set('summary', result); break
       case 'article_seo': {
@@ -381,6 +420,56 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </Field>
             <Field label="Link do CTA">
               <input value={data.cta_link} onChange={e => set('cta_link', e.target.value)} placeholder="Ex: diary" className={inputCls} />
+            </Field>
+          </div>
+
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">SEO &amp; Editorial</h2>
+            <Field label="SEO title (~60 caracteres)">
+              <input value={data.seo_title} onChange={e => set('seo_title', e.target.value)} maxLength={70} placeholder="Título para mecanismos de busca" className={inputCls} />
+            </Field>
+            <Field label="SEO description (~155 caracteres)">
+              <textarea value={data.seo_description} onChange={e => set('seo_description', e.target.value)} maxLength={180} rows={2} placeholder="Descrição para busca e compartilhamento" className={inputCls} />
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Palavra-chave principal">
+                <input value={data.keyword} onChange={e => set('keyword', e.target.value)} placeholder="Ex: ansiedade no trabalho" className={inputCls} />
+              </Field>
+              <Field label="Palavras-chave secundárias">
+                <input value={data.secondary_keywords} onChange={e => set('secondary_keywords', e.target.value)} placeholder="separadas por vírgula" className={inputCls} />
+              </Field>
+              <Field label="Tags">
+                <input value={data.tags} onChange={e => set('tags', e.target.value)} placeholder="separadas por vírgula" className={inputCls} />
+              </Field>
+              <Field label="Emoção / dor principal">
+                <input value={data.emotion} onChange={e => set('emotion', e.target.value)} placeholder="Ex: sobrecarga" className={inputCls} />
+              </Field>
+              <Field label="Etapa da jornada">
+                <select value={data.journey_stage} onChange={e => set('journey_stage', e.target.value)} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="descoberta">Descoberta</option>
+                  <option value="consideracao">Consideração</option>
+                  <option value="decisao">Decisão</option>
+                </select>
+              </Field>
+              <Field label="Intenção do conteúdo">
+                <input value={data.intent} onChange={e => set('intent', e.target.value)} placeholder="Ex: acolher / educar" className={inputCls} />
+              </Field>
+              <Field label="Público-alvo">
+                <input value={data.audience} onChange={e => set('audience', e.target.value)} placeholder="Ex: adultos com rotina intensa" className={inputCls} />
+              </Field>
+              <Field label="Origem">
+                <select value={data.origin} onChange={e => set('origin', e.target.value)} className={inputCls}>
+                  <option value="manual">Manual</option>
+                  <option value="ia">IA</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Imagem Open Graph (URL)">
+              <input value={data.og_image} onChange={e => set('og_image', e.target.value)} placeholder="https://... (compartilhamento social)" className={inputCls} />
+            </Field>
+            <Field label="Notas internas (não aparecem no site)">
+              <textarea value={data.internal_notes} onChange={e => set('internal_notes', e.target.value)} rows={2} placeholder="Anotações para a equipe" className={inputCls} />
             </Field>
           </div>
         </div>
