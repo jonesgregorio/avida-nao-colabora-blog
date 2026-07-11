@@ -11,22 +11,34 @@ import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
 // Rótulos neutros (substantivos) — sem marcação de gênero.
+// Taxonomia oficial (slugs neutros = value), alinhada aos chips de moods.ts.
+// `score` é 1–10 (o Mapa normaliza para 1–5). `label` é o que fica salvo em `mood`.
 const moodOptions = [
-  { value: 'bem', emoji: '😊', label: 'Bem-estar', score: 8 },
-  { value: 'neutro', emoji: '😐', label: 'Neutro', score: 5 },
-  { value: 'triste', emoji: '😔', label: 'Tristeza', score: 3 },
-  { value: 'ansioso', emoji: '😰', label: 'Ansiedade', score: 3 },
-  { value: 'irritado', emoji: '😤', label: 'Irritação', score: 3 },
-  { value: 'sobrecarregado', emoji: '😩', label: 'Sobrecarga', score: 2 },
+  { value: 'bem_estar',     emoji: '😊',   label: 'Bem-estar',     score: 9 },
+  { value: 'tranquilidade', emoji: '😌',   label: 'Tranquilidade', score: 8 },
+  { value: 'cansaco',       emoji: '😪',   label: 'Cansaço',       score: 4 },
+  { value: 'sem_energia',   emoji: '🪫',   label: 'Sem energia',   score: 3 },
+  { value: 'ansiedade',     emoji: '😰',   label: 'Ansiedade',     score: 3 },
+  { value: 'sobrecarga',    emoji: '😩',   label: 'Sobrecarga',    score: 2 },
+  { value: 'tristeza',      emoji: '😔',   label: 'Tristeza',      score: 2 },
+  { value: 'irritacao',     emoji: '😤',   label: 'Irritação',     score: 3 },
+  { value: 'desanimo',      emoji: '😞',   label: 'Desânimo',      score: 2 },
+  { value: 'confusao',      emoji: '😵‍💫', label: 'Confusão',      score: 4 },
+  { value: 'outro',         emoji: '😐',   label: 'Outro',         score: 5 },
 ]
 
-// Mapa entre os chips de check-in (slug neutro) e o valor de humor salvo.
-// Mantém os slugs antigos como compatibilidade para links/dados anteriores.
+// Chip do check-in → valor de humor salvo. Com slugs unificados é praticamente
+// identidade; mantém aliases LEGADOS (com gênero / antigos) por compatibilidade
+// de URLs e dados anteriores.
 const CHIP_TO_MOOD: Record<string, string> = {
-  tranquilidade: 'bem', bem_estar: 'bem', ansiedade: 'ansioso', cansaco: 'neutro',
-  sobrecarga: 'sobrecarregado', outro: 'neutro',
-  // compat legado
-  tranquila: 'bem', bem: 'bem', ansiosa: 'ansioso', cansada: 'neutro', sobrecarregada: 'sobrecarregado',
+  bem_estar: 'bem_estar', tranquilidade: 'tranquilidade', cansaco: 'cansaco', sem_energia: 'sem_energia',
+  ansiedade: 'ansiedade', sobrecarga: 'sobrecarga', tristeza: 'tristeza', irritacao: 'irritacao',
+  desanimo: 'desanimo', confusao: 'confusao', outro: 'outro',
+  // compat legado (com gênero / slugs antigos) → slug neutro atual
+  bem: 'bem_estar', 'bem-estar': 'bem_estar', tranquila: 'tranquilidade', tranquilo: 'tranquilidade',
+  ansiosa: 'ansiedade', ansioso: 'ansiedade', cansada: 'cansaco', cansado: 'cansaco',
+  sobrecarregada: 'sobrecarga', sobrecarregado: 'sobrecarga', triste: 'tristeza',
+  irritada: 'irritacao', irritado: 'irritacao', neutro: 'outro', neutra: 'outro',
 }
 
 const emotionalTags = [
@@ -119,7 +131,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const entriesRef = useRef<HTMLElement>(null)
 
   // Free fields
-  const [mood, setMood] = useState('neutro')
+  const [mood, setMood] = useState('outro')
   const [checkinChip, setCheckinChip] = useState<string | null>(null)
   const [mainEmotion, setMainEmotion] = useState('')
   const [whatHappened, setWhatHappened] = useState('')
@@ -234,7 +246,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const selectChip = (chipKey: string) => {
     setCheckinChip(chipKey)
-    setMood(CHIP_TO_MOOD[chipKey] ?? 'neutro')
+    setMood(CHIP_TO_MOOD[chipKey] ?? 'outro')
   }
 
   const applyPrompt = (p: string) => {
@@ -242,7 +254,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   }
 
   const resetForm = () => {
-    setMood('neutro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
+    setMood('outro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
     setMoodScore(5); setEnergy(5); setAnxietyLevel(5); setStressLevel(5)
     setGratitude(''); setSmallPride(''); setFreeNote(''); setSelectedTags([])
     setSleepQuality(5); setSelfEsteem(5); setIrritability(5); setOverload(5)
@@ -252,9 +264,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const handleSave = async () => {
     if (entryMode === 'quick') {
-      // Check-in rápido (§11.1): basta escolher um estado emocional; a nota é opcional.
-      if (!checkinChip && !whatHappened.trim()) {
-        setError('Escolha como você está para registrar o check-in.')
+      // Check-in (spec §6): basta o estado emocional (chip). Energia e ansiedade
+      // percebida têm valor sempre (sliders); a nota é OPCIONAL — nunca exige texto.
+      if (!checkinChip) {
+        setError('Escolha um estado emocional para registrar o check-in.')
         return
       }
     } else if (!whatHappened.trim() && !mainEmotion.trim() && !freeNote.trim()) {
@@ -269,7 +282,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setError('')
 
     const isCheckin = entryMode === 'quick'
-    const moodObj = moodOptions.find(m => m.value === mood) || moodOptions[1]
+    const moodObj = moodOptions.find(m => m.value === mood) || moodOptions.find(m => m.value === 'outro') || moodOptions[0]
     const entryText = [mainEmotion, whatHappened, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
     const payload: Partial<DiaryEntry> & { user_id: string } = {
@@ -485,9 +498,14 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             <h2 className="font-serif text-lg sm:text-xl text-forest-900">Check-in emocional</h2>
             <p className="text-sm text-ink-soft mt-1 mb-3">
               {entryMode === 'quick'
-                ? 'Um registro rápido em poucos segundos. Escolha como você está agora.'
+                ? 'Registre como você está agora. Você pode fazer quantos check-ins quiser ao longo do dia.'
                 : 'Como você está se sentindo agora? Escolha o que mais faz sentido para você.'}
             </p>
+            {entryMode === 'quick' && plan === 'free' && (
+              <p className="text-xs text-forest-600 mb-3 flex items-center gap-1.5">
+                <Sprout className="w-3.5 h-3.5 flex-shrink-0" /> Check-ins são ilimitados e não consomem seus registros mensais de diário.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 mb-6">
               {MOODS.map(m => (
                 <MoodChip key={m.key} mood={m} active={checkinChip === m.key} onClick={() => selectChip(m.key)} />
@@ -599,11 +617,14 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
             {error && <p className="text-coral text-sm mt-4">{error}</p>}
             {saveBlockedByLimit && (
-              <p className="text-sm text-ink-soft mt-4">
-                Você usou todas as entradas do mês.{plan === 'free' && onNavigatePricing && (
-                  <> <button onClick={onNavigatePricing} className="text-forest-700 underline font-medium">Faça upgrade para continuar registrando.</button></>
+              <div className="text-sm text-ink-soft mt-4 bg-mint/40 border border-line rounded-2xl p-3.5 leading-relaxed">
+                Você usou seus <strong>{entryLimit} registros de diário</strong> deste mês. Seus <strong>check-ins continuam liberados</strong> — é só trocar para "Check-in rápido" acima.
+                {plan === 'free' && onNavigatePricing && (
+                  <div className="mt-2">
+                    Para diário ilimitado, <button onClick={onNavigatePricing} className="text-forest-700 underline font-medium">conheça o Essencial</button>.
+                  </div>
                 )}
-              </p>
+              </div>
             )}
 
             {/* Ações */}
@@ -735,10 +756,13 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           {entryLimit != null && (
             <div className="bg-paper-soft border border-line rounded-3xl p-5">
               <h2 className="font-serif text-lg text-forest-900">Limite do plano gratuito</h2>
-              <p className="text-sm text-ink-soft mt-1">Você utilizou <strong>{freeEntryCount} de {entryLimit}</strong> registros este mês.</p>
+              <p className="text-sm text-ink-soft mt-1">Você utilizou <strong>{freeEntryCount} de {entryLimit}</strong> registros de <strong>diário</strong> este mês.</p>
               <div className="h-2 bg-mint rounded-full overflow-hidden mt-3">
                 <div className={`h-full rounded-full transition-all ${atLimit ? 'bg-coral' : 'bg-forest-600'}`} style={{ width: `${Math.min((freeEntryCount / entryLimit) * 100, 100)}%` }} />
               </div>
+              <p className="text-xs text-forest-600 mt-2.5 flex items-center gap-1.5">
+                <Sprout className="w-3.5 h-3.5 flex-shrink-0" /> Os check-ins rápidos são ilimitados e não entram nessa conta.
+              </p>
               {plan === 'free' && onNavigatePricing && (
                 <button onClick={onNavigatePricing} className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-forest-900 text-white text-sm font-medium px-4 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
                   Ter registros ilimitados

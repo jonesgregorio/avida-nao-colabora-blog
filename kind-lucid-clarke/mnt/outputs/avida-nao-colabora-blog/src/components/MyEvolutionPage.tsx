@@ -225,11 +225,22 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         if (!Number.isFinite(s) || s <= 0) return 0
         return Math.min(5, Math.max(1, Math.round(s / 2)))
       }
-      const moods = (entries as DiaryRow[]).map(moodTo5).filter(Boolean)
-      const energies = (entries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
-      const sleeps = (entries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
-      const anxieties = (entries as DiaryRow[]).map((e) => Number(e.anxiety_level || 0)).filter(Boolean)
-      const selfEsteems = (entries as DiaryRow[]).map((e) => Number(e.self_esteem || 0)).filter(Boolean)
+      // §8: com check-in ILIMITADO, um dia com muitos check-ins não pode distorcer as
+      // médias do mês. Cada métrica é a MÉDIA DAS MÉDIAS DIÁRIAS (um valor por dia).
+      const avgByDay = (rows: DiaryRow[], getVal: (e: DiaryRow) => number): number => {
+        const byDay = new Map<number, number[]>()
+        rows.forEach((e) => {
+          const v = getVal(e)
+          if (!Number.isFinite(v) || v <= 0) return
+          const day = new Date(e.created_at).getDate()
+          const arr = byDay.get(day) ?? []; arr.push(v); byDay.set(day, arr)
+        })
+        return avg([...byDay.values()].map((vs) => avg(vs)))
+      }
+      const en = (e: DiaryRow) => Number(e.energy)
+      const sl = (e: DiaryRow) => Number(e.sleep_quality)
+      const anx = (e: DiaryRow) => Number(e.anxiety_level)
+      const se = (e: DiaryRow) => Number(e.self_esteem)
 
       const tagCounts: Record<string, number> = {}
       ;(entries as DiaryRow[]).forEach((e) => {
@@ -238,7 +249,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       })
       const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
 
-      const moodAvg = avg(moods)
+      const moodAvg = avgByDay(entries as DiaryRow[], moodTo5)
       const dominantMoodScore = Math.round(moodAvg)
       const dominantMood = MOOD_LABELS[dominantMoodScore] ?? '—'
 
@@ -266,24 +277,20 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         .map(([day, ms]) => ({ day, mood: avg(ms) }))
         .sort((a, b) => a.day - b.day)
 
-      const prevMoods = (prevEntries as DiaryRow[]).map(moodTo5).filter(Boolean)
-      const prevEnergies = (prevEntries as DiaryRow[]).map((e) => Number(e.energy || 0)).filter(Boolean)
-      const prevSleeps = (prevEntries as DiaryRow[]).map((e) => Number(e.sleep_quality || 0)).filter(Boolean)
-
       setStats({
         totalEntries: entries.length,
         avgMood: moodAvg,
-        avgEnergy: avg(energies),
-        avgSleep: avg(sleeps),
-        avgAnxiety: avg(anxieties),
-        avgSelfEsteem: avg(selfEsteems),
+        avgEnergy: avgByDay(entries as DiaryRow[], en),
+        avgSleep: avgByDay(entries as DiaryRow[], sl),
+        avgAnxiety: avgByDay(entries as DiaryRow[], anx),
+        avgSelfEsteem: avgByDay(entries as DiaryRow[], se),
         dominantMood,
         topTags,
         weeklyEntries,
         dailyMoods,
-        prevMonthAvgMood: avg(prevMoods),
-        prevMonthAvgEnergy: avg(prevEnergies),
-        prevMonthAvgSleep: avg(prevSleeps),
+        prevMonthAvgMood: avgByDay(prevEntries as DiaryRow[], moodTo5),
+        prevMonthAvgEnergy: avgByDay(prevEntries as DiaryRow[], en),
+        prevMonthAvgSleep: avgByDay(prevEntries as DiaryRow[], sl),
       })
       setLoading(false)
     })
