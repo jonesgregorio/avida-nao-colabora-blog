@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { exportElementToPdf } from '../lib/exportPdf'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
-import { ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown, Save, Sprout, CalendarDays } from 'lucide-react'
+import { ChevronDown, ChevronUp, RefreshCw, Lightbulb, FileDown, Save, Sprout, CalendarDays, CheckCircle2, Plus, Home } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
 import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
@@ -103,7 +103,7 @@ function calcStreak(days: Set<string>): number {
   return s
 }
 
-export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext }: DiaryPageProps) {
+export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [prompt, setPrompt] = useState('')
@@ -114,6 +114,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
+  // Recap para a tela de confirmação exibida após salvar um registro.
+  const [savedConfirm, setSavedConfirm] = useState<null | { kind: 'checkin' | 'diary'; mood: string; emoji: string; energy: number; anxiety: number }>(null)
   const entriesRef = useRef<HTMLElement>(null)
 
   // Free fields
@@ -323,6 +325,8 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
         if (count === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
         else if (count >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
       }
+      // Guarda o recap e dispara a tela de confirmação explícita.
+      setSavedConfirm({ kind: isCheckin ? 'checkin' : 'diary', mood: moodObj.label, emoji: moodObj.emoji, energy, anxiety: anxietyLevel })
     }
     resetForm()
     setSaving(false)
@@ -350,6 +354,64 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     } finally {
       setExporting(false)
     }
+  }
+
+  // ─── Tela de confirmação explícita após salvar (check-in ou diário) ───
+  if (savedConfirm) {
+    const isCheckinConfirm = savedConfirm.kind === 'checkin'
+    return (
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-mint flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-8 h-8 text-forest-600" />
+        </div>
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900">
+          {isCheckinConfirm ? 'Check-in registrado 💚' : 'Registro salvo 💚'}
+        </h1>
+        <p className="mt-3 text-ink-soft leading-relaxed">
+          {isCheckinConfirm
+            ? 'Seu check-in foi salvo com segurança. Obrigado por reservar esse momento para você.'
+            : 'Seu registro foi salvo no diário. Obrigado por cuidar de você hoje.'}
+        </p>
+
+        {/* Recap do que foi registrado */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <span className="inline-flex items-center gap-1.5 bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-forest-900">
+            <span aria-hidden>{savedConfirm.emoji}</span> {savedConfirm.mood}
+          </span>
+          {isCheckinConfirm && (
+            <>
+              <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
+                Energia <strong className="text-forest-800">{savedConfirm.energy}/10</strong>
+              </span>
+              <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
+                Ansiedade <strong className="text-forest-800">{savedConfirm.anxiety}/10</strong>
+              </span>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+          <button
+            onClick={() => { setSavedConfirm(null); setEntryMode('quick') }}
+            className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+          >
+            <Plus className="w-4 h-4" /> {isCheckinConfirm ? 'Fazer outro check-in' : 'Novo registro'}
+          </button>
+          <button
+            onClick={() => { setSavedConfirm(null); setTimeout(() => entriesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
+            className="inline-flex items-center gap-2 border border-line text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/40 transition-colors"
+          >
+            Ver meus registros
+          </button>
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 text-ink-soft hover:text-forest-900 text-sm font-medium px-4 py-2.5 transition-colors"
+          >
+            <Home className="w-4 h-4" /> Início
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
