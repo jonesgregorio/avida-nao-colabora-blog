@@ -71,6 +71,8 @@ export default function ArticleView({
   const [article, setArticle] = useState<Article | null>(initialArticle || null)
   const [related, setRelated] = useState<Pick<Article, 'id' | 'title' | 'slug' | 'category' | 'read_time' | 'image_url' | 'cover_image_url' | 'cover_image'>[]>([])
   const [loading, setLoading] = useState(!initialArticle)
+  // Teaser público quando o corpo do artigo é bloqueado por plano (paywall).
+  const [locked, setLocked] = useState<{ title: string; summary: string | null; excerpt: string | null; category: string | null; plan_required: string; image_url: string | null; read_time: number | null } | null>(null)
 
   // Interactive state
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackType | null>(null)
@@ -113,10 +115,18 @@ export default function ArticleView({
 
   async function loadArticle(s: string) {
     setLoading(true)
+    setLocked(null)
     try {
       const { data, error } = await supabase.from('articles').select('*').eq('slug', s).single()
       if (error || !data) {
         setArticle(null)
+        // Pode ser conteúdo exclusivo (RLS bloqueou o corpo por plano). Busca o
+        // teaser público para mostrar paywall em vez de "não encontrado".
+        try {
+          const { data: t } = await supabase.rpc('get_article_teaser', { p_slug: s })
+          const row = Array.isArray(t) ? t[0] : t
+          if (row && row.plan_required && row.plan_required !== 'free') setLocked(row)
+        } catch { /* teaser indisponível — cai no "não encontrado" */ }
         return
       }
       setArticle(data)
@@ -217,6 +227,40 @@ export default function ArticleView({
     return (
       <div className="flex justify-center py-20">
         <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // Paywall: artigo existe e está publicado, mas o corpo é exclusivo do plano.
+  if (locked) {
+    const planLabel = locked.plan_required === 'plus' ? 'Plus' : 'Essencial'
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <button onClick={onBack} className="text-sm text-ink-soft hover:text-forest-900 mb-6 inline-flex items-center gap-1.5">
+          <ArrowLeft className="w-4 h-4" /> Voltar para conteúdos
+        </button>
+        <div className="bg-white border border-line rounded-2xl p-8 text-center">
+          <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-mint text-forest-700 mb-4">
+            Conteúdo exclusivo do plano {planLabel}
+          </span>
+          <h1 className="font-serif text-2xl md:text-3xl text-forest-900 leading-tight">{locked.title}</h1>
+          {(locked.summary || locked.excerpt) && (
+            <p className="text-ink-soft mt-3">{locked.summary || locked.excerpt}</p>
+          )}
+          <p className="text-sm text-ink-soft mt-5">
+            Assine o plano <strong>{planLabel}</strong> para ler este conteúdo completo e acompanhar seus padrões emocionais.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center mt-6">
+            <button onClick={() => (navigate ? navigate('pricing') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
+              Ver planos
+            </button>
+            {!user && (
+              <button onClick={() => (navigate ? navigate('auth') : onBack())} className="border border-line text-forest-800 px-5 py-2.5 rounded-xl text-sm font-medium hover:border-forest-300">
+                Já assino — entrar
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     )
   }

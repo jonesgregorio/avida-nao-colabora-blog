@@ -6,9 +6,6 @@ import { supabase } from './supabase'
 // trocado pelo botão "Corrigir" na Saúde do Sistema. Se o ativo falhar, o
 // generateWithFailover cai automaticamente para o próximo disponível.
 
-const POLLINATIONS_URL = 'https://text.pollinations.ai/'
-const TIMEOUT_MS = 35_000
-
 // Aviso obrigatório de responsabilidade (append automático quando relevante)
 export const DISCLAIMER =
   'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
@@ -54,10 +51,6 @@ export interface AICallOptions {
 // próximo disponível automaticamente. O admin também pode trocar manualmente
 // pelo botão "Corrigir" na Saúde do Sistema.
 
-const GEMINI_MODEL = 'gemini-2.0-flash'
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const GROQ_MODEL = 'llama-3.3-70b-versatile'
-
 export type AIProvider = 'pollinations' | 'gemini' | 'groq'
 
 export const PROVIDER_ORDER: AIProvider[] = ['pollinations', 'gemini', 'groq']
@@ -70,12 +63,11 @@ export const PROVIDER_LABELS: Record<AIProvider, string> = {
 
 const AI_PROVIDER_KEY = 'avida_ai_provider'
 
-// Pollinations é keyless; Gemini/Groq exigem chave em variável de ambiente.
+// As chaves de IA vivem SÓ no servidor (Edge Function generate-content). O
+// cliente não conhece chave nenhuma; assume o provider disponível e o servidor
+// faz o failover / devolve erro claro se faltar chave.
 export function providerConfigured(p: AIProvider): boolean {
-  if (p === 'pollinations') return true
-  if (p === 'gemini') return !!import.meta.env?.VITE_GEMINI_API_KEY
-  if (p === 'groq') return !!import.meta.env?.VITE_GROQ_API_KEY
-  return false
+  return PROVIDER_ORDER.includes(p)
 }
 
 export function availableProviders(): AIProvider[] {
@@ -99,90 +91,30 @@ export function setActiveProviderLocal(p: AIProvider): void {
   try { localStorage.setItem(AI_PROVIDER_KEY, p) } catch { /* noop */ }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    return await fetch(url, { ...init, signal: controller.signal })
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-async function callPollinations(prompt: string): Promise<string> {
-  const res = await fetchWithTimeout(POLLINATIONS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'openai', seed: Math.floor(Math.random() * 99999) }),
-  })
-  if (!res.ok) throw new Error(`Pollinations HTTP ${res.status}`)
-  const text = await res.text()
-  if (!text.trim()) throw new Error('Pollinations: resposta vazia')
-  return text.trim()
-}
-
-async function callGemini(prompt: string): Promise<string> {
-  const key = import.meta.env?.VITE_GEMINI_API_KEY as string | undefined
-  if (!key) throw new Error('Gemini: VITE_GEMINI_API_KEY não configurada')
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`
-  const res = await fetchWithTimeout(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  })
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
-  const data = await res.json()
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text || !String(text).trim()) throw new Error('Gemini: resposta vazia')
-  return String(text).trim()
-}
-
-async function callGroq(prompt: string): Promise<string> {
-  const key = import.meta.env?.VITE_GROQ_API_KEY as string | undefined
-  if (!key) throw new Error('Groq: VITE_GROQ_API_KEY não configurada')
-  const res = await fetchWithTimeout(GROQ_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }] }),
-  })
-  if (!res.ok) throw new Error(`Groq HTTP ${res.status}`)
-  const data = await res.json()
-  const text = data?.choices?.[0]?.message?.content
-  if (!text || !String(text).trim()) throw new Error('Groq: resposta vazia')
-  return String(text).trim()
-}
-
-const PROVIDER_FN: Record<AIProvider, (p: string) => Promise<string>> = {
-  pollinations: callPollinations,
-  gemini: callGemini,
-  groq: callGroq,
-}
-
-// Tenta o provider ativo e, em caso de falha, faz failover para os próximos
-// disponíveis. Se um provider de fallback funcionar, ele é promovido a ativo.
+// Geração via Edge Function segura (chaves só no servidor). Envia o provider
+// ativo como preferência; o servidor tenta ele primeiro e faz failover para os
+// demais. Se um provider de fallback responder, ele é promovido a ativo.
 export async function generateWithFailover(prompt: string): Promise<string> {
-  const active = getActiveProvider()
-  const order = [active, ...availableProviders().filter(p => p !== active)].filter(providerConfigured)
-  const tried: string[] = []
-  for (const p of order) {
-    try {
-      const out = await PROVIDER_FN[p](prompt)
-      if (p !== active) setActiveProviderLocal(p)
-      return out
-    } catch (err) {
-      tried.push(`${PROVIDER_LABELS[p]}: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-  throw new Error(`Todas as IAs disponíveis falharam. ${tried.join(' | ')}`)
+  const { data, error } = await supabase.functions.invoke('generate-content', {
+    body: { prompt, provider: getActiveProvider() },
+  })
+  const out = data as { text?: string; provider?: AIProvider; error?: string } | null
+  if (error) throw new Error(out?.error || error.message || 'Falha ao gerar com IA')
+  if (!out?.text || !out.text.trim()) throw new Error(out?.error || 'IA indisponível ou resposta vazia')
+  if (out.provider && out.provider !== getActiveProvider()) setActiveProviderLocal(out.provider)
+  return out.text.trim()
 }
 
-// Testa um provider específico (para o health check). Prompt mínimo.
+// Testa um provider específico (health check), sem failover — via servidor.
 export async function testProvider(p: AIProvider): Promise<{ ok: boolean; error?: string; ms: number }> {
   const t0 = Date.now()
-  if (!providerConfigured(p)) return { ok: false, error: 'Não configurada (sem chave de API)', ms: 0 }
   try {
-    const out = await PROVIDER_FN[p]('Responda apenas com o texto: OK')
-    return { ok: !!out.trim(), ms: Date.now() - t0 }
+    const { data, error } = await supabase.functions.invoke('generate-content', {
+      body: { prompt: 'Responda apenas com o texto: OK', provider: p, test: true, contentType: 'health_check' },
+    })
+    const out = data as { text?: string; error?: string } | null
+    if (error) return { ok: false, error: out?.error || error.message, ms: Date.now() - t0 }
+    return { ok: !!out?.text && !!out.text.trim(), error: out?.text ? undefined : out?.error, ms: Date.now() - t0 }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e), ms: Date.now() - t0 }
   }

@@ -261,7 +261,7 @@ export default function AdminSystemHealth() {
           ? [...all.slice(start + 1), ...all.slice(0, start)]
           : all
         if (others.length === 0) {
-          showToast('Nenhuma IA alternativa configurada. Adicione VITE_GEMINI_API_KEY ou VITE_GROQ_API_KEY no deploy.', true)
+          showToast('Nenhuma IA alternativa configurada. Configure GEMINI_API_KEY ou GROQ_API_KEY nos secrets do Supabase (Edge Functions).', true)
         } else {
           let working: AIProvider | null = null
           for (const p of others) {

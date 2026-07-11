@@ -180,7 +180,7 @@ export async function checkAI(): Promise<HealthCheckResult> {
     status: hasAlt ? 'warning' : 'error',
     errorMessage: hasAlt
       ? `${label} indisponível (${res.error}). Clique em Corrigir para ativar ${PROVIDER_LABELS[alternatives[0]]}.`
-      : `${label} indisponível (${res.error}). Nenhuma IA alternativa configurada — adicione VITE_GEMINI_API_KEY e refaça o deploy.`,
+      : `${label} indisponível (${res.error}). Nenhuma IA alternativa configurada — adicione GEMINI_API_KEY/GROQ_API_KEY nos secrets do Supabase (Edge Functions).`,
     responseTimeMs: res.ms,
     details: { provider: active, alternatives, note: hasAlt ? 'Failover disponível.' : 'Sem alternativa configurada.' },
     severity: hasAlt ? 'medium' : 'high',
