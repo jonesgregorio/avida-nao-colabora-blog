@@ -4,6 +4,7 @@ import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldChec
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
+import { PLAN_COMPARE_ROWS } from '../lib/planComparison'
 
 interface Props {
   user: User | null
@@ -56,17 +57,8 @@ const PLAN_COLORS: Record<string, string> = {
 
 // Matriz de comparação (alinhada à referência visual de "Meu plano").
 type CellValue = boolean | string
-const COMPARE_ROWS: { label: string; values: Record<string, CellValue> }[] = [
-  { label: 'Diário emocional',               values: { free: 'Básico (5/mês)',   essential: 'Ilimitado',      plus: 'Ilimitado' } },
-  { label: 'Questionários',                  values: { free: 'Inicial',          essential: 'Intermediários', plus: 'Avançados' } },
-  { label: 'Mapa emocional e gráficos',      values: { free: false,              essential: true,             plus: true } },
-  { label: 'Conteúdos guiados',              values: { free: 'Algumas práticas', essential: 'Completos',       plus: 'Completos' } },
-  { label: 'Relatório semanal automático',   values: { free: false,              essential: true,             plus: true } },
-  { label: 'Plano de autocuidado mensal',    values: { free: false,              essential: false,            plus: true } },
-  { label: 'Relatório mensal aprofundado',   values: { free: false,              essential: false,            plus: true } },
-  { label: 'Comentário profissional mensal', values: { free: false,              essential: false,            plus: true } },
-  { label: 'Orientação mensal por mensagem', values: { free: false,              essential: false,            plus: true } },
-]
+// Fonte única compartilhada com "Ver planos" (Pricing) — ver src/lib/planComparison.ts
+const COMPARE_ROWS = PLAN_COMPARE_ROWS
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Ativa',

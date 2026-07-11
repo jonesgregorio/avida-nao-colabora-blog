@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
-import {
-  Check, Loader2, Sprout, Star, LineChart,
-  NotebookPen, Compass, BookOpen, CalendarCheck, MessageSquare,
-} from 'lucide-react'
+import { Check, Loader2, Sprout, Star, LineChart, ShieldCheck } from 'lucide-react'
+import { PLAN_COMPARE_ROWS, PLAN_BENEFITS, type PlanCompareValue } from '../lib/planComparison'
 
 interface PricingProps {
   user: unknown
@@ -28,34 +26,26 @@ const PLANS = [
   {
     key: 'free' as const, name: 'Gratuito', promise: 'Comece a se entender', price: 'R$ 0', period: '',
     Icon: Sprout, iconBg: 'bg-mint', iconColor: 'text-forest-600',
-    benefits: ['Blog aberto', 'Diário emocional básico', 'Questionário inicial', 'Algumas práticas guiadas'],
+    benefits: PLAN_BENEFITS.free,
     cta: 'Começar agora',
   },
   {
     key: 'essential' as const, name: 'Essencial', promise: 'Acompanhe seus padrões', price: 'R$ 19,90', period: '/mês',
     Icon: LineChart, iconBg: 'bg-mint', iconColor: 'text-forest-600', featured: true,
-    benefits: ['Diário ilimitado', 'Mapa emocional completo', 'Histórico e gráficos', 'Conteúdos guiados completos', 'Relatório semanal automático'],
+    benefits: PLAN_BENEFITS.essential,
     cta: 'Assinar Essencial',
   },
   {
     key: 'plus' as const, name: 'Plus', promise: 'Receba orientação para agir', price: 'R$ 39,90', period: '/mês',
     Icon: Star, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
+    benefits: PLAN_BENEFITS.plus,
     cta: 'Assinar Plus',
   },
 ]
 
-const COMPARISON = [
-  { Icon: NotebookPen, label: 'Diário emocional', free: 'Básico', essential: 'Ilimitado', plus: 'Ilimitado' },
-  { Icon: Compass, label: 'Mapa emocional', free: 'Básico', essential: 'Completo', plus: 'Completo' },
-  { Icon: BookOpen, label: 'Conteúdos guiados', free: 'Limitados', essential: 'Todos os conteúdos', plus: 'Todos os conteúdos' },
-  // Plano de autocuidado e Orientação profissional são recursos exclusivos do Plus (gating real).
-  { Icon: CalendarCheck, label: 'Plano de autocuidado', free: '—', essential: '—', plus: 'Incluído' },
-  { Icon: MessageSquare, label: 'Orientação profissional', free: '—', essential: '—', plus: 'Incluída' },
-] as const
-
-function Cell({ value }: { value: string }) {
-  if (value === '—') return <span className="text-ink-soft/50">—</span>
+function Cell({ value }: { value: PlanCompareValue }) {
+  if (value === true) return <Check className="w-4 h-4 text-forest-600 inline" aria-label="incluído" />
+  if (value === false || value === '—') return <span className="text-ink-soft/50">—</span>
   return <span className="text-ink">{value}</span>
 }
 
@@ -171,7 +161,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
               <table className="w-full min-w-[560px] border-collapse">
                 <thead>
                   <tr className="text-sm bg-white/50">
-                    <th className="text-left px-4 py-4"></th>
+                    <th className="text-left px-4 py-4 text-xs font-semibold text-forest-700">Recurso</th>
                     <th className="px-4 py-4">
                       <span className="flex items-center justify-center gap-1.5">
                         <Sprout className="w-4 h-4 text-forest-600" />
@@ -193,19 +183,12 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                   </tr>
                 </thead>
                 <tbody>
-                  {COMPARISON.map(row => (
+                  {PLAN_COMPARE_ROWS.map(row => (
                     <tr key={row.label} className="border-t border-line">
-                      <td className="px-4 py-4 text-sm">
-                        <span className="flex items-center gap-2.5">
-                          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center flex-shrink-0">
-                            <row.Icon className="w-4 h-4 text-forest-600" />
-                          </span>
-                          <span className="font-medium text-forest-900">{row.label}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.free} /></td>
-                      <td className="px-4 py-4 text-center text-sm bg-mint/40"><Cell value={row.essential} /></td>
-                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.plus} /></td>
+                      <td className="px-4 py-4 text-sm font-medium text-forest-900">{row.label}</td>
+                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.values.free} /></td>
+                      <td className="px-4 py-4 text-center text-sm bg-mint/40"><Cell value={row.values.essential} /></td>
+                      <td className="px-4 py-4 text-center text-sm"><Cell value={row.values.plus} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -214,9 +197,14 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
           </div>
         </div>
 
-        <p className="text-center text-xs text-ink-soft mt-10 max-w-2xl mx-auto leading-relaxed">
-          Seus dados são privados e protegidos. A plataforma não substitui acompanhamento psicológico,
-          psiquiátrico ou atendimento de emergência.
+        <div className="mt-10 max-w-2xl mx-auto bg-paper-soft border border-line rounded-2xl px-5 py-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center flex-shrink-0 text-forest-600"><ShieldCheck className="w-4 h-4" /></span>
+          <p className="text-sm text-forest-800 leading-relaxed">
+            Todos os planos podem ser cancelados a qualquer momento, sem taxas escondidas. Pagamentos são processados com segurança pelo Stripe — seu plano só é ativado após a confirmação.
+          </p>
+        </div>
+        <p className="text-center text-xs text-ink-soft mt-5 max-w-2xl mx-auto leading-relaxed">
+          Seus dados são privados e protegidos. A plataforma não substitui acompanhamento psicológico, psiquiátrico ou atendimento de emergência.
         </p>
       </div>
     </section>
