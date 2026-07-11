@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star, Factory, FileCode, CalendarDays } from 'lucide-react'
+import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star, Factory, FileCode, CalendarDays, Zap } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminImages from './AdminImages'
@@ -9,6 +9,7 @@ import AdminPersonalization from './AdminPersonalization'
 import AdminFabricaIA from './AdminFabricaIA'
 import AdminTemplatesIA from './AdminTemplatesIA'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
+import AdminAutomacoesBlog from './AdminAutomacoesBlog'
 
 // Conteúdos guiados (#conteudos). Abas do mockup primeiro; ferramentas de apoio depois.
 // Questionários migraram para Diário e mapa emocional.
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'recomendacoes', label: 'Recomendações IA',  icon: Sparkles },
   { id: 'fabrica',      label: 'Fábrica IA',         icon: Factory },
   { id: 'calendario',   label: 'Calendário',         icon: CalendarDays },
+  { id: 'automacoes',   label: 'Automações',         icon: Zap },
   { id: 'templates',    label: 'Templates IA',       icon: FileCode },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
   { id: 'imagens',      label: 'Imagens',            icon: Image },
@@ -80,6 +82,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         {tab === 'recomendacoes' && <AdminPersonalization />}
         {tab === 'fabrica'      && <AdminFabricaIA />}
         {tab === 'calendario'   && <AdminCalendarioEditorial onEditArticle={onEditArticle} />}
+        {tab === 'automacoes'   && <AdminAutomacoesBlog />}
         {tab === 'templates'    && <AdminTemplatesIA />}
         {tab === 'categorias'   && <AdminCategories />}
         {tab === 'imagens'      && <AdminImages />}
