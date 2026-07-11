@@ -14,6 +14,10 @@ import AdminAreaConteudo from './AdminAreaConteudo'
 import AdminAreaComunicacao from './AdminAreaComunicacao'
 import AdminAreaSistema from './AdminAreaSistema'
 import AdminMapaArea from './AdminMapaArea'
+import AdminFabricaIA from './AdminFabricaIA'
+import AdminCalendarioEditorial from './AdminCalendarioEditorial'
+import AdminAutomacoesBlog from './AdminAutomacoesBlog'
+import AdminPerformanceEditorial from './AdminPerformanceEditorial'
 
 export type { AdminView } from './types'
 
@@ -21,8 +25,9 @@ const ADMIN_KEY = 'avida_admin_view'
 
 // As 10 áreas dedicadas do novo admin (contrato: admin-mockup-avnc.html).
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'planos', 'conteudos', 'mapa',
-  'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
+  'visao-geral', 'usuarios', 'planos', 'conteudos',
+  'fabrica-ia', 'calendario', 'automacoes-blog', 'desempenho',
+  'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
 ]
 
 // Views legadas (URL/localStorage antigos) → nova área (+ aba interna se houver).
@@ -127,6 +132,10 @@ export default function AdminPanel() {
       case 'usuarios': return <AdminUsers />
       case 'planos': return <AdminPlanosPage />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'fabrica-ia': return <AdminFabricaIA />
+      case 'calendario': return <AdminCalendarioEditorial onEditArticle={handleEditArticle} />
+      case 'automacoes-blog': return <AdminAutomacoesBlog />
+      case 'desempenho': return <AdminPerformanceEditorial onEditArticle={handleEditArticle} />
       case 'mapa': return <AdminMapaArea />
       case 'autocuidado': return <AdminSelfCarePlans />
       case 'orientacao': return <AdminGuidanceRequests />
