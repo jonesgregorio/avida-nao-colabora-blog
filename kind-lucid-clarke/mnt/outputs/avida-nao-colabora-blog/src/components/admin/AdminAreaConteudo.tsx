@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star, Factory, FileCode, CalendarDays, Zap } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
-import AdminImages from './AdminImages'
-import AdminSEO from './AdminSEO'
+import AdminMediaLibrary from './AdminMediaLibrary'
+import AdminSEOCockpit from './AdminSEOCockpit'
 import AdminSocialProof from './AdminSocialProof'
 import AdminPersonalization from './AdminPersonalization'
 import AdminFabricaIA from './AdminFabricaIA'
@@ -23,7 +23,7 @@ const TABS = [
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
   { id: 'templates',    label: 'Templates IA',       icon: FileCode },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
-  { id: 'imagens',      label: 'Imagens',            icon: Image },
+  { id: 'imagens',      label: 'Mídia',              icon: Image },
   { id: 'seo',          label: 'SEO',                icon: Search },
   { id: 'depoimentos',  label: 'Home e Depoimentos', icon: Star },
 ] as const
@@ -85,8 +85,8 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         {tab === 'automacoes'   && <AdminAutomacoesBlog />}
         {tab === 'templates'    && <AdminTemplatesIA />}
         {tab === 'categorias'   && <AdminCategories />}
-        {tab === 'imagens'      && <AdminImages />}
-        {tab === 'seo'          && <AdminSEO />}
+        {tab === 'imagens'      && <AdminMediaLibrary />}
+        {tab === 'seo'          && <AdminSEOCockpit onEditArticle={onEditArticle} />}
         {tab === 'depoimentos'  && <AdminSocialProof />}
       </div>
     </div>
