@@ -38,6 +38,15 @@ interface Props {
   onBack: () => void
 }
 
+interface ArticleVersion {
+  id: string
+  version: number
+  change_note: string | null
+  source: string
+  created_at: string
+  snapshot: Record<string, unknown>
+}
+
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
   const [loading, setLoading] = useState(!!articleId)
@@ -45,6 +54,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   const [categories, setCategories] = useState<string[]>([])
   const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
+  const [versions, setVersions] = useState<ArticleVersion[]>([])
 
   useEffect(() => {
     supabase.from('categories').select('name').eq('is_active', true).order('name').then(({ data: cats }) => {
@@ -82,6 +92,16 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     })
   }, [articleId])
 
+  useEffect(() => {
+    if (!articleId) { setVersions([]); return }
+    supabase.from('content_versions')
+      .select('id, version, change_note, source, created_at, snapshot')
+      .eq('article_id', articleId)
+      .order('version', { ascending: false })
+      .limit(20)
+      .then(({ data }) => setVersions((data as ArticleVersion[]) ?? []), () => { /* tabela ainda não migrada */ })
+  }, [articleId])
+
   function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
     setData(d => {
       const next = { ...d, [key]: value }
@@ -98,6 +118,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   async function save(status?: string) {
     if (!data.title.trim()) { showToast('Título obrigatório', true); return }
     if (!data.slug.trim()) { showToast('Slug obrigatório', true); return }
+    // Checklist: bloqueia publicação se faltar item crítico.
+    if ((status || data.status) === 'published' && missingCritical.length > 0) {
+      showToast('Não dá para publicar: falta ' + missingCritical.map(c => c.label).join(', '), true)
+      return
+    }
     setSaving(true)
 
     const targetStatus = status || data.status
@@ -132,20 +157,43 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     }
 
     let error: { message: string } | null
+    let savedId: string | null = articleId
     if (articleId) {
       const res = await supabase.from('articles').update(payload).eq('id', articleId)
       error = res.error
     } else {
-      const res = await supabase.from('articles').insert(payload).select().single()
+      const res = await supabase.from('articles').insert(payload).select('id').single()
       error = res.error
+      savedId = (res.data as { id?: string } | null)?.id ?? null
     }
 
     if (error) {
       showToast('Erro ao salvar: ' + error.message, true)
-    } else {
-      showToast('Salvo com sucesso!')
-      if (status) setData(d => ({ ...d, status }))
+      setSaving(false)
+      return
     }
+
+    // Snapshot de versão (best-effort — ignora se content_versions ainda não migrou)
+    if (savedId) {
+      try {
+        const { data: last } = await supabase.from('content_versions')
+          .select('version').eq('article_id', savedId)
+          .order('version', { ascending: false }).limit(1).maybeSingle()
+        const nextV = ((last as { version?: number } | null)?.version ?? 0) + 1
+        await supabase.from('content_versions').insert({
+          article_id: savedId, version: nextV, snapshot: payload,
+          source: targetStatus === 'published' ? 'publish' : 'manual',
+          change_note: `Salvo como ${targetStatus}`,
+        })
+        const { data: vs } = await supabase.from('content_versions')
+          .select('id, version, change_note, source, created_at, snapshot')
+          .eq('article_id', savedId).order('version', { ascending: false }).limit(20)
+        setVersions((vs as ArticleVersion[]) ?? [])
+      } catch { /* content_versions indisponível */ }
+    }
+
+    showToast('Salvo com sucesso!')
+    if (status) setData(d => ({ ...d, status }))
     setSaving(false)
   }
 
@@ -174,6 +222,47 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       case 'rewrite':           set('content', result); break
       default:                  set('content', result)
     }
+  }
+
+  // Checklist de publicação (críticos bloqueiam; opcionais afetam a pontuação).
+  const checklist: { label: string; ok: boolean; critical: boolean }[] = [
+    { label: 'Título', ok: !!data.title.trim(), critical: true },
+    { label: 'Slug', ok: !!data.slug.trim(), critical: true },
+    { label: 'Resumo', ok: !!data.summary.trim(), critical: true },
+    { label: 'Conteúdo (≥ 300 caracteres)', ok: (data.content || '').trim().length >= 300, critical: true },
+    { label: 'Categoria', ok: !!data.category.trim(), critical: true },
+    { label: 'Plano definido', ok: !!data.plan_required, critical: true },
+    { label: 'Imagem de capa', ok: !!data.image_url.trim(), critical: false },
+    { label: 'Texto alternativo da imagem', ok: !!data.image_alt.trim(), critical: false },
+    { label: 'SEO title', ok: !!data.seo_title.trim(), critical: false },
+    { label: 'SEO description', ok: !!data.seo_description.trim(), critical: false },
+    { label: 'Pergunta para o diário', ok: !!data.diary_question.trim(), critical: false },
+    { label: 'CTA', ok: !!data.cta_text.trim(), critical: false },
+  ]
+  const missingCritical = checklist.filter(c => c.critical && !c.ok)
+  const score = Math.round((checklist.filter(c => c.ok).length / checklist.length) * 100)
+
+  function restoreVersion(v: ArticleVersion) {
+    const s = v.snapshot
+    const str = (k: string) => (typeof s[k] === 'string' ? (s[k] as string) : '')
+    setData(d => ({
+      ...d,
+      title: str('title') || d.title,
+      slug: str('slug') || d.slug,
+      content: str('content'),
+      summary: str('summary'),
+      content_type: str('content_type') || 'article',
+      category: str('category'),
+      plan_required: str('plan_required') || 'free',
+      image_url: str('image_url'),
+      image_alt: str('image_alt'),
+      seo_title: str('seo_title'),
+      seo_description: str('seo_description'),
+      diary_question: str('diary_question'),
+      cta_text: str('cta_text'),
+      cta_link: str('cta_link'),
+    }))
+    showToast(`Versão ${v.version} carregada no formulário. Revise e salve para confirmar.`)
   }
 
   if (loading) return <p className="text-stone-400 text-sm">Carregando artigo...</p>
@@ -351,6 +440,48 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </Field>
             {data.image_url && (
               <img src={data.image_url} alt={data.image_alt || 'Capa'} className="w-full h-32 object-cover rounded-lg border border-line" />
+            )}
+          </div>
+
+          {/* Checklist de publicação + pontuação */}
+          <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Pronto para publicar?</h2>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${score >= 80 ? 'bg-green-100 text-green-700' : score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>{score}%</span>
+            </div>
+            <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+              <div className={`h-full ${score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${score}%` }} />
+            </div>
+            <ul className="space-y-1.5">
+              {checklist.map(c => (
+                <li key={c.label} className="flex items-center gap-2 text-xs">
+                  <span className={c.ok ? 'text-green-600' : c.critical ? 'text-red-500' : 'text-stone-300'}>{c.ok ? '✓' : c.critical ? '✕' : '○'}</span>
+                  <span className="text-stone-600">{c.label}{c.critical && !c.ok ? ' · obrigatório' : ''}</span>
+                </li>
+              ))}
+            </ul>
+            {missingCritical.length > 0 && (
+              <p className="text-[11px] text-red-600">Publicação bloqueada até completar os itens obrigatórios.</p>
+            )}
+          </div>
+
+          {/* Histórico de versões + rollback */}
+          <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Histórico de versões</h2>
+            {versions.length === 0 ? (
+              <p className="text-xs text-stone-400">As versões aparecem aqui a cada vez que você salva.</p>
+            ) : (
+              <ul className="space-y-2 max-h-64 overflow-auto">
+                {versions.map(v => (
+                  <li key={v.id} className="flex items-center justify-between gap-2 border border-line rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-forest-900">v{v.version} · {v.source}</p>
+                      <p className="text-[11px] text-stone-400">{new Date(v.created_at).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <button onClick={() => restoreVersion(v)} className="text-[11px] text-forest-700 border border-line rounded-md px-2 py-1 hover:bg-stone-50 whitespace-nowrap">Restaurar</button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
