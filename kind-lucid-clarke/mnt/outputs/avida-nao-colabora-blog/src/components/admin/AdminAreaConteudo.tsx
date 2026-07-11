@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star } from 'lucide-react'
+import { FileText, Wind, Moon, Sparkles, Tag, Image, Search, Star, Factory, FileCode } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminImages from './AdminImages'
 import AdminSEO from './AdminSEO'
 import AdminSocialProof from './AdminSocialProof'
 import AdminPersonalization from './AdminPersonalization'
+import AdminFabricaIA from './AdminFabricaIA'
+import AdminTemplatesIA from './AdminTemplatesIA'
 
 // Conteúdos guiados (#conteudos). Abas do mockup primeiro; ferramentas de apoio depois.
 // Questionários migraram para Diário e mapa emocional.
@@ -14,6 +16,8 @@ const TABS = [
   { id: 'praticas',     label: 'Práticas',           icon: Wind },
   { id: 'meditacoes',   label: 'Meditações',         icon: Moon },
   { id: 'recomendacoes', label: 'Recomendações IA',  icon: Sparkles },
+  { id: 'fabrica',      label: 'Fábrica IA',         icon: Factory },
+  { id: 'templates',    label: 'Templates IA',       icon: FileCode },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
   { id: 'imagens',      label: 'Imagens',            icon: Image },
   { id: 'seo',          label: 'SEO',                icon: Search },
@@ -72,6 +76,8 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         {tab === 'praticas'     && <AdminArticles contentType="practice" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'meditacoes'   && <AdminArticles contentType="meditation" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'recomendacoes' && <AdminPersonalization />}
+        {tab === 'fabrica'      && <AdminFabricaIA />}
+        {tab === 'templates'    && <AdminTemplatesIA />}
         {tab === 'categorias'   && <AdminCategories />}
         {tab === 'imagens'      && <AdminImages />}
         {tab === 'seo'          && <AdminSEO />}
