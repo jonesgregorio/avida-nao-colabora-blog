@@ -307,7 +307,13 @@ export default function DiaryPage({ user, plan, onBack: _onBack, onNavigatePrici
     }
 
     const { data, error: err } = await supabase.from('diary_entries').insert(payload).select().single()
-    if (err) { setError('Erro ao salvar. Tente novamente.'); setSaving(false); return }
+    if (err) {
+      // Mostra o motivo real (ex.: mensagem do limite) em vez de esconder atrás de um genérico.
+      console.error('[diary save] falhou', err, 'payload:', payload)
+      setError('Erro ao salvar: ' + (err.message || err.details || err.code || 'tente novamente.'))
+      setSaving(false)
+      return
+    }
     if (data) {
       setEntries(prev => [data, ...prev])
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status
