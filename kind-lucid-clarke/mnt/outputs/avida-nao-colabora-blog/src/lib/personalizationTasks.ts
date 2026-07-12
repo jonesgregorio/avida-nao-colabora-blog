@@ -503,7 +503,13 @@ interface ProfileRow {
   full_name: string | null
   email: string | null
   plan: string
+  created_at: string | null
 }
+
+// Carência para usuário recém-criado: nenhuma pendência pode vencer antes da
+// data de entrada do usuário + estes dias — evita que quem acabou de criar a
+// conta já apareça "atrasado".
+const NEW_USER_GRACE_DAYS = 3
 
 interface GuidanceRow { id: string; user_id: string; created_at: string; message?: string }
 interface ReportRow { id: string; user_id: string; created_at: string; month_key: string }
@@ -517,7 +523,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   // ── 1. Carregar perfis ──
   const { data: profiles, error: profErr } = await supabase
     .from('profiles')
-    .select('user_id, full_name, email, plan')
+    .select('user_id, full_name, email, plan, created_at')
     .not('plan', 'is', null)
     .limit(500)
   if (profErr) { errors.push('profiles: ' + profErr.message); return { created, updated, errors } }
@@ -570,7 +576,15 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
     for (const def of defs) {
       const buildAndQueue = (periodKey: string, eventDate?: Date, eventId?: string, relatedIds?: Record<string, string>) => {
         const compositeKey = `${uid}|${def.key}|${periodKey}`
-        const dueAt = dueDateForDef(def, now, eventDate)
+        let dueAt = dueDateForDef(def, now, eventDate)
+        // Usuário recém-criado não nasce atrasado: o vencimento nunca é anterior à
+        // entrada do usuário + carência (prazo ancorado ao período do calendário
+        // podia cair antes da criação da conta).
+        const joined = profile.created_at ? new Date(profile.created_at) : null
+        if (joined && !Number.isNaN(joined.getTime())) {
+          const minDue = new Date(joined.getTime() + NEW_USER_GRACE_DAYS * 86400000)
+          if (dueAt < minDue) dueAt = minDue
+        }
         const expiresAt = def.expiresAfterDueDays !== null
           ? new Date(dueAt.getTime() + def.expiresAfterDueDays * 86400000)
           : null
