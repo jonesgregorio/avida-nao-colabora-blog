@@ -1,17 +1,27 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { exportElementToPdf } from '../lib/exportPdf'
 import { supabase } from '../lib/supabase'
-import { DiaryEntry, Plan } from '../types'
-import { hasPlanAccess } from '../lib/officialPlans'
+import { Plan } from '../types'
+import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import {
-  Lock, TrendingUp, BarChart2, FileText, Star,
-  Loader2, Calendar, BookOpen, MessageCircle, Sparkles, Compass, AlertTriangle,
-  Sprout, HelpCircle, Send, Clock, ArrowRight,
+  Lock, TrendingUp, BarChart2, FileText, Star, Loader2, Calendar, BookOpen,
+  MessageCircle, Sparkles, Sprout,
+  Clock, ArrowRight, ChevronDown, ChevronUp, RefreshCw,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
-import { computeEmotionalAnalysis, buildDeepReport, type DiaryRowLite } from '../lib/emotionalAnalytics'
+import {
+  computeEmotionalAnalysis, MOOD_EMOJI, type DiaryRowLite,
+} from '../lib/emotionalAnalytics'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
+import {
+  getCurrentWeeklyPeriod, getPreviousWeeklyPeriod, getCurrentMonthlyPeriod, getPreviousMonthlyPeriod,
+  formatPeriodShort, formatDateBR, monthTitle, ymd, type Period,
+} from '../lib/reportPeriods'
+import {
+  ensureClosedReport, loadReportHistory, buildWeeklyContent, buildMonthlyContent,
+  type StoredReport, type WeeklyContent, type MonthlyContent,
+} from '../lib/reportGeneration'
 
 interface Props {
   user: User | null
@@ -24,161 +34,49 @@ interface Props {
   onOpenArticle?: (slug: string) => void
 }
 
-const DEEP_DISCLAIMER = 'Este relatório é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+const DISCLAIMER = 'Este relatório é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+const WEEKLY_CYCLE = 'Os relatórios semanais fecham no sábado e ficam disponíveis aos domingos.'
+const MONTHLY_CYCLE = 'Os relatórios mensais fecham no último dia do mês e ficam disponíveis no primeiro dia do mês seguinte.'
 
-interface ProfessionalComment {
-  id: string
-  comment_text: string
-  comment?: string
-  report_month: string
-  professional_name: string | null
-  created_at: string
+// data (YYYY-MM-DD) de um registro
+function entryYmd(e: DiaryRowLite): string {
+  if (e.date) return String(e.date).slice(0, 10)
+  if (e.created_at) return ymd(new Date(e.created_at))
+  return ''
+}
+function inPeriod(e: DiaryRowLite, p: { start: string; end: string }): boolean {
+  const d = entryYmd(e); return !!d && d >= p.start && d <= p.end
+}
+// período imediatamente anterior (mesma duração) — para comparação
+function prevRange(p: { start: string; end: string }): { start: string; end: string } {
+  const s = new Date(p.start + 'T12:00:00'); const e = new Date(p.end + 'T12:00:00')
+  const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1
+  const pe = new Date(s); pe.setDate(pe.getDate() - 1)
+  const ps = new Date(pe); ps.setDate(ps.getDate() - days + 1)
+  return { start: ymd(ps), end: ymd(pe) }
 }
 
-// Fallback quando não há mood_score numérico — chaveado pelos RÓTULOS neutros
-// salvos em `mood`, na escala oficial 1–5.
-const moodScoreMap: Record<string, number> = {
-  'Bem-estar': 5, 'Tranquilidade': 5, 'Cansaço': 2, 'Sem energia': 2,
-  'Ansiedade': 2, 'Sobrecarga': 1, 'Tristeza': 1, 'Irritação': 2,
-  'Desânimo': 1, 'Confusão': 2, 'Outro': 3,
-}
-
-const moodEmoji: Record<string, string> = {
-  'Bem-estar': '😊', 'Tranquilidade': '😌', 'Cansaço': '😪', 'Sem energia': '🪫',
-  'Ansiedade': '😰', 'Sobrecarga': '😩', 'Tristeza': '😔', 'Irritação': '😤',
-  'Desânimo': '😞', 'Confusão': '😵‍💫', 'Outro': '😐',
-}
-
-function avg(arr: number[]): number {
-  if (!arr.length) return 0
-  return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10
-}
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-}
-
-function monthLabel(iso: string) {
-  const [year, month] = iso.split('-')
-  return new Date(Number(year), Number(month) - 1, 1)
-    .toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-}
-
-function buildMonthOptions() {
-  const opts: { value: string; label: string }[] = []
-  const now = new Date()
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = monthKey(d)
-    opts.push({ value: key, label: monthLabel(key) })
-  }
-  return opts
-}
-
-// ─── Mini bar chart via SVG ──────────────────────────────────────────────────
-
-function MiniBarChart({ data, label, color = '#a78bfa', max = 10 }: {
-  data: { day: string; value: number }[]
-  label: string
-  color?: string
-  max?: number
-}) {
-  if (!data.length) return null
-  const W = 320
-  const H = 80
-  const barW = Math.min(16, Math.floor(W / data.length) - 2)
-  const gap = Math.floor((W - barW * data.length) / (data.length + 1))
-
-  return (
-    <div>
-      <p className="text-[10px] text-sage-500 uppercase tracking-wider mb-1">{label}</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 80 }}>
-        {data.map((d, i) => {
-          const x = gap + i * (barW + gap)
-          const barH = Math.max(4, Math.round((d.value / max) * (H - 16)))
-          const y = H - barH - 4
-          return (
-            <g key={i}>
-              <rect x={x} y={y} width={barW} height={barH} rx={3} fill={color} opacity={0.85} />
-              <text x={x + barW / 2} y={H} textAnchor="middle" fontSize={7} fill="#9ca3af">{d.day}</text>
-            </g>
-          )
-        })}
-      </svg>
-    </div>
-  )
-}
-
-// ─── Locked section card ──────────────────────────────────────────────────────
-
-function LockedSection({ title, description, onUpgrade }: {
-  title: string
-  description: string
-  onUpgrade: () => void
-}) {
-  return (
-    <div className="relative rounded-2xl border border-dashed border-line bg-mint/30 p-5 overflow-hidden">
-      <div className="absolute inset-0 backdrop-blur-[1px] bg-paper-soft/50 flex flex-col items-center justify-center z-10 gap-3">
-        <div className="flex items-center gap-2 text-forest-600">
-          <Lock className="w-4 h-4" />
-          <span className="text-sm font-medium text-forest-700">{title}</span>
-        </div>
-        <p className="text-xs text-ink-soft text-center max-w-xs">{description}</p>
-        <button
-          onClick={onUpgrade}
-          className="text-xs text-forest-700 font-semibold border border-forest-200 bg-white px-4 py-1.5 rounded-full hover:bg-mint/50 transition-colors"
-        >
-          Ver planos
-        </button>
-      </div>
-      {/* Ghost content to define height */}
-      <div className="opacity-10 pointer-events-none select-none space-y-3">
-        <div className="h-3 bg-stone-300 rounded w-1/3" />
-        <div className="h-20 bg-stone-200 rounded" />
-        <div className="h-3 bg-stone-300 rounded w-1/2" />
-      </div>
-    </div>
-  )
-}
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-
-function Section({ icon, title, badge, children }: {
-  icon: React.ReactNode
-  title: string
-  badge?: string
-  children: React.ReactNode
-}) {
+// ─── Wrappers visuais ─────────────────────────────────────────────────────────
+function Section({ icon, title, badge, children }: { icon: React.ReactNode; title: string; badge?: string; children: React.ReactNode }) {
   return (
     <div className="bg-paper-soft rounded-2xl border border-line p-5">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-forest-500">{icon}</span>
         <h3 className="text-sm font-semibold text-forest-900">{title}</h3>
-        {badge && (
-          <span className="ml-auto text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">
-            {badge}
-          </span>
-        )}
+        {badge && <span className="ml-auto text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">{badge}</span>}
       </div>
       {children}
     </div>
   )
 }
-
-// ─── Stat pill ────────────────────────────────────────────────────────────────
-
 function StatPill({ label, value, unit = '' }: { label: string; value: string | number; unit?: string }) {
   return (
     <div className="bg-mint/40 rounded-xl px-3 py-2 text-center">
       <p className="text-[10px] text-ink-soft mb-0.5">{label}</p>
-      <p className="text-base font-bold text-forest-900">
-        {value}<span className="text-xs font-normal text-ink-soft ml-0.5">{unit}</span>
-      </p>
+      <p className="text-base font-bold text-forest-900">{value}<span className="text-xs font-normal text-ink-soft ml-0.5">{unit}</span></p>
     </div>
   )
 }
-
-// Linha do plano de autocuidado sugerido (Plus)
 function SelfCareRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-l-2 border-forest-200 pl-3">
@@ -187,495 +85,426 @@ function SelfCareRow({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance, onNavigateSelfCare, onOpenArticle }: Props) {
-  const plan: Plan = profile?.plan ?? 'free'
-  const isEssential = hasPlanAccess(plan, 'essential')
-  const isPlus = hasPlanAccess(plan, 'plus')
-  const [recommended, setRecommended] = useState<RecommendedContent[]>([])
-
-  const monthOptions = buildMonthOptions()
-  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value)
-  const [entries, setEntries] = useState<DiaryEntry[]>([])
-  const [prevEntries, setPrevEntries] = useState<DiaryEntry[]>([])
-  const [comment, setComment] = useState<ProfessionalComment | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const reportRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!user) return
-    setLoading(true)
-
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const start = new Date(year, month - 1, 1).toISOString().slice(0, 10)
-    const end = new Date(year, month, 0).toISOString().slice(0, 10)
-
-    // Previous month for comparison
-    const prevDate = new Date(year, month - 2, 1)
-    const prevStart = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1).toISOString().slice(0, 10)
-    const prevEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0).toISOString().slice(0, 10)
-
-    const p1 = supabase
-      .from('diary_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('date', start)
-      .lte('date', end)
-      .order('date', { ascending: true })
-      .then(({ data }) => setEntries((data as DiaryEntry[]) ?? []))
-
-    const p2 = supabase
-      .from('diary_entries')
-      .select('date,mood,mood_score,energy,anxiety_level,stress_level,sleep_quality,self_esteem')
-      .eq('user_id', user.id)
-      .gte('date', prevStart)
-      .lte('date', prevEnd)
-      .then(({ data }) => setPrevEntries((data as DiaryEntry[]) ?? []))
-
-    const queries: Promise<unknown>[] = [Promise.resolve(p1), Promise.resolve(p2)]
-
-    if (isPlus) {
-      const p3 = supabase
-        .from('professional_comments')
-        .select('id,comment_text,comment,report_month,professional_name,created_at')
-        .eq('user_id', user.id)
-        .eq('report_month', selectedMonth)
-        .maybeSingle()
-        .then(({ data }) => {
-          const d = data as ProfessionalComment | null
-          setComment(d ? { ...d, comment_text: d.comment_text || d.comment || '' } : null)
-        })
-      queries.push(Promise.resolve(p3))
-    }
-
-    Promise.all(queries).finally(() => setLoading(false))
-  }, [user, selectedMonth, isPlus])
-
-  // ─── Derived stats ────────────────────────────────────────────────────────
-
-  const diaryEntries = entries.filter(e => !e.entry_type || e.entry_type === 'diary')
-
-  const moodCounts: Record<string, number> = {}
-  for (const e of diaryEntries) {
-    const m = String(e.mood)
-    moodCounts[m] = (moodCounts[m] ?? 0) + 1
-  }
-  const dominantMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]
-
-  const moodScores = diaryEntries
-    .map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3)
-    .filter(Boolean)
-
-  const avgMood = avg(moodScores)
-
-  const moodChartData = diaryEntries.map(e => ({
-    day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '',
-    value: e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3,
-  }))
-
-  const energyData = diaryEntries
-    .filter(e => e.energy != null)
-    .map(e => ({ day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '', value: e.energy! }))
-
-  const anxietyData = diaryEntries
-    .filter(e => e.anxiety_level != null)
-    .map(e => ({ day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '', value: e.anxiety_level! }))
-
-  const sleepData = diaryEntries
-    .filter(e => e.sleep_quality != null)
-    .map(e => ({ day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '', value: e.sleep_quality! }))
-
-  const tagFreq: Record<string, number> = {}
-  for (const e of diaryEntries) {
-    for (const t of e.emotional_tags ?? []) {
-      tagFreq[t] = (tagFreq[t] ?? 0) + 1
-    }
-  }
-  const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 5)
-
-  // ─── Relatório Mensal Aprofundado (Plus): análise + narrativa ──────────────
-  const analysis = useMemo(
-    () => computeEmotionalAnalysis(entries as DiaryRowLite[], prevEntries as DiaryRowLite[]),
-    [entries, prevEntries],
+function LockedSection({ title, description, onUpgrade }: { title: string; description: string; onUpgrade: () => void }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-line bg-mint/30 p-6 text-center space-y-3">
+      <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center mx-auto text-forest-500"><Lock className="w-5 h-5" /></div>
+      <p className="text-sm font-medium text-forest-800">{title}</p>
+      <p className="text-xs text-ink-soft max-w-sm mx-auto">{description}</p>
+      <button onClick={onUpgrade} className="text-xs text-forest-700 font-semibold border border-forest-200 bg-white px-4 py-1.5 rounded-full hover:bg-mint/50 transition-colors">Ver planos</button>
+    </div>
   )
-  const deep = useMemo(() => buildDeepReport(analysis, monthLabel(selectedMonth)), [analysis, selectedMonth])
+}
 
+// ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────
+function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance, forPdf }: {
+  report: StoredReport; plan: string
+  onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void
+  onNavigateSelfCare?: () => void; onNavigateGuidance: () => void; forPdf?: boolean
+}) {
+  const [recs, setRecs] = useState<RecommendedContent[]>([])
+  const tags = (report.content as { recommendTags?: string[] }).recommendTags ?? []
   useEffect(() => {
-    if (!isPlus || deep.recommendTags.length === 0) { setRecommended([]); return }
+    if (forPdf || tags.length === 0) return
     let active = true
-    recommendGuidedContent(plan, deep.recommendTags, 3)
-      .then(r => { if (active) setRecommended(r) })
-      .catch(() => { if (active) setRecommended([]) })
+    recommendGuidedContent(plan, tags, 3).then(r => { if (active) setRecs(r) }).catch(() => {})
     return () => { active = false }
-  }, [isPlus, plan, deep.recommendTags])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report.period_start])
 
-  // ─── Print/PDF ────────────────────────────────────────────────────────────
-
-  async function handleExportPdf() {
-    if (!reportRef.current || generating) return
-    setGenerating(true)
-    try {
-      await exportElementToPdf(reportRef.current, `relatorio-${selectedMonth}.pdf`)
-    } catch {
-      // silencioso — em caso de falha, o usuário pode tentar novamente
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  if (loading) {
+  if (report.content.kind === 'weekly') {
+    const c = report.content as WeeklyContent
     return (
-      <div className="flex justify-center items-center py-24">
-        <Loader2 className="w-6 h-6 text-forest-400 animate-spin" />
+      <div className="space-y-4">
+        <p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p>
+        <div className="grid grid-cols-3 gap-2">
+          <StatPill label="Humor médio" value={c.avgMood || '—'} unit={c.avgMood ? '/5' : ''} />
+          <StatPill label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
+          <StatPill label="Ansiedade média" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} />
+        </div>
+        {c.topEmotions.length > 0 && (
+          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Emoções mais frequentes</p>
+            <div className="flex flex-wrap gap-1.5">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div></div>
+        )}
+        {c.triggers.length > 0 && (
+          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Gatilhos mais citados</p>
+            <div className="flex flex-wrap gap-1.5">{c.triggers.map(t => <span key={t.tag} className="text-xs bg-coral/20 text-[#8a3b23] px-2.5 py-1 rounded-full">{t.tag} ×{t.count}</span>)}</div></div>
+        )}
+        {c.comparison.length > 0 && (
+          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Comparação com a semana anterior</p>
+            <ul className="space-y-1">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
+        )}
+        {!forPdf && recs.length > 0 && (
+          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Conteúdos guiados recomendados</p>
+            <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
+        )}
+        <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-1">Próximos passos</p>
+          <ul className="grid sm:grid-cols-3 gap-x-3 gap-y-1">{c.nextSteps.map((s, i) => <li key={i} className="text-sm text-stone-600 flex gap-1.5"><span className="text-forest-400">→</span>{s}</li>)}</ul></div>
       </div>
     )
   }
 
-  // Gratuito: apenas prévia + CTA. Sem relatório completo e sem PDF (§7).
+  // Mensal aprofundado
+  const c = report.content as MonthlyContent
+  return (
+    <div className="space-y-5">
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Resumo geral do mês</p><p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <StatPill label="Energia" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
+        <StatPill label="Ansiedade" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} />
+        {c.avgSleep > 0 && <StatPill label="Sono" value={c.avgSleep} unit="/5" />}
+        <StatPill label="Registros" value={c.topEmotions.reduce((n, e) => n + e.count, 0)} />
+      </div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Principais padrões emocionais</p>
+        <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul></div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Emoções predominantes</p>
+        {c.topEmotions.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div>}
+        <p className="text-sm text-stone-700 leading-relaxed">{c.predominantEmotions}</p></div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Energia, ansiedade e descanso</p><p className="text-sm text-stone-700 leading-relaxed">{c.energyAnxietySleep}</p></div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Gatilhos mais recorrentes</p><p className="text-sm text-stone-700 leading-relaxed">{c.triggersText}</p></div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Dias de maior atenção</p>
+          {c.attentionDays.length > 0 ? <ul className="space-y-1">{c.attentionDays.map(d => <li key={d.day} className="text-sm text-stone-700"><span className="font-semibold text-forest-700">Dia {d.day}</span> — {d.reason}</li>)}</ul> : <p className="text-sm text-stone-400">Sem dias suficientes.</p>}</div>
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Momentos de melhora</p><p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p></div>
+      </div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Comparação com o mês anterior</p>
+        <ul className="space-y-1">{c.monthlyComparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
+      {!forPdf && recs.length > 0 && (
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Conteúdos guiados recomendados</p>
+          <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
+      )}
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Plano de autocuidado sugerido</p>
+        <div className="space-y-2">
+          <SelfCareRow label="Prioridade do mês" value={c.selfCarePlan.priority} />
+          <SelfCareRow label="Cuidado principal" value={c.selfCarePlan.mainCare} />
+          <SelfCareRow label="Prática recomendada" value={c.selfCarePlan.practice} />
+          <SelfCareRow label="Ponto de atenção" value={c.selfCarePlan.attention} />
+          <SelfCareRow label="Pequeno compromisso" value={c.selfCarePlan.commitment} />
+        </div>
+        {!forPdf && onNavigateSelfCare && <button onClick={onNavigateSelfCare} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><Sprout className="w-4 h-4" /> Abrir plano de autocuidado</button>}</div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Perguntas para reflexão</p>
+        <ul className="space-y-1">{c.reflectionQuestions.map((q, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">?</span>{q}</li>)}</ul>
+        {!forPdf && <button onClick={onNavigateDiary} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>}</div>
+      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Síntese para orientação</p>
+        <div className="bg-mint/40 border border-forest-100 rounded-xl p-3"><p className="text-sm text-forest-800 leading-relaxed">{c.guidanceSynthesis}</p></div>
+        {!forPdf && <button onClick={onNavigateGuidance} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2 rounded-xl"><MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem</button>}</div>
+    </div>
+  )
+}
+
+function RecCard({ rc, onOpen }: { rc: RecommendedContent; onOpen: () => void }) {
+  return (
+    <button onClick={onOpen} className="w-full text-left flex items-center gap-3 bg-white border border-line rounded-xl p-3 hover:border-forest-200 hover:shadow-sm transition-all">
+      <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><BookOpen className="w-4 h-4" /></span>
+      <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900 leading-snug line-clamp-2">{rc.title}</p>
+        <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5"><span className="bg-mint text-forest-700 px-1.5 py-0.5 rounded-full">{rc.category}</span>{rc.readTime != null && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {rc.readTime} min</span>}</p></div>
+      <span className="text-xs font-medium text-forest-700 flex items-center gap-1 flex-shrink-0">Abrir <ArrowRight className="w-3.5 h-3.5" /></span>
+    </button>
+  )
+}
+
+// Cartão do "último relatório fechado" com toggle e PDF.
+function ClosedReportCard({ report, plan, onPdf, generating, ...nav }: {
+  report: StoredReport; plan: string; onPdf: (r: StoredReport) => void; generating: boolean
+  onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void; onNavigateSelfCare?: () => void; onNavigateGuidance: () => void
+}) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="bg-white border border-line rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-line">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-forest-900">{report.title}</p>
+          <p className="text-[11px] text-ink-soft">Período {formatPeriodShort({ start: report.period_start, end: report.period_end })} · Gerado em {report.generated_at ? formatDateBR(ymd(new Date(report.generated_at))) : formatDateBR(report.available_at)}</p>
+        </div>
+        <button onClick={() => onPdf(report)} disabled={generating} className="text-xs text-forest-700 border border-line px-3 py-1.5 rounded-xl hover:bg-mint/50 flex items-center gap-1.5 disabled:opacity-60">
+          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} PDF
+        </button>
+        <button onClick={() => setOpen(o => !o)} className="text-ink-soft hover:text-forest-700 p-1">{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>
+      </div>
+      {open && <div className="p-5"><ReportBody report={report} plan={plan} {...nav} /></div>}
+    </div>
+  )
+}
+
+// Prévia "em construção" (não salva).
+function BuildingPreview({ type, period, content, onRefresh }: {
+  type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent; onRefresh: () => void
+}) {
+  const notice = type === 'weekly'
+    ? 'Este relatório ainda está em construção. Ele será fechado no final de sábado e ficará disponível no domingo.'
+    : 'Este relatório ainda está em construção. Ele será fechado no último dia do mês e ficará disponível no primeiro dia do mês seguinte.'
+  const emotions = content.topEmotions
+  return (
+    <div className="rounded-2xl border border-forest-200 bg-mint/30 p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <RefreshCw className="w-4 h-4 text-forest-600" />
+        <h3 className="text-sm font-semibold text-forest-900">{type === 'weekly' ? 'Relatório semanal em construção' : 'Relatório mensal em construção'}</h3>
+      </div>
+      <p className="text-xs text-ink-soft mb-3">{type === 'weekly' ? `Semana de ${formatPeriodShort(period)}` : `${monthTitle(period.start)} · ${formatPeriodShort(period)}`}</p>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <StatPill label="Humor" value={('avgMood' in content ? content.avgMood : 0) || '—'} unit={('avgMood' in content ? content.avgMood : 0) ? '/5' : ''} />
+        <StatPill label="Energia" value={content.avgEnergy || '—'} unit={content.avgEnergy ? '/5' : ''} />
+        <StatPill label="Ansiedade" value={content.avgAnxiety || '—'} unit={content.avgAnxiety ? '/5' : ''} />
+      </div>
+      {emotions.length > 0 && <p className="text-sm text-forest-800 mb-1"><span className="text-ink-soft">Emoção mais frequente até agora:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</p>}
+      <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mt-2">{notice}</p>
+      <button onClick={onRefresh} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-white/60">
+        <RefreshCw className="w-3.5 h-3.5" /> Atualizar prévia
+      </button>
+    </div>
+  )
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance, onNavigateSelfCare, onOpenArticle }: Props) {
+  const plan: Plan = profile?.plan ?? 'free'
+  const planKey = normalizePlan(plan)
+  const isEssential = hasPlanAccess(plan, 'essential')
+  const isPlus = hasPlanAccess(plan, 'plus')
+
+  const [entries, setEntries] = useState<DiaryRowLite[]>([])
+  const [activation, setActivation] = useState<string | null>(null)
+  const [lastWeekly, setLastWeekly] = useState<StoredReport | null>(null)
+  const [lastMonthly, setLastMonthly] = useState<StoredReport | null>(null)
+  const [history, setHistory] = useState<StoredReport[]>([])
+  const [showWeeklyHist, setShowWeeklyHist] = useState(false)
+  const [showMonthlyHist, setShowMonthlyHist] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [pdfReport, setPdfReport] = useState<StoredReport | null>(null)
+  const pdfRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async () => {
+    if (!user || !isEssential) { setLoading(false); return }
+    setLoading(true)
+    // 1) Ativação do plano (para cortar o 1º ciclo)
+    const [{ data: prof }, { data: sub }] = await Promise.all([
+      supabase.from('profiles').select('plan_activated_at, created_at').eq('user_id', user.id).maybeSingle(),
+      supabase.from('user_subscriptions').select('current_period_start').eq('user_id', user.id).maybeSingle(),
+    ])
+    const act = (prof as { plan_activated_at?: string } | null)?.plan_activated_at
+      ?? (sub as { current_period_start?: string } | null)?.current_period_start
+      ?? (prof as { created_at?: string } | null)?.created_at ?? null
+    setActivation(act)
+    // Persiste a ativação uma vez (estabiliza o corte do 1º ciclo)
+    if (act && !(prof as { plan_activated_at?: string } | null)?.plan_activated_at) {
+      void supabase.from('profiles').update({ plan_activated_at: act }).eq('user_id', user.id)
+    }
+
+    // 2) Registros — janela ampla (cobre semana/mês atuais e anteriores + comparação)
+    const since = new Date(); since.setDate(since.getDate() - 100)
+    const { data } = await supabase.from('diary_entries').select('*').eq('user_id', user.id).gte('created_at', since.toISOString())
+    const all = (data ?? []) as DiaryRowLite[]
+    setEntries(all)
+
+    // 3) Gera (uma vez) os relatórios FECHADOS disponíveis
+    const now = new Date()
+    const lastW = getPreviousWeeklyPeriod(act, now)
+    if (lastW) {
+      const wEntries = all.filter(e => inPeriod(e, lastW))
+      const wPrev = all.filter(e => inPeriod(e, prevRange(lastW)))
+      setLastWeekly(await ensureClosedReport(user.id, 'weekly', planKey, lastW, wEntries, wPrev))
+    } else setLastWeekly(null)
+
+    if (isPlus) {
+      const lastM = getPreviousMonthlyPeriod(act, now)
+      if (lastM) {
+        const mEntries = all.filter(e => inPeriod(e, lastM))
+        const mPrev = all.filter(e => inPeriod(e, prevRange(lastM)))
+        setLastMonthly(await ensureClosedReport(user.id, 'monthly', planKey, lastM, mEntries, mPrev))
+      } else setLastMonthly(null)
+    }
+
+    setHistory(await loadReportHistory(user.id))
+    setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isEssential, isPlus, planKey, refreshKey])
+
+  useEffect(() => { void load() }, [load])
+
+  // Prévias "em construção" (ao vivo, não salvas)
+  const now = new Date()
+  const curWeek = getCurrentWeeklyPeriod(activation, now)
+  const curMonth = getCurrentMonthlyPeriod(activation, now)
+  const weeklyPreview: WeeklyContent = useMemo(() => {
+    const e = entries.filter(x => inPeriod(x, curWeek))
+    const p = entries.filter(x => inPeriod(x, prevRange(curWeek)))
+    return buildWeeklyContent(computeEmotionalAnalysis(e, p))
+  }, [entries, curWeek])
+  const monthlyPreview: MonthlyContent = useMemo(() => {
+    const e = entries.filter(x => inPeriod(x, curMonth))
+    const p = entries.filter(x => inPeriod(x, prevRange(curMonth)))
+    return buildMonthlyContent(computeEmotionalAnalysis(e, p), monthTitle(curMonth.start))
+  }, [entries, curMonth])
+
+  // PDF: renderiza off-screen um relatório limpo e exporta
+  useEffect(() => {
+    if (!pdfReport || !pdfRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try { await exportElementToPdf(pdfRef.current!, `relatorio-${pdfReport.report_type}-${pdfReport.period_start}.pdf`) } catch { /* noop */ }
+      if (!cancelled) setPdfReport(null)
+    })()
+    return () => { cancelled = true }
+  }, [pdfReport])
+
+  const navProps = { onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance }
+  const weeklyHistory = history.filter(r => r.report_type === 'weekly' && r.period_start !== lastWeekly?.period_start)
+  const monthlyHistory = history.filter(r => r.report_type === 'monthly' && r.period_start !== lastMonthly?.period_start)
+
+  if (loading) return <div className="flex justify-center items-center py-24"><Loader2 className="w-6 h-6 text-forest-400 animate-spin" /></div>
+
+  // ── Gratuito ──
   if (!isEssential) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <header className="mb-6">
-          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-            Relatórios e evolução <BarChart2 className="w-6 h-6 text-forest-400" />
-          </h1>
-          <p className="mt-2 text-ink-soft">
-            Esta é uma prévia do seu relatório. O relatório semanal completo, com gráficos de evolução, está disponível a partir do plano Essencial.
-          </p>
+          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">Relatórios <BarChart2 className="w-6 h-6 text-forest-400" /></h1>
+          <p className="mt-2 text-ink-soft">Seus check-ins ajudam a formar seu histórico emocional. No Essencial, você desbloqueia relatórios semanais automáticos com padrões, gráficos e recomendações guiadas.</p>
         </header>
-
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
-          <p className="flex-1 text-sm leading-relaxed text-forest-50">
-            Continue registrando no diário. Ao assinar o Essencial, você desbloqueia o relatório semanal com gráficos de humor, energia e ansiedade.
-          </p>
-          <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap">
-            Conhecer o Essencial
-          </button>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">Continue registrando no diário. Ao assinar o Essencial, você recebe relatórios semanais fechados aos domingos, com resumo, emoções, energia, ansiedade e conteúdos recomendados.</p>
+          <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl whitespace-nowrap">Conhecer o Essencial</button>
         </div>
-
         <div className="space-y-4">
-          <LockedSection
-            title="Relatório semanal de bem-estar"
-            description="Resumo do seu humor e das emoções mais registradas na semana. Disponível no plano Essencial."
-            onUpgrade={onNavigatePricing}
-          />
-          <LockedSection
-            title="Gráficos de evolução"
-            description="Acompanhe humor, energia e ansiedade em gráficos ao longo do tempo. Disponível no plano Essencial."
-            onUpgrade={onNavigatePricing}
-          />
-          <LockedSection
-            title="Análise comparativa mensal"
-            description="Compare seu progresso mês a mês — sono, autoestima, estresse e mais. Disponível no plano Plus."
-            onUpgrade={onNavigatePricing}
-          />
-          <LockedSection
-            title="Comentário do profissional"
-            description="Receba um comentário mensal personalizado de um profissional parceiro. Disponível no plano Plus."
-            onUpgrade={onNavigatePricing}
-          />
+          <LockedSection title="Relatório semanal automático" description="Resumo da semana com emoções, energia, ansiedade, gatilhos e conteúdos recomendados. Disponível no plano Essencial." onUpgrade={onNavigatePricing} />
+          <LockedSection title="Relatório mensal aprofundado" description="Leitura completa do mês — padrões, plano de autocuidado e síntese para orientação. Disponível no plano Plus." onUpgrade={onNavigatePricing} />
         </div>
-
-        <button onClick={onNavigateDiary} className="mt-6 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium hover:text-forest-900 transition-colors">
-          <BookOpen className="w-4 h-4" /> Abrir meu diário
-        </button>
+        <button onClick={onNavigateDiary} className="mt-6 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium hover:text-forest-900"><BookOpen className="w-4 h-4" /> Abrir meu diário</button>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 print:px-0 print:py-4">
-      {/* Header */}
-      <header className="mb-6 print:hidden">
-        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-          Relatórios e evolução <BarChart2 className="w-6 h-6 text-forest-400" />
-        </h1>
-        <p className="mt-2 text-ink-soft">
-          {isPlus
-            ? 'Seu relatório mensal aprofundado — evolução, análise comparativa e comentário do profissional.'
-            : 'Seu acompanhamento semanal de bem-estar. O relatório mensal aprofundado está no plano Plus.'}
-        </p>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-4">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">Relatórios <BarChart2 className="w-6 h-6 text-forest-400" /></h1>
+        <p className="mt-2 text-ink-soft">{isPlus ? 'Relatórios semanais e mensais aprofundados, por ciclo.' : 'Seus relatórios semanais automáticos, por ciclo.'}</p>
+        {curWeek.clampedToActivation && <p className="mt-1 text-xs text-forest-600">Seu primeiro relatório considera o período a partir da ativação do plano.</p>}
       </header>
 
-      {/* Month selector */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 print:hidden">
-        <div className="flex items-center gap-2 bg-paper-soft border border-line rounded-2xl px-3 py-1.5">
-          <Calendar className="w-4 h-4 text-forest-500 flex-shrink-0" />
-          <select
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            aria-label="Selecionar mês do relatório"
-            className="text-sm bg-transparent text-forest-800 focus:outline-none"
-          >
-            {monthOptions.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+      {/* ══ Relatórios semanais (Essencial+) ══ */}
+      <section className="space-y-4 mb-8">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-forest-500" />
+          <h2 className="font-serif text-xl text-forest-900">Relatórios semanais</h2>
         </div>
-        {isEssential && (
-          <button
-            onClick={handleExportPdf}
-            disabled={generating}
-            className="ml-auto text-xs text-forest-700 border border-line px-3.5 py-2 rounded-2xl hover:bg-mint/50 transition-colors flex items-center gap-1.5 disabled:opacity-60"
-          >
-            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-            {generating ? 'Gerando…' : 'Baixar PDF'}
-          </button>
+        <p className="text-xs text-ink-soft -mt-2">{WEEKLY_CYCLE}</p>
+
+        <BuildingPreview type="weekly" period={curWeek} content={weeklyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
+
+        {lastWeekly ? (
+          <ClosedReportCard report={lastWeekly} plan={planKey} onPdf={setPdfReport} generating={!!pdfReport} {...navProps} />
+        ) : (
+          <p className="text-sm text-ink-soft bg-paper-soft border border-line rounded-2xl p-4">Seu primeiro relatório semanal fechado ficará disponível no próximo domingo.</p>
         )}
-      </div>
 
-      <div ref={reportRef} className="space-y-4 bg-paper">
-
-        {/* ─── SEÇÃO 1: Resumo de humor (todos os planos) ────────────── */}
-        <Section icon={<BookOpen className="w-4 h-4" />} title="Resumo do mês">
-          {diaryEntries.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-stone-400 mb-3">Nenhuma entrada no diário em {monthLabel(selectedMonth)}.</p>
-              <button
-                onClick={onNavigateDiary}
-                className="text-xs text-forest-700 font-medium border border-forest-200 px-4 py-1.5 rounded-full hover:bg-mint transition-colors"
-              >
-                Abrir diário
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2">
-                <StatPill label="Entradas" value={diaryEntries.length} />
-                <StatPill label="Humor médio" value={avgMood || '—'} unit={avgMood ? '/5' : ''} />
-                <StatPill
-                  label="Humor dominant."
-                  value={dominantMood ? `${moodEmoji[dominantMood[0]] ?? ''} ${dominantMood[0]}` : '—'}
-                />
-              </div>
-
-              {topTags.length > 0 && (
-                <div>
-                  <p className="text-[10px] text-stone-400 uppercase tracking-wider mb-2">Emoções mais registradas</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {topTags.map(([tag, count]) => (
-                      <span key={tag} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">
-                        {tag} <span className="text-forest-500">×{count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </Section>
-
-        {/* ─── SEÇÃO 2: Gráficos de evolução (Essencial+) ────────────── */}
-        {isEssential ? (
-          <Section icon={<TrendingUp className="w-4 h-4" />} title="Evolução do humor" badge="Essencial">
-            {moodChartData.length === 0 ? (
-              <p className="text-xs text-stone-400 text-center py-4">Sem dados suficientes este mês.</p>
-            ) : (
-              <div className="space-y-5">
-                <MiniBarChart data={moodChartData} label="Humor (1–5)" color="#a78bfa" />
-                {energyData.length > 0 && (
-                  <MiniBarChart data={energyData} label="Energia (1–5)" color="#34d399" />
-                )}
-                {anxietyData.length > 0 && (
-                  <MiniBarChart data={anxietyData} label="Ansiedade (1–5)" color="#fb923c" />
-                )}
+        {weeklyHistory.length > 0 && (
+          <div>
+            <button onClick={() => setShowWeeklyHist(o => !o)} className="text-sm text-forest-700 font-medium flex items-center gap-1.5 hover:text-forest-900">
+              {showWeeklyHist ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} Ver relatórios anteriores ({weeklyHistory.length})
+            </button>
+            {showWeeklyHist && (
+              <div className="mt-3 space-y-2">
+                {weeklyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={setPdfReport} generating={!!pdfReport} plan={planKey} {...navProps} />)}
               </div>
             )}
-          </Section>
-        ) : (
-          <LockedSection
-            title="Gráficos de evolução"
-            description="Visualize sua evolução de humor, energia e ansiedade ao longo do mês. Disponível no plano Essencial."
-            onUpgrade={onNavigatePricing}
-          />
+          </div>
         )}
+      </section>
 
-        {/* ─── RELATÓRIO MENSAL APROFUNDADO (Plus) ─────────── */}
+      {/* ══ Relatórios mensais aprofundados (Plus) ══ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-forest-500" />
+          <h2 className="font-serif text-xl text-forest-900">Relatório mensal aprofundado</h2>
+          <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">Plus</span>
+        </div>
+        <p className="text-xs text-ink-soft -mt-2">{MONTHLY_CYCLE}</p>
+
         {isPlus ? (
           <>
-            {/* 8.1 Resumo geral */}
-            <Section icon={<Sparkles className="w-4 h-4" />} title="Resumo geral do mês" badge="Plus">
-              <p className="text-sm text-forest-800 leading-relaxed">{deep.summary}</p>
-            </Section>
-
-            {/* 8.2 Padrões emocionais */}
-            <Section icon={<Compass className="w-4 h-4" />} title="Principais padrões emocionais" badge="Plus">
-              <ul className="space-y-2">
-                {deep.patterns.map((p, i) => (
-                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span><span>{p}</span></li>
-                ))}
-              </ul>
-            </Section>
-
-            {/* 8.3 Emoções predominantes */}
-            <Section icon={<BookOpen className="w-4 h-4" />} title="Emoções predominantes" badge="Plus">
-              {topTags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {topTags.map(([tag, count]) => (
-                    <span key={tag} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{tag} <span className="text-forest-500">×{count}</span></span>
-                  ))}
-                </div>
-              )}
-              <p className="text-sm text-stone-700 leading-relaxed">{deep.predominantEmotions}</p>
-            </Section>
-
-            {/* 8.4 Energia, ansiedade e descanso */}
-            <Section icon={<TrendingUp className="w-4 h-4" />} title="Energia, ansiedade e descanso" badge="Plus">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                <StatPill label="Energia" value={analysis.avg.energy || '—'} unit={analysis.avg.energy ? '/5' : ''} />
-                <StatPill label="Ansiedade" value={analysis.avg.anxiety || '—'} unit={analysis.avg.anxiety ? '/5' : ''} />
-                {analysis.avg.sleep > 0 && <StatPill label="Sono" value={analysis.avg.sleep} unit="/5" />}
-                {analysis.avg.stress > 0 && <StatPill label="Estresse" value={analysis.avg.stress} unit="/5" />}
-              </div>
-              {sleepData.length > 0 && <MiniBarChart data={sleepData} label="Qualidade do sono (1–5)" color="#60a5fa" max={5} />}
-              <p className="text-sm text-stone-700 leading-relaxed mt-3">{deep.energyAnxietySleep}</p>
-            </Section>
-
-            {/* 8.5 Gatilhos */}
-            <Section icon={<AlertTriangle className="w-4 h-4" />} title="Gatilhos mais recorrentes" badge="Plus">
-              <p className="text-sm text-stone-700 leading-relaxed">{deep.triggersText}</p>
-            </Section>
-
-            {/* 8.6 Dias de atenção + 8.7 Momentos de melhora */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Section icon={<Calendar className="w-4 h-4" />} title="Dias de maior atenção">
-                {deep.attentionDays.length > 0 ? (
-                  <ul className="space-y-1.5">
-                    {deep.attentionDays.map(d => (
-                      <li key={d.day} className="text-sm text-stone-700 flex gap-2"><span className="font-semibold text-forest-700">Dia {d.day}</span><span className="text-stone-500">— {d.reason}</span></li>
-                    ))}
-                    <li className="text-xs text-stone-400 pt-1">Vale observar se havia eventos, cobranças ou padrões de rotina nesses dias.</li>
-                  </ul>
-                ) : <p className="text-sm text-stone-400">Ainda sem dias suficientes para destacar.</p>}
-              </Section>
-              <Section icon={<Sprout className="w-4 h-4" />} title="Momentos de melhora">
-                <p className="text-sm text-stone-700 leading-relaxed">{deep.improvementMoments}</p>
-              </Section>
-            </div>
-
-            {/* 8.8 Comparação com o mês anterior */}
-            <Section icon={<BarChart2 className="w-4 h-4" />} title="Comparação com o mês anterior" badge="Plus">
-              <ul className="space-y-1.5">
-                {deep.monthlyComparison.map((c, i) => (
-                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{c}</span></li>
-                ))}
-              </ul>
-            </Section>
-
-            {/* 8.9 Conteúdos guiados recomendados */}
-            <Section icon={<Sparkles className="w-4 h-4" />} title="Conteúdos guiados recomendados" badge="Plus">
-              {recommended.length > 0 ? (
-                <>
-                  <p className="text-sm text-stone-600 mb-3">Com base nos seus registros do mês, separamos conteúdos que podem ajudar:</p>
-                  <div className="space-y-2.5">
-                    {recommended.map(rc => (
-                      <button key={rc.id} onClick={() => { if (rc.slug && onOpenArticle) onOpenArticle(rc.slug); else onNavigateDiary() }}
-                        className="w-full text-left flex items-center gap-3 bg-white border border-line rounded-xl p-3 hover:border-forest-200 hover:shadow-sm transition-all group">
-                        <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><BookOpen className="w-4 h-4" /></span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-forest-900 leading-snug line-clamp-2">{rc.title}</p>
-                          <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5"><span className="bg-mint text-forest-700 px-1.5 py-0.5 rounded-full">{rc.category}</span>{rc.readTime != null && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {rc.readTime} min</span>}</p>
-                        </div>
-                        <span className="text-xs font-medium text-forest-700 flex items-center gap-1 flex-shrink-0">Abrir <ArrowRight className="w-3.5 h-3.5" /></span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-stone-500">Não encontramos conteúdos específicos para este padrão agora, mas você pode explorar os <button onClick={onNavigateDiary} className="text-forest-700 underline">Conteúdos Guiados</button>.</p>
-              )}
-            </Section>
-
-            {/* 8.10 Plano de autocuidado sugerido */}
-            <Section icon={<Sprout className="w-4 h-4" />} title="Plano de autocuidado sugerido" badge="Plus">
-              <div className="space-y-2.5">
-                <SelfCareRow label="Prioridade do mês" value={deep.selfCarePlan.priority} />
-                <SelfCareRow label="Cuidado principal" value={deep.selfCarePlan.mainCare} />
-                <SelfCareRow label="Prática recomendada" value={deep.selfCarePlan.practice} />
-                <SelfCareRow label="Ponto de atenção" value={deep.selfCarePlan.attention} />
-                <SelfCareRow label="Pequeno compromisso" value={deep.selfCarePlan.commitment} />
-              </div>
-              {onNavigateSelfCare && (
-                <button onClick={onNavigateSelfCare} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3.5 py-2 rounded-xl hover:bg-mint/50 transition-colors">
-                  <Sprout className="w-4 h-4" /> Abrir plano de autocuidado
-                </button>
-              )}
-            </Section>
-
-            {/* 8.11 Perguntas para reflexão */}
-            <Section icon={<HelpCircle className="w-4 h-4" />} title="Perguntas para reflexão" badge="Plus">
-              <ul className="space-y-1.5 mb-3">
-                {deep.reflectionQuestions.map((q, i) => (
-                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">?</span><span>{q}</span></li>
-                ))}
-              </ul>
-              <button onClick={onNavigateDiary} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3.5 py-2 rounded-xl hover:bg-mint/50 transition-colors">
-                <BookOpen className="w-4 h-4" /> Responder no diário
-              </button>
-            </Section>
-
-            {/* 8.12 Síntese para orientação */}
-            <Section icon={<Send className="w-4 h-4" />} title="Síntese para orientação" badge="Plus">
-              <div className="bg-mint/40 border border-forest-100 rounded-xl p-4 mb-3">
-                <p className="text-sm text-forest-800 leading-relaxed">{deep.guidanceSynthesis}</p>
-              </div>
-              <button onClick={onNavigateGuidance} className="inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2.5 rounded-xl transition-colors">
-                <MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem
-              </button>
-            </Section>
-          </>
-        ) : (
-          <LockedSection
-            title="Relatório mensal aprofundado"
-            description="Leitura completa do seu mês — padrões, gatilhos, dias de atenção, plano de autocuidado e síntese para orientação. Disponível no plano Plus."
-            onUpgrade={onNavigatePricing}
-          />
-        )}
-
-        {/* ─── SEÇÃO 4: Comentário do profissional (Plus) ─────────────── */}
-        {isPlus ? (
-          <Section icon={<Star className="w-4 h-4" />} title="Comentário do profissional" badge="Plus">
-            {comment ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-forest-700 capitalize">{monthLabel(comment.report_month)}</p>
-                  {comment.professional_name && (
-                    <p className="text-[10px] text-stone-400">{comment.professional_name}</p>
-                  )}
-                </div>
-                <p className="text-sm text-sage-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
-                <button
-                  onClick={onNavigateDiary}
-                  className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium transition-colors mt-1"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  Responder no diário
-                </button>
-              </div>
+            <BuildingPreview type="monthly" period={curMonth} content={monthlyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
+            {lastMonthly ? (
+              <ClosedReportCard report={lastMonthly} plan={planKey} onPdf={setPdfReport} generating={!!pdfReport} {...navProps} />
             ) : (
-              <div className="text-center py-4">
-                <Star className="w-7 h-7 text-stone-200 mx-auto mb-2" />
-                <p className="text-sm font-medium text-sage-700 mb-1">Comentário ainda não enviado</p>
-                <p className="text-xs text-stone-400">
-                  Seu comentário de {monthLabel(selectedMonth)} chegará em breve.
-                </p>
+              <p className="text-sm text-ink-soft bg-paper-soft border border-line rounded-2xl p-4">Seu primeiro relatório mensal aprofundado ficará disponível no dia 1º do próximo mês.</p>
+            )}
+            <ProfessionalComment userId={user!.id} selectedMonth={lastMonthly?.period_start?.slice(0, 7) ?? ymd(now).slice(0, 7)} onNavigateDiary={onNavigateDiary} />
+            {monthlyHistory.length > 0 && (
+              <div>
+                <button onClick={() => setShowMonthlyHist(o => !o)} className="text-sm text-forest-700 font-medium flex items-center gap-1.5 hover:text-forest-900">
+                  {showMonthlyHist ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} Ver relatórios mensais anteriores ({monthlyHistory.length})
+                </button>
+                {showMonthlyHist && <div className="mt-3 space-y-2">{monthlyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={setPdfReport} generating={!!pdfReport} plan={planKey} {...navProps} />)}</div>}
               </div>
             )}
-          </Section>
+          </>
         ) : (
-          <LockedSection
-            title="Comentário individual do profissional"
-            description="Receba um comentário personalizado sobre seu mês por um profissional parceiro. Disponível no plano Plus."
-            onUpgrade={onNavigatePricing}
-          />
+          <LockedSection title="Relatório mensal aprofundado" description="No Plus, você desbloqueia o relatório mensal aprofundado com leitura de padrões, plano de autocuidado e síntese para orientação." onUpgrade={onNavigatePricing} />
         )}
+      </section>
 
-        <p className="text-xs text-ink-soft border-t border-line pt-4">{DEEP_DISCLAIMER}</p>
-      </div>
+      <p className="text-xs text-ink-soft border-t border-line pt-4 mt-8">{DISCLAIMER}</p>
+
+      {/* Off-screen: renderização limpa para o PDF */}
+      {pdfReport && (
+        <div className="fixed left-[-10000px] top-0" aria-hidden>
+          <div ref={pdfRef} className="bg-white p-8" style={{ width: 720 }}>
+            <h1 className="font-serif text-2xl text-forest-900 mb-1">{pdfReport.title}</h1>
+            <p className="text-xs text-stone-500 mb-1">Período {formatPeriodShort({ start: pdfReport.period_start, end: pdfReport.period_end })} · Gerado em {pdfReport.generated_at ? formatDateBR(ymd(new Date(pdfReport.generated_at))) : formatDateBR(pdfReport.available_at)}</p>
+            <div className="h-px bg-stone-200 my-4" />
+            <ReportBody report={pdfReport} plan={planKey} onNavigateDiary={onNavigateDiary} onNavigateGuidance={onNavigateGuidance} forPdf />
+            <p className="text-[10px] text-stone-400 mt-6 border-t border-stone-100 pt-3">{DISCLAIMER}</p>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+// Linha compacta do histórico (expande sob demanda).
+function HistoryRow({ report, plan, onPdf, generating, ...nav }: {
+  report: StoredReport; plan: string; onPdf: (r: StoredReport) => void; generating: boolean
+  onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void; onNavigateSelfCare?: () => void; onNavigateGuidance: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="bg-paper-soft border border-line rounded-xl">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-forest-900 font-medium truncate">{report.title}</p>
+          <p className="text-[11px] text-ink-soft">Gerado em {report.generated_at ? formatDateBR(ymd(new Date(report.generated_at))) : formatDateBR(report.available_at)}</p>
+        </div>
+        <button onClick={() => setOpen(o => !o)} className="text-xs text-forest-700 hover:underline">Ver relatório</button>
+        <button onClick={() => onPdf(report)} disabled={generating} className="text-xs text-forest-700 border border-line px-2.5 py-1 rounded-lg hover:bg-mint/50 flex items-center gap-1 disabled:opacity-60"><FileText className="w-3 h-3" /> PDF</button>
+      </div>
+      {open && <div className="px-4 pb-4 border-t border-line pt-3"><ReportBody report={report} plan={plan} {...nav} /></div>}
+    </div>
+  )
+}
+
+// Comentário profissional mensal (Plus) — recurso existente no sistema.
+function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userId: string; selectedMonth: string; onNavigateDiary: () => void }) {
+  const [comment, setComment] = useState<{ comment_text: string; professional_name: string | null; report_month: string } | null>(null)
+  useEffect(() => {
+    let active = true
+    supabase.from('professional_comments').select('comment_text,comment,report_month,professional_name').eq('user_id', userId).eq('report_month', selectedMonth).maybeSingle()
+      .then(({ data }) => { if (!active) return; const d = data as { comment_text?: string; comment?: string; professional_name: string | null; report_month: string } | null; setComment(d ? { comment_text: d.comment_text || d.comment || '', professional_name: d.professional_name, report_month: d.report_month } : null) })
+    return () => { active = false }
+  }, [userId, selectedMonth])
+  return (
+    <Section icon={<Star className="w-4 h-4" />} title="Comentário do profissional" badge="Plus">
+      {comment ? (
+        <div className="space-y-2">
+          <p className="text-sm text-sage-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
+          {comment.professional_name && <p className="text-[10px] text-stone-400">{comment.professional_name}</p>}
+          <button onClick={onNavigateDiary} className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium mt-1"><BookOpen className="w-3.5 h-3.5" /> Responder no diário</button>
+        </div>
+      ) : (
+        <p className="text-sm text-stone-500">Seu comentário profissional mensal ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
+      )}
+    </Section>
   )
 }
