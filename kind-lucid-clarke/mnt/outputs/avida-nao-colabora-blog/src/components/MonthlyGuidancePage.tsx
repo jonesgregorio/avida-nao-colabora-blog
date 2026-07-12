@@ -94,12 +94,12 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   if (!allowed) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center">
-        <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <MessageSquare className="w-7 h-7 text-purple-600" />
+        <div className="w-14 h-14 bg-mint rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <MessageSquare className="w-7 h-7 text-forest-700" />
         </div>
         <h1 className="font-serif text-2xl text-sage-800 mb-2">Orientação mensal por mensagem</h1>
         <p className="text-sage-500 mb-6">Este recurso está disponível no plano Plus.</p>
-        <button onClick={onNavigatePricing} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors">
+        <button onClick={onNavigatePricing} className="bg-forest-900 hover:bg-forest-800 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors">
           Ver planos
         </button>
         <button onClick={onBack} className="block mx-auto mt-3 text-sm text-stone-400 hover:text-stone-600">Voltar</button>
@@ -110,7 +110,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+        <Loader2 className="w-6 h-6 text-forest-500 animate-spin" />
       </div>
     )
   }
@@ -125,8 +125,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-purple-600" />
+          <div className="w-9 h-9 bg-mint rounded-xl flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-forest-700" />
           </div>
           <div>
             <h1 className="font-serif text-2xl text-sage-800">Orientação mensal</h1>
@@ -141,17 +141,17 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
       {/* Formulário — apenas quando ainda não há pedido neste mês */}
       {!request && (
-        <div className="bg-white border border-purple-100 rounded-2xl p-6 shadow-sm">
+        <div className="bg-white border border-forest-100 rounded-2xl p-6 shadow-sm">
           <h2 className="font-semibold text-sage-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
 
           <div className="mb-3">
-            <label className="text-xs font-medium text-stone-500 mb-1 block">Sobre o que quer orientação <span className="text-purple-500">*</span></label>
+            <label className="text-xs font-medium text-stone-500 mb-1 block">Sobre o que quer orientação <span className="text-forest-500">*</span></label>
             <textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
               placeholder="Compartilhe como está se sentindo, o que precisa de apoio ou o que gostaria de explorar..."
               rows={5}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
           <div className="mb-3">
@@ -161,7 +161,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               onChange={e => setContext(e.target.value)}
               placeholder="Estratégias, hábitos ou apoios que você já experimentou..."
               rows={3}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
           <div className="mb-4">
@@ -171,7 +171,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               onChange={e => setExpectedHelp(e.target.value)}
               placeholder="Ex: sugestões práticas, escuta, organização de ideias..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
 
@@ -179,7 +179,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           <button
             onClick={handleSubmit}
             disabled={sending || !message.trim()}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center gap-2 bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Enviar orientação deste mês
@@ -200,7 +200,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
                 <CheckCircle className="w-3 h-3" /> Respondida
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-purple-100 text-purple-700">
+              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-mint text-forest-800">
                 <Clock className="w-3 h-3" /> Aguardando resposta
               </span>
             )}
@@ -225,8 +225,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             )}
 
             {answered ? (
-              <div className="bg-white border border-purple-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-purple-600 mb-1">Resposta da equipe</p>
+              <div className="bg-white border border-forest-100 rounded-xl p-4">
+                <p className="text-[11px] font-semibold text-forest-700 mb-1">Resposta da equipe</p>
                 <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{request.response}</p>
                 {request.responded_at && (
                   <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(request.responded_at)}</p>
@@ -234,7 +234,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               </div>
             ) : (
               <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
-                <Loader2 className="w-3.5 h-3.5 text-purple-400" />
+                <Loader2 className="w-3.5 h-3.5 text-forest-400" />
                 Recebemos sua mensagem. Você será avisado(a) quando a orientação for respondida.
               </div>
             )}

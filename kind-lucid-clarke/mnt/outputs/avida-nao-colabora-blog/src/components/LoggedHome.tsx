@@ -45,14 +45,18 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     let active = true
     ;(async () => {
       const since = new Date(Date.now() - 30 * 864e5).toISOString()
-      const { data } = await supabase.from('diary_entries').select('created_at').eq('user_id', user.id).gte('created_at', since)
+      const { data } = await supabase.from('diary_entries').select('created_at,entry_type').eq('user_id', user.id).gte('created_at', since)
       if (!active) return
-      const entries = data ?? []
-      const days = new Set(entries.map(e => String((e as { created_at?: string }).created_at ?? '').slice(0, 10)))
+      const entries = (data ?? []) as { created_at?: string; entry_type?: string }[]
+      const days = new Set(entries.map(e => String(e.created_at ?? '').slice(0, 10)))
+      // Separa check-ins rápidos de reflexões completas (§8) para os números baterem
+      // com o que cada registro realmente é.
+      const checkins = entries.filter(e => e.entry_type === 'checkin').length
+      const reflections = entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
       setStats({
         presence: Math.min(100, Math.round((days.size / 30) * 100)),
-        checkins: days.size,
-        reflections: entries.length,
+        checkins,
+        reflections,
         loaded: true,
       })
     })()

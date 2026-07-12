@@ -56,7 +56,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
         <p className="text-sm font-semibold text-sage-800 mb-1">Comentário individual do profissional</p>
         <p className="text-xs text-sage-500 mb-4">Disponível no plano Plus — um comentário personalizado sobre seu relatório mensal.</p>
         {onNavigatePricing && (
-          <button onClick={onNavigatePricing} className="text-xs text-purple-600 hover:underline font-medium">Ver planos</button>
+          <button onClick={onNavigatePricing} className="text-xs text-forest-700 hover:underline font-medium">Ver planos</button>
         )}
       </div>
     )
@@ -65,7 +65,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+        <Loader2 className="w-5 h-5 text-forest-400 animate-spin" />
       </div>
     )
   }
@@ -83,14 +83,14 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-sage-700 flex items-center gap-2">
-        <Star className="w-4 h-4 text-purple-400" />
+        <Star className="w-4 h-4 text-forest-400" />
         Comentários do profissional
       </h3>
       {comments.map(c => (
-        <div key={c.id} className="bg-white border border-purple-100 rounded-2xl p-5 shadow-sm">
+        <div key={c.id} className="bg-white border border-forest-100 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <p className="text-xs font-semibold text-purple-700 capitalize">{monthLabel(c.report_month)}</p>
+              <p className="text-xs font-semibold text-forest-700 capitalize">{monthLabel(c.report_month)}</p>
               {c.professional_name && (
                 <p className="text-[10px] text-stone-400 mt-0.5">{c.professional_name}</p>
               )}
@@ -103,7 +103,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
           {onNavigateDiary && (
             <button
               onClick={onNavigateDiary}
-              className="mt-3 flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-medium transition-colors"
+              className="mt-3 flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium transition-colors"
             >
               <BookOpen className="w-3.5 h-3.5" />
               Responder no diário

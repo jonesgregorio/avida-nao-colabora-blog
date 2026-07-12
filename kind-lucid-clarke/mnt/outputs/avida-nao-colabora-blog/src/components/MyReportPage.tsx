@@ -493,16 +493,16 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
               {/* Médias avançadas */}
               <div className="grid grid-cols-2 gap-2">
                 {avg(diaryEntries.filter(e => e.sleep_quality != null).map(e => e.sleep_quality!)) > 0 && (
-                  <StatPill label="Sono médio" value={avg(diaryEntries.filter(e => e.sleep_quality != null).map(e => e.sleep_quality!))} unit="/10" />
+                  <StatPill label="Sono médio" value={avg(diaryEntries.filter(e => e.sleep_quality != null).map(e => e.sleep_quality!))} unit="/5" />
                 )}
                 {avg(diaryEntries.filter(e => e.self_esteem != null).map(e => e.self_esteem!)) > 0 && (
-                  <StatPill label="Autoestima média" value={avg(diaryEntries.filter(e => e.self_esteem != null).map(e => e.self_esteem!))} unit="/10" />
+                  <StatPill label="Autoestima média" value={avg(diaryEntries.filter(e => e.self_esteem != null).map(e => e.self_esteem!))} unit="/5" />
                 )}
                 {avg(diaryEntries.filter(e => e.stress_level != null).map(e => e.stress_level!)) > 0 && (
-                  <StatPill label="Estresse médio" value={avg(diaryEntries.filter(e => e.stress_level != null).map(e => e.stress_level!))} unit="/10" />
+                  <StatPill label="Estresse médio" value={avg(diaryEntries.filter(e => e.stress_level != null).map(e => e.stress_level!))} unit="/5" />
                 )}
                 {avg(diaryEntries.filter(e => e.irritability != null).map(e => e.irritability!)) > 0 && (
-                  <StatPill label="Irritabilidade" value={avg(diaryEntries.filter(e => e.irritability != null).map(e => e.irritability!))} unit="/10" />
+                  <StatPill label="Irritabilidade" value={avg(diaryEntries.filter(e => e.irritability != null).map(e => e.irritability!))} unit="/5" />
                 )}
               </div>
 
