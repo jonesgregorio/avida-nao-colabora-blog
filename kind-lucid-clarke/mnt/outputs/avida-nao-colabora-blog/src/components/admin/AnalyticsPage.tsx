@@ -171,7 +171,7 @@ function Empty({ text }: { text: string }) {
 // ─── Gráficos em SVG puro (sem dependência externa) ─────────────────────────
 type Series = { label: string; value: number }[]
 function fmtDay(d: string) { const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d }
-function LineChartCard({ title, series, subtitle }: { title: string; series: Series; subtitle?: string }) {
+function LineChartCard({ title, series, subtitle, prev }: { title: string; series: Series; subtitle?: string; prev?: number }) {
   const total = series.reduce((a, s) => a + s.value, 0)
   const max = Math.max(1, ...series.map(s => s.value))
   const W = 560, H = 170, pad = 26, n = series.length
@@ -182,7 +182,10 @@ function LineChartCard({ title, series, subtitle }: { title: string; series: Ser
   const areaPts = `${X(0).toFixed(1)},${H - pad} ${linePts} ${X(n - 1).toFixed(1)},${H - pad}`
   return (
     <div className="bg-white border border-line rounded-2xl p-5">
-      <div className="flex justify-between items-baseline mb-1"><h3 className="font-serif text-lg text-forest-900">{title}</h3><span className="text-sm text-ink-soft">{total}{subtitle ? ` ${subtitle}` : ''}</span></div>
+      <div className="flex justify-between items-baseline mb-1 gap-2">
+        <h3 className="font-serif text-lg text-forest-900">{title}</h3>
+        <span className="text-sm text-ink-soft flex items-center gap-2">{prev !== undefined && <Delta cur={total} prev={prev} />}{total}{subtitle ? ` ${subtitle}` : ''}</span>
+      </div>
       {total === 0 ? <div className="py-8 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
         <>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}>
@@ -607,10 +610,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
               <p className="text-sm text-ink-soft mt-1">Tendências do período ({PERIODS.find(p => p.id === period)!.label}) · visitas {growth.trend}. Use 30 ou 90 dias para ver a evolução.</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <LineChartCard title="Visitas por dia" series={growth.visits} subtitle="sessões" />
-              <LineChartCard title="Cadastros por dia" series={growth.su} subtitle="novos" />
-              <LineChartCard title="Conversões por dia" series={growth.cv} subtitle="assinaturas" />
-              <LineChartCard title="Pageviews por dia" series={growth.pv} subtitle="páginas" />
+              <LineChartCard title="Visitas por dia" series={growth.visits} subtitle="sessões" prev={prevM.sessions} />
+              <LineChartCard title="Cadastros por dia" series={growth.su} subtitle="novos" prev={prevSignups} />
+              <LineChartCard title="Conversões por dia" series={growth.cv} subtitle="assinaturas" prev={prevConversions} />
+              <LineChartCard title="Pageviews por dia" series={growth.pv} subtitle="páginas" prev={prevM.pageviews} />
               <BarChartCard title="Fontes de tráfego" subtitle="de onde vieram as visitas" data={growth.sources} />
               <BarChartCard title="Dispositivos" subtitle="por sessão" data={growth.devices} />
             </div>
