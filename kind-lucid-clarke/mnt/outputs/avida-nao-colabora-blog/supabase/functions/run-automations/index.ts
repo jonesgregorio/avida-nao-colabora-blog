@@ -73,17 +73,30 @@ Deno.serve(async (req) => {
     if (last && now - last < days * 86400000) continue // ainda não venceu
 
     try {
-      const cfg = (a.config ?? {}) as { themes?: string[] }
+      const cfg = (a.config ?? {}) as { themes?: string[]; tone?: string; extra?: string }
       const themes = Array.isArray(cfg.themes) && cfg.themes.length ? cfg.themes : [a.category || 'saúde emocional']
       const tema = themes[Math.floor(Math.random() * themes.length)]
+      const tone = cfg.tone || 'acolhedor'
       const tipo = 'article'
-      const prompt = `Escreva um conteúdo de blog acolhedor sobre "${tema}" para um app de saúde emocional. Português brasileiro, sem diagnóstico nem promessa de cura. Inclua uma pergunta para o diário e um CTA gentil ao final.`
+
+      // 1) título próprio (não usa o tema cru como título)
+      let title = tema
+      try {
+        const rawTitle = await genAI(`Crie UM título curto, humano e acolhedor (máx 8 palavras, sem aspas, sem markdown) para um artigo de blog sobre "${tema}". Responda apenas com o título.`)
+        const clean = rawTitle.split('\n')[0].replace(/^["'#\s\-*]+|["'\s]+$/g, '').trim()
+        if (clean) title = clean.slice(0, 120)
+      } catch { /* mantém o tema como título */ }
+
+      // 2) conteúdo estruturado, no tom pedido
+      const prompt = `Escreva um artigo de blog para um app de saúde emocional, com o título "${title}" (tema: ${tema}). Tom ${tone}, português brasileiro.
+Estrutura: 1) introdução acolhedora; 2) explicação simples do tema; 3) um exemplo da vida real, sem nomes; 4) uma reflexão guiada; 5) um exercício prático curto; 6) uma pergunta para o diário; 7) um CTA gentil; 8) uma linha final avisando que este conteúdo não substitui acompanhamento profissional.${cfg.extra ? ' ' + cfg.extra : ''}
+Não use markdown pesado, não dê diagnóstico e não prometa cura.`
       const content = await genAI(prompt)
       const publish = a.mode === 'auto_publish'
       const nowIso = new Date().toISOString()
 
       const { data: art, error: insErr } = await admin.from('articles').insert({
-        title: tema, slug: `${slugify(tema)}-${Date.now().toString(36).slice(-4)}`,
+        title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-4)}`,
         content, summary: '', excerpt: '', category: a.category || null,
         plan_required: a.plan_required || 'free', content_type: tipo, origin: 'ia',
         status: publish ? 'published' : 'draft',
@@ -92,7 +105,7 @@ Deno.serve(async (req) => {
       if (insErr) throw insErr
 
       admin.from('editorial_calendar').insert({
-        article_id: (art as { id?: string } | null)?.id ?? null, title: tema,
+        article_id: (art as { id?: string } | null)?.id ?? null, title,
         content_type: tipo, plan_required: a.plan_required || 'free',
         status: publish ? 'publicado' : 'gerado_ia', origin: 'ia',
         scheduled_date: nowIso.slice(0, 10),
@@ -100,9 +113,9 @@ Deno.serve(async (req) => {
 
       await admin.from('content_automations').update({
         last_run_at: nowIso, next_run_at: new Date(now + days * 86400000).toISOString(),
-        last_result: `${publish ? 'Publicado' : 'Rascunho'}: ${tema}`, last_error: null,
+        last_result: `${publish ? 'Publicado' : 'Rascunho'}: ${title}`, last_error: null,
       }).eq('id', a.id)
-      results.push({ id: a.id, result: `ok: ${tema}` })
+      results.push({ id: a.id, result: `ok: ${title}` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       await admin.from('content_automations').update({ last_run_at: new Date().toISOString(), last_error: msg }).eq('id', a.id)

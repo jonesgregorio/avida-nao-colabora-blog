@@ -47,6 +47,9 @@ export default function AdminAutomacoesBlog() {
   const [nFreq, setNFreq] = useState('weekly')
   const [nPlan, setNPlan] = useState('free')
   const [nMode, setNMode] = useState('require_approval')
+  const [nCategory, setNCategory] = useState('')
+  const [nTone, setNTone] = useState('acolhedor')
+  const [nThemes, setNThemes] = useState('')
 
   async function load() {
     setLoading(true)
@@ -60,12 +63,17 @@ export default function AdminAutomacoesBlog() {
   async function create() {
     if (!nName.trim()) { flash('Dê um nome à automação.', true); return }
     setBusy(true)
+    const themes = nThemes.split('\n').map(s => s.trim()).filter(Boolean)
     const { error } = await supabase.from('content_automations').insert({
-      name: nName, type: nType, frequency: nFreq, plan_required: nPlan, mode: nMode, status: 'paused',
+      name: nName, type: nType, frequency: nFreq, plan_required: nPlan, mode: nMode,
+      category: nCategory.trim() || null, status: 'paused',
+      config: { themes, tone: nTone },
     })
     setBusy(false)
     if (error) { flash('Erro: ' + error.message, true); return }
-    flash('Automação criada (pausada).'); setShowNew(false); setNName(''); load()
+    flash('Automação criada (pausada).'); setShowNew(false)
+    setNName(''); setNCategory(''); setNThemes('')
+    load()
   }
 
   async function toggle(a: Automation) {
@@ -126,6 +134,12 @@ export default function AdminAutomacoesBlog() {
           <div><label className="block text-xs text-stone-500 mb-1">Frequência</label><select value={nFreq} onChange={e => setNFreq(e.target.value)} className={inputCls}>{FREQS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
           <div><label className="block text-xs text-stone-500 mb-1">Plano</label><select value={nPlan} onChange={e => setNPlan(e.target.value)} className={inputCls}><option value="free">Gratuito</option><option value="essential">Essencial</option><option value="plus">Plus</option></select></div>
           <div><label className="block text-xs text-stone-500 mb-1">Modo</label><select value={nMode} onChange={e => setNMode(e.target.value)} className={inputCls}><option value="require_approval">Exige aprovação</option><option value="auto_publish">Publicação automática</option></select></div>
+          <div><label className="block text-xs text-stone-500 mb-1">Categoria</label><input value={nCategory} onChange={e => setNCategory(e.target.value)} placeholder="Ex: ansiedade" className={inputCls} /></div>
+          <div><label className="block text-xs text-stone-500 mb-1">Tom</label><select value={nTone} onChange={e => setNTone(e.target.value)} className={inputCls}>{['acolhedor', 'simples', 'leve', 'educativo', 'motivacional', 'direto'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+          <div className="sm:col-span-2 lg:col-span-5">
+            <label className="block text-xs text-stone-500 mb-1">Temas (um por linha — a IA sorteia um a cada geração, pra variar)</label>
+            <textarea value={nThemes} onChange={e => setNThemes(e.target.value)} rows={4} placeholder={'ansiedade no trabalho\nsono e rotina\nautoestima e comparação\nlimites nas relações'} className={inputCls} />
+          </div>
           <button onClick={create} disabled={busy} className="inline-flex items-center justify-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Criar</button>
         </div>
       )}
