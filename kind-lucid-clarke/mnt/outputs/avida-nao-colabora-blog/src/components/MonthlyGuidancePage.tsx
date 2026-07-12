@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { MessageSquare, Send, ChevronLeft, Loader2, CheckCircle, Clock } from 'lucide-react'
+import { MessageSquare, Send, ChevronLeft, Loader2, CheckCircle, Clock, CalendarClock, Sparkles } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
@@ -24,20 +24,52 @@ interface GuidanceRequest {
   created_at: string
 }
 
-function currentMonthKey() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+interface SubInfo {
+  current_period_start: string | null
+  current_period_end: string | null
 }
+
+interface Cycle {
+  start: Date
+  end: Date
+  key: string
+}
+
+// ── Ciclo de orientação = ciclo da assinatura ────────────────────────────────
+// A pessoa pode solicitar UMA orientação por ciclo. O ciclo segue as datas da
+// assinatura (current_period_start/end). Ex.: assinou 12/07 → tem até 12/08 para
+// solicitar; depois dessa data o período reinicia (12/08 → 12/09) e ela pode de
+// novo. Se não houver assinatura com período válido, cai no mês-calendário.
+function billingCycle(sub: SubInfo | null): Cycle {
+  const now = new Date()
+  let start = sub?.current_period_start ? new Date(sub.current_period_start) : null
+  let end = sub?.current_period_end ? new Date(sub.current_period_end) : null
+
+  if (!(start && end && start <= now && end > now)) {
+    const anchorDay = start ? start.getDate() : 1
+    start = new Date(now.getFullYear(), now.getMonth(), anchorDay)
+    if (start > now) start = new Date(now.getFullYear(), now.getMonth() - 1, anchorDay)
+    end = new Date(start.getFullYear(), start.getMonth() + 1, anchorDay)
+  }
+
+  const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
+  return { start, end, key }
+}
+
 function currentMonthLabel() {
   return new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
+function formatShort(d: Date | string) {
+  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
 export default function MonthlyGuidancePage({ user, profile, onBack, onNavigatePricing }: Props) {
   const [loading, setLoading] = useState(true)
   const [request, setRequest] = useState<GuidanceRequest | null>(null)
+  const [cycle, setCycle] = useState<Cycle>(() => billingCycle(null))
   const [message, setMessage] = useState('')
   const [context, setContext] = useState('')
   const [expectedHelp, setExpectedHelp] = useState('')
@@ -45,7 +77,6 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [error, setError] = useState<string | null>(null)
 
   const allowed = normalizePlan(profile?.plan) === 'plus'
-  const monthKey = currentMonthKey()
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }
@@ -55,11 +86,21 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
   async function load() {
     setLoading(true)
+    // 1) Assinatura → define o ciclo atual (datas de solicitação).
+    const { data: subData } = await supabase
+      .from('user_subscriptions')
+      .select('current_period_start,current_period_end')
+      .eq('user_id', user!.id)
+      .maybeSingle()
+    const cyc = billingCycle((subData as SubInfo) ?? null)
+    setCycle(cyc)
+
+    // 2) Já existe pedido neste ciclo? (chave = mês de início do ciclo)
     const { data } = await supabase
       .from('monthly_guidance_requests')
       .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at')
       .eq('user_id', user!.id)
-      .eq('month_key', monthKey)
+      .eq('month_key', cyc.key)
       .maybeSingle()
     setRequest((data as GuidanceRequest) ?? null)
     setLoading(false)
@@ -73,7 +114,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       .from('monthly_guidance_requests')
       .insert({
         user_id: user.id,
-        month_key: monthKey,
+        month_key: cycle.key,
         message: message.trim(),
         context: context.trim() || null,
         expected_help: expectedHelp.trim() || null,
@@ -116,6 +157,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   }
 
   const answered = request?.status === 'answered' && !!request?.response
+  const deadline = formatShort(cycle.end) // data-limite do ciclo / reabertura
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -134,12 +176,49 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           </div>
         </div>
         <p className="text-sm text-sage-500 mt-2 leading-relaxed">
-          Envie uma mensagem por mês e receba uma orientação de apoio personalizada dentro do site.
-          Use esse espaço para compartilhar como está se sentindo, tirar dúvidas ou pedir sugestões de autocuidado.
+          Uma vez por ciclo, você envia uma mensagem e recebe de volta, aqui dentro do site, uma
+          orientação de apoio individual e não emergencial, escrita com base nos seus registros.
+        </p>
+        <p className="text-sm text-sage-500 mt-2 leading-relaxed">
+          Você pode pedir orientação sobre <strong className="text-sage-700">o que quiser</strong> e trazer os pontos que
+          desejar — como está se sentindo, uma situação difícil, dúvidas sobre o seu processo, hábitos que
+          quer mudar, sugestões de autocuidado ou ajuda para organizar as ideias. Escreva com liberdade, no
+          seu tempo: não há limite de caracteres.
         </p>
       </div>
 
-      {/* Formulário — apenas quando ainda não há pedido neste mês */}
+      {/* Destaque do ciclo: até quando pode solicitar / quando reabre */}
+      {!request ? (
+        <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/50 p-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0">
+            <CalendarClock className="w-4 h-4" />
+          </span>
+          <div className="text-sm leading-relaxed">
+            <p className="text-forest-800">
+              Você tem até <strong className="text-forest-900">{deadline}</strong> para enviar a orientação deste ciclo.
+            </p>
+            <p className="text-forest-700/80 text-xs mt-0.5">
+              É uma solicitação por ciclo. Depois dessa data, o período reinicia e você pode solicitar de novo.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-amber-600 flex-shrink-0">
+            <CheckCircle className="w-4 h-4" />
+          </span>
+          <div className="text-sm leading-relaxed">
+            <p className="text-amber-800">
+              Você já usou a orientação deste ciclo. 🌱
+            </p>
+            <p className="text-amber-700/90 text-xs mt-0.5">
+              Uma nova solicitação abre em <strong className="text-amber-900">{deadline}</strong>, no início do próximo ciclo da sua assinatura.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Formulário — apenas quando ainda não há pedido neste ciclo */}
       {!request && (
         <div className="bg-white border border-forest-100 rounded-2xl p-6 shadow-sm">
           <h2 className="font-semibold text-sage-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
@@ -149,9 +228,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             <textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
-              placeholder="Compartilhe como está se sentindo, o que precisa de apoio ou o que gostaria de explorar..."
-              rows={5}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
+              placeholder="Compartilhe como está se sentindo, o que precisa de apoio ou o que gostaria de explorar. Traga os pontos que quiser — pode escrever à vontade."
+              rows={6}
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-y focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
           <div className="mb-3">
@@ -161,7 +240,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               onChange={e => setContext(e.target.value)}
               placeholder="Estratégias, hábitos ou apoios que você já experimentou..."
               rows={3}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-y focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
           <div className="mb-4">
@@ -171,7 +250,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               onChange={e => setExpectedHelp(e.target.value)}
               placeholder="Ex: sugestões práticas, escuta, organização de ideias..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-forest-200"
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm resize-y focus:outline-none focus:ring-2 focus:ring-forest-200"
             />
           </div>
 
@@ -182,12 +261,15 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             className="flex items-center gap-2 bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Enviar orientação deste mês
+            Enviar orientação deste ciclo
           </button>
+          <p className="text-[11px] text-stone-400 mt-3 flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline}. É uma orientação por ciclo.
+          </p>
         </div>
       )}
 
-      {/* Pedido já enviado neste mês */}
+      {/* Pedido já enviado neste ciclo */}
       {request && (
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-stone-100 flex items-start justify-between gap-3">
@@ -200,7 +282,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
                 <CheckCircle className="w-3 h-3" /> Respondida
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-mint text-forest-800">
+              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-amber-100 text-amber-700">
                 <Clock className="w-3 h-3" /> Aguardando resposta
               </span>
             )}
