@@ -74,11 +74,23 @@ function resolveView(raw: string): AdminView {
 
 export default function AdminPanel() {
   const { profile, loading } = useAuth()
-  // Abre sempre na Visão geral (landing do admin, como no mockup).
-  const [view, setView] = useState<AdminView>('visao-geral')
+  // Restaura a última área ao atualizar a página (fica onde o admin estava).
+  const [view, setView] = useState<AdminView>(() => {
+    try {
+      const saved = localStorage.getItem(ADMIN_KEY)
+      if (saved) {
+        const resolved = resolveView(saved)
+        // Não restaura direto no editor de artigo (abriria um editor em branco).
+        return resolved === 'article-editor' ? 'conteudos' : resolved
+      }
+    } catch { /* noop */ }
+    return 'visao-geral'
+  })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Persiste a área atual; ignora o editor (efêmero) pra não restaurar nele.
+    if (view === 'article-editor') return
     try { localStorage.setItem(ADMIN_KEY, view) } catch { /* noop */ }
   }, [view])
 
