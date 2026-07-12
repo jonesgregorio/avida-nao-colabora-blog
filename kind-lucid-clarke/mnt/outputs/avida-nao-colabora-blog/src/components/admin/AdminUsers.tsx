@@ -839,61 +839,78 @@ export default function AdminUsers() {
               {[1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-stone-100 rounded-xl animate-pulse" />)}
             </div>
           ) : viewMode === 'list' ? (
-            <div className="divide-y divide-stone-50">
-              {filtered.map(u => {
-                const hasDiscount = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
-                const isBlocked = u.account_status === 'blocked'
-                const isTrial = u.account_status === 'trial'
-                const isPlus = u.plan === 'plus' || u.plan === 'therapeutic-plus'
-                const isUnlimited = u.unlimited_access === true
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => openDrawer(u)}
-                    className={`w-full text-left px-6 py-3 hover:bg-paper-soft transition-colors flex items-center gap-3 ${selectedUser?.user_id === u.user_id ? 'bg-mint/50 border-l-2 border-forest-600' : ''}`}
-                  >
-                    <div className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-700 text-sm font-semibold flex-shrink-0">
-                      {(u.full_name ?? 'U')[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-forest-900 truncate">{u.full_name || 'Sem nome'}</p>
-                        {u.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
-                      </div>
-                      {u.email && <p className="text-xs text-ink-soft truncate">{u.email}</p>}
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[u.plan] ?? 'bg-stone-100 text-stone-500'}`}>
-                          {PLAN_LABELS[u.plan] ?? u.plan}
-                        </span>
-                        <span className="text-xs text-ink-soft">{timeSince(u.created_at)}</span>
-                        {u.account_status && u.account_status !== 'active' && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ACCOUNT_STATUS_COLORS[u.account_status] ?? 'bg-stone-100'}`}>
-                            {u.account_status}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-stone-50 border-b border-line">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-stone-500 font-medium">Usuário</th>
+                    <th className="text-left px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">E-mail</th>
+                    <th className="text-left px-3 py-3 text-stone-500 font-medium">Plano</th>
+                    <th className="text-left px-3 py-3 text-stone-500 font-medium hidden sm:table-cell">Status</th>
+                    <th className="text-left px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Membro desde</th>
+                    <th className="text-center px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Tickets</th>
+                    <th className="text-center px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">Notif.</th>
+                    <th className="px-4 py-3 text-stone-500 font-medium text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {filtered.map(u => {
+                    const hasDiscount = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
+                    const isBlocked = u.account_status === 'blocked'
+                    const isUnlimited = u.unlimited_access === true
+                    return (
+                      <tr key={u.id} className={`hover:bg-paper-soft transition-colors ${selectedUser?.user_id === u.user_id ? 'bg-mint/40' : ''}`}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-700 text-xs font-semibold flex-shrink-0">
+                              {(u.full_name ?? 'U')[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium text-forest-900 truncate">{u.full_name || 'Sem nome'}</p>
+                                {u.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
+                              </div>
+                              <p className="text-xs text-ink-soft truncate lg:hidden">{u.email || '—'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-ink-soft hidden lg:table-cell"><span className="block truncate max-w-[220px]">{u.email || '—'}</span></td>
+                        <td className="px-3 py-3">
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${PLAN_COLORS[u.plan] ?? 'bg-stone-100 text-stone-500'}`}>
+                            {PLAN_LABELS[u.plan] ?? u.plan}
                           </span>
-                        )}
-                        {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
-                        {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
-                        {isBlocked && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
-                        {isTrial && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Trial</span>}
-                        {isPlus && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-coral text-[#c05f3c] font-medium">Plus</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {(u.open_tickets ?? 0) > 0 && (
-                        <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                          <Ticket className="w-3 h-3" />{u.open_tickets}
-                        </span>
-                      )}
-                      {(u.unread_notifs ?? 0) > 0 && (
-                        <span className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                          <Bell className="w-3 h-3" />{u.unread_notifs}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4 text-ink-soft" />
-                    </div>
-                  </button>
-                )
-              })}
+                        </td>
+                        <td className="px-3 py-3 hidden sm:table-cell">
+                          <div className="flex flex-wrap gap-1">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${isBlocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {isBlocked ? 'Bloqueado' : (u.account_status && u.account_status !== 'active' ? u.account_status : 'Ativo')}
+                            </span>
+                            {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
+                            {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-ink-soft text-xs hidden md:table-cell whitespace-nowrap">{timeSince(u.created_at)}</td>
+                        <td className="px-3 py-3 text-center hidden md:table-cell">
+                          {(u.open_tickets ?? 0) > 0
+                            ? <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full"><Ticket className="w-3 h-3" />{u.open_tickets}</span>
+                            : <span className="text-stone-300">—</span>}
+                        </td>
+                        <td className="px-3 py-3 text-center hidden lg:table-cell">
+                          {(u.unread_notifs ?? 0) > 0
+                            ? <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"><Bell className="w-3 h-3" />{u.unread_notifs}</span>
+                            : <span className="text-stone-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => openDrawer(u)} className="inline-flex items-center gap-1.5 text-xs border border-line rounded-lg px-2.5 py-1.5 text-forest-700 hover:bg-stone-50 hover:border-forest-300 whitespace-nowrap">
+                            Ver detalhes <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {filtered.length === 0 && <p className="text-center text-ink-soft text-sm py-8">Nenhum usuário encontrado.</p>}
             </div>
           ) : (
             /* Kanban view — columns by plan */

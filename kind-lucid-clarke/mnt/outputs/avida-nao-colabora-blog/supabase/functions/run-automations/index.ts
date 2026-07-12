@@ -42,8 +42,7 @@ async function genAI(prompt: string): Promise<string> {
 }
 
 // Snapshot agregado do usuário (mesmos dados da tela de Recomendações IA).
-// deno-lint-ignore no-explicit-any
-async function buildSnapshot(admin: any, userId: string, plan: string, taskKey: string) {
+async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: string, plan: string, taskKey: string) {
   const [dc, dd, qc, sc, ar] = await Promise.all([
     admin.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     admin.from('diary_entries').select('mood, tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
