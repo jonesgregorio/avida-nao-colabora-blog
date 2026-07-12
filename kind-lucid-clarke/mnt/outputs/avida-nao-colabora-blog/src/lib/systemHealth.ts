@@ -122,10 +122,6 @@ export async function checkGuidanceRequests(): Promise<HealthCheckResult> {
   return checkSupabaseTable('db_guidance', 'Orientações', 'clinical', 'monthly_guidance_requests')
 }
 
-export async function checkUserSessions(): Promise<HealthCheckResult> {
-  return checkSupabaseTable('db_sessions', 'Sessões (legado)', 'clinical', 'user_sessions')
-}
-
 export async function checkMonthlyReports(): Promise<HealthCheckResult> {
   return checkSupabaseTable('db_reports', 'Relatórios Mensais', 'clinical', 'monthly_reports')
 }
@@ -312,7 +308,6 @@ export async function runIntermediateHealthCheck(): Promise<HealthCheckResult[]>
     checkQuestionnaires(),
     checkTrails(),
     checkGuidanceRequests(),
-    checkUserSessions(),
     checkMonthlyReports(),
     checkSupportTickets(),
     checkSavedItems(),
@@ -348,7 +343,6 @@ export async function runSingleCheck(checkKey: string): Promise<HealthCheckResul
     db_pers_tasks: checkPersonalizationTasks,
     db_pers_deliveries: checkPersonalizationDeliveries,
     db_guidance: checkGuidanceRequests,
-    db_sessions: checkUserSessions,
     db_reports: checkMonthlyReports,
     db_support: checkSupportTickets,
     db_saved: checkSavedItems,
@@ -539,7 +533,7 @@ export async function loadLatestChecks(): Promise<HealthCheckResult[]> {
 export const AUTOFIXABLE_KEYS = new Set<string>([
   'supabase_conn', 'db_profiles', 'db_notifications', 'db_diary', 'db_questionnaires',
   'db_articles', 'db_trails', 'db_pers_tasks', 'db_pers_deliveries', 'db_guidance',
-  'db_sessions', 'db_reports', 'db_support', 'db_saved',
+  'db_reports', 'db_support', 'db_saved',
 ])
 
 export interface AutofixResult {

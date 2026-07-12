@@ -535,6 +535,18 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
 
   return (
     <div className="space-y-5">
+      {/* Como funciona a correção (evita a ideia de "IA que conserta sozinha") */}
+      <div className="bg-mint/40 border border-forest-100 rounded-xl px-4 py-3 flex items-start gap-3">
+        <Wrench className="w-4 h-4 text-forest-700 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-forest-800 leading-relaxed">
+          <strong>Como o “Corrigir” funciona:</strong> aplica um reparo de estrutura no banco de dados — cria as
+          tabelas, colunas e permissões (RLS) que estiverem faltando. É uma correção determinística e segura
+          (idempotente: se já estiver certo, não muda nada) — <strong>não usa IA nem altera seus dados</strong>. Itens
+          externos (IA, pagamentos, site, sessão de login) não têm reparo automático: o botão tenta reconectar e,
+          se persistir, mostra a orientação do que ajustar.
+        </p>
+      </div>
+
       {/* Summary cards */}
       <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
         {summaryCards.map(c => (
@@ -638,7 +650,7 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
 }) {
   const quickKeys = ['site_public', 'admin_session', 'supabase_conn', 'db_notifications', 'db_pers_tasks', 'db_pers_deliveries', 'db_diary', 'db_articles', 'payments']
   const quickResults = results.filter(r => quickKeys.includes(r.checkKey))
-  const interKeys = ['db_questionnaires', 'db_trails', 'db_guidance', 'db_sessions', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
+  const interKeys = ['db_questionnaires', 'db_trails', 'db_guidance', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
   const interResults = results.filter(r => interKeys.includes(r.checkKey))
 
   return (
