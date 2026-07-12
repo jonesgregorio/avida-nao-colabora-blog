@@ -44,8 +44,15 @@ function fmt(iso: string | null): string {
 const PREVIEW_VARS: Record<string, string> = {
   nome: 'Maria', plano: 'Plus', plano_atual: 'Plus', plano_novo: 'Plus',
   plano_antigo: 'Essencial', plano_anterior: 'Essencial', valor: 'R$ 39,90',
-  data_fim_ciclo: '15/08/2026', data_sessao: '20/08/2026', horario_sessao: '15h',
-  link_meu_plano: 'https://avidanaocolabora.com/meu-plano', link_sessao: '#', link_sessao_plus: '#',
+  data_fim_ciclo: '15/08/2026', data_fim_teste: '15/08/2026', data_sessao: '20/08/2026', horario_sessao: '15h',
+  titulo: 'Quando a ansiedade aperta antes de dormir',
+  resumo: 'Um texto acolhedor sobre reconhecer a ansiedade noturna e caminhos gentis para se acalmar.',
+  link_meu_plano: 'https://avidanaocolabora.com/meu-plano',
+  link_relatorio: 'https://avidanaocolabora.com/meu-plano',
+  link_conteudo: 'https://avidanaocolabora.com/blog',
+  link_diario: 'https://avidanaocolabora.com/diario',
+  link_site: 'https://avidanaocolabora.com',
+  link_sessao: '#', link_sessao_plus: '#',
 }
 function fillPreview(text: string): string {
   return (text ?? '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => PREVIEW_VARS[k] ?? `[${k}]`)
