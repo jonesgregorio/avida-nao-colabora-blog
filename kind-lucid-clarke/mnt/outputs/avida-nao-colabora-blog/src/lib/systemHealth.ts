@@ -252,6 +252,27 @@ export async function checkPayments(): Promise<HealthCheckResult> {
   }
 }
 
+export async function checkTransactionalEmail(): Promise<HealthCheckResult> {
+  // Verifica se a Edge Function de e-mail transacional está no ar (OPTIONS, sem
+  // enviar e-mail real). 404 = não implantada; 503 = BOOT_ERROR. Qualquer outro
+  // status = acessível.
+  const base = import.meta.env?.VITE_SUPABASE_URL as string | undefined
+  if (!base) {
+    return { checkKey: 'email_fn', checkName: 'E-mail transacional', category: 'email', status: 'error', errorMessage: 'VITE_SUPABASE_URL ausente no build', severity: 'high' }
+  }
+  const t0 = Date.now()
+  try {
+    const res = await withTimeout(fetch(`${base}/functions/v1/send-transactional-email`, { method: 'OPTIONS' }), TIMEOUT_LIGHT)
+    const ms = Date.now() - t0
+    if (res.status === 404 || res.status === 503) {
+      return { checkKey: 'email_fn', checkName: 'E-mail transacional', category: 'email', status: 'error', errorMessage: `Função de e-mail indisponível (HTTP ${res.status}). Reimplante: supabase functions deploy send-transactional-email`, details: { status: res.status }, responseTimeMs: ms, severity: 'high' }
+    }
+    return { checkKey: 'email_fn', checkName: 'E-mail transacional', category: 'email', status: ms > 3000 ? 'warning' : 'ok', details: { status: res.status, note: 'Função acessível (OPTIONS).' }, responseTimeMs: ms, severity: 'info' }
+  } catch (e) {
+    return { checkKey: 'email_fn', checkName: 'E-mail transacional', category: 'email', status: 'warning', errorMessage: 'Não foi possível verificar a função de e-mail: ' + String(e), responseTimeMs: Date.now() - t0, severity: 'medium' }
+  }
+}
+
 export async function checkRLSPersonalization(): Promise<HealthCheckResult> {
   // Testa se usuário logado consegue ver apenas seus próprios conteúdos enviados
   try {

@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Activity, ClipboardList, Shield } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield } from 'lucide-react'
 import AdminSystemHealth from './AdminSystemHealth'
+import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
 
-// Sistema — apenas abas FUNCIONAIS. As antigas "Integrações" e "IA" eram
-// painéis estáticos (texto fixo) que duplicavam o que a Saúde do Sistema já
-// mostra ao vivo (Stripe/Supabase/IA/pagamentos) — foram removidas.
+// Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
+// serviços (Supabase/Stripe/IA/e-mail/hospedagem) — não é mais texto fixo. A
+// antiga aba "IA" (marketing estático, sem controle) foi removida.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
+  { id: 'integracoes', label: 'Integrações', icon: Plug },
   { id: 'logs', label: 'Logs de auditoria', icon: ClipboardList },
   { id: 'permissoes', label: 'Permissões', icon: Shield },
 ] as const
@@ -31,7 +33,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
     <div className="flex flex-col min-h-0">
       <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
         <h1 className="font-serif text-3xl text-forest-900">Sistema</h1>
-        <p className="text-sm text-ink-soft mt-1">Monitore a saúde do sistema, os logs de auditoria e as permissões de plano.</p>
+        <p className="text-sm text-ink-soft mt-1">Monitore a saúde do sistema, as integrações, os logs de auditoria e as permissões de plano.</p>
       </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas do Sistema">
@@ -56,6 +58,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       </div>
       <div className="flex-1">
         {tab === 'saude' && <AdminSystemHealth />}
+        {tab === 'integracoes' && <AdminIntegrations />}
         {tab === 'logs' && <AdminLogs />}
         {tab === 'permissoes' && <AdminPermissions />}
       </div>

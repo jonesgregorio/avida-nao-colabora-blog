@@ -59,6 +59,8 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   support: { area: 'suporte' },
   sistema: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'saude' },
   'system-health': { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'saude' },
+  integracoes: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'integracoes' },
+  integrations: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'integracoes' },
   logs: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'logs' },
   permissions: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'permissoes' },
 }
