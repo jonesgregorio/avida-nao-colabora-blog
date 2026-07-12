@@ -208,7 +208,8 @@ function ClosedReportCard({ report, plan, onPdf, generating, ...nav }: {
   report: StoredReport; plan: string; onPdf: (r: StoredReport) => void; generating: boolean
   onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void; onNavigateSelfCare?: () => void; onNavigateGuidance: () => void
 }) {
-  const [open, setOpen] = useState(true)
+  // Recolhido por padrão — só expande quando o usuário clica (não reabre sozinho ao atualizar).
+  const [open, setOpen] = useState(false)
   return (
     <div className="bg-white border border-line rounded-2xl overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-4 border-b border-line">
