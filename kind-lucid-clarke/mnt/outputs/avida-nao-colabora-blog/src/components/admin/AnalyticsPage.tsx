@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { callAI } from '../../lib/aiContent'
+import { exportElementToPdf } from '../../lib/exportPdf'
 import AdminPerformanceEditorial from './AdminPerformanceEditorial'
 import AdminSEOCockpit from './AdminSEOCockpit'
 import {
   LayoutDashboard, FileText, Filter, MousePointerClick, Route, Search, AlertTriangle,
   Gauge, Flame, Monitor, Sparkles, Settings2, RefreshCw, Download, Loader2,
-  Plus, Trash2, Save, ArrowRight, Check, HelpCircle, ChevronDown,
+  Plus, Trash2, Save, ArrowRight, Check, HelpCircle, ChevronDown, FileDown,
 } from 'lucide-react'
+
+const ANALYTICS_VERSION = 'v4 · jul/2026' // selo para confirmar que o bundle novo está no ar
 
 type Period = 'today' | '7d' | '30d' | '90d'
 const PERIODS: { id: Period; label: string; days: number }[] = [
@@ -282,6 +285,8 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   const [aiSaving, setAiSaving] = useState(false)
   const [aiHistoryKey, setAiHistoryKey] = useState(0)
   const [redirectFrom, setRedirectFrom] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   const days = PERIODS.find(p => p.id === period)!.days
   const since = useMemo(() => new Date(Date.now() - days * 86400000).toISOString(), [days])
@@ -358,10 +363,55 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   }, [events, signupDates, conversionDates, days])
 
   function exportCSV() {
-    const rows = [['event', 'entity', 'session', 'user', 'created_at'], ...events.slice(0, 5000).map(e => [e.event, e.entity_title ?? e.entity_id ?? '', e.session_id ?? '', e.user_id ?? '', e.created_at])]
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const L = PERIODS.find(p => p.id === period)!.label
+    const lines: string[] = []
+    const push = (arr: (string | number)[]) => lines.push(arr.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    const deltaStr = (c: number, p: number) => p > 0 ? `${Math.round(((c - p) / p) * 100)}%` : (c > 0 ? 'novo' : '—')
+
+    push([`Relatório Analytics — ${L}`]); push(['Gerado em', new Date().toLocaleString('pt-BR')]); lines.push('')
+
+    push(['MÉTRICAS', 'Atual', 'Período anterior', 'Variação %'])
+    const rowsM: [string, number, number][] = [
+      ['Visitantes', m.visitors, prevM.visitors], ['Sessões', m.sessions, prevM.sessions],
+      ['Pageviews', m.pageviews, prevM.pageviews], ['Leituras de artigo', m.articleViews, prevM.articleViews],
+      ['Cliques em CTA', m.ctaClicks, prevM.ctaClicks], ['Cadastros', signups, prevSignups],
+      ['Conversões', conversions, prevConversions], ['Erros 404', m.errors404, prevM.errors404],
+    ]
+    for (const [l, c, p] of rowsM) push([l, c, p, deltaStr(c, p)])
+    lines.push('')
+
+    push(['FUNIL', 'Sessões', '% da etapa anterior', '% do topo'])
+    const fSteps: [string, number][] = [
+      ['Visitantes', m.visitors],
+      ['Leram artigo', new Set(events.filter(e => e.event === 'article_view').map(e => e.session_id)).size],
+      ['Clicaram em CTA', new Set(events.filter(e => e.event === 'cta_click').map(e => e.session_id)).size],
+      ['Criaram conta', signups], ['Assinaram plano', conversions],
+    ]
+    fSteps.forEach(([l, n], i) => push([l, n, i > 0 && fSteps[i - 1][1] > 0 ? pct(n, fSteps[i - 1][1]) : '—', i > 0 && fSteps[0][1] > 0 ? pct(n, fSteps[0][1]) : '—']))
+    lines.push('')
+
+    const src = topCount(events.filter(e => e.event === 'visit_source'), e => e.entity_id, 30); const st = sumCounts(src)
+    push(['FONTES DE TRÁFEGO', 'Visitas', '%']); for (const [d, n] of src) push([d, n, pct(n, st)]); lines.push('')
+
+    const seen = new Set<string>(); const first: Ev[] = []
+    for (const e of events) { const k = e.session_id || ''; if (k && !seen.has(k)) { seen.add(k); first.push(e) } }
+    const base = first.length ? first : events
+    const dev = (['Desktop', 'Mobile', 'Tablet'] as const).map(d => [d, base.filter(e => deviceOf(e.user_agent) === d).length] as [string, number]); const dt = sumCounts(dev)
+    push(['DISPOSITIVOS', 'Sessões', '%']); for (const [d, n] of dev) push([d, n, pct(n, dt)]); lines.push('')
+
+    push(['EVENTOS', 'Total', '% do total']); for (const [ev, n] of topCount(events, e => e.event, 60)) push([ev, n, pct(n, events.length)])
+
+    const csv = lines.join('\n')
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a'); a.href = url; a.download = `analytics-${period}.csv`; a.click(); URL.revokeObjectURL(url)
+  }
+
+  async function exportPDF() {
+    if (!reportRef.current) return
+    setPdfBusy(true)
+    try { await exportElementToPdf(reportRef.current, `analytics-${period}.pdf`) }
+    catch (e) { console.error('Falha ao gerar PDF', e) }
+    finally { setPdfBusy(false) }
   }
 
   async function genAIReport() {
@@ -404,7 +454,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
       <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-serif text-3xl text-forest-900">Analytics</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-serif text-3xl text-forest-900">Analytics</h1>
+              <span className="text-[10px] font-medium text-forest-600 bg-mint px-2 py-0.5 rounded-full" title="Versão do painel — confirme que corresponde à última atualização">{ANALYTICS_VERSION}</span>
+            </div>
             <p className="text-sm text-ink-soft mt-1">Acompanhe visitas, comportamento, SEO, conversões, erros e desempenho do blog.</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
@@ -415,6 +468,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             </div>
             <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
             <button onClick={exportCSV} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><Download className="w-4 h-4" /> CSV</button>
+            <button onClick={exportPDF} disabled={pdfBusy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-3 py-2 rounded-xl text-sm hover:bg-forest-800 disabled:opacity-60">{pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} PDF</button>
           </div>
         </div>
       </div>
@@ -665,6 +719,56 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
         )}
 
         {tab === 'settings' && <AnalyticsSettingsPanel />}
+      </div>
+
+      {/* Relatório imprimível (oculto) — capturado no botão PDF, com gráficos e % */}
+      <div ref={reportRef} aria-hidden="true" style={{ position: 'absolute', left: -99999, top: 0, width: 760, background: '#FBFAF7', padding: 28 }}>
+        <div style={{ marginBottom: 18 }}>
+          <h1 className="font-serif text-3xl text-forest-900">Relatório Analytics</h1>
+          <p className="text-sm text-ink-soft">Período: {PERIODS.find(p => p.id === period)!.label} · gerado em {new Date().toLocaleString('pt-BR')} · visitas {growth.trend} · comparado aos {days} dias anteriores</p>
+        </div>
+        <div className="grid grid-cols-4 gap-3" style={{ marginBottom: 20 }}>
+          {metricCards.map(c => (
+            <div key={c.label} className="bg-white border border-line rounded-2xl p-4">
+              <p className="font-serif text-2xl text-forest-900">{c.n}</p>
+              <p className="text-xs text-ink-soft mb-1">{c.label}</p>
+              <Delta cur={c.n} prev={c.prev} goodWhenUp={c.goodWhenUp ?? true} />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-4" style={{ marginBottom: 20 }}>
+          <LineChartCard title="Visitas por dia" series={growth.visits} subtitle="sessões" prev={prevM.sessions} />
+          <LineChartCard title="Cadastros por dia" series={growth.su} subtitle="novos" prev={prevSignups} />
+          <LineChartCard title="Conversões por dia" series={growth.cv} subtitle="assinaturas" prev={prevConversions} />
+          <LineChartCard title="Pageviews por dia" series={growth.pv} subtitle="páginas" prev={prevM.pageviews} />
+          <BarChartCard title="Fontes de tráfego" data={growth.sources} />
+          <BarChartCard title="Dispositivos" data={growth.devices} />
+        </div>
+        <div className="bg-white border border-line rounded-2xl p-5" style={{ marginBottom: 20 }}>
+          <h3 className="font-serif text-lg text-forest-900 mb-3">Funil de conversão</h3>
+          {(() => {
+            const steps: [string, number][] = [
+              ['Visitantes', m.visitors],
+              ['Leram artigo', new Set(events.filter(e => e.event === 'article_view').map(e => e.session_id)).size],
+              ['Clicaram em CTA', new Set(events.filter(e => e.event === 'cta_click').map(e => e.session_id)).size],
+              ['Criaram conta', signups], ['Assinaram plano', conversions],
+            ]
+            const max = Math.max(1, steps[0][1])
+            return <div className="space-y-2">{steps.map(([l, n], i) => (
+              <div key={l}>
+                <div className="flex justify-between text-sm mb-1"><span className="text-forest-900">{l}</span><span className="text-ink-soft">{n}{i > 0 && steps[0][1] > 0 ? ` · ${pct(n, steps[0][1])} do topo` : ''}</span></div>
+                <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(n / max) * 100}%` }} /></div>
+              </div>
+            ))}</div>
+          })()}
+        </div>
+        <div className="bg-white border border-line rounded-2xl p-5">
+          <h3 className="font-serif text-lg text-forest-900 mb-3">Eventos mais frequentes</h3>
+          {events.length === 0 ? <p className="text-sm text-ink-soft">Sem eventos no período.</p> : (
+            <table className="w-full text-sm"><thead><tr><th className="text-left py-1 text-stone-500 font-medium">Evento</th><th className="text-right py-1 text-stone-500 font-medium">Total</th><th className="text-right py-1 text-stone-500 font-medium">% do total</th></tr></thead>
+              <tbody>{topCount(events, e => e.event, 15).map(([ev, n]) => <tr key={ev}><td className="py-1 font-mono text-xs text-forest-900">{ev}</td><td className="py-1 text-right">{n}</td><td className="py-1 text-right text-ink-soft">{pct(n, events.length)}</td></tr>)}</tbody></table>
+          )}
+        </div>
       </div>
     </div>
   )
