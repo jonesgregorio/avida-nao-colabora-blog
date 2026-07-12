@@ -69,7 +69,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
   '/comentarios-profissional':   'professional-comments',
-  '/minha-evolucao':             'my-evolution',
+  '/mapa-emocional':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/plano-de-autocuidado':       'self-care',
   '/meu-plano':                  'my-plan',
@@ -108,6 +108,8 @@ const LEGACY_VIEW_REDIRECT: Record<string, View> = {
 const URL_ALIASES: Record<string, View> = {
   '/orientacao':  'monthly-guidance',
   '/orientacoes': 'monthly-guidance',
+  // Rota antiga da área — resolve e é redirecionada para /mapa-emocional (canônica).
+  '/minha-evolucao': 'my-evolution',
 }
 
 const VIEW_TO_URL: Record<string, string> = Object.fromEntries(

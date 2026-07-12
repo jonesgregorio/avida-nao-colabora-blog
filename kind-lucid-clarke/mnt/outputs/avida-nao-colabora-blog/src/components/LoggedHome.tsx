@@ -160,10 +160,10 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
 
         {/* ─── Coluna lateral ─── */}
         <aside className="space-y-5">
-          {/* Minha evolução */}
+          {/* Sua evolução emocional */}
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-serif text-lg text-forest-900">Minha evolução</h2>
+              <h2 className="font-serif text-lg text-forest-900">Sua evolução emocional</h2>
               <button onClick={() => onNavigate('my-report')} className="text-xs text-forest-700 hover:underline flex items-center gap-1">
                 Ver relatório <ArrowRight className="w-3 h-3" />
               </button>

@@ -18,9 +18,10 @@ export const LINKS = {
   meuPlano:     `${APP}/meu-plano`,
   suporte:      `${APP}/suporte`,
   orientacoes:  `${APP}/guia-mensal`,
-  minhaEvolucao:`${APP}/minha-evolucao`,
+  // Área "Mapa Emocional" — rota canônica (a antiga /minha-evolucao redireciona).
+  mapaEmocional:`${APP}/mapa-emocional`,
   relatorios:   `${APP}/meu-relatorio`,
-  paraVoce:     `${APP}/minha-evolucao`,
+  paraVoce:     `${APP}/mapa-emocional`,
   pagamento:    `${APP}/meu-plano`,
 }
 
@@ -99,7 +100,7 @@ export function emailMonthlyReport(userId: string, toEmail: string, nome: string
 export function emailProfessionalComment(userId: string, toEmail: string, nome: string, commentId: string) {
   return sendTransactionalEmail({
     userId, toEmail, templateKey: 'professional_comment_available',
-    variables: { nome, link_comentarios: LINKS.minhaEvolucao },
+    variables: { nome, link_comentarios: LINKS.mapaEmocional },
     relatedType: 'professional_comment', relatedId: commentId,
     idempotencyKey: `professional_comment_available:${commentId}`,
   })
@@ -108,7 +109,7 @@ export function emailProfessionalComment(userId: string, toEmail: string, nome: 
 export function emailSelfCarePlan(userId: string, toEmail: string, nome: string, planId: string) {
   return sendTransactionalEmail({
     userId, toEmail, templateKey: 'self_care_plan_available',
-    variables: { nome, link_autocuidado: LINKS.minhaEvolucao },
+    variables: { nome, link_autocuidado: LINKS.mapaEmocional },
     relatedType: 'self_care_plan', relatedId: planId,
     idempotencyKey: `self_care_plan_available:${planId}`,
   })

@@ -101,7 +101,7 @@ export default function AdminSelfCarePlans() {
         await supabase.from('notifications').insert({
           user_id: selected.user_id,
           title: 'Revisão do plano de autocuidado disponível',
-          body: `A revisão do seu plano de autocuidado de ${monthLabel(selected.month_key)} está disponível. Acesse Minha Evolução.`,
+          body: `A revisão do seu plano de autocuidado de ${monthLabel(selected.month_key)} está disponível. Acesse o Mapa Emocional.`,
           type: 'system',
           action_view: 'my-evolution',
           action_label: 'Ver plano',
@@ -120,7 +120,7 @@ export default function AdminSelfCarePlans() {
         await supabase.from('notifications').insert({
           user_id: userId,
           title: 'Plano de autocuidado disponível',
-          body: `Seu plano de autocuidado de ${monthLabel(month)} está disponível. Acesse Minha Evolução.`,
+          body: `Seu plano de autocuidado de ${monthLabel(month)} está disponível. Acesse o Mapa Emocional.`,
           type: 'system',
           action_view: 'my-evolution',
           action_label: 'Ver plano',

@@ -123,7 +123,7 @@ export default function AdminGuidanceRequests() {
     await supabase.from('notifications').insert({
       user_id: selected.user_id,
       title: 'Sua orientação foi respondida',
-      body: `Sua orientação de ${monthLabel(selected.month_key)} foi respondida. Acesse Minha Evolução para ver.`,
+      body: `Sua orientação de ${monthLabel(selected.month_key)} foi respondida. Confira no Mapa Emocional.`,
       type: 'system',
       action_view: 'my-evolution',
       action_label: 'Ver orientação',
