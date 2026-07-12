@@ -17,7 +17,7 @@ import AdminMapaArea from './AdminMapaArea'
 import AdminFabricaIA from './AdminFabricaIA'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminAutomacoesBlog from './AdminAutomacoesBlog'
-import AdminPerformanceEditorial from './AdminPerformanceEditorial'
+import AnalyticsPage from './AnalyticsPage'
 
 export type { AdminView } from './types'
 
@@ -26,13 +26,14 @@ const ADMIN_KEY = 'avida_admin_view'
 // As 10 áreas dedicadas do novo admin (contrato: admin-mockup-avnc.html).
 const AREAS: AdminView[] = [
   'visao-geral', 'usuarios', 'planos', 'conteudos',
-  'fabrica-ia', 'calendario', 'automacoes-blog', 'desempenho',
+  'fabrica-ia', 'calendario', 'automacoes-blog', 'analytics',
   'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
 ]
 
 // Views legadas (URL/localStorage antigos) → nova área (+ aba interna se houver).
 const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: string }> = {
-  painel: { area: 'visao-geral' }, dashboard: { area: 'visao-geral' }, analytics: { area: 'visao-geral' },
+  painel: { area: 'visao-geral' }, dashboard: { area: 'visao-geral' },
+  desempenho: { area: 'analytics' }, 'site-analytics': { area: 'analytics' }, metricas: { area: 'analytics' },
   users: { area: 'usuarios' }, 'usuarios-planos': { area: 'usuarios' },
   plans: { area: 'planos' }, financial: { area: 'planos' },
   conteudo: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'artigos' },
@@ -147,7 +148,7 @@ export default function AdminPanel() {
       case 'fabrica-ia': return <AdminFabricaIA />
       case 'calendario': return <AdminCalendarioEditorial onEditArticle={handleEditArticle} />
       case 'automacoes-blog': return <AdminAutomacoesBlog />
-      case 'desempenho': return <AdminPerformanceEditorial onEditArticle={handleEditArticle} />
+      case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'mapa': return <AdminMapaArea />
       case 'autocuidado': return <AdminSelfCarePlans />
       case 'orientacao': return <AdminGuidanceRequests />

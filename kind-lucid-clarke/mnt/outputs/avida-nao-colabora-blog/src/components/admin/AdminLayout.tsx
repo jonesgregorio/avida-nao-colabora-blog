@@ -20,7 +20,7 @@ const NAV: NavItem[] = [
   { id: 'fabrica-ia', label: 'Fábrica IA', icon: Factory },
   { id: 'calendario', label: 'Calendário editorial', icon: CalendarDays },
   { id: 'automacoes-blog', label: 'Automações', icon: Zap },
-  { id: 'desempenho', label: 'Desempenho', icon: BarChart3 },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'mapa', label: 'Diário e mapa emocional', icon: LineChart },
   { id: 'autocuidado', label: 'Plano de autocuidado', icon: CalendarCheck },
   { id: 'orientacao', label: 'Orientação profissional', icon: MessageSquare },
