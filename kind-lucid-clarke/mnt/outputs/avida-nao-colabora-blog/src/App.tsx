@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
-import { trackEvent, initWebVitals } from './lib/analytics'
+import { trackEvent, initWebVitals, initAcquisition } from './lib/analytics'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -208,6 +208,7 @@ export default function App() {
   // Analytics: Web Vitals (1x) + captura de cliques em CTA marcados com data-cta
   useEffect(() => {
     initWebVitals()
+    initAcquisition()
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement | null)?.closest?.('[data-cta]') as HTMLElement | null
       if (el) trackEvent('cta_click', { entity_id: el.getAttribute('data-cta') || undefined, entity_title: (el.textContent || '').trim().slice(0, 60), user_id: user?.id ?? null })

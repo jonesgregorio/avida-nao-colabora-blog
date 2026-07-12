@@ -6,7 +6,7 @@ import AdminSEOCockpit from './AdminSEOCockpit'
 import {
   LayoutDashboard, FileText, Filter, MousePointerClick, Route, Search, AlertTriangle,
   Gauge, Flame, Monitor, Sparkles, Settings2, RefreshCw, Download, Loader2,
-  Plus, Trash2, Save, ArrowRight, Check,
+  Plus, Trash2, Save, ArrowRight, Check, HelpCircle, ChevronDown,
 } from 'lucide-react'
 
 type Period = 'today' | '7d' | '30d' | '90d'
@@ -33,7 +33,7 @@ const TABS = [
 ] as const
 type Tab = typeof TABS[number]['id']
 
-interface Ev { event: string; entity_id: string | null; entity_title: string | null; session_id: string | null; user_id: string | null; user_agent: string | null; referrer: string | null; created_at: string }
+interface Ev { event: string; entity_id: string | null; entity_title: string | null; session_id: string | null; user_id: string | null; user_agent: string | null; referrer: string | null; metadata: Record<string, unknown> | null; created_at: string }
 
 function deviceOf(ua: string | null) {
   const raw = ua || ''
@@ -51,6 +51,117 @@ function browserOf(ua: string | null) {
   if (/Firefox\//.test(s)) return 'Firefox'
   if (/Safari\//.test(s) && !/Chrome/.test(s)) return 'Safari'
   return 'Outro'
+}
+
+// ─── Ajuda contextual por aba (linguagem simples + glossário) ───────────────
+interface Help { what: string; how: string; terms: [string, string][] }
+const HELP: Record<Tab, Help> = {
+  overview: {
+    what: 'Um resumo rápido dos números mais importantes do período escolhido.',
+    how: 'Olhe primeiro Visitantes e Conversões. Se muitos entram mas poucos assinam, o problema está no meio do caminho (veja o Funil).',
+    terms: [
+      ['Visitante', 'Uma pessoa diferente que acessou o site (contada uma vez, mesmo abrindo várias páginas).'],
+      ['Sessão', 'Uma visita. A mesma pessoa pode ter várias sessões em dias diferentes.'],
+      ['Pageview', 'Cada página aberta. Uma visita costuma gerar vários pageviews.'],
+      ['CTA', '“Chamada para ação” — botões como “Assinar” ou “Começar grátis”.'],
+      ['Conversão', 'Quando o visitante vira assinante de um plano pago.'],
+      ['404', 'Página que não existe / link quebrado.'],
+    ],
+  },
+  pages: {
+    what: 'Desempenho de cada artigo e página: quais são mais vistos e mais lidos até o fim.',
+    how: 'Use para decidir o que escrever mais (o que bomba) e o que revisar (muita visita, pouca leitura completa).',
+    terms: [['Tempo de leitura', 'Quanto tempo a pessoa passou no artigo.'], ['Taxa de leitura', 'Quantos rolaram o artigo até o fim.']],
+  },
+  funnel: {
+    what: 'O caminho do visitante até assinar, etapa por etapa: visitou → leu → clicou → criou conta → assinou.',
+    how: 'A porcentagem mostra quantos passaram de uma etapa para a próxima. A maior queda entre duas etapas é onde você perde gente — foque ali.',
+    terms: [['Etapa', 'Cada passo do caminho.'], ['Taxa de conversão', 'De cada 100 pessoas de uma etapa, quantas avançaram para a seguinte.']],
+  },
+  events: {
+    what: 'A lista de tudo que foi registrado: cliques, rolagens, visualizações, erros.',
+    how: 'É a visão “crua”. Serve para conferir se um botão novo está sendo clicado ou se uma ação está sendo registrada.',
+    terms: [['Evento', 'Uma ação registrada (ex.: page_view = abriu página; cta_click = clicou num botão).'], ['Sessões', 'Quantas visitas diferentes geraram aquele evento.']],
+  },
+  journey: {
+    what: 'A sequência de ações de cada visita, de forma anônima (sem identificar a pessoa nem mostrar conteúdo do diário).',
+    how: 'Leia da esquerda para a direita: mostra o “passo a passo” que a pessoa fez. Ajuda a entender por onde as pessoas navegam.',
+    terms: [['Sessão anônima', 'Um código aleatório que agrupa as ações de uma mesma visita, sem revelar quem é.'], ['→', 'Indica a ordem: fez isso, depois aquilo.']],
+  },
+  seo: {
+    what: 'Como o blog aparece nas buscas do Google: títulos, descrições e palavras-chave.',
+    how: 'Preencha título e descrição de cada artigo. É isso que aparece no Google e faz a pessoa clicar.',
+    terms: [['SEO', 'Otimização para buscadores — ajustes para o Google mostrar seu site.'], ['Meta descrição', 'O textinho que aparece embaixo do título nos resultados do Google.']],
+  },
+  errors: {
+    what: 'Páginas que deram erro 404 (não encontradas) e os redirecionamentos que você configurou para consertá-las.',
+    how: 'Se uma URL antiga aparece com muitos 404, clique em “Criar redirect” e aponte para a página nova. O site passa a redirecionar sozinho.',
+    terms: [['404', 'Link quebrado / página inexistente.'], ['Redirecionamento (301/302)', 'Manda quem acessa a URL antiga para a nova. 301 = mudança permanente, 302 = temporária.'], ['Hits', 'Quantas vezes o redirect foi usado.']],
+  },
+  performance: {
+    what: 'A velocidade do site medida no navegador dos visitantes (Core Web Vitals do Google).',
+    how: 'Quanto mais “bom” (verde), melhor. Sites lentos afastam visitantes e caem no ranking do Google.',
+    terms: [
+      ['LCP', 'Tempo até o conteúdo principal aparecer. Ideal: até 2,5s.'],
+      ['CLS', 'O quanto a página “pula” enquanto carrega. Quanto menor, melhor.'],
+      ['FCP', 'Tempo até aparecer o primeiro conteúdo na tela.'],
+      ['TTFB', 'Tempo de resposta do servidor.'],
+    ],
+  },
+  heatmap: {
+    what: 'Os elementos (botões e links) mais clicados do site.',
+    how: 'Veja o que chama mais atenção. Se um botão importante é pouco clicado, talvez precise ficar mais visível.',
+    terms: [['Clique', 'Cada toque num elemento marcado.']],
+  },
+  devices: {
+    what: 'Em que aparelho (celular, computador, tablet) e navegador as pessoas acessam, e de onde vieram (Instagram, Google, YouTube, campanhas).',
+    how: 'Se a maioria usa celular, priorize o visual no celular. As Fontes mostram quais canais trazem mais gente — invista onde funciona.',
+    terms: [
+      ['Fonte', 'O canal que trouxe a visita (Instagram, Google, direto…).'],
+      ['Referrer', 'O site de onde a pessoa clicou para chegar aqui.'],
+      ['UTM', 'Etiquetas no link que identificam a campanha. Ex.: ?utm_source=instagram&utm_campaign=lancamento.'],
+      ['Direto', 'A pessoa digitou o endereço ou usou um favorito — sem site de origem.'],
+    ],
+  },
+  ai: {
+    what: 'Uma análise automática, escrita pela IA, dos números reais do período — com recomendações práticas.',
+    how: 'Clique em “Gerar análise”, leia o resumo e as sugestões. Se gostar, clique em “Salvar” para guardar no histórico.',
+    terms: [['Relatório', 'Resumo + recomendações geradas a partir dos seus dados.']],
+  },
+  settings: {
+    what: 'Liga/desliga o que é rastreado, define a privacidade e por quanto tempo os dados ficam guardados.',
+    how: 'Deixe ligado o que quer acompanhar. A anonimização protege os visitantes (LGPD). Ajuste a retenção conforme sua necessidade.',
+    terms: [['Retenção', 'Quantos dias os eventos ficam salvos antes de serem apagados automaticamente.'], ['Anonimizar', 'Não guardar nada que identifique a pessoa (sem IP).'], ['Evento personalizado', 'Uma ação extra que você quer acompanhar, além das padrão.']],
+  },
+}
+
+function TabHelp({ tab }: { tab: Tab }) {
+  const [open, setOpen] = useState(false)
+  const h = HELP[tab]
+  if (!h) return null
+  return (
+    <div className="mb-5 border border-line rounded-2xl bg-paper-soft overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
+        <HelpCircle className="w-4 h-4 text-forest-600 flex-shrink-0" />
+        <span className="text-sm font-medium text-forest-900 flex-1">Como ler esta aba</span>
+        <ChevronDown className={`w-4 h-4 text-ink-soft transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-line">
+          <p className="text-sm text-ink"><span className="font-medium text-forest-800">O que é:</span> {h.what}</p>
+          <p className="text-sm text-ink"><span className="font-medium text-forest-800">Como analisar:</span> {h.how}</p>
+          {h.terms.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wide mb-1.5">Glossário</p>
+              <dl className="space-y-1.5">{h.terms.map(([t, d]) => (
+                <div key={t} className="text-sm"><dt className="inline font-medium text-forest-900">{t}:</dt> <dd className="inline text-ink-soft">{d}</dd></div>
+              ))}</dl>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function Empty({ text }: { text: string }) {
@@ -83,7 +194,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   async function load() {
     setLoading(true)
     const [evRes, upRes, chRes, rhRes] = await Promise.all([
-      supabase.from('analytics_events').select('event, entity_id, entity_title, session_id, user_id, user_agent, referrer, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20000),
+      supabase.from('analytics_events').select('event, entity_id, entity_title, session_id, user_id, user_agent, referrer, metadata, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20000),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', since),
       supabase.from('plan_change_history').select('id', { count: 'exact', head: true }).gte('created_at', since).in('change_type', ['upgrade', 'new']),
       supabase.from('reading_history').select('article_slug').gte('created_at', since).limit(20000),
@@ -186,9 +297,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
       </div>
 
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+        <TabHelp tab={tab} />
         {/* Reaproveita Desempenho e SEO cockpit (fonte única, sem duplicar) */}
-        {tab === 'pages' && <div className="-mx-6 -my-6"><AdminPerformanceEditorial onEditArticle={onEditArticle} /></div>}
-        {tab === 'seo' && <div className="-mx-6 -my-6"><AdminSEOCockpit onEditArticle={onEditArticle} /></div>}
+        {tab === 'pages' && <div className="-mx-6"><AdminPerformanceEditorial onEditArticle={onEditArticle} /></div>}
+        {tab === 'seo' && <div className="-mx-6"><AdminSEOCockpit onEditArticle={onEditArticle} /></div>}
 
         {tab === 'overview' && (
           <div className="space-y-6">
@@ -227,13 +339,47 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
           </div>
         )}
 
-        {tab === 'devices' && (
+        {tab === 'devices' && (() => {
+          // Conta por sessão única para não distorcer com muitos page_views da mesma pessoa.
+          const seen = new Set<string>()
+          const perSession: Ev[] = []
+          for (const e of events) { const k = e.session_id || ''; if (k && !seen.has(k)) { seen.add(k); perSession.push(e) } }
+          const base = perSession.length ? perSession : events
+          const totalDev = base.length || 1
+          const devCounts = ['Desktop', 'Mobile', 'Tablet'].map(d => [d, base.filter(e => deviceOf(e.user_agent) === d).length] as [string, number])
+          const srcEvents = events.filter(e => e.event === 'visit_source')
+          return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className={card}><h2 className="font-serif text-xl text-forest-900 mb-3">Dispositivos</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(events, e => deviceOf(e.user_agent)).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span>{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
-            <div className={card}><h2 className="font-serif text-xl text-forest-900 mb-3">Navegadores</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(events, e => browserOf(e.user_agent)).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span>{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
-            <div className={`${card} md:col-span-2`}><h2 className="font-serif text-xl text-forest-900 mb-3">Origem (referrer)</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(events, e => { try { return e.referrer ? new URL(e.referrer).hostname : 'direto' } catch { return 'direto' } }).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
+            <div className={card}>
+              <h2 className="font-serif text-xl text-forest-900 mb-3">Dispositivos</h2>
+              <div className="space-y-3">{devCounts.map(([d, n]) => (
+                <div key={d}>
+                  <div className="flex justify-between text-sm mb-1"><span className="text-forest-900">{d}</span><span className="text-ink-soft">{n} · {Math.round((n / totalDev) * 100)}%</span></div>
+                  <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(n / totalDev) * 100}%` }} /></div>
+                </div>
+              ))}</div>
+              <p className="text-xs text-ink-soft mt-3">Rastreamento por sessão. Celular aparece aqui assim que alguém acessar pelo telefone.</p>
+            </div>
+            <div className={card}><h2 className="font-serif text-xl text-forest-900 mb-3">Navegadores</h2>{base.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(base, e => browserOf(e.user_agent)).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span>{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
+
+            <div className={card}>
+              <h2 className="font-serif text-xl text-forest-900 mb-1">Fontes de tráfego</h2>
+              <p className="text-xs text-ink-soft mb-3">De onde vieram as visitas (Instagram, Google, YouTube, direto…).</p>
+              {srcEvents.length === 0 ? <Empty text="Sem dados de fonte ainda — preenche quando alguém chega por link externo ou campanha com UTM." /> : <div className="space-y-2">{topCount(srcEvents, e => e.entity_id, 12).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}
+            </div>
+            <div className={card}>
+              <h2 className="font-serif text-xl text-forest-900 mb-1">Campanhas</h2>
+              <p className="text-xs text-ink-soft mb-3">Visitas com <code>utm_campaign</code> no link (ex.: bio do Instagram, anúncio).</p>
+              {(() => {
+                const camps = srcEvents.filter(e => e.entity_title)
+                return camps.length === 0 ? <Empty text="Nenhuma campanha rastreada ainda. Use links com ?utm_campaign=…" /> : <div className="space-y-2">{topCount(camps, e => `${e.entity_id} · ${e.entity_title}`, 15).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>
+              })()}
+            </div>
+
+            <div className={`${card} md:col-span-2`}><h2 className="font-serif text-xl text-forest-900 mb-3">Origem detalhada (referrer)</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(events, e => { const r = e.referrer || ''; if (!r) return 'direto'; try { return r.includes('/') || r.includes('.') ? new URL(r.startsWith('http') ? r : 'https://' + r).hostname : r } catch { return r || 'direto' } }).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
           </div>
-        )}
+          )
+        })()}
 
         {tab === 'funnel' && (
           <div className={card}>

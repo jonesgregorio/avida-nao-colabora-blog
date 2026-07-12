@@ -73,6 +73,61 @@ export function trackEvent(event: string, opts: TrackOpts = {}): void {
   } catch { /* noop */ }
 }
 
+// ─── Aquisição: de onde o visitante veio (Instagram, Google, YouTube, campanhas) ─
+// Lê parâmetros UTM da URL (?utm_source=instagram&utm_campaign=lancamento) e/ou o
+// referrer, classifica a fonte e registra 1 evento "visit_source" por sessão.
+// É assim que campanhas do Instagram/YouTube/Google aparecem separadas no admin.
+
+function classifySource(refHost: string, utmSource: string): string {
+  const u = utmSource.toLowerCase()
+  if (u) {
+    if (/insta|ig/.test(u)) return 'Instagram'
+    if (/youtube|yt/.test(u)) return 'YouTube'
+    if (/google|goog|adwords|gads/.test(u)) return 'Google'
+    if (/face|fb/.test(u)) return 'Facebook'
+    if (/tiktok/.test(u)) return 'TikTok'
+    if (/whats|wpp/.test(u)) return 'WhatsApp'
+    if (/email|newsletter|mail/.test(u)) return 'E-mail'
+    return utmSource.charAt(0).toUpperCase() + utmSource.slice(1)
+  }
+  const h = refHost.toLowerCase()
+  if (!h) return 'Direto'
+  if (/instagram|l\.instagram|ig\./.test(h)) return 'Instagram'
+  if (/youtube|youtu\.be/.test(h)) return 'YouTube'
+  if (/google\./.test(h)) return 'Google'
+  if (/facebook|fb\.com|l\.facebook/.test(h)) return 'Facebook'
+  if (/tiktok/.test(h)) return 'TikTok'
+  if (/t\.co|twitter|x\.com/.test(h)) return 'Twitter/X'
+  if (/bing\./.test(h)) return 'Bing'
+  return h.replace(/^www\./, '')
+}
+
+let acqInit = false
+export function initAcquisition(): void {
+  if (acqInit) return
+  acqInit = true
+  try {
+    const seenKey = 'avnc_src_seen'
+    if (sessionStorage.getItem(seenKey)) return // 1x por sessão
+    const qs = new URLSearchParams(window.location.search)
+    const utmSource = qs.get('utm_source') || ''
+    const utmMedium = qs.get('utm_medium') || ''
+    const utmCampaign = qs.get('utm_campaign') || ''
+    let refHost = ''
+    try { refHost = document.referrer ? new URL(document.referrer).hostname : '' } catch { /* ignora */ }
+    // Ignora referrer interno (mesma origem) — não é "fonte externa".
+    if (refHost && refHost === window.location.hostname) refHost = ''
+
+    const source = classifySource(refHost, utmSource)
+    trackEvent('visit_source', {
+      entity_id: source,
+      entity_title: utmCampaign || undefined,
+      metadata: { source, utm_source: utmSource || null, utm_medium: utmMedium || null, utm_campaign: utmCampaign || null, referrer_host: refHost || null },
+    })
+    sessionStorage.setItem(seenKey, '1')
+  } catch { /* noop */ }
+}
+
 // ─── Core Web Vitals (nativo, sem dependência externa) ───────────────────────
 const VITAL_THRESHOLDS: Record<string, [number, number]> = {
   LCP: [2500, 4000], FCP: [1800, 3000], TTFB: [800, 1800], CLS: [100, 250], INP: [200, 500],
