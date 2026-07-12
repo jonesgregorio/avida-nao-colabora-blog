@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { exportElementToPdf } from '../lib/exportPdf'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { exportReportPdf } from '../lib/reportPdf'
 import { supabase } from '../lib/supabase'
 import { Plan } from '../types'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
@@ -272,8 +272,13 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const [showMonthlyHist, setShowMonthlyHist] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [pdfReport, setPdfReport] = useState<StoredReport | null>(null)
-  const pdfRef = useRef<HTMLDivElement>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
+
+  const handlePdf = useCallback(async (r: StoredReport) => {
+    setPdfBusy(true)
+    try { await exportReportPdf(r, planKey, `relatorio-${r.report_type}-${r.period_start}.pdf`) } catch { /* noop */ }
+    setPdfBusy(false)
+  }, [planKey])
 
   const load = useCallback(async () => {
     if (!user || !isEssential) { setLoading(false); return }
@@ -338,17 +343,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     return buildMonthlyContent(computeEmotionalAnalysis(e, p), monthTitle(curMonth.start))
   }, [entries, curMonth])
 
-  // PDF: renderiza off-screen um relatório limpo e exporta
-  useEffect(() => {
-    if (!pdfReport || !pdfRef.current) return
-    let cancelled = false
-    ;(async () => {
-      try { await exportElementToPdf(pdfRef.current!, `relatorio-${pdfReport.report_type}-${pdfReport.period_start}.pdf`) } catch { /* noop */ }
-      if (!cancelled) setPdfReport(null)
-    })()
-    return () => { cancelled = true }
-  }, [pdfReport])
-
   const navProps = { onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance }
   const weeklyHistory = history.filter(r => r.report_type === 'weekly' && r.period_start !== lastWeekly?.period_start)
   const monthlyHistory = history.filter(r => r.report_type === 'monthly' && r.period_start !== lastMonthly?.period_start)
@@ -396,7 +390,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         <BuildingPreview type="weekly" period={curWeek} content={weeklyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
 
         {lastWeekly ? (
-          <ClosedReportCard report={lastWeekly} plan={planKey} onPdf={setPdfReport} generating={!!pdfReport} {...navProps} />
+          <ClosedReportCard report={lastWeekly} plan={planKey} onPdf={handlePdf} generating={pdfBusy} {...navProps} />
         ) : (
           <p className="text-sm text-ink-soft bg-paper-soft border border-line rounded-2xl p-4">Seu primeiro relatório semanal fechado ficará disponível no próximo domingo.</p>
         )}
@@ -408,7 +402,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
             </button>
             {showWeeklyHist && (
               <div className="mt-3 space-y-2">
-                {weeklyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={setPdfReport} generating={!!pdfReport} plan={planKey} {...navProps} />)}
+                {weeklyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={handlePdf} generating={pdfBusy} plan={planKey} {...navProps} />)}
               </div>
             )}
           </div>
@@ -428,7 +422,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <>
             <BuildingPreview type="monthly" period={curMonth} content={monthlyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
             {lastMonthly ? (
-              <ClosedReportCard report={lastMonthly} plan={planKey} onPdf={setPdfReport} generating={!!pdfReport} {...navProps} />
+              <ClosedReportCard report={lastMonthly} plan={planKey} onPdf={handlePdf} generating={pdfBusy} {...navProps} />
             ) : (
               <p className="text-sm text-ink-soft bg-paper-soft border border-line rounded-2xl p-4">Seu primeiro relatório mensal aprofundado ficará disponível no dia 1º do próximo mês.</p>
             )}
@@ -438,7 +432,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
                 <button onClick={() => setShowMonthlyHist(o => !o)} className="text-sm text-forest-700 font-medium flex items-center gap-1.5 hover:text-forest-900">
                   {showMonthlyHist ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} Ver relatórios mensais anteriores ({monthlyHistory.length})
                 </button>
-                {showMonthlyHist && <div className="mt-3 space-y-2">{monthlyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={setPdfReport} generating={!!pdfReport} plan={planKey} {...navProps} />)}</div>}
+                {showMonthlyHist && <div className="mt-3 space-y-2">{monthlyHistory.map(r => <HistoryRow key={r.id} report={r} onPdf={handlePdf} generating={pdfBusy} plan={planKey} {...navProps} />)}</div>}
               </div>
             )}
           </>
@@ -448,19 +442,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
       </section>
 
       <p className="text-xs text-ink-soft border-t border-line pt-4 mt-8">{DISCLAIMER}</p>
-
-      {/* Off-screen: renderização limpa para o PDF */}
-      {pdfReport && (
-        <div className="fixed left-[-10000px] top-0" aria-hidden>
-          <div ref={pdfRef} className="bg-white p-8" style={{ width: 720 }}>
-            <h1 className="font-serif text-2xl text-forest-900 mb-1">{pdfReport.title}</h1>
-            <p className="text-xs text-stone-500 mb-1">Período {formatPeriodShort({ start: pdfReport.period_start, end: pdfReport.period_end })} · Gerado em {pdfReport.generated_at ? formatDateBR(ymd(new Date(pdfReport.generated_at))) : formatDateBR(pdfReport.available_at)}</p>
-            <div className="h-px bg-stone-200 my-4" />
-            <ReportBody report={pdfReport} plan={planKey} onNavigateDiary={onNavigateDiary} onNavigateGuidance={onNavigateGuidance} forPdf />
-            <p className="text-[10px] text-stone-400 mt-6 border-t border-stone-100 pt-3">{DISCLAIMER}</p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
