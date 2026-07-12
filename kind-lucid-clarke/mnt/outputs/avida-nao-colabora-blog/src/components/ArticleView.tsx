@@ -143,9 +143,20 @@ export default function ArticleView({
         try {
           const { data: t } = await supabase.rpc('get_article_teaser', { p_slug: s })
           const row = Array.isArray(t) ? t[0] : t
-          if (row && row.plan_required && row.plan_required !== 'free') setLocked(row)
-          else trackEvent('error_404', { entity_id: '/blog/' + s })
-        } catch { trackEvent('error_404', { entity_id: '/blog/' + s }) }
+          if (row && row.plan_required && row.plan_required !== 'free') { setLocked(row); return }
+        } catch { /* segue para redirect / 404 */ }
+        // Redirecionamento configurado no admin (Analytics → Erros)?
+        try {
+          const path = '/blog/' + s
+          const { data: rd } = await supabase.from('analytics_redirects').select('id, to_path, is_active, hits').eq('from_path', path).eq('is_active', true).maybeSingle()
+          if (rd?.to_path) {
+            void supabase.from('analytics_redirects').update({ hits: (rd.hits ?? 0) + 1 }).eq('id', rd.id)
+            const target = rd.to_path.replace(/^\/blog\//, '')
+            if (rd.to_path.startsWith('/blog/') && onSelectArticle) { onSelectArticle(target); return }
+            if (navigate) { navigate(rd.to_path.replace(/^\//, '') || 'home'); return }
+          }
+        } catch { /* sem redirect — registra 404 */ }
+        trackEvent('error_404', { entity_id: '/blog/' + s })
         return
       }
       setArticle(data)

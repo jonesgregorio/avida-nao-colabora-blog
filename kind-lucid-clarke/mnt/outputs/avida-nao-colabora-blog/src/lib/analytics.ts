@@ -21,8 +21,45 @@ export interface TrackOpts {
   metadata?: Record<string, unknown>
 }
 
+// ─── Configurações de rastreamento (controladas no admin → Analytics) ────────
+interface TrackConfig { track_pageviews: boolean; track_scroll: boolean; track_cta: boolean; track_errors: boolean; track_web_vitals: boolean; anonymize: boolean }
+// Default: tudo ligado até carregar as flags reais (fail-open é seguro aqui).
+let cfg: TrackConfig = { track_pageviews: true, track_scroll: true, track_cta: true, track_errors: true, track_web_vitals: true, anonymize: true }
+let cfgLoaded = false
+function loadConfig() {
+  if (cfgLoaded) return
+  cfgLoaded = true
+  try {
+    supabase.from('analytics_settings').select('config').eq('id', 1).maybeSingle()
+      .then(({ data }) => { if (data?.config) cfg = { ...cfg, ...(data.config as Partial<TrackConfig>) } }, () => { /* usa default */ })
+  } catch { /* usa default */ }
+}
+
+// Qual flag controla cada evento (eventos sem mapeamento são sempre enviados).
+function allowedByConfig(event: string): boolean {
+  if (event === 'page_view' || event === 'article_view') return cfg.track_pageviews
+  if (event.startsWith('scroll_')) return cfg.track_scroll
+  if (event === 'cta_click' || event === 'article_click') return cfg.track_cta
+  if (event === 'error_404') return cfg.track_errors
+  if (event === 'web_vital') return cfg.track_web_vitals
+  return true
+}
+
+// Reduz o user-agent a "Dispositivo|Navegador" quando a anonimização está ligada.
+function coarseUA(ua: string): string {
+  const s = ua.toLowerCase()
+  const device = /ipad|tablet/.test(s) ? 'Tablet' : /mobi|android|iphone/.test(s) ? 'Mobile' : 'Desktop'
+  const browser = /edg\//.test(s) ? 'Edge' : /firefox\//.test(s) ? 'Firefox' : /chrome\//.test(s) ? 'Chrome' : /safari\//.test(s) ? 'Safari' : 'Outro'
+  return `${device}|${browser}`
+}
+
 export function trackEvent(event: string, opts: TrackOpts = {}): void {
   try {
+    loadConfig()
+    if (!allowedByConfig(event)) return
+    const rawUA = navigator.userAgent
+    let referrer: string | null = document.referrer || null
+    if (cfg.anonymize && referrer) { try { referrer = new URL(referrer).hostname } catch { /* mantém */ } }
     supabase.from('analytics_events').insert({
       user_id: opts.user_id ?? null,
       event,
@@ -30,8 +67,8 @@ export function trackEvent(event: string, opts: TrackOpts = {}): void {
       entity_title: opts.entity_title ?? null,
       metadata: opts.metadata ?? null,
       session_id: getSessionId(),
-      referrer: document.referrer || null,
-      user_agent: navigator.userAgent,
+      referrer,
+      user_agent: cfg.anonymize ? coarseUA(rawUA) : rawUA,
     }).then(() => { /* ok */ }, () => { /* silencioso */ })
   } catch { /* noop */ }
 }
