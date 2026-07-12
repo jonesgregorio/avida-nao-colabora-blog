@@ -76,6 +76,43 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
   }
   const space = (n = 6) => { y += n }
 
+  // Gráfico de barras horizontais (emoções/gatilhos).
+  const rankBars = (title: string, items: { label: string; count: number }[]) => {
+    if (!items || !items.length) return
+    label(title)
+    const max = Math.max(...items.map(i => i.count), 1)
+    const nameW = 130, barMaxW = contentW - nameW - 24
+    items.forEach(it => {
+      ensure(15)
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(...INK)
+      pdf.text((pdf.splitTextToSize(it.label, nameW) as string[])[0], M, y + 7)
+      const w = Math.max(2, (it.count / max) * barMaxW)
+      pdf.setFillColor(47, 93, 71); pdf.roundedRect(M + nameW, y + 1.5, w, 7, 2, 2, 'F')
+      pdf.setFontSize(8); pdf.setTextColor(...MUTED); pdf.text(String(it.count), M + nameW + w + 4, y + 7)
+      y += 15
+    })
+    y += 4
+  }
+  // Mini gráfico de linha por dia (energia/ansiedade), escala 1–5.
+  const lineChart = (title: string, data: { day: number; value: number }[], rgb: [number, number, number]) => {
+    if (!data || data.length < 2) return
+    label(title)
+    const h = 58, w = contentW
+    ensure(h + 12)
+    const y0 = y
+    pdf.setDrawColor(228); pdf.setLineWidth(0.5)
+    ;[1, 3, 5].forEach(v => { const yy = y0 + h - ((v - 1) / 4) * h; pdf.line(M, yy, M + w, yy) })
+    const n = data.length
+    const px = (i: number) => M + (n === 1 ? w / 2 : (i / (n - 1)) * w)
+    const py = (v: number) => y0 + h - ((Math.min(5, Math.max(1, v)) - 1) / 4) * h
+    pdf.setDrawColor(...rgb); pdf.setLineWidth(1.4)
+    for (let i = 1; i < n; i++) pdf.line(px(i - 1), py(data[i - 1].value), px(i), py(data[i].value))
+    pdf.setFillColor(...rgb); data.forEach((d, i) => pdf.circle(px(i), py(d.value), 1.3, 'F'))
+    y += h + 12
+  }
+  const GREEN: [number, number, number] = [47, 158, 111]
+  const ORANGE: [number, number, number] = [217, 139, 60]
+
   // ── Cabeçalho: logo + marca ──
   const logo = await svgToPng(LOGO_SVG)
   if (logo) pdf.addImage(logo, 'PNG', M, y, 22, 22)
@@ -102,9 +139,13 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
   if (report.content.kind === 'weekly') {
     const c = report.content as WeeklyContent
     heading('Resumo da semana'); body(c.summary)
-    label('Médias'); body(`Humor ${c.avgMood || '—'}/5   ·   Energia ${c.avgEnergy || '—'}/5   ·   Ansiedade ${c.avgAnxiety || '—'}/5`)
-    if (c.topEmotions.length) { label('Emoções mais frequentes'); body(c.topEmotions.map(e => `${e.label} (${e.count})`).join('   ·   ')) }
-    if (c.triggers.length) { label('Gatilhos mais citados'); body(c.triggers.map(t => `${t.tag} (${t.count})`).join('   ·   ')) }
+    label('Dados principais'); body(`Emoção + frequente ${c.dominantEmotion ?? '—'}   ·   Energia ${c.avgEnergy || '—'}/5   ·   Ansiedade ${c.avgAnxiety || '—'}/5   ·   Check-ins ${c.checkinCount ?? 0}   ·   Diários ${c.diaryCount ?? 0}${c.topTrigger ? `   ·   Gatilho ${c.topTrigger}` : ''}`)
+    heading('Gráficos de síntese')
+    lineChart('Energia por dia', c.energyByDay, GREEN)
+    lineChart('Ansiedade por dia', c.anxietyByDay, ORANGE)
+    rankBars('Emoções mais frequentes', c.topEmotions.map(e => ({ label: e.label, count: e.count })))
+    rankBars('Gatilhos mais citados', c.triggers.map(t => ({ label: t.tag, count: t.count })))
+    heading('O que seus registros parecem indicar'); body(c.interpretation)
     if (c.comparison.length) { label('Comparação com a semana anterior'); c.comparison.forEach(l => bullet(l, '→')); space() }
     if (recTitles.length) { label('Conteúdos guiados recomendados'); recTitles.forEach(t => bullet(t)); space() }
     label('Próximos passos'); c.nextSteps.forEach(s => bullet(s, '→'))
@@ -117,6 +158,11 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     if (c.topEmotions.length) body(c.topEmotions.map(e => `${e.label} (${e.count})`).join('   ·   '), 3)
     body(c.predominantEmotions)
     label('Energia, ansiedade e descanso'); body(c.energyAnxietySleep)
+    heading('Gráficos de síntese')
+    lineChart('Energia por dia', c.energyByDay, GREEN)
+    lineChart('Ansiedade por dia', c.anxietyByDay, ORANGE)
+    rankBars('Emoções mais frequentes', c.topEmotions.map(e => ({ label: e.label, count: e.count })))
+    rankBars('Gatilhos mais citados', c.topTriggers.map(t => ({ label: t.tag, count: t.count })))
     label('Gatilhos mais recorrentes'); body(c.triggersText)
     label('Dias de maior atenção')
     if (c.attentionDays.length) c.attentionDays.forEach(d => bullet(`Dia ${d.day} — ${d.reason}`)); else body('Sem dias suficientes para destacar.')

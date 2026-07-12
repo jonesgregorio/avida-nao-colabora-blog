@@ -11,10 +11,13 @@ import { formatPeriodShort, monthTitle, type ReportType, type Period } from './r
 
 const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 'Desânimo', 'Cansaço', 'Sem energia'])
 
+export interface DayPoint { day: number; value: number }
+
 export interface WeeklyContent {
   kind: 'weekly'
   hasEnoughData: boolean
   summary: string
+  interpretation: string
   topEmotions: { label: string; count: number; emoji: string }[]
   avgEnergy: number
   avgAnxiety: number
@@ -23,6 +26,13 @@ export interface WeeklyContent {
   comparison: string[]
   nextSteps: string[]
   recommendTags: string[]
+  // Gráficos de síntese + dados principais (§6.3/§6.4)
+  energyByDay: DayPoint[]
+  anxietyByDay: DayPoint[]
+  checkinCount: number
+  diaryCount: number
+  dominantEmotion: string | null
+  topTrigger: string | null
 }
 
 export interface MonthlyContent extends DeepReport {
@@ -32,6 +42,11 @@ export interface MonthlyContent extends DeepReport {
   avgSleep: number
   topEmotions: { label: string; count: number; emoji: string }[]
   topTriggers: { tag: string; count: number }[]
+  // Gráficos de síntese (§7.10)
+  energyByDay: DayPoint[]
+  anxietyByDay: DayPoint[]
+  checkinCount: number
+  diaryCount: number
 }
 
 export type ReportContent = WeeklyContent | MonthlyContent
@@ -61,13 +76,20 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     : (a.totalEntries === 0
       ? 'Não encontramos registros suficientes nesta semana. Continue usando check-ins e diário para que o próximo relatório tenha mais informações.'
       : 'Ainda há poucos registros nesta semana para uma leitura mais precisa. Mesmo assim, alguns sinais iniciais aparecem nos seus check-ins.')
+  // Interpretação da semana (§6.5) — autopercepção, sem diagnóstico.
+  const interpretation = hasEnoughData
+    ? `Seus registros sugerem que os momentos de maior ${(negativeTop ?? 'tensão').toLowerCase()} apareceram ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'junto de baixa energia e sensação de sobrecarga' : 'em alguns momentos da semana'}${a.triggers[0] ? `, muitas vezes ligados a "${a.triggers[0].tag}"` : ''}. Pode ser útil perceber esses sinais antes do acúmulo — pequenas pausas ao longo do dia ajudam.`
+    : 'Ainda há poucos registros para uma leitura mais precisa desta semana. Cada check-in ajuda a revelar seus padrões com mais clareza.'
   return {
-    kind: 'weekly', hasEnoughData, summary,
+    kind: 'weekly', hasEnoughData, summary, interpretation,
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
     triggers: a.triggers.slice(0, 5), comparison: a.weekly.lines,
-    nextSteps: ['Registrar no diário', 'Ler um conteúdo guiado recomendado', 'Acompanhar no Mapa Emocional'],
+    nextSteps: ['Fazer um check-in no meio do dia', 'Registrar diário em dias de maior sobrecarga', 'Ler um conteúdo guiado recomendado', 'Acompanhar o padrão no Mapa Emocional'],
     recommendTags: [...new Set([...a.triggers.map(t => t.tag), ...a.topEmotions.filter(e => NEGATIVE.has(e.label)).map(e => e.label)])],
+    energyByDay: a.energyByDay, anxietyByDay: a.anxietyByDay,
+    checkinCount: a.checkinCount, diaryCount: a.diaryCount,
+    dominantEmotion: a.topEmotions[0]?.label ?? null, topTrigger: a.triggers[0]?.tag ?? null,
   }
 }
 
@@ -77,6 +99,8 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     ...deep, kind: 'monthly',
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
     topEmotions: analysis.topEmotions.slice(0, 6), topTriggers: analysis.triggers.slice(0, 6),
+    energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
+    checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,
   }
 }
 

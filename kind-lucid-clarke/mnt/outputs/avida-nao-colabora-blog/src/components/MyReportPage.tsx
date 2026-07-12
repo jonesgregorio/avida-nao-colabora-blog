@@ -14,13 +14,14 @@ import {
   computeEmotionalAnalysis, MOOD_EMOJI, type DiaryRowLite,
 } from '../lib/emotionalAnalytics'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
   getCurrentWeeklyPeriod, getPreviousWeeklyPeriod, getCurrentMonthlyPeriod, getPreviousMonthlyPeriod,
   formatPeriodShort, formatDateBR, monthTitle, ymd, type Period,
 } from '../lib/reportPeriods'
 import {
   ensureClosedReport, loadReportHistory, buildWeeklyContent, buildMonthlyContent,
-  type StoredReport, type WeeklyContent, type MonthlyContent,
+  type StoredReport, type WeeklyContent, type MonthlyContent, type DayPoint,
 } from '../lib/reportGeneration'
 
 interface Props {
@@ -96,6 +97,72 @@ function LockedSection({ title, description, onUpgrade }: { title: string; descr
   )
 }
 
+// ─── Gráficos de síntese (apoio ao relatório — não substituem o Mapa) ─────────
+function MiniLine({ title, data, color, yLabels }: { title: string; data: DayPoint[]; color: string; yLabels?: Record<number, string> }) {
+  if (!data || data.length < 2) return null
+  const gid = 'rg-' + color.replace('#', '')
+  return (
+    <div>
+      <p className="text-[10px] text-ink-soft uppercase tracking-wider mb-1">{title}</p>
+      <div className="h-28">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 6, left: -22, bottom: 0 }}>
+            <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.25} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
+            <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#8a8a8a' }} axisLine={false} tickLine={false} />
+            <YAxis domain={[1, 5]} ticks={[1, 3, 5]} tick={{ fontSize: 9, fill: '#8a8a8a' }} axisLine={false} tickLine={false} width={20} />
+            <Tooltip formatter={(v: number) => [yLabels ? `${v} · ${yLabels[Math.round(v)] ?? ''}` : v, title]} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 10, border: '1px solid #E6E1D8', fontSize: 11 }} />
+            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gid})`} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+function MiniRankBars({ title, items, color }: { title: string; items: { label: string; count: number }[]; color: string }) {
+  if (!items || items.length === 0) return null
+  const max = Math.max(...items.map(i => i.count), 1)
+  return (
+    <div>
+      <p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">{title}</p>
+      <div className="space-y-1.5">
+        {items.map(i => (
+          <div key={i.label} className="flex items-center gap-2">
+            <span className="text-xs text-ink w-24 flex-shrink-0 truncate">{i.label}</span>
+            <div className="flex-1 h-2 rounded-full overflow-hidden bg-mint"><div className="h-full rounded-full" style={{ width: `${(i.count / max) * 100}%`, background: color }} /></div>
+            <span className="text-[11px] text-ink-soft w-5 text-right">{i.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+function SynthCharts({ energyByDay = [], anxietyByDay = [], emotions = [], triggers = [] }: {
+  energyByDay?: DayPoint[]; anxietyByDay?: DayPoint[]
+  emotions?: { label: string; count: number }[]; triggers?: { tag: string; count: number }[]
+}) {
+  const hasLine = energyByDay.length > 1 || anxietyByDay.length > 1
+  const hasBars = emotions.length > 0 || triggers.length > 0
+  if (!hasLine && !hasBars) return null
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-2">Gráficos de síntese</p>
+      {hasLine && (
+        <div className="grid sm:grid-cols-2 gap-4 mb-4">
+          <MiniLine title="Energia por dia" data={energyByDay} color="#2f9e6f" />
+          <MiniLine title="Ansiedade por dia" data={anxietyByDay} color="#d98b3c" />
+        </div>
+      )}
+      {hasBars && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          <MiniRankBars title="Emoções mais frequentes" items={emotions} color="#2f5d47" />
+          <MiniRankBars title="Gatilhos mais citados" items={triggers.map(t => ({ label: t.tag, count: t.count }))} color="#d98b3c" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────
 function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance, forPdf }: {
   report: StoredReport; plan: string
@@ -115,31 +182,43 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
   if (report.content.kind === 'weekly') {
     const c = report.content as WeeklyContent
     return (
-      <div className="space-y-4">
-        <p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p>
-        <div className="grid grid-cols-3 gap-2">
-          <StatPill label="Humor médio" value={c.avgMood || '—'} unit={c.avgMood ? '/5' : ''} />
+      <div className="space-y-5">
+        {/* Resumo */}
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Resumo da semana</p>
+          <p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p></div>
+
+        {/* Dados principais */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <StatPill label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
           <StatPill label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
           <StatPill label="Ansiedade média" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} />
+          <StatPill label="Check-ins" value={c.checkinCount ?? 0} />
+          <StatPill label="Diários" value={c.diaryCount ?? 0} />
+          <StatPill label="Gatilho principal" value={c.topTrigger ?? '—'} />
         </div>
-        {c.topEmotions.length > 0 && (
-          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Emoções mais frequentes</p>
-            <div className="flex flex-wrap gap-1.5">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div></div>
-        )}
-        {c.triggers.length > 0 && (
-          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Gatilhos mais citados</p>
-            <div className="flex flex-wrap gap-1.5">{c.triggers.map(t => <span key={t.tag} className="text-xs bg-coral/20 text-[#8a3b23] px-2.5 py-1 rounded-full">{t.tag} ×{t.count}</span>)}</div></div>
-        )}
+
+        {/* Gráficos de síntese */}
+        <SynthCharts energyByDay={c.energyByDay} anxietyByDay={c.anxietyByDay} emotions={c.topEmotions} triggers={c.triggers} />
+
+        {/* Interpretação */}
+        <div className="bg-mint/40 border border-forest-100 rounded-xl p-4"><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">O que seus registros parecem indicar</p>
+          <p className="text-sm text-forest-800 leading-relaxed">{c.interpretation}</p></div>
+
         {c.comparison.length > 0 && (
-          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Comparação com a semana anterior</p>
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Comparação com a semana anterior</p>
             <ul className="space-y-1">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
         )}
+        {c.comparison.length === 0 && (
+          <p className="text-xs text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>
+        )}
+
         {!forPdf && recs.length > 0 && (
-          <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">Conteúdos guiados recomendados</p>
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Conteúdos guiados recomendados</p>
             <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
         )}
-        <div><p className="text-[10px] text-ink-soft uppercase tracking-wider mb-1">Próximos passos</p>
-          <ul className="grid sm:grid-cols-3 gap-x-3 gap-y-1">{c.nextSteps.map((s, i) => <li key={i} className="text-sm text-stone-600 flex gap-1.5"><span className="text-forest-400">→</span>{s}</li>)}</ul></div>
+
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Próximos passos</p>
+          <ul className="grid sm:grid-cols-2 gap-x-3 gap-y-1">{c.nextSteps.map((s, i) => <li key={i} className="text-sm text-stone-600 flex gap-1.5"><span className="text-forest-400">→</span>{s}</li>)}</ul></div>
       </div>
     )
   }
@@ -161,6 +240,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         {c.topEmotions.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div>}
         <p className="text-sm text-stone-700 leading-relaxed">{c.predominantEmotions}</p></div>
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Energia, ansiedade e descanso</p><p className="text-sm text-stone-700 leading-relaxed">{c.energyAnxietySleep}</p></div>
+      <SynthCharts energyByDay={c.energyByDay} anxietyByDay={c.anxietyByDay} emotions={c.topEmotions} triggers={c.topTriggers} />
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Gatilhos mais recorrentes</p><p className="text-sm text-stone-700 leading-relaxed">{c.triggersText}</p></div>
       <div className="grid sm:grid-cols-2 gap-4">
         <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Dias de maior atenção</p>
@@ -235,17 +315,21 @@ function BuildingPreview({ type, period, content, onRefresh }: {
     ? 'Este relatório ainda está em construção. Ele será fechado no final de sábado e ficará disponível no domingo.'
     : 'Este relatório ainda está em construção. Ele será fechado no último dia do mês e ficará disponível no primeiro dia do mês seguinte.'
   const emotions = content.topEmotions
+  const topTrig = 'topTriggers' in content ? content.topTriggers[0]?.tag : content.triggers[0]?.tag
   return (
     <div className="rounded-2xl border border-forest-200 bg-mint/30 p-5">
       <div className="flex items-center gap-2 mb-1">
         <RefreshCw className="w-4 h-4 text-forest-600" />
         <h3 className="text-sm font-semibold text-forest-900">{type === 'weekly' ? 'Relatório semanal em construção' : 'Relatório mensal em construção'}</h3>
       </div>
-      <p className="text-xs text-ink-soft mb-3">{type === 'weekly' ? `Semana de ${formatPeriodShort(period)}` : `${monthTitle(period.start)} · ${formatPeriodShort(period)}`}</p>
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <StatPill label="Humor" value={('avgMood' in content ? content.avgMood : 0) || '—'} unit={('avgMood' in content ? content.avgMood : 0) ? '/5' : ''} />
+      <p className="text-xs text-ink-soft mb-1">{type === 'weekly' ? `Semana de ${formatPeriodShort(period)}` : `${monthTitle(period.start)} · ${formatPeriodShort(period)}`}</p>
+      <p className="text-[11px] text-ink-soft mb-3">Fecha em <strong className="text-forest-700">{formatDateBR(period.end)}</strong> · disponível em <strong className="text-forest-700">{formatDateBR(period.availableAt)}</strong></p>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
+        <StatPill label="Check-ins" value={content.checkinCount} />
+        <StatPill label="Diários" value={content.diaryCount} />
         <StatPill label="Energia" value={content.avgEnergy || '—'} unit={content.avgEnergy ? '/5' : ''} />
         <StatPill label="Ansiedade" value={content.avgAnxiety || '—'} unit={content.avgAnxiety ? '/5' : ''} />
+        <StatPill label="Gatilho" value={topTrig ?? '—'} />
       </div>
       {emotions.length > 0 && <p className="text-sm text-forest-800 mb-1"><span className="text-ink-soft">Emoção mais frequente até agora:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</p>}
       <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mt-2">{notice}</p>
