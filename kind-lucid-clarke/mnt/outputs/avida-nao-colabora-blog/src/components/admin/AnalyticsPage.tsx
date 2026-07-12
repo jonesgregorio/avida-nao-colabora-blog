@@ -204,6 +204,7 @@ function LineChartCard({ title, series, subtitle, prev }: { title: string; serie
 }
 function BarChartCard({ title, subtitle, data }: { title: string; subtitle?: string; data: [string, number][] }) {
   const max = Math.max(1, ...data.map(d => d[1]))
+  const tot = data.reduce((a, d) => a + d[1], 0)
   return (
     <div className="bg-white border border-line rounded-2xl p-5">
       <h3 className="font-serif text-lg text-forest-900 mb-1">{title}</h3>
@@ -211,7 +212,7 @@ function BarChartCard({ title, subtitle, data }: { title: string; subtitle?: str
       {data.length === 0 ? <div className="py-6 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
         <div className="space-y-2.5">{data.map(([label, v]) => (
           <div key={label}>
-            <div className="flex justify-between text-sm mb-1"><span className="text-forest-900 truncate">{label}</span><span className="text-ink-soft">{v}</span></div>
+            <div className="flex justify-between text-sm mb-1 gap-2"><span className="text-forest-900 truncate">{label}</span><span className="text-ink-soft whitespace-nowrap">{v} · {pct(v, tot)}</span></div>
             <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(v / max) * 100}%` }} /></div>
           </div>
         ))}</div>
@@ -224,6 +225,14 @@ function topCount<T>(rows: T[], keyFn: (r: T) => string | null, n = 8) {
   for (const r of rows) { const k = keyFn(r); if (k) m.set(k, (m.get(k) ?? 0) + 1) }
   return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
 }
+// Porcentagem formatada (com 1 casa quando <10% para não sumir valores pequenos).
+function pct(n: number, total: number) {
+  if (total <= 0) return '0%'
+  const v = (n / total) * 100
+  return `${v < 10 && v > 0 ? v.toFixed(1) : Math.round(v)}%`
+}
+// Soma dos valores de um resultado de topCount (para usar como base do %).
+function sumCounts(rows: [string, number][]) { return rows.reduce((a, r) => a + r[1], 0) }
 
 function computeMetrics(evs: Ev[]) {
   const count = (e: string) => evs.filter(x => x.event === e).length
@@ -446,14 +455,14 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div className={card}>
                 <h2 className="font-serif text-xl text-forest-900 mb-3">Top artigos lidos</h2>
-                {readTop.length === 0 ? <p className="text-sm text-ink-soft">Sem leituras no período.</p> : (
-                  <div className="space-y-2">{readTop.map(([slug, n]) => <div key={slug} className="flex justify-between text-sm"><span className="text-forest-900 truncate">{slug}</span><span className="text-ink-soft">{n}</span></div>)}</div>
-                )}
+                {readTop.length === 0 ? <p className="text-sm text-ink-soft">Sem leituras no período.</p> : (() => { const tot = sumCounts(readTop); return (
+                  <div className="space-y-2">{readTop.map(([slug, n]) => <div key={slug} className="flex justify-between text-sm gap-2"><span className="text-forest-900 truncate">{slug}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div>
+                )})()}
               </div>
               <div className={card}>
                 <h2 className="font-serif text-xl text-forest-900 mb-3">Eventos mais frequentes</h2>
                 {events.length === 0 ? <p className="text-sm text-ink-soft">Sem eventos ainda — o rastreamento começa a preencher a partir do deploy.</p> : (
-                  <div className="space-y-2">{topCount(events, e => e.event, 6).map(([ev, n]) => <div key={ev} className="flex justify-between text-sm"><span className="text-forest-900 font-mono text-xs">{ev}</span><span className="text-ink-soft">{n}</span></div>)}</div>
+                  <div className="space-y-2">{topCount(events, e => e.event, 6).map(([ev, n]) => <div key={ev} className="flex justify-between text-sm gap-2"><span className="text-forest-900 font-mono text-xs">{ev}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, events.length)}</span></div>)}</div>
                 )}
               </div>
             </div>
@@ -464,10 +473,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
           <div className={card}>
             <h2 className="font-serif text-xl text-forest-900 mb-3">Eventos ({PERIODS.find(p => p.id === period)!.label})</h2>
             {events.length === 0 ? <Empty text="Nenhum evento no período. Assim que o site público começar a emitir eventos, eles aparecem aqui." /> : (
-              <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">Evento</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Total</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Sessões</th></tr></thead>
+              <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">Evento</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Total</th><th className="text-right px-3 py-2 text-stone-500 font-medium">% do total</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Sessões</th></tr></thead>
                 <tbody className="divide-y divide-stone-100">{topCount(events, e => e.event, 40).map(([ev, n]) => {
                   const sess = new Set(events.filter(e => e.event === ev).map(e => e.session_id)).size
-                  return <tr key={ev}><td className="px-3 py-2 font-mono text-xs text-forest-900">{ev}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{sess}</td></tr>
+                  return <tr key={ev}><td className="px-3 py-2 font-mono text-xs text-forest-900">{ev}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{pct(n, events.length)}</td><td className="px-3 py-2 text-right text-ink-soft">{sess}</td></tr>
                 })}</tbody></table>
             )}
           </div>
@@ -494,23 +503,25 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
               ))}</div>
               <p className="text-xs text-ink-soft mt-3">Rastreamento por sessão. Celular aparece aqui assim que alguém acessar pelo telefone.</p>
             </div>
-            <div className={card}><h2 className="font-serif text-xl text-forest-900 mb-3">Navegadores</h2>{base.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(base, e => browserOf(e.user_agent)).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span>{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
+            <div className={card}><h2 className="font-serif text-xl text-forest-900 mb-3">Navegadores</h2>{base.length === 0 ? <Empty text="Sem dados ainda." /> : (() => { const rows = topCount(base, e => browserOf(e.user_agent)); const tot = sumCounts(rows); return <div className="space-y-2">{rows.map(([d, n]) => <div key={d} className="flex justify-between text-sm gap-2"><span>{d}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div> })()}</div>
 
             <div className={card}>
               <h2 className="font-serif text-xl text-forest-900 mb-1">Fontes de tráfego</h2>
               <p className="text-xs text-ink-soft mb-3">De onde vieram as visitas (Instagram, Google, YouTube, direto…).</p>
-              {srcEvents.length === 0 ? <Empty text="Sem dados de fonte ainda — preenche quando alguém chega por link externo ou campanha com UTM." /> : <div className="space-y-2">{topCount(srcEvents, e => e.entity_id, 12).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}
+              {srcEvents.length === 0 ? <Empty text="Sem dados de fonte ainda — preenche quando alguém chega por link externo ou campanha com UTM." /> : (() => { const rows = topCount(srcEvents, e => e.entity_id, 12); const tot = sumCounts(rows); return <div className="space-y-2">{rows.map(([d, n]) => <div key={d} className="flex justify-between text-sm gap-2"><span className="truncate">{d}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div> })()}
             </div>
             <div className={card}>
               <h2 className="font-serif text-xl text-forest-900 mb-1">Campanhas</h2>
               <p className="text-xs text-ink-soft mb-3">Visitas com <code>utm_campaign</code> no link (ex.: bio do Instagram, anúncio).</p>
               {(() => {
                 const camps = srcEvents.filter(e => e.entity_title)
-                return camps.length === 0 ? <Empty text="Nenhuma campanha rastreada ainda. Use links com ?utm_campaign=…" /> : <div className="space-y-2">{topCount(camps, e => `${e.entity_id} · ${e.entity_title}`, 15).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>
+                if (camps.length === 0) return <Empty text="Nenhuma campanha rastreada ainda. Use links com ?utm_campaign=…" />
+                const rows = topCount(camps, e => `${e.entity_id} · ${e.entity_title}`, 15); const tot = sumCounts(rows)
+                return <div className="space-y-2">{rows.map(([d, n]) => <div key={d} className="flex justify-between text-sm gap-2"><span className="truncate">{d}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div>
               })()}
             </div>
 
-            <div className={`${card} md:col-span-2`}><h2 className="font-serif text-xl text-forest-900 mb-3">Origem detalhada (referrer)</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : <div className="space-y-2">{topCount(events, e => { const r = e.referrer || ''; if (!r) return 'direto'; try { return r.includes('/') || r.includes('.') ? new URL(r.startsWith('http') ? r : 'https://' + r).hostname : r } catch { return r || 'direto' } }).map(([d, n]) => <div key={d} className="flex justify-between text-sm"><span className="truncate">{d}</span><span className="text-ink-soft">{n}</span></div>)}</div>}</div>
+            <div className={`${card} md:col-span-2`}><h2 className="font-serif text-xl text-forest-900 mb-3">Origem detalhada (referrer)</h2>{events.length === 0 ? <Empty text="Sem dados ainda." /> : (() => { const rows = topCount(events, e => { const r = e.referrer || ''; if (!r) return 'direto'; try { return r.includes('/') || r.includes('.') ? new URL(r.startsWith('http') ? r : 'https://' + r).hostname : r } catch { return r || 'direto' } }); const tot = sumCounts(rows); return <div className="space-y-2">{rows.map(([d, n]) => <div key={d} className="flex justify-between text-sm gap-2"><span className="truncate">{d}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div> })()}</div>
           </div>
           )
         })()}
@@ -530,7 +541,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
               return steps.every(s => s.n === 0) ? <Empty text="Sem dados de funil ainda — depende dos eventos do site (article_view, cta_click) que começam a fluir após o deploy." /> : (
                 <div className="space-y-3">{steps.map((s, i) => (
                   <div key={s.label}>
-                    <div className="flex justify-between text-sm mb-1"><span className="text-forest-900">{s.label}</span><span className="text-ink-soft">{s.n}{i > 0 && steps[i - 1].n > 0 ? ` · ${Math.round((s.n / steps[i - 1].n) * 100)}%` : ''}</span></div>
+                    <div className="flex justify-between text-sm mb-1 gap-2">
+                      <span className="text-forest-900">{s.label}</span>
+                      <span className="text-ink-soft whitespace-nowrap">{s.n}{i > 0 && steps[i - 1].n > 0 ? ` · ${Math.round((s.n / steps[i - 1].n) * 100)}% da etapa` : ''}{i > 0 && steps[0].n > 0 ? ` · ${pct(s.n, steps[0].n)} do topo` : ''}</span>
+                    </div>
                     <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(s.n / max) * 100}%` }} /></div>
                   </div>
                 ))}</div>
@@ -544,9 +558,9 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             <h2 className="font-serif text-xl text-forest-900 mb-3">Elementos mais clicados</h2>
             {(() => {
               const clicks = events.filter(e => e.event === 'cta_click' || e.event === 'article_click')
-              return clicks.length === 0 ? <Empty text="Mapa de calor por cliques — preenche conforme o site emite cta_click/article_click. Versão visual com coordenadas fica para a próxima fase." /> : (
-                <div className="space-y-2">{topCount(clicks, e => e.entity_title || e.entity_id, 20).map(([el, n]) => <div key={el} className="flex justify-between text-sm"><span className="truncate">{el}</span><span className="text-ink-soft">{n}</span></div>)}</div>
-              )
+              if (clicks.length === 0) return <Empty text="Mapa de calor por cliques — preenche conforme o site emite cta_click/article_click. Versão visual com coordenadas fica para a próxima fase." />
+              const rows = topCount(clicks, e => e.entity_title || e.entity_id, 20); const tot = sumCounts(rows)
+              return <div className="space-y-2">{rows.map(([el, n]) => <div key={el} className="flex justify-between text-sm gap-2"><span className="truncate">{el}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, tot)}</span></div>)}</div>
             })()}
           </div>
         )}
@@ -557,11 +571,11 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
               <h2 className="font-serif text-xl text-forest-900 mb-3">Erros 404 ({PERIODS.find(p => p.id === period)!.label})</h2>
               {(() => {
                 const errs = events.filter(e => e.event === 'error_404')
-                const top = topCount(errs, e => e.entity_id, 30)
+                const top = topCount(errs, e => e.entity_id, 30); const tot = sumCounts(top)
                 return top.length === 0 ? <Empty text="Sem erros 404 no período — o site registra error_404 automaticamente quando alguém acessa um artigo inexistente." /> : (
-                  <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">URL</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ocorrências</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ação</th></tr></thead>
+                  <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">URL</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ocorrências</th><th className="text-right px-3 py-2 text-stone-500 font-medium">% dos 404</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ação</th></tr></thead>
                     <tbody className="divide-y divide-stone-100">{top.map(([u, n]) => (
-                      <tr key={u}><td className="px-3 py-2 font-mono text-xs">{u}</td><td className="px-3 py-2 text-right">{n}</td>
+                      <tr key={u}><td className="px-3 py-2 font-mono text-xs">{u}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{pct(n, tot)}</td>
                         <td className="px-3 py-2 text-right"><button onClick={() => setRedirectFrom(u)} className="text-xs text-forest-700 hover:underline">Criar redirect</button></td></tr>
                     ))}</tbody></table>
                 )
@@ -576,8 +590,25 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             <h2 className="font-serif text-xl text-forest-900 mb-3">Core Web Vitals</h2>
             {(() => {
               const vitals = events.filter(e => e.event === 'web_vital')
-              return vitals.length === 0 ? <Empty text="Métricas de performance (LCP, CLS, INP, FCP, TTFB) — o site coleta e envia como web_vital após o deploy. Aparecem aqui assim que houver amostras." /> : (
-                <div className="space-y-2">{topCount(vitals, e => (e.entity_id || 'métrica')).map(([mt, n]) => <div key={mt} className="flex justify-between text-sm"><span className="font-mono text-xs">{mt}</span><span className="text-ink-soft">{n} amostras</span></div>)}</div>
+              if (vitals.length === 0) return <Empty text="Métricas de performance (LCP, CLS, INP, FCP, TTFB) — o site coleta e envia como web_vital após o deploy. Aparecem aqui assim que houver amostras." />
+              const metrics = topCount(vitals, e => (e.entity_id || 'métrica'))
+              return (
+                <div className="space-y-4">{metrics.map(([mt, n]) => {
+                  const rows = vitals.filter(e => (e.entity_id || 'métrica') === mt)
+                  const good = rows.filter(e => e.entity_title === 'bom').length
+                  const warn = rows.filter(e => e.entity_title === 'atenção').length
+                  const bad = rows.filter(e => e.entity_title === 'ruim').length
+                  return (
+                    <div key={mt}>
+                      <div className="flex justify-between text-sm mb-1 gap-2"><span className="font-mono text-xs text-forest-900">{mt}</span><span className="text-ink-soft whitespace-nowrap">{n} amostras · {pct(good, n)} bom</span></div>
+                      <div className="flex h-2.5 rounded-full overflow-hidden bg-stone-100">
+                        <div className="h-full bg-green-500" style={{ width: `${pct(good, n)}` }} title={`Bom: ${good}`} />
+                        <div className="h-full bg-amber-400" style={{ width: `${pct(warn, n)}` }} title={`Atenção: ${warn}`} />
+                        <div className="h-full bg-red-400" style={{ width: `${pct(bad, n)}` }} title={`Ruim: ${bad}`} />
+                      </div>
+                    </div>
+                  )
+                })}</div>
               )
             })()}
           </div>
