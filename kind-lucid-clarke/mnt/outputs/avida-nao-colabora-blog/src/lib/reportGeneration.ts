@@ -11,10 +11,15 @@ import { formatPeriodShort, monthTitle, type ReportType, type Period } from './r
 
 const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 'Desânimo', 'Cansaço', 'Sem energia'])
 
+// Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
+// fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
+const CONTENT_VERSION = 2
+
 export interface DayPoint { day: number; value: number }
 
 export interface WeeklyContent {
   kind: 'weekly'
+  v?: number
   hasEnoughData: boolean
   summary: string
   interpretation: string
@@ -37,6 +42,7 @@ export interface WeeklyContent {
 
 export interface MonthlyContent extends DeepReport {
   kind: 'monthly'
+  v?: number
   avgEnergy: number
   avgAnxiety: number
   avgSleep: number
@@ -81,7 +87,7 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     ? `Seus registros sugerem que os momentos de maior ${(negativeTop ?? 'tensão').toLowerCase()} apareceram ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'junto de baixa energia e sensação de sobrecarga' : 'em alguns momentos da semana'}${a.triggers[0] ? `, muitas vezes ligados a "${a.triggers[0].tag}"` : ''}. Pode ser útil perceber esses sinais antes do acúmulo — pequenas pausas ao longo do dia ajudam.`
     : 'Ainda há poucos registros para uma leitura mais precisa desta semana. Cada check-in ajuda a revelar seus padrões com mais clareza.'
   return {
-    kind: 'weekly', hasEnoughData, summary, interpretation,
+    kind: 'weekly', v: CONTENT_VERSION, hasEnoughData, summary, interpretation,
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
     triggers: a.triggers.slice(0, 5), comparison: a.weekly.lines,
@@ -96,7 +102,7 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
 export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string): MonthlyContent {
   const deep = buildDeepReport(analysis, periodLabel)
   return {
-    ...deep, kind: 'monthly',
+    ...deep, kind: 'monthly', v: CONTENT_VERSION,
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
     topEmotions: analysis.topEmotions.slice(0, 6), topTriggers: analysis.triggers.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
@@ -143,7 +149,22 @@ export async function ensureClosedReport(
     .eq('period_start', period.start)
     .eq('period_end', period.end)
     .maybeSingle()
-  if (existing) return existing as unknown as StoredReport
+
+  if (existing) {
+    const stored = existing as unknown as StoredReport
+    const storedV = (stored.content as { v?: number })?.v ?? 1
+    // Conteúdo atualizado → devolve como está.
+    if (storedV >= CONTENT_VERSION) return stored
+    // Conteúdo antigo (sem gráficos/interpretação) → REGERA e atualiza a linha,
+    // mantendo a data de geração original.
+    const fresh = buildReport(type, plan, period, entries, prevEntries)
+    const { data: upd } = await supabase.from('reports')
+      .update({ title: fresh.title, summary: fresh.summary, content: fresh.content, updated_at: new Date().toISOString() })
+      .eq('id', stored.id!)
+      .select('*')
+      .maybeSingle()
+    return (upd as unknown as StoredReport) ?? { ...stored, title: fresh.title, summary: fresh.summary, content: fresh.content }
+  }
 
   // 2) Gera e salva. onConflict ignora corrida (dois acessos simultâneos).
   const report = buildReport(type, plan, period, entries, prevEntries)
