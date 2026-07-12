@@ -46,14 +46,19 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
 
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  // Aceita ou o CRON_SECRET (senha simples definida pelo admin) ou o próprio
-  // service role. Determinístico — não depende do formato da chave do Supabase.
-  const cronSecret = Deno.env.get('CRON_SECRET')
-  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  const allowed = [cronSecret, serviceKey].filter(Boolean) as string[]
-  if (!allowed.includes(token)) return json({ error: 'Não autorizado' }, 401)
-
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
+
+  // Token interno auto-gerado no banco (migration 070), lido via RPC — os dois
+  // lados (cron e função) pegam o MESMO valor, então batem sozinhos, sem o admin
+  // configurar nada. Também aceita CRON_SECRET ou o service role, como alternativas.
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  let internalToken: string | null = null
+  try {
+    const { data } = await admin.rpc('get_automation_token')
+    if (typeof data === 'string') internalToken = data
+  } catch { /* RPC ainda não migrou */ }
+  const allowed = [internalToken, Deno.env.get('CRON_SECRET'), serviceKey].filter(Boolean) as string[]
+  if (!allowed.includes(token)) return json({ error: 'Não autorizado' }, 401)
 
   const { data: autos, error } = await admin.from('content_automations')
     .select('*').eq('status', 'active').in('type', GEN_TYPES)
