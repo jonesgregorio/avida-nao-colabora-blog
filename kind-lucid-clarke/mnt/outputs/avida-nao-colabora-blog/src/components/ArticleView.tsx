@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { trackEvent } from '../lib/analytics'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Clock, NotebookPen, Heart, Brain, CloudRain, Feather } from 'lucide-react'
 import type { Article, Plan } from '../types'
@@ -113,6 +114,23 @@ export default function ArticleView({
     if (user && article?.slug) void markArticleRead(user.id, article.slug)
   }, [user, article?.slug])
 
+  // Analytics: profundidade de leitura (scroll_50 / scroll_75 / scroll_100)
+  useEffect(() => {
+    const slug = article?.slug
+    if (!slug) return
+    const fired = new Set<number>()
+    function onScroll() {
+      const h = document.documentElement.scrollHeight - window.innerHeight
+      if (h <= 0) return
+      const pct = (window.scrollY / h) * 100
+      for (const mk of [50, 75, 100]) {
+        if (pct >= mk && !fired.has(mk)) { fired.add(mk); trackEvent('scroll_' + mk, { entity_id: slug, user_id: user?.id ?? null }) }
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [article?.slug, user?.id])
+
   async function loadArticle(s: string) {
     setLoading(true)
     setLocked(null)
@@ -126,7 +144,8 @@ export default function ArticleView({
           const { data: t } = await supabase.rpc('get_article_teaser', { p_slug: s })
           const row = Array.isArray(t) ? t[0] : t
           if (row && row.plan_required && row.plan_required !== 'free') setLocked(row)
-        } catch { /* teaser indisponível — cai no "não encontrado" */ }
+          else trackEvent('error_404', { entity_id: '/blog/' + s })
+        } catch { trackEvent('error_404', { entity_id: '/blog/' + s }) }
         return
       }
       setArticle(data)
@@ -251,7 +270,7 @@ export default function ArticleView({
             Assine o plano <strong>{planLabel}</strong> para ler este conteúdo completo e acompanhar seus padrões emocionais.
           </p>
           <div className="flex flex-wrap gap-3 justify-center mt-6">
-            <button onClick={() => (navigate ? navigate('pricing') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
+            <button data-cta="artigo-ver-planos" onClick={() => (navigate ? navigate('pricing') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
               Ver planos
             </button>
             {!user && (

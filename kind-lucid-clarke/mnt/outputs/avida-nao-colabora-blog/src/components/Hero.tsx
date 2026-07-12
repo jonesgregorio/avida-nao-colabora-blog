@@ -86,6 +86,7 @@ export default function Hero({ onNavigate }: HeroProps) {
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
+                data-cta="hero-comecar-gratis"
                 onClick={() => onNavigate('diary')}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white font-medium text-sm px-6 py-3.5 rounded-2xl transition-colors shadow-sm"
               >

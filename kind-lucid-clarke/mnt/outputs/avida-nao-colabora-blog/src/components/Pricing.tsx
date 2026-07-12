@@ -131,6 +131,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                   </button>
                 ) : (
                   <button
+                    data-cta={`assinar-${plan.key}`}
                     onClick={() => handleSubscribe(plan.key)}
                     disabled={loadingPlan === plan.key}
                     className={`w-full py-3 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 ${
