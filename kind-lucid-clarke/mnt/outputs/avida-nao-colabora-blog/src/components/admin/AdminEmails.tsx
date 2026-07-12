@@ -40,6 +40,17 @@ function fmt(iso: string | null): string {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+// Valores de exemplo para a prévia (as variáveis reais são preenchidas no envio).
+const PREVIEW_VARS: Record<string, string> = {
+  nome: 'Maria', plano: 'Plus', plano_atual: 'Plus', plano_novo: 'Plus',
+  plano_antigo: 'Essencial', plano_anterior: 'Essencial', valor: 'R$ 39,90',
+  data_fim_ciclo: '15/08/2026', data_sessao: '20/08/2026', horario_sessao: '15h',
+  link_meu_plano: 'https://avidanaocolabora.com/meu-plano', link_sessao: '#', link_sessao_plus: '#',
+}
+function fillPreview(text: string): string {
+  return (text ?? '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => PREVIEW_VARS[k] ?? `[${k}]`)
+}
+
 export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'templates' }) {
   const [tab, setTab] = useState<'logs' | 'templates'>(initialTab ?? 'logs')
   const [logs, setLogs] = useState<EmailLog[]>([])
@@ -247,6 +258,31 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
               <textarea value={editing.body_text} onChange={e => setEditing(ed => ed && { ...ed, body_text: e.target.value })} rows={12} className="w-full px-3 py-2 border border-line rounded-lg text-sm font-mono leading-relaxed" />
             </div>
             <p className="text-[11px] text-stone-400">O HTML do e-mail é gerado a partir deste texto automaticamente.</p>
+
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Prévia (com valores de exemplo)</label>
+              <div style={{ background: '#f5f5f0' }} className="rounded-lg p-3 border border-line max-h-[380px] overflow-auto">
+                <div style={{ maxWidth: 560, margin: '0 auto', background: '#ffffff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontFamily: 'Georgia, serif' }}>
+                  <div style={{ background: '#2f4232', padding: '22px 30px' }}>
+                    <p style={{ margin: 0, color: '#a9c0a9', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>A Vida Não Colabora</p>
+                    <h1 style={{ margin: '8px 0 0', color: '#ffffff', fontSize: 19, fontWeight: 400, lineHeight: 1.4 }}>{fillPreview(editing.subject) || 'Assunto do e-mail'}</h1>
+                  </div>
+                  <div style={{ padding: '26px 30px', color: '#44403c', fontSize: 15, lineHeight: 1.75 }}>
+                    {fillPreview(editing.body_text).split('\n\n').filter(Boolean).map((para, i) => (
+                      <p key={i} style={{ margin: '0 0 16px' }}>
+                        {para.split('\n').map((line, j, arr) => <span key={j}>{line}{j < arr.length - 1 && <br />}</span>)}
+                      </p>
+                    ))}
+                  </div>
+                  <div style={{ background: '#fafaf9', padding: '16px 30px', borderTop: '1px solid #e7e5e4' }}>
+                    <p style={{ margin: 0, color: '#a8a29e', fontSize: 11, fontFamily: 'Arial, sans-serif', lineHeight: 1.6 }}>
+                      Você recebeu este e-mail porque é usuário de A Vida Não Colabora. O conteúdo completo fica dentro da sua conta.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="px-4 py-2 border border-line rounded-xl text-sm text-stone-600 hover:bg-stone-50">Cancelar</button>
               <button onClick={saveEdit} disabled={savingEdit} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
