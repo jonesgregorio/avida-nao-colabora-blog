@@ -167,6 +167,55 @@ function TabHelp({ tab }: { tab: Tab }) {
 function Empty({ text }: { text: string }) {
   return <div className="p-8 text-center border border-dashed border-line rounded-2xl bg-paper-soft"><p className="text-ink-soft text-sm">{text}</p></div>
 }
+
+// ─── Gráficos em SVG puro (sem dependência externa) ─────────────────────────
+type Series = { label: string; value: number }[]
+function fmtDay(d: string) { const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d }
+function LineChartCard({ title, series, subtitle }: { title: string; series: Series; subtitle?: string }) {
+  const total = series.reduce((a, s) => a + s.value, 0)
+  const max = Math.max(1, ...series.map(s => s.value))
+  const W = 560, H = 170, pad = 26, n = series.length
+  const gid = 'grad' + title.replace(/[^a-zA-Z0-9]/g, '')
+  const X = (i: number) => n <= 1 ? W / 2 : pad + (i / (n - 1)) * (W - pad * 2)
+  const Y = (v: number) => H - pad - (v / max) * (H - pad * 2)
+  const linePts = series.map((s, i) => `${X(i).toFixed(1)},${Y(s.value).toFixed(1)}`).join(' ')
+  const areaPts = `${X(0).toFixed(1)},${H - pad} ${linePts} ${X(n - 1).toFixed(1)},${H - pad}`
+  return (
+    <div className="bg-white border border-line rounded-2xl p-5">
+      <div className="flex justify-between items-baseline mb-1"><h3 className="font-serif text-lg text-forest-900">{title}</h3><span className="text-sm text-ink-soft">{total}{subtitle ? ` ${subtitle}` : ''}</span></div>
+      {total === 0 ? <div className="py-8 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
+        <>
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}>
+            <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3d6b52" stopOpacity="0.18" /><stop offset="100%" stopColor="#3d6b52" stopOpacity="0" /></linearGradient></defs>
+            {[0, 0.5, 1].map(f => <line key={f} x1={pad} x2={W - pad} y1={Y(max * f)} y2={Y(max * f)} stroke="#eee" strokeWidth="1" />)}
+            <polygon points={areaPts} fill={`url(#${gid})`} />
+            <polyline points={linePts} fill="none" stroke="#3d6b52" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            <circle cx={X(n - 1)} cy={Y(series[n - 1].value)} r="3.5" fill="#3d6b52" />
+            <text x={pad} y={Y(max) - 4} fontSize="10" fill="#9ca3af">{max}</text>
+          </svg>
+          <div className="flex justify-between text-[10px] text-stone-400 mt-1"><span>{fmtDay(series[0].label)}</span><span>{fmtDay(series[n - 1].label)}</span></div>
+        </>
+      )}
+    </div>
+  )
+}
+function BarChartCard({ title, subtitle, data }: { title: string; subtitle?: string; data: [string, number][] }) {
+  const max = Math.max(1, ...data.map(d => d[1]))
+  return (
+    <div className="bg-white border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-lg text-forest-900 mb-1">{title}</h3>
+      {subtitle && <p className="text-xs text-ink-soft mb-3">{subtitle}</p>}
+      {data.length === 0 ? <div className="py-6 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
+        <div className="space-y-2.5">{data.map(([label, v]) => (
+          <div key={label}>
+            <div className="flex justify-between text-sm mb-1"><span className="text-forest-900 truncate">{label}</span><span className="text-ink-soft">{v}</span></div>
+            <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(v / max) * 100}%` }} /></div>
+          </div>
+        ))}</div>
+      )}
+    </div>
+  )
+}
 function topCount<T>(rows: T[], keyFn: (r: T) => string | null, n = 8) {
   const m = new Map<string, number>()
   for (const r of rows) { const k = keyFn(r); if (k) m.set(k, (m.get(k) ?? 0) + 1) }
@@ -182,6 +231,8 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   const [events, setEvents] = useState<Ev[]>([])
   const [signups, setSignups] = useState(0)
   const [conversions, setConversions] = useState(0)
+  const [signupDates, setSignupDates] = useState<string[]>([])
+  const [conversionDates, setConversionDates] = useState<string[]>([])
   const [readTop, setReadTop] = useState<[string, number][]>([])
   const [aiBusy, setAiBusy] = useState(false)
   const [aiText, setAiText] = useState('')
@@ -195,13 +246,15 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     setLoading(true)
     const [evRes, upRes, chRes, rhRes] = await Promise.all([
       supabase.from('analytics_events').select('event, entity_id, entity_title, session_id, user_id, user_agent, referrer, metadata, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20000),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', since),
-      supabase.from('plan_change_history').select('id', { count: 'exact', head: true }).gte('created_at', since).in('change_type', ['upgrade', 'new']),
+      supabase.from('profiles').select('created_at').gte('created_at', since).limit(50000),
+      supabase.from('plan_change_history').select('created_at').gte('created_at', since).in('change_type', ['upgrade', 'new']).limit(50000),
       supabase.from('reading_history').select('article_slug').gte('created_at', since).limit(20000),
     ])
     setEvents((evRes.data as Ev[]) ?? [])
-    setSignups(upRes.count ?? 0)
-    setConversions(chRes.count ?? 0)
+    const upRows = (upRes.data as { created_at: string }[]) ?? []
+    const chRows = (chRes.data as { created_at: string }[]) ?? []
+    setSignups(upRows.length); setSignupDates(upRows.map(r => r.created_at))
+    setConversions(chRows.length); setConversionDates(chRows.map(r => r.created_at))
     setReadTop(topCount((rhRes.data as { article_slug: string }[]) ?? [], r => r.article_slug, 5))
     setLoading(false)
   }
@@ -223,6 +276,46 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     }
   }, [events])
 
+  // ── Séries diárias para os gráficos de crescimento ──
+  const growth = useMemo(() => {
+    const days = PERIODS.find(p => p.id === period)!.days
+    const dayList: string[] = []
+    const today = new Date()
+    for (let i = days - 1; i >= 0; i--) dayList.push(new Date(today.getTime() - i * 86400000).toISOString().slice(0, 10))
+    const idx = new Map(dayList.map((d, i) => [d, i]))
+    const zero = () => dayList.map(d => ({ label: d, value: 0 }))
+
+    const visits = zero()
+    const sessSeen = dayList.map(() => new Set<string>())
+    const pv = zero()
+    for (const e of events) {
+      const i = idx.get(e.created_at.slice(0, 10))
+      if (i == null) continue
+      if (e.session_id) sessSeen[i].add(e.session_id)
+      if (e.event === 'page_view' || e.event === 'article_view') pv[i].value++
+    }
+    sessSeen.forEach((s, i) => { visits[i].value = s.size })
+
+    const su = zero(); for (const d of signupDates) { const i = idx.get(d.slice(0, 10)); if (i != null) su[i].value++ }
+    const cv = zero(); for (const d of conversionDates) { const i = idx.get(d.slice(0, 10)); if (i != null) cv[i].value++ }
+
+    // Fontes e dispositivos (por sessão) para gráficos de barra
+    const srcEvents = events.filter(e => e.event === 'visit_source')
+    const sources = topCount(srcEvents, e => e.entity_id, 8)
+    const seen = new Set<string>(); const first: Ev[] = []
+    for (const e of events) { const k = e.session_id || ''; if (k && !seen.has(k)) { seen.add(k); first.push(e) } }
+    const base = first.length ? first : events
+    const devices = (['Desktop', 'Mobile', 'Tablet'] as const).map(d => [d, base.filter(e => deviceOf(e.user_agent) === d).length] as [string, number]).filter(x => x[1] > 0)
+
+    // Tendência simples (2ª metade vs 1ª metade das visitas)
+    const half = Math.floor(visits.length / 2)
+    const fh = visits.slice(0, half).reduce((a, s) => a + s.value, 0)
+    const sh = visits.slice(half).reduce((a, s) => a + s.value, 0)
+    const trend = sh > fh * 1.1 ? 'crescente' : sh < fh * 0.9 ? 'em queda' : 'estável'
+
+    return { visits, pv, su, cv, sources, devices, trend }
+  }, [events, signupDates, conversionDates, period])
+
   function exportCSV() {
     const rows = [['event', 'entity', 'session', 'user', 'created_at'], ...events.slice(0, 5000).map(e => [e.event, e.entity_title ?? e.entity_id ?? '', e.session_id ?? '', e.user_id ?? '', e.created_at])]
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -233,7 +326,8 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   async function genAIReport() {
     setAiBusy(true); setAiText('')
     try {
-      const resumo = `Período: ${PERIODS.find(p => p.id === period)!.label}. Sessões: ${m.sessions}. Visitantes: ${m.visitors}. Pageviews: ${m.pageviews}. Cliques em CTA: ${m.ctaClicks}. Cadastros: ${signups}. Conversões para plano: ${conversions}. Erros 404: ${m.errors404}. Artigos mais lidos: ${readTop.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'}.`
+      const fontes = growth.sources.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'
+      const resumo = `Período: ${PERIODS.find(p => p.id === period)!.label}. Sessões: ${m.sessions}. Visitantes: ${m.visitors}. Pageviews: ${m.pageviews}. Cliques em CTA: ${m.ctaClicks}. Cadastros: ${signups}. Conversões para plano: ${conversions}. Erros 404: ${m.errors404}. Tendência de visitas: ${growth.trend}. Principais fontes de tráfego: ${fontes}. Artigos mais lidos: ${readTop.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'}.`
       const out = await callAI(`Você é um analista de produto de um blog de saúde emocional. Com base nestes números de analytics, escreva um resumo curto e 3 a 5 recomendações práticas (melhorar CTA, atualizar artigo, criar pauta, corrigir SEO, reduzir erros). Seja específico e acionável.\n\n${resumo}`, { size: 'médio' })
       setAiText(out)
     } catch (e) { setAiText('Falha ao gerar: ' + (e instanceof Error ? e.message : String(e))) }
@@ -470,7 +564,20 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
         )}
 
         {tab === 'ai' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            <div>
+              <h2 className="font-serif text-2xl text-forest-900">Painel de crescimento</h2>
+              <p className="text-sm text-ink-soft mt-1">Tendências do período ({PERIODS.find(p => p.id === period)!.label}) · visitas {growth.trend}. Use 30 ou 90 dias para ver a evolução.</p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <LineChartCard title="Visitas por dia" series={growth.visits} subtitle="sessões" />
+              <LineChartCard title="Cadastros por dia" series={growth.su} subtitle="novos" />
+              <LineChartCard title="Conversões por dia" series={growth.cv} subtitle="assinaturas" />
+              <LineChartCard title="Pageviews por dia" series={growth.pv} subtitle="páginas" />
+              <BarChartCard title="Fontes de tráfego" subtitle="de onde vieram as visitas" data={growth.sources} />
+              <BarChartCard title="Dispositivos" subtitle="por sessão" data={growth.devices} />
+            </div>
+
             <div className={card}>
               <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                 <h2 className="font-serif text-xl text-forest-900">Relatório com IA</h2>
