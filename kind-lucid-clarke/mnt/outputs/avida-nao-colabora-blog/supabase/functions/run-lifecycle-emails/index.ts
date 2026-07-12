@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import Stripe from 'npm:stripe@14'
 
 // ─── E-mails de ciclo de vida (cron diário) ──────────────────────────────────
 // Dispara automaticamente, por regra, os templates: weekly_report_available,
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
   const now = new Date()
   const isMonday = (now.getUTCDay() === 1)
   let sent = 0
-  const summary: Record<string, number> = { weekly_report: 0, new_content: 0, checkin: 0, reengagement: 0, trial_ending: 0 }
+  const summary: Record<string, number> = { weekly_report: 0, new_content: 0, checkin: 0, reengagement: 0, trial_ending: 0, card_expiring: 0 }
 
   // Envia um e-mail via send-transactional-email (idempotência protege duplicados).
   async function send(to: string, template_key: string, variables: Record<string, unknown>, idem: string, user_id: string | null) {
@@ -63,9 +64,9 @@ Deno.serve(async (req) => {
 
   // ── Dados base ──
   const { data: profiles } = await admin.from('profiles')
-    .select('user_id, email, full_name, plan, email_notifications, subscription_status, created_at')
+    .select('user_id, email, full_name, plan, email_notifications, subscription_status, created_at, stripe_customer_id')
     .eq('email_notifications', true).not('email', 'is', null).limit(3000)
-  const users = (profiles ?? []) as { user_id: string; email: string; full_name: string | null; plan: string; subscription_status: string | null; created_at: string }[]
+  const users = (profiles ?? []) as { user_id: string; email: string; full_name: string | null; plan: string; subscription_status: string | null; created_at: string; stripe_customer_id: string | null }[]
 
   // Última entrada de diário por usuário (últimos 45 dias)
   const since45 = new Date(now.getTime() - 45 * 86400000).toISOString()
@@ -140,6 +141,37 @@ Deno.serve(async (req) => {
       if (await send(u.email, 'new_content_published', { nome, titulo: a.title, resumo, link_conteudo: `${SITE}/blog/${a.slug}` }, `new_content:${u.user_id}:${dayStamp(now)}`, u.user_id)) summary.new_content++
     }
   } catch { /* ignora */ }
+
+  // ── Cartão a vencer (via Stripe) — só nos dias 1 e 15, p/ limitar chamadas ──
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+  if (stripeKey && [1, 15].includes(now.getUTCDate())) {
+    try {
+      const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' as Stripe.LatestApiVersion })
+      const nowMonths = now.getUTCFullYear() * 12 + (now.getUTCMonth() + 1)
+      const candidates = users.filter(u =>
+        (PLAN_RANK[u.plan] ?? 0) >= 1 &&
+        (!u.subscription_status || ['active', 'trialing'].includes(u.subscription_status)) &&
+        u.stripe_customer_id)
+      for (const u of candidates) {
+        if (sent >= MAX_PER_RUN) break
+        try {
+          const cust = await stripe.customers.retrieve(u.stripe_customer_id!, { expand: ['invoice_settings.default_payment_method'] }) as { invoice_settings?: { default_payment_method?: { card?: { exp_month?: number; exp_year?: number } } } }
+          let card = cust.invoice_settings?.default_payment_method?.card
+          if (!card?.exp_month) {
+            const pms = await stripe.paymentMethods.list({ customer: u.stripe_customer_id!, type: 'card', limit: 1 })
+            card = (pms.data[0] as { card?: { exp_month?: number; exp_year?: number } } | undefined)?.card
+          }
+          if (!card?.exp_month || !card?.exp_year) continue
+          const expMonths = card.exp_year * 12 + card.exp_month
+          const diff = expMonths - nowMonths
+          if (diff >= 0 && diff <= 1) { // vence este mês ou no próximo
+            const nome = (u.full_name || '').split(' ')[0] || 'Olá'
+            if (await send(u.email, 'card_expiring', { nome, plano: PLAN_LABEL[u.plan] ?? u.plan, link_meu_plano: `${SITE}/meu-plano` }, `card_expiring:${u.user_id}:${monthStamp(now)}`, u.user_id)) summary.card_expiring++
+          }
+        } catch { /* cliente sem cartão / erro Stripe — pula */ }
+      }
+    } catch { /* Stripe indisponível */ }
+  }
 
   return json({ ok: true, sent, summary })
 })
