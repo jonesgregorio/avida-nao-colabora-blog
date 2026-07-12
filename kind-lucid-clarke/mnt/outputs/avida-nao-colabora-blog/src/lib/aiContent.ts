@@ -388,7 +388,6 @@ export interface UserProfileData {
   ticketCount: number
   guidanceCount: number
   guidancePending: number
-  sessionsCount: number
   commentsCount: number
   reportsCount: number
   topTags: string[]
@@ -417,7 +416,6 @@ DADOS DO USUÁRIO (agregados, sem identificação pessoal):
 - Itens salvos na Caixa de Cuidado: ${data.savedCount}
 - Tickets de suporte: ${data.ticketCount}
 - Orientações enviadas: ${data.guidanceCount} (${data.guidancePending} aguardando resposta)
-- Sessões realizadas (legado): ${data.sessionsCount}
 - Comentários profissionais recebidos: ${data.commentsCount}
 - Relatórios gerados: ${data.reportsCount}
 ${data.topTags.length > 0 ? `- Marcadores mais frequentes: ${data.topTags.join(', ')}` : ''}

@@ -212,7 +212,7 @@ export default function AdminUsers() {
   const [aiCurrentSummary, setAiCurrentSummary] = useState<string>('')
   const [aiSaving, setAiSaving] = useState(false)
   const [aiExtraMetrics, setAiExtraMetrics] = useState({
-    guidanceCount: 0, guidancePending: 0, sessionsCount: 0,
+    guidanceCount: 0, guidancePending: 0,
     commentsCount: 0, reportsCount: 0, topTags: [] as string[], avgMood: 0,
   })
   const [aiExtraLoaded, setAiExtraLoaded] = useState(false)
@@ -339,9 +339,8 @@ export default function AdminUsers() {
   }
 
   async function loadAiExtraMetrics(userId: string) {
-    const [guidanceRes, sessionsRes, commentsRes, reportsRes, diaryTagsRes] = await Promise.all([
+    const [guidanceRes, commentsRes, reportsRes, diaryTagsRes] = await Promise.all([
       supabase.from('monthly_guidance_requests').select('id, status').eq('user_id', userId),
-      supabase.from('user_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('professional_comments').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('monthly_reports').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('diary_entries').select('emotional_tags, mood').eq('user_id', userId).limit(100),
@@ -360,7 +359,6 @@ export default function AdminUsers() {
     setAiExtraMetrics({
       guidanceCount: guidance.length,
       guidancePending: guidance.filter(g => g.status === 'open').length,
-      sessionsCount: sessionsRes.count ?? 0,
       commentsCount: commentsRes.count ?? 0,
       reportsCount: reportsRes.count ?? 0,
       topTags,
@@ -384,7 +382,6 @@ export default function AdminUsers() {
         ticketCount: metrics.tickets,
         guidanceCount: aiExtraMetrics.guidanceCount,
         guidancePending: aiExtraMetrics.guidancePending,
-        sessionsCount: aiExtraMetrics.sessionsCount,
         commentsCount: aiExtraMetrics.commentsCount,
         reportsCount: aiExtraMetrics.reportsCount,
         topTags: aiExtraMetrics.topTags,
@@ -413,7 +410,6 @@ export default function AdminUsers() {
         diary: metrics.diary,
         questionnaires: metrics.questionnaires,
         guidance: aiExtraMetrics.guidanceCount,
-        sessions: aiExtraMetrics.sessionsCount,
         topTags: aiExtraMetrics.topTags,
       },
       provider: 'pollinations',
@@ -1585,7 +1581,6 @@ export default function AdminUsers() {
                             ['Tickets', metrics.tickets],
                             ['Orientações', aiExtraMetrics.guidanceCount],
                             ['Orient. pendentes', aiExtraMetrics.guidancePending],
-                            ['Sessões (legado)', aiExtraMetrics.sessionsCount],
                             ['Coment. profissionais', aiExtraMetrics.commentsCount],
                             ['Relatórios', aiExtraMetrics.reportsCount],
                           ].map(([l, v]) => (
