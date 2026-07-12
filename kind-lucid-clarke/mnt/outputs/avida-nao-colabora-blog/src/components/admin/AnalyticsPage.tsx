@@ -222,6 +222,34 @@ function topCount<T>(rows: T[], keyFn: (r: T) => string | null, n = 8) {
   return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
 }
 
+function computeMetrics(evs: Ev[]) {
+  const count = (e: string) => evs.filter(x => x.event === e).length
+  const sessions = new Set(evs.map(e => e.session_id).filter(Boolean)).size
+  const visitors = new Set(evs.map(e => e.user_id || e.session_id).filter(Boolean)).size
+  return {
+    sessions, visitors,
+    pageviews: count('page_view') || count('article_view'),
+    articleViews: count('article_view'),
+    ctaClicks: count('cta_click'),
+    errors404: count('error_404'),
+  }
+}
+
+// Badge de variação vs. período anterior. goodWhenUp=false inverte a cor (ex.: erros).
+function Delta({ cur, prev, goodWhenUp = true }: { cur: number; prev: number; goodWhenUp?: boolean }) {
+  if (prev === 0 && cur === 0) return <span className="text-[11px] text-stone-400">— sem base anterior</span>
+  if (prev === 0) return <span className="text-[11px] font-medium text-forest-600">novo no período</span>
+  const pct = Math.round(((cur - prev) / prev) * 100)
+  if (pct === 0) return <span className="text-[11px] text-stone-400">estável</span>
+  const up = pct > 0
+  const good = up === goodWhenUp
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${good ? 'text-green-600' : 'text-red-500'}`}>
+      {up ? '▲' : '▼'} {Math.abs(pct)}%
+    </span>
+  )
+}
+
 export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: string) => void }) {
   const [period, setPeriod] = useState<Period>('30d')
   const [tab, setTab] = useState<Tab>(() => {
@@ -229,8 +257,11 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   })
   const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState<Ev[]>([])
+  const [prevEvents, setPrevEvents] = useState<Ev[]>([])
   const [signups, setSignups] = useState(0)
   const [conversions, setConversions] = useState(0)
+  const [prevSignups, setPrevSignups] = useState(0)
+  const [prevConversions, setPrevConversions] = useState(0)
   const [signupDates, setSignupDates] = useState<string[]>([])
   const [conversionDates, setConversionDates] = useState<string[]>([])
   const [readTop, setReadTop] = useState<[string, number][]>([])
@@ -240,15 +271,21 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
   const [aiHistoryKey, setAiHistoryKey] = useState(0)
   const [redirectFrom, setRedirectFrom] = useState('')
 
-  const since = useMemo(() => new Date(Date.now() - (PERIODS.find(p => p.id === period)!.days) * 86400000).toISOString(), [period])
+  const days = PERIODS.find(p => p.id === period)!.days
+  const since = useMemo(() => new Date(Date.now() - days * 86400000).toISOString(), [days])
+  // Janela imediatamente anterior, do mesmo tamanho (para comparativo).
+  const prevSince = useMemo(() => new Date(Date.now() - days * 2 * 86400000).toISOString(), [days])
 
   async function load() {
     setLoading(true)
-    const [evRes, upRes, chRes, rhRes] = await Promise.all([
+    const [evRes, upRes, chRes, rhRes, prevEvRes, prevUpRes, prevChRes] = await Promise.all([
       supabase.from('analytics_events').select('event, entity_id, entity_title, session_id, user_id, user_agent, referrer, metadata, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20000),
       supabase.from('profiles').select('created_at').gte('created_at', since).limit(50000),
       supabase.from('plan_change_history').select('created_at').gte('created_at', since).in('change_type', ['upgrade', 'new']).limit(50000),
       supabase.from('reading_history').select('article_slug').gte('created_at', since).limit(20000),
+      supabase.from('analytics_events').select('event, session_id, user_id, user_agent, created_at').gte('created_at', prevSince).lt('created_at', since).limit(20000),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since),
+      supabase.from('plan_change_history').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since).in('change_type', ['upgrade', 'new']),
     ])
     setEvents((evRes.data as Ev[]) ?? [])
     const upRows = (upRes.data as { created_at: string }[]) ?? []
@@ -256,29 +293,21 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     setSignups(upRows.length); setSignupDates(upRows.map(r => r.created_at))
     setConversions(chRows.length); setConversionDates(chRows.map(r => r.created_at))
     setReadTop(topCount((rhRes.data as { article_slug: string }[]) ?? [], r => r.article_slug, 5))
+    setPrevEvents((prevEvRes.data as Ev[]) ?? [])
+    setPrevSignups(prevUpRes.count ?? 0)
+    setPrevConversions(prevChRes.count ?? 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [since]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function switchTab(id: Tab) { setTab(id); try { localStorage.setItem('admin-analytics-tab', id) } catch { /* noop */ } }
 
-  // ── Métricas derivadas dos eventos ──
-  const m = useMemo(() => {
-    const count = (e: string) => events.filter(x => x.event === e).length
-    const sessions = new Set(events.map(e => e.session_id).filter(Boolean)).size
-    const visitors = new Set(events.map(e => e.user_id || e.session_id).filter(Boolean)).size
-    return {
-      sessions, visitors,
-      pageviews: count('page_view') || count('article_view'),
-      articleViews: count('article_view'),
-      ctaClicks: count('cta_click'),
-      errors404: count('error_404'),
-    }
-  }, [events])
+  // ── Métricas derivadas dos eventos (atual e período anterior) ──
+  const m = useMemo(() => computeMetrics(events), [events])
+  const prevM = useMemo(() => computeMetrics(prevEvents), [prevEvents])
 
   // ── Séries diárias para os gráficos de crescimento ──
   const growth = useMemo(() => {
-    const days = PERIODS.find(p => p.id === period)!.days
     const dayList: string[] = []
     const today = new Date()
     for (let i = days - 1; i >= 0; i--) dayList.push(new Date(today.getTime() - i * 86400000).toISOString().slice(0, 10))
@@ -314,7 +343,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     const trend = sh > fh * 1.1 ? 'crescente' : sh < fh * 0.9 ? 'em queda' : 'estável'
 
     return { visits, pv, su, cv, sources, devices, trend }
-  }, [events, signupDates, conversionDates, period])
+  }, [events, signupDates, conversionDates, days])
 
   function exportCSV() {
     const rows = [['event', 'entity', 'session', 'user', 'created_at'], ...events.slice(0, 5000).map(e => [e.event, e.entity_title ?? e.entity_id ?? '', e.session_id ?? '', e.user_id ?? '', e.created_at])]
@@ -327,7 +356,8 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     setAiBusy(true); setAiText('')
     try {
       const fontes = growth.sources.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'
-      const resumo = `Período: ${PERIODS.find(p => p.id === period)!.label}. Sessões: ${m.sessions}. Visitantes: ${m.visitors}. Pageviews: ${m.pageviews}. Cliques em CTA: ${m.ctaClicks}. Cadastros: ${signups}. Conversões para plano: ${conversions}. Erros 404: ${m.errors404}. Tendência de visitas: ${growth.trend}. Principais fontes de tráfego: ${fontes}. Artigos mais lidos: ${readTop.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'}.`
+      const comp = `Comparado ao período anterior de mesmo tamanho — visitantes: ${prevM.visitors}, cadastros: ${prevSignups}, conversões: ${prevConversions}.`
+      const resumo = `Período: ${PERIODS.find(p => p.id === period)!.label}. Sessões: ${m.sessions}. Visitantes: ${m.visitors}. Pageviews: ${m.pageviews}. Cliques em CTA: ${m.ctaClicks}. Cadastros: ${signups}. Conversões para plano: ${conversions}. Erros 404: ${m.errors404}. Tendência de visitas: ${growth.trend}. ${comp} Principais fontes de tráfego: ${fontes}. Artigos mais lidos: ${readTop.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'}.`
       const out = await callAI(`Você é um analista de produto de um blog de saúde emocional. Com base nestes números de analytics, escreva um resumo curto e 3 a 5 recomendações práticas (melhorar CTA, atualizar artigo, criar pauta, corrigir SEO, reduzir erros). Seja específico e acionável.\n\n${resumo}`, { size: 'médio' })
       setAiText(out)
     } catch (e) { setAiText('Falha ao gerar: ' + (e instanceof Error ? e.message : String(e))) }
@@ -347,14 +377,14 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
 
   const card = 'bg-white border border-line rounded-2xl p-5'
   const metricCards = [
-    { n: m.visitors, label: 'Visitantes' },
-    { n: m.sessions, label: 'Sessões' },
-    { n: m.pageviews, label: 'Pageviews' },
-    { n: m.articleViews, label: 'Leituras de artigo' },
-    { n: m.ctaClicks, label: 'Cliques em CTA' },
-    { n: signups, label: 'Cadastros' },
-    { n: conversions, label: 'Conversões p/ plano' },
-    { n: m.errors404, label: 'Erros 404' },
+    { n: m.visitors, prev: prevM.visitors, label: 'Visitantes' },
+    { n: m.sessions, prev: prevM.sessions, label: 'Sessões' },
+    { n: m.pageviews, prev: prevM.pageviews, label: 'Pageviews' },
+    { n: m.articleViews, prev: prevM.articleViews, label: 'Leituras de artigo' },
+    { n: m.ctaClicks, prev: prevM.ctaClicks, label: 'Cliques em CTA' },
+    { n: signups, prev: prevSignups, label: 'Cadastros' },
+    { n: conversions, prev: prevConversions, label: 'Conversões p/ plano' },
+    { n: m.errors404, prev: prevM.errors404, label: 'Erros 404', goodWhenUp: false },
   ]
 
   return (
@@ -398,9 +428,16 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
 
         {tab === 'overview' && (
           <div className="space-y-6">
+            <p className="text-xs text-ink-soft -mb-2">Comparado com os {days} dias anteriores.</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {metricCards.map(c => (
-                <div key={c.label} className={card}><p className="font-serif text-3xl text-forest-900">{loading ? '—' : c.n}</p><p className="text-sm text-ink-soft mt-1">{c.label}</p></div>
+                <div key={c.label} className={card}>
+                  <p className="font-serif text-3xl text-forest-900">{loading ? '—' : c.n}</p>
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <p className="text-sm text-ink-soft">{c.label}</p>
+                    {!loading && <Delta cur={c.n} prev={c.prev} goodWhenUp={c.goodWhenUp ?? true} />}
+                  </div>
+                </div>
               ))}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
