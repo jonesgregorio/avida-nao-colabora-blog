@@ -41,6 +41,31 @@ async function genAI(prompt: string): Promise<string> {
   throw new Error('Nenhum provedor de IA respondeu')
 }
 
+// Snapshot agregado do usuário (mesmos dados da tela de Recomendações IA).
+// deno-lint-ignore no-explicit-any
+async function buildSnapshot(admin: any, userId: string, plan: string, taskKey: string) {
+  const [dc, dd, qc, sc, ar] = await Promise.all([
+    admin.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    admin.from('diary_entries').select('mood, tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
+    admin.from('questionnaire_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    admin.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    admin.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event_type', 'article_read'),
+  ])
+  const tagFreq: Record<string, number> = {}
+  let moodSum = 0, moodCount = 0
+  for (const d of (dd.data ?? []) as { tags?: unknown[]; mood?: number }[]) {
+    if (Array.isArray(d.tags)) for (const t of d.tags) tagFreq[t as string] = (tagFreq[t as string] ?? 0) + 1
+    if (d.mood) { moodSum += d.mood; moodCount++ }
+  }
+  const topMarkers = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
+  return {
+    plan, task: taskKey, period: new Date().toISOString().slice(0, 7),
+    diaryCount: dc.count ?? 0, topMarkers,
+    avgMood: moodCount > 0 ? Math.round((moodSum / moodCount) * 10) / 10 : null,
+    questionnaireCount: qc.count ?? 0, articlesRead: ar.count ?? 0, savedCount: sc.count ?? 0,
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
@@ -123,5 +148,37 @@ Não use markdown pesado, não dê diagnóstico e não prometa cura.`
     }
   }
 
-  return json({ ran: results.length, results })
+  // ── Personalização por usuário: gera RASCUNHOS para tarefas pendentes ──
+  // NUNCA envia — só cria o rascunho (status 'draft') na fila de revisão do
+  // admin (Conteúdos → Recomendações IA). O envio continua sendo manual.
+  let persDrafts = 0
+  try {
+    const { data: tasks } = await admin.from('user_personalization_tasks')
+      .select('id, user_id, task_key, task_title, plan_key, content_type, target_area')
+      .eq('status', 'pending').limit(10)
+    for (const t of tasks ?? []) {
+      try {
+        const snap = await buildSnapshot(admin, t.user_id, t.plan_key, t.task_key)
+        const marcadores = snap.topMarkers.length ? snap.topMarkers.join(', ') : 'ainda poucos registros'
+        const humor = snap.avgMood ? `humor médio ${snap.avgMood}/5` : 'sem humor registrado ainda'
+        const prompt = `Escreva um conteúdo pessoal e acolhedor para UMA pessoa usuária de um app de saúde emocional, sobre "${t.task_title}".
+Contexto (dados agregados, sem identificar a pessoa): plano ${t.plan_key}; ${snap.diaryCount} registros no diário; marcadores mais frequentes: ${marcadores}; ${humor}.
+Fale em segunda pessoa (você), tom acolhedor, português brasileiro. Reconheça o esforço da pessoa, traga 1 reflexão e 1 ou 2 sugestões práticas simples ligadas aos marcadores. NÃO dê diagnóstico, NÃO prometa cura, NÃO afirme condição clínica. Termine com uma frase gentil. Este é um RASCUNHO que será revisado por um humano antes de enviar.`
+        const body = await genAI(prompt)
+        const title = t.task_title || 'Conteúdo personalizado'
+        const { data: del } = await admin.from('personalized_content_deliveries').insert({
+          user_id: t.user_id, created_by: null, plan_key: t.plan_key, content_type: t.content_type,
+          title, body, target_area: t.target_area ?? 'my_evolution', data_snapshot: snap,
+          ai_generated: true, status: 'draft', task_id: t.id,
+        }).select('id').single()
+        await admin.from('user_personalization_tasks').update({
+          status: 'draft', delivery_id: (del as { id?: string } | null)?.id ?? null,
+          generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }).eq('id', t.id)
+        persDrafts++
+      } catch { /* pula esta tarefa e segue */ }
+    }
+  } catch { /* tabela indisponível */ }
+
+  return json({ ran: results.length, personalized_drafts: persDrafts, results })
 })
