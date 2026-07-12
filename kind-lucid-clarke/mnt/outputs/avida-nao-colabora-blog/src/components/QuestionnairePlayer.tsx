@@ -279,6 +279,19 @@ export default function QuestionnairePlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionnaireId])
 
+  // Blindagem do "Continuar": se o passo restaurado (current_step) ficar fora do
+  // intervalo de perguntas — ex.: questionário editado depois de salvar o
+  // progresso — o passo é reancorado à 1ª pergunta sem resposta (ou à última).
+  // Sem isso, entrar em "playing" com currentQ indefinido deixava a tela em branco.
+  useEffect(() => {
+    if (questions.length === 0) return
+    if (step < 0 || step > questions.length - 1) {
+      const firstUnanswered = questions.findIndex(q => !answers[q.id])
+      setStep(firstUnanswered === -1 ? questions.length - 1 : firstUnanswered)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, step])
+
   // ── Compute result ─────────────────────────────────────────────────────────
   function computeResult(): { totalScore: number; allTags: string[]; resultId: string | null; matched: QResult | null } {
     const cur = answersRef.current
@@ -521,6 +534,19 @@ export default function QuestionnairePlayer({
           <p className="text-xs text-stone-400 mt-4">{questionnaire.disclaimer}</p>
         </div>
       </section>
+    )
+  }
+
+  // Fase "playing" sem pergunta válida (passo sendo reancorado pelo efeito de
+  // blindagem): mostra um loader curto em vez de tela em branco.
+  if (phase === 'playing' && !currentQ) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-64 gap-3">
+        <div className="w-6 h-6 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
+        {questions.length === 0 && (
+          <button onClick={onBack} className="text-sm text-stone-500 hover:underline">← Voltar</button>
+        )}
+      </div>
     )
   }
 
