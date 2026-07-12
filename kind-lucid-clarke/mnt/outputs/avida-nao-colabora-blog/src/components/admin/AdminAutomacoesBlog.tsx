@@ -114,7 +114,9 @@ export default function AdminAutomacoesBlog() {
       </div>
 
       <div className="border border-[#e6d8b0] bg-[#fbf6e6] text-[#7a5c12] rounded-xl px-4 py-2.5 text-sm mb-5">
-        A <strong>execução automática</strong> (rodar sozinha na frequência) exige um agendador no servidor (cron/Edge Function) — próximo passo. Por enquanto: você gerencia as regras aqui e usa o botão <strong>“Publicar agendados vencidos”</strong> como gatilho manual real.
+        <strong>Publicação de agendados</strong> roda sozinha a cada 10 min (pg_cron). A <strong>geração por IA</strong> roda de hora em hora assim que você fizer <em>uma vez</em> no SQL Editor:
+        <code className="mx-1 px-1.5 py-0.5 bg-white/70 rounded text-[12px]">select vault.create_secret('&lt;SERVICE_ROLE_KEY&gt;', 'service_role_key');</code>
+        (a service_role fica em Project Settings → API). Sem isso, nada quebra — só não gera sozinho. O botão abaixo é o gatilho manual.
       </div>
 
       {showNew && (

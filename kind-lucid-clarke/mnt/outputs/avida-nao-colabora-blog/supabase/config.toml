@@ -48,3 +48,8 @@ verify_jwt = false
 # self-service), então o gateway não deve bloquear por JWT.
 [functions.send-transactional-email]
 verify_jwt = false
+
+# run-automations é chamada pelo pg_cron via pg_net (sem JWT de usuário). A
+# própria função valida o service role no header, então o gateway não bloqueia.
+[functions.run-automations]
+verify_jwt = false
