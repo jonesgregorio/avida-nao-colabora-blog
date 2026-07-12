@@ -10,7 +10,7 @@ import {
   Plus, Trash2, Save, ArrowRight, Check, HelpCircle, ChevronDown, FileDown,
 } from 'lucide-react'
 
-const ANALYTICS_VERSION = 'v4 · jul/2026' // selo para confirmar que o bundle novo está no ar
+const ANALYTICS_VERSION = 'v5 · jul/2026' // selo para confirmar que o bundle novo está no ar
 
 type Period = 'today' | '7d' | '30d' | '90d'
 const PERIODS: { id: Period; label: string; days: number }[] = [
@@ -442,12 +442,12 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     { n: m.visitors, prev: prevM.visitors, label: 'Visitantes' },
     { n: m.sessions, prev: prevM.sessions, label: 'Sessões' },
     { n: m.pageviews, prev: prevM.pageviews, label: 'Pageviews' },
-    { n: m.articleViews, prev: prevM.articleViews, label: 'Leituras de artigo' },
-    { n: m.ctaClicks, prev: prevM.ctaClicks, label: 'Cliques em CTA' },
-    { n: signups, prev: prevSignups, label: 'Cadastros' },
-    { n: conversions, prev: prevConversions, label: 'Conversões p/ plano' },
-    { n: m.errors404, prev: prevM.errors404, label: 'Erros 404', goodWhenUp: false },
-  ]
+    { n: m.articleViews, prev: prevM.articleViews, label: 'Leituras de artigo', rate: `${pct(m.articleViews, m.pageviews)} das pageviews` },
+    { n: m.ctaClicks, prev: prevM.ctaClicks, label: 'Cliques em CTA', rate: `${pct(m.ctaClicks, m.visitors)} dos visitantes` },
+    { n: signups, prev: prevSignups, label: 'Cadastros', rate: `${pct(signups, m.visitors)} dos visitantes` },
+    { n: conversions, prev: prevConversions, label: 'Conversões p/ plano', rate: `${pct(conversions, m.visitors)} dos visitantes` },
+    { n: m.errors404, prev: prevM.errors404, label: 'Erros 404', goodWhenUp: false, rate: `${pct(m.errors404, m.pageviews)} das pageviews` },
+  ] as { n: number; prev: number; label: string; goodWhenUp?: boolean; rate?: string }[]
 
   return (
     <div className="flex flex-col min-h-0">
@@ -503,6 +503,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
                     <p className="text-sm text-ink-soft">{c.label}</p>
                     {!loading && <Delta cur={c.n} prev={c.prev} goodWhenUp={c.goodWhenUp ?? true} />}
                   </div>
+                  {!loading && c.rate && <p className="text-[11px] text-forest-600 mt-1">{c.rate}</p>}
                 </div>
               ))}
             </div>

@@ -50,6 +50,7 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
   const totalSaves = perf.reduce((s, p) => s + p.saves, 0)
   const totalFb = perf.reduce((s, p) => s + p.pos + p.neg, 0)
   const published = perf.filter(p => p.art.status === 'published').length
+  const pct = (n: number, t: number) => t <= 0 ? '0%' : (() => { const v = (n / t) * 100; return `${v < 10 && v > 0 ? v.toFixed(1) : Math.round(v)}%` })()
 
   const sorted = [...perf].sort((a, b) => order === 'top' ? b.views - a.views : a.views - b.views).slice(0, 25)
 
@@ -89,15 +90,16 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { n: totalViews, label: 'Leituras totais', Icon: TrendingUp },
-          { n: totalSaves, label: 'Salvamentos', Icon: Bookmark },
-          { n: totalFb, label: 'Feedbacks', Icon: ThumbsUp },
-          { n: published, label: 'Publicados', Icon: TrendingUp },
+          { n: totalViews, label: 'Leituras totais', Icon: TrendingUp, sub: `${(totalViews / Math.max(1, published)).toFixed(1)} por artigo publicado` },
+          { n: totalSaves, label: 'Salvamentos', Icon: Bookmark, sub: `${pct(totalSaves, totalViews)} das leituras` },
+          { n: totalFb, label: 'Feedbacks', Icon: ThumbsUp, sub: `${pct(totalFb, totalViews)} das leituras` },
+          { n: published, label: 'Publicados', Icon: TrendingUp, sub: `${pct(published, perf.length)} dos artigos` },
         ].map(m => (
           <div key={m.label} className="bg-white border border-line rounded-2xl p-5">
             <m.Icon className="w-5 h-5 text-forest-600" />
             <p className="font-serif text-3xl text-forest-900 mt-2">{loading ? '—' : m.n}</p>
             <p className="text-sm text-ink-soft mt-1">{m.label}</p>
+            {!loading && <p className="text-xs text-forest-600 mt-0.5">{m.sub}</p>}
           </div>
         ))}
       </div>
@@ -120,8 +122,8 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
                     <p className="text-sm font-medium text-forest-900 truncate">{p.art.title}</p>
                     <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mt-1"><div className="h-full bg-forest-500" style={{ width: `${(p.views / maxV) * 100}%` }} /></div>
                   </button>
-                  <div className="text-right text-xs text-ink-soft w-28 flex-shrink-0">
-                    <span title="Leituras">{p.views}👁</span> · <span title="Salvos">{p.saves}🔖</span> · <span title="Feedback +/-">{p.pos}/{p.neg}</span>
+                  <div className="text-right text-xs text-ink-soft w-36 flex-shrink-0">
+                    <span title="Leituras">{p.views}👁</span> · <span title="% do total de leituras" className="text-forest-600">{pct(p.views, totalViews)}</span> · <span title="Salvos">{p.saves}🔖</span> · <span title="Feedback +/-">{p.pos}/{p.neg}</span>
                   </div>
                 </div>
               ))}
@@ -136,9 +138,9 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
           ) : (
             <div className="space-y-2">
               {topCats.map(([c, v]) => (
-                <div key={c} className="flex items-center justify-between text-sm">
+                <div key={c} className="flex items-center justify-between text-sm gap-2">
                   <span className="text-forest-900 truncate">{c}</span>
-                  <span className="text-ink-soft">{v}</span>
+                  <span className="text-ink-soft whitespace-nowrap">{v} · {pct(v, totalViews)}</span>
                 </div>
               ))}
             </div>
