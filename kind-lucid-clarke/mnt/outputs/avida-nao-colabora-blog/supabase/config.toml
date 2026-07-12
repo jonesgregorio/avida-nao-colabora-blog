@@ -53,3 +53,7 @@ verify_jwt = false
 # própria função valida o service role no header, então o gateway não bloqueia.
 [functions.run-automations]
 verify_jwt = false
+
+# run-lifecycle-emails é chamada pelo pg_cron via pg_net (autentica por token).
+[functions.run-lifecycle-emails]
+verify_jwt = false
