@@ -1,14 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { exportElementToPdf } from '../lib/exportPdf'
 import { supabase } from '../lib/supabase'
 import { DiaryEntry, Plan } from '../types'
 import { hasPlanAccess } from '../lib/officialPlans'
 import {
   Lock, TrendingUp, BarChart2, FileText, Star,
-  Loader2, Calendar, BookOpen, MessageCircle,
+  Loader2, Calendar, BookOpen, MessageCircle, Sparkles, Compass, AlertTriangle,
+  Sprout, HelpCircle, Send, Clock, ArrowRight,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { computeEmotionalAnalysis, buildDeepReport, type DiaryRowLite } from '../lib/emotionalAnalytics'
+import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
 
 interface Props {
   user: User | null
@@ -17,7 +20,11 @@ interface Props {
   onNavigatePricing: () => void
   onNavigateDiary: () => void
   onNavigateGuidance: () => void
+  onNavigateSelfCare?: () => void
+  onOpenArticle?: (slug: string) => void
 }
+
+const DEEP_DISCLAIMER = 'Este relatório é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
 
 interface ProfessionalComment {
   id: string
@@ -171,12 +178,23 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
   )
 }
 
+// Linha do plano de autocuidado sugerido (Plus)
+function SelfCareRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-l-2 border-forest-200 pl-3">
+      <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide">{label}</p>
+      <p className="text-sm text-stone-700 leading-snug">{value}</p>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance }: Props) {
+export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance, onNavigateSelfCare, onOpenArticle }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
   const isEssential = hasPlanAccess(plan, 'essential')
   const isPlus = hasPlanAccess(plan, 'plus')
+  const [recommended, setRecommended] = useState<RecommendedContent[]>([])
 
   const monthOptions = buildMonthOptions()
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value)
@@ -270,11 +288,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     .filter(e => e.sleep_quality != null)
     .map(e => ({ day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '', value: e.sleep_quality! }))
 
-  // Comparison prev month
-  const prevMoodScores = prevEntries.map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3)
-  const prevAvgMood = avg(prevMoodScores)
-  const moodDiff = prevAvgMood > 0 ? +(avgMood - prevAvgMood).toFixed(1) : null
-
   const tagFreq: Record<string, number> = {}
   for (const e of diaryEntries) {
     for (const t of e.emotional_tags ?? []) {
@@ -282,6 +295,22 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     }
   }
   const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  // ─── Relatório Mensal Aprofundado (Plus): análise + narrativa ──────────────
+  const analysis = useMemo(
+    () => computeEmotionalAnalysis(entries as DiaryRowLite[], prevEntries as DiaryRowLite[]),
+    [entries, prevEntries],
+  )
+  const deep = useMemo(() => buildDeepReport(analysis, monthLabel(selectedMonth)), [analysis, selectedMonth])
+
+  useEffect(() => {
+    if (!isPlus || deep.recommendTags.length === 0) { setRecommended([]); return }
+    let active = true
+    recommendGuidedContent(plan, deep.recommendTags, 3)
+      .then(r => { if (active) setRecommended(r) })
+      .catch(() => { if (active) setRecommended([]) })
+    return () => { active = false }
+  }, [isPlus, plan, deep.recommendTags])
 
   // ─── Print/PDF ────────────────────────────────────────────────────────────
 
@@ -465,64 +494,144 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           />
         )}
 
-        {/* ─── SEÇÃO 3: Relatório comparativo (Plus) ─────────── */}
+        {/* ─── RELATÓRIO MENSAL APROFUNDADO (Plus) ─────────── */}
         {isPlus ? (
-          <Section icon={<BarChart2 className="w-4 h-4" />} title="Análise comparativa" badge="Plus">
-            <div className="space-y-5">
-              {/* Comparação com mês anterior */}
-              {prevAvgMood > 0 && (
-                <div className="flex items-center gap-3 bg-stone-50 rounded-xl p-4">
-                  <div className="flex-1">
-                    <p className="text-xs text-stone-500 mb-0.5">Comparação com o mês anterior</p>
-                    <p className="text-sm font-semibold text-sage-800">
-                      Humor: {avgMood}/5
-                      {moodDiff !== null && (
-                        <span className={`ml-2 text-xs font-medium ${moodDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                          {moodDiff >= 0 ? `+${moodDiff}` : moodDiff} vs mês anterior
-                        </span>
-                      )}
-                    </p>
-                  </div>
+          <>
+            {/* 8.1 Resumo geral */}
+            <Section icon={<Sparkles className="w-4 h-4" />} title="Resumo geral do mês" badge="Plus">
+              <p className="text-sm text-forest-800 leading-relaxed">{deep.summary}</p>
+            </Section>
+
+            {/* 8.2 Padrões emocionais */}
+            <Section icon={<Compass className="w-4 h-4" />} title="Principais padrões emocionais" badge="Plus">
+              <ul className="space-y-2">
+                {deep.patterns.map((p, i) => (
+                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span><span>{p}</span></li>
+                ))}
+              </ul>
+            </Section>
+
+            {/* 8.3 Emoções predominantes */}
+            <Section icon={<BookOpen className="w-4 h-4" />} title="Emoções predominantes" badge="Plus">
+              {topTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {topTags.map(([tag, count]) => (
+                    <span key={tag} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{tag} <span className="text-forest-500">×{count}</span></span>
+                  ))}
                 </div>
               )}
+              <p className="text-sm text-stone-700 leading-relaxed">{deep.predominantEmotions}</p>
+            </Section>
 
-              {sleepData.length > 0 && (
-                <MiniBarChart data={sleepData} label="Qualidade do sono (1–5)" color="#60a5fa" />
-              )}
-
-              {/* Médias avançadas */}
-              <div className="grid grid-cols-2 gap-2">
-                {avg(diaryEntries.filter(e => e.sleep_quality != null).map(e => e.sleep_quality!)) > 0 && (
-                  <StatPill label="Sono médio" value={avg(diaryEntries.filter(e => e.sleep_quality != null).map(e => e.sleep_quality!))} unit="/5" />
-                )}
-                {avg(diaryEntries.filter(e => e.self_esteem != null).map(e => e.self_esteem!)) > 0 && (
-                  <StatPill label="Autoestima média" value={avg(diaryEntries.filter(e => e.self_esteem != null).map(e => e.self_esteem!))} unit="/5" />
-                )}
-                {avg(diaryEntries.filter(e => e.stress_level != null).map(e => e.stress_level!)) > 0 && (
-                  <StatPill label="Estresse médio" value={avg(diaryEntries.filter(e => e.stress_level != null).map(e => e.stress_level!))} unit="/5" />
-                )}
-                {avg(diaryEntries.filter(e => e.irritability != null).map(e => e.irritability!)) > 0 && (
-                  <StatPill label="Irritabilidade" value={avg(diaryEntries.filter(e => e.irritability != null).map(e => e.irritability!))} unit="/5" />
-                )}
+            {/* 8.4 Energia, ansiedade e descanso */}
+            <Section icon={<TrendingUp className="w-4 h-4" />} title="Energia, ansiedade e descanso" badge="Plus">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                <StatPill label="Energia" value={analysis.avg.energy || '—'} unit={analysis.avg.energy ? '/5' : ''} />
+                <StatPill label="Ansiedade" value={analysis.avg.anxiety || '—'} unit={analysis.avg.anxiety ? '/5' : ''} />
+                {analysis.avg.sleep > 0 && <StatPill label="Sono" value={analysis.avg.sleep} unit="/5" />}
+                {analysis.avg.stress > 0 && <StatPill label="Estresse" value={analysis.avg.stress} unit="/5" />}
               </div>
+              {sleepData.length > 0 && <MiniBarChart data={sleepData} label="Qualidade do sono (1–5)" color="#60a5fa" max={5} />}
+              <p className="text-sm text-stone-700 leading-relaxed mt-3">{deep.energyAnxietySleep}</p>
+            </Section>
 
-              {/* Orientação mensal */}
-              <div className="border-t border-stone-100 pt-4">
-                <p className="text-xs text-stone-400 mb-2">Tem dúvidas sobre seu relatório?</p>
-                <button
-                  onClick={onNavigateGuidance}
-                  className="flex items-center gap-1.5 text-xs text-forest-700 font-medium hover:text-forest-900 transition-colors"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Orientação mensal por mensagem
-                </button>
-              </div>
+            {/* 8.5 Gatilhos */}
+            <Section icon={<AlertTriangle className="w-4 h-4" />} title="Gatilhos mais recorrentes" badge="Plus">
+              <p className="text-sm text-stone-700 leading-relaxed">{deep.triggersText}</p>
+            </Section>
+
+            {/* 8.6 Dias de atenção + 8.7 Momentos de melhora */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Section icon={<Calendar className="w-4 h-4" />} title="Dias de maior atenção">
+                {deep.attentionDays.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {deep.attentionDays.map(d => (
+                      <li key={d.day} className="text-sm text-stone-700 flex gap-2"><span className="font-semibold text-forest-700">Dia {d.day}</span><span className="text-stone-500">— {d.reason}</span></li>
+                    ))}
+                    <li className="text-xs text-stone-400 pt-1">Vale observar se havia eventos, cobranças ou padrões de rotina nesses dias.</li>
+                  </ul>
+                ) : <p className="text-sm text-stone-400">Ainda sem dias suficientes para destacar.</p>}
+              </Section>
+              <Section icon={<Sprout className="w-4 h-4" />} title="Momentos de melhora">
+                <p className="text-sm text-stone-700 leading-relaxed">{deep.improvementMoments}</p>
+              </Section>
             </div>
-          </Section>
+
+            {/* 8.8 Comparação com o mês anterior */}
+            <Section icon={<BarChart2 className="w-4 h-4" />} title="Comparação com o mês anterior" badge="Plus">
+              <ul className="space-y-1.5">
+                {deep.monthlyComparison.map((c, i) => (
+                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{c}</span></li>
+                ))}
+              </ul>
+            </Section>
+
+            {/* 8.9 Conteúdos guiados recomendados */}
+            <Section icon={<Sparkles className="w-4 h-4" />} title="Conteúdos guiados recomendados" badge="Plus">
+              {recommended.length > 0 ? (
+                <>
+                  <p className="text-sm text-stone-600 mb-3">Com base nos seus registros do mês, separamos conteúdos que podem ajudar:</p>
+                  <div className="space-y-2.5">
+                    {recommended.map(rc => (
+                      <button key={rc.id} onClick={() => { if (rc.slug && onOpenArticle) onOpenArticle(rc.slug); else onNavigateDiary() }}
+                        className="w-full text-left flex items-center gap-3 bg-white border border-line rounded-xl p-3 hover:border-forest-200 hover:shadow-sm transition-all group">
+                        <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><BookOpen className="w-4 h-4" /></span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-forest-900 leading-snug line-clamp-2">{rc.title}</p>
+                          <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5"><span className="bg-mint text-forest-700 px-1.5 py-0.5 rounded-full">{rc.category}</span>{rc.readTime != null && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {rc.readTime} min</span>}</p>
+                        </div>
+                        <span className="text-xs font-medium text-forest-700 flex items-center gap-1 flex-shrink-0">Abrir <ArrowRight className="w-3.5 h-3.5" /></span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-stone-500">Não encontramos conteúdos específicos para este padrão agora, mas você pode explorar os <button onClick={onNavigateDiary} className="text-forest-700 underline">Conteúdos Guiados</button>.</p>
+              )}
+            </Section>
+
+            {/* 8.10 Plano de autocuidado sugerido */}
+            <Section icon={<Sprout className="w-4 h-4" />} title="Plano de autocuidado sugerido" badge="Plus">
+              <div className="space-y-2.5">
+                <SelfCareRow label="Prioridade do mês" value={deep.selfCarePlan.priority} />
+                <SelfCareRow label="Cuidado principal" value={deep.selfCarePlan.mainCare} />
+                <SelfCareRow label="Prática recomendada" value={deep.selfCarePlan.practice} />
+                <SelfCareRow label="Ponto de atenção" value={deep.selfCarePlan.attention} />
+                <SelfCareRow label="Pequeno compromisso" value={deep.selfCarePlan.commitment} />
+              </div>
+              {onNavigateSelfCare && (
+                <button onClick={onNavigateSelfCare} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3.5 py-2 rounded-xl hover:bg-mint/50 transition-colors">
+                  <Sprout className="w-4 h-4" /> Abrir plano de autocuidado
+                </button>
+              )}
+            </Section>
+
+            {/* 8.11 Perguntas para reflexão */}
+            <Section icon={<HelpCircle className="w-4 h-4" />} title="Perguntas para reflexão" badge="Plus">
+              <ul className="space-y-1.5 mb-3">
+                {deep.reflectionQuestions.map((q, i) => (
+                  <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">?</span><span>{q}</span></li>
+                ))}
+              </ul>
+              <button onClick={onNavigateDiary} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3.5 py-2 rounded-xl hover:bg-mint/50 transition-colors">
+                <BookOpen className="w-4 h-4" /> Responder no diário
+              </button>
+            </Section>
+
+            {/* 8.12 Síntese para orientação */}
+            <Section icon={<Send className="w-4 h-4" />} title="Síntese para orientação" badge="Plus">
+              <div className="bg-mint/40 border border-forest-100 rounded-xl p-4 mb-3">
+                <p className="text-sm text-forest-800 leading-relaxed">{deep.guidanceSynthesis}</p>
+              </div>
+              <button onClick={onNavigateGuidance} className="inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2.5 rounded-xl transition-colors">
+                <MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem
+              </button>
+            </Section>
+          </>
         ) : (
           <LockedSection
-            title="Análise comparativa mensal"
-            description="Compare seu progresso mês a mês — sono, autoestima, estresse e mais. Disponível no plano Plus."
+            title="Relatório mensal aprofundado"
+            description="Leitura completa do seu mês — padrões, gatilhos, dias de atenção, plano de autocuidado e síntese para orientação. Disponível no plano Plus."
             onUpgrade={onNavigatePricing}
           />
         )}
@@ -565,6 +674,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           />
         )}
 
+        <p className="text-xs text-ink-soft border-t border-line pt-4">{DEEP_DISCLAIMER}</p>
       </div>
     </div>
   )

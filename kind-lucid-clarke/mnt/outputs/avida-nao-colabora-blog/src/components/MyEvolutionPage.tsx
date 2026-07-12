@@ -7,9 +7,13 @@ import PlanBadge from './PlanBadge'
 import {
   BarChart2, Heart, Leaf,
   Lock, AlertCircle, TrendingUp, BookOpen, Loader2,
-  Smile, Zap, Moon, Waves,
+  Smile, Zap, Moon, Waves, Sparkles, Sun, Sunset, CloudMoon, Clock, Flame,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
+import {
+  computeEmotionalAnalysis, buildEssentialInsights, MOOD_EMOJI,
+  type DiaryRowLite, type EmotionalAnalysis,
+} from '../lib/emotionalAnalytics'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
@@ -56,21 +60,6 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
   )
 }
 
-
-function MoodBar({ label, value, max = 5 }: { label: string; value: number; max?: number }) {
-  const pct = Math.min(100, Math.round((value / max) * 100))
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-ink-soft">
-        <span>{label}</span>
-        <span>{value.toFixed(1)}/{max}</span>
-      </div>
-      <div className="h-2 bg-mint rounded-full overflow-hidden">
-        <div className="h-full bg-forest-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
 
 // ─── Props principal ───────────────────────────────────────────────────────────
 
@@ -497,142 +486,229 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 
 // ─── ABA: Gráficos ────────────────────────────────────────────────────────────
 
+// Carrega os registros brutos do mês (e do anterior) para a análise emocional.
+function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
+  const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    if (!userId) { setLoading(false); return }
+    setLoading(true)
+    const [y, m] = selectedMonth.split('-').map(Number)
+    const start = new Date(y, m - 1, 1).toISOString()
+    const end = new Date(y, m, 1).toISOString()
+    const prevStart = new Date(y, m - 2, 1).toISOString()
+    Promise.all([
+      supabase.from('diary_entries').select('*').eq('user_id', userId).gte('created_at', start).lt('created_at', end),
+      supabase.from('diary_entries').select('*').eq('user_id', userId).gte('created_at', prevStart).lt('created_at', start),
+    ]).then(([cur, prev]) => {
+      setAnalysis(computeEmotionalAnalysis((cur.data ?? []) as DiaryRowLite[], (prev.data ?? []) as DiaryRowLite[]))
+      setLoading(false)
+    })
+  }, [userId, selectedMonth])
+  return { analysis, loading }
+}
+
+// Gráfico de linha compacto (recharts) para energia/ansiedade por dia.
+function LineChartCard({ title, subtitle, data, color, yLabels }: {
+  title: string; subtitle: string; data: { day: number; value: number }[]; color: string; yLabels: Record<number, string>
+}) {
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-base text-forest-900">{title}</h3>
+      <p className="text-xs text-ink-soft mt-0.5 mb-3">{subtitle}</p>
+      {data.length > 1 ? (
+        <div className="h-40">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`g-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 9, fill: '#5F6661' }} axisLine={false} tickLine={false} width={22} />
+              <Tooltip formatter={(v: number) => [`${v} · ${yLabels[Math.round(v)] ?? ''}`, title]} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }} />
+              <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#g-${color.replace('#', '')})`} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="text-xs text-ink-soft py-6 text-center">Poucos registros para traçar a linha. Continue registrando check-ins.</p>
+      )}
+    </div>
+  )
+}
+
+const PERIOD_ICON: Record<string, React.ReactNode> = {
+  madrugada: <CloudMoon className="w-4 h-4" />, manha: <Sun className="w-4 h-4" />,
+  tarde: <Sunset className="w-4 h-4" />, noite: <Moon className="w-4 h-4" />,
+}
+
 function TabGraficos({ plan, user, onNavigatePricing }: {
   plan: string; user: User | null; onNavigatePricing: () => void
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
-
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    return monthKey(d)
-  })
-
-  const { stats, loading } = useDiaryStats(user?.id, selectedMonth)
+  const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
+  const { analysis, loading } = useMonthAnalysis(user?.id, selectedMonth)
 
   if (!hasPlan(plan, 'essential')) {
     return (
       <LockedSection
         requiredPlan="essential"
-        message="Gráficos de evolução estão disponíveis a partir do plano Essencial."
+        message="Os gráficos e padrões do Mapa Emocional completo estão disponíveis a partir do plano Essencial."
         onNavigatePricing={onNavigatePricing}
       />
     )
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-stone-400" /></div>
+  if (loading || !analysis) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
 
-  const maxBar = Math.max(...stats.weeklyEntries, 1)
+  const a = analysis
+  const insights = buildEssentialInsights(a)
+  const maxEmo = Math.max(...a.topEmotions.map(e => e.count), 1)
+  const maxTrig = Math.max(...a.triggers.map(t => t.count), 1)
+  const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-stone-600">Mês:</label>
-        <select
-          value={selectedMonth}
-          onChange={e => setSelectedMonth(e.target.value)}
-          className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
-        >
+        <label className="text-sm text-ink-soft">Mês:</label>
+        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
 
-      {stats.totalEntries === 0 ? (
-        <div className="text-center py-12 text-stone-400">
-          <BarChart2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Nenhum registro em {monthLabel(selectedMonth)}.</p>
+      {a.totalEntries === 0 ? (
+        <div className="rounded-3xl border border-dashed border-line bg-mint/20 p-8 text-center space-y-3">
+          <BarChart2 className="w-10 h-10 mx-auto text-forest-300" />
+          <p className="text-sm font-medium text-forest-900">Ainda não há registros em {monthLabel(selectedMonth)}.</p>
+          <p className="text-xs text-ink-soft max-w-sm mx-auto">Quanto mais check-ins e diários você registrar, mais claros ficam seus padrões — humor, energia, ansiedade, gatilhos e horários.</p>
         </div>
       ) : (
         <>
-          {/* Gráfico: registros por semana */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <h3 className="text-sm font-semibold text-stone-700 mb-4">Registros por semana</h3>
-            <div className="flex items-end gap-3 h-24">
-              {stats.weeklyEntries.map((n, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs text-stone-500">{n}</span>
-                  <div className="w-full bg-stone-100 rounded-t relative" style={{ height: `${(n / maxBar) * 80}px`, minHeight: 4 }}>
-                    <div className="absolute inset-0 bg-emerald-400 rounded-t" />
+          {/* Insights automáticos */}
+          {insights.length > 0 && (
+            <div className="bg-paper-soft border border-line rounded-3xl p-5">
+              <h3 className="font-serif text-lg text-forest-900 flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-forest-500" /> O que seus registros mostram</h3>
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                {insights.map((t, i) => (
+                  <div key={i} className="flex gap-2.5 bg-mint/40 rounded-xl px-3.5 py-2.5">
+                    <span className="text-forest-500 mt-0.5">•</span><p className="text-sm text-forest-800 leading-snug">{t}</p>
                   </div>
-                  <span className="text-xs text-stone-400">S{i + 1}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Linhas: energia e ansiedade */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <LineChartCard title="Energia" subtitle="Média por dia (1 = muito baixa · 5 = alta)" data={a.energyByDay} color="#2f9e6f" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'boa', 5: 'alta' }} />
+            <LineChartCard title="Ansiedade percebida" subtitle="Média por dia (1 = muito baixa · 5 = muito alta)" data={a.anxietyByDay} color="#d98b3c" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'alta', 5: 'muito alta' }} />
+          </div>
+
+          {/* Relação energia × ansiedade */}
+          <div className="rounded-2xl border border-line bg-mint/30 p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><Waves className="w-4 h-4 text-forest-500" /> Energia e ansiedade</h3>
+            <p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p>
+          </div>
+
+          {/* Emoções mais frequentes + gatilhos */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais frequentes</h3>
+              {a.topEmotions.length > 0 ? (
+                <div className="space-y-2">
+                  {a.topEmotions.map(e => (
+                    <div key={e.label} className="flex items-center gap-2">
+                      <span className="text-base w-5 text-center">{e.emoji}</span>
+                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span>
+                      <div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmo) * 100}%` }} /></div>
+                      <span className="text-xs text-ink-soft w-6 text-right">{e.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-ink-soft py-4 text-center">Registre check-ins com emoções para ver o ranking.</p>}
+            </div>
+
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Gatilhos mais citados</h3>
+              {a.triggers.length > 0 ? (
+                <div className="space-y-2">
+                  {a.triggers.map(t => (
+                    <div key={t.tag} className="flex items-center gap-2">
+                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span>
+                      <div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxTrig) * 100}%` }} /></div>
+                      <span className="text-xs text-ink-soft w-6 text-right">{t.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais o sistema identifica gatilhos recorrentes.</p>}
+            </div>
+          </div>
+
+          {/* Mapa por período do dia */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-forest-500" /> Por período do dia</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {a.periods.map(p => (
+                <div key={p.key} className="rounded-xl border border-line bg-white p-3 text-center">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-mint text-forest-600 mb-1.5">{PERIOD_ICON[p.key]}</span>
+                  <p className="text-sm font-medium text-forest-900">{p.label}</p>
+                  {p.count > 0 ? (
+                    <>
+                      <p className="text-lg mt-0.5">{p.dominant ? (MOOD_EMOJI[p.dominant] ?? '•') : '—'}</p>
+                      <p className="text-[11px] text-ink-soft leading-tight">{p.dominant ?? '—'}</p>
+                      <p className="text-[10px] text-ink-soft mt-1">{p.count} reg. · energia {p.avgEnergy || '—'}</p>
+                    </>
+                  ) : <p className="text-[11px] text-ink-soft mt-2">Sem registros</p>}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Gráfico: humor ao longo do mês */}
-          {stats.dailyMoods.length > 0 && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <h3 className="text-sm font-semibold text-stone-700 mb-4">Percepção de humor registrada por você</h3>
-              <svg viewBox={`0 0 ${Math.max(stats.dailyMoods.length * 20, 100)} 60`} className="w-full" preserveAspectRatio="none" style={{ height: 80 }}>
-                {stats.dailyMoods.map((d, i) => {
-                  const x = i * 20 + 10
-                  const y = 55 - (d.mood / 5) * 45
-                  return (
-                    <g key={i}>
-                      <circle cx={x} cy={y} r={3} fill="#34d399" />
-                      {i > 0 && (
-                        <line
-                          x1={(i - 1) * 20 + 10}
-                          y1={55 - (stats.dailyMoods[i - 1].mood / 5) * 45}
-                          x2={x} y2={y}
-                          stroke="#34d399" strokeWidth={1.5} strokeOpacity={0.6}
-                        />
-                      )}
-                    </g>
-                  )
-                })}
-              </svg>
-              <div className="flex justify-between text-xs text-stone-400 mt-1">
-                <span>dia 1</span>
-                <span>dia 31</span>
+          {/* Comparativo semanal */}
+          {a.weekly.hasData && (
+            <div className="rounded-2xl border border-line bg-paper-soft p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-forest-500" /> Semana atual x anterior</h3>
+              <ul className="space-y-1.5">
+                {a.weekly.lines.map((l, i) => <li key={i} className="text-sm text-forest-800 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{l}</span></li>)}
+              </ul>
+            </div>
+          )}
+
+          {/* Calendário emocional */}
+          {a.calendar.length > 0 && (
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-1"><BarChart2 className="w-4 h-4 text-forest-500" /> Calendário emocional</h3>
+              <p className="text-xs text-ink-soft mb-3">Cada dia: emoção predominante e nº de registros.</p>
+              <div className="grid grid-cols-7 gap-1.5">
+                {a.calendar.map(c => (
+                  <div key={c.day} title={`Dia ${c.day} · ${c.label} · ${c.count} registro(s)`} className={`aspect-square rounded-lg flex flex-col items-center justify-center ${heatColor(c.avg)}`}>
+                    <span className="text-[10px] text-white/90 leading-none">{c.day}</span>
+                    <span className="text-xs leading-none mt-0.5">{MOOD_EMOJI[c.label] ?? ''}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Médias */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-stone-700 mb-2">Médias do período</h3>
-            {stats.avgMood > 0 && <MoodBar label="Humor" value={stats.avgMood} />}
-            {hasPlan(plan, 'essential') && stats.avgEnergy > 0 && <MoodBar label="Energia" value={stats.avgEnergy} />}
-            {hasPlan(plan, 'essential') && stats.avgSleep > 0 && <MoodBar label="Sono" value={stats.avgSleep} />}
-            {hasPlan(plan, 'essential') && stats.avgAnxiety > 0 && <MoodBar label="Ansiedade percebida" value={stats.avgAnxiety} />}
-            {hasPlan(plan, 'essential') && stats.avgSelfEsteem > 0 && <MoodBar label="Autoestima percebida" value={stats.avgSelfEsteem} />}
+          {/* Comparativo mensal do humor */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 mb-3">Humor: comparação com o mês anterior</h3>
+            {a.prev.mood > 0 ? (
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div><p className="text-xs text-ink-soft mb-1">Mês anterior</p><p className="font-serif text-xl text-forest-900">{a.prev.mood.toFixed(1)}</p></div>
+                <div><p className="text-xs text-ink-soft mb-1">Variação</p><p className={`font-serif text-xl ${(moodTrend ?? 0) >= 0 ? 'text-forest-600' : 'text-coral'}`}>{(moodTrend ?? 0) >= 0 ? '+' : ''}{moodTrend ?? '—'}</p></div>
+                <div><p className="text-xs text-ink-soft mb-1">Este mês</p><p className="font-serif text-xl text-forest-900">{a.avg.mood.toFixed(1)}</p></div>
+              </div>
+            ) : <p className="text-sm text-ink-soft">Sem registros no mês anterior para comparar.</p>}
           </div>
-
-          {/* Comparativo mensal — parte do mapa completo (Essencial) */}
-          {hasPlan(plan, 'essential') && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-stone-700 mb-2">Comparativo com mês anterior</h3>
-              {stats.prevMonthAvgMood > 0 ? (
-                <>
-                  <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                    <div>
-                      <p className="text-xs text-stone-400 mb-1">Humor anterior</p>
-                      <p className="font-bold text-stone-700">{stats.prevMonthAvgMood.toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-stone-400 mb-1">Variação</p>
-                      <p className={`font-bold ${stats.avgMood > stats.prevMonthAvgMood ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {stats.avgMood > stats.prevMonthAvgMood ? '+' : ''}{(stats.avgMood - stats.prevMonthAvgMood).toFixed(1)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-stone-400 mb-1">Humor atual</p>
-                      <p className="font-bold text-stone-700">{stats.avgMood.toFixed(1)}</p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-stone-400">Sem registros no mês anterior para comparar.</p>
-              )}
-            </div>
-          )}
-
         </>
       )}
 
-      <p className="text-xs text-stone-400 border-t border-stone-100 pt-4">{DISCLAIMER}</p>
+      <p className="text-xs text-ink-soft border-t border-line pt-4">{DISCLAIMER}</p>
     </div>
   )
 }

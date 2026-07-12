@@ -687,6 +687,8 @@ export default function App() {
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
         onNavigateGuidance={() => navigate('monthly-guidance')}
+        onNavigateSelfCare={() => navigate('self-care')}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
       />
     )
   }
