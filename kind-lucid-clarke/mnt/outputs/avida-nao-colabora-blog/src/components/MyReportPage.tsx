@@ -28,12 +28,18 @@ interface ProfessionalComment {
   created_at: string
 }
 
+// Fallback quando não há mood_score numérico — chaveado pelos RÓTULOS neutros
+// salvos em `mood`, na escala oficial 1–5.
 const moodScoreMap: Record<string, number> = {
-  bem: 8, neutro: 5, triste: 3, ansioso: 3, irritado: 3, sobrecarregado: 2,
+  'Bem-estar': 5, 'Tranquilidade': 5, 'Cansaço': 2, 'Sem energia': 2,
+  'Ansiedade': 2, 'Sobrecarga': 1, 'Tristeza': 1, 'Irritação': 2,
+  'Desânimo': 1, 'Confusão': 2, 'Outro': 3,
 }
 
 const moodEmoji: Record<string, string> = {
-  bem: '😊', neutro: '😐', triste: '😔', ansioso: '😰', irritado: '😤', sobrecarregado: '😩',
+  'Bem-estar': '😊', 'Tranquilidade': '😌', 'Cansaço': '😪', 'Sem energia': '🪫',
+  'Ansiedade': '😰', 'Sobrecarga': '😩', 'Tristeza': '😔', 'Irritação': '😤',
+  'Desânimo': '😞', 'Confusão': '😵‍💫', 'Outro': '😐',
 }
 
 function avg(arr: number[]): number {
@@ -242,14 +248,14 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const dominantMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]
 
   const moodScores = diaryEntries
-    .map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 5)
+    .map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3)
     .filter(Boolean)
 
   const avgMood = avg(moodScores)
 
   const moodChartData = diaryEntries.map(e => ({
     day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '',
-    value: e.mood_score ?? moodScoreMap[String(e.mood)] ?? 5,
+    value: e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3,
   }))
 
   const energyData = diaryEntries
@@ -265,7 +271,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     .map(e => ({ day: e.date ? new Date(e.date + 'T12:00:00').getDate().toString() : '', value: e.sleep_quality! }))
 
   // Comparison prev month
-  const prevMoodScores = prevEntries.map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 5)
+  const prevMoodScores = prevEntries.map(e => e.mood_score ?? moodScoreMap[String(e.mood)] ?? 3)
   const prevAvgMood = avg(prevMoodScores)
   const moodDiff = prevAvgMood > 0 ? +(avgMood - prevAvgMood).toFixed(1) : null
 
@@ -411,7 +417,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2">
                 <StatPill label="Entradas" value={diaryEntries.length} />
-                <StatPill label="Humor médio" value={avgMood || '—'} unit={avgMood ? '/10' : ''} />
+                <StatPill label="Humor médio" value={avgMood || '—'} unit={avgMood ? '/5' : ''} />
                 <StatPill
                   label="Humor dominant."
                   value={dominantMood ? `${moodEmoji[dominantMood[0]] ?? ''} ${dominantMood[0]}` : '—'}
@@ -441,12 +447,12 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
               <p className="text-xs text-stone-400 text-center py-4">Sem dados suficientes este mês.</p>
             ) : (
               <div className="space-y-5">
-                <MiniBarChart data={moodChartData} label="Humor (1–10)" color="#a78bfa" />
+                <MiniBarChart data={moodChartData} label="Humor (1–5)" color="#a78bfa" />
                 {energyData.length > 0 && (
-                  <MiniBarChart data={energyData} label="Energia (1–10)" color="#34d399" />
+                  <MiniBarChart data={energyData} label="Energia (1–5)" color="#34d399" />
                 )}
                 {anxietyData.length > 0 && (
-                  <MiniBarChart data={anxietyData} label="Ansiedade (1–10)" color="#fb923c" />
+                  <MiniBarChart data={anxietyData} label="Ansiedade (1–5)" color="#fb923c" />
                 )}
               </div>
             )}
@@ -469,7 +475,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
                   <div className="flex-1">
                     <p className="text-xs text-stone-500 mb-0.5">Comparação com o mês anterior</p>
                     <p className="text-sm font-semibold text-sage-800">
-                      Humor: {avgMood}/10
+                      Humor: {avgMood}/5
                       {moodDiff !== null && (
                         <span className={`ml-2 text-xs font-medium ${moodDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {moodDiff >= 0 ? `+${moodDiff}` : moodDiff} vs mês anterior
@@ -481,7 +487,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
               )}
 
               {sleepData.length > 0 && (
-                <MiniBarChart data={sleepData} label="Qualidade do sono (1–10)" color="#60a5fa" />
+                <MiniBarChart data={sleepData} label="Qualidade do sono (1–5)" color="#60a5fa" />
               )}
 
               {/* Médias avançadas */}

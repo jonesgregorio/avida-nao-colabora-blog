@@ -216,14 +216,14 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
 
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
       type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; emotional_tags?: string[] | string; created_at: string }
-      // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número (escala
-      // ~1–10: Bem-estar=8, Neutro=5, Sobrecarga=2). O Mapa usa 1–5, então lemos o
-      // mood_score e normalizamos. (Antes fazia Number(e.mood || ...) e, como o rótulo
-      // é string não-vazia, virava sempre NaN → humor 0% para todo mundo.)
+      // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número na
+      // escala oficial 1–5 (Bem-estar=5, Outro=3, Sobrecarga=1). Dados antigos em
+      // 1–10 foram normalizados para 1–5 pela migration 080, então aqui só validamos
+      // a faixa. (Não dividir por 2: mood_score já vem em 1–5.)
       const moodTo5 = (e: DiaryRow): number => {
         const s = Number(e.mood_score)
         if (!Number.isFinite(s) || s <= 0) return 0
-        return Math.min(5, Math.max(1, Math.round(s / 2)))
+        return Math.min(5, Math.max(1, Math.round(s)))
       }
       // §8: com check-in ILIMITADO, um dia com muitos check-ins não pode distorcer as
       // médias do mês. Cada métrica é a MÉDIA DAS MÉDIAS DIÁRIAS (um valor por dia).

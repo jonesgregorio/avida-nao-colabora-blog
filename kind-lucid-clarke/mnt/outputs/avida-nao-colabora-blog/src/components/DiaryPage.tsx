@@ -12,20 +12,29 @@ import { MOODS } from './user/moods'
 
 // Rótulos neutros (substantivos) — sem marcação de gênero.
 // Taxonomia oficial (slugs neutros = value), alinhada aos chips de moods.ts.
-// `score` é 1–10 (o Mapa normaliza para 1–5). `label` é o que fica salvo em `mood`.
+// `score` é 1–5 (escala única do app; Mapa/constraint usam 1–5). `label` fica salvo em `mood`.
 const moodOptions = [
-  { value: 'bem_estar',     emoji: '😊',   label: 'Bem-estar',     score: 9 },
-  { value: 'tranquilidade', emoji: '😌',   label: 'Tranquilidade', score: 8 },
-  { value: 'cansaco',       emoji: '😪',   label: 'Cansaço',       score: 4 },
-  { value: 'sem_energia',   emoji: '🪫',   label: 'Sem energia',   score: 3 },
-  { value: 'ansiedade',     emoji: '😰',   label: 'Ansiedade',     score: 3 },
-  { value: 'sobrecarga',    emoji: '😩',   label: 'Sobrecarga',    score: 2 },
-  { value: 'tristeza',      emoji: '😔',   label: 'Tristeza',      score: 2 },
-  { value: 'irritacao',     emoji: '😤',   label: 'Irritação',     score: 3 },
-  { value: 'desanimo',      emoji: '😞',   label: 'Desânimo',      score: 2 },
-  { value: 'confusao',      emoji: '😵‍💫', label: 'Confusão',      score: 4 },
-  { value: 'outro',         emoji: '😐',   label: 'Outro',         score: 5 },
+  { value: 'bem_estar',     emoji: '😊',   label: 'Bem-estar',     score: 5 },
+  { value: 'tranquilidade', emoji: '😌',   label: 'Tranquilidade', score: 5 },
+  { value: 'cansaco',       emoji: '😪',   label: 'Cansaço',       score: 2 },
+  { value: 'sem_energia',   emoji: '🪫',   label: 'Sem energia',   score: 2 },
+  { value: 'ansiedade',     emoji: '😰',   label: 'Ansiedade',     score: 2 },
+  { value: 'sobrecarga',    emoji: '😩',   label: 'Sobrecarga',    score: 1 },
+  { value: 'tristeza',      emoji: '😔',   label: 'Tristeza',      score: 1 },
+  { value: 'irritacao',     emoji: '😤',   label: 'Irritação',     score: 2 },
+  { value: 'desanimo',      emoji: '😞',   label: 'Desânimo',      score: 1 },
+  { value: 'confusao',      emoji: '😵‍💫', label: 'Confusão',      score: 2 },
+  { value: 'outro',         emoji: '😐',   label: 'Outro',         score: 3 },
 ]
+
+// Escala oficial do app: SEMPRE inteiro de 1 a 5 (§7). Normaliza qualquer valor
+// (slider, string, null, fora de faixa) antes de mandar ao banco — impede que
+// chegue algo que viole a constraint diary_entries_energy_check.
+const normalizeScale = (value: unknown, fallback = 3): number => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(5, Math.max(1, Math.round(n)))
+}
 
 // Chip do check-in → valor de humor salvo. Com slugs unificados é praticamente
 // identidade; mantém aliases LEGADOS (com gênero / antigos) por compatibilidade
@@ -83,7 +92,7 @@ interface DiaryPageProps {
   onClearPromptContext?: () => void
 }
 
-function SliderField({ label, value, onChange, min = 1, max = 10 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+function SliderField({ label, value, onChange, min = 1, max = 5 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
   const pct = ((value - min) / (max - min)) * 100
   const emoji = pct < 30 ? '😟' : pct < 60 ? '😐' : '😊'
   return (
@@ -138,21 +147,21 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [whatINeed, setWhatINeed] = useState('')
   const [smallThing, setSmallThing] = useState('')
 
-  // Essencial+ fields
-  const [moodScore, setMoodScore] = useState(5)
-  const [energy, setEnergy] = useState(5)
-  const [anxietyLevel, setAnxietyLevel] = useState(5)
-  const [stressLevel, setStressLevel] = useState(5)
+  // Essencial+ fields — escala 1–5, default 3 (meio)
+  const [moodScore, setMoodScore] = useState(3)
+  const [energy, setEnergy] = useState(3)
+  const [anxietyLevel, setAnxietyLevel] = useState(3)
+  const [stressLevel, setStressLevel] = useState(3)
   const [gratitude, setGratitude] = useState('')
   const [smallPride, setSmallPride] = useState('')
   const [freeNote, setFreeNote] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
 
-  // Therapeutic+ fields
-  const [sleepQuality, setSleepQuality] = useState(5)
-  const [selfEsteem, setSelfEsteem] = useState(5)
-  const [irritability, setIrritability] = useState(5)
-  const [overload, setOverload] = useState(5)
+  // Therapeutic+ fields — escala 1–5, default 3 (meio)
+  const [sleepQuality, setSleepQuality] = useState(3)
+  const [selfEsteem, setSelfEsteem] = useState(3)
+  const [irritability, setIrritability] = useState(3)
+  const [overload, setOverload] = useState(3)
   const [emotionalTriggers, setEmotionalTriggers] = useState('')
   const [recurringThoughts, setRecurringThoughts] = useState('')
   const [emotionalNeed, setEmotionalNeed] = useState('')
@@ -255,9 +264,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const resetForm = () => {
     setMood('outro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
-    setMoodScore(5); setEnergy(5); setAnxietyLevel(5); setStressLevel(5)
+    setMoodScore(3); setEnergy(3); setAnxietyLevel(3); setStressLevel(3)
     setGratitude(''); setSmallPride(''); setFreeNote(''); setSelectedTags([])
-    setSleepQuality(5); setSelfEsteem(5); setIrritability(5); setOverload(5)
+    setSleepQuality(3); setSelfEsteem(3); setIrritability(3); setOverload(3)
     setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
     setError('')
   }
@@ -289,7 +298,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       user_id: user!.id,
       date: new Date().toISOString().split('T')[0],
       mood: moodObj.label,
-      mood_score: isEssential ? moodScore : moodObj.score,
+      // Escala oficial 1–5 (§7). normalizeScale garante inteiro válido no banco.
+      mood_score: normalizeScale(isEssential ? moodScore : moodObj.score, 3),
       text: entryText,
       // Check-in rápido NÃO conta como diário (§8): salva como 'checkin'.
       entry_type: isCheckin ? 'checkin' : 'diary',
@@ -297,14 +307,14 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
     // Check-in rápido (§8.1): energia + ansiedade percebida, para todos os planos.
     if (isCheckin) {
-      payload.energy = energy
-      payload.anxiety_level = anxietyLevel
+      payload.energy = normalizeScale(energy, 3)
+      payload.anxiety_level = normalizeScale(anxietyLevel, 3)
     } else if (isEssential) {
-      if (fieldOn('energy')) payload.energy = energy
-      if (fieldOn('anxiety_level')) payload.anxiety_level = anxietyLevel
-      if (fieldOn('stress_level')) payload.stress_level = stressLevel
-      if (fieldOn('sleep_quality')) payload.sleep_quality = sleepQuality
-      if (fieldOn('self_esteem')) payload.self_esteem = selfEsteem
+      if (fieldOn('energy')) payload.energy = normalizeScale(energy, 3)
+      if (fieldOn('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
+      if (fieldOn('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
+      if (fieldOn('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
+      if (fieldOn('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
       if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
       if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
       if (fieldOn('free_note')) payload.free_note = freeNote || undefined
@@ -312,8 +322,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     }
 
     if (!isCheckin && isPlus) {
-      if (fieldOn('irritability')) payload.irritability = irritability
-      if (fieldOn('overload')) payload.overload = overload
+      if (fieldOn('irritability')) payload.irritability = normalizeScale(irritability, 3)
+      if (fieldOn('overload')) payload.overload = normalizeScale(overload, 3)
       if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
       if (fieldOn('recurring_thoughts')) payload.recurring_thoughts = recurringThoughts || undefined
       if (fieldOn('emotional_need')) payload.emotional_need = emotionalNeed || undefined
@@ -323,9 +333,16 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
     const { data, error: err } = await supabase.from('diary_entries').insert(payload).select().single()
     if (err) {
-      // Mostra o motivo real (ex.: mensagem do limite) em vez de esconder atrás de um genérico.
+      // O detalhe técnico (constraint, SQL, tabela) fica só no console para debug (§17).
       console.error('[diary save] falhou', err, 'payload:', payload)
-      setError('Erro ao salvar: ' + (err.message || err.details || err.code || 'tente novamente.'))
+      const raw = `${err.message ?? ''} ${err.details ?? ''}`.toLowerCase()
+      // Mensagem amigável — nunca expõe SQL/constraint/tabela ao usuário.
+      const friendly = raw.includes('energy') || raw.includes('anxiety') || raw.includes('mood')
+        ? 'Escolha um nível válido de energia e ansiedade antes de salvar.'
+        : raw.includes('limit') || raw.includes('limite')
+          ? 'Você atingiu o limite de registros de diário deste mês. Seus check-ins continuam liberados.'
+          : 'Não foi possível salvar sua entrada agora. Revise os campos e tente novamente.'
+      setError(friendly)
       setSaving(false)
       return
     }
@@ -394,10 +411,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           {isCheckinConfirm && (
             <>
               <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
-                Energia <strong className="text-forest-800">{savedConfirm.energy}/10</strong>
+                Energia <strong className="text-forest-800">{savedConfirm.energy}/5</strong>
               </span>
               <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
-                Ansiedade <strong className="text-forest-800">{savedConfirm.anxiety}/10</strong>
+                Ansiedade <strong className="text-forest-800">{savedConfirm.anxiety}/5</strong>
               </span>
             </>
           )}
