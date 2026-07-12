@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { normalizePlan } from '../lib/officialPlans'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { ChevronRight, ArrowLeft, BookOpen, Star, RefreshCw, X } from 'lucide-react'
+import {
+  buildQuestionnaireResult, recommendGuidedContent,
+  type QuestionnaireResult, type RecommendedContent,
+} from '../lib/questionnaireResult'
+import { ChevronRight, ArrowLeft, BookOpen, Star, RefreshCw, X, Clock, ArrowRight, Sparkles, Eye, AlertCircle, Compass } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +102,7 @@ interface Props {
   onNavigatePricing?: () => void
   onNavigateArticles?: () => void
   onNavigate?: (v: string) => void
+  onOpenArticle?: (slug: string) => void
 }
 
 // Normaliza o tipo de pergunta para o formato que o player renderiza.
@@ -134,7 +139,7 @@ function normalizeQType(t: string | undefined): string {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function QuestionnairePlayer({
-  questionnaireId, user, profile: _profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles, onNavigate,
+  questionnaireId, user, profile: _profile, onBack, onNavigateDiary, onNavigatePricing, onNavigateArticles, onNavigate, onOpenArticle,
 }: Props) {
   const { track } = useAnalytics(user?.id)
   const [phase, setPhase] = useState<Phase>('loading')
@@ -154,6 +159,10 @@ export default function QuestionnairePlayer({
   const [responseId, setResponseId] = useState<string | null>(null)
   const [exiting, setExiting] = useState(false)
   const [resumed, setResumed] = useState(false)
+  // Devolutiva rica + recomendações de conteúdo (§1-8)
+  const [richResult, setRichResult] = useState<QuestionnaireResult | null>(null)
+  const [recommended, setRecommended] = useState<RecommendedContent[]>([])
+  const [recLoading, setRecLoading] = useState(false)
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -271,25 +280,45 @@ export default function QuestionnairePlayer({
   }, [questionnaireId])
 
   // ── Compute result ─────────────────────────────────────────────────────────
-  function computeResult() {
+  function computeResult(): { totalScore: number; allTags: string[]; resultId: string | null; matched: QResult | null } {
     const cur = answersRef.current
     const totalScore = Object.values(cur).reduce((sum, a) => sum + (a.score || 0), 0)
     const allTags = Object.values(cur).flatMap(a => a.tags || [])
 
     // Find matching result by score range
     const match = results.find(r => totalScore >= r.min_score && totalScore <= r.max_score)
-    if (match) { setMatchedResult(match); return { totalScore, allTags, resultId: match.id } }
+    if (match) { setMatchedResult(match); return { totalScore, allTags, resultId: match.id, matched: match } }
 
     // Try matching by tags
     if (allTags.length > 0 && results.length > 0) {
       const tagMatch = results.find(r =>
         r.related_tags && allTags.some(tag => r.related_tags.toLowerCase().includes(tag.toLowerCase()))
       )
-      if (tagMatch) { setMatchedResult(tagMatch); return { totalScore, allTags, resultId: tagMatch.id } }
+      if (tagMatch) { setMatchedResult(tagMatch); return { totalScore, allTags, resultId: tagMatch.id, matched: tagMatch } }
     }
 
     setMatchedResult(null)
-    return { totalScore, allTags, resultId: null }
+    return { totalScore, allTags, resultId: null, matched: null }
+  }
+
+  // Monta a devolutiva rica + busca conteúdos recomendados (respeitando o plano)
+  // e persiste tudo (§1-8). Roda para todos; só grava no banco se logado.
+  async function finalize() {
+    const { totalScore, allTags, resultId, matched } = computeResult()
+    const adminResult = matched
+      ? { title: matched.title, message: matched.message, description: matched.description }
+      : null
+    const rich = buildQuestionnaireResult({ totalScore, tags: allTags, plan: _profile?.plan, adminResult })
+    setRichResult(rich)
+
+    setRecLoading(true)
+    const limit = normalizePlan(_profile?.plan) === 'free' ? 2 : 3
+    let recs: RecommendedContent[] = []
+    try { recs = await recommendGuidedContent(_profile?.plan, allTags, limit) } catch { recs = [] }
+    setRecommended(recs)
+    setRecLoading(false)
+
+    if (user) await saveResponse(totalScore, allTags, resultId, rich, recs)
   }
 
   // ── Cria (ou reutiliza) a resposta in_progress ao começar (§12.5) ────────────
@@ -332,10 +361,12 @@ export default function QuestionnairePlayer({
   }
 
   // ── Conclui: marca a resposta como completed e grava as respostas ────────────
-  async function saveResponse() {
+  async function saveResponse(
+    totalScore: number, allTags: string[], resultId: string | null,
+    rich: QuestionnaireResult, recs: RecommendedContent[],
+  ) {
     if (!user || saving || saved) return
     setSaving(true)
-    const { totalScore, allTags, resultId } = computeResult()
 
     try {
       let respId = await ensureResponse()
@@ -357,6 +388,19 @@ export default function QuestionnairePlayer({
           .single()
         respId = data?.id ?? null
         if (respId) setResponseId(respId)
+      }
+
+      // Devolutiva rica (colunas da migration 083). Se ainda não migrou, ignora.
+      if (respId) {
+        try {
+          await supabase.from('questionnaire_responses').update({
+            result_title: rich.title,
+            result_summary: rich.summary,
+            result_insights: { theme: rich.theme, indications: rich.indications, attention_points: rich.attentionPoints, top_tags: rich.topTags },
+            recommended_next_steps: rich.nextSteps,
+            recommended_content_ids: recs.map(r => r.id),
+          }).eq('id', respId)
+        } catch { /* colunas 083 ainda não migradas — não crítico */ }
       }
 
       // As respostas ficam em questionnaire_responses.answers (JSONB) — NÃO usamos
@@ -406,11 +450,9 @@ export default function QuestionnairePlayer({
       setStep(next)
       void persistProgress(next) // auto-save a cada avanço (§9.4)
     } else {
-      const { totalScore } = computeResult()
-      void totalScore
       setPhase('result')
       if (questionnaire) track('questionnaire_complete', { entity_id: questionnaire.id, entity_title: questionnaire.title })
-      if (user) saveResponse()
+      void finalize()
     }
   }
 
@@ -669,49 +711,117 @@ export default function QuestionnairePlayer({
 
   // ── RESULT ────────────────────────────────────────────────────────────────
   if (phase === 'result') {
-    const resultText = matchedResult?.message || questionnaire.default_result_text || 'Que bom que você compartilhou como está.'
-    const resultTitle = matchedResult?.title || 'Recebemos suas respostas'
-    const disclaimer = matchedResult?.disclaimer || questionnaire.disclaimer
     const rPlan = normalizePlan(_profile?.plan)
     const go = (v: string) => onNavigate?.(v)
+    const title = richResult?.title || matchedResult?.title || 'Seu resultado'
+    const summary = richResult?.summary || matchedResult?.message || questionnaire.default_result_text ||
+      'Suas respostas ajudam a perceber como você tem se sentido. Este é um espaço de autopercepção, não um diagnóstico.'
+    const indications = richResult?.indications ?? []
+    const attention = richResult?.attentionPoints ?? []
+    const nextSteps = richResult?.nextSteps ?? []
+    const disclaimer = matchedResult?.disclaimer || questionnaire.disclaimer ||
+      'Este resultado é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+    const openArticle = (rc: RecommendedContent) => {
+      if (rc.slug && onOpenArticle) onOpenArticle(rc.slug)
+      else if (onNavigate) go('articles')
+      else onNavigateArticles?.()
+    }
 
     return (
-      <section className="max-w-2xl mx-auto px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-forest-100 p-8">
-          <div className="text-center mb-6">
+      <section className="max-w-2xl mx-auto px-4 py-10 space-y-4">
+        {/* 1. Seu resultado */}
+        <div className="bg-white rounded-2xl shadow-sm border border-forest-100 p-6 sm:p-8">
+          <div className="text-center mb-5">
             <div className="w-14 h-14 bg-forest-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Star className="w-6 h-6 text-forest-600" />
             </div>
-            <h2 className="font-serif text-2xl text-stone-800 mb-1">{resultTitle}</h2>
-            <p className="text-sm text-stone-400">Com base nas suas respostas:</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-forest-600 mb-1">Seu resultado</p>
+            <h2 className="font-serif text-2xl text-stone-800">{title}</h2>
           </div>
 
-          <div className="bg-mint/40 border border-forest-100 rounded-xl p-5 mb-4">
-            <p className="text-stone-700 leading-relaxed text-sm">{resultText}</p>
+          {/* 2. Resumo */}
+          <div className="bg-mint/40 border border-forest-100 rounded-xl p-5">
+            <p className="text-stone-700 leading-relaxed text-sm whitespace-pre-line">{summary}</p>
           </div>
 
-          {matchedResult?.description && (
-            <p className="text-sm text-stone-600 mb-4 leading-relaxed">{matchedResult.description}</p>
+          {/* 3. O que suas respostas parecem indicar */}
+          {indications.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold text-forest-900 flex items-center gap-1.5 mb-2"><Compass className="w-4 h-4 text-forest-500" /> O que suas respostas parecem indicar</h3>
+              <ul className="space-y-1.5">
+                {indications.map((t, i) => (
+                  <li key={i} className="text-sm text-stone-600 leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span><span>{t}</span></li>
+                ))}
+              </ul>
+            </div>
           )}
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800 leading-relaxed text-center">
-            {disclaimer || questionnaire.final_message || questionnaire.completion_text ||
-              'Este resultado é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'}
+          {/* 4. Pontos que merecem atenção */}
+          {attention.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold text-forest-900 flex items-center gap-1.5 mb-2"><AlertCircle className="w-4 h-4 text-amber-500" /> Pontos que merecem atenção</h3>
+              <div className="flex flex-wrap gap-2">
+                {attention.map((p, i) => (
+                  <span key={i} className="text-xs bg-amber-50 border border-amber-100 text-amber-800 px-3 py-1 rounded-full">{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-5 text-xs text-amber-800 leading-relaxed text-center">
+            {disclaimer}
           </div>
+        </div>
+
+        {/* 6. Conteúdos guiados recomendados (respeita o plano) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-forest-100 p-6 sm:p-8">
+          <h3 className="text-sm font-semibold text-forest-900 flex items-center gap-1.5 mb-3"><Sparkles className="w-4 h-4 text-forest-500" /> Conteúdos guiados recomendados para você</h3>
+          {recLoading ? (
+            <p className="text-xs text-stone-400 flex items-center gap-2"><span className="w-3 h-3 border-2 border-forest-400 border-t-transparent rounded-full animate-spin" /> Separando conteúdos para o seu momento…</p>
+          ) : recommended.length > 0 ? (
+            <>
+              <div className="space-y-2.5">
+                {recommended.map(rc => <RecommendedCard key={rc.id} rc={rc} onOpen={() => openArticle(rc)} />)}
+              </div>
+              {rPlan === 'free' && (
+                <p className="text-xs text-ink-soft mt-3 leading-relaxed bg-mint/40 rounded-lg px-3 py-2">
+                  Estes são conteúdos gratuitos para começar. No <strong>Essencial</strong>, você recebe recomendações guiadas mais completas de acordo com seus registros e questionários.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-stone-500">
+              <p className="mb-3">Não encontramos conteúdos específicos para este resultado agora, mas você pode explorar os conteúdos disponíveis.</p>
+              <button onClick={() => (onNavigate ? go('articles') : onNavigateArticles?.())} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-lg hover:bg-mint/40">
+                <BookOpen className="w-4 h-4" /> Ver Conteúdos Guiados
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Próximos passos + ações por plano */}
+        <div className="bg-white rounded-2xl shadow-sm border border-forest-100 p-6 sm:p-8">
+          <h3 className="text-sm font-semibold text-forest-900 flex items-center gap-1.5 mb-3"><Eye className="w-4 h-4 text-forest-500" /> Próximos passos sugeridos</h3>
+          {nextSteps.length > 0 && (
+            <ul className="mb-4 grid sm:grid-cols-2 gap-x-4 gap-y-1.5">
+              {nextSteps.map((s, i) => (
+                <li key={i} className="text-sm text-stone-600 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{s}</span></li>
+              ))}
+            </ul>
+          )}
 
           {user && !saved && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 text-center text-xs text-emerald-700">
-              {saving ? 'Salvando suas respostas...' : 'Respostas salvas no seu perfil ✓'}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 mb-3 text-center text-xs text-emerald-700">
+              {saving ? 'Salvando seu resultado…' : 'Resultado salvo no seu perfil ✓'}
             </div>
           )}
           {!user && (
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 mb-4 text-center text-xs text-stone-500">
-              Crie uma conta para salvar suas respostas e acompanhar sua evolução.
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 mb-3 text-center text-xs text-stone-500">
+              Crie uma conta para salvar seu resultado e acompanhar sua evolução.
             </div>
           )}
 
-          {/* Próximos passos por plano (§9.3) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {user && (
               <button onClick={() => (onNavigate ? go('diary') : onNavigateDiary?.())} className="flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white px-4 py-3 rounded-xl text-sm font-medium transition-colors">
                 <BookOpen className="w-4 h-4" /> Registrar no diário
@@ -725,7 +835,7 @@ export default function QuestionnairePlayer({
 
             {user && rPlan === 'essential' && <>
               <ResultCTA label="Ver conteúdo guiado" onClick={() => (onNavigate ? go('articles') : onNavigateArticles?.())} />
-              <ResultCTA label="Ver mapa emocional" onClick={() => go('my-evolution')} />
+              <ResultCTA label="Ver Mapa Emocional" onClick={() => go('my-evolution')} />
               <ResultCTA label="Ver relatório semanal" onClick={() => go('my-report')} />
             </>}
 
@@ -740,9 +850,9 @@ export default function QuestionnairePlayer({
             )}
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-4 mt-5">
             <button
-              onClick={() => { setAnswers({}); setStep(0); setPhase('intro'); setSaved(false) }}
+              onClick={() => { setAnswers({}); setStep(0); setPhase('intro'); setSaved(false); setRichResult(null); setRecommended([]) }}
               className="flex items-center gap-2 text-stone-400 hover:text-stone-600 text-sm"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Refazer
@@ -757,6 +867,26 @@ export default function QuestionnairePlayer({
   }
 
   return null
+}
+
+// ─── Card de conteúdo recomendado (§8.1) ─────────────────────────────────────
+function RecommendedCard({ rc, onOpen }: { rc: RecommendedContent; onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      className="w-full text-left flex items-center gap-3 bg-paper-soft border border-line rounded-xl p-3.5 hover:border-forest-200 hover:shadow-sm transition-all group"
+    >
+      <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><BookOpen className="w-4 h-4" /></span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-forest-900 leading-snug line-clamp-2">{rc.title}</p>
+        <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5">
+          <span className="bg-mint text-forest-700 px-1.5 py-0.5 rounded-full">{rc.category}</span>
+          {rc.readTime != null && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {rc.readTime} min</span>}
+        </p>
+      </div>
+      <span className="text-xs font-medium text-forest-700 flex items-center gap-1 flex-shrink-0 group-hover:gap-1.5 transition-all">Abrir <ArrowRight className="w-3.5 h-3.5" /></span>
+    </button>
+  )
 }
 
 // ─── Botão de próximo passo no resultado (§9.3) ──────────────────────────────

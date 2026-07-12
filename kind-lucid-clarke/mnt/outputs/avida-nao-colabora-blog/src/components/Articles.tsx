@@ -3,9 +3,12 @@ import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { Search, Clock, ArrowRight, X, BookOpen, Sparkles } from 'lucide-react'
 import type { Article } from '../types'
+import { recommendGuidedContent } from '../lib/questionnaireResult'
 
 interface ArticlesProps {
   onSelectArticle: (article: Article | string) => void
+  user?: { id: string } | null
+  profile?: { plan?: string } | null
 }
 
 const FALLBACK_CATEGORIES = [
@@ -68,7 +71,7 @@ function planBadge(article: Article) {
   return PLAN_BADGE[p] ?? null
 }
 
-export default function Articles({ onSelectArticle }: ArticlesProps) {
+export default function Articles({ onSelectArticle, user, profile }: ArticlesProps) {
   const { track } = useAnalytics()
   const [articles, setArticles] = useState<Article[]>([])
   const [filtered, setFiltered] = useState<Article[]>([])
@@ -78,6 +81,8 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
   const [loadError, setLoadError] = useState(false)
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
   const [dbCategories, setDbCategories] = useState<string[]>([])
+  // "Recomendados para você" — a partir das tags do último questionário (§8.2).
+  const [recommended, setRecommended] = useState<Article[]>([])
 
   const allCategories = ['Todos', ...(dbCategories.length > 0 ? dbCategories : FALLBACK_CATEGORIES)]
 
@@ -113,6 +118,31 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
         if (data && data.length > 0) setDbCategories(data.map((c: { name: string }) => c.name))
       })
   }, []) // loadArticles is stable within mount — categories fetch also only needed once
+
+  // Recomendações personalizadas: pega as tags do último questionário concluído
+  // e busca conteúdos compatíveis com o plano (respeita hasPlanAccess).
+  useEffect(() => {
+    if (!user) { setRecommended([]); return }
+    let active = true
+    ;(async () => {
+      const { data } = await supabase
+        .from('questionnaire_responses')
+        .select('generated_tags')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const tags = String((data as { generated_tags?: string } | null)?.generated_tags ?? '')
+        .split(',').map(t => t.trim()).filter(Boolean)
+      if (tags.length === 0) { if (active) setRecommended([]); return }
+      try {
+        const recs = await recommendGuidedContent(profile?.plan, tags, 3)
+        if (active) setRecommended(recs.map(r => r.raw))
+      } catch { if (active) setRecommended([]) }
+    })()
+    return () => { active = false }
+  }, [user, profile?.plan])
 
   useEffect(() => {
     let result = articles
@@ -249,6 +279,19 @@ export default function Articles({ onSelectArticle }: ArticlesProps) {
           </p>
         )}
       </div>
+
+      {/* Recomendados para você — só na visão padrão, sem poluir filtros/busca */}
+      {recommended.length > 0 && isDefault && !loading && (
+        <div className="mb-10">
+          <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mb-1 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-forest-500" /> Recomendados para você
+          </h2>
+          <p className="text-sm text-ink-soft mb-4">Com base no seu último questionário.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {recommended.map(a => <ContentCard key={'rec-' + a.id} article={a} onSelect={() => handleSelect(a)} />)}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

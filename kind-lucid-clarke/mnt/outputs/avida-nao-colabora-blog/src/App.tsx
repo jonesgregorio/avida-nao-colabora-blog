@@ -551,6 +551,7 @@ export default function App() {
         onNavigatePricing={() => navigate('pricing')}
         onNavigateArticles={() => navigate('articles')}
         onNavigate={navigate}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
       />
     )
   }
@@ -558,6 +559,8 @@ export default function App() {
   if (view === 'articles') {
     return appShell(
       <Articles
+        user={user}
+        profile={profile}
         onSelectArticle={(articleOrSlug) => {
           const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
           setSelectedArticleSlug(slug)
