@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText } from 'lucide-react'
 import AdminSupport from './AdminSupport'
+import AdminReplyTemplates from './AdminReplyTemplates'
 
 interface Ticket {
   id: string
@@ -43,6 +44,7 @@ export default function AdminSuportePage() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [full, setFull] = useState(false)
+  const [templates, setTemplates] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -64,6 +66,8 @@ export default function AdminSuportePage() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  if (templates) return <AdminReplyTemplates onBack={() => setTemplates(false)} />
 
   if (full) {
     return (
@@ -94,6 +98,7 @@ export default function AdminSuportePage() {
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
+          <button onClick={() => setTemplates(true)} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><FileText className="w-4 h-4" /> Modelos de resposta</button>
           <button onClick={() => setFull(true)} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800">Abrir atendimento</button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { sendTransactionalEmail } from '../../lib/emailTriggers'
-import { Mail, RefreshCw, Send, Loader2, CheckCircle, XCircle, Clock, FileText } from 'lucide-react'
+import { Mail, RefreshCw, Send, Loader2, CheckCircle, XCircle, Clock, FileText, Pencil, Save, X } from 'lucide-react'
 
 interface EmailLog {
   id: string
@@ -47,6 +47,8 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
   const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending'>('all')
   const [loading, setLoading] = useState(true)
   const [resending, setResending] = useState<string | null>(null)
+  const [editing, setEditing] = useState<{ id: string; template_key: string; subject: string; preheader: string; body_text: string } | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
 
   function showToast(msg: string, err = false) {
@@ -90,6 +92,24 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
     const { error } = await supabase.from('email_templates').update({ is_active: !t.is_active, updated_at: new Date().toISOString() }).eq('id', t.id)
     if (error) showToast('Erro ao atualizar template: ' + error.message, true)
     else { setTemplates(prev => prev.map(x => x.id === t.id ? { ...x, is_active: !x.is_active } : x)); showToast(`Template ${!t.is_active ? 'ativado' : 'desativado'}.`) }
+  }
+
+  async function openEdit(t: EmailTemplate) {
+    const { data, error } = await supabase.from('email_templates').select('id, template_key, subject, preheader, body_text').eq('id', t.id).single()
+    if (error || !data) { showToast('Não foi possível carregar o template.', true); return }
+    setEditing({ id: data.id, template_key: data.template_key, subject: data.subject ?? '', preheader: (data as { preheader?: string }).preheader ?? '', body_text: data.body_text ?? '' })
+  }
+
+  async function saveEdit() {
+    if (!editing) return
+    if (!editing.subject.trim() || !editing.body_text.trim()) { showToast('Assunto e corpo são obrigatórios.', true); return }
+    setSavingEdit(true)
+    const { error } = await supabase.from('email_templates').update({
+      subject: editing.subject, preheader: editing.preheader || null, body_text: editing.body_text, body_html: '', updated_at: new Date().toISOString(),
+    }).eq('id', editing.id)
+    setSavingEdit(false)
+    if (error) { showToast('Erro ao salvar: ' + error.message, true); return }
+    showToast('Template salvo.'); setEditing(null); load()
   }
 
   const filtered = logs.filter(l => filter === 'all' ? true : l.status === filter)
@@ -185,7 +205,11 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
               {templates.map(t => (
                 <tr key={t.id} className="border-b border-line hover:bg-stone-50/50">
                   <td className="py-2.5 px-3 text-xs font-mono text-stone-700">{t.template_key}</td>
-                  <td className="py-2.5 px-3 text-xs text-stone-600 max-w-[280px] truncate">{t.subject}</td>
+                  <td className="py-2.5 px-3 max-w-[280px]">
+                    <button onClick={() => openEdit(t)} className="text-xs text-forest-700 hover:underline text-left w-full flex items-center gap-1.5" title="Editar template">
+                      <Pencil className="w-3 h-3 flex-shrink-0" /><span className="truncate">{t.subject}</span>
+                    </button>
+                  </td>
                   <td className="py-2.5 px-3 text-xs text-stone-400">{t.category ?? '—'}</td>
                   <td className="py-2.5 px-3">
                     <button onClick={() => toggleTemplate(t)} className={`w-10 h-5 rounded-full relative transition-colors ${t.is_active ? 'bg-forest-600' : 'bg-stone-300'}`}>
@@ -197,6 +221,39 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-auto p-4">
+          <div className="bg-white rounded-2xl border border-line w-full max-w-2xl my-8 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-xl text-forest-900">Editar template de e-mail</h3>
+                <p className="text-xs text-stone-400 font-mono">{editing.template_key}</p>
+              </div>
+              <button onClick={() => setEditing(null)} className="text-stone-400 hover:text-stone-700"><X className="w-5 h-5" /></button>
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Assunto</label>
+              <input value={editing.subject} onChange={e => setEditing(ed => ed && { ...ed, subject: e.target.value })} className="w-full px-3 py-2 border border-line rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Preheader (prévia curta na caixa de entrada)</label>
+              <input value={editing.preheader} onChange={e => setEditing(ed => ed && { ...ed, preheader: e.target.value })} className="w-full px-3 py-2 border border-line rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Corpo do e-mail (texto) — variáveis como {'{{nome}}'} são preenchidas no envio</label>
+              <textarea value={editing.body_text} onChange={e => setEditing(ed => ed && { ...ed, body_text: e.target.value })} rows={12} className="w-full px-3 py-2 border border-line rounded-lg text-sm font-mono leading-relaxed" />
+            </div>
+            <p className="text-[11px] text-stone-400">O HTML do e-mail é gerado a partir deste texto automaticamente.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditing(null)} className="px-4 py-2 border border-line rounded-xl text-sm text-stone-600 hover:bg-stone-50">Cancelar</button>
+              <button onClick={saveEdit} disabled={savingEdit} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
+                {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
