@@ -46,8 +46,12 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
 
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const auth = req.headers.get('Authorization') || ''
-  if (auth !== `Bearer ${serviceKey}`) return json({ error: 'Não autorizado' }, 401)
+  // Aceita ou o CRON_SECRET (senha simples definida pelo admin) ou o próprio
+  // service role. Determinístico — não depende do formato da chave do Supabase.
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  const allowed = [cronSecret, serviceKey].filter(Boolean) as string[]
+  if (!allowed.includes(token)) return json({ error: 'Não autorizado' }, 401)
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
 
