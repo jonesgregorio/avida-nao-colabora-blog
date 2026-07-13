@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
-import { computeEmotionalAnalysis, type DiaryRowLite } from '../lib/emotionalAnalytics'
+import { computeEmotionalAnalysis, MOOD_EMOJI, type DiaryRowLite } from '../lib/emotionalAnalytics'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
@@ -359,23 +359,15 @@ function ClosedReportCard({ report, plan, onPdf, generating, ...nav }: {
   )
 }
 
-// Prévia "em construção" (não salva) — mostra a ANÁLISE COMPLETA parcial do
-// período atual (mesma leitura do relatório fechado), para o valor aparecer já
-// com os dados em andamento.
-function BuildingPreview({ type, period, content, plan, onRefresh, ...nav }: {
-  type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent
-  plan: string; onRefresh: () => void
-  onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void; onNavigateSelfCare?: () => void; onNavigateGuidance: () => void
+// Prévia "em construção" — apenas um FRAGMENTO (teaser). A análise completa
+// (padrões, relações, gráficos, plano, síntese) só é liberada quando o ciclo
+// fecha e o relatório fica disponível (domingo / dia 1º).
+function BuildingPreview({ type, period, content, onRefresh }: {
+  type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent; onRefresh: () => void
 }) {
-  const notice = type === 'weekly'
-    ? 'Prévia parcial — este relatório será fechado no final de sábado e ficará disponível no domingo. Os dados abaixo atualizam conforme você registra.'
-    : 'Prévia parcial — este relatório será fechado no último dia do mês e ficará disponível no primeiro dia do mês seguinte. Os dados abaixo atualizam conforme você registra.'
-  // Relatório sintético (não salvo) para reutilizar o mesmo corpo do relatório fechado.
-  const synthetic: StoredReport = {
-    report_type: type, plan_required: type === 'weekly' ? 'essential' : 'plus',
-    period_start: period.start, period_end: period.end, available_at: period.availableAt,
-    status: 'building', title: '', summary: content.summary ?? '', content,
-  }
+  const emotions = content.topEmotions
+  const topTrig = 'topTriggers' in content ? content.topTriggers[0]?.tag : content.triggers[0]?.tag
+  const unlockWhen = formatDateBR(period.availableAt)
   return (
     <div className="rounded-2xl border border-forest-200 bg-mint/20 p-5">
       <div className="flex items-center gap-2 mb-1">
@@ -383,15 +375,23 @@ function BuildingPreview({ type, period, content, plan, onRefresh, ...nav }: {
         <h3 className="text-sm font-semibold text-forest-900">{type === 'weekly' ? 'Relatório semanal em construção' : 'Relatório mensal em construção'}</h3>
       </div>
       <p className="text-xs text-ink-soft mb-1">{type === 'weekly' ? `Semana de ${formatPeriodShort(period)}` : `${monthTitle(period.start)} · ${formatPeriodShort(period)}`}</p>
-      <p className="text-[11px] text-ink-soft mb-3">Fecha em <strong className="text-forest-700">{formatDateBR(period.end)}</strong> · disponível em <strong className="text-forest-700">{formatDateBR(period.availableAt)}</strong></p>
+      <p className="text-[11px] text-ink-soft mb-3">Fecha em <strong className="text-forest-700">{formatDateBR(period.end)}</strong> · disponível em <strong className="text-forest-700">{unlockWhen}</strong></p>
 
-      <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mb-4">{notice}</p>
-
-      {/* Análise completa parcial */}
-      <div className="bg-white/70 rounded-xl p-4 border border-line">
-        <ReportBody report={synthetic} plan={plan} {...nav} />
+      {/* Fragmento: só um panorama parcial em números */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <StatPill label="Check-ins" value={content.checkinCount ?? 0} />
+        <StatPill label="Diários" value={content.diaryCount ?? 0} />
+        <StatPill label="Energia" value={content.avgEnergy || '—'} unit={content.avgEnergy ? '/5' : ''} />
+        <StatPill label="Ansiedade" value={content.avgAnxiety || '—'} unit={content.avgAnxiety ? '/5' : ''} />
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-forest-800">
+        {emotions.length > 0 && <span><span className="text-ink-soft">Emoção mais frequente:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</span>}
+        {topTrig && <span><span className="text-ink-soft">Gatilho:</span> {topTrig}</span>}
       </div>
 
+      <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mt-4">
+        Esta é apenas uma prévia. O relatório completo — com padrões, análise, gráficos e recomendações — fica disponível em <strong className="text-forest-700">{unlockWhen}</strong>, quando o ciclo fecha.
+      </p>
       <button onClick={onRefresh} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-white/60">
         <RefreshCw className="w-3.5 h-3.5" /> Atualizar prévia
       </button>
@@ -538,7 +538,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <h2 className="font-serif text-xl text-forest-900">Relatórios semanais</h2>
         </div>
 
-        <BuildingPreview type="weekly" period={curWeek} content={weeklyPreview} plan={planKey} onRefresh={() => setRefreshKey(k => k + 1)} {...navProps} />
+        <BuildingPreview type="weekly" period={curWeek} content={weeklyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
 
         {lastWeekly ? (
           <ClosedReportCard report={lastWeekly} plan={planKey} onPdf={handlePdf} generating={pdfBusy} {...navProps} />
@@ -570,7 +570,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
         {isPlus ? (
           <>
-            <BuildingPreview type="monthly" period={curMonth} content={monthlyPreview} plan={planKey} onRefresh={() => setRefreshKey(k => k + 1)} {...navProps} />
+            <BuildingPreview type="monthly" period={curMonth} content={monthlyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
             {lastMonthly ? (
               <ClosedReportCard report={lastMonthly} plan={planKey} onPdf={handlePdf} generating={pdfBusy} {...navProps} />
             ) : (
