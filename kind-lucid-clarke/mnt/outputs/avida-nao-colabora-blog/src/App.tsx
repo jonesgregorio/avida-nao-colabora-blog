@@ -393,7 +393,8 @@ export default function App() {
   }
 
   // Usuário autenticado mas sem perfil (a criação automática do useAuth falhou) — §19.
-  if (user && !profile && view !== 'auth') {
+  // O painel admin (/admin) trata seu próprio carregamento de perfil.
+  if (user && !profile && view !== 'auth' && view !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper px-4">
         <div className="max-w-sm w-full bg-paper-soft border border-line rounded-3xl p-8 text-center">

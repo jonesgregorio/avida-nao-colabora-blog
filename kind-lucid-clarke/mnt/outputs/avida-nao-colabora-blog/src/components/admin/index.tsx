@@ -3,6 +3,7 @@ import type { AdminView } from './types'
 import { useAuth } from '../../hooks/useAuth'
 import { logAdminAction } from '../../lib/adminAudit'
 import AdminLayout from './AdminLayout'
+import AdminLogin from './AdminLogin'
 import AdminArticleEditor from './AdminArticleEditor'
 import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
@@ -76,7 +77,7 @@ function resolveView(raw: string): AdminView {
 }
 
 export default function AdminPanel() {
-  const { profile, loading } = useAuth()
+  const { user, profile, loading, signOut } = useAuth()
   // Restaura a última área ao atualizar a página (fica onde o admin estava).
   const [view, setView] = useState<AdminView>(() => {
     try {
@@ -109,23 +110,34 @@ export default function AdminPanel() {
     )
   }
 
-  if (!profile || profile.role !== 'admin') {
+  // Sem sessão: tela de login PRÓPRIA do admin (rota /admin autossuficiente).
+  if (!user) {
+    return <AdminLogin />
+  }
+
+  // Logado, mas o perfil ainda está carregando — evita piscar login/erro.
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-paper">
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // Logado, mas sem permissão de admin.
+  if (profile.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-paper">
         <div className="text-center space-y-3">
           <p className="text-ink font-medium">Acesso restrito a administradores.</p>
-          <p className="text-ink-soft text-sm">
-            {!profile ? 'Você precisa estar autenticado.' : 'Sua conta não tem permissão de administrador.'}
-          </p>
+          <p className="text-ink-soft text-sm">Sua conta não tem permissão de administrador.</p>
           <div className="flex gap-3 justify-center mt-4">
             <a href="/" className="px-4 py-2 text-sm bg-mint text-forest-800 rounded-lg hover:bg-forest-100">
               Voltar ao site
             </a>
-            {!profile && (
-              <a href="/login" className="px-4 py-2 text-sm bg-forest-900 text-white rounded-lg hover:bg-forest-800">
-                Entrar
-              </a>
-            )}
+            <button onClick={() => signOut()} className="px-4 py-2 text-sm bg-forest-900 text-white rounded-lg hover:bg-forest-800">
+              Sair e trocar de conta
+            </button>
           </div>
         </div>
       </div>
