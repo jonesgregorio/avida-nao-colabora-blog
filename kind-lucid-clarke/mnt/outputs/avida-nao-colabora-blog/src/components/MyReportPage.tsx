@@ -331,7 +331,18 @@ function BuildingPreview({ type, period, content, onRefresh }: {
         <StatPill label="Ansiedade" value={content.avgAnxiety || '—'} unit={content.avgAnxiety ? '/5' : ''} />
         <StatPill label="Gatilho" value={topTrig ?? '—'} />
       </div>
-      {emotions.length > 0 && <p className="text-sm text-forest-800 mb-1"><span className="text-ink-soft">Emoção mais frequente até agora:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</p>}
+      {emotions.length > 0 && <p className="text-sm text-forest-800 mb-2"><span className="text-ink-soft">Emoção mais frequente até agora:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</p>}
+
+      {/* Gráficos de síntese parciais do período em andamento */}
+      <div className="bg-white/60 rounded-xl p-3 mb-2">
+        <SynthCharts
+          energyByDay={content.energyByDay}
+          anxietyByDay={content.anxietyByDay}
+          emotions={content.topEmotions}
+          triggers={'topTriggers' in content ? content.topTriggers : content.triggers}
+        />
+      </div>
+
       <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mt-2">{notice}</p>
       <button onClick={onRefresh} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-white/60">
         <RefreshCw className="w-3.5 h-3.5" /> Atualizar prévia
