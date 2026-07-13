@@ -6,14 +6,18 @@
 // Linguagem de autopercepção — nunca diagnóstica.
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase } from './supabase'
-import { computeEmotionalAnalysis, buildDeepReport, type DiaryRowLite, type EmotionalAnalysis, type DeepReport } from './emotionalAnalytics'
+import {
+  computeEmotionalAnalysis, buildDeepReport,
+  derivePatterns, deriveAttentionPoints, deriveImprovement, deriveRelations, deriveNarrative,
+  type DiaryRowLite, type EmotionalAnalysis, type DeepReport,
+} from './emotionalAnalytics'
 import { formatPeriodShort, monthTitle, type ReportType, type Period } from './reportPeriods'
 
 const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 'Desânimo', 'Cansaço', 'Sem energia'])
 
 // Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
 // fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
-const CONTENT_VERSION = 2
+const CONTENT_VERSION = 3
 
 export interface DayPoint { day: number; value: number }
 
@@ -23,6 +27,9 @@ export interface WeeklyContent {
   hasEnoughData: boolean
   summary: string
   interpretation: string
+  patterns: string[]
+  attentionPoints: string[]
+  improvementMoments: string
   topEmotions: { label: string; count: number; emoji: string }[]
   avgEnergy: number
   avgAnxiety: number
@@ -43,6 +50,8 @@ export interface WeeklyContent {
 export interface MonthlyContent extends DeepReport {
   kind: 'monthly'
   v?: number
+  narrative: { phase: string; text: string }[]
+  relations: string[]
   avgEnergy: number
   avgAnxiety: number
   avgSleep: number
@@ -88,6 +97,9 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     : 'Ainda há poucos registros para uma leitura mais precisa desta semana. Cada check-in ajuda a revelar seus padrões com mais clareza.'
   return {
     kind: 'weekly', v: CONTENT_VERSION, hasEnoughData, summary, interpretation,
+    patterns: hasEnoughData ? derivePatterns(a) : [],
+    attentionPoints: deriveAttentionPoints(a),
+    improvementMoments: deriveImprovement(a),
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
     triggers: a.triggers.slice(0, 5), comparison: a.weekly.lines,
@@ -103,6 +115,8 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
   const deep = buildDeepReport(analysis, periodLabel)
   return {
     ...deep, kind: 'monthly', v: CONTENT_VERSION,
+    narrative: deriveNarrative(analysis),
+    relations: deriveRelations(analysis),
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
     topEmotions: analysis.topEmotions.slice(0, 6), topTriggers: analysis.triggers.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,

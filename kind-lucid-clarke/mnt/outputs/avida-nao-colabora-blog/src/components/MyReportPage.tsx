@@ -209,12 +209,28 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         <div className="bg-mint/40 border border-forest-100 rounded-xl p-4"><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">O que seus registros parecem indicar</p>
           <p className="text-sm text-forest-800 leading-relaxed">{c.interpretation}</p></div>
 
+        {/* Principais padrões da semana */}
+        {(c.patterns?.length ?? 0) > 0 && (
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Principais padrões da semana</p>
+            <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul></div>
+        )}
+
         {c.comparison.length > 0 && (
-          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Comparação com a semana anterior</p>
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">O que mudou em relação à semana anterior</p>
             <ul className="space-y-1">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
         )}
         {c.comparison.length === 0 && (
           <p className="text-xs text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>
+        )}
+
+        {/* Pontos de atenção + momentos de melhora */}
+        {(c.attentionPoints?.length ?? 0) > 0 && (
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Pontos de atenção da semana</p>
+            <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-amber-500 mt-0.5">•</span>{p}</li>)}</ul></div>
+        )}
+        {c.improvementMoments && (
+          <div className="bg-mint/30 border border-line rounded-xl p-4"><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Momentos de melhora</p>
+            <p className="text-sm text-forest-800 leading-relaxed">{c.improvementMoments}</p></div>
         )}
 
         {!forPdf && recs.length > 0 && (
@@ -239,12 +255,31 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         {c.avgSleep > 0 && <StatPill label="Sono" value={c.avgSleep} unit="/5" />}
         <StatPill label="Registros" value={c.topEmotions.reduce((n, e) => n + e.count, 0)} />
       </div>
+
+      {/* Como o mês se desenhou (linha narrativa) */}
+      {(c.narrative?.length ?? 0) > 0 && (
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-2">Como o mês se desenhou</p>
+          <div className="space-y-2">{c.narrative.map((n, i) => (
+            <div key={i} className="flex gap-3">
+              <span className="text-xs font-semibold text-forest-700 w-24 flex-shrink-0">{n.phase}</span>
+              <span className="text-sm text-stone-700 leading-snug">{n.text}</span>
+            </div>
+          ))}</div></div>
+      )}
+
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Principais padrões emocionais</p>
         <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul></div>
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Emoções predominantes</p>
         {c.topEmotions.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div>}
         <p className="text-sm text-stone-700 leading-relaxed">{c.predominantEmotions}</p></div>
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Energia, ansiedade e descanso</p><p className="text-sm text-stone-700 leading-relaxed">{c.energyAnxietySleep}</p></div>
+
+      {/* Relações percebidas */}
+      {(c.relations?.length ?? 0) > 0 && (
+        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Relações percebidas</p>
+          <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul></div>
+      )}
+
       <SynthCharts energyByDay={c.energyByDay} anxietyByDay={c.anxietyByDay} emotions={c.topEmotions} triggers={c.topTriggers} />
       <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Gatilhos mais recorrentes</p><p className="text-sm text-stone-700 leading-relaxed">{c.triggersText}</p></div>
       <div className="grid sm:grid-cols-2 gap-4">

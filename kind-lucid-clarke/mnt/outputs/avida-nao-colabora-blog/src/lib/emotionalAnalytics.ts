@@ -107,6 +107,7 @@ export interface EmotionalAnalysis {
   calendar: { day: number; label: string; avg: number; count: number }[]
   energyAnxiety: { hasData: boolean; text: string }
   weekly: { hasData: boolean; lines: string[] }
+  weekdayInsight: string | null
 }
 
 const PERIODS: { key: string; label: string; test: (h: number) => boolean }[] = [
@@ -220,7 +221,23 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
     if (cur.rows.length !== prev.rows.length) weeklyLines.push(`Você fez ${cur.rows.length > prev.rows.length ? 'mais' : 'menos'} registros nesta semana (${cur.rows.length}) do que na anterior (${prev.rows.length}).`)
   }
 
+  // Dias úteis x fim de semana (ansiedade) — alimenta padrões/relações.
+  const wdAnx: number[] = []; const weAnx: number[] = []
+  for (const e of entries) {
+    const v = anx(e); if (!(v > 0)) continue
+    const d = e.created_at ? new Date(e.created_at) : (e.date ? new Date(e.date + 'T12:00:00') : null)
+    if (!d || Number.isNaN(d.getTime())) continue
+    const dow = d.getDay(); (dow === 0 || dow === 6 ? weAnx : wdAnx).push(v)
+  }
+  let weekdayInsight: string | null = null
+  if (wdAnx.length >= 3 && weAnx.length >= 1) {
+    const w = avg(wdAnx), we = avg(weAnx)
+    if (w > we + 0.4) weekdayInsight = 'A ansiedade percebida apareceu mais em dias úteis do que nos fins de semana.'
+    else if (we > w + 0.4) weekdayInsight = 'A ansiedade percebida apareceu mais nos fins de semana do que nos dias úteis.'
+  }
+
   return {
+    weekdayInsight,
     diaryCount: diary.length,
     checkinCount: checkins.length,
     totalEntries: entries.length,
@@ -371,4 +388,80 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
     hasEnoughData, summary, patterns, predominantEmotions, energyAnxietySleep, triggersText,
     attentionDays, improvementMoments, monthlyComparison, reflectionQuestions, guidanceSynthesis, selfCarePlan, recommendTags,
   }
+}
+
+// ── Análises reutilizáveis (semana e mês) ─────────────────────────────────────
+function negTopOf(a: EmotionalAnalysis): string | null {
+  return a.topEmotions.find(e => NEGATIVE_MOODS.has(e.label))?.label ?? null
+}
+
+/** Padrões detectados no período (3–5). Usado no semanal e como base do mensal. */
+export function derivePatterns(a: EmotionalAnalysis): string[] {
+  const out: string[] = []
+  const neg = negTopOf(a)
+  if (a.weekdayInsight) out.push(a.weekdayInsight)
+  const night = a.periods.find(p => p.key === 'noite' && p.dominant && NEGATIVE_MOODS.has(p.dominant))
+  if (night) out.push(`Registros à noite trouxeram mais ${night.dominant!.toLowerCase()}.`)
+  if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Energia baixa apareceu junto de ansiedade percebida mais alta em vários registros.')
+  if (a.triggers[0]) out.push(`O marcador "${a.triggers[0].tag}" apareceu junto de registros de ${(neg ?? 'tensão').toLowerCase()}.`)
+  const positive = a.topEmotions.filter(e => POSITIVE_MOODS.has(e.label)).reduce((n, e) => n + e.count, 0)
+  if (positive > 0 && a.triggers.length <= 1) out.push('Momentos de tranquilidade apareceram mais em dias com menos gatilhos.')
+  if (neg && out.length < 3) out.push(`${neg} apareceu com mais frequência nas suas anotações.`)
+  return [...new Set(out)].slice(0, 5)
+}
+
+/** Pontos de atenção do período (2–4). */
+export function deriveAttentionPoints(a: EmotionalAnalysis): string[] {
+  const out: string[] = []
+  const neg = negTopOf(a)
+  if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Observe os dias em que ansiedade e energia baixa aparecem juntas.')
+  const sensitive = [...a.periods].filter(p => p.count > 0 && p.dominant && NEGATIVE_MOODS.has(p.dominant)).sort((x, y) => y.avgAnxiety - x.avgAnxiety)[0]
+  if (sensitive) out.push(`Acompanhe se a ${sensitive.label.toLowerCase()} continua sendo o período mais sensível.`)
+  if (neg === 'Sobrecarga') out.push('Tente registrar o gatilho quando perceber sobrecarga.')
+  else if (a.triggers[0]) out.push(`Perceba se ${(neg ?? 'a tensão').toLowerCase()} aparece mais em dias ligados a "${a.triggers[0].tag}".`)
+  if (out.length === 0) out.push('Continue registrando check-ins e diários para que os pontos de atenção fiquem mais claros.')
+  return out.slice(0, 4)
+}
+
+/** Momentos positivos do período. */
+export function deriveImprovement(a: EmotionalAnalysis): string {
+  const positive = a.topEmotions.filter(e => POSITIVE_MOODS.has(e.label)).reduce((n, e) => n + e.count, 0)
+  const best = [...a.calendar].filter(c => c.avg > 0).sort((x, y) => y.avg - x.avg)[0]
+  if (positive > 0) return `Houve ${positive} registro(s) de tranquilidade ou bem-estar${best ? `, com destaque para o dia ${best.day}` : ''}. Esses momentos podem indicar caminhos que valem ser repetidos.`
+  return 'Ainda há poucos registros positivos para identificar momentos de melhora, mas você pode começar a observar quando se sente um pouco melhor.'
+}
+
+/** Relações percebidas entre os dados (cruzamentos). §6.4 */
+export function deriveRelations(a: EmotionalAnalysis): string[] {
+  const out: string[] = []
+  const neg = negTopOf(a)
+  if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Nos dias em que a energia apareceu mais baixa, a ansiedade percebida também tendeu a ser mais alta — seu estado emocional parece mais sensível quando há menos recuperação.')
+  if (a.triggers[0]) out.push(`O gatilho "${a.triggers[0].tag}" apareceu ligado a registros de ${(neg ?? 'tensão').toLowerCase()}.`)
+  const night = a.periods.find(p => p.key === 'noite')
+  if (night && night.avgAnxiety >= 3.5) out.push('Check-ins à noite trouxeram, em média, ansiedade percebida mais alta.')
+  if (a.weekdayInsight) out.push(a.weekdayInsight)
+  if (a.avg.sleep > 0 && a.avg.energy > 0 && a.avg.sleep < 3 && a.avg.energy < 3) out.push('Sono e energia mais baixos apareceram no mesmo período — o descanso pode estar pesando na disposição.')
+  if (out.length === 0) return ['Ainda não há dados suficientes para identificar relações claras entre energia, ansiedade e gatilhos.']
+  return [...new Set(out)].slice(0, 4)
+}
+
+/** Linha narrativa do mês: início / meio / fim. §6.2 */
+export function deriveNarrative(a: EmotionalAnalysis): { phase: string; text: string }[] {
+  const days = a.calendar.filter(c => c.avg > 0)
+  if (days.length < 4) return []
+  const anxByDay = new Map(a.anxietyByDay.map(d => [d.day, d.value]))
+  const thirds: { phase: string; days: typeof days }[] = [
+    { phase: 'Início do mês', days: days.filter(c => c.day <= 10) },
+    { phase: 'Meio do mês', days: days.filter(c => c.day >= 11 && c.day <= 20) },
+    { phase: 'Fim do mês', days: days.filter(c => c.day >= 21) },
+  ]
+  const describe = (ds: typeof days): string => {
+    if (ds.length === 0) return ''
+    const mood = avg(ds.map(d => d.avg))
+    const anx = avg(ds.map(d => anxByDay.get(d.day) ?? 0).filter(v => v > 0))
+    const tone = mood >= 3.5 ? 'dias mais leves' : mood <= 2.2 ? 'dias mais difíceis' : 'oscilação emocional'
+    const anxTxt = anx >= 3.5 ? ', com ansiedade percebida mais presente' : anx > 0 && anx <= 2 ? ', com ansiedade mais suave' : ''
+    return `${ds.length} dia(s) com registro, ${tone}${anxTxt}.`
+  }
+  return thirds.filter(t => t.days.length > 0).map(t => ({ phase: t.phase, text: describe(t.days) }))
 }

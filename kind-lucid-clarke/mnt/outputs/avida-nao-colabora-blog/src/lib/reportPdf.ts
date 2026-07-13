@@ -229,8 +229,11 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     heading('Emoções frequentes'); chartBars('Emoções mais frequentes', c.topEmotions.map(e => ({ label: e.label, count: e.count })))
     heading('Energia e ansiedade'); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
     heading('Gatilhos'); chartBars('Gatilhos mais citados', c.triggers.map(t => ({ label: t.tag, count: t.count })))
-    heading('Comparação com a semana anterior'); if (c.comparison.length) bullets(c.comparison); else para('Ainda não há uma semana anterior suficiente para comparação.')
+    heading('O que mudou em relação à semana anterior'); if (c.comparison.length) bullets(c.comparison); else para('Ainda não há uma semana anterior suficiente para comparação.')
     heading('O que seus registros parecem indicar'); para(c.interpretation)
+    if (c.patterns?.length) { heading('Principais padrões da semana'); bullets(c.patterns) }
+    if (c.attentionPoints?.length) { heading('Pontos de atenção da semana'); bullets(c.attentionPoints) }
+    if (c.improvementMoments) { heading('Momentos de melhora'); para(c.improvementMoments) }
     if (recTitles.length) { heading('Conteúdos guiados recomendados'); bullets(recTitles) }
     heading('Próximos passos'); bullets(c.nextSteps)
   } else {
@@ -252,9 +255,12 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     if (!c.hasEnoughData) noteBox('Sobre a precisão deste relatório', 'Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Para relatórios mais completos, registre check-ins, diários e questionários ao longo do mês.', 'amber')
 
     heading('Resumo geral do mês'); para(c.summary)
+    if (c.narrative?.length) { heading('Como o mês se desenhou'); bullets(c.narrative.map(n => `${n.phase}: ${n.text}`)) }
     heading('Principais padrões emocionais'); if (c.patterns.length) bullets(c.patterns); else para('Ainda não há dados suficientes para esta leitura.')
     heading('Emoções predominantes'); chartBars('Emoções mais frequentes', c.topEmotions.map(e => ({ label: e.label, count: e.count }))); para(c.predominantEmotions)
-    heading('Energia, ansiedade e descanso'); para(c.energyAnxietySleep); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
+    heading('Energia, ansiedade e descanso'); para(c.energyAnxietySleep)
+    if (c.relations?.length) { heading('Relações percebidas'); bullets(c.relations) }
+    heading('Gráficos de síntese'); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
     heading('Gatilhos mais recorrentes'); para(c.triggersText); chartBars('Gatilhos mais citados', c.topTriggers.map(t => ({ label: t.tag, count: t.count })))
     heading('Dias de maior atenção'); if (c.attentionDays.length) bullets(c.attentionDays.map(d => `Dia ${d.day} — ${d.reason}`)); else para('Ainda não há dados suficientes para esta leitura.')
     heading('Momentos de melhora'); para(c.improvementMoments)
