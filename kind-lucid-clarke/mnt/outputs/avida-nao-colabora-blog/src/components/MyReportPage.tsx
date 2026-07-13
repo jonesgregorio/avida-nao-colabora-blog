@@ -141,21 +141,28 @@ function SynthCharts({ energyByDay = [], anxietyByDay = [], emotions = [], trigg
 }) {
   const hasLine = energyByDay.length > 1 || anxietyByDay.length > 1
   const hasBars = emotions.length > 0 || triggers.length > 0
-  if (!hasLine && !hasBars) return null
   return (
     <div>
       <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-2">Gráficos de síntese</p>
-      {hasLine && (
+      {hasLine ? (
         <div className="grid sm:grid-cols-2 gap-4 mb-4">
           <MiniLine title="Energia por dia" data={energyByDay} color="#2f9e6f" />
           <MiniLine title="Ansiedade por dia" data={anxietyByDay} color="#d98b3c" />
         </div>
+      ) : (
+        <p className="text-xs text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2 mb-4">
+          Gráfico de energia e ansiedade indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período.
+        </p>
       )}
-      {hasBars && (
+      {hasBars ? (
         <div className="grid sm:grid-cols-2 gap-4">
           <MiniRankBars title="Emoções mais frequentes" items={emotions} color="#2f5d47" />
           <MiniRankBars title="Gatilhos mais citados" items={triggers.map(t => ({ label: t.tag, count: t.count }))} color="#d98b3c" />
         </div>
+      ) : (
+        <p className="text-xs text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2">
+          Ranking de emoções e gatilhos indisponível: ainda não há check-ins com emoções ou gatilhos neste período.
+        </p>
       )}
     </div>
   )
