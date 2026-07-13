@@ -36,8 +36,6 @@ interface Props {
 }
 
 const DISCLAIMER = 'Este relatório é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
-const WEEKLY_CYCLE = 'Os relatórios semanais fecham no sábado e ficam disponíveis aos domingos.'
-const MONTHLY_CYCLE = 'Os relatórios mensais fecham no último dia do mês e ficam disponíveis no primeiro dia do mês seguinte.'
 
 // data (YYYY-MM-DD) de um registro
 function entryYmd(e: DiaryRowLite): string {
@@ -290,17 +288,31 @@ function ClosedReportCard({ report, plan, onPdf, generating, ...nav }: {
 }) {
   // Recolhido por padrão — só expande quando o usuário clica (não reabre sozinho ao atualizar).
   const [open, setOpen] = useState(false)
+  const isMonthly = report.report_type === 'monthly'
   return (
     <div className="bg-white border border-line rounded-2xl overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-line">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-forest-900">{report.title}</p>
-          <p className="text-[11px] text-ink-soft">Período {formatPeriodShort({ start: report.period_start, end: report.period_end })} · Gerado em {report.generated_at ? formatDateBR(ymd(new Date(report.generated_at))) : formatDateBR(report.available_at)}</p>
+      <div className="px-5 py-4 border-b border-line">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-forest-900">{report.title}</p>
+            <p className="text-[11px] text-ink-soft">Período {formatPeriodShort({ start: report.period_start, end: report.period_end })} · Gerado em {report.generated_at ? formatDateBR(ymd(new Date(report.generated_at))) : formatDateBR(report.available_at)}</p>
+            {report.summary && <p className="text-xs text-ink-soft mt-1.5 line-clamp-2">{report.summary}</p>}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => onPdf(report)} disabled={generating} className="text-xs text-forest-700 border border-line px-3 py-1.5 rounded-xl hover:bg-mint/50 flex items-center gap-1.5 disabled:opacity-60">
+              {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} PDF
+            </button>
+            <button onClick={() => setOpen(o => !o)} className="text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50 flex items-center gap-1">
+              {open ? 'Ocultar' : 'Ver relatório'} {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
-        <button onClick={() => onPdf(report)} disabled={generating} className="text-xs text-forest-700 border border-line px-3 py-1.5 rounded-xl hover:bg-mint/50 flex items-center gap-1.5 disabled:opacity-60">
-          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} PDF
-        </button>
-        <button onClick={() => setOpen(o => !o)} className="text-ink-soft hover:text-forest-700 p-1">{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>
+        {isMonthly && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {nav.onNavigateSelfCare && <button onClick={nav.onNavigateSelfCare} className="text-xs font-medium text-forest-700 bg-mint/60 px-3 py-1.5 rounded-xl hover:bg-mint flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5" /> Usar no plano de autocuidado</button>}
+            <button onClick={nav.onNavigateGuidance} className="text-xs font-medium text-white bg-forest-900 px-3 py-1.5 rounded-xl hover:bg-forest-800 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> Enviar para orientação</button>
+          </div>
+        )}
       </div>
       {open && <div className="p-5"><ReportBody report={report} plan={plan} {...nav} /></div>}
     </div>
@@ -470,9 +482,18 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <header className="mb-4">
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">Relatórios <BarChart2 className="w-6 h-6 text-forest-400" /></h1>
-        <p className="mt-2 text-ink-soft">{isPlus ? 'Relatórios semanais e mensais aprofundados, por ciclo.' : 'Seus relatórios semanais automáticos, por ciclo.'}</p>
-        {curWeek.clampedToActivation && <p className="mt-1 text-xs text-forest-600">Seu primeiro relatório considera o período a partir da ativação do plano.</p>}
+        <p className="mt-2 text-ink-soft">Acompanhe suas sínteses semanais e mensais com base nos seus check-ins, diário e questionários.</p>
       </header>
+
+      {/* Como funcionam os relatórios */}
+      <div className="rounded-2xl border border-line bg-paper-soft p-4 sm:p-5 mb-6">
+        <p className="text-sm font-semibold text-forest-900 flex items-center gap-1.5 mb-2"><Calendar className="w-4 h-4 text-forest-500" /> Como funcionam os relatórios</p>
+        <ul className="space-y-1 text-sm text-ink-soft">
+          <li className="flex gap-2"><span className="text-forest-400 mt-0.5">•</span> Relatórios semanais fecham no sábado e ficam disponíveis aos domingos.</li>
+          {isPlus && <li className="flex gap-2"><span className="text-forest-400 mt-0.5">•</span> Relatórios mensais fecham no último dia do mês e ficam disponíveis no primeiro dia do mês seguinte.</li>}
+          <li className="flex gap-2"><span className="text-forest-400 mt-0.5">•</span> Seu primeiro relatório considera o período a partir da ativação do plano.</li>
+        </ul>
+      </div>
 
       {/* ══ Relatórios semanais (Essencial+) ══ */}
       <section className="space-y-4 mb-8">
@@ -480,7 +501,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <Calendar className="w-4 h-4 text-forest-500" />
           <h2 className="font-serif text-xl text-forest-900">Relatórios semanais</h2>
         </div>
-        <p className="text-xs text-ink-soft -mt-2">{WEEKLY_CYCLE}</p>
 
         <BuildingPreview type="weekly" period={curWeek} content={weeklyPreview} onRefresh={() => setRefreshKey(k => k + 1)} />
 
@@ -511,7 +531,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <h2 className="font-serif text-xl text-forest-900">Relatório mensal aprofundado</h2>
           <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">Plus</span>
         </div>
-        <p className="text-xs text-ink-soft -mt-2">{MONTHLY_CYCLE}</p>
 
         {isPlus ? (
           <>
