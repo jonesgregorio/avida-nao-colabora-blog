@@ -143,6 +143,24 @@ Deno.serve(async (req) => {
   const friendly = isLimit
     ? 'Os provedores de IA (Gemini e Groq) atingiram o limite de uso no momento. As gerações voltam automaticamente assim que o limite renovar (normalmente em alguns minutos). Se persistir, verifique as cotas do Gemini/Groq.'
     : 'Nenhum provedor de IA respondeu agora. Tente novamente em instantes.'
+
+  // Alerta proativo in-app para o admin quando o motivo é LIMITE — dedupe de
+  // 1x por hora para não gerar spam de notificações.
+  if (isLimit) {
+    try {
+      const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString()
+      const { data: recent } = await admin.from('notifications')
+        .select('id').eq('user_id', user.id).eq('type', 'alert')
+        .ilike('title', '%limite de IA%').gte('created_at', oneHourAgo).limit(1).maybeSingle()
+      if (!recent) {
+        await admin.from('notifications').insert({
+          user_id: user.id, type: 'alert', is_read: false,
+          title: 'Limite de IA atingido',
+          message: 'Gemini e Groq atingiram o limite de uso. As gerações voltam automaticamente quando o limite renovar (geralmente em alguns minutos). Você pode conferir em Sistema → Saúde do Sistema.',
+        })
+      }
+    } catch { /* aviso é secundário — nunca bloqueia a resposta */ }
+  }
   // Status 200 de propósito: o supabase-js NÃO repassa o corpo em respostas
   // não-2xx, então a mensagem clara se perderia. O cliente detecta o erro pela
   // ausência de `text` e mostra `error`.
