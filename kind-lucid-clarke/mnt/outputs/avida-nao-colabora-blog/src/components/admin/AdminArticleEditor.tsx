@@ -32,6 +32,12 @@ interface ArticleData {
   published_at: string
   scheduled_at: string
   read_time: number
+  // Recomendação de conteúdo guiado (086) — campos separados por vírgula na UI.
+  keywords: string
+  emotional_themes: string
+  estimated_time_minutes: number | ''
+  is_guided_content: boolean
+  is_recommendable: boolean
 }
 
 const EMPTY: ArticleData = {
@@ -43,6 +49,16 @@ const EMPTY: ArticleData = {
   diary_question: '', cta_text: '', cta_link: '',
   plan_required: 'free', published_at: '', scheduled_at: '',
   read_time: 5,
+  keywords: '', emotional_themes: '', estimated_time_minutes: '',
+  is_guided_content: true, is_recommendable: true,
+}
+
+// "a, b, c" ↔ ['a','b','c'] — colunas TEXT[] no banco, string na UI.
+function toArray(s: string): string[] {
+  return s.split(/[,\n]/).map(t => t.trim()).filter(Boolean)
+}
+function fromArray(v: unknown): string {
+  return Array.isArray(v) ? v.join(', ') : (typeof v === 'string' ? v : '')
 }
 
 interface Props {
@@ -93,7 +109,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           seo_description: a.seo_description || '',
           keyword: a.keyword || '',
           secondary_keywords: a.secondary_keywords || '',
-          tags: a.tags || '',
+          tags: fromArray(a.tags),
           emotion: a.emotion || '',
           journey_stage: a.journey_stage || '',
           intent: a.intent || '',
@@ -108,6 +124,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           published_at: a.published_at ? a.published_at.slice(0, 16) : '',
           scheduled_at: a.scheduled_at ? a.scheduled_at.slice(0, 16) : '',
           read_time: a.read_time || a.reading_time_minutes || 5,
+          keywords: fromArray(a.keywords),
+          emotional_themes: fromArray(a.emotional_themes),
+          estimated_time_minutes: (a.estimated_time_minutes ?? '') as number | '',
+          is_guided_content: a.is_guided_content ?? true,
+          is_recommendable: a.is_recommendable ?? true,
         })
       }
       setLoading(false)
@@ -165,7 +186,13 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       seo_description: data.seo_description,
       keyword: data.keyword,
       secondary_keywords: data.secondary_keywords,
-      tags: data.tags,
+      // Colunas TEXT[] (086): sempre array, nunca string.
+      tags: toArray(data.tags),
+      keywords: toArray(data.keywords),
+      emotional_themes: toArray(data.emotional_themes),
+      estimated_time_minutes: data.estimated_time_minutes === '' ? null : Number(data.estimated_time_minutes),
+      is_guided_content: data.is_guided_content,
+      is_recommendable: data.is_recommendable,
       emotion: data.emotion,
       journey_stage: data.journey_stage,
       intent: data.intent,
@@ -190,7 +217,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
     // Salva; se a migration dos campos novos ainda não aplicou, faz fallback
     // gravando só o essencial (o editor não pode quebrar por causa do deploy).
-    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes']
+    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable']
     const writeArticle = (p: Record<string, unknown>) =>
       articleId
         ? supabase.from('articles').update(p).eq('id', articleId)
@@ -517,6 +544,51 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             <Field label="Tempo de leitura (min)">
               <input type="number" value={data.read_time} onChange={e => set('read_time', Number(e.target.value))} className={inputCls} min={1} />
             </Field>
+          </div>
+
+          {/* Recomendação (Conteúdos Guiados) — alimenta o motor de recomendação (086). */}
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Recomendação (Conteúdos Guiados)</h2>
+            <p className="text-xs text-stone-500 -mt-2">
+              Estes campos ajudam o sistema a recomendar este conteúdo a partir do que o usuário
+              escreve e marca no diário, check-in e questionários. Não aparecem para o leitor.
+            </p>
+            <Field label="Temas emocionais">
+              <input
+                value={data.emotional_themes}
+                onChange={e => set('emotional_themes', e.target.value)}
+                placeholder="ansiedade, sobrecarga, cansaco, sono..."
+                className={inputCls}
+              />
+              <p className="text-[11px] text-stone-400 mt-1">
+                Valores reconhecidos: ansiedade, sobrecarga, cansaco, autocobranca, autoestima, tristeza, irritacao, alimentacao, sono, rotina, limites, autocuidado.
+              </p>
+            </Field>
+            <Field label="Tags temáticas">
+              <input value={data.tags} onChange={e => set('tags', e.target.value)} placeholder="respiração, pausa, escrita guiada..." className={inputCls} />
+            </Field>
+            <Field label="Palavras-chave (o que o usuário costuma escrever)">
+              <input value={data.keywords} onChange={e => set('keywords', e.target.value)} placeholder="coração acelerado, sem energia, não dou conta..." className={inputCls} />
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Tempo estimado (min)">
+                <input
+                  type="number" min={1}
+                  value={data.estimated_time_minutes}
+                  onChange={e => set('estimated_time_minutes', e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Ex: 3"
+                  className={inputCls}
+                />
+              </Field>
+              <label className="flex items-center gap-2 text-sm text-stone-700 mt-6">
+                <input type="checkbox" checked={data.is_guided_content} onChange={e => set('is_guided_content', e.target.checked)} className="accent-forest-600" />
+                Aparece na biblioteca
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700 mt-6">
+                <input type="checkbox" checked={data.is_recommendable} onChange={e => set('is_recommendable', e.target.checked)} className="accent-forest-600" />
+                Pode ser recomendado
+              </label>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">

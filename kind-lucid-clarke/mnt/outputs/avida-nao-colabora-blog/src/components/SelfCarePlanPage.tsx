@@ -6,12 +6,15 @@ import { normalizePlan } from '../lib/officialPlans'
 import { getContentTypeLabel } from '../lib/personalizedContentLabels'
 import { Sprout, Loader2, Download, ArrowRight, Sparkles } from 'lucide-react'
 import PlanBadge from './PlanBadge'
+import RecommendedContent from './RecommendedContent'
+import { signalFromTags } from '../lib/contentRecommendation'
 
 interface Props {
   user: User | null
   profile: Profile | null
   onNavigatePricing: () => void
   onNavigate?: (v: string) => void
+  onOpenArticle?: (slug: string) => void
 }
 
 interface Review {
@@ -34,7 +37,7 @@ function monthLabel(key: string) {
 
 // Área PRÓPRIA do Plano de Autocuidado (§12) — exclusiva do Plus. Transforma os
 // dados de diário/questionários/mapa em ações mensais. Não fica dentro do Mapa.
-export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onNavigate }: Props) {
+export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onNavigate, onOpenArticle }: Props) {
   const plan = normalizePlan(profile?.plan)
   const isPlus = plan === 'plus'
   const [reviews, setReviews] = useState<Review[]>([])
@@ -58,6 +61,15 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
     })
     return () => { active = false }
   }, [user, isPlus])
+
+  // Sinal a partir da prioridade do mês (§19): puxa conteúdos ligados ao foco do
+  // plano. Sem prioridade clara, cai para o sinal geral dos registros.
+  const latestReview = reviews[0]
+  const focusText = latestReview
+    ? [latestReview.next_focus, latestReview.summary, latestReview.suggested_adjustments].filter(Boolean).join(' ')
+    : ''
+  const focusSignal = focusText ? signalFromTags([focusText]) : null
+  const careSignal = focusSignal && focusSignal.hasData ? focusSignal : undefined
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -131,6 +143,20 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Conteúdos guiados ligados à prioridade do mês (§19). */}
+          {onOpenArticle && (
+            <RecommendedContent
+              user={user ? { id: user.id } : null}
+              profile={{ plan: profile?.plan }}
+              signal={careSignal}
+              source="care_plan"
+              limit={3}
+              title="Conteúdos para apoiar sua prioridade do mês"
+              description="Selecionados a partir do foco do seu plano de autocuidado e dos seus registros."
+              onOpen={onOpenArticle}
+            />
           )}
 
           {extras.length > 0 && (

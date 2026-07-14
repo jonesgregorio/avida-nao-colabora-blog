@@ -14,6 +14,7 @@ import {
   computeEmotionalAnalysis, buildEssentialInsights, MOOD_EMOJI,
   type DiaryRowLite, type EmotionalAnalysis,
 } from '../lib/emotionalAnalytics'
+import RecommendedContent from './RecommendedContent'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ interface Props {
   onNavigatePricing: () => void
   onNavigateDiary: () => void
   onNavigate?: (v: string) => void
+  onOpenArticle?: (slug: string) => void
   initialTab?: Tab
 }
 
@@ -103,7 +105,7 @@ const MOOD_LABELS: Record<number, string> = {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigate, initialTab }: Props) {
+export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigate, onOpenArticle, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
 
@@ -160,6 +162,22 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         {tab === 'resumo' && <TabResumo plan={plan} user={user} onNavigatePricing={onNavigatePricing} onNavigateDiary={onNavigateDiary} />}
         {tab === 'graficos' && <TabGraficos plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
       </div>
+
+      {/* Conteúdos relacionados aos seus padrões recentes (§9.4) — bloco discreto,
+          personalizado (Essencial+). Some sozinho quando não há dados/relação. */}
+      {onOpenArticle && hasPlan(plan, 'essential') && (
+        <section className="mt-8 border-t border-line pt-6">
+          <RecommendedContent
+            user={user ? { id: user.id } : null}
+            profile={{ plan }}
+            source="map"
+            limit={3}
+            title="Conteúdos relacionados aos seus padrões recentes"
+            description="Sugestões a partir do que apareceu nos seus registros — sem virar relatório."
+            onOpen={onOpenArticle}
+          />
+        </section>
+      )}
 
       {/* Próximos passos — atalhos discretos (§10.4). Cada função tem a sua própria área no menu. */}
       {onNavigate && (

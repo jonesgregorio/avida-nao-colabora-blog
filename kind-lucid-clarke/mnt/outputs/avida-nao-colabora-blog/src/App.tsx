@@ -440,6 +440,7 @@ export default function App() {
         plan={profile?.plan || 'free'}
         onBack={() => setView('home')}
         onNavigatePricing={() => navigate('pricing')}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
         initialMood={diaryMood}
         promptContext={diaryPromptContext}
         onClearPromptContext={() => setDiaryPromptContext(null)}
@@ -562,6 +563,8 @@ export default function App() {
       <Articles
         user={user}
         profile={profile}
+        onNavigateDiary={() => navigate('diary')}
+        onNavigatePricing={() => navigate('pricing')}
         onSelectArticle={(articleOrSlug) => {
           const slug = typeof articleOrSlug === 'string' ? articleOrSlug : (articleOrSlug as { slug: string }).slug
           setSelectedArticleSlug(slug)
@@ -661,6 +664,7 @@ export default function App() {
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
         onNavigate={navigate}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
         initialTab={initialEvolutionTab as Tab}
       />
     )
@@ -674,6 +678,7 @@ export default function App() {
         profile={profile}
         onNavigatePricing={() => navigate('pricing')}
         onNavigate={navigate}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
       />
     )
   }

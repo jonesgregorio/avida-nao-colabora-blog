@@ -7,6 +7,8 @@ import type { User } from '@supabase/supabase-js'
 import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
 import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
 import { hasPlanAccess } from '../lib/officialPlans'
+import { signalFromEntry, type Signal } from '../lib/contentRecommendation'
+import RecommendedContent from './RecommendedContent'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
@@ -90,6 +92,8 @@ interface DiaryPageProps {
     category: string
   } | null
   onClearPromptContext?: () => void
+  /** Abre um conteúdo guiado recomendado após salvar. */
+  onOpenArticle?: (slug: string) => void
 }
 
 function SliderField({ label, value, onChange, min = 1, max = 5 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
@@ -124,7 +128,7 @@ function calcStreak(days: Set<string>): number {
   return s
 }
 
-export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext }: DiaryPageProps) {
+export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [prompt, setPrompt] = useState('')
@@ -136,7 +140,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
   // Recap para a tela de confirmação exibida após salvar um registro.
-  const [savedConfirm, setSavedConfirm] = useState<null | { kind: 'checkin' | 'diary'; mood: string; emoji: string; energy: number; anxiety: number }>(null)
+  const [savedConfirm, setSavedConfirm] = useState<null | { kind: 'checkin' | 'diary'; mood: string; emoji: string; energy: number; anxiety: number; signal: Signal }>(null)
   const entriesRef = useRef<HTMLElement>(null)
 
   // Free fields
@@ -355,8 +359,13 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
         if (count === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
         else if (count >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
       }
-      // Guarda o recap e dispara a tela de confirmação explícita.
-      setSavedConfirm({ kind: isCheckin ? 'checkin' : 'diary', mood: moodObj.label, emoji: moodObj.emoji, energy, anxiety: anxietyLevel })
+      // Guarda o recap e dispara a tela de confirmação explícita. O sinal do
+      // registro recém-salvo alimenta a recomendação de conteúdos (§9.1/§9.2).
+      setSavedConfirm({
+        kind: isCheckin ? 'checkin' : 'diary',
+        mood: moodObj.label, emoji: moodObj.emoji, energy, anxiety: anxietyLevel,
+        signal: signalFromEntry(payload),
+      })
     }
     resetForm()
     setSaving(false)
@@ -440,6 +449,27 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             <Home className="w-4 h-4" /> Início
           </button>
         </div>
+
+        {/* Conteúdos que podem fazer sentido agora (§9.1/§9.2) — a partir do que
+            acabou de ser registrado. Se houver linguagem de risco, o próprio
+            componente mostra orientação de ajuda em vez de conteúdo (§15). */}
+        {onOpenArticle && (
+          <div className="mt-12 text-left">
+            <RecommendedContent
+              user={user ? { id: user.id } : null}
+              profile={{ plan }}
+              signal={savedConfirm.signal}
+              source={isCheckinConfirm ? 'checkin' : 'diary'}
+              limit={2}
+              variant="compact"
+              title={isCheckinConfirm ? 'Conteúdos que podem fazer sentido agora' : 'Com base no que você registrou'}
+              description={isCheckinConfirm
+                ? 'Selecionamos algo leve para este momento.'
+                : 'Estes conteúdos guiados podem ajudar você agora.'}
+              onOpen={onOpenArticle}
+            />
+          </div>
+        )}
       </div>
     )
   }

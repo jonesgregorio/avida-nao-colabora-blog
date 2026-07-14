@@ -6,8 +6,8 @@
 // nunca afirmar transtorno/diagnóstico. Recomenda apenas conteúdo publicado e
 // compatível com o plano do usuário (nada de conteúdo pago para quem não tem).
 // ─────────────────────────────────────────────────────────────────────────────
-import { supabase } from './supabase'
-import { hasPlanAccess, normalizePlan, type PlanKey } from './officialPlans'
+import { normalizePlan, type PlanKey } from './officialPlans'
+import { fetchGuidedCatalog, signalFromTags, scoreCatalog } from './contentRecommendation'
 import type { Article } from '../types'
 
 // ── Temas de autopercepção ───────────────────────────────────────────────────
@@ -210,61 +210,34 @@ export interface RecommendedContent {
   raw: Article
 }
 
-function articleSummary(a: Article): string {
-  return (a.summary || a.excerpt || '').toString()
-}
-
 /**
  * Recomenda conteúdos JÁ publicados, compatíveis com o plano do usuário. Nunca
  * inventa conteúdo e nunca retorna conteúdo pago para quem não tem acesso
- * (respeita hasPlanAccess + plan_required). Pontua por categoria/keyword.
+ * (respeita hasPlanAccess + plan_required).
+ *
+ * Delega ao motor central (contentRecommendation), que pontua por tema
+ * emocional, palavras-chave, energia/ansiedade e evita repetição — mantendo o
+ * mesmo formato de retorno para os chamadores existentes (relatórios,
+ * questionário, PDF).
  */
 export async function recommendGuidedContent(
   plan: string | null | undefined,
   tags: string[],
   limit = 3,
 ): Promise<RecommendedContent[]> {
-  const { cfg } = themeFromTags(tags)
-  const keywords = [...new Set([...cfg.keywords, ...tags.map(deburr)])].filter(Boolean)
-  const cats = cfg.categories.map(deburr)
-  const now = new Date().toISOString()
-
-  // select('*') evita erro caso alguma coluna opcional não exista no schema.
-  const { data, error } = await supabase
-    .from('articles')
-    .select('*')
-    .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
-    .limit(200)
-
-  if (error || !data) return []
-
-  const scored = (data as Article[])
-    // Só conteúdos que o plano do usuário PODE acessar (nada de vazamento pago).
-    .filter(a => hasPlanAccess(plan, a.plan_required ?? 'free'))
-    .map(a => {
-      const cat = deburr(a.category ?? '')
-      const hay = `${cat} ${deburr(a.title ?? '')} ${deburr(articleSummary(a))}`
-      let score = 0
-      if (cats.some(c => c && cat.includes(c))) score += 4
-      for (const k of keywords) {
-        if (!k) continue
-        if (cat.includes(k)) score += 2
-        else if (hay.includes(k)) score += 1
-      }
-      return { a, score }
-    })
-    .filter(x => x.score > 0)
-    .sort((x, y) => y.score - x.score)
-    .slice(0, limit)
-
-  return scored.map(({ a }) => ({
-    id: a.id,
-    title: a.title,
-    slug: a.slug ?? null,
-    category: a.category ?? 'Conteúdo',
-    summary: articleSummary(a),
-    readTime: a.read_time ?? a.reading_time_minutes ?? null,
-    planRequired: a.plan_required ?? 'free',
-    raw: a,
+  const [catalog, sig] = await Promise.all([
+    fetchGuidedCatalog(),
+    Promise.resolve(signalFromTags(tags)),
+  ])
+  const scored = scoreCatalog(catalog, sig, plan, { limit })
+  return scored.map(({ item }) => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug ?? null,
+    category: item.category ?? 'Conteúdo',
+    summary: item.summary ?? item.excerpt ?? '',
+    readTime: item.estimated_time_minutes ?? item.read_time ?? null,
+    planRequired: item.plan_required ?? 'free',
+    raw: item as unknown as Article,
   }))
 }
