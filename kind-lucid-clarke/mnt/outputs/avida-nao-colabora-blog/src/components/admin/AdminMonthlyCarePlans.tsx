@@ -13,6 +13,7 @@ import {
   formatPeriodShort, formatDateBR, monthTitle,
 } from '../../lib/reportPeriods'
 import { emailSelfCarePlanForUser } from '../../lib/emailTriggers'
+import { createUserNotification } from '../../lib/notifications'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface EligibleUser {
@@ -465,11 +466,13 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
 
       if (next === 'send') {
         const planId = (saved as { id?: string } | null)?.id ?? ''
-        await supabase.from('notifications').insert({
-          user_id: user.user_id,
+        // Notificação in-app pela função central (tipo + destino canônicos).
+        await createUserNotification({
+          userId: user.user_id,
+          type: 'self_care_review',
           title: 'Seu Plano de Autocuidado do mês está disponível',
           message: 'Ele foi preparado com base nos seus registros do último mês. Acesse na sua área do usuário.',
-          type: 'system', action_url: 'self-care', is_read: false,
+          destination: 'self-care',
         })
         if (planId) void emailSelfCarePlanForUser(user.user_id, planId)
       }
