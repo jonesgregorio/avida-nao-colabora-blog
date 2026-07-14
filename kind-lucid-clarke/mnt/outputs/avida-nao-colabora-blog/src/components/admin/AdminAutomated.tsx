@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { generateWithFailover } from '../../lib/aiContent'
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   Sparkles, Loader2, CheckCircle, AlertCircle, Eye, Save
@@ -52,32 +53,12 @@ const FREQ_COLORS: Record<string, string> = {
 
 const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
-const GENERATE_TIMEOUT_MS = 30_000
-
 async function generateContent(tema: string, tipo: string, frequencia: string): Promise<string> {
   const prompt = `Você é um psicólogo especializado em saúde mental e bem-estar emocional.
 Crie um conteúdo do tipo "${tipo}" sobre o tema: "${tema}". Frequência de envio: ${frequencia}
 Requisitos: escreva em português brasileiro, tom acolhedor e empático, entre 150 e 250 palavras, inclua uma dica prática ou exercício ao final, escreva em parágrafos corridos sem listas ou markdown, termine com uma frase de encorajamento. Retorne APENAS o texto, sem título.`
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS)
-  try {
-    const response = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'openai', seed: Math.floor(Math.random() * 9999) }),
-      signal: controller.signal,
-    })
-    if (!response.ok) throw new Error(`Serviço indisponível (${response.status})`)
-    const text = await response.text()
-    if (!text.trim()) throw new Error('Resposta vazia')
-    return text.trim()
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') throw new Error('Tempo limite excedido (30s). Tente novamente.')
-    throw err
-  } finally {
-    clearTimeout(timer)
-  }
+  // Via Edge Function segura (Gemini → Groq → OpenAI), chaves só no servidor.
+  return generateWithFailover(prompt)
 }
 
 export default function AdminAutomated() {

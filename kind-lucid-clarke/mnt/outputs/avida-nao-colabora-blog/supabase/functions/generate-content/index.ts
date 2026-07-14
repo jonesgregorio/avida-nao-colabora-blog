@@ -1,9 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 // ─── Proxy seguro de IA (server-side) ────────────────────────────────────────
-// As chaves de IA (GEMINI_API_KEY, GROQ_API_KEY) ficam SOMENTE aqui, no
-// servidor — nunca no bundle do frontend. Só admin autenticado pode chamar.
-// Providers: pollinations (sem chave) → gemini → groq, com failover.
+// As chaves de IA (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY) ficam SOMENTE
+// aqui, no servidor — nunca no bundle do frontend. Só admin autenticado chama.
+// Ordem de failover: gemini → groq → openai (gpt-4o-mini).
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,9 +14,10 @@ const corsHeaders = {
 const TIMEOUT_MS = 35_000
 const GEMINI_MODEL = 'gemini-2.0-flash'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
+const OPENAI_MODEL = 'gpt-4o-mini'
 
-type Provider = 'pollinations' | 'gemini' | 'groq'
-const ORDER: Provider[] = ['pollinations', 'gemini', 'groq']
+type Provider = 'gemini' | 'groq' | 'openai'
+const ORDER: Provider[] = ['gemini', 'groq', 'openai']
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -32,16 +33,19 @@ async function withTimeout(url: string, init: RequestInit): Promise<Response> {
   finally { clearTimeout(t) }
 }
 
-async function callPollinations(prompt: string): Promise<string> {
-  const res = await withTimeout('https://text.pollinations.ai/', {
+async function callOpenAI(prompt: string): Promise<string> {
+  const key = Deno.env.get('OPENAI_API_KEY')
+  if (!key) throw new Error('OpenAI: OPENAI_API_KEY não configurada no servidor')
+  const res = await withTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'openai', seed: Math.floor(Math.random() * 99999) }),
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: OPENAI_MODEL, messages: [{ role: 'user', content: prompt }] }),
   })
-  if (!res.ok) throw new Error(`Pollinations HTTP ${res.status}`)
-  const text = (await res.text()).trim()
-  if (!text) throw new Error('Pollinations: resposta vazia')
-  return text
+  if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`)
+  const data = await res.json()
+  const text = data?.choices?.[0]?.message?.content
+  if (!text || !String(text).trim()) throw new Error('OpenAI: resposta vazia')
+  return String(text).trim()
 }
 
 async function callGemini(prompt: string): Promise<string> {
@@ -74,7 +78,7 @@ async function callGroq(prompt: string): Promise<string> {
 }
 
 const FN: Record<Provider, (p: string) => Promise<string>> = {
-  pollinations: callPollinations, gemini: callGemini, groq: callGroq,
+  gemini: callGemini, groq: callGroq, openai: callOpenAI,
 }
 
 Deno.serve(async (req) => {
@@ -107,7 +111,7 @@ Deno.serve(async (req) => {
   }
   if (!prompt || !prompt.trim()) return json({ error: 'prompt vazio' }, 400)
 
-  const requested = body.provider && ORDER.includes(body.provider) ? body.provider : 'pollinations'
+  const requested = body.provider && ORDER.includes(body.provider) ? body.provider : 'gemini'
   // Modo teste: só o provider pedido, sem failover.
   const chain: Provider[] = body.test ? [requested] : [requested, ...ORDER.filter(p => p !== requested)]
 

@@ -22,21 +22,36 @@ function slugify(s: string) {
 }
 
 async function genAI(prompt: string): Promise<string> {
-  // Pollinations (sem chave) primeiro; Gemini como fallback.
-  try {
-    const r = await fetch('https://text.pollinations.ai/', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: 'openai', seed: Math.floor(Math.random() * 99999) }),
-    })
-    if (r.ok) { const t = (await r.text()).trim(); if (t) return t }
-  } catch { /* tenta gemini */ }
-  const key = Deno.env.get('GEMINI_API_KEY')
-  if (key) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    })
-    if (r.ok) { const d = await r.json(); const t = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (t?.trim()) return String(t).trim() }
+  // Ordem de failover: Gemini → Groq → OpenAI (gpt-4o-mini). Chaves só no servidor.
+  const gk = Deno.env.get('GEMINI_API_KEY')
+  if (gk) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${gk}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      })
+      if (r.ok) { const d = await r.json(); const t = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (t?.trim()) return String(t).trim() }
+    } catch { /* próximo provedor */ }
+  }
+  const qk = Deno.env.get('GROQ_API_KEY')
+  if (qk) {
+    try {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${qk}` },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] }),
+      })
+      if (r.ok) { const d = await r.json(); const t = d?.choices?.[0]?.message?.content; if (t?.trim()) return String(t).trim() }
+    } catch { /* próximo provedor */ }
+  }
+  const ok = Deno.env.get('OPENAI_API_KEY')
+  if (ok) {
+    try {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ok}` },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }] }),
+      })
+      if (r.ok) { const d = await r.json(); const t = d?.choices?.[0]?.message?.content; if (t?.trim()) return String(t).trim() }
+    } catch { /* fim da cadeia */ }
   }
   throw new Error('Nenhum provedor de IA respondeu')
 }

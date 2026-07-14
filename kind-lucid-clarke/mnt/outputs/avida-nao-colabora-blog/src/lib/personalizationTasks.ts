@@ -4,6 +4,7 @@
 
 import { supabase } from './supabase'
 import { getContentTypeLabel } from './personalizedContentLabels'
+import { generateWithFailover } from './aiContent'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -845,18 +846,8 @@ Não inclua meta-comentários, apenas o conteúdo final pronto para revisão.`
 export async function generateContentForTask(task: { task_key: string; task_title: string; plan_key: string }, snapshot: TaskSnapshot): Promise<string> {
   const prompt = buildTaskPrompt(task, snapshot)
   try {
-    const res = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'openai',
-        seed: Math.floor(Math.random() * 9999),
-      }),
-      signal: AbortSignal.timeout(35000),
-    })
-    if (!res.ok) throw new Error('AI indisponível')
-    return (await res.text()).trim()
+    // Via Edge Function segura (Gemini → Groq → OpenAI), chaves só no servidor.
+    return await generateWithFailover(prompt)
   } catch {
     return `**${task.task_title}**\n\nConteúdo gerado localmente como fallback. Edite antes de enviar.`
   }

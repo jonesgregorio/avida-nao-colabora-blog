@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 // ─── Camada central de IA para geração de conteúdo ───────────────────────────
-// Providers com failover: Pollinations (grátis, sem chave) + Gemini + Groq.
+// Providers com failover: Gemini → Groq → OpenAI (gpt-4o-mini).
 // O provider ativo é persistido em ai_settings (migration 048) e pode ser
 // trocado pelo botão "Corrigir" na Saúde do Sistema. Se o ativo falhar, o
 // generateWithFailover cai automaticamente para o próximo disponível.
@@ -51,14 +51,14 @@ export interface AICallOptions {
 // próximo disponível automaticamente. O admin também pode trocar manualmente
 // pelo botão "Corrigir" na Saúde do Sistema.
 
-export type AIProvider = 'pollinations' | 'gemini' | 'groq'
+export type AIProvider = 'gemini' | 'groq' | 'openai'
 
-export const PROVIDER_ORDER: AIProvider[] = ['pollinations', 'gemini', 'groq']
+export const PROVIDER_ORDER: AIProvider[] = ['gemini', 'groq', 'openai']
 
 export const PROVIDER_LABELS: Record<AIProvider, string> = {
-  pollinations: 'Pollinations (grátis)',
   gemini: 'Google Gemini',
   groq: 'Groq (Llama)',
+  openai: 'OpenAI (GPT-4o mini)',
 }
 
 const AI_PROVIDER_KEY = 'avida_ai_provider'
@@ -82,8 +82,8 @@ export function getActiveProvider(): AIProvider {
     const saved = localStorage.getItem(AI_PROVIDER_KEY) as AIProvider | null
     if (saved && PROVIDER_ORDER.includes(saved)) { activeProviderCache = saved; return saved }
   } catch { /* noop */ }
-  activeProviderCache = 'pollinations'
-  return 'pollinations'
+  activeProviderCache = 'gemini'
+  return 'gemini'
 }
 
 export function setActiveProviderLocal(p: AIProvider): void {

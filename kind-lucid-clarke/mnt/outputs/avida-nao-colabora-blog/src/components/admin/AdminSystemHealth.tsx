@@ -95,7 +95,7 @@ const CATEGORY_ICON: Record<string, typeof Database> = {
 // Orientações para checks que NÃO se corrigem por schema (externos/config).
 // Exibidas quando o botão tenta recuperar mas o problema persiste.
 const REMEDIATION_HINTS: Record<string, string> = {
-  ai_provider: 'IA externa (Pollinations) instável/limitada. O app segue via fallback local. Tente novamente em instantes.',
+  ai_provider: 'Provedor de IA instável/limitado. O app faz failover automático (Gemini → Groq → OpenAI). Tente novamente em instantes.',
   ai: 'IA externa instável/limitada. Fallback local ativo — geração do app não para.',
   ai_fallback: 'Fallback local com problema — verifique src/lib de conteúdo IA.',
   payments: 'Checkout é server-side. Confirme se a Edge Function create-checkout está implantada e os secrets Stripe (STRIPE_SECRET_KEY, STRIPE_PRICE_*) configurados no Supabase.',
@@ -938,7 +938,7 @@ function SettingsTab({ settings, onChange }: { settings: MonitorSettings; onChan
       <div className="bg-white rounded-xl border border-line p-5 space-y-4">
         <h2 className="font-semibold text-forest-900">Testes específicos</h2>
         {([
-          ['testAI', 'Ativar teste de IA', 'Testa a Pollinations.ai nos testes intermediários/completos'],
+          ['testAI', 'Ativar teste de IA', 'Testa os provedores de IA (Gemini → Groq → OpenAI) nos testes intermediários/completos'],
           ['testPayments', 'Ativar verificação de pagamento (sandbox)', 'Verifica configuração, não cria cobranças reais'],
           ['createIncidents', 'Criar incidentes automaticamente ao detectar erros', ''],
         ] as [keyof MonitorSettings, string, string][]).map(([key, label, desc]) => (

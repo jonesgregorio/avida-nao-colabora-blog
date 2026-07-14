@@ -413,7 +413,7 @@ export default function AdminUsers() {
         guidance: aiExtraMetrics.guidanceCount,
         topTags: aiExtraMetrics.topTags,
       },
-      provider: 'pollinations',
+      provider: 'gemini',
     })
     if (!error) {
       setAiMsg({ type: 'ok', text: 'Resumo salvo com sucesso!' })
