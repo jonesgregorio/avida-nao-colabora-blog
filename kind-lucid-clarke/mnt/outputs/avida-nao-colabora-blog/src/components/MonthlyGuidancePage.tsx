@@ -59,6 +59,10 @@ function billingCycle(sub: SubInfo | null): Cycle {
 function currentMonthLabel() {
   return new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
+function monthKeyLabel(key: string) {
+  const [y, m] = String(key).split('-')
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+}
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
@@ -75,7 +79,14 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [expectedHelp, setExpectedHelp] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState(false) // card da orientação começa FECHADO
+  // Histórico completo (nunca apagado). Cards começam FECHADOS.
+  const [requests, setRequests] = useState<GuidanceRequest[]>([])
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const toggle = (id: string) => setOpenIds(prev => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
 
   const allowed = normalizePlan(profile?.plan) === 'plus'
 
@@ -96,14 +107,16 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     const cyc = billingCycle((subData as SubInfo) ?? null)
     setCycle(cyc)
 
-    // 2) Já existe pedido neste ciclo? (chave = mês de início do ciclo)
+    // 2) Carrega TODO o histórico do usuário (nunca apagado). O pedido do ciclo
+    //    atual controla o formulário; os demais aparecem em "Orientações anteriores".
     const { data } = await supabase
       .from('monthly_guidance_requests')
       .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at')
       .eq('user_id', user!.id)
-      .eq('month_key', cyc.key)
-      .maybeSingle()
-    setRequest((data as GuidanceRequest) ?? null)
+      .order('created_at', { ascending: false })
+    const all = (data ?? []) as GuidanceRequest[]
+    setRequests(all)
+    setRequest(all.find(r => r.month_key === cyc.key) ?? null)
     setLoading(false)
   }
 
@@ -129,6 +142,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       return
     }
     setRequest(data as GuidanceRequest)
+    setRequests(prev => [data as GuidanceRequest, ...prev])
     setMessage(''); setContext(''); setExpectedHelp('')
     setSending(false)
   }
@@ -157,8 +171,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     )
   }
 
-  const answered = request?.status === 'answered' && !!request?.response
   const deadline = formatShort(cycle.end) // data-limite do ciclo / reabertura
+  // Histórico = todos os pedidos, exceto o do ciclo atual (que aparece no topo).
+  const history = requests.filter(r => r.id !== request?.id)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -270,72 +285,92 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         </div>
       )}
 
-      {/* Pedido já enviado neste ciclo */}
+      {/* Pedido do ciclo atual (fechado por padrão) */}
       {request && (
-        <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setOpen(o => !o)}
-            className="w-full text-left px-5 py-4 border-b border-stone-100 flex items-start justify-between gap-3 hover:bg-stone-50 transition-colors"
-          >
-            <div>
-              <p className="font-semibold text-sage-800 text-sm">Sua orientação de <span className="capitalize">{currentMonthLabel()}</span></p>
-              <p className="text-xs text-stone-400 mt-0.5">Enviada em {formatDate(request.created_at)}</p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {answered ? (
-                <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-green-100 text-green-700">
-                  <CheckCircle className="w-3 h-3" /> Respondida
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
-                  <Clock className="w-3 h-3" /> Aguardando resposta
-                </span>
-              )}
-              <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
+        <RequestCard req={request} open={openIds.has(request.id)} onToggle={() => toggle(request.id)} />
+      )}
 
-          {open && (
-          <div className="p-5 space-y-4 bg-stone-50">
-            <div>
-              <p className="text-[11px] font-medium text-stone-500 mb-1">Sobre o que pediu orientação</p>
-              <p className="text-sm text-stone-700 whitespace-pre-wrap">{request.message}</p>
-            </div>
-            {request.context && (
-              <div>
-                <p className="text-[11px] font-medium text-stone-500 mb-1">O que já tentou</p>
-                <p className="text-sm text-stone-600 whitespace-pre-wrap">{request.context}</p>
-              </div>
-            )}
-            {request.expected_help && (
-              <div>
-                <p className="text-[11px] font-medium text-stone-500 mb-1">Tipo de ajuda esperada</p>
-                <p className="text-sm text-stone-600 whitespace-pre-wrap">{request.expected_help}</p>
-              </div>
-            )}
-
-            {answered ? (
-              <div className="bg-white border border-forest-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-forest-700 mb-1">Resposta da equipe</p>
-                <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{request.response}</p>
-                {request.responded_at && (
-                  <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(request.responded_at)}</p>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
-                <Loader2 className="w-3.5 h-3.5 text-forest-400" />
-                Recebemos sua mensagem. Você será avisado(a) quando a orientação for respondida.
-              </div>
-            )}
+      {/* Histórico — nunca apagado, sempre disponível, fechado por padrão */}
+      {history.length > 0 && (
+        <div className="mt-6">
+          <h2 className="font-serif text-lg text-sage-800 mb-1">Orientações anteriores</h2>
+          <p className="text-xs text-stone-400 mb-3">Seu histórico fica sempre aqui. Toque para abrir.</p>
+          <div className="space-y-2">
+            {history.map(r => (
+              <RequestCard key={r.id} req={r} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
+            ))}
           </div>
-          )}
         </div>
       )}
 
       <p className="text-xs text-stone-400 text-center mt-6">
         Sua orientação será respondida em até 7 dias úteis. Este espaço não é um canal de emergência.
       </p>
+    </div>
+  )
+}
+
+// ── Cartão sanfona de uma orientação (ciclo atual ou histórico) ───────────────
+function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: boolean; onToggle: () => void }) {
+  const answered = req.status === 'answered' && !!req.response
+  return (
+    <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-5 py-4 flex items-start justify-between gap-3 hover:bg-stone-50 transition-colors"
+      >
+        <div className="min-w-0">
+          <p className="font-semibold text-sage-800 text-sm">Sua orientação de <span className="capitalize">{monthKeyLabel(req.month_key)}</span></p>
+          <p className="text-xs text-stone-400 mt-0.5">Enviada em {formatDate(req.created_at)}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {answered ? (
+            <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-green-100 text-green-700">
+              <CheckCircle className="w-3 h-3" /> Respondida
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
+              <Clock className="w-3 h-3" /> Aguardando resposta
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {open && (
+        <div className="p-5 space-y-4 bg-stone-50 border-t border-stone-100">
+          <div>
+            <p className="text-[11px] font-medium text-stone-500 mb-1">Sobre o que pediu orientação</p>
+            <p className="text-sm text-stone-700 whitespace-pre-wrap">{req.message}</p>
+          </div>
+          {req.context && (
+            <div>
+              <p className="text-[11px] font-medium text-stone-500 mb-1">O que já tentou</p>
+              <p className="text-sm text-stone-600 whitespace-pre-wrap">{req.context}</p>
+            </div>
+          )}
+          {req.expected_help && (
+            <div>
+              <p className="text-[11px] font-medium text-stone-500 mb-1">Tipo de ajuda esperada</p>
+              <p className="text-sm text-stone-600 whitespace-pre-wrap">{req.expected_help}</p>
+            </div>
+          )}
+          {answered ? (
+            <div className="bg-white border border-forest-100 rounded-xl p-4">
+              <p className="text-[11px] font-semibold text-forest-700 mb-1">Resposta da equipe</p>
+              <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{req.response}</p>
+              {req.responded_at && (
+                <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
+              <Loader2 className="w-3.5 h-3.5 text-forest-400" />
+              Recebemos sua mensagem. Você será avisado(a) quando a orientação for respondida.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
