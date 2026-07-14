@@ -77,8 +77,8 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
       setReviews((r.data ?? []) as Review[])
       setExtras((d.data ?? []) as Extra[])
       setCatalog(new Map((cat ?? []).map(c => [c.id, c])))
-      // Abre só o plano mais recente por padrão; o restante fica fechado.
-      setOpenIds(new Set(plans[0] ? [plans[0].id] : []))
+      // Todos os planos começam FECHADOS; o usuário abre manualmente.
+      setOpenIds(new Set())
       setLoading(false)
     })
     return () => { active = false }
