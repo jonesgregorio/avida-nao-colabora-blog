@@ -17,7 +17,9 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile'
 const OPENAI_MODEL = 'gpt-4o-mini'
 
 type Provider = 'gemini' | 'groq' | 'openai'
-const ORDER: Provider[] = ['gemini', 'groq', 'openai']
+// Fila ATIVA: apenas Gemini → Groq. O OpenAI fica pronto (callOpenAI abaixo);
+// para ativá-lo, basta cadastrar OPENAI_API_KEY e incluir 'openai' aqui.
+const ORDER: Provider[] = ['gemini', 'groq']
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -135,5 +137,14 @@ Deno.serve(async (req) => {
     admin_id: user.id, content_type: body.contentType ?? 'generic',
     prompt_preview: prompt.slice(0, 280), provider: requested, status: 'error', error_msg: errorMsg.slice(0, 500),
   }).then(() => {}, () => {})
-  return json({ error: errorMsg }, 502)
+
+  // Mensagem CLARA quando o motivo é limite/cota (HTTP 429, quota, rate limit).
+  const isLimit = /\b429\b|quota|rate.?limit|exhaust|resource_exhausted|too many requests/i.test(errorMsg)
+  const friendly = isLimit
+    ? 'Os provedores de IA (Gemini e Groq) atingiram o limite de uso no momento. As gerações voltam automaticamente assim que o limite renovar (normalmente em alguns minutos). Se persistir, verifique as cotas do Gemini/Groq.'
+    : 'Nenhum provedor de IA respondeu agora. Tente novamente em instantes.'
+  // Status 200 de propósito: o supabase-js NÃO repassa o corpo em respostas
+  // não-2xx, então a mensagem clara se perderia. O cliente detecta o erro pela
+  // ausência de `text` e mostra `error`.
+  return json({ error: friendly, limit_reached: isLimit, detail: errorMsg })
 })

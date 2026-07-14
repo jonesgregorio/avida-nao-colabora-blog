@@ -53,7 +53,9 @@ export interface AICallOptions {
 
 export type AIProvider = 'gemini' | 'groq' | 'openai'
 
-export const PROVIDER_ORDER: AIProvider[] = ['gemini', 'groq', 'openai']
+// Fila ATIVA: apenas Gemini → Groq. O 'openai' segue no tipo/labels (pronto
+// para reativar), mas fora da ordem até cadastrar a OPENAI_API_KEY.
+export const PROVIDER_ORDER: AIProvider[] = ['gemini', 'groq']
 
 export const PROVIDER_LABELS: Record<AIProvider, string> = {
   gemini: 'Google Gemini',
