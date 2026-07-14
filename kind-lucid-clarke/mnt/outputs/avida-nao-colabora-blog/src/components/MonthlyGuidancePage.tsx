@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { MessageSquare, Send, ChevronLeft, Loader2, CheckCircle, Clock, CalendarClock, Sparkles } from 'lucide-react'
+import { MessageSquare, Send, ChevronLeft, ChevronDown, Loader2, CheckCircle, Clock, CalendarClock, Sparkles } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
@@ -75,6 +75,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [expectedHelp, setExpectedHelp] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false) // card da orientação começa FECHADO
 
   const allowed = normalizePlan(profile?.plan) === 'plus'
 
@@ -272,22 +273,29 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       {/* Pedido já enviado neste ciclo */}
       {request && (
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-stone-100 flex items-start justify-between gap-3">
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="w-full text-left px-5 py-4 border-b border-stone-100 flex items-start justify-between gap-3 hover:bg-stone-50 transition-colors"
+          >
             <div>
               <p className="font-semibold text-sage-800 text-sm">Sua orientação de <span className="capitalize">{currentMonthLabel()}</span></p>
               <p className="text-xs text-stone-400 mt-0.5">Enviada em {formatDate(request.created_at)}</p>
             </div>
-            {answered ? (
-              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-green-100 text-green-700">
-                <CheckCircle className="w-3 h-3" /> Respondida
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0 bg-amber-100 text-amber-700">
-                <Clock className="w-3 h-3" /> Aguardando resposta
-              </span>
-            )}
-          </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {answered ? (
+                <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-green-100 text-green-700">
+                  <CheckCircle className="w-3 h-3" /> Respondida
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
+                  <Clock className="w-3 h-3" /> Aguardando resposta
+                </span>
+              )}
+              <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
 
+          {open && (
           <div className="p-5 space-y-4 bg-stone-50">
             <div>
               <p className="text-[11px] font-medium text-stone-500 mb-1">Sobre o que pediu orientação</p>
@@ -321,6 +329,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
