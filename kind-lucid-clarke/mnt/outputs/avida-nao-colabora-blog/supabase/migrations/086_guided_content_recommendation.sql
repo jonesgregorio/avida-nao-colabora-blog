@@ -13,9 +13,31 @@
 -- 1. Metadados de recomendação em articles
 --    (content_type já existe desde a 059)
 -- ─────────────────────────────────────────────────────────────
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS tags                  TEXT[]  DEFAULT '{}';
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS keywords              TEXT[]  DEFAULT '{}';
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS emotional_themes      TEXT[]  DEFAULT '{}';
+-- tags/keywords/emotional_themes precisam ser TEXT[] (o motor casa por arrays e
+-- os índices GIN exigem tipo array). Se a coluna já existir como TEXT escalar
+-- (legado do editor/SEO), converte "a, b" → ARRAY['a','b'] sem perder dados.
+DO $conv$
+DECLARE
+  col text;
+  dt  text;
+BEGIN
+  FOREACH col IN ARRAY ARRAY['tags','keywords','emotional_themes'] LOOP
+    SELECT data_type INTO dt FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'articles' AND column_name = col;
+    IF dt IS NULL THEN
+      EXECUTE format('ALTER TABLE articles ADD COLUMN %I TEXT[] DEFAULT ''{}''', col);
+    ELSIF dt <> 'ARRAY' THEN
+      EXECUTE format('ALTER TABLE articles ALTER COLUMN %I DROP DEFAULT', col);
+      EXECUTE format(
+        'ALTER TABLE articles ALTER COLUMN %1$I TYPE TEXT[] USING '
+        || 'CASE WHEN %1$I IS NULL OR btrim(%1$I) = '''' THEN ''{}''::text[] '
+        || 'ELSE string_to_array(regexp_replace(%1$I, ''\s*,\s*'', '','', ''g''), '','') END',
+        col);
+      EXECUTE format('ALTER TABLE articles ALTER COLUMN %I SET DEFAULT ''{}''', col);
+    END IF;
+  END LOOP;
+END $conv$;
+
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS estimated_time_minutes INTEGER;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_guided_content     BOOLEAN DEFAULT true;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_recommendable      BOOLEAN DEFAULT true;
