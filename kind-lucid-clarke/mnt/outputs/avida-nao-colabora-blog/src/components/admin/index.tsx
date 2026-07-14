@@ -8,7 +8,7 @@ import AdminArticleEditor from './AdminArticleEditor'
 import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
 import AdminPlanosPage from './AdminPlanosPage'
-import AdminSelfCarePlans from './AdminSelfCarePlans'
+import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
 import AdminGuidanceRequests from './AdminGuidanceRequests'
 import AdminSuportePage from './AdminSuportePage'
 import AdminAreaConteudo from './AdminAreaConteudo'
@@ -164,7 +164,7 @@ export default function AdminPanel() {
       case 'automacoes-blog': return <AdminAutomacoesBlog />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'mapa': return <AdminMapaArea />
-      case 'autocuidado': return <AdminSelfCarePlans />
+      case 'autocuidado': return <AdminMonthlyCarePlans />
       case 'orientacao': return <AdminGuidanceRequests />
       case 'comunicacao': return <AdminAreaComunicacao />
       case 'suporte': return <AdminSuportePage />
