@@ -99,12 +99,36 @@ function pendencyLabel(days: number): { text: string; late: boolean } {
   return { text: `Atrasado há ${days} dias`, late: true }
 }
 
+// Abas da fila (§10) — agrupam os status por etapa do trabalho.
+type TabKey = 'aberto' | 'revisao' | 'envio' | 'atrasados' | 'enviados' | 'ignorados' | 'todos'
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'aberto', label: 'Em aberto' },
+  { key: 'revisao', label: 'Em revisão' },
+  { key: 'envio', label: 'Prontos para envio' },
+  { key: 'atrasados', label: 'Atrasados' },
+  { key: 'enviados', label: 'Enviados' },
+  { key: 'ignorados', label: 'Ignorados' },
+  { key: 'todos', label: 'Todos' },
+]
+function inTab(tab: TabKey, status: string, late: boolean): boolean {
+  switch (tab) {
+    case 'todos': return true
+    case 'aberto': return status === 'pending_generation' || status === 'generating'
+    case 'revisao': return status === 'draft' || status === 'pending_review'
+    case 'envio': return status === 'approved'
+    case 'atrasados': return status !== 'sent' && status !== 'skipped' && late
+    case 'enviados': return status === 'sent'
+    case 'ignorados': return status === 'skipped'
+    default: return true
+  }
+}
+
 export default function AdminMonthlyCarePlans() {
   const [eligible, setEligible] = useState<EligibleUser[]>([])
   const [plans, setPlans] = useState<CarePlanRow[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
-  const [statusFilter, setStatusFilter] = useState('todos')
+  const [tab, setTab] = useState<TabKey>('aberto')
   const [search, setSearch] = useState('')
   const months = useMemo(() => recentClosedMonths(6), [])
   const [monthRef, setMonthRef] = useState(months[0]?.ref ?? '')
@@ -148,38 +172,42 @@ export default function AdminMonthlyCarePlans() {
     })()
   }, [loading, monthRef, eligible, plans, load])
 
-  // Linhas da fila para o mês selecionado.
-  const rows = useMemo(() => {
+  // Base: elegíveis para o mês + busca (sem o filtro de aba).
+  const baseRows = useMemo(() => {
     const planByUser = new Map(plans.filter(p => p.month_reference === monthRef).map(p => [p.user_id, p]))
     return eligible
-      .map(u => {
-        const period = periodForMonth(monthRef, u.plan_activated_at)
-        const plan = planByUser.get(u.user_id) ?? null
-        return { user: u, period, plan }
-      })
-      .filter(r => !r.period.activatedAfter) // não elegível para este mês (ativou depois)
-      .filter(r => {
-        if (statusFilter === 'todos') return true
-        if (statusFilter === 'atrasados') {
-          const st = r.plan?.status
-          return st !== 'sent' && st !== 'skipped' && pendencyLabel(daysSince(r.period.availableAt)).late
-        }
-        const st = r.plan?.status ?? 'pending_generation'
-        return st === statusFilter
-      })
+      .map(u => ({ user: u, period: periodForMonth(monthRef, u.plan_activated_at), plan: planByUser.get(u.user_id) ?? null }))
+      .filter(r => !r.period.activatedAfter)
       .filter(r => {
         if (!search.trim()) return true
         const q = search.toLowerCase()
         return (r.user.full_name ?? '').toLowerCase().includes(q) || (r.user.email ?? '').toLowerCase().includes(q)
       })
       .sort((a, b) => daysSince(b.period.availableAt) - daysSince(a.period.availableAt))
-  }, [eligible, plans, monthRef, statusFilter, search])
+  }, [eligible, plans, monthRef, search])
+
+  // Contagem por aba (respeita mês + busca).
+  const tabCounts = useMemo(() => {
+    const c: Record<TabKey, number> = { aberto: 0, revisao: 0, envio: 0, atrasados: 0, enviados: 0, ignorados: 0, todos: 0 }
+    for (const r of baseRows) {
+      const st = r.plan?.status ?? 'pending_generation'
+      const late = pendencyLabel(daysSince(r.period.availableAt)).late
+      for (const t of TABS) if (inTab(t.key, st, late)) c[t.key]++
+    }
+    return c
+  }, [baseRows])
+
+  // Linhas visíveis: base filtrada pela aba ativa.
+  const rows = useMemo(
+    () => baseRows.filter(r => inTab(tab, r.plan?.status ?? 'pending_generation', pendencyLabel(daysSince(r.period.availableAt)).late)),
+    [baseRows, tab],
+  )
 
   // Cards de resumo (§10.1).
   const metrics = useMemo(() => {
     const monthPlans = plans.filter(p => p.month_reference === monthRef)
     const byStatus = (s: string) => monthPlans.filter(p => p.status === s).length
-    const overdue = rows.filter(r => {
+    const overdue = baseRows.filter(r => {
       const st = r.plan?.status
       return st !== 'sent' && st !== 'skipped' && pendencyLabel(daysSince(r.period.availableAt)).late
     }).length
@@ -189,9 +217,9 @@ export default function AdminMonthlyCarePlans() {
       { n: byStatus('approved'), label: 'Pendentes de envio' },
       { n: byStatus('sent'), label: 'Enviados no mês' },
       { n: overdue, label: 'Atrasados' },
-      { n: rows.length, label: 'Total Plus elegíveis' },
+      { n: baseRows.length, label: 'Total Plus elegíveis' },
     ]
-  }, [plans, monthRef, rows])
+  }, [plans, monthRef, baseRows])
 
   return (
     <div>
@@ -223,20 +251,10 @@ export default function AdminMonthlyCarePlans() {
         ))}
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
-        <select value={monthRef} onChange={e => setMonthRef(e.target.value)} className="px-3 py-2 border border-line rounded-lg text-sm">
+      {/* Filtros: mês + busca */}
+      <div className="flex flex-wrap gap-3 mb-3 items-center">
+        <select value={monthRef} onChange={e => setMonthRef(e.target.value)} className="px-3 py-2 border border-line rounded-lg text-sm capitalize">
           {months.map(m => <option key={m.ref} value={m.ref} className="capitalize">{m.label}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border border-line rounded-lg text-sm">
-          <option value="todos">Todos os status</option>
-          <option value="pending_generation">Pendente de geração</option>
-          <option value="atrasados">Atrasados</option>
-          <option value="draft">Rascunho</option>
-          <option value="pending_review">Pendente de revisão</option>
-          <option value="approved">Aprovado</option>
-          <option value="sent">Enviado</option>
-          <option value="skipped">Ignorado</option>
         </select>
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
@@ -244,12 +262,31 @@ export default function AdminMonthlyCarePlans() {
         </div>
       </div>
 
+      {/* Abas por etapa do trabalho */}
+      <div className="flex flex-wrap gap-2 mb-4 border-b border-line">
+        {TABS.map(t => {
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-lg -mb-px border-b-2 transition-colors ${
+                active ? 'border-forest-700 text-forest-900 font-medium' : 'border-transparent text-ink-soft hover:text-forest-800'
+              }`}
+            >
+              {t.label}
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-forest-100 text-forest-800' : 'bg-stone-100 text-stone-500'}`}>{tabCounts[t.key]}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {loading ? (
         <p className="text-stone-400 text-sm py-8">Carregando fila...</p>
       ) : rows.length === 0 ? (
         <div className="text-center py-16 text-stone-400">
           <Leaf className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Nenhum usuário Plus elegível para este mês.</p>
+          <p className="text-sm">{baseRows.length === 0 ? 'Nenhum usuário Plus elegível para este mês.' : 'Nenhum plano nesta aba.'}</p>
         </div>
       ) : (
         <div className="overflow-x-auto border border-line rounded-2xl bg-white">
@@ -332,8 +369,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   const [loadingData, setLoadingData] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState<null | 'draft' | 'send' | 'skip'>(null)
-  const [summary, setSummary] = useState<CareSummary>(plan?.ai_summary_json ?? emptySummary())
-  const [care, setCare] = useState<CarePlanContent>(plan?.care_plan ?? emptyPlan())
+  // Merge com defaults: o banco guarda '{}' (jsonb) por padrão, que é truthy —
+  // sem o merge, arrays ficariam undefined e o .join() derrubaria a tela.
+  const [summary, setSummary] = useState<CareSummary>({ ...emptySummary(), ...(plan?.ai_summary_json ?? {}) })
+  const [care, setCare] = useState<CarePlanContent>({ ...emptyPlan(), ...(plan?.care_plan ?? {}) })
   const [content, setContent] = useState<ResolvedContent[]>([])
   const [adminNotes, setAdminNotes] = useState(plan?.admin_notes ?? '')
   const status = plan?.status ?? 'pending_generation'
@@ -552,7 +591,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             <button onClick={() => persist('draft')} disabled={!!saving} className="flex items-center gap-1.5 text-sm text-forest-800 border border-forest-200 px-3 py-2 rounded-lg hover:bg-mint/50 disabled:opacity-50">
               {saving === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar rascunho
             </button>
-            <button onClick={() => persist('send')} disabled={!!saving || !care.monthly_priority.trim()} className="flex items-center gap-1.5 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
+            <button onClick={() => persist('send')} disabled={!!saving || !care.monthly_priority?.trim()} className="flex items-center gap-1.5 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
               {saving === 'send' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar plano
             </button>
           </div>
@@ -569,15 +608,16 @@ function Area({ label, value, onChange, ro, cls, rows = 3 }: { label: string; va
   return (
     <div>
       <label className="text-xs text-stone-500 block mb-1">{label}</label>
-      <textarea value={value} onChange={e => onChange(e.target.value)} readOnly={ro} rows={rows} className={cls} />
+      <textarea value={value ?? ''} onChange={e => onChange(e.target.value)} readOnly={ro} rows={rows} className={cls} />
     </div>
   )
 }
 function ListArea({ label, arr, onChange, ro, cls }: { label: string; arr: string[]; onChange: (a: string[]) => void; ro: boolean; cls: string }) {
+  const safe = arr ?? []
   return (
     <div>
       <label className="text-xs text-stone-500 block mb-1">{label} <span className="text-stone-400">(um por linha)</span></label>
-      <textarea value={arr.join('\n')} onChange={e => onChange(lines(e.target.value))} readOnly={ro} rows={Math.max(2, arr.length)} className={cls} />
+      <textarea value={safe.join('\n')} onChange={e => onChange(lines(e.target.value))} readOnly={ro} rows={Math.max(2, safe.length)} className={cls} />
     </div>
   )
 }
