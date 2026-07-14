@@ -120,15 +120,10 @@ export default function AdminGuidanceRequests() {
       .eq('id', selected.id)
     if (error) { showToast('Erro: ' + error.message, true); setSaving(false); return }
 
-    await supabase.from('notifications').insert({
-      user_id: selected.user_id,
-      title: 'Sua orientação foi respondida',
-      body: `Sua orientação de ${monthLabel(selected.month_key)} foi respondida. Confira no Mapa Emocional.`,
-      type: 'system',
-      action_view: 'my-evolution',
-      action_label: 'Ver orientação',
-      is_read: false,
-    })
+    // A notificação in-app é criada pelo gatilho notify_guidance_answered
+    // (dispara quando status vira 'answered', com destino correto
+    // 'monthly-guidance'). Não inserimos aqui para evitar DUPLICATA e o link
+    // errado que apontava para o Mapa Emocional.
 
     void emailGuidanceAnsweredForUser(selected.user_id, selected.id, respondedAt)
 

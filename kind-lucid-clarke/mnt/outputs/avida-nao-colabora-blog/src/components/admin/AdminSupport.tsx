@@ -368,16 +368,10 @@ export default function AdminSupport() {
       setSelectedTicket(updated)
       setTickets(prev => prev.map(t => t.id === updated.id ? { ...t, status: 'awaiting_user', unread_for_admin: false } : t))
 
-      await supabase.from('notifications').insert({
-        user_id: selectedTicket.user_id,
-        title: 'Resposta do suporte',
-        body: 'Sua solicitação foi respondida. Clique para visualizar.',
-        type: 'support_reply',
-        related_ticket_id: selectedTicket.id,
-        action_view: 'support-ticket',
-        action_label: 'Ver resposta',
-        is_read: false,
-      })
+      // A notificação in-app é criada pelo gatilho de banco notify_ticket_reply
+      // (dispara no INSERT em ticket_messages, com destino correto
+      // 'support-ticket:<id>'). Não inserimos aqui para evitar DUPLICATA e o
+      // link quebrado (o campo action_view era ignorado pela tela).
     }
 
     setSending(false)

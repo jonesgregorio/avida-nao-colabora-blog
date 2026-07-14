@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import { createUserNotification } from '../../lib/notifications'
 import { emailPersonalizedContentForUser } from '../../lib/emailTriggers'
 import {
   Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
@@ -334,16 +335,14 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
       })
       .eq('id', task.id)
 
-    // 3. Notificação ao usuário
+    // 3. Notificação ao usuário (função central — destino correto por área).
     if (def) {
-      await supabase.from('notifications').insert({
-        user_id: task.user_id,
-        title: def.notificationTitle ?? 'Novo conteúdo personalizado disponível',
-        body: def.notificationBody ?? 'Preparamos uma nova entrega personalizada para você.',
+      await createUserNotification({
+        userId: task.user_id,
         type: 'personalized_content',
-        action_view: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'] ?? 'my-evolution',
-        action_label: 'Ver conteúdo',
-        is_read: false,
+        title: def.notificationTitle ?? 'Novo conteúdo personalizado disponível',
+        message: def.notificationBody ?? 'Preparamos uma nova entrega personalizada para você.',
+        destination: ACTION_VIEW_MAP[task.target_area ?? 'my_evolution'],
       })
     }
 

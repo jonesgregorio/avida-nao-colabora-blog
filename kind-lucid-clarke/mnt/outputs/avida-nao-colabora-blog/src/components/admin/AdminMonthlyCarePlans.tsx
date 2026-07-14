@@ -473,6 +473,8 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
           title: 'Seu Plano de Autocuidado do mês está disponível',
           message: 'Ele foi preparado com base nos seus registros do último mês. Acesse na sua área do usuário.',
           destination: 'self-care',
+          targetResourceType: 'monthly_care_plan',
+          targetResourceId: planId || undefined,
         })
         if (planId) void emailSelfCarePlanForUser(user.user_id, planId)
       }
