@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
 import { getContentTypeLabel } from '../lib/personalizedContentLabels'
-import { Sprout, Loader2, Download, ArrowRight, Sparkles, ShieldCheck, ChevronDown, ChevronUp, BookOpen, HelpCircle, Heart } from 'lucide-react'
+import { Sprout, Loader2, Download, ArrowRight, Sparkles, ShieldCheck, ChevronDown, BookOpen, HelpCircle, Heart } from 'lucide-react'
 import PlanBadge from './PlanBadge'
 import RecommendedContent from './RecommendedContent'
 import { signalFromTags, fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
@@ -44,8 +44,9 @@ function monthLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-// Área PRÓPRIA do Plano de Autocuidado — exclusiva do Plus. Transforma os dados
-// de diário/questionários/mapa em ações mensais, com revisão humana no admin.
+// Área PRÓPRIA do Plano de Autocuidado — exclusiva do Plus. Cada plano é um
+// cartão sanfona: fechado por padrão (só cabeçalho + prioridade), abre para ver
+// o plano de ação completo — assim a página não fica enorme.
 export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onNavigate, onOpenArticle }: Props) {
   const plan = normalizePlan(profile?.plan)
   const isPlus = plan === 'plus'
@@ -54,7 +55,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
   const [extras, setExtras] = useState<Extra[]>([])
   const [catalog, setCatalog] = useState<Map<string, CatalogItem>>(new Map())
   const [loading, setLoading] = useState(isPlus)
-  const [showHistory, setShowHistory] = useState(false)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!user || !isPlus) { setLoading(false); return }
@@ -71,26 +72,33 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
       fetchGuidedCatalog(),
     ]).then(([mp, r, d, cat]) => {
       if (!active) return
-      setSentPlans((mp.data ?? []) as SentPlan[])
+      const plans = (mp.data ?? []) as SentPlan[]
+      setSentPlans(plans)
       setReviews((r.data ?? []) as Review[])
       setExtras((d.data ?? []) as Extra[])
       setCatalog(new Map((cat ?? []).map(c => [c.id, c])))
+      // Abre só o plano mais recente por padrão; o restante fica fechado.
+      setOpenIds(new Set(plans[0] ? [plans[0].id] : []))
       setLoading(false)
     })
     return () => { active = false }
   }, [user, isPlus])
 
+  const toggle = (id: string) => setOpenIds(prev => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
+
   const current = sentPlans[0] ?? null
 
-  // Sinal para conteúdos ligados à prioridade do mês. Usa o plano novo; se não
-  // houver, cai para a revisão legada.
+  // Sinal para conteúdos ligados à prioridade do mês (usa o plano novo; se não
+  // houver, cai para a revisão legada).
   const focusText = current
     ? [current.care_plan?.monthly_priority, ...(current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
     : reviews[0] ? [reviews[0].next_focus, reviews[0].summary].filter(Boolean).join(' ') : ''
   const focusSignal = focusText ? signalFromTags([focusText]) : null
   const careSignal = focusSignal && focusSignal.hasData ? focusSignal : undefined
-
-  const historyItems = sentPlans.slice(1)
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -118,7 +126,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
         </div>
       ) : loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
-      ) : !current && reviews.length === 0 ? (
+      ) : sentPlans.length === 0 && reviews.length === 0 ? (
         // Nenhum plano enviado ainda (§14).
         <div className="bg-paper-soft border border-line rounded-3xl p-8 text-center space-y-3">
           <Sparkles className="w-9 h-9 text-forest-300 mx-auto" />
@@ -132,12 +140,22 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
           )}
         </div>
       ) : (
-        <div className="space-y-5">
-          {current && current.care_plan ? (
-            <PlanCard plan={current} catalog={catalog} onOpenArticle={onOpenArticle} />
-          ) : reviews[0] ? (
-            <LegacyReviewCard r={reviews[0]} />
-          ) : null}
+        <div className="space-y-6">
+          {/* Lista sanfona: cada plano abre para mostrar o plano de ação. */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-serif text-lg text-forest-900">Seus planos de autocuidado</h2>
+              <p className="text-xs text-ink-soft">Toque em um plano para ver o plano de ação.</p>
+            </div>
+            <div className="space-y-3">
+              {sentPlans.map(p => (
+                <PlanCard key={p.id} plan={p} catalog={catalog} onOpenArticle={onOpenArticle} open={openIds.has(p.id)} onToggle={() => toggle(p.id)} />
+              ))}
+              {reviews.map(r => (
+                <LegacyReviewCard key={r.id} r={r} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
+              ))}
+            </div>
+          </div>
 
           {/* Conteúdos guiados ligados à prioridade do mês (§8.6/§19). */}
           {onOpenArticle && (
@@ -169,22 +187,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
             </div>
           )}
 
-          {/* Histórico (§15) */}
-          {(historyItems.length > 0 || reviews.length > 0) && (
-            <div>
-              <button onClick={() => setShowHistory(s => !s)} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900">
-                {showHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} Ver planos anteriores
-              </button>
-              {showHistory && (
-                <div className="space-y-3 mt-3">
-                  {historyItems.map(p => <PlanCard key={p.id} plan={p} catalog={catalog} onOpenArticle={onOpenArticle} compact />)}
-                  {reviews.map(r => <LegacyReviewCard key={r.id} r={r} compact />)}
-                </div>
-              )}
-            </div>
-          )}
-
-          <p className="text-xs text-ink-soft/80 flex items-start gap-2 pt-2">
+          <p className="text-xs text-ink-soft/80 flex items-start gap-2 pt-1">
             <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-forest-400" /> {CARE_PLAN_DISCLAIMER}
           </p>
         </div>
@@ -193,29 +196,37 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
   )
 }
 
-function PlanCard({ plan, catalog, onOpenArticle, compact }: {
-  plan: SentPlan; catalog: Map<string, CatalogItem>; onOpenArticle?: (slug: string) => void; compact?: boolean
+// ── Cartão sanfona do plano mensal ────────────────────────────────────────────
+function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
+  plan: SentPlan; catalog: Map<string, CatalogItem>; onOpenArticle?: (slug: string) => void; open: boolean; onToggle: () => void
 }) {
   const c = plan.care_plan
   const s = plan.ai_summary_json
   const recs = (plan.recommended_content_ids ?? []).map(id => catalog.get(id)).filter(Boolean) as CatalogItem[]
   return (
-    <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-serif text-lg sm:text-xl text-forest-900 capitalize">Plano de {monthTitle(plan.month_reference)}</h3>
-        <span className="text-xs text-ink-soft whitespace-nowrap">{plan.sent_at ? formatDateBR(plan.sent_at.slice(0, 10)) : ''}</span>
-      </div>
-      <p className="text-xs text-ink-soft -mt-2">Período analisado: {formatPeriodShort({ start: plan.period_start, end: plan.period_end })}</p>
-
-      {(plan.ai_summary || s?.general_overview) && (
-        <div className="bg-mint/40 border border-forest-100 rounded-2xl p-4">
-          <p className="text-sm text-forest-800 leading-relaxed">{plan.ai_summary || s?.general_overview}</p>
+    <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
+        <div className="min-w-0">
+          <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthTitle(plan.month_reference)}</h3>
+          <p className="text-xs text-ink-soft mt-0.5">
+            {formatPeriodShort({ start: plan.period_start, end: plan.period_end })}
+            {plan.sent_at ? ` · enviado ${formatDateBR(plan.sent_at.slice(0, 10))}` : ''}
+          </p>
+          {!open && c?.monthly_priority && (
+            <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Prioridade: </span>{c.monthly_priority}</p>
+          )}
         </div>
-      )}
+        <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
 
-      {c?.monthly_priority && <Field label="Prioridade do mês" value={c.monthly_priority} strong />}
-      {!compact && (
-        <>
+      {open && (
+        <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
+          {(plan.ai_summary || s?.general_overview) && (
+            <div className="bg-mint/40 border border-forest-100 rounded-2xl p-4 mt-4">
+              <p className="text-sm text-forest-800 leading-relaxed">{plan.ai_summary || s?.general_overview}</p>
+            </div>
+          )}
+          {c?.monthly_priority && <Field label="Prioridade do mês" value={c.monthly_priority} strong />}
           {c?.main_care && <Field label="Cuidado principal" value={c.main_care} />}
           {c?.recommended_practice && <Field label="Prática recomendada" value={c.recommended_practice} />}
           {c?.attention_point && <Field label="Ponto de atenção" value={c.attention_point} />}
@@ -250,26 +261,35 @@ function PlanCard({ plan, catalog, onOpenArticle, compact }: {
               <p className="text-sm text-forest-800 leading-relaxed flex items-start gap-2"><Heart className="w-4 h-4 flex-shrink-0 mt-0.5 text-coral" /> {c.final_message}</p>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
 }
 
-function LegacyReviewCard({ r, compact }: { r: Review; compact?: boolean }) {
+// ── Cartão sanfona do plano legado (self_care_plan_reviews) ───────────────────
+function LegacyReviewCard({ r, open, onToggle }: { r: Review; open: boolean; onToggle: () => void }) {
   return (
-    <div className="bg-paper-soft border border-line rounded-3xl p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthLabel(r.month_key)}</h3>
-        <span className="text-xs text-ink-soft">{new Date(r.created_at).toLocaleDateString('pt-BR')}</span>
-      </div>
-      {r.summary && <Field label="Resumo" value={r.summary} />}
-      {!compact && r.suggested_adjustments && <Field label="Pequenos cuidados sugeridos" value={r.suggested_adjustments} />}
-      {!compact && r.next_focus && <Field label="Prioridade do próximo período" value={r.next_focus} />}
-      {r.pdf_url && (
-        <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-forest-700 hover:underline">
-          <Download className="w-4 h-4" /> Baixar em PDF
-        </a>
+    <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
+        <div className="min-w-0">
+          <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthLabel(r.month_key)}</h3>
+          <p className="text-xs text-ink-soft mt-0.5">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p>
+          {!open && r.next_focus && <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Prioridade: </span>{r.next_focus}</p>}
+        </div>
+        <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 sm:px-5 pb-5 pt-4 space-y-3 border-t border-line/60">
+          {r.summary && <Field label="Resumo" value={r.summary} />}
+          {r.suggested_adjustments && <Field label="Pequenos cuidados sugeridos" value={r.suggested_adjustments} />}
+          {r.next_focus && <Field label="Prioridade do próximo período" value={r.next_focus} />}
+          {r.pdf_url && (
+            <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-forest-700 hover:underline">
+              <Download className="w-4 h-4" /> Baixar em PDF
+            </a>
+          )}
+        </div>
       )}
     </div>
   )
