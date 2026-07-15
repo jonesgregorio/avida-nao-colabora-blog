@@ -49,6 +49,18 @@ const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
+// Campos extras de rastreabilidade (092) extraídos de uma subscription do Stripe.
+function subFields(s: Stripe.Subscription): Record<string, unknown> {
+  const price = s.items.data[0]?.price
+  return {
+    price_id: price?.id ?? null,
+    product_id: (price?.product as string) ?? null,
+    canceled_at: s.canceled_at ? new Date(s.canceled_at * 1000).toISOString() : null,
+    trial_end: s.trial_end ? new Date(s.trial_end * 1000).toISOString() : null,
+    payment_status: s.status,
+  }
+}
+
 // Dispara e-mail transacional via Edge Function (service role).
 // NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
 async function sendTxEmail(
@@ -178,6 +190,7 @@ Deno.serve(async (req) => {
       pending_plan: null,
       pending_plan_starts_at: null,
       provider_subscription_id: stripeSub?.id ?? null,
+      ...(stripeSub ? subFields(stripeSub) : {}),
     }, { onConflict: 'user_id' })
     if (subErr) console.error('Erro ao upsert user_subscriptions (checkout):', subErr)
 
@@ -276,6 +289,7 @@ Deno.serve(async (req) => {
       current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
       provider_subscription_id: subscription.id,
+      ...subFields(subscription),
     }, { onConflict: 'user_id' })
     if (subErr) console.error('Erro ao upsert user_subscriptions (invoice):', subErr)
 
@@ -348,6 +362,7 @@ Deno.serve(async (req) => {
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
         provider_subscription_id: subscription.id,
+        ...subFields(subscription),
       }, { onConflict: 'user_id' })
     }
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
@@ -388,6 +403,7 @@ Deno.serve(async (req) => {
       current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
       provider_subscription_id: subscription.id,
+      ...subFields(subscription),
     }, { onConflict: 'user_id' })
     if (subErr) console.error('Erro user_subscriptions (sub.updated):', subErr)
 
@@ -479,6 +495,8 @@ Deno.serve(async (req) => {
       cancel_at_period_end: false,
       pending_plan: null,
       pending_plan_starts_at: null,
+      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : new Date().toISOString(),
+      payment_status: 'canceled',
     }).eq('user_id', userId)
     if (subErr) console.error('Erro ao atualizar user_subscriptions (deleted):', subErr)
 
