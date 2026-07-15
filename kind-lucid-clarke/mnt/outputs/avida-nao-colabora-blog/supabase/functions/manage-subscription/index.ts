@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         title: 'Upgrade em processamento',
         body: `Aplicando seu upgrade para ${planLabel(targetPlan)}. Os novos recursos liberam assim que o pagamento confirmar.`,
-        type: 'info', action_view: 'my-plan',
+        type: 'info', action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif upgrade:', error) })
 
       return jsonResponse({ ok: true, message: `Upgrade para ${planLabel(targetPlan)} em processamento.` })
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
         title: 'Cancelamento agendado',
         body: `Sua assinatura será encerrada ao fim do ciclo atual. Você mantém acesso até lá.`,
         type: 'info',
-        action_view: 'my-plan',
+        action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif cancel:', error) })
 
       // E-mail de confirmação de cancelamento solicitado (não bloqueia o fluxo)
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
       await supabase.from('notifications').insert({
         user_id: user.id, title: 'Downgrade agendado',
         body: `Seu plano muda para ${planLabel(targetPlan)} em ${fimCiclo}. Até lá, você mantém o ${planLabel(currentPlan)}.`,
-        type: 'info', action_view: 'my-plan',
+        type: 'info', action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif downgrade:', error) })
 
       await sendTxEmail('plan_downgrade_scheduled', profile?.email ?? user.email, {
@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
         title: 'Assinatura reativada',
         body: `O cancelamento agendado foi removido. Seu plano continua ativo normalmente.`,
         type: 'info',
-        action_view: 'my-plan',
+        action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif reactivate:', error) })
 
       await sendTxEmail('plan_reactivated', profile?.email ?? user.email, {

@@ -140,10 +140,13 @@ Deno.serve(async (req) => {
       .single()
     const oldPlan = prevProfile?.plan ?? 'free'
 
-    // Atualiza plano em profiles
+    // Atualiza plano em profiles + registra a data de ATIVAÇÃO do plano.
+    // plan_activated_at ancora os ciclos mensais (relatório/autocuidado) a partir
+    // da ativação; é definido no checkout (nova assinatura) e no upgrade (abaixo),
+    // e NÃO é tocado nas renovações — o 1º ciclo vai da ativação até o fim do mês.
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ plan })
+      .update({ plan, plan_activated_at: new Date().toISOString() })
       .eq('user_id', userId)
     if (profileErr) console.error('Erro ao atualizar profiles.plan (checkout):', profileErr)
 
@@ -197,7 +200,7 @@ Deno.serve(async (req) => {
       title: 'Assinatura ativada com sucesso!',
       body: `Seu plano foi ativado. Aproveite todos os recursos do seu novo plano.`,
       type: 'info',
-      action_view: 'my-plan',
+      action_url: 'my-plan', destination_path: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (checkout):', notifErr)
 
@@ -307,7 +310,7 @@ Deno.serve(async (req) => {
       title: 'Pagamento confirmado',
       body: `Sua assinatura foi renovada com sucesso.`,
       type: 'info',
-      action_view: 'my-plan',
+      action_url: 'my-plan', destination_path: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (invoice):', notifErr)
 
@@ -397,6 +400,11 @@ Deno.serve(async (req) => {
     // Mudança de plano (upgrade aplicado agora, ou downgrade aplicado no fim do ciclo).
     if (newPlan !== oldPlan && active) {
       const isUpgrade = rankOf(newPlan) > rankOf(oldPlan)
+      // No UPGRADE, a data de ativação passa a ser a do upgrade — assim o 1º ciclo
+      // mensal do novo plano (ex.: Plus) conta da ativação até o fim do mês (§16).
+      if (isUpgrade) {
+        await supabase.from('profiles').update({ plan_activated_at: new Date().toISOString() }).eq('user_id', userId)
+      }
       await supabase.from('plan_change_history').insert({
         user_id: userId, old_plan: oldPlan, new_plan: newPlan,
         change_type: isUpgrade ? 'upgrade' : 'downgrade',
@@ -414,7 +422,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         title: isUpgrade ? 'Plano atualizado' : 'Plano alterado',
         body: `Seu plano agora é ${planLabel(newPlan)}.`,
-        type: 'info', action_view: 'my-plan',
+        type: 'info', action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif (sub.updated):', error) })
     }
 
@@ -500,7 +508,7 @@ Deno.serve(async (req) => {
       title: notifTitle,
       body: notifBody,
       type: 'info',
-      action_view: 'my-plan',
+      action_url: 'my-plan', destination_path: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (deleted):', notifErr)
 
