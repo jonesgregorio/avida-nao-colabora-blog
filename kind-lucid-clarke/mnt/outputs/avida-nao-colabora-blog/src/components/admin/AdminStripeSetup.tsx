@@ -9,13 +9,14 @@ export default function AdminStripeSetup() {
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<{ fn: string; data: unknown } | null>(null)
 
-  async function call(fn: 'configure-stripe-webhook' | 'stripe-selftest' | 'stripe-audit') {
-    setBusy(fn); setResult(null)
+  async function call(fn: 'configure-stripe-webhook' | 'stripe-selftest' | 'stripe-audit', body: Record<string, unknown> = {}) {
+    const tag = (body.scope as string) ? `${fn}:${body.scope}` : fn
+    setBusy(tag); setResult(null)
     try {
-      const { data, error } = await supabase.functions.invoke(fn, { body: {} })
-      setResult({ fn, data: error ? { error: error.message } : data })
+      const { data, error } = await supabase.functions.invoke(fn, { body })
+      setResult({ fn: tag, data: error ? { error: error.message } : data })
     } catch (e) {
-      setResult({ fn, data: { error: e instanceof Error ? e.message : 'erro' } })
+      setResult({ fn: tag, data: { error: e instanceof Error ? e.message : 'erro' } })
     } finally { setBusy(null) }
   }
 
@@ -35,6 +36,11 @@ export default function AdminStripeSetup() {
           className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
           {busy === 'stripe-audit' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Auditar configuração (somente leitura)
+        </button>
+        <button onClick={() => call('stripe-audit', { scope: 'db' })} disabled={!!busy}
+          className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'stripe-audit:db' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Auditar dados sincronizados (Stripe × banco)
         </button>
         <button onClick={() => call('configure-stripe-webhook')} disabled={!!busy}
           className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
