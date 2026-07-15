@@ -9,7 +9,7 @@ export default function AdminStripeSetup() {
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<{ fn: string; data: unknown } | null>(null)
 
-  async function call(fn: 'configure-stripe-webhook' | 'stripe-selftest') {
+  async function call(fn: 'configure-stripe-webhook' | 'stripe-selftest' | 'stripe-audit') {
     setBusy(fn); setResult(null)
     try {
       const { data, error } = await supabase.functions.invoke(fn, { body: {} })
@@ -28,9 +28,14 @@ export default function AdminStripeSetup() {
         <h3 className="font-semibold text-forest-900 text-sm">Stripe — setup &amp; autoteste</h3>
       </div>
       <p className="text-xs text-stone-500 mb-4">
-        Configura os eventos do webhook e roda um autoteste da lógica de cobrança (upgrade, downgrade, idempotência) em modo teste, sem cobrança real.
+        Audita a configuração (modo, preços, webhook), configura os eventos do webhook e roda um autoteste da lógica de cobrança (upgrade, downgrade, idempotência) em modo teste, sem cobrança real.
       </p>
       <div className="flex flex-wrap gap-2">
+        <button onClick={() => call('stripe-audit')} disabled={!!busy}
+          className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'stripe-audit' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Auditar configuração (somente leitura)
+        </button>
         <button onClick={() => call('configure-stripe-webhook')} disabled={!!busy}
           className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
           {busy === 'configure-stripe-webhook' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
