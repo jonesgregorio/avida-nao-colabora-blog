@@ -2,8 +2,8 @@ import { ReactNode, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart, CalendarCheck,
-  MessageSquare, Mail, LifeBuoy, Settings2, Search, Bell, HelpCircle,
-  ChevronDown, ExternalLink, Menu, LogOut,
+  MessageSquare, Mail, LifeBuoy, Settings2,
+  ExternalLink, Menu, LogOut,
   Factory, CalendarDays, Zap, BarChart3,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
@@ -128,28 +128,11 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
           <button className="md:hidden p-2 text-forest-900" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
             <Menu className="w-5 h-5" />
           </button>
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-ink-soft absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              placeholder="Buscar usuário, e-mail ou ticket"
-              className="w-full pl-9 pr-14 py-2 rounded-xl border border-line bg-white text-sm outline-none focus:border-forest-400"
-            />
-            <span className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center text-[11px] text-ink-soft border border-line rounded px-1.5 py-0.5">Ctrl K</span>
-          </div>
-          <div className="ml-auto flex items-center gap-1">
-            <button className="p-2 text-ink-soft hover:text-forest-900 rounded-lg transition-colors" aria-label="Notificações">
-              <Bell className="w-[18px] h-[18px]" />
-            </button>
-            <button className="p-2 text-ink-soft hover:text-forest-900 rounded-lg transition-colors" aria-label="Ajuda">
-              <HelpCircle className="w-[18px] h-[18px]" />
-            </button>
-            <div className="flex items-center gap-2 pl-2">
-              <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-xs font-semibold text-forest-700">{initials}</span>
-              <div className="hidden sm:block leading-tight">
-                <p className="text-sm text-forest-900">{name}</p>
-                <p className="text-[11px] text-ink-soft">Administrador</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-ink-soft hidden sm:block" />
+          <div className="ml-auto flex items-center gap-2 pl-2">
+            <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-xs font-semibold text-forest-700">{initials}</span>
+            <div className="hidden sm:block leading-tight">
+              <p className="text-sm text-forest-900">{name}</p>
+              <p className="text-[11px] text-ink-soft">Administrador</p>
             </div>
           </div>
         </header>

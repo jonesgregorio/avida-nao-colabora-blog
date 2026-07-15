@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { ClipboardList, Activity, FileText, BarChart2, Settings2 } from 'lucide-react'
+import { ClipboardList, FileText, Settings2 } from 'lucide-react'
 import AdminQuestionnaires from './AdminQuestionnaires'
 import AdminDiaryConfig from './AdminDiaryConfig'
 import AdminPDF from './AdminPDF'
 
-// Diário e mapa emocional — abas do mockup: Questionários / Marcadores / Relatórios / Gráficos / Configurações
+// Diário e mapa emocional — abas funcionais: Questionários / Relatórios / Configurações.
+// (As abas "Marcadores" e "Gráficos" eram placeholders "em construção" e foram removidas.)
 const TABS = [
   { id: 'questionarios', label: 'Questionários', icon: ClipboardList },
-  { id: 'marcadores', label: 'Marcadores emocionais', icon: Activity },
   { id: 'relatorios', label: 'Relatórios', icon: FileText },
-  { id: 'graficos', label: 'Gráficos', icon: BarChart2 },
   { id: 'configuracoes', label: 'Configurações', icon: Settings2 },
 ] as const
 
@@ -58,17 +57,6 @@ export default function AdminMapaArea() {
         {tab === 'questionarios' && <AdminQuestionnaires />}
         {tab === 'relatorios' && <AdminPDF />}
         {tab === 'configuracoes' && <AdminDiaryConfig />}
-        {(tab === 'marcadores' || tab === 'graficos') && (
-          <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="p-12 text-center border border-dashed border-line rounded-2xl bg-paper-soft">
-              <p className="text-ink-soft text-sm">
-                {tab === 'marcadores'
-                  ? 'Marcadores emocionais (sono, energia, ansiedade, sobrecarga, relações, rotina) — em construção.'
-                  : 'Gráficos do mapa emocional — em construção.'}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
