@@ -370,7 +370,23 @@ export default function AdminQuestionnaires() {
       ? await supabase.from('questionnaires').update(payload).eq('id', editing.id)
       : await supabase.from('questionnaires').insert([payload])
     if (error) flash('err', error.message)
-    else { flash('ok', 'Salvo!'); await load(); if (!editing.id) setView('list') }
+    else {
+      // Ao PUBLICAR (transição para 'published'), avisa os usuários — broadcast
+      // (user_id NULL) para todos, com destino em Questionários. Só na transição,
+      // então editar um já publicado não gera nova notificação.
+      if (isPublishing) {
+        void supabase.from('notifications').insert({
+          user_id: null,
+          type: 'content',
+          title: 'Novo questionário disponível',
+          message: `"${editing.title}" já está disponível para você responder.`,
+          action_url: 'questionarios',
+          destination_path: 'questionarios',
+          is_read: false,
+        })
+      }
+      flash('ok', 'Salvo!'); await load(); if (!editing.id) setView('list')
+    }
     setSaving(false)
   }
 
