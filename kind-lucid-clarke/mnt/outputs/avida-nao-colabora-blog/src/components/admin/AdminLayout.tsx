@@ -3,8 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart, CalendarCheck,
   MessageSquare, Mail, LifeBuoy, Settings2,
-  ExternalLink, Menu, LogOut,
-  Factory, CalendarDays, Zap, BarChart3,
+  ExternalLink, Menu, LogOut, BarChart3,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -16,10 +15,7 @@ const NAV: NavItem[] = [
   { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'usuarios', label: 'Usuários', icon: Users },
   { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard },
-  { id: 'conteudos', label: 'Conteúdos guiados', icon: BookOpen },
-  { id: 'fabrica-ia', label: 'Fábrica IA', icon: Factory },
-  { id: 'calendario', label: 'Calendário editorial', icon: CalendarDays },
-  { id: 'automacoes-blog', label: 'Automações', icon: Zap },
+  { id: 'conteudos', label: 'Conteúdo & IA', icon: BookOpen },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'mapa', label: 'Diário e mapa emocional', icon: LineChart },
   { id: 'autocuidado', label: 'Plano de autocuidado', icon: CalendarCheck },

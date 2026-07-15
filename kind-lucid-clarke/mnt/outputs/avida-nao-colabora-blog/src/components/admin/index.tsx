@@ -9,15 +9,12 @@ import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
-import AdminGuidanceRequests from './AdminGuidanceRequests'
+import AdminAreaOrientacao from './AdminAreaOrientacao'
 import AdminSuportePage from './AdminSuportePage'
 import AdminAreaConteudo from './AdminAreaConteudo'
 import AdminAreaComunicacao from './AdminAreaComunicacao'
 import AdminAreaSistema from './AdminAreaSistema'
 import AdminMapaArea from './AdminMapaArea'
-import AdminFabricaIA from './AdminFabricaIA'
-import AdminCalendarioEditorial from './AdminCalendarioEditorial'
-import AdminAutomacoesBlog from './AdminAutomacoesBlog'
 import AnalyticsPage from './AnalyticsPage'
 
 export type { AdminView } from './types'
@@ -26,8 +23,7 @@ const ADMIN_KEY = 'avida_admin_view'
 
 // As 10 áreas dedicadas do novo admin (contrato: admin-mockup-avnc.html).
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'planos', 'conteudos',
-  'fabrica-ia', 'calendario', 'automacoes-blog', 'analytics',
+  'visao-geral', 'usuarios', 'planos', 'conteudos', 'analytics',
   'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
 ]
 
@@ -45,16 +41,22 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   seo: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'seo' },
   'social-proof': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'depoimentos' },
   'saved-items': { area: 'conteudos' },
+  // 3 antigos itens de menu → agora abas dentro de "Conteúdo & IA".
+  'fabrica-ia': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'gerar-ia' },
+  calendario: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'calendario' },
+  'automacoes-blog': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'automacoes' },
+  automated: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'automaticos' },
+  scheduled: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'programados' },
   questionnaires: { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'questionarios' },
   'diary-config': { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'configuracoes' },
   pdf: { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'relatorios' },
   'self-care-plans': { area: 'autocuidado' },
-  'guidance-requests': { area: 'orientacao' }, 'professional-comments': { area: 'orientacao' },
-  personalization: { area: 'orientacao' }, professionals: { area: 'orientacao' },
+  'guidance-requests': { area: 'orientacao', tabKey: 'admin-orientacao-tab', tab: 'mensagem' },
+  'professional-comments': { area: 'orientacao' },
+  personalization: { area: 'orientacao', tabKey: 'admin-orientacao-tab', tab: 'recomendacoes' },
+  professionals: { area: 'orientacao' },
   'evolution-sessions': { area: 'orientacao' }, atendimento: { area: 'orientacao' },
   notifications: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'notificacoes' },
-  automated: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'campanhas' },
-  scheduled: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'campanhas' },
   emails: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'emails' },
   templates: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'templates' },
   support: { area: 'suporte' },
@@ -159,13 +161,10 @@ export default function AdminPanel() {
       case 'usuarios': return <AdminUsers />
       case 'planos': return <AdminPlanosPage />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
-      case 'fabrica-ia': return <AdminFabricaIA />
-      case 'calendario': return <AdminCalendarioEditorial onEditArticle={handleEditArticle} />
-      case 'automacoes-blog': return <AdminAutomacoesBlog />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'mapa': return <AdminMapaArea />
       case 'autocuidado': return <AdminMonthlyCarePlans />
-      case 'orientacao': return <AdminGuidanceRequests />
+      case 'orientacao': return <AdminAreaOrientacao />
       case 'comunicacao': return <AdminAreaComunicacao />
       case 'suporte': return <AdminSuportePage />
       case 'sistema': return <AdminAreaSistema />
