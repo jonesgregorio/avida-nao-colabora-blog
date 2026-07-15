@@ -72,7 +72,7 @@ export default function AdminNotifications() {
       const { error } = await supabase.from('notifications').insert({
         user_id: targetUserId.trim(),
         title, body, type, is_read: false,
-        ...(actionView ? { action_view: actionView } : {}),
+        ...(actionView ? { action_url: actionView, destination_path: actionView } : {}),
       })
       setSaving(false)
       if (error) { showToastMsg('Erro: ' + error.message); return }
@@ -90,7 +90,7 @@ export default function AdminNotifications() {
       const rows = profiles.map(p => ({
         user_id: p.user_id,
         title, body, type, is_read: false,
-        ...(actionView ? { action_view: actionView } : {}),
+        ...(actionView ? { action_url: actionView, destination_path: actionView } : {}),
       }))
       const { error } = await supabase.from('notifications').insert(rows)
       setSaving(false)
@@ -107,7 +107,7 @@ export default function AdminNotifications() {
       const rows = profiles.map(p => ({
         user_id: p.user_id,
         title, body, type, is_read: false,
-        ...(actionView ? { action_view: actionView } : {}),
+        ...(actionView ? { action_url: actionView, destination_path: actionView } : {}),
       }))
       const { error } = await supabase.from('notifications').insert(rows)
       setSaving(false)
@@ -222,15 +222,16 @@ export default function AdminNotifications() {
             <label className="block text-xs text-stone-500 mb-1">Ação ao clicar (opcional)</label>
             <select value={actionView} onChange={e => setActionView(e.target.value)} className={inputCls}>
               <option value="">Sem ação</option>
+              <option value="diary">Diário</option>
+              <option value="questionarios">Questionários</option>
               <option value="my-evolution">Mapa emocional</option>
-              <option value="my-evolution?tab=para-voce">Para você</option>
-              <option value="my-evolution?tab=orientacoes">Orientação profissional</option>
-              <option value="my-evolution?tab=relatorios">Relatórios</option>
-              <option value="my-evolution?tab=autocuidado">Plano de autocuidado</option>
-              <option value="my-evolution?tab=comentarios">Comentário profissional</option>
+              <option value="articles">Conteúdos guiados</option>
+              <option value="my-report">Relatórios</option>
+              <option value="self-care">Plano de autocuidado</option>
+              <option value="monthly-guidance">Orientação profissional</option>
+              <option value="professional-comments">Comentário profissional</option>
               <option value="my-plan">Meu Plano</option>
               <option value="support">Suporte</option>
-              <option value="blog">Blog</option>
             </select>
           </div>
           <div>

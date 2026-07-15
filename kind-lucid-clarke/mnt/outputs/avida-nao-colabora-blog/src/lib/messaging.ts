@@ -64,10 +64,11 @@ export async function sendUserMessage({
   const { data: notification, error: ne } = await supabase
     .from('notifications')
     .insert({
-      user_id: userId, title, body: message, type,
+      user_id: userId, title, body: message, message, type,
       related_ticket_id: ticketId ?? null,
-      action_view: ticketId ? 'support-ticket' : null,
-      action_label: ticketId ? 'Ver mensagem' : null,
+      // Destino clicável: leva direto ao ticket (a tela usa action_url, não action_view).
+      action_url: ticketId ? `support-ticket:${ticketId}` : 'support',
+      destination_path: ticketId ? `support-ticket:${ticketId}` : 'support',
       is_read: false, created_by: adminId ?? null,
     })
     .select().single()
