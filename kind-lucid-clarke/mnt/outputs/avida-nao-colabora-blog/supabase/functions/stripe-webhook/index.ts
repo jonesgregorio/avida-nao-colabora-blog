@@ -66,6 +66,13 @@ function invoiceSubId(invoice: Stripe.Invoice): string | null {
   return null
 }
 
+// Gravações CRÍTICAS (acesso ao plano e dinheiro) não podem falhar em silêncio:
+// lançam, o catch do handler devolve a reserva de idempotência e o Stripe
+// reentrega. Trilha de auditoria, e-mail e notificação seguem best-effort (só log).
+function must(err: { message: string } | null, contexto: string): void {
+  if (err) throw new Error(`${contexto}: ${err.message}`)
+}
+
 // Campos extras de rastreabilidade (092) extraídos de uma subscription do Stripe.
 function subFields(s: Stripe.Subscription): Record<string, unknown> {
   const price = s.items.data[0]?.price
@@ -130,13 +137,16 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // ── Idempotência: ignora eventos que o Stripe já entregou (reenvia em
-  //    timeout/erro) para não duplicar payment_events, histórico, plano e
-  //    notificações. Insere o event.id ANTES de processar; índice único
-  //    acusa duplicado.
+  // ── Idempotência: RESERVA → processa → desfaz a reserva se falhar ──
+  // O Stripe reentrega em timeout/erro. Reservamos o event.id ANTES de processar
+  // para que entregas concorrentes não dupliquem plano/pagamento/notificação.
+  // O ponto crítico é o catch lá embaixo: se o processamento falhar depois da
+  // reserva, ela é DESFEITA. Sem isso, a reentrega do Stripe bateria no
+  // "já processado" e a falha viraria permanente e silenciosa.
   const dedup = await supabase
     .from('stripe_webhook_events')
     .insert({ stripe_event_id: event.id, event_type: event.type })
+  let claimed = true
   if (dedup.error) {
     if (String(dedup.error.code) === '23505' || /duplicate|unique/i.test(dedup.error.message)) {
       console.log(`webhook: evento ${event.id} já processado — ignorado`)
@@ -146,8 +156,32 @@ Deno.serve(async (req) => {
     }
     // Falha ao registrar (ex.: tabela ausente) não deve travar o pagamento — apenas loga.
     console.error('stripe_webhook_events: falha ao registrar (segue processando):', dedup.error.message)
+    claimed = false
   }
 
+  try {
+    return await handleEvent(event, supabase)
+  } catch (err) {
+    console.error(`webhook: falha ao processar ${event.type} (${event.id}):`, (err as Error).message)
+    if (claimed) {
+      // Devolve a reserva para que a reentrega do Stripe consiga processar de novo.
+      const { error: relErr } = await supabase
+        .from('stripe_webhook_events').delete().eq('stripe_event_id', event.id)
+      if (relErr) console.error('webhook: falha ao liberar reserva:', relErr.message)
+    }
+    // 5xx faz o Stripe reentregar com backoff. Um 2xx aqui esconderia a falha.
+    return new Response(JSON.stringify({ error: 'processing_failed' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+})
+
+// Processa o evento. Qualquer throw aqui devolve a reserva de idempotência e faz
+// o Stripe reentregar — em vez de engolir a falha.
+async function handleEvent(
+  event: Stripe.Event,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
   // ────────────────────────────────────────────────────────────
   // Pagamento confirmado via checkout → ativa o plano
   // ────────────────────────────────────────────────────────────
@@ -177,7 +211,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update({ plan, plan_activated_at: new Date().toISOString() })
       .eq('user_id', userId)
-    if (profileErr) console.error('Erro ao atualizar profiles.plan (checkout):', profileErr)
+    must(profileErr, 'profiles.plan (checkout)')
 
     // Busca dados da assinatura Stripe se disponível
     let stripeSub: Stripe.Subscription | null = null
@@ -209,7 +243,7 @@ Deno.serve(async (req) => {
       provider_subscription_id: stripeSub?.id ?? null,
       ...(stripeSub ? subFields(stripeSub) : {}),
     }, { onConflict: 'user_id' })
-    if (subErr) console.error('Erro ao upsert user_subscriptions (checkout):', subErr)
+    must(subErr, 'user_subscriptions (checkout)')
 
     // Registra no histórico de mudanças
     const { error: histErr } = await supabase.from('plan_change_history').insert({
@@ -294,7 +328,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update({ plan })
       .eq('stripe_customer_id', customerId)
-    if (profileErr) console.error('Erro ao renovar profiles.plan:', profileErr)
+    must(profileErr, 'profiles.plan (invoice)')
 
     const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
     const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
@@ -310,7 +344,7 @@ Deno.serve(async (req) => {
       provider_subscription_id: subscription.id,
       ...subFields(subscription),
     }, { onConflict: 'user_id' })
-    if (subErr) console.error('Erro ao upsert user_subscriptions (invoice):', subErr)
+    must(subErr, 'user_subscriptions (invoice)')
 
     // Registra pagamento em payment_events
     const { error: payErr } = await supabase.from('payment_events').insert({
@@ -320,7 +354,7 @@ Deno.serve(async (req) => {
       provider_payment_id: invoice.id,
       description: `Renovação ${plan} — ${new Date(periodStart).toLocaleDateString('pt-BR')}`,
     })
-    if (payErr) console.error('Erro ao inserir payment_events:', payErr)
+    must(payErr, 'payment_events (invoice)')
 
     // Só registra no histórico de plano se houve mudança de plano
     if (oldPlan !== plan) {
@@ -505,7 +539,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update({ plan: finalPlan })
       .eq('user_id', userId)
-    if (profileErr) console.error('Erro ao reverter profiles.plan (deleted):', profileErr)
+    must(profileErr, 'profiles.plan (deleted)')
 
     // Atualiza user_subscriptions
     const { error: subErr } = await supabase.from('user_subscriptions').update({
@@ -517,7 +551,7 @@ Deno.serve(async (req) => {
       canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : new Date().toISOString(),
       payment_status: 'canceled',
     }).eq('user_id', userId)
-    if (subErr) console.error('Erro ao atualizar user_subscriptions (deleted):', subErr)
+    must(subErr, 'user_subscriptions (deleted)')
 
     // Registra no histórico
     const changeType = finalPlan === 'free' ? 'cancel' : 'downgrade'
@@ -582,4 +616,4 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ received: true }), {
     headers: { 'Content-Type': 'application/json' },
   })
-})
+}
