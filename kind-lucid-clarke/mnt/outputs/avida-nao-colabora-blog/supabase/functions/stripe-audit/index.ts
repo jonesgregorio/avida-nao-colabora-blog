@@ -156,6 +156,54 @@ Deno.serve(async (req) => {
     })
   }
 
+  // ── Escopo "diagnose": por que um evento não virou linha no banco? ──
+  // Cruza os eventos que o STRIPE emitiu com os que o WEBHOOK processou
+  // (stripe_webhook_events = tabela de idempotência) e com payment_events.
+  // Assim dá para distinguir "evento nunca chegou" de "chegou e falhou".
+  if (body.scope === 'diagnose') {
+    try {
+      const evs = await stripe.events.list({ limit: 30 })
+      const emitidos = evs.data.map((e) => ({
+        id: e.id,
+        tipo: e.type,
+        criado: new Date(e.created * 1000).toISOString(),
+        webhooks_pendentes: e.pending_webhooks, // 0 = Stripe entregou a todos
+      }))
+
+      const { data: proc } = await supabase
+        .from('stripe_webhook_events')
+        .select('stripe_event_id, event_type, created_at')
+        .order('created_at', { ascending: false }).limit(50)
+      const processados = new Set(((proc as { stripe_event_id: string }[]) || []).map((p) => p.stripe_event_id))
+
+      const cruzamento = emitidos.map((e) => ({
+        ...e,
+        processado_pelo_webhook: processados.has(e.id),
+      }))
+      const naoProcessados = cruzamento.filter((e) => !e.processado_pelo_webhook)
+
+      const { data: pays } = await supabase
+        .from('payment_events')
+        .select('amount, type, provider_payment_id, created_at')
+        .order('created_at', { ascending: false }).limit(10)
+
+      return json({
+        scope: 'diagnose',
+        eventos_stripe: cruzamento,
+        eventos_nao_processados: naoProcessados,
+        webhook_events_recentes: proc ?? [],
+        payment_events_recentes: pays ?? [],
+        leitura: naoProcessados.length === 0
+          ? 'Todos os eventos recentes do Stripe foram processados pelo webhook.'
+          : `${naoProcessados.length} evento(s) do Stripe NÃO estão na tabela de idempotência — não chegaram ou falharam antes de registrar.`,
+        checked_at: new Date().toISOString(),
+        note: 'Somente leitura.',
+      })
+    } catch (e) {
+      return json({ scope: 'diagnose', error: (e as Error).message }, 500)
+    }
+  }
+
   // ── Escopo "webhook": confere o endpoint e os eventos SEM alterar nada ──
   // (a configure-stripe-webhook ESCREVE; esta aqui só lê e compara.)
   if (body.scope === 'webhook') {

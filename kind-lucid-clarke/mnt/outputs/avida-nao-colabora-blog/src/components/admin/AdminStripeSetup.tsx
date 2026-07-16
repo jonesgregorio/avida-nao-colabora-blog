@@ -47,6 +47,12 @@ export default function AdminStripeSetup() {
           {busy === 'stripe-audit:db' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Auditar dados sincronizados (Stripe × banco)
         </button>
+        <button onClick={() => call('stripe-audit', { scope: 'diagnose' })} disabled={!!busy}
+          data-testid="stripe-diagnose"
+          className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'stripe-audit:diagnose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Diagnosticar entrega de eventos
+        </button>
         <button onClick={() => call('configure-stripe-webhook')} disabled={!!busy}
           className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
           {busy === 'configure-stripe-webhook' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
