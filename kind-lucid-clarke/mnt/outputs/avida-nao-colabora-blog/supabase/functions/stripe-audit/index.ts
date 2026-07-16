@@ -195,8 +195,6 @@ Deno.serve(async (req) => {
         ...e,
         processado_pelo_webhook: processados.has(e.id),
       }))
-      const naoProcessados = cruzamento.filter((e) => !e.processado_pelo_webhook)
-
       const { data: pays } = await supabase
         .from('payment_events')
         .select('amount, type, provider_payment_id, created_at')
