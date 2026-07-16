@@ -160,7 +160,8 @@ Deno.serve(async (req) => {
     : Deno.env.get('STRIPE_PRICE_THERAPEUTIC') ? 'STRIPE_PRICE_THERAPEUTIC (fallback)'
     : 'não configurado'
 
-  const warnings: string[] = []
+  const warnings: string[] = []   // problemas reais — derrubam o `ok`
+  const notes: string[] = []      // informativo — não derruba o `ok`
   const prices: Record<string, unknown> = {}
 
   async function runPrice(key: string, id: string | undefined, expectedCents?: number) {
@@ -174,7 +175,18 @@ Deno.serve(async (req) => {
     if (!secret) throw new Error('STRIPE_SECRET_KEY ausente nas Edge Functions.')
     await runPrice('essential', priceEnv.essential, EXPECTED.essential)
     await runPrice('plus', priceEnv.plus, EXPECTED.plus)
-    if (priceEnv.plus_legacy_79) await runPrice('plus_legacy_79', priceEnv.plus_legacy_79)
+
+    // O secret legado STRIPE_PRICE_PLUS (antigo R$ 79,90) NÃO cobra nada: create-checkout,
+    // manage-subscription e selftest usam STRIPE_PRICE_PLUS_3990/THERAPEUTIC. Ele só existe
+    // como chave do mapa PLAN_BY_PRICE do webhook. Se estiver ilegível (ex.: price de uma
+    // conta antiga), isso é informativo — não pode derrubar o `ok` da auditoria.
+    if (priceEnv.plus_legacy_79) {
+      const legacy = await auditPrice('plus_legacy_79', priceEnv.plus_legacy_79)
+      prices.plus_legacy_79 = { ...legacy.row, cobra: false, observacao: 'Secret legado; não usado para cobrança.' }
+      if (legacy.warnings.length > 0) {
+        notes.push('Secret STRIPE_PRICE_PLUS aponta para um price inexistente nesta conta (provável sobra da conta antiga). Não afeta cobrança — pode ser removido dos secrets.')
+      }
+    }
 
     try {
       const acct = await stripe.accounts.retrieve()
@@ -202,10 +214,15 @@ Deno.serve(async (req) => {
 
   const essentialOk = (prices.essential as { active?: boolean; unit_amount?: number })?.active === true && (prices.essential as { unit_amount?: number })?.unit_amount === EXPECTED.essential
   const plusOk = (prices.plus as { active?: boolean; unit_amount?: number })?.active === true && (prices.plus as { unit_amount?: number })?.unit_amount === EXPECTED.plus
-  const ok = essentialOk && plusOk && webhookSecretPresent && warnings.filter((w) => w.includes('inconsistência') || w.includes('não pôde ser lido')).length === 0
+  // `ok` = os preços que realmente cobram estão certos, o webhook valida assinatura e
+  // não há problema real. Secret legado ilegível vira `notes`, não derruba nada.
+  const ok = essentialOk && plusOk && webhookSecretPresent && warnings.length === 0
+  // Go-live de verdade: além da config, a conta precisa poder cobrar em modo live.
+  const prontoParaCobrar = ok && keyMode === 'live' && (account as { charges_enabled?: boolean })?.charges_enabled === true
 
   return json({
     ok,
+    pronto_para_cobrar: prontoParaCobrar,
     mode: keyMode,
     key_present: !!secret,
     key_restricted: keyRestricted,
@@ -215,6 +232,7 @@ Deno.serve(async (req) => {
     account,
     prices,
     warnings,
+    notes,
     checked_at: new Date().toISOString(),
     note: 'Auditoria somente-leitura. Nenhum objeto do Stripe foi criado, alterado ou removido. A chave secreta nunca é retornada.',
   })
