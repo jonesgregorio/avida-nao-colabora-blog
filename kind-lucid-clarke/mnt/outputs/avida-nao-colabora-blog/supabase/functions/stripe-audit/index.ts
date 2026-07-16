@@ -108,26 +108,28 @@ Deno.serve(async (req) => {
     out.price_ids_em_uso = await tallyCol(supabase, 'user_subscriptions', 'price_id')
 
     // Valores realmente cobrados (payment_events) — agregados por valor.
+    // ATENÇÃO: o stripe-webhook já grava `amount` EM REAIS (faz amount_paid/100 na
+    // hora de inserir). Dividir de novo aqui mostrava 19,90 como "0,20".
     try {
       const { data, error } = await supabase.from('payment_events').select('amount, created_at').order('created_at', { ascending: false }).limit(500)
       if (error) throw error
       const rows = (data as { amount: number | null; created_at: string }[]) || []
       const porValor: Record<string, number> = {}
       for (const r of rows) {
-        const brl = r.amount != null ? (r.amount / 100).toFixed(2).replace('.', ',') : '∅'
+        const brl = r.amount != null ? r.amount.toFixed(2).replace('.', ',') : '∅'
         porValor[brl] = (porValor[brl] || 0) + 1
       }
       out.payment_events = { total_lidos: rows.length, valores_brl: porValor, ultimo: rows[0]?.created_at ?? null }
     } catch (e) { out.payment_events = { error: (e as Error).message } }
 
-    // Histórico de mudança de plano — valores cobrados.
+    // Histórico de mudança de plano — valores cobrados (também já EM REAIS).
     try {
       const { data, error } = await supabase.from('plan_change_history').select('amount_charged').limit(500)
       if (error) throw error
       const rows = (data as { amount_charged: number | null }[]) || []
       const porValor: Record<string, number> = {}
       for (const r of rows) {
-        const brl = r.amount_charged != null ? (r.amount_charged / 100).toFixed(2).replace('.', ',') : '∅'
+        const brl = r.amount_charged != null ? r.amount_charged.toFixed(2).replace('.', ',') : '∅'
         porValor[brl] = (porValor[brl] || 0) + 1
       }
       out.plan_change_history = { total_lidos: rows.length, valores_cobrados_brl: porValor }
