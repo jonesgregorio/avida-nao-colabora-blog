@@ -28,6 +28,21 @@ const WEBHOOK_EVENTS = [
 
 type SB = ReturnType<typeof createClient>
 
+// Réplica exata do buildPlanByPrice() do stripe-webhook — para diagnosticar se um
+// price_id real cairia (ou não) no mapa que decide o plano.
+function PLAN_BY_PRICE_ENV(): Record<string, string> {
+  const map: Record<string, string> = {}
+  const essential = Deno.env.get('STRIPE_PRICE_ESSENTIAL')
+  const plusNew = Deno.env.get('STRIPE_PRICE_PLUS_3990')
+  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
+  const plusLegacy = Deno.env.get('STRIPE_PRICE_PLUS')
+  if (essential) map[essential] = 'essential'
+  if (plusNew) map[plusNew] = 'plus'
+  if (therapeutic) map[therapeutic] = 'plus'
+  if (plusLegacy) map[plusLegacy] = 'plus'
+  return map
+}
+
 // Conta ocorrências de uma coluna (agregado, sem PII).
 async function tallyCol(sb: SB, table: string, col: string) {
   const { data, error } = await sb.from(table).select(col)
@@ -187,15 +202,59 @@ Deno.serve(async (req) => {
         .select('amount, type, provider_payment_id, created_at')
         .order('created_at', { ascending: false }).limit(10)
 
+      // ── Por que o handler da invoice não gravou payment_events? ──
+      // Ele busca o perfil por stripe_customer_id e sai calado se não achar.
+      // Aqui refazemos exatamente essa busca com o customer do evento real.
+      let invoiceTrace: Record<string, unknown> = { nota: 'Nenhum invoice.payment_succeeded recente.' }
+      const invEvent = evs.data.find((e) => e.type === 'invoice.payment_succeeded')
+      if (invEvent) {
+        const inv = invEvent.data.object as Stripe.Invoice
+        const customerId = typeof inv.customer === 'string' ? inv.customer : inv.customer?.id ?? null
+        const { data: pMatch, error: pErr } = await supabase
+          .from('profiles').select('user_id, plan, stripe_customer_id').eq('stripe_customer_id', customerId)
+        const { count: totalComCustomer } = await supabase
+          .from('profiles').select('user_id', { count: 'exact', head: true }).not('stripe_customer_id', 'is', null)
+
+        let priceId: string | null = null
+        let planMapeado: string | null = null
+        try {
+          if (inv.subscription) {
+            const s = await stripe.subscriptions.retrieve(inv.subscription as string)
+            priceId = s.items.data[0]?.price.id ?? null
+            planMapeado = priceId ? (PLAN_BY_PRICE_ENV()[priceId] ?? null) : null
+          }
+        } catch (e) { priceId = `erro: ${(e as Error).message}` }
+
+        invoiceTrace = {
+          evento_id: invEvent.id,
+          invoice_id: inv.id,
+          invoice_tem_subscription: !!inv.subscription,
+          valor_pago_reais: (inv.amount_paid ?? 0) / 100,
+          customer_do_evento: customerId,
+          perfis_com_esse_customer: pMatch?.length ?? 0,
+          perfil_encontrado: (pMatch?.length ?? 0) === 1,
+          erro_busca_perfil: pErr?.message ?? null,
+          total_perfis_com_stripe_customer_id: totalComCustomer ?? 0,
+          price_id_da_assinatura: priceId,
+          plano_mapeado: planMapeado,
+          diagnostico:
+            (pMatch?.length ?? 0) === 0
+              ? 'CAUSA: nenhum profile tem esse stripe_customer_id → o handler sai no early-return sem gravar payment_events.'
+              : (pMatch?.length ?? 0) > 1
+                ? 'CAUSA: mais de um profile com o mesmo stripe_customer_id → .single() falha.'
+                : !planMapeado
+                  ? 'CAUSA: price_id não mapeado em PLAN_BY_PRICE → handler sai antes de gravar.'
+                  : 'Perfil e plano OK — a falha é no INSERT de payment_events (ver constraint/coluna).',
+        }
+      }
+
       return json({
         scope: 'diagnose',
+        invoice_trace: invoiceTrace,
         eventos_stripe: cruzamento,
-        eventos_nao_processados: naoProcessados,
         webhook_events_recentes: proc ?? [],
         payment_events_recentes: pays ?? [],
-        leitura: naoProcessados.length === 0
-          ? 'Todos os eventos recentes do Stripe foram processados pelo webhook.'
-          : `${naoProcessados.length} evento(s) do Stripe NÃO estão na tabela de idempotência — não chegaram ou falharam antes de registrar.`,
+        leitura: 'Eventos "não processados" que o endpoint não assina são normais e esperados. Veja invoice_trace para a causa real.',
         checked_at: new Date().toISOString(),
         note: 'Somente leitura.',
       })
