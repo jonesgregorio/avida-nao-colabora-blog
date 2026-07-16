@@ -213,11 +213,18 @@ Deno.serve(async (req) => {
         const { count: totalComCustomer } = await supabase
           .from('profiles').select('user_id', { count: 'exact', head: true }).not('stripe_customer_id', 'is', null)
 
+        // Mesma leitura tolerante à versão da API usada no stripe-webhook.
+        const legacySub = (inv as unknown as { subscription?: string }).subscription
+        const novoSub = (inv as unknown as {
+          parent?: { subscription_details?: { subscription?: string } }
+        }).parent?.subscription_details?.subscription
+        const invSubId = legacySub ?? novoSub ?? null
+
         let priceId: string | null = null
         let planMapeado: string | null = null
         try {
-          if (inv.subscription) {
-            const s = await stripe.subscriptions.retrieve(inv.subscription as string)
+          if (invSubId) {
+            const s = await stripe.subscriptions.retrieve(invSubId)
             priceId = s.items.data[0]?.price.id ?? null
             planMapeado = priceId ? (PLAN_BY_PRICE_ENV()[priceId] ?? null) : null
           }
@@ -226,7 +233,9 @@ Deno.serve(async (req) => {
         invoiceTrace = {
           evento_id: invEvent.id,
           invoice_id: inv.id,
-          invoice_tem_subscription: !!inv.subscription,
+          subscription_id: invSubId,
+          campo_legado_subscription: !!legacySub,
+          campo_novo_parent_subscription: !!novoSub,
           valor_pago_reais: (inv.amount_paid ?? 0) / 100,
           customer_do_evento: customerId,
           perfis_com_esse_customer: pMatch?.length ?? 0,
@@ -236,13 +245,15 @@ Deno.serve(async (req) => {
           price_id_da_assinatura: priceId,
           plano_mapeado: planMapeado,
           diagnostico:
-            (pMatch?.length ?? 0) === 0
-              ? 'CAUSA: nenhum profile tem esse stripe_customer_id → o handler sai no early-return sem gravar payment_events.'
-              : (pMatch?.length ?? 0) > 1
-                ? 'CAUSA: mais de um profile com o mesmo stripe_customer_id → .single() falha.'
-                : !planMapeado
-                  ? 'CAUSA: price_id não mapeado em PLAN_BY_PRICE → handler sai antes de gravar.'
-                  : 'Perfil e plano OK — a falha é no INSERT de payment_events (ver constraint/coluna).',
+            !invSubId
+              ? 'CAUSA: a invoice não expõe a assinatura em nenhum dos dois formatos — handler não tem o que sincronizar.'
+              : (pMatch?.length ?? 0) === 0
+                ? 'CAUSA: nenhum profile tem esse stripe_customer_id → early-return sem gravar payment_events.'
+                : (pMatch?.length ?? 0) > 1
+                  ? 'CAUSA: mais de um profile com o mesmo stripe_customer_id → .single() falha.'
+                  : !planMapeado
+                    ? 'CAUSA: price_id não mapeado em PLAN_BY_PRICE → handler sai antes de gravar.'
+                    : 'Perfil, assinatura e plano OK — se payment_events segue vazio, a falha é no INSERT.',
         }
       }
 

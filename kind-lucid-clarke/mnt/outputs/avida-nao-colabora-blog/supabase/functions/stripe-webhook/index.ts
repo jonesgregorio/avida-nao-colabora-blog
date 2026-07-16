@@ -49,6 +49,23 @@ const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
+// ID da assinatura de uma invoice — tolerante à versão da API.
+// O payload do webhook usa a versão de API da CONTA, não a do SDK. Nas versões
+// novas o campo `invoice.subscription` deixou de existir e a referência passou a
+// viver em `invoice.parent.subscription_details.subscription`. Ler só o formato
+// antigo fazia o handler achar que a invoice não era de assinatura e sair calado
+// — nenhum payment_events era gravado. Lemos os dois formatos.
+function invoiceSubId(invoice: Stripe.Invoice): string | null {
+  const legacy = (invoice as unknown as { subscription?: string | { id: string } }).subscription
+  if (legacy) return typeof legacy === 'string' ? legacy : legacy.id
+  const parent = (invoice as unknown as {
+    parent?: { subscription_details?: { subscription?: string | { id: string } } }
+  }).parent
+  const novo = parent?.subscription_details?.subscription
+  if (novo) return typeof novo === 'string' ? novo : novo.id
+  return null
+}
+
 // Campos extras de rastreabilidade (092) extraídos de uma subscription do Stripe.
 function subFields(s: Stripe.Subscription): Record<string, unknown> {
   const price = s.items.data[0]?.price
@@ -241,11 +258,13 @@ Deno.serve(async (req) => {
   // ────────────────────────────────────────────────────────────
   if (event.type === 'invoice.payment_succeeded') {
     const invoice = event.data.object as Stripe.Invoice
-    if (!invoice.subscription) {
+    const invSubId = invoiceSubId(invoice)
+    if (!invSubId) {
+      // Invoice avulsa (não é de assinatura) — nada a sincronizar.
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
+    const subscription = await stripe.subscriptions.retrieve(invSubId)
     const priceId = subscription.items.data[0]?.price.id
     const plan = PLAN_BY_PRICE[priceId]
     const customerId = subscription.customer as string
