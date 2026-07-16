@@ -34,6 +34,21 @@ Deno.serve(async (req) => {
     return json({ error: 'STRIPE_PRICE_ESSENTIAL / (STRIPE_PRICE_PLUS_3990 ou STRIPE_PRICE_THERAPEUTIC) não configurados' }, 400)
   }
 
+  // ── Trava de modo LIVE ──
+  // Este teste depende de tokens de teste (pm_card_visa) e de Test Clocks, que o
+  // Stripe só aceita com chave sk_test_. Com chave live ele falharia de qualquer
+  // forma — mas só DEPOIS de criar um customer real na conta (o create vem antes
+  // do cartão). Recusamos aqui, antes de tocar em qualquer objeto.
+  const secret = Deno.env.get('STRIPE_SECRET_KEY') || ''
+  if (secret.startsWith('sk_live_') || secret.startsWith('rk_live_')) {
+    return json({
+      ok: false,
+      modo: 'live',
+      error: 'O autoteste de cobrança só funciona com chave de TESTE (sk_test_). A conta está em modo LIVE: os cartões fictícios (pm_card_visa) e Test Clocks são bloqueados pelo Stripe, e exercitar o fluxo aqui significaria assinatura e cobrança reais.',
+      como_verificar: 'Em modo live, use os botões somente-leitura: "Auditar configuração", "Auditar webhook", "Auditar dados sincronizados" e "Diagnosticar entrega de eventos".',
+    }, 400)
+  }
+
   const results: Record<string, unknown> = {}
   let custId: string | undefined
   let subId: string | undefined

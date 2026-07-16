@@ -29,7 +29,9 @@ export default function AdminStripeSetup() {
         <h3 className="font-semibold text-forest-900 text-sm">Stripe — setup &amp; autoteste</h3>
       </div>
       <p className="text-xs text-stone-500 mb-4">
-        Audita a configuração (modo, preços, webhook), configura os eventos do webhook e roda um autoteste da lógica de cobrança (upgrade, downgrade, idempotência) em modo teste, sem cobrança real.
+        Os botões de <strong>auditoria</strong> são somente leitura: não criam, alteram nem apagam nada no Stripe — pode clicar à vontade.
+        O <strong>autoteste de cobrança</strong> exercita upgrade/downgrade/idempotência com cartões fictícios e só roda com chave de teste;
+        com a conta em modo live ele recusa sozinho (cartão fictício não existe em live, e o fluxo real significaria cobrança de verdade).
       </p>
       <div className="flex flex-wrap gap-2">
         <button onClick={() => call('stripe-audit')} disabled={!!busy}
