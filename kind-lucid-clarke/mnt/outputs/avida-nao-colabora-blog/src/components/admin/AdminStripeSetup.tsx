@@ -37,6 +37,11 @@ export default function AdminStripeSetup() {
           {busy === 'stripe-audit' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Auditar configuração (somente leitura)
         </button>
+        <button onClick={() => call('stripe-audit', { scope: 'webhook' })} disabled={!!busy}
+          className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          {busy === 'stripe-audit:webhook' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Auditar webhook (somente leitura)
+        </button>
         <button onClick={() => call('stripe-audit', { scope: 'db' })} disabled={!!busy}
           className="flex items-center gap-2 bg-forest-700 hover:bg-forest-800 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
           {busy === 'stripe-audit:db' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}

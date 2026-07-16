@@ -15,6 +15,17 @@ function json(body: unknown, status = 200): Response {
 // Valores esperados (em centavos) — fonte da verdade do produto: Essencial R$19,90 / Plus R$39,90.
 const EXPECTED = { essential: 1990, plus: 3990 }
 
+// Eventos que o stripe-webhook trata. Mesma lista da configure-stripe-webhook —
+// se divergir, o endpoint deixa de avisar o app sobre pagamento/ciclo.
+const WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'invoice.payment_succeeded',
+  'invoice.payment_failed',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+]
+
 type SB = ReturnType<typeof createClient>
 
 // Conta ocorrências de uma coluna (agregado, sem PII).
@@ -141,6 +152,48 @@ Deno.serve(async (req) => {
       checked_at: new Date().toISOString(),
       note: 'Leitura agregada dos dados sincronizados no Supabase (service role). Sem dados pessoais; nenhuma escrita.',
     })
+  }
+
+  // ── Escopo "webhook": confere o endpoint e os eventos SEM alterar nada ──
+  // (a configure-stripe-webhook ESCREVE; esta aqui só lê e compara.)
+  if (body.scope === 'webhook') {
+    const target = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stripe-webhook`
+    const wWarnings: string[] = []
+    try {
+      const list = await stripe.webhookEndpoints.list({ limit: 100 })
+      const ep = list.data.find((e) => e.url === target)
+      if (!ep) {
+        wWarnings.push(`Nenhum endpoint de webhook aponta para ${target} — o Stripe não consegue avisar o app sobre pagamentos/ciclo.`)
+        return json({
+          ok: false, scope: 'webhook', esperado: { url: target, eventos: WEBHOOK_EVENTS },
+          endpoint: null, endpoints_existentes: list.data.map((e) => ({ url: e.url, status: e.status, livemode: e.livemode })),
+          warnings: wWarnings, checked_at: new Date().toISOString(),
+        })
+      }
+      const enabled = ep.enabled_events ?? []
+      const faltando = WEBHOOK_EVENTS.filter((e) => !enabled.includes(e) && !enabled.includes('*'))
+      const extras = enabled.filter((e) => e !== '*' && !WEBHOOK_EVENTS.includes(e))
+      if (ep.status !== 'enabled') wWarnings.push(`Endpoint está "${ep.status}" — precisa estar "enabled".`)
+      if (!ep.livemode) wWarnings.push('Endpoint está em modo TESTE — não recebe eventos das cobranças reais.')
+      if (faltando.length) wWarnings.push(`Eventos obrigatórios faltando: ${faltando.join(', ')}. Use "Configurar eventos do webhook".`)
+      if (!Deno.env.get('STRIPE_WEBHOOK_SECRET')) wWarnings.push('STRIPE_WEBHOOK_SECRET ausente — a assinatura dos eventos não é validada.')
+
+      return json({
+        ok: wWarnings.length === 0,
+        scope: 'webhook',
+        endpoint: {
+          id: ep.id, url: ep.url, status: ep.status, livemode: ep.livemode,
+          eventos_ativos: enabled, eventos_faltando: faltando, eventos_extras: extras,
+        },
+        esperado: { url: target, eventos: WEBHOOK_EVENTS },
+        webhook_secret_present: !!Deno.env.get('STRIPE_WEBHOOK_SECRET'),
+        warnings: wWarnings,
+        checked_at: new Date().toISOString(),
+        note: 'Somente leitura: nenhum endpoint foi criado ou alterado.',
+      })
+    } catch (e) {
+      return json({ ok: false, scope: 'webhook', error: (e as Error).message }, 500)
+    }
   }
 
   const secret = Deno.env.get('STRIPE_SECRET_KEY') || ''
