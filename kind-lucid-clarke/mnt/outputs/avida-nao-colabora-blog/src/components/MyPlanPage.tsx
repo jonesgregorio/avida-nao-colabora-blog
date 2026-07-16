@@ -5,6 +5,12 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
 import { PLAN_COMPARE_ROWS } from '../lib/planComparison'
+import {
+  resolveEffectivePeriodEnd,
+  formatBillingDate,
+  daysRemaining,
+  totalDaysInCycle,
+} from '../lib/billingCycle'
 
 interface Props {
   user: User | null
@@ -79,33 +85,11 @@ const STATUS_COLORS: Record<string, string> = {
   free: 'bg-mint text-forest-700',
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-}
+// Datas de cobrança: formatação e cálculo vivem em lib/billingCycle.ts (fonte única).
+const formatDate = formatBillingDate
 
 function formatPrice(v: number) {
   return v === 0 ? 'R$ 0,00' : `R$ ${v.toFixed(2).replace('.', ',')}`
-}
-
-function daysRemaining(end: string | null): number {
-  if (!end) return 30
-  const diff = new Date(end).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / 86400000))
-}
-
-function totalDaysInCycle(start: string | null, end: string | null): number {
-  if (!start || !end) return 30
-  return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000))
-}
-
-function calcEffectivePeriodEnd(sub: Subscription | null, planAnchor: Date): string {
-  if (sub?.current_period_end) return sub.current_period_end
-  // Calcula o fim do ciclo atual com base na data de ativação do plano (ciclos de 30 dias)
-  const msPerCycle = 30 * 86400000
-  const elapsed = Date.now() - planAnchor.getTime()
-  const cyclesDone = Math.max(0, Math.floor(elapsed / msPerCycle))
-  return new Date(planAnchor.getTime() + (cyclesDone + 1) * msPerCycle).toISOString()
 }
 
 function lostFeatures(fromPlan: string, toPlan: string): string[] {
@@ -122,10 +106,12 @@ function lostFeatures(fromPlan: string, toPlan: string): string[] {
   return lost
 }
 
-function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null): number {
+// Estimativa exibida na modal de upgrade. O valor REAL é calculado pelo Stripe
+// (proration) — aqui é só uma previsão para o usuário não ser pego de surpresa.
+function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null, periodEnd: Date | null): number {
   const diff = PLAN_PRICES[newPlan] - PLAN_PRICES[currentPlan]
   if (diff <= 0) return 0
-  const remaining = daysRemaining(sub?.current_period_end ?? null)
+  const remaining = daysRemaining(periodEnd)
   const total = totalDaysInCycle(sub?.current_period_start ?? null, sub?.current_period_end ?? null)
   return Math.max(0, (diff / total) * remaining)
 }
@@ -180,12 +166,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
       setPlanActivatedAt(oldHist?.created_at ?? null)
     }
     setLoading(false)
-  }
-
-  // Âncora do ciclo: data de ativação do plano atual. Fallback: hoje.
-  function getPlanAnchor(): Date {
-    if (planActivatedAt) return new Date(planActivatedAt)
-    return new Date() // sem histórico: ciclo começa agora
   }
 
   async function handleUpgrade(targetPlan: string) {
@@ -296,7 +276,13 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
     return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 text-purple-500 animate-spin" /></div>
   }
 
-  const effectivePeriodEnd = calcEffectivePeriodEnd(sub, getPlanAnchor())
+  // Fim do ciclo pago: Stripe (current_period_end) → agendamento → ativação+30d.
+  // Pode ser null quando não há nenhuma fonte confiável — a UI mostra "—".
+  const effectivePeriodEnd = resolveEffectivePeriodEnd(sub, planActivatedAt)
+  // Downgrade já agendado: a data gravada no agendamento manda; se faltar, cai no ciclo.
+  const downgradeEffectiveAt = sub?.pending_plan_starts_at
+    ? resolveEffectivePeriodEnd({ current_period_end: sub.pending_plan_starts_at }, planActivatedAt)
+    : effectivePeriodEnd
 
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
   const isCancelPending = sub?.cancel_at_period_end || sub?.status === 'cancel_pending'
@@ -347,21 +333,21 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
             {sub.current_period_start && (
               <div><p className="text-stone-400 mb-0.5">Início do ciclo</p><p className="font-medium text-stone-700">{formatDate(sub.current_period_start)}</p></div>
             )}
-            {sub.current_period_end && currentPlan !== 'free' && (
-              <div><p className="text-stone-400 mb-0.5">Próxima cobrança</p><p className="font-medium text-stone-700">{formatDate(sub.current_period_end)}</p></div>
+            {effectivePeriodEnd && currentPlan !== 'free' && !isCancelPending && (
+              <div><p className="text-stone-400 mb-0.5">Próxima cobrança</p><p className="font-medium text-stone-700">{formatDate(effectivePeriodEnd)}</p></div>
             )}
           </div>
         )}
 
         {isCancelPending && (
           <div className="bg-amber-100 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
-            <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(effectivePeriodEnd)}. Depois disso, você voltará para o plano Gratuito. Seus dados serão preservados.
+            <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(effectivePeriodEnd)}. Após essa data, ele será encerrado e você voltará para o plano Gratuito. Seus dados serão preservados.
           </div>
         )}
 
         {hasPendingDowngrade && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
-            <strong>Downgrade agendado:</strong> Seu plano mudará para {PLAN_LABELS[sub!.pending_plan!]} em {formatDate(sub?.pending_plan_starts_at ?? null)}.
+            <strong>Alteração de plano agendada:</strong> você continua no plano {PLAN_LABELS[currentPlan]} até {formatDate(downgradeEffectiveAt)}. Após essa data, o plano {PLAN_LABELS[sub!.pending_plan!]} entrará em vigor. Até lá, você mantém acesso completo ao plano {PLAN_LABELS[currentPlan]}.
           </div>
         )}
 
@@ -506,7 +492,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               ))}
               {(() => {
-                const proration = calcUpgradeProration(currentPlan, modal.targetPlan, sub)
+                const proration = calcUpgradeProration(currentPlan, modal.targetPlan, sub, effectivePeriodEnd)
                 return proration > 0 ? (
                   <>
                     <div className="border-t pt-3 flex justify-between text-sm font-semibold">
@@ -514,10 +500,12 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                       <span className="text-purple-700">{formatPrice(proration)}</span>
                     </div>
                     <p className="text-xs text-stone-400">
-                      Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no ciclo atual, será cobrada a diferença proporcional estimada de {formatPrice(proration)}. A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
+                      Você será cobrado apenas pela diferença proporcional entre os planos até o fim do ciclo atual. A data de renovação permanece a mesma. Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no ciclo, a diferença estimada é de {formatPrice(proration)} (o valor exato é calculado pelo Stripe). A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
                     </p>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                      Você será redirecionado para o Stripe para concluir o pagamento. Seu plano só será alterado após confirmação.
+                      {currentPlan === 'free'
+                        ? 'Você será redirecionado para o Stripe para concluir o pagamento. Seu plano só será alterado após a confirmação.'
+                        : 'Sua assinatura atual será atualizada (sem criar uma nova). Os novos recursos são liberados assim que o Stripe confirmar o pagamento.'}
                     </div>
                   </>
                 ) : null
@@ -530,7 +518,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Ir para pagamento
+                {currentPlan === 'free' ? 'Ir para pagamento' : 'Confirmar upgrade'}
               </button>
               <button onClick={() => setModal(null)} className="px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">
                 Cancelar

@@ -34,6 +34,18 @@ const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', plus: 'Plus', therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
+
+// Datas para o usuário SEMPRE no fuso de São Paulo. Sem isso, o servidor (UTC)
+// exibiria um dia diferente do que a interface mostra para o mesmo instante.
+// Meia-noite UTC exata = data de calendário (não instante real) → ler em UTC, senão
+// o fuso -03 joga a exibição para o dia anterior. Timestamp real do Stripe → São Paulo.
+const BILLING_TZ = 'America/Sao_Paulo'
+const fmtBR = (iso: string): string => {
+  const d = new Date(iso)
+  const isCalendarDate = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+  return d.toLocaleDateString('pt-BR', { timeZone: isCalendarDate ? 'UTC' : BILLING_TZ })
+}
 // Hierarquia — distingue upgrade (subiu) de downgrade (desceu).
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
@@ -132,7 +144,20 @@ Deno.serve(async (req) => {
   const currentPlan = profile?.plan ?? 'free'
   const stripeSubId = sub?.provider_subscription_id ?? null
 
-  const effectiveAt = sub?.current_period_end ?? new Date().toISOString()
+  // Fim do ciclo pago. O STRIPE é a fonte da verdade — a linha do banco pode estar
+  // desatualizada (webhook atrasado, ou plano ajustado à mão) e não pode virar a data
+  // exibida ao usuário. Só caímos no banco quando não há assinatura no Stripe.
+  async function resolvePeriodEnd(): Promise<string | null> {
+    if (stripeSubId) {
+      try {
+        const s = await stripe.subscriptions.retrieve(stripeSubId)
+        if (s.current_period_end) return new Date(s.current_period_end * 1000).toISOString()
+      } catch (e) {
+        console.error('resolvePeriodEnd (Stripe):', (e as Error).message)
+      }
+    }
+    return sub?.current_period_end ?? null
+  }
 
   try {
     // ── UPGRADE (pago → pago superior): altera a assinatura EXISTENTE (nunca cria nova)
@@ -174,6 +199,11 @@ Deno.serve(async (req) => {
         await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true })
       }
 
+      const effectiveAt = await resolvePeriodEnd()
+      if (!effectiveAt) {
+        return jsonResponse({ error: 'Não foi possível determinar o fim do ciclo da sua assinatura. Tente novamente em instantes.' }, 409)
+      }
+
       const { error: subErr } = await supabase.from('user_subscriptions').upsert({
         user_id: user.id,
         status: 'cancel_pending',
@@ -191,7 +221,7 @@ Deno.serve(async (req) => {
         amount_charged: 0,
         effective_at: effectiveAt,
         source: 'user',
-        notes: `Cancelamento agendado para ${new Date(effectiveAt).toLocaleDateString('pt-BR')}`,
+        notes: `Cancelamento agendado para ${fmtBR(effectiveAt)}`,
       }).then(({ error }) => { if (error) console.error('plan_change_history cancel:', error) })
 
       await supabase.from('notifications').insert({
@@ -206,13 +236,13 @@ Deno.serve(async (req) => {
       await sendTxEmail('plan_cancel_requested', profile?.email ?? user.email, {
         nome: profile?.full_name || 'você',
         plano_atual: planLabel(currentPlan),
-        data_fim_ciclo: new Date(effectiveAt).toLocaleDateString('pt-BR'),
+        data_fim_ciclo: fmtBR(effectiveAt),
         link_meu_plano: `${SITE}/meu-plano`,
       }, `plan_cancel_requested:${user.id}:${effectiveAt}`, user.id)
 
       return jsonResponse({
         ok: true,
-        message: `Cancelamento agendado para ${new Date(effectiveAt).toLocaleDateString('pt-BR')}.`,
+        message: `Cancelamento agendado para ${fmtBR(effectiveAt)}.`,
         effectiveAt,
       })
     }
@@ -235,7 +265,7 @@ Deno.serve(async (req) => {
       const currentPrice = subscription.items.data[0]?.price.id as string
       const periodEnd = subscription.current_period_end
       const startsAt = new Date(periodEnd * 1000).toISOString()
-      const fimCiclo = new Date(periodEnd * 1000).toLocaleDateString('pt-BR')
+      const fimCiclo = fmtBR(startsAt)
 
       // Schedule a partir da assinatura: fase 1 = price atual até o fim do ciclo,
       // fase 2 = price novo (inferior) a partir daí.
