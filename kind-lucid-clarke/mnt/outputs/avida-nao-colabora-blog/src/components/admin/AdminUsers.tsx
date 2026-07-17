@@ -194,6 +194,7 @@ export default function AdminUsers() {
     discount_until: '', discount_reason: '',
   })
   const [savingDiscount, setSavingDiscount] = useState(false)
+  const [discountMsg, setDiscountMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   // Block/unblock
   const [blockReason, setBlockReason] = useState('')
@@ -483,6 +484,7 @@ export default function AdminUsers() {
     setNewPlan(u.plan)
     setPlanReason('')
     setUnlimitedAccessForm({ enabled: u.unlimited_access ?? false, until: '', reason: '' })
+    setDiscountMsg(null) // resultado é por usuário: não pode vazar para o próximo
     setDiscountForm({
       discount_percent: u.discount_percent ?? 0,
       discount_fixed: u.discount_fixed ?? 0,
@@ -553,37 +555,60 @@ export default function AdminUsers() {
     setSavingUnlimited(false)
   }
 
+  // O desconto NÃO é gravado direto no banco: quem manda é a Edge Function
+  // admin-discount, que cria o Coupon no Stripe e aplica na assinatura/cliente.
+  // Escrever só nas colunas discount_* (como era antes) não descontava nada — o
+  // usuário seguia pagando o valor cheio.
   async function saveDiscount() {
     if (!selectedUser) return
     setSavingDiscount(true)
-    const { error } = await supabase.from('profiles').update({
-      discount_percent: discountForm.discount_percent,
-      discount_fixed: discountForm.discount_fixed,
-      discount_code: discountForm.discount_code || null,
-      discount_until: discountForm.discount_until || null,
-      discount_reason: discountForm.discount_reason || null,
-    }).eq('user_id', selectedUser.user_id)
-    if (!error) {
+    setDiscountMsg(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-discount', {
+        body: {
+          user_id: selectedUser.user_id,
+          action: 'apply',
+          discount_percent: Number(discountForm.discount_percent) || 0,
+          discount_fixed: Number(discountForm.discount_fixed) || 0,
+          discount_code: discountForm.discount_code || null,
+          discount_until: discountForm.discount_until || null,
+          discount_reason: discountForm.discount_reason || null,
+        },
+      })
+      const res = data as { ok?: boolean; error?: string; resumo?: string; duracao?: string; aplicado_em?: string } | null
+      const msg = error?.message ?? res?.error
+      if (msg || !res?.ok) throw new Error(msg ?? 'Não foi possível aplicar o desconto.')
+      setDiscountMsg({ ok: true, text: `${res.resumo} — ${res.duracao}. Aplicado em: ${res.aplicado_em}.` })
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id
-        ? { ...r, discount_percent: discountForm.discount_percent, discount_fixed: discountForm.discount_fixed }
+        ? { ...r, discount_percent: Number(discountForm.discount_percent) || 0, discount_fixed: Number(discountForm.discount_fixed) || 0 }
         : r
       ))
+    } catch (e) {
+      setDiscountMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao aplicar desconto' })
+    } finally {
+      setSavingDiscount(false)
     }
-    setSavingDiscount(false)
   }
 
   async function clearDiscount() {
     if (!selectedUser) return
     setSavingDiscount(true)
-    const { error } = await supabase.from('profiles').update({
-      discount_percent: 0, discount_fixed: 0,
-      discount_code: null, discount_until: null, discount_reason: null,
-    }).eq('user_id', selectedUser.user_id)
-    if (!error) {
+    setDiscountMsg(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-discount', {
+        body: { user_id: selectedUser.user_id, action: 'remove' },
+      })
+      const res = data as { ok?: boolean; error?: string } | null
+      const msg = error?.message ?? res?.error
+      if (msg || !res?.ok) throw new Error(msg ?? 'Não foi possível remover o desconto.')
       setDiscountForm({ discount_percent: 0, discount_fixed: 0, discount_code: '', discount_until: '', discount_reason: '' })
+      setDiscountMsg({ ok: true, text: 'Desconto removido do Stripe e do cadastro. As próximas faturas voltam ao valor cheio.' })
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, discount_percent: 0, discount_fixed: 0 } : r))
+    } catch (e) {
+      setDiscountMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao remover desconto' })
+    } finally {
+      setSavingDiscount(false)
     }
-    setSavingDiscount(false)
   }
 
   async function blockUser() {
@@ -1453,10 +1478,18 @@ export default function AdminUsers() {
                         <label className="block text-xs text-stone-500 mb-1">Motivo</label>
                         <input value={discountForm.discount_reason} onChange={e => setDiscountForm(f => ({ ...f, discount_reason: e.target.value }))} placeholder="Motivo do desconto..." className={inputCls} />
                       </div>
-                      <p className="text-[10px] text-stone-400">Desconto administrativo registrado. Integração com cobrança real depende do checkout.</p>
+                      <p className="text-[10px] text-stone-400">
+                        Cria um cupom no Stripe e aplica na assinatura — o desconto vale na <strong>cobrança real</strong>, já na próxima fatura, e se repete nas renovações.
+                        Use <strong>% ou valor fixo</strong>, não os dois. Sem data em “válido até”, vale enquanto a assinatura durar.
+                      </p>
+                      {discountMsg && (
+                        <div className={`text-xs px-3 py-2 rounded-lg border ${discountMsg.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                          {discountMsg.text}
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <button onClick={saveDiscount} disabled={savingDiscount} className="text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
-                          {savingDiscount ? 'Salvando...' : 'Salvar desconto'}
+                          {savingDiscount ? 'Aplicando no Stripe...' : 'Salvar desconto'}
                         </button>
                         <button onClick={clearDiscount} disabled={savingDiscount} className="text-sm border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-50">
                           Remover
