@@ -78,7 +78,7 @@ O script converte o woff2 real do Playfair Display para TTF e o entrega ao
 rasterizador. Sem isso o texto **não desenha** (verificado: 0 pixels) e sairiam
 PNGs só com o coração. O script falha com erro se o texto não aparecer.
 
-## Instagram (perfil)
+## Instagram
 
 - `instagram-perfil.png` — **1080×1080, fundo branco**. É o arquivo para subir.
 - `instagram-perfil-320.png` — 320×320 (tamanho que o Instagram de fato armazena).
@@ -90,3 +90,15 @@ exibe a ~110px — o texto ficaria ilegível e com as pontas cortadas.
 Enquadramento verificado: o desenho tem raio de 371px contra os 540px do círculo,
 então nada é cortado. Cantos em branco opaco (não transparente), como o
 Instagram espera.
+
+### Feed e Story
+
+- `instagram-feed.png` — 1080×1080, fundo branco, **com o nome**.
+- `instagram-story.png` — 1080×1920, fundo branco, **com o nome**.
+
+Feed e Story não têm corte circular e são vistos grandes, então aqui o nome cabe
+e fica legível. Mantido o **lockup horizontal original** (ícone à esquerda, nome
+à direita) — empilhar em duas linhas mudaria o alinhamento da logo.
+
+No Story, a logo fica na faixa central (y≈906–1014), longe das áreas que o
+Instagram cobre com a interface (~250px no topo e ~250px embaixo).

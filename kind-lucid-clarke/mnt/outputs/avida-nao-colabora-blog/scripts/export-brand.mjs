@@ -69,6 +69,12 @@ async function main() {
     // Menu / admin
     { svg: icone, largura: 64, nome: 'logo-menu.png' },
     { svg: icone, largura: 128, nome: 'logo-admin.png' },
+    // Instagram — fundo branco opaco (não transparente: o IG espera assim).
+    // O perfil não tem texto (corte circular), os outros dois têm.
+    { svg: path.join(BRAND, 'instagram-perfil.svg'), largura: 1080, nome: 'instagram-perfil.png' },
+    { svg: path.join(BRAND, 'instagram-perfil.svg'), largura: 320, nome: 'instagram-perfil-320.png' },
+    { svg: path.join(BRAND, 'instagram-feed.svg'), largura: 1080, nome: 'instagram-feed.png' },
+    { svg: path.join(BRAND, 'instagram-story.svg'), largura: 1080, nome: 'instagram-story.png' },
     // Favicons
     { svg: icone, largura: 16, nome: 'favicon-16.png' },
     { svg: icone, largura: 32, nome: 'favicon-32.png' },
@@ -86,8 +92,24 @@ async function main() {
     ok++
   }
 
-  // ── Verificação: o texto REALMENTE saiu nos horizontais? ──
-  for (const svgPath of [horizontal, horizontalDark]) {
+  // ── Verificação: o texto REALMENTE saiu nas artes que têm nome? ──
+  // Um rasterizador sem a fonte não falha: ele só não desenha o texto. Sem esta
+  // checagem, entregaríamos PNGs só com o coração sem perceber.
+  // `fracaoInicioTexto` = onde o texto começa, em fração da largura do viewBox.
+  // `fundoOpaco`: onde o fundo é branco sólido, o alpha é 255 em toda a imagem e
+  // não distingue nada — aí procuramos pixel ESCURO. Onde o fundo é
+  // transparente, procuramos pixel OPACO (serve para o texto branco da versão
+  // dark, que "escuro" reprovaria por engano).
+  const comTexto = [
+    { svg: horizontal, fracaoInicioTexto: 42 / 225, fundoOpaco: false },
+    { svg: horizontalDark, fracaoInicioTexto: 42 / 225, fundoOpaco: false },
+    // Nestas, a logo está dentro de um <g> transladado+escalado:
+    // x do texto = 157.5 + 42*3.4 = 300.3 de 1080.
+    { svg: path.join(BRAND, 'instagram-feed.svg'), fracaoInicioTexto: 300.3 / 1080, fundoOpaco: true },
+    { svg: path.join(BRAND, 'instagram-story.svg'), fracaoInicioTexto: 300.3 / 1080, fundoOpaco: true },
+  ]
+
+  for (const { svg: svgPath, fracaoInicioTexto, fundoOpaco } of comTexto) {
     if (!fs.existsSync(svgPath)) continue
     const svg = fs.readFileSync(svgPath, 'utf8')
     const img = new Resvg(svg, {
@@ -95,19 +117,24 @@ async function main() {
       font: { fontFiles: fontes, loadSystemFonts: false, defaultFontFamily: 'Playfair Display' },
     }).render()
     const { width, height, pixels } = img
-    const inicioTexto = Math.floor((42 / 225) * width)
-    let opacos = 0
+    const inicioTexto = Math.floor(fracaoInicioTexto * width)
+    let marcados = 0
     for (let y = 0; y < height; y++) {
       for (let x = inicioTexto; x < width; x++) {
-        if (pixels[(y * width + x) * 4 + 3] > 10) opacos++
+        const i = (y * width + x) * 4
+        const [r, g, b, a] = [pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]]
+        const conta = fundoOpaco
+          ? (r < 200 || g < 200 || b < 200) // tinta sobre branco
+          : a > 10                          // qualquer coisa sobre transparente
+        if (conta) marcados++
       }
     }
     const nome = path.basename(svgPath)
-    if (opacos === 0) {
-      console.error(`\n✗ FALHA: o texto não renderizou em ${nome}. A fonte não foi aplicada — os PNGs sairiam só com o ícone.`)
+    if (marcados === 0) {
+      console.error(`\n✗ FALHA: o texto não renderizou em ${nome}. A fonte não foi aplicada — sairia só o ícone.`)
       process.exit(1)
     }
-    console.log(`  verificado: texto presente em ${nome} (${opacos} px)`)
+    console.log(`  verificado: texto presente em ${nome} (${marcados} px)`)
   }
 
   console.log(`\n✓ ${ok} arquivos em public/brand/\n`)

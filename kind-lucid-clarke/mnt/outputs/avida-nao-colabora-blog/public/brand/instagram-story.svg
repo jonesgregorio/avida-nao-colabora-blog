@@ -1,0 +1,25 @@
+<!-- Story do Instagram — 1080×1920, FUNDO BRANCO, com a logo completa.
+     Mesmo lockup horizontal do feed, apenas recentrado no formato vertical.
+
+     Enquadramento: a logo (viewBox 225×32) é escalada 3.4× → 765×108.8 e
+     centrada em 1080×1920. Fica bem dentro da área segura do Story: o Instagram
+     cobre ~250px no topo (perfil/tempo) e ~250px embaixo (responder/enviar), e
+     a logo ocupa a faixa central, entre y≈906 e y≈1015.
+
+     Paths, fonte, cores e proporções idênticos a src/components/Logo.tsx. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <rect width="1080" height="1920" fill="#FFFFFF"/>
+  <g transform="translate(157.5, 905.6) scale(3.4)" fill="none">
+    <path
+      d="M16 25.5C16 25.5 6 19 6 12.4C6 9.1 8.5 6.6 11.6 6.6C13.6 6.6 15.2 7.7 16 9.2C16.8 7.7 18.4 6.6 20.4 6.6C23.5 6.6 26 9.1 26 12.4C26 19 16 25.5 16 25.5Z"
+      stroke="#123528" stroke-width="1.9" stroke-linejoin="round"
+    />
+    <path d="M16 21C16 17.7 17.6 15.2 20.4 14.3" stroke="#123528" stroke-width="1.7" stroke-linecap="round" />
+    <path d="M21 14C19.3 14.6 18 16 17.5 17.8C19.3 17.2 20.6 15.8 21 14Z" fill="#123528" />
+    <text
+      x="42" y="23.5"
+      font-family="'Playfair Display', Georgia, serif"
+      font-size="20" font-weight="400" fill="#1A4A3A"
+    >A Vida Não Colabora</text>
+  </g>
+</svg>
