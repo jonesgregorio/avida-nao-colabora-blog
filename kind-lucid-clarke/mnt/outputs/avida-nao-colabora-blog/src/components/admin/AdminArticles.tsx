@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Plus, Pencil, Trash2, Copy, Search, Send, Archive, FileText, Sparkles, Loader2 } from 'lucide-react'
 import { generateSEO } from '../../lib/aiContent'
+import { OFFICIAL_PLANS, normalizePlan } from '../../lib/officialPlans'
 
 interface Article {
   id: string
@@ -68,6 +69,13 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterQuality, setFilterQuality] = useState<'all' | 'no_seo' | 'no_image' | 'ia' | 'manual'>('all')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const [filterPlan, setFilterPlan] = useState('all')
+
+  // Cada aba (Artigos / Conteúdos guiados) tem categorias próprias. Sem zerar na
+  // troca, o filtro seguiria numa categoria da outra aba e a lista viria vazia
+  // sem explicação aparente.
+  useEffect(() => { setFilterCategory('all') }, [contentType])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
@@ -120,6 +128,15 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
     else load()
   }
 
+  // Categorias saem dos artigos REAIS desta aba, não de uma lista fixa: uma lista
+  // fixa envelheceria e ofereceria filtro que não devolve nada.
+  const categorias = [...new Set(
+    articles
+      .filter(a => (a.content_type ?? 'article') === contentType)
+      .map(a => (a.category || '').trim())
+      .filter(Boolean),
+  )].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
   const filtered = articles.filter(a => {
     const matchSearch = a.title.toLowerCase().includes(search.toLowerCase()) || a.slug.includes(search.toLowerCase())
     const matchStatus = filterStatus === 'all' || a.status === filterStatus
@@ -130,7 +147,14 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
       : filterQuality === 'no_image' ? !imageOk(a)
       : filterQuality === 'ia' ? a.origin === 'ia'
       : /* manual */ a.origin !== 'ia'
-    return matchSearch && matchStatus && matchType && matchQuality
+    const matchCategory =
+      filterCategory === 'all' ? true
+      : filterCategory === '__sem__' ? !(a.category || '').trim()
+      : (a.category || '').trim() === filterCategory
+    // plan_required nulo = conteúdo aberto (Gratuito). normalizePlan cuida dos
+    // planos legados (therapeutic → plus), senão eles sumiriam do filtro.
+    const matchPlan = filterPlan === 'all' || normalizePlan(a.plan_required || 'free') === filterPlan
+    return matchSearch && matchStatus && matchType && matchQuality && matchCategory && matchPlan
   })
 
   // ── Seleção + ações em massa ──
@@ -232,6 +256,23 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
           <option value="draft">Rascunhos</option>
           <option value="archived">Arquivados</option>
           <option value="scheduled">Agendados</option>
+        </select>
+        <select
+          value={filterCategory}
+          onChange={e => setFilterCategory(e.target.value)}
+          className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+        >
+          <option value="all">Todas as categorias</option>
+          {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+          <option value="__sem__">Sem categoria</option>
+        </select>
+        <select
+          value={filterPlan}
+          onChange={e => setFilterPlan(e.target.value)}
+          className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+        >
+          <option value="all">Todos os planos</option>
+          {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
         </select>
         <select
           value={filterQuality}
