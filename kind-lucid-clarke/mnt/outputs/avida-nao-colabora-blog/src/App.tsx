@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
+import { confirmDialog } from './lib/confirmDialog'
 import { trackEvent, initWebVitals, initAcquisition } from './lib/analytics'
 
 import Header from './components/Header'
@@ -184,6 +185,24 @@ function restoreNav() {
 export default function App() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth()
 
+  // Blog e admin compartilham UMA sessão do Supabase (um único cliente, uma única
+  // chave no navegador). Sair aqui derruba as duas áreas — não há como separar
+  // sem dois clientes. Já que a sessão é uma só, ao menos avisamos antes, em vez
+  // de o admin descobrir que caiu ao voltar para o painel.
+  async function handleSignOut() {
+    if (profile?.role === 'admin') {
+      const ok = await confirmDialog({
+        titulo: 'Encerrar a sessão?',
+        mensagem: 'Sua conta de administrador usa a mesma sessão do blog. Ao sair, você também será desconectado do painel administrativo e precisará entrar de novo em /admin.\n\nPara ficar logado nos dois ao mesmo tempo, use o painel numa janela anônima ou em outro perfil do navegador.',
+        confirmar: 'Sair mesmo assim',
+        cancelar: 'Continuar logado',
+        tom: 'perigo',
+      })
+      if (!ok) return
+    }
+    await signOut()
+  }
+
   const saved = restoreNav()
   const [view, setView] = useState<View>(saved?.view ?? 'home')
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
@@ -365,12 +384,12 @@ export default function App() {
   // visitante → header público. Mantém a navegação coerente em toda a área logada.
   const appShell = (content: ReactNode) =>
     user ? (
-      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={signOut}>
+      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
         {content}
       </UserLayout>
     ) : (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">{content}</main>
         <Footer onNavigate={navigate} />
       </>
@@ -408,7 +427,7 @@ export default function App() {
           >
             Completar perfil
           </button>
-          <button onClick={() => signOut()} className="mt-3 text-xs text-ink-soft hover:text-forest-900">Sair</button>
+          <button onClick={() => { void handleSignOut() }} className="mt-3 text-xs text-ink-soft hover:text-forest-900">Sair</button>
         </div>
       </div>
     )
@@ -464,7 +483,7 @@ export default function App() {
   if (view === 'contact') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ContactPage user={user} profile={profile} onBack={() => setView('home')} navigate={navigate} />
         </main>
@@ -476,7 +495,7 @@ export default function App() {
   if (view === 'about') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <AboutPage onNavigate={navigate} />
         </main>
@@ -488,7 +507,7 @@ export default function App() {
   if (view === 'privacy') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <PrivacyPage onNavigate={navigate} />
         </main>
@@ -500,7 +519,7 @@ export default function App() {
   if (view === 'terms') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <TermsPage onNavigate={navigate} />
         </main>
@@ -512,7 +531,7 @@ export default function App() {
   if (view === 'responsibility') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ResponsibilityPage />
         </main>
@@ -726,7 +745,7 @@ export default function App() {
   // Home logado → nova experiência com sidebar (UserLayout)
   if (user) {
     return (
-      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={signOut}>
+      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
         <LoggedHome user={user} profile={profile} onNavigate={navigate} />
       </UserLayout>
     )
@@ -735,7 +754,7 @@ export default function App() {
   // Home pública (visitante)
   return (
     <>
-      <Header onNavigate={navigate} user={user} profile={profile} onSignOut={signOut} currentView={view} />
+      <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
       <main className="min-h-screen bg-paper">
         <Hero onNavigate={navigate} />
         <HomeContent onNavigate={navigate} />

@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart, CalendarCheck,
   MessageSquare, Mail, LifeBuoy, Settings2,
-  ExternalLink, Menu, LogOut, BarChart3, DollarSign,
+  ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -97,8 +97,14 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
             <p className="text-sm text-white truncate">{name}</p>
             <p className="text-[11px] text-forest-300">Administrador</p>
           </div>
-          <button onClick={onExit} title="Sair do admin" className="text-forest-300 hover:text-white p-1 flex-shrink-0">
-            <LogOut className="w-4 h-4" />
+          {/* Este botão NÃO desloga: só volta para o blog, mantendo a sessão. O
+              ícone de logout dava a impressão contrária. */}
+          <button
+            onClick={onExit}
+            title="Voltar ao blog (continua logado)"
+            className="text-forest-300 hover:text-white p-1 flex-shrink-0"
+          >
+            <ArrowLeftFromLine className="w-4 h-4" />
           </button>
         </div>
       </div>
