@@ -14,6 +14,28 @@ const CORS_HEADERS = {
 // Ações suportadas
 type Action = 'cancel' | 'downgrade' | 'reactivate' | 'upgrade'
 
+// Motivos oficiais (§10). Cópia deliberada de src/lib/cancelReasons.ts: Deno não
+// importa do bundle Vite. Mesma lista também no CHECK da migration 094 — os três
+// precisam concordar. Validar aqui é obrigatório: o front pode ser burlado.
+const REASONS_OFICIAIS = [
+  'financial', 'bugs', 'missing_feature', 'content_not_expected',
+  'chose_competitor', 'did_not_understand_features', 'other',
+]
+
+// Devolve a mensagem de erro, ou null se estiver válido.
+function validarMotivos(reasons: unknown, comment: unknown): string | null {
+  if (!Array.isArray(reasons) || reasons.length === 0) {
+    return 'Selecione pelo menos um motivo para continuar.'
+  }
+  const invalidos = reasons.filter((r) => typeof r !== 'string' || !REASONS_OFICIAIS.includes(r))
+  if (invalidos.length > 0) return `Motivo inválido: ${invalidos.join(', ')}`
+  if (new Set(reasons).size !== reasons.length) return 'Motivos repetidos.'
+  if (reasons.includes('other') && (typeof comment !== 'string' || !comment.trim())) {
+    return 'Descreva o outro motivo para continuar.'
+  }
+  return null
+}
+
 const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
 
 // Price IDs por env var (mesma fonte do create-checkout — nunca hardcoded).
@@ -103,7 +125,7 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  let body: { action: Action; targetPlan?: string }
+  let body: { action: Action; targetPlan?: string; reasons?: string[]; comment?: string }
   try {
     body = await req.json()
   } catch {
@@ -114,6 +136,8 @@ Deno.serve(async (req) => {
   }
 
   const { action, targetPlan } = body
+  const reasons = body.reasons ?? []
+  const comment = (body.comment ?? '').trim()
   if (!['cancel', 'downgrade', 'reactivate', 'upgrade'].includes(action)) {
     return new Response(JSON.stringify({ error: 'Ação inválida' }), {
       status: 400,
@@ -143,6 +167,47 @@ Deno.serve(async (req) => {
 
   const currentPlan = profile?.plan ?? 'free'
   const stripeSubId = sub?.provider_subscription_id ?? null
+
+  // Linha do tempo financeira (094). Nunca quebra o fluxo: um erro aqui não pode
+  // impedir um cancelamento que o Stripe já aceitou — só é logado.
+  async function registrarEvento(
+    eventType: string,
+    extra: Record<string, unknown> = {},
+  ): Promise<void> {
+    const { error } = await supabase.from('subscription_events').insert({
+      user_id: user.id,
+      subscription_id: sub?.id ?? null,
+      stripe_customer_id: profile?.stripe_customer_id ?? null,
+      stripe_subscription_id: stripeSubId,
+      event_type: eventType,
+      previous_plan: currentPlan,
+      currency: 'BRL',
+      ...extra,
+    })
+    if (error) console.error(`subscription_events (${eventType}):`, error.message)
+  }
+
+  // Grava o motivo da saída. Diferente do evento, este FALHA o fluxo se der erro:
+  // cancelar sem registrar o motivo derrota o propósito da mudança.
+  async function registrarFeedback(
+    changeType: 'cancellation' | 'downgrade',
+    targetPlanFinal: string,
+    effectiveAt: string | null,
+  ): Promise<void> {
+    const { error } = await supabase.from('subscription_change_feedback').insert({
+      user_id: user.id,
+      subscription_id: sub?.id ?? null,
+      stripe_subscription_id: stripeSubId,
+      change_type: changeType,
+      current_plan: currentPlan,
+      target_plan: targetPlanFinal,
+      reasons,
+      comment: comment || null,
+      effective_at: effectiveAt,
+      status: 'scheduled',
+    })
+    if (error) throw new Error('Erro ao registrar o motivo: ' + error.message)
+  }
 
   // Fim do ciclo pago. O STRIPE é a fonte da verdade — a linha do banco pode estar
   // desatualizada (webhook atrasado, ou plano ajustado à mão) e não pode virar a data
@@ -194,6 +259,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'cancel') {
+      // Motivo é obrigatório (§9) e validado AQUI, não só no front — que pode ser
+      // burlado. Recusamos antes de tocar no Stripe.
+      const erroMotivo = validarMotivos(reasons, comment)
+      if (erroMotivo) return jsonResponse({ error: erroMotivo }, 400)
+
       // Cancela ao fim do período
       if (stripeSubId) {
         await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true })
@@ -212,6 +282,15 @@ Deno.serve(async (req) => {
         pending_plan_starts_at: effectiveAt,
       }, { onConflict: 'user_id' })
       if (subErr) throw new Error('Erro ao atualizar assinatura: ' + subErr.message)
+
+      await registrarFeedback('cancellation', 'free', effectiveAt)
+      await registrarEvento('cancellation_requested', {
+        new_plan: 'free',
+        status: 'scheduled',
+        reasons,
+        comment: comment || null,
+        metadata: { current_plan: currentPlan, target_plan: 'free', effective_at: effectiveAt },
+      })
 
       await supabase.from('plan_change_history').insert({
         user_id: user.id,
@@ -252,6 +331,9 @@ Deno.serve(async (req) => {
     //    até lá e, no próximo ciclo, tem uma assinatura VÁLIDA e COBRADA do plano inferior.
     if (action === 'downgrade') {
       if (!targetPlan) return jsonResponse({ error: 'targetPlan obrigatório para downgrade' }, 400)
+      // Motivo obrigatório também no downgrade (§9), validado no servidor.
+      const erroMotivo = validarMotivos(reasons, comment)
+      if (erroMotivo) return jsonResponse({ error: erroMotivo }, 400)
       const newPrice = PRICE_IDS[targetPlan]
       if (!newPrice) return jsonResponse({ error: `Plano inválido ou Price ID ausente: ${targetPlan}` }, 400)
       if (targetPlan === 'free' || rankOf(targetPlan) >= rankOf(currentPlan)) {
@@ -286,6 +368,15 @@ Deno.serve(async (req) => {
         cancel_at_period_end: false,
       }, { onConflict: 'user_id' })
       if (subErr) throw new Error('Erro ao agendar downgrade: ' + subErr.message)
+
+      await registrarFeedback('downgrade', targetPlan, startsAt)
+      await registrarEvento('downgrade_requested', {
+        new_plan: targetPlan,
+        status: 'scheduled',
+        reasons,
+        comment: comment || null,
+        metadata: { current_plan: currentPlan, target_plan: targetPlan, effective_at: startsAt, schedule_id: schedule.id },
+      })
 
       await supabase.from('plan_change_history').insert({
         user_id: user.id, old_plan: currentPlan, new_plan: targetPlan,
@@ -328,6 +419,13 @@ Deno.serve(async (req) => {
         pending_plan_starts_at: null,
       }).eq('user_id', user.id)
       if (subErr) throw new Error('Erro ao reativar assinatura: ' + subErr.message)
+
+      // O usuário desistiu da saída: o feedback agendado vira 'reverted' para não
+      // contar como cancelamento/downgrade real no Analytics.
+      await supabase.from('subscription_change_feedback')
+        .update({ status: 'reverted', updated_at: new Date().toISOString() })
+        .eq('user_id', user.id).eq('status', 'scheduled')
+        .then(({ error }) => { if (error) console.error('feedback reverted:', error) })
 
       await supabase.from('plan_change_history').insert({
         user_id: user.id,

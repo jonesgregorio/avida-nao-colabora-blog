@@ -49,6 +49,17 @@ const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
+// Data para o usuário no fuso de São Paulo. Meia-noite UTC exata = data de
+// calendário (lê em UTC); timestamp real do Stripe = converte para -03. Mesma
+// regra de src/lib/billingCycle.ts — os dois precisam mostrar o mesmo dia.
+const BILLING_TZ = 'America/Sao_Paulo'
+const fmtBR = (iso: string): string => {
+  const d = new Date(iso)
+  const dataDeCalendario = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+  return d.toLocaleDateString('pt-BR', { timeZone: dataDeCalendario ? 'UTC' : BILLING_TZ })
+}
+
 // ID da assinatura de uma invoice — tolerante à versão da API.
 // O payload do webhook usa a versão de API da CONTA, não a do SDK. Nas versões
 // novas o campo `invoice.subscription` deixou de existir e a referência passou a
@@ -64,6 +75,31 @@ function invoiceSubId(invoice: Stripe.Invoice): string | null {
   const novo = parent?.subscription_details?.subscription
   if (novo) return typeof novo === 'string' ? novo : novo.id
   return null
+}
+
+// Linha do tempo financeira (094). O Stripe é a fonte de verdade: quem grava é
+// aqui, com a data/hora REAL do evento (nunca do navegador).
+// Best-effort de propósito: um erro no histórico não pode derrubar o
+// processamento de um pagamento que o Stripe já confirmou.
+async function registrarEvento(
+  supabase: ReturnType<typeof createClient>,
+  event: Stripe.Event,
+  eventType: string,
+  dados: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabase.from('subscription_events').insert({
+    stripe_event_id: event.id,
+    event_type: eventType,
+    currency: 'BRL',
+    // occurred_at = quando ACONTECEU no Stripe, não quando processamos.
+    occurred_at: new Date(event.created * 1000).toISOString(),
+    ...dados,
+  })
+  // 23505 = o índice único já barrou uma reentrega. Isso é a idempotência
+  // funcionando, não um problema.
+  if (error && String(error.code) !== '23505') {
+    console.error(`subscription_events (${eventType}):`, error.message)
+  }
 }
 
 // Gravações CRÍTICAS (acesso ao plano e dinheiro) não podem falhar em silêncio:
@@ -258,6 +294,17 @@ async function handleEvent(
     })
     if (histErr) console.error('Erro ao inserir plan_change_history (checkout):', histErr)
 
+    await registrarEvento(supabase, event, 'checkout_completed', {
+      user_id: userId,
+      stripe_customer_id: (session.customer as string) ?? null,
+      stripe_subscription_id: stripeSub?.id ?? null,
+      previous_plan: oldPlan,
+      new_plan: plan,
+      amount: (session.amount_total ?? 0) / 100,
+      status: 'confirmed',
+      metadata: { session_id: session.id, period_start: periodStart, period_end: periodEnd },
+    })
+
     // Cria notificação para o usuário
     const { error: notifErr } = await supabase.from('notifications').insert({
       user_id: userId,
@@ -333,6 +380,11 @@ async function handleEvent(
     const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
     const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
 
+    // Data/hora REAL da confirmação: o Stripe carimba no evento. Nunca usar
+    // new Date() aqui — seria a hora do processamento, não do pagamento (§4).
+    const pagoEm = new Date(event.created * 1000).toISOString()
+    const valorPago = (invoice.amount_paid ?? 0) / 100
+
     // Upsert user_subscriptions com datas do ciclo
     const { error: subErr } = await supabase.from('user_subscriptions').upsert({
       user_id: userId,
@@ -342,9 +394,26 @@ async function handleEvent(
       current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
       provider_subscription_id: subscription.id,
+      last_payment_confirmed_at: pagoEm,
+      last_payment_amount: valorPago,
+      subscription_created_at: new Date(subscription.created * 1000).toISOString(),
       ...subFields(subscription),
     }, { onConflict: 'user_id' })
     must(subErr, 'user_subscriptions (invoice)')
+
+    // Renovação vs. primeiro pagamento: billing_reason distingue os dois.
+    const renovacao = invoice.billing_reason === 'subscription_cycle'
+    await registrarEvento(supabase, event, renovacao ? 'subscription_renewed' : 'payment_confirmed', {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+      stripe_invoice_id: invoice.id,
+      previous_plan: oldPlan,
+      new_plan: plan,
+      amount: valorPago,
+      status: 'confirmed',
+      metadata: { billing_reason: invoice.billing_reason, period_end: periodEnd },
+    })
 
     // Registra pagamento em payment_events
     const { error: payErr } = await supabase.from('payment_events').insert({
@@ -388,9 +457,11 @@ async function handleEvent(
     const rValor = ((invoice.amount_paid ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     await sendTxEmail('payment_confirmed', rEmail, {
       nome: rNome, plano: planLabel(plan), valor: rValor,
-      data_pagamento: new Date().toLocaleDateString('pt-BR'),
-      inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
-      fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
+      // Data REAL do pagamento (carimbo do evento Stripe) — não a hora em que
+      // este código rodou, que é o que new Date() daria.
+      data_pagamento: fmtBR(pagoEm),
+      inicio_ciclo: fmtBR(periodStart),
+      fim_ciclo: fmtBR(periodEnd),
       link_meu_plano: `${SITE}/meu-plano`,
     }, `payment_confirmed:${invoice.id}`, userId)
   }
@@ -415,8 +486,18 @@ async function handleEvent(
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
         provider_subscription_id: subscription.id,
+        subscription_created_at: new Date(subscription.created * 1000).toISOString(),
         ...subFields(subscription),
       }, { onConflict: 'user_id' })
+
+      await registrarEvento(supabase, event, 'subscription_created', {
+        user_id: userId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        new_plan: plan,
+        status: subscription.status,
+        metadata: { trial_end: subscription.trial_end, price_id: subscription.items.data[0]?.price.id },
+      })
     }
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
   }
@@ -480,6 +561,26 @@ async function handleEvent(
         amount_charged: 0, effective_at: new Date().toISOString(),
         source: 'stripe_webhook', notes: `subscription.updated — sub ${subscription.id}`,
       }).then(({ error }) => { if (error) console.error('hist (sub.updated):', error) })
+
+      // Efetivação: o downgrade agendado entrou em vigor agora (fim do ciclo), ou
+      // o upgrade foi confirmado pelo Stripe.
+      await registrarEvento(supabase, event, isUpgrade ? 'upgrade_confirmed' : 'downgrade_completed', {
+        user_id: userId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        previous_plan: oldPlan,
+        new_plan: newPlan,
+        status: subscription.status,
+        metadata: { price_id: priceId, period_end: periodEnd },
+      })
+
+      // Fecha o feedback do downgrade que estava agendado.
+      if (!isUpgrade) {
+        await supabase.from('subscription_change_feedback')
+          .update({ status: 'completed', updated_at: new Date().toISOString() })
+          .eq('user_id', userId).eq('change_type', 'downgrade').eq('status', 'scheduled')
+          .then(({ error }) => { if (error) console.error('feedback downgrade completed:', error) })
+      }
 
       const { email, nome } = await getRecipient(supabase, userId)
       if (isUpgrade) {
@@ -551,6 +652,22 @@ async function handleEvent(
       canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : new Date().toISOString(),
       payment_status: 'canceled',
     }).eq('user_id', userId)
+
+    await registrarEvento(supabase, event, 'cancellation_completed', {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+      previous_plan: oldPlan,
+      new_plan: finalPlan,
+      status: 'canceled',
+      metadata: { canceled_at: subscription.canceled_at, ended_at: subscription.ended_at },
+    })
+
+    // Fecha o feedback do cancelamento que estava agendado — vira churn efetivo.
+    await supabase.from('subscription_change_feedback')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('user_id', userId).eq('change_type', 'cancellation').eq('status', 'scheduled')
+      .then(({ error }) => { if (error) console.error('feedback cancel completed:', error) })
     must(subErr, 'user_subscriptions (deleted)')
 
     // Registra no histórico
@@ -606,6 +723,29 @@ async function handleEvent(
       .eq('stripe_customer_id', customerId)
       .maybeSingle()
     const p = prof as { user_id?: string; plan?: string; email?: string; full_name?: string } | null
+
+    // Registra a recusa: alimenta "pagamentos negados" no Analytics e a data da
+    // última tentativa negada no perfil (§6). Data real vinda do evento.
+    if (p?.user_id) {
+      const falhouEm = new Date(event.created * 1000).toISOString()
+      await supabase.from('user_subscriptions')
+        .update({ last_payment_failed_at: falhouEm })
+        .eq('user_id', p.user_id)
+        .then(({ error }) => { if (error) console.error('last_payment_failed_at:', error.message) })
+
+      await registrarEvento(supabase, event, 'payment_failed', {
+        user_id: p.user_id,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: invoiceSubId(invoice),
+        stripe_invoice_id: invoice.id,
+        previous_plan: p.plan ?? null,
+        new_plan: p.plan ?? null,
+        amount: (invoice.amount_due ?? 0) / 100,
+        status: 'failed',
+        metadata: { attempt_count: invoice.attempt_count ?? null, billing_reason: invoice.billing_reason },
+      })
+    }
+
     if (p?.email) {
       await sendTxEmail('payment_failed', p.email, {
         nome: p.full_name || 'você', plano: p.plan || '', link_pagamento: `${SITE}/meu-plano`,

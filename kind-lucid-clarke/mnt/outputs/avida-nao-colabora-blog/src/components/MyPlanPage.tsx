@@ -11,6 +11,8 @@ import {
   daysRemaining,
   totalDaysInCycle,
 } from '../lib/billingCycle'
+import ReasonPicker from './ReasonPicker'
+import { validateReasons, reasonsLabel } from '../lib/cancelReasons'
 
 interface Props {
   user: User | null
@@ -120,10 +122,25 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
+  // Motivo já informado numa saída agendada (§17) — para o usuário lembrar do que disse.
+  const [feedback, setFeedback] = useState<{ reasons: string[]; comment: string | null; change_type: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string } | null>(null)
   const [acting, setActing] = useState(false)
   const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  // Motivos da saída (§9): obrigatórios em cancelamento e downgrade.
+  const [reasons, setReasons] = useState<string[]>([])
+  const [reasonComment, setReasonComment] = useState('')
+  const [reasonError, setReasonError] = useState<string | null>(null)
+
+  // Abre a modal sempre com os motivos zerados — resposta anterior não pode
+  // vazar para a próxima decisão.
+  function openModal(m: { type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string }) {
+    setReasons([])
+    setReasonComment('')
+    setReasonError(null)
+    setModal(m)
+  }
 
   const currentPlan = normalizePlan(profile?.plan)
 
@@ -136,7 +153,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   async function loadData() {
     setLoading(true)
     const cp = normalizePlan(profile?.plan)
-    const [subRes, histRes, planHistRes] = await Promise.all([
+    const [subRes, histRes, planHistRes, fbRes] = await Promise.all([
       supabase.from('user_subscriptions').select('*').eq('user_id', user!.id).maybeSingle(),
       supabase.from('plan_change_history').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(20),
       // Busca a data em que o plano atual foi ativado
@@ -147,9 +164,15 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // Motivo da saída agendada (RLS garante que só vem o do próprio usuário).
+      supabase.from('subscription_change_feedback')
+        .select('reasons, comment, change_type')
+        .eq('user_id', user!.id).eq('status', 'scheduled')
+        .order('requested_at', { ascending: false }).limit(1).maybeSingle(),
     ])
     setSub(subRes.data as Subscription | null)
     setHistory((histRes.data as PlanChangeRecord[]) ?? [])
+    setFeedback((fbRes.data as { reasons: string[]; comment: string | null; change_type: string } | null) ?? null)
     // Data de ativação: registro no plan_change_history, ou user_plan_history como fallback
     if (planHistRes.data?.created_at) {
       setPlanActivatedAt(planHistRes.data.created_at)
@@ -201,11 +224,14 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   }
 
   async function handleDowngrade(targetPlan: string) {
+    // Barra aqui para dar feedback imediato; o back-end revalida por segurança.
+    const erro = validateReasons(reasons, reasonComment)
+    if (erro) { setReasonError(erro); return }
     setActing(true)
     setActionMsg(null)
     try {
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
-        body: { action: 'downgrade', targetPlan },
+        body: { action: 'downgrade', targetPlan, reasons, comment: reasonComment.trim() },
       })
       if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao agendar downgrade')
       setModal(null)
@@ -222,11 +248,13 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   }
 
   async function handleCancel() {
+    const erro = validateReasons(reasons, reasonComment)
+    if (erro) { setReasonError(erro); return }
     setActing(true)
     setActionMsg(null)
     try {
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
-        body: { action: 'cancel' },
+        body: { action: 'cancel', reasons, comment: reasonComment.trim() },
       })
       if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao cancelar assinatura')
       setModal(null)
@@ -342,12 +370,24 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         {isCancelPending && (
           <div className="bg-amber-100 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
             <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(effectivePeriodEnd)}. Após essa data, ele será encerrado e você voltará para o plano Gratuito. Seus dados serão preservados.
+            {feedback?.change_type === 'cancellation' && feedback.reasons?.length > 0 && (
+              <p className="mt-1.5 text-amber-700">
+                <strong>Motivos que você informou:</strong> {reasonsLabel(feedback.reasons)}
+                {feedback.comment ? <><br /><span className="italic">“{feedback.comment}”</span></> : null}
+              </p>
+            )}
           </div>
         )}
 
         {hasPendingDowngrade && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
             <strong>Alteração de plano agendada:</strong> você continua no plano {PLAN_LABELS[currentPlan]} até {formatDate(downgradeEffectiveAt)}. Após essa data, o plano {PLAN_LABELS[sub!.pending_plan!]} entrará em vigor. Até lá, você mantém acesso completo ao plano {PLAN_LABELS[currentPlan]}.
+            {feedback?.change_type === 'downgrade' && feedback.reasons?.length > 0 && (
+              <p className="mt-1.5 text-blue-700">
+                <strong>Motivos que você informou:</strong> {reasonsLabel(feedback.reasons)}
+                {feedback.comment ? <><br /><span className="italic">“{feedback.comment}”</span></> : null}
+              </p>
+            )}
           </div>
         )}
 
@@ -355,14 +395,14 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="flex flex-wrap gap-2">
           {isCancelPending ? (
             <button
-              onClick={() => setModal({ type: 'reactivate' })}
+              onClick={() => openModal({ type: 'reactivate' })}
               className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
             >
               Manter meu plano
             </button>
           ) : currentPlan !== 'free' ? (
             <button
-              onClick={() => setModal({ type: 'cancel' })}
+              onClick={() => openModal({ type: 'cancel' })}
               className="text-sm border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition-colors"
             >
               Cancelar plano
@@ -399,7 +439,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                   <span className="block text-center text-sm text-ink-soft rounded-xl py-2.5 border border-line">Indisponível agora</span>
                 ) : (
                   <button
-                    onClick={() => setModal({ type: up ? 'upgrade' : 'downgrade', targetPlan: p.key })}
+                    onClick={() => openModal({ type: up ? 'upgrade' : 'downgrade', targetPlan: p.key })}
                     className={`w-full text-sm font-medium rounded-xl py-2.5 transition-colors ${up ? 'bg-forest-900 text-white hover:bg-forest-800' : 'border border-line text-forest-700 hover:bg-mint/50'}`}
                   >
                     {up ? 'Fazer upgrade' : p.key === 'free' ? 'Mudar para Gratuito' : 'Fazer downgrade'}
@@ -582,6 +622,19 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 ) : null
               })()}
 
+              <div className="border-t border-stone-100 pt-4">
+                <p className="text-xs text-stone-500 mb-3">
+                  Antes de confirmar, conte o que motivou essa mudança. Isso nos ajuda a melhorar o produto.
+                </p>
+                <ReasonPicker
+                  reasons={reasons}
+                  comment={reasonComment}
+                  onChangeReasons={(r) => { setReasons(r); setReasonError(null) }}
+                  onChangeComment={(c) => { setReasonComment(c); setReasonError(null) }}
+                  error={reasonError}
+                />
+              </div>
+
               <p className="text-xs text-stone-400">Seus dados não serão apagados. Você pode reverter o downgrade antes da data de vigência.</p>
             </div>
             <div className="flex gap-2">
@@ -650,6 +703,19 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                   </div>
                 ) : null
               })()}
+
+              <div className="border-t border-stone-100 pt-4">
+                <p className="text-xs text-stone-500 mb-3">
+                  Antes de confirmar, conte o que motivou essa mudança. Isso nos ajuda a melhorar o produto.
+                </p>
+                <ReasonPicker
+                  reasons={reasons}
+                  comment={reasonComment}
+                  onChangeReasons={(r) => { setReasons(r); setReasonError(null) }}
+                  onChangeComment={(c) => { setReasonComment(c); setReasonError(null) }}
+                  error={reasonError}
+                />
+              </div>
 
               <p className="text-xs text-stone-400">Seus dados não serão apagados. Você poderá reativar seu plano a qualquer momento antes da data de expiração.</p>
             </div>
