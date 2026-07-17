@@ -22,9 +22,11 @@ export type { AdminView } from './types'
 
 const ADMIN_KEY = 'avida_admin_view'
 
-// As 10 áreas dedicadas do novo admin (contrato: admin-mockup-avnc.html).
+// Áreas dedicadas do admin. Uma view fora desta lista cai no fallback
+// "visao-geral" — por isso adicionar um item no menu exige registrá-lo AQUI
+// também, senão ele existe mas não abre.
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'planos', 'conteudos', 'analytics',
+  'visao-geral', 'usuarios', 'planos', 'conteudos', 'analytics', 'financeiro',
   'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
 ]
 
