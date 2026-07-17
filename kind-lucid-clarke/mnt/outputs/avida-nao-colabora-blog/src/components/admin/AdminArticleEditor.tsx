@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Save, Eye, Sparkles } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
+import CoverImageInput from './CoverImageInput'
 
 interface ArticleData {
   title: string
@@ -593,15 +594,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Imagem de capa</h2>
-            <Field label="URL da imagem">
-              <input value={data.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://..." className={inputCls} />
-            </Field>
-            <Field label="Texto alternativo (alt)">
-              <input value={data.image_alt} onChange={e => set('image_alt', e.target.value)} placeholder="Descrição da imagem" className={inputCls} />
-            </Field>
-            {data.image_url && (
-              <img src={data.image_url} alt={data.image_alt || 'Capa'} className="w-full h-32 object-cover rounded-lg border border-line" />
-            )}
+            <CoverImageInput
+              url={data.image_url}
+              alt={data.image_alt}
+              onChangeUrl={u => set('image_url', u)}
+              onChangeAlt={a => set('image_alt', a)}
+            />
           </div>
 
           {/* Checklist de publicação + pontuação */}
