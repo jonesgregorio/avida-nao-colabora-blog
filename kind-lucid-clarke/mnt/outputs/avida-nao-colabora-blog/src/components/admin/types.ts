@@ -8,6 +8,7 @@ export type AdminAreaView =
   | 'calendario'
   | 'automacoes-blog'
   | 'analytics'
+  | 'financeiro'
   | 'mapa'
   | 'autocuidado'
   | 'orientacao'

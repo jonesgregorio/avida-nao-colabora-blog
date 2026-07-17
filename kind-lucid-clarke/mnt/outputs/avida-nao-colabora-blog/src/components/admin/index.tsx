@@ -9,6 +9,7 @@ import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
+import AdminFinanceiro from './AdminFinanceiro'
 import AdminAreaOrientacao from './AdminAreaOrientacao'
 import AdminSuportePage from './AdminSuportePage'
 import AdminAreaConteudo from './AdminAreaConteudo'
@@ -162,6 +163,7 @@ export default function AdminPanel() {
       case 'planos': return <AdminPlanosPage />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
+      case 'financeiro': return <AdminFinanceiro />
       case 'mapa': return <AdminMapaArea />
       case 'autocuidado': return <AdminMonthlyCarePlans />
       case 'orientacao': return <AdminAreaOrientacao />

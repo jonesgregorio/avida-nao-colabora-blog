@@ -11,6 +11,7 @@ import {
   LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
 } from 'lucide-react'
 import { normalizePlan } from '../../lib/officialPlans'
+import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 
 interface UserRow {
   id: string
@@ -152,7 +153,6 @@ export default function AdminUsers() {
 
   // Drawer data
   const [adminSub, setAdminSub] = useState<AdminSubscription | null>(null)
-  const [adminSubLoading, setAdminSubLoading] = useState(false)
   const [adminSubPlan, setAdminSubPlan] = useState('')
   const [adminSubActing, setAdminSubActing] = useState(false)
   const [adminSubMsg, setAdminSubMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
@@ -425,12 +425,13 @@ export default function AdminUsers() {
     setAiSaving(false)
   }
 
+  // Continua carregando a assinatura porque as AÇÕES de admin (alterar plano,
+  // cancelar/reativar) dependem dela. A EXIBIÇÃO agora é do AdminSubscriptionPanel,
+  // que busca os próprios dados.
   async function loadAdminSub(userId: string) {
-    setAdminSubLoading(true)
     const { data } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()
     setAdminSub(data as AdminSubscription | null)
     if (data) setAdminSubPlan(data.plan_key)
-    setAdminSubLoading(false)
   }
 
   async function adminChangePlan(targetPlan: string, userId: string) {
@@ -781,7 +782,7 @@ export default function AdminUsers() {
     { key: 'plano', label: 'Plano' },
     { key: 'mapa', label: 'Mapa emocional' },
     { key: 'orientacoes', label: 'Orientações' },
-    { key: 'assinatura', label: 'Assinatura' },
+    { key: 'assinatura', label: 'Assinatura e Pagamentos' },
     { key: 'acesso', label: 'Acesso' },
     { key: 'suporte', label: 'Suporte' },
     { key: 'notificacoes', label: 'Notificações' },
@@ -1245,27 +1246,11 @@ export default function AdminUsers() {
                         {adminSubMsg.text}
                       </div>
                     )}
-                    {adminSubLoading ? (
-                      <div className="h-12 bg-stone-100 rounded-xl animate-pulse" />
-                    ) : (
-                      <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-semibold text-stone-700">Dados da assinatura</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {[
-                            ['Plano atual', PLAN_LABELS[selectedUser?.plan ?? ''] ?? selectedUser?.plan ?? '—'],
-                            ['Status', adminSub?.status ?? '—'],
-                            ['Cancelamento agendado', adminSub?.cancel_at_period_end ? 'Sim' : 'Não'],
-                            ['Plano pendente', adminSub?.pending_plan ? (PLAN_LABELS[adminSub.pending_plan] ?? adminSub.pending_plan) : '—'],
-                            ['Início do ciclo', adminSub?.current_period_start ? new Date(adminSub.current_period_start).toLocaleDateString('pt-BR') : '—'],
-                            ['Fim do ciclo', adminSub?.current_period_end ? new Date(adminSub.current_period_end).toLocaleDateString('pt-BR') : '—'],
-                          ].map(([label, value]) => (
-                            <div key={label} className="bg-white rounded-lg p-2 border border-line">
-                              <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
-                              <p className="font-medium text-stone-700 text-xs">{value}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    {/* Visão completa (§1): dados da assinatura, pagamento, motivos e
+                        linha do tempo. Vive em AdminSubscriptionPanel para não inchar
+                        ainda mais este arquivo. */}
+                    {selectedUser && (
+                      <AdminSubscriptionPanel userId={selectedUser.user_id} plan={selectedUser.plan} />
                     )}
 
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
