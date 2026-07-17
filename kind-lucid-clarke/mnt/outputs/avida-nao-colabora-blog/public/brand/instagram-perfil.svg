@@ -1,0 +1,26 @@
+<!-- Foto de perfil do Instagram — 1080×1080, FUNDO BRANCO.
+     Mesma marca: os paths são cópia de src/components/Logo.tsx, sem alteração
+     de desenho, cor ou proporção. Só mudam escala e fundo.
+
+     Por que só o ícone (sem o nome): o Instagram corta a foto de perfil em
+     CÍRCULO e a exibe a ~110px. O texto "A Vida Não Colabora" ficaria ilegível
+     e teria as pontas cortadas pelo círculo.
+
+     Enquadramento: o ícone (viewBox 32×32) é escalado 30× = 960px e centrado,
+     deixando 60px de margem. O coração ocupa ~600px = 55% do diâmetro — dentro
+     da área segura do corte circular, sem encostar nas bordas.
+
+     A cor #123528 (forest-800) é a mesma do ícone no cabeçalho do site.
+     stroke-width acompanha a escala (1.9 e 1.7 × 30), preservando a espessura
+     relativa do traço original. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <rect width="1080" height="1080" fill="#FFFFFF"/>
+  <g transform="translate(60,60) scale(30)" fill="none">
+    <path
+      d="M16 25.5C16 25.5 6 19 6 12.4C6 9.1 8.5 6.6 11.6 6.6C13.6 6.6 15.2 7.7 16 9.2C16.8 7.7 18.4 6.6 20.4 6.6C23.5 6.6 26 9.1 26 12.4C26 19 16 25.5 16 25.5Z"
+      stroke="#123528" stroke-width="1.9" stroke-linejoin="round"
+    />
+    <path d="M16 21C16 17.7 17.6 15.2 20.4 14.3" stroke="#123528" stroke-width="1.7" stroke-linecap="round" />
+    <path d="M21 14C19.3 14.6 18 16 17.5 17.8C19.3 17.2 20.6 15.8 21 14Z" fill="#123528" />
+  </g>
+</svg>

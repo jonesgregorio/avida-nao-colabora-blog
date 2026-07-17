@@ -77,3 +77,16 @@ node scripts/export-brand.mjs
 O script converte o woff2 real do Playfair Display para TTF e o entrega ao
 rasterizador. Sem isso o texto **não desenha** (verificado: 0 pixels) e sairiam
 PNGs só com o coração. O script falha com erro se o texto não aparecer.
+
+## Instagram (perfil)
+
+- `instagram-perfil.png` — **1080×1080, fundo branco**. É o arquivo para subir.
+- `instagram-perfil-320.png` — 320×320 (tamanho que o Instagram de fato armazena).
+- `instagram-perfil.svg` — fonte vetorial.
+
+Só o ícone, sem o nome: o Instagram corta a foto de perfil em **círculo** e a
+exibe a ~110px — o texto ficaria ilegível e com as pontas cortadas.
+
+Enquadramento verificado: o desenho tem raio de 371px contra os 540px do círculo,
+então nada é cortado. Cantos em branco opaco (não transparente), como o
+Instagram espera.
