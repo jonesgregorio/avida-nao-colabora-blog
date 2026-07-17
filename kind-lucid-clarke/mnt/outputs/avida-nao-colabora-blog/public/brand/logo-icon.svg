@@ -1,0 +1,12 @@
+<!-- Ícone da marca "A Vida Não Colabora" — coração contornado com folha.
+     Paths COPIADOS de src/components/Logo.tsx (LogoIcon), sem alteração.
+     A cor #123528 é o forest-800 do tailwind.config.js, que é o valor real de
+     `text-forest-800` usado no Header. No componente é currentColor. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <path
+    d="M16 25.5C16 25.5 6 19 6 12.4C6 9.1 8.5 6.6 11.6 6.6C13.6 6.6 15.2 7.7 16 9.2C16.8 7.7 18.4 6.6 20.4 6.6C23.5 6.6 26 9.1 26 12.4C26 19 16 25.5 16 25.5Z"
+    stroke="#123528" stroke-width="1.9" stroke-linejoin="round"
+  />
+  <path d="M16 21C16 17.7 17.6 15.2 20.4 14.3" stroke="#123528" stroke-width="1.7" stroke-linecap="round" />
+  <path d="M21 14C19.3 14.6 18 16 17.5 17.8C19.3 17.2 20.6 15.8 21 14Z" fill="#123528" />
+</svg>

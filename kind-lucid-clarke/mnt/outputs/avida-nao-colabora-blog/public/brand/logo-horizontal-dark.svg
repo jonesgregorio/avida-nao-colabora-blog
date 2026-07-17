@@ -1,0 +1,22 @@
+<!-- Logo horizontal para FUNDO ESCURO.
+     Mesma marca, mesmos paths, mesma fonte, mesmas proporções da versão clara —
+     muda só a cor, para o contraste funcionar. Não é outra identidade.
+
+     Os valores vêm da sidebar real do app (medidos em produção): o ícone usa
+     branco puro e o texto usa branco a 90% de opacidade, que é o que o
+     AdminLayout/UserLayout já renderizam hoje sobre o verde escuro. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 225 32" width="225" height="32" fill="none">
+  <g>
+    <path
+      d="M16 25.5C16 25.5 6 19 6 12.4C6 9.1 8.5 6.6 11.6 6.6C13.6 6.6 15.2 7.7 16 9.2C16.8 7.7 18.4 6.6 20.4 6.6C23.5 6.6 26 9.1 26 12.4C26 19 16 25.5 16 25.5Z"
+      stroke="#FFFFFF" stroke-width="1.9" stroke-linejoin="round"
+    />
+    <path d="M16 21C16 17.7 17.6 15.2 20.4 14.3" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" />
+    <path d="M21 14C19.3 14.6 18 16 17.5 17.8C19.3 17.2 20.6 15.8 21 14Z" fill="#FFFFFF" />
+  </g>
+  <text
+    x="42" y="23.5"
+    font-family="'Playfair Display', Georgia, serif"
+    font-size="20" font-weight="400" fill="#FFFFFF" fill-opacity="0.9"
+  >A Vida Não Colabora</text>
+</svg>
