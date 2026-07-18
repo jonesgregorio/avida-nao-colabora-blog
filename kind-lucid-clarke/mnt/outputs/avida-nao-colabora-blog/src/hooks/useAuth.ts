@@ -37,7 +37,13 @@ export function useAuth() {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         setUser(session?.user ?? null)
-        if (session?.user) await fetchProfile(session.user.id, session.user.email)
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user.email)
+          // Registra o acesso (096). A RPC ignora se foi tocado há < 1h e nunca
+          // quebra o boot — o motor de lembretes usa isso para não e-mailar quem
+          // está no site, mesmo sem registrar check-in/diário.
+          void supabase.rpc('touch_last_seen').then(() => {}, () => {})
+        }
       })
       .catch(() => { /* falha silenciosa — mantém user=null */ })
       .finally(() => setLoading(false))

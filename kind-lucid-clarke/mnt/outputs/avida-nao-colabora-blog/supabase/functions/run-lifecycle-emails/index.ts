@@ -84,9 +84,9 @@ Deno.serve(async (req) => {
 
   // ── Dados base ──
   const { data: profiles } = await admin.from('profiles')
-    .select('user_id, email, full_name, plan, email_notifications, subscription_status, created_at, stripe_customer_id')
+    .select('user_id, email, full_name, plan, email_notifications, subscription_status, created_at, stripe_customer_id, last_seen_at')
     .eq('email_notifications', true).not('email', 'is', null).limit(3000)
-  const users = (profiles ?? []) as { user_id: string; email: string; full_name: string | null; plan: string; subscription_status: string | null; created_at: string; stripe_customer_id: string | null }[]
+  const users = (profiles ?? []) as { user_id: string; email: string; full_name: string | null; plan: string; subscription_status: string | null; created_at: string; stripe_customer_id: string | null; last_seen_at: string | null }[]
 
   const DAY = 86400000
 
@@ -140,7 +140,12 @@ Deno.serve(async (req) => {
     const p = prefs.get(u.user_id) ?? {}
     if (p.email_enabled === false) return null // desligou tudo
 
-    const last = lastEntry.get(u.user_id)
+    // "Atividade" = último REGISTRO (check-in/diário/questionário) OU último
+    // ACESSO ao site (last_seen_at, 096). Assim quem navega sem registrar também
+    // conta como ativo e não recebe lembrete — cobre o "acessou nas últimas 24h".
+    const lastEntryTs = lastEntry.get(u.user_id)
+    const lastSeenTs = u.last_seen_at ? new Date(u.last_seen_at).getTime() : undefined
+    const last = Math.max(lastEntryTs ?? 0, lastSeenTs ?? 0) || undefined
     const accountAgeDays = (now.getTime() - new Date(u.created_at).getTime()) / DAY
     const gap = last ? (now.getTime() - last) / DAY : (accountAgeDays >= 3 ? accountAgeDays : 0)
     const wkN = weekCount.get(u.user_id) ?? 0

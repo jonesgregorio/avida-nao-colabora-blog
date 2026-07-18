@@ -137,5 +137,27 @@ console.log('\n§24h — quem registrou hoje não recebe low-data')
     resolver({ plan: 'essential', gap: 0.5, weekCount: 0 }, meio) === null, 'ok')
 }
 
+console.log('\n096 Acesso ao site conta como atividade (gap = último registro OU acesso)')
+{
+  // gap efetivo = dias desde max(último registro, último acesso).
+  const DAY = 86400000
+  const gapDe = (registroDiasAtras, acessoDiasAtras) => {
+    const now = Date.now()
+    const reg = registroDiasAtras != null ? now - registroDiasAtras * DAY : 0
+    const acc = acessoDiasAtras != null ? now - acessoDiasAtras * DAY : 0
+    const last = Math.max(reg, acc) || undefined
+    return last ? (now - last) / DAY : Infinity
+  }
+  // Registrou há 10 dias, MAS acessou o site ontem → gap ~1 → nenhum lembrete.
+  const g1 = resolver({ plan: 'free', gap: gapDe(10, 1) }, meio)
+  ok('navegou ontem (sem registrar) → não recebe', g1 === null, JSON.stringify(g1))
+  // Nem registrou nem acessou há 20 dias → recebe.
+  const g2 = resolver({ plan: 'free', gap: gapDe(20, 20) }, meio)
+  ok('20 dias sem registro E sem acesso → recebe (14d)', g2?.template === 'selfcare_inactive_14d', g2?.template)
+  // Acessou hoje bloqueia low-data mesmo com poucos registros.
+  const g3 = resolver({ plan: 'essential', gap: gapDe(9, 0), weekCount: 0 }, meio)
+  ok('acessou hoje → low-data semanal bloqueado', g3 === null, JSON.stringify(g3))
+}
+
 console.log(fails === 0 ? '\n✓ todos os cenários passaram\n' : `\n✗ ${fails} falha(s)\n`)
 process.exit(fails === 0 ? 0 : 1)
