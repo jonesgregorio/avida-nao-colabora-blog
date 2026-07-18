@@ -10,7 +10,7 @@ import {
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
   LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
 } from 'lucide-react'
-import { normalizePlan } from '../../lib/officialPlans'
+import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 
 interface UserRow {
@@ -1152,7 +1152,10 @@ export default function AdminUsers() {
                         <div>
                           <label className="block text-xs text-stone-500 mb-1">Novo plano</label>
                           <select value={newPlan} onChange={e => setNewPlan(e.target.value)} className={inputCls}>
-                            {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            {/* Só planos oficiais: PLAN_LABELS mantém os legados
+                                (therapeutic/-plus) para EXIBIR "Plus", mas eles não
+                                devem ser ATRIBUÍVEIS — senão apareciam 3 "Plus". */}
+                            {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                           </select>
                         </div>
                         <div>
@@ -1261,7 +1264,10 @@ export default function AdminUsers() {
                           onChange={e => setAdminSubPlan(e.target.value)}
                           className={inputCls}
                         >
-                          {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          {/* Só planos oficiais (free/essential/plus). Os legados
+                              therapeutic/-plus continuam em PLAN_LABELS para exibir
+                              "Plus", mas não são atribuíveis. */}
+                          {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                         </select>
                         <button
                           onClick={() => adminChangePlan(adminSubPlan, selectedUser!.user_id)}
