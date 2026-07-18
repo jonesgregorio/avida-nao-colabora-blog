@@ -8,7 +8,7 @@ import { generateUserProfileSummary, type UserProfileData } from '../../lib/aiCo
 import {
   Search, X, Users, Crown, Bell, FileText, Star, XCircle,
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
-  LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle,
+  LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle, Download,
 } from 'lucide-react'
 import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
@@ -147,6 +147,10 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [filterPlan, setFilterPlan] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterAccess, setFilterAccess] = useState('all') // discount / unlimited / tickets…
+  const [exporting, setExporting] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('resumo')
@@ -772,10 +776,63 @@ export default function AdminUsers() {
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
-    return (u.full_name ?? '').toLowerCase().includes(q) ||
+    const matchBusca = !q ||
+      (u.full_name ?? '').toLowerCase().includes(q) ||
       (u.email ?? '').toLowerCase().includes(q) ||
       u.user_id?.toLowerCase().includes(q)
+    // Plano normalizado: agrupa os legados (therapeutic) em 'plus'.
+    const matchPlano = filterPlan === 'all' || normalizePlan(u.plan) === filterPlan
+    const matchStatus = filterStatus === 'all' || (u.account_status ?? 'active') === filterStatus
+    const temDesconto = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
+    const matchAcesso =
+      filterAccess === 'all' ? true
+      : filterAccess === 'discount' ? temDesconto
+      : filterAccess === 'unlimited' ? u.unlimited_access === true
+      : filterAccess === 'tickets' ? (u.open_tickets ?? 0) > 0
+      : filterAccess === 'admin' ? u.role === 'admin'
+      : true
+    return matchBusca && matchPlano && matchStatus && matchAcesso
   })
+
+  // Exporta os usuários FILTRADOS para CSV (abre no Excel). Mesmo padrão do
+  // Analytics: Blob com BOM () para os acentos não quebrarem.
+  function exportarCSV() {
+    setExporting(true)
+    try {
+      const cols: { header: string; get: (u: UserRow) => string }[] = [
+        { header: 'Nome', get: u => u.full_name ?? '' },
+        { header: 'E-mail', get: u => u.email ?? '' },
+        { header: 'ID', get: u => u.user_id },
+        { header: 'Plano', get: u => PLAN_LABELS[u.plan] ?? u.plan },
+        { header: 'Plano (chave)', get: u => u.plan },
+        { header: 'Status', get: u => u.account_status ?? 'active' },
+        { header: 'Papel', get: u => u.role ?? 'user' },
+        { header: 'Acesso ilimitado', get: u => u.unlimited_access ? 'Sim' : 'Não' },
+        { header: 'Desconto %', get: u => String(u.discount_percent ?? 0) },
+        { header: 'Desconto fixo (R$)', get: u => String(u.discount_fixed ?? 0) },
+        { header: 'Tickets abertos', get: u => String(u.open_tickets ?? 0) },
+        { header: 'Notif. não lidas', get: u => String(u.unread_notifs ?? 0) },
+        { header: 'Tags', get: u => (u.admin_tags ?? []).join('; ') },
+        { header: 'Cadastro', get: u => new Date(u.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) },
+      ]
+      // Escapa aspas e envolve todo campo — nome/e-mail podem ter vírgula.
+      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+      const linhas = [
+        cols.map(c => esc(c.header)).join(','),
+        ...filtered.map(u => cols.map(c => esc(c.get(u))).join(',')),
+      ]
+      const csv = linhas.join('\r\n')
+      const bomChar = String.fromCharCode(0xFEFF) // Excel precisa do BOM p/ acentos
+      const url = URL.createObjectURL(new Blob([bomChar + csv], { type: 'text/csv;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const DRAWER_TABS: { key: DrawerTab; label: string }[] = [
     { key: 'resumo', label: 'Resumo' },
@@ -826,8 +883,8 @@ export default function AdminUsers() {
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 value={search}
@@ -836,6 +893,40 @@ export default function AdminUsers() {
                 className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
               />
             </div>
+
+            <select value={filterPlan} onChange={e => setFilterPlan(e.target.value)}
+              className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300">
+              <option value="all">Todos os planos</option>
+              {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300">
+              <option value="all">Todos os status</option>
+              <option value="active">Ativo</option>
+              <option value="blocked">Bloqueado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+
+            <select value={filterAccess} onChange={e => setFilterAccess(e.target.value)}
+              className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300">
+              <option value="all">Todos</option>
+              <option value="discount">Com desconto</option>
+              <option value="unlimited">Acesso ilimitado</option>
+              <option value="tickets">Com ticket aberto</option>
+              <option value="admin">Administradores</option>
+            </select>
+
+            <button
+              onClick={exportarCSV}
+              disabled={exporting || filtered.length === 0}
+              title="Exportar os usuários filtrados para Excel (CSV)"
+              className="flex items-center gap-1.5 border border-forest-700 text-forest-700 hover:bg-mint/40 text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors flex-shrink-0"
+            >
+              <Download className="w-4 h-4" />
+              Exportar ({filtered.length})
+            </button>
+
             <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setViewMode('list')}
