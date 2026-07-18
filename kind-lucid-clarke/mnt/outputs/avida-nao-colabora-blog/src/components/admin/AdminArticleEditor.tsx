@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Save, Eye, Sparkles } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Send, Sparkles } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
+import ArticlePreview from './ArticlePreview'
 
 interface ArticleData {
   title: string
@@ -84,6 +85,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [categories, setCategories] = useState<string[]>([])
   const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
   const [versions, setVersions] = useState<ArticleVersion[]>([])
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
     supabase.from('categories').select('name').eq('is_active', true).order('name').then(({ data: cats }) => {
@@ -355,6 +357,18 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         />
       )}
 
+      {previewOpen && (
+        <ArticlePreview
+          title={data.title}
+          category={data.category}
+          content={data.content}
+          imageUrl={data.image_url}
+          imageAlt={data.image_alt}
+          readTime={data.read_time}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack} className="text-stone-400 hover:text-stone-700">
           <ArrowLeft className="w-5 h-5" />
@@ -363,6 +377,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           {articleId ? 'Editar artigo' : 'Novo artigo'}
         </h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => setPreviewOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-forest-700 text-forest-700 rounded-lg text-sm hover:bg-mint/40"
+          >
+            <Eye className="w-4 h-4" /> Visualizar
+          </button>
           <button
             onClick={() => save('draft')}
             disabled={saving}
@@ -375,7 +395,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
           >
-            <Eye className="w-4 h-4" /> Publicar
+            <Send className="w-4 h-4" /> Publicar
           </button>
         </div>
       </div>
