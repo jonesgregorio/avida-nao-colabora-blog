@@ -7,6 +7,7 @@ import {
 import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
 import { SupportCard } from './user/ui'
+import EmailPreferences from './EmailPreferences'
 
 interface ProfileProps {
   user: User | null
@@ -221,6 +222,11 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
                 {saving ? 'Salvando…' : saved ? '✓ Salvo!' : 'Salvar alterações'}
               </button>
             </div>
+          </section>
+
+          {/* Preferências de e-mail (§6/095) */}
+          <section className="bg-paper-soft border border-line rounded-3xl p-6">
+            <EmailPreferences user={user} />
           </section>
 
           {/* Segurança */}
