@@ -174,7 +174,15 @@ Estrutura obrigatória:
 5. Exercício prático simples
 6. Pergunta para o diário (1 pergunta)
 7. CTA para o diário ou caixa de cuidado
-8. Aviso de responsabilidade (1 linha ao final)`,
+8. Aviso de responsabilidade (1 linha ao final)
+
+FORMATAÇÃO (obrigatória, sintaxe deste blog — use com moderação, sem exagero):
+- Comece cada seção com um subtítulo curto na linha usando "## " (ex.: "## Por que isso acontece").
+- Para destacar UMA palavra ou expressão dentro de um parágrafo, use **assim**.
+- Quando fizer sentido uma lista, use itens começando com "- ".
+- Para a pergunta do diário e reflexões marcantes, use "> " no início da linha (citação).
+- Parágrafos normais em texto corrido, separados por uma linha em branco.
+- NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.`,
     { size: 'longo', ...opts }
   )
 }

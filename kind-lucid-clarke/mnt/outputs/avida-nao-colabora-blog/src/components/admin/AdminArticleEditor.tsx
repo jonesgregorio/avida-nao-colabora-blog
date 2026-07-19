@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Eye, Send, Sparkles } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
 import ArticlePreview from './ArticlePreview'
+import FormattedTextarea from './FormattedTextarea'
 
 interface ArticleData {
   title: string
@@ -442,8 +443,13 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             <Field label="Resumo">
               <textarea value={data.summary} onChange={e => set('summary', e.target.value)} rows={2} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
             </Field>
-            <Field label="Conteúdo (Markdown ou HTML)">
-              <textarea value={data.content} onChange={e => set('content', e.target.value)} rows={16} placeholder="Conteúdo completo do artigo..." className={`${inputCls} font-mono text-xs`} />
+            <Field label="Conteúdo">
+              <FormattedTextarea
+                value={data.content}
+                onChange={v => set('content', v)}
+                rows={16}
+                placeholder="Conteúdo completo do artigo…"
+              />
             </Field>
             <Field label="Pergunta para o diário">
               <input value={data.diary_question} onChange={e => set('diary_question', e.target.value)} placeholder="Ex: O que esse texto te fez sentir?" className={inputCls} />
