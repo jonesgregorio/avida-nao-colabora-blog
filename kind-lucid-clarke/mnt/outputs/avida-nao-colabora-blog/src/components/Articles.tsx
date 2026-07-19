@@ -88,6 +88,23 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
     return result
   }, [catalog, filter, search])
 
+  // Analytics: registra o termo buscado para o relatório "Termos mais buscados"
+  // no admin. Debounce de 900ms para gravar só a busca "final", não cada tecla.
+  // Grava APENAS o termo (nunca dado sensível): entity_id normalizado (sem acento,
+  // minúsculo) agrupa variações; entity_title guarda o texto exibível.
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) return
+    const t = setTimeout(() => {
+      track('blog_search', {
+        entity_id: deburr(q).slice(0, 60),
+        entity_title: q.slice(0, 60),
+        metadata: { results: filtered.length, filter },
+      })
+    }, 900)
+    return () => clearTimeout(t)
+  }, [search, filtered.length, filter, track])
+
   const handleSelect = (it: CatalogItem) => {
     if (!it.slug) return
     track('article_click', { entity_id: it.id, entity_title: it.title })

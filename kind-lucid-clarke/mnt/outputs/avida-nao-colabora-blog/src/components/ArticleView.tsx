@@ -115,6 +115,20 @@ export default function ArticleView({
     if (user && article?.slug) void markArticleRead(user.id, article.slug)
   }, [user, article?.slug])
 
+  // Analytics: visualização do artigo — dispara para QUALQUER visitante, inclusive
+  // deslogado. É este evento que alimenta "Artigos vistos" e a etapa "Leram artigo"
+  // do funil no Analytics do admin. entity_id = slug (para agrupar por artigo).
+  useEffect(() => {
+    if (!article?.slug) return
+    trackEvent('article_view', {
+      entity_id: article.slug,
+      entity_title: article.title,
+      user_id: user?.id ?? null,
+      metadata: { category: article.category ?? null },
+    })
+    // Dispara uma vez por artigo aberto; não re-enviar ao logar durante a leitura.
+  }, [article?.slug]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Analytics: profundidade de leitura (scroll_50 / scroll_75 / scroll_100)
   useEffect(() => {
     const slug = article?.slug

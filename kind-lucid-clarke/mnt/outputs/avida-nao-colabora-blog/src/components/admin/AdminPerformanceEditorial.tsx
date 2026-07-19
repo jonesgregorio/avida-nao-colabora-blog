@@ -4,7 +4,9 @@ import { RefreshCw, Loader2, Save, TrendingUp, TrendingDown, Bookmark, ThumbsUp 
 
 interface Art { id: string; title: string; slug: string; category: string | null; status: string }
 interface Perf {
-  art: Art; views: number; saves: number; pos: number; neg: number
+  // views  = visualizações totais (analytics_events article_view — inclui anônimo)
+  // readers = leitores logados únicos (reading_history — 1 por usuário/artigo)
+  art: Art; views: number; readers: number; saves: number; pos: number; neg: number
 }
 
 const POS_TYPES = ['helped', 'made_me_think']
@@ -19,15 +21,20 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
 
   async function load() {
     setLoading(true)
-    const [artRes, viewRes, savRes, fbRes] = await Promise.all([
+    const [artRes, viewRes, avRes, savRes, fbRes] = await Promise.all([
       supabase.from('articles').select('id, title, slug, category, status').limit(1000),
       supabase.from('reading_history').select('article_slug').limit(20000),
+      supabase.from('analytics_events').select('entity_id').eq('event', 'article_view').limit(50000),
       supabase.from('saved_items').select('item_id').eq('item_type', 'article').limit(20000),
       supabase.from('article_feedback').select('article_slug, feedback_type').limit(20000),
     ])
     const arts = (artRes.data as Art[]) ?? []
+    // Leitores logados únicos (histórico) — 1 por usuário/artigo.
+    const readers = new Map<string, number>()
+    ;((viewRes.data as { article_slug: string }[]) ?? []).forEach(r => readers.set(r.article_slug, (readers.get(r.article_slug) ?? 0) + 1))
+    // Visualizações totais (analytics) — conta toda abertura, inclusive anônima.
     const views = new Map<string, number>()
-    ;((viewRes.data as { article_slug: string }[]) ?? []).forEach(r => views.set(r.article_slug, (views.get(r.article_slug) ?? 0) + 1))
+    ;((avRes.data as { entity_id: string | null }[]) ?? []).forEach(r => { if (r.entity_id) views.set(r.entity_id, (views.get(r.entity_id) ?? 0) + 1) })
     const saves = new Map<string, number>()
     ;((savRes.data as { item_id: string }[]) ?? []).forEach(r => saves.set(r.item_id, (saves.get(r.item_id) ?? 0) + 1))
     const pos = new Map<string, number>(), neg = new Map<string, number>()
@@ -38,6 +45,7 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
     setPerf(arts.map(a => ({
       art: a,
       views: views.get(a.slug) ?? 0,
+      readers: readers.get(a.slug) ?? 0,
       saves: (saves.get(a.slug) ?? 0) + (saves.get(a.id) ?? 0),
       pos: pos.get(a.slug) ?? 0,
       neg: neg.get(a.slug) ?? 0,
@@ -47,6 +55,7 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
   useEffect(() => { load() }, [])
 
   const totalViews = perf.reduce((s, p) => s + p.views, 0)
+  const totalReaders = perf.reduce((s, p) => s + p.readers, 0)
   const totalSaves = perf.reduce((s, p) => s + p.saves, 0)
   const totalFb = perf.reduce((s, p) => s + p.pos + p.neg, 0)
   const published = perf.filter(p => p.art.status === 'published').length
@@ -80,7 +89,7 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="font-serif text-3xl text-forest-900">Performance editorial</h1>
-          <p className="text-sm text-ink-soft mt-1">Leituras, salvamentos e feedback reais dos conteúdos.</p>
+          <p className="text-sm text-ink-soft mt-1">Visualizações (inclui visitante anônimo), leitores logados, salvamentos e feedback reais dos conteúdos.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
@@ -90,9 +99,9 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { n: totalViews, label: 'Leituras totais', Icon: TrendingUp, sub: `${(totalViews / Math.max(1, published)).toFixed(1)} por artigo publicado` },
-          { n: totalSaves, label: 'Salvamentos', Icon: Bookmark, sub: `${pct(totalSaves, totalViews)} das leituras` },
-          { n: totalFb, label: 'Feedbacks', Icon: ThumbsUp, sub: `${pct(totalFb, totalViews)} das leituras` },
+          { n: totalViews, label: 'Visualizações', Icon: TrendingUp, sub: `${(totalViews / Math.max(1, published)).toFixed(1)} por artigo · ${totalReaders} leitores logados` },
+          { n: totalSaves, label: 'Salvamentos', Icon: Bookmark, sub: `${pct(totalSaves, totalViews)} das visualizações` },
+          { n: totalFb, label: 'Feedbacks', Icon: ThumbsUp, sub: `${pct(totalFb, totalViews)} das visualizações` },
           { n: published, label: 'Publicados', Icon: TrendingUp, sub: `${pct(published, perf.length)} dos artigos` },
         ].map(m => (
           <div key={m.label} className="bg-white border border-line rounded-2xl p-5">
@@ -122,8 +131,8 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
                     <p className="text-sm font-medium text-forest-900 truncate">{p.art.title}</p>
                     <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mt-1"><div className="h-full bg-forest-500" style={{ width: `${(p.views / maxV) * 100}%` }} /></div>
                   </button>
-                  <div className="text-right text-xs text-ink-soft w-36 flex-shrink-0">
-                    <span title="Leituras">{p.views}👁</span> · <span title="% do total de leituras" className="text-forest-600">{pct(p.views, totalViews)}</span> · <span title="Salvos">{p.saves}🔖</span> · <span title="Feedback +/-">{p.pos}/{p.neg}</span>
+                  <div className="text-right text-xs text-ink-soft w-44 flex-shrink-0">
+                    <span title="Visualizações (inclui anônimo)">{p.views}👁</span> · <span title="Leitores logados">{p.readers}📖</span> · <span title="% do total de visualizações" className="text-forest-600">{pct(p.views, totalViews)}</span> · <span title="Salvos">{p.saves}🔖</span> · <span title="Feedback +/-">{p.pos}/{p.neg}</span>
                   </div>
                 </div>
               ))}

@@ -399,6 +399,9 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
     const dev = (['Desktop', 'Mobile', 'Tablet'] as const).map(d => [d, base.filter(e => deviceOf(e.user_agent) === d).length] as [string, number]); const dt = sumCounts(dev)
     push(['DISPOSITIVOS', 'Sessões', '%']); for (const [d, n] of dev) push([d, n, pct(n, dt)]); lines.push('')
 
+    const sq = topCount(events.filter(e => e.event === 'blog_search'), e => e.entity_id || e.entity_title, 40); const sqt = sumCounts(sq)
+    push(['TERMOS MAIS BUSCADOS', 'Buscas', '%']); for (const [t, n] of sq) push([t, n, pct(n, sqt)]); lines.push('')
+
     push(['EVENTOS', 'Total', '% do total']); for (const [ev, n] of topCount(events, e => e.event, 60)) push([ev, n, pct(n, events.length)])
 
     const csv = lines.join('\n')
@@ -520,6 +523,16 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
                   <div className="space-y-2">{topCount(events, e => e.event, 6).map(([ev, n]) => <div key={ev} className="flex justify-between text-sm gap-2"><span className="text-forest-900 font-mono text-xs">{ev}</span><span className="text-ink-soft whitespace-nowrap">{n} · {pct(n, events.length)}</span></div>)}</div>
                 )}
               </div>
+            </div>
+            <div className={card}>
+              <h2 className="font-serif text-xl text-forest-900 mb-1">Termos mais buscados</h2>
+              <p className="text-xs text-ink-soft mb-3">O que os usuários digitaram na busca de Conteúdos — os temas mais procurados, do mais para o menos buscado.</p>
+              {(() => {
+                const searches = events.filter(e => e.event === 'blog_search')
+                if (searches.length === 0) return <Empty text="Sem buscas no período — preenche conforme os usuários usam a busca da página Conteúdos. Começa a fluir após o deploy." />
+                const rows = topCount(searches, e => e.entity_id || e.entity_title, 15); const tot = searches.length
+                return <div className="space-y-2">{rows.map(([term, n]) => <div key={term} className="flex justify-between text-sm gap-2"><span className="text-forest-900 truncate">{term}</span><span className="text-ink-soft whitespace-nowrap">{n} busca{n > 1 ? 's' : ''} · {pct(n, tot)}</span></div>)}</div>
+              })()}
             </div>
           </div>
         )}

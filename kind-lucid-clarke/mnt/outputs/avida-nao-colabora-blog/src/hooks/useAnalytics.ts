@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export type AnalyticsEvent =
   | 'article_view'
   | 'article_click'
+  | 'blog_search'
   | 'questionnaire_start'
   | 'questionnaire_complete'
   | 'trail_start'
