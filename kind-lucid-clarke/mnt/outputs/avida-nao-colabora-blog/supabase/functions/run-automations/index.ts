@@ -97,10 +97,30 @@ Deno.serve(async (req) => {
     if (typeof data === 'string') internalToken = data
   } catch { /* RPC ainda não migrou */ }
   const allowed = [internalToken, Deno.env.get('CRON_SECRET'), serviceKey].filter(Boolean) as string[]
-  if (!allowed.includes(token)) return json({ error: 'Não autorizado' }, 401)
 
-  const { data: autos, error } = await admin.from('content_automations')
+  // "Gerar agora" no admin: além do token de cron, aceita o JWT de um ADMIN
+  // autenticado. Assim o botão dispara a geração na hora, sem depender do vault.
+  let isAdmin = false
+  if (!allowed.includes(token)) {
+    try {
+      const { data: { user } } = await admin.auth.getUser(token)
+      if (user) {
+        const { data: prof } = await admin.from('profiles').select('role').eq('user_id', user.id).maybeSingle()
+        isAdmin = (prof as { role?: string } | null)?.role === 'admin'
+      }
+    } catch { /* token inválido */ }
+    if (!isAdmin) return json({ error: 'Não autorizado' }, 401)
+  }
+
+  // Disparo manual de UMA regra específica (force = ignora a checagem de "vencida").
+  let body: { automationId?: string; force?: boolean } = {}
+  try { body = await req.json() } catch { /* cron chama sem body */ }
+  const forceOne = isAdmin && !!body.automationId
+
+  let query = admin.from('content_automations')
     .select('*').eq('status', 'active').in('type', GEN_TYPES)
+  if (forceOne) query = query.eq('id', body.automationId!)
+  const { data: autos, error } = await query
   if (error) return json({ error: error.message }, 500)
 
   const now = Date.now()
@@ -109,7 +129,8 @@ Deno.serve(async (req) => {
   for (const a of autos ?? []) {
     const days = FREQ_DAYS[a.frequency] ?? 7
     const last = a.last_run_at ? new Date(a.last_run_at).getTime() : 0
-    if (last && now - last < days * 86400000) continue // ainda não venceu
+    // "Gerar agora" (forceOne) ignora o intervalo; o cron respeita a frequência.
+    if (!forceOne && last && now - last < days * 86400000) continue // ainda não venceu
 
     try {
       const cfg = (a.config ?? {}) as { themes?: string[]; tone?: string; extra?: string }
@@ -160,6 +181,15 @@ Não use markdown pesado, não dê diagnóstico e não prometa cura.`
       await admin.from('content_automations').update({ last_run_at: new Date().toISOString(), last_error: msg }).eq('id', a.id)
       results.push({ id: a.id, result: 'erro: ' + msg })
     }
+  }
+
+  // "Gerar agora": devolve só o resultado desta regra, sem rodar o bloco de
+  // personalização por usuário (que é trabalho do cron completo).
+  if (forceOne) {
+    const r = results[0]
+    if (!r) return json({ ok: false, error: 'Regra não encontrada ou inativa.' }, 200)
+    const erro = r.result.startsWith('erro:')
+    return json({ ok: !erro, message: r.result.replace(/^ok:\s*/, '').replace(/^erro:\s*/, ''), error: erro ? r.result.slice(6) : undefined })
   }
 
   // ── Personalização por usuário: gera RASCUNHOS para tarefas pendentes ──

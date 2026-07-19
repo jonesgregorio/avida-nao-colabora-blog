@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Loader2, Play, Pause, Trash2, Zap, Clock } from 'lucide-react'
+import { Plus, Loader2, Play, Pause, Trash2, Zap, Clock, Sparkles } from 'lucide-react'
 
 interface Automation {
   id: string
@@ -41,6 +41,7 @@ export default function AdminAutomacoesBlog() {
   const [missing, setMissing] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [genId, setGenId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   function flash(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3500) }
 
@@ -82,6 +83,26 @@ export default function AdminAutomacoesBlog() {
     const status = a.status === 'active' ? 'paused' : 'active'
     setItems(prev => prev.map(x => x.id === a.id ? { ...x, status } : x))
     await supabase.from('content_automations').update({ status }).eq('id', a.id)
+  }
+
+  // "Gerar agora": dispara a geração desta regra na hora, sem esperar o cron nem
+  // depender do vault. A função run-automations aceita o JWT do admin (force).
+  async function gerarAgora(a: Automation) {
+    setGenId(a.id)
+    try {
+      const { data, error } = await supabase.functions.invoke('run-automations', {
+        body: { automationId: a.id, force: true },
+      })
+      const res = data as { ok?: boolean; message?: string; error?: string } | null
+      const msg = error?.message ?? res?.error
+      if (msg || !res?.ok) throw new Error(msg ?? 'Falha ao gerar.')
+      flash(`Rascunho gerado: “${res.message}”. Revise em Conteúdo & IA → Artigos.`)
+      load()
+    } catch (e) {
+      flash('Erro ao gerar: ' + (e instanceof Error ? e.message : 'desconhecido'), true)
+    } finally {
+      setGenId(null)
+    }
   }
 
   async function remove(a: Automation) {
@@ -131,7 +152,8 @@ export default function AdminAutomacoesBlog() {
         <code className="mx-1 px-1.5 py-0.5 bg-white/70 rounded text-[12px]">select vault.create_secret('&lt;SERVICE_ROLE_KEY&gt;', 'service_role_key');</code>
         trocando <code className="px-1 bg-white/70 rounded text-[12px]">&lt;SERVICE_ROLE_KEY&gt;</code> pela chave <em>service_role</em> (Project Settings → API).
         Depois disso, a IA gera os artigos de hora em hora conforme as regras abaixo. <strong>Sem isso, nada quebra</strong> — as regras ficam paradas
-        (repare no “última:”). Quem quer disparar na hora usa <strong>“Publicar agendados vencidos”</strong> (publica o que já estava agendado).
+        (repare no “última:”). E você <strong>não precisa esperar</strong>: o botão <strong>“Gerar agora”</strong> em cada regra dispara a geração na hora
+        (cai como rascunho para você aprovar), sem depender deste passo.
       </div>
 
       {showNew && (
@@ -176,6 +198,15 @@ export default function AdminAutomacoesBlog() {
                 {a.last_error && <p className="text-[11px] text-red-600 mt-0.5">Erro: {a.last_error}</p>}
               </div>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${a.status === 'active' ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-500'}`}>{a.status === 'active' ? 'Ativa' : 'Pausada'}</span>
+              <button
+                onClick={() => gerarAgora(a)}
+                disabled={genId === a.id || a.status !== 'active'}
+                title={a.status !== 'active' ? 'Ative a regra para gerar' : 'Gerar um rascunho agora'}
+                className="inline-flex items-center gap-1.5 border border-forest-700 text-forest-700 hover:bg-mint/40 text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {genId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {genId === a.id ? 'Gerando…' : 'Gerar agora'}
+              </button>
               <button onClick={() => toggle(a)} className="p-2 text-stone-400 hover:text-forest-700 hover:bg-stone-100 rounded-lg" title={a.status === 'active' ? 'Pausar' : 'Ativar'}>
                 {a.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               </button>
