@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, NotebookPen, Heart, Brain, CloudRain, Feather } from 
 import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { markArticleRead } from '../lib/readingProgress'
+import { renderArticleContent } from '../lib/renderArticle'
 import { setPendingAction } from '../lib/pendingAction'
 
 interface ArticleViewProps {
@@ -231,24 +232,6 @@ export default function ArticleView({
   }
 
   // ---- Render content ----
-  function renderContent(content: string) {
-    if (!content) return null
-    return content.split('\n').map((line, i) => {
-      if (line.startsWith('## '))
-        return <h2 key={i} className="font-serif text-2xl text-sage-800 mt-8 mb-3">{line.replace('## ', '')}</h2>
-      if (line.startsWith('### '))
-        return <h3 key={i} className="text-lg font-semibold text-sage-700 mt-6 mb-2">{line.replace('### ', '')}</h3>
-      if (line.startsWith('**') && line.endsWith('**'))
-        return <p key={i} className="font-semibold text-sage-800 mt-4 mb-1">{line.slice(2, -2)}</p>
-      if (line.startsWith('- '))
-        return <li key={i} className="text-sage-600 ml-4 list-disc">{line.replace('- ', '')}</li>
-      if (line.startsWith('> '))
-        return <blockquote key={i} className="border-l-4 border-sage-300 pl-4 italic text-sage-600 my-4">{line.replace('> ', '')}</blockquote>
-      if (line.trim() === '') return <br key={i} />
-      return <p key={i} className="text-sage-600 leading-relaxed mb-3">{line}</p>
-    })
-  }
-
   const getImage = (a: Article) =>
     a.image_url || a.cover_image_url || a.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
 
@@ -406,7 +389,7 @@ export default function ArticleView({
 
       {/* Article content */}
       <div className="prose prose-sage max-w-none article-content">
-        {renderContent(article.content || '')}
+        {renderArticleContent(article.content || '')}
       </div>
 
       {/* B) Diary questions */}

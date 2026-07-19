@@ -5,6 +5,7 @@ import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
 import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
+import { estimateReadTime } from '../../lib/renderArticle'
 
 interface ArticleData {
   title: string
@@ -152,6 +153,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
     setData(d => {
       const next = { ...d, [key]: value }
+      // Tempo de leitura SEMPRE em dia com o conteúdo (~200 palavras/min).
+      // Cobre digitação, toolbar e inserção da IA num ponto só.
+      if (key === 'content') next.read_time = estimateReadTime(value as string)
       if (key === 'title' && !articleId) {
         next.slug = (value as string).toLowerCase()
           .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -568,7 +572,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <option value="plus">Plus</option>
               </select>
             </Field>
-            <Field label="Tempo de leitura (min)">
+            <Field label="Tempo de leitura (min)" hint="(calculado do conteúdo; pode ajustar)">
               <input type="number" value={data.read_time} onChange={e => set('read_time', Number(e.target.value))} className={inputCls} min={1} />
             </Field>
           </div>
@@ -677,10 +681,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
 const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300 bg-white"
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-stone-500 mb-1.5 uppercase tracking-wide">{label}</label>
+      <label className="block text-xs font-medium text-stone-500 mb-1.5 uppercase tracking-wide">
+        {label}{hint && <span className="normal-case text-stone-400 font-normal ml-1">{hint}</span>}
+      </label>
       {children}
     </div>
   )

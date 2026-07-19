@@ -1,5 +1,6 @@
 import { X, Clock, Monitor, Smartphone } from 'lucide-react'
 import { useState } from 'react'
+import { renderArticleContent } from '../../lib/renderArticle'
 
 interface Props {
   title: string
@@ -11,27 +12,8 @@ interface Props {
   onClose: () => void
 }
 
-// Réplica FIEL do render do blog (ArticleView): mesma marcação de conteúdo
-// (## → h2, ### → h3, **negrito**, - lista, > citação), mesmas classes de capa,
-// título, categoria e tempo de leitura. Se o ArticleView mudar, esta função
-// precisa acompanhar — o comentário no editor aponta para cá.
-function renderContent(content: string) {
-  if (!content) return <p className="text-sage-400 italic">Sem conteúdo ainda.</p>
-  return content.split('\n').map((line, i) => {
-    if (line.startsWith('## '))
-      return <h2 key={i} className="font-serif text-2xl text-sage-800 mt-8 mb-3">{line.replace('## ', '')}</h2>
-    if (line.startsWith('### '))
-      return <h3 key={i} className="text-lg font-semibold text-sage-700 mt-6 mb-2">{line.replace('### ', '')}</h3>
-    if (line.startsWith('**') && line.endsWith('**'))
-      return <p key={i} className="font-semibold text-sage-800 mt-4 mb-1">{line.slice(2, -2)}</p>
-    if (line.startsWith('- '))
-      return <li key={i} className="text-sage-600 ml-4 list-disc">{line.replace('- ', '')}</li>
-    if (line.startsWith('> '))
-      return <blockquote key={i} className="border-l-4 border-sage-300 pl-4 italic text-sage-600 my-4">{line.replace('> ', '')}</blockquote>
-    if (line.trim() === '') return <br key={i} />
-    return <p key={i} className="text-sage-600 leading-relaxed mb-3">{line}</p>
-  })
-}
+// O corpo é renderizado por renderArticleContent (lib/renderArticle) — a MESMA
+// função que o blog usa. Assim o preview e o blog nunca divergem.
 
 // Placeholder do blog quando não há capa (mesmo fallback do ArticleView).
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
@@ -103,7 +85,7 @@ export default function ArticlePreview({ title, category, content, imageUrl, ima
 
           {/* Conteúdo */}
           <div className="prose prose-sage max-w-none article-content">
-            {renderContent(content)}
+            {content.trim() ? renderArticleContent(content) : <p className="text-sage-400 italic">Sem conteúdo ainda.</p>}
           </div>
         </article>
       </div>

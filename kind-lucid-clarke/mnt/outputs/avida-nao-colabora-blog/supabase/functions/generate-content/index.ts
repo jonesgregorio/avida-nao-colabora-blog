@@ -11,7 +11,10 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const TIMEOUT_MS = 35_000
+// 60s: artigos longos (até ~3000 palavras / ~4500 tokens) precisam de folga.
+const TIMEOUT_MS = 60_000
+// Teto de saída alto para o artigo extenso não ser truncado pelo default do provedor.
+const MAX_OUTPUT_TOKENS = 8000
 const GEMINI_MODEL = 'gemini-2.0-flash'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
 const OPENAI_MODEL = 'gpt-4o-mini'
@@ -41,7 +44,7 @@ async function callOpenAI(prompt: string): Promise<string> {
   const res = await withTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model: OPENAI_MODEL, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: OPENAI_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: MAX_OUTPUT_TOKENS }),
   })
   if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`)
   const data = await res.json()
@@ -55,7 +58,7 @@ async function callGemini(prompt: string): Promise<string> {
   if (!key) throw new Error('Gemini: GEMINI_API_KEY não configurada no servidor')
   const res = await withTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS } }) },
   )
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
   const data = await res.json()
@@ -70,7 +73,7 @@ async function callGroq(prompt: string): Promise<string> {
   const res = await withTimeout('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: MAX_OUTPUT_TOKENS }),
   })
   if (!res.ok) throw new Error(`Groq HTTP ${res.status}`)
   const data = await res.json()

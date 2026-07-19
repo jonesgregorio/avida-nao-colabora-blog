@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Heading, Heading2, Bold, List, Quote, Eye } from 'lucide-react'
+import { Heading, Heading2, Bold, Italic, List, ListOrdered, Quote, Link2, Minus, Eye } from 'lucide-react'
 
 interface Props {
   value: string
@@ -47,6 +47,34 @@ export default function FormattedTextarea({ value, onChange, rows = 16, placehol
     })
   }
 
+  // Lista numerada: numera cada linha da seleção (1. 2. 3.…).
+  function listaNumerada() {
+    aplicar(sel => {
+      if (!sel) { const t = '1. item'; return { texto: t, selInicio: 3, selFim: t.length } }
+      let n = 0
+      const t = sel.split('\n').map(l => (l.trim() ? `${++n}. ${l}` : l)).join('\n')
+      return { texto: t, selInicio: 0, selFim: t.length }
+    })
+  }
+
+  // Insere um bloco cru (divisor), garantindo linhas em branco em volta.
+  function inserirBloco(bloco: string) {
+    aplicar(() => {
+      const t = `\n${bloco}\n`
+      return { texto: t, selInicio: t.length, selFim: t.length }
+    })
+  }
+
+  // Link: [texto](url). Se houver seleção, ela vira o texto e o cursor cai na url.
+  function inserirLink() {
+    aplicar(sel => {
+      const txt = sel || 'texto'
+      const t = `[${txt}](url)`
+      const inicioUrl = t.length - 4 // posição de "url"
+      return { texto: t, selInicio: inicioUrl, selFim: inicioUrl + 3 }
+    })
+  }
+
   // Envolve a seleção (negrito).
   function envolver(abre: string, fecha: string, exemplo: string) {
     aplicar(sel => {
@@ -72,11 +100,23 @@ export default function FormattedTextarea({ value, onChange, rows = 16, placehol
         <button type="button" onClick={() => envolver('**', '**', 'texto')} className={btn} title="Negrito (**texto**)">
           <Bold className="w-3.5 h-3.5" /> Negrito
         </button>
+        <button type="button" onClick={() => envolver('*', '*', 'texto')} className={btn} title="Itálico (*texto*)">
+          <Italic className="w-3.5 h-3.5" /> Itálico
+        </button>
         <button type="button" onClick={() => prefixoLinha('- ', 'item')} className={btn} title="Lista (- item)">
           <List className="w-3.5 h-3.5" /> Lista
         </button>
+        <button type="button" onClick={listaNumerada} className={btn} title="Lista numerada (1. item)">
+          <ListOrdered className="w-3.5 h-3.5" /> Numerada
+        </button>
         <button type="button" onClick={() => prefixoLinha('> ', 'citação')} className={btn} title="Citação (> texto)">
           <Quote className="w-3.5 h-3.5" /> Citação
+        </button>
+        <button type="button" onClick={inserirLink} className={btn} title="Link [texto](url)">
+          <Link2 className="w-3.5 h-3.5" /> Link
+        </button>
+        <button type="button" onClick={() => inserirBloco('---')} className={btn} title="Divisor (---)">
+          <Minus className="w-3.5 h-3.5" /> Divisor
         </button>
         <span className="ml-auto text-[10px] text-stone-400 flex items-center gap-1 pr-1">
           <Eye className="w-3 h-3" /> use “Visualizar” para ver como fica no blog

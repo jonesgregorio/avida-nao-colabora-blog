@@ -32,12 +32,13 @@ export type AITone =
   | 'direto'
   | 'humor leve'
 
-export type AISize = 'curto' | 'médio' | 'longo'
+export type AISize = 'curto' | 'médio' | 'longo' | 'extenso'
 
 const SIZE_WORDS: Record<AISize, string> = {
   curto: '80 a 150 palavras',
   médio: '200 a 350 palavras',
   longo: '500 a 800 palavras',
+  extenso: '1500 a 3000 palavras (artigo aprofundado, bem desenvolvido)',
 }
 
 export interface AICallOptions {
@@ -176,14 +177,19 @@ Estrutura obrigatória:
 7. CTA para o diário ou caixa de cuidado
 8. Aviso de responsabilidade (1 linha ao final)
 
-FORMATAÇÃO (obrigatória, sintaxe deste blog — use com moderação, sem exagero):
-- Comece cada seção com um subtítulo curto na linha usando "## " (ex.: "## Por que isso acontece").
-- Para destacar UMA palavra ou expressão dentro de um parágrafo, use **assim**.
-- Quando fizer sentido uma lista, use itens começando com "- ".
-- Para a pergunta do diário e reflexões marcantes, use "> " no início da linha (citação).
+Escreva um artigo APROFUNDADO e bem desenvolvido: várias seções, cada uma com
+2 a 4 parágrafos densos, exemplos concretos e transições suaves. Não seja raso.
+
+FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
+- Divida em VÁRIAS seções, cada uma abrindo com um subtítulo "## " (ex.: "## Por que isso acontece").
+- Use "### " para subtópicos dentro de uma seção quando fizer sentido.
+- Destaque palavras-chave dentro dos parágrafos com **negrito** e use *itálico* para nuances/ênfase leve.
+- Use listas com "- " quando enumerar ideias, e listas numeradas "1. " para passos/sequências.
+- Use "> " para a pergunta do diário e para 1 ou 2 reflexões marcantes (citação).
+- Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
 - NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.`,
-    { size: 'longo', ...opts }
+    { size: 'extenso', ...opts }
   )
 }
 
