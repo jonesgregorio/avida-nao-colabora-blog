@@ -60,6 +60,7 @@ const SIZES: { value: AISize; label: string }[] = [
   { value: 'curto', label: 'Curto (80–150 palavras)' },
   { value: 'médio', label: 'Médio (200–350 palavras)' },
   { value: 'longo', label: 'Longo (500–800 palavras)' },
+  { value: 'extenso', label: 'Extenso (1500–3000 palavras)' },
 ]
 
 const TYPE_LABELS: Record<AIContentType, string> = {
@@ -103,9 +104,20 @@ function buildPrompt(
 
   switch (contentType) {
     case 'article':
-      return `Escreva um artigo completo de blog sobre saúde emocional.
+      return `Escreva um artigo APROFUNDADO e bem desenvolvido de blog sobre saúde emocional.
 Tema: "${theme}"${ctx}${cat}
-Estrutura: introdução acolhedora, explicação simples, exemplos da vida real, reflexão guiada, exercício prático, pergunta para diário, CTA, aviso de responsabilidade.`
+Estrutura: introdução acolhedora, explicação simples, exemplos da vida real, reflexão guiada, exercício prático, pergunta para diário, CTA, aviso de responsabilidade.
+Cada seção com 2 a 4 parágrafos densos. Não seja raso.
+
+FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
+- Divida em VÁRIAS seções, cada uma abrindo com um subtítulo "## " (ex.: "## Por que isso acontece").
+- Use "### " para subtópicos quando fizer sentido.
+- Destaque palavras-chave nos parágrafos com **negrito** e use *itálico* para nuances/ênfase leve.
+- Use listas com "- " para ideias e listas numeradas "1. " para passos/sequências.
+- Use "> " para a pergunta do diário e 1 ou 2 reflexões marcantes (citação).
+- Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
+- Parágrafos normais em texto corrido, separados por uma linha em branco.
+- NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.`
 
     case 'article_title':
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`
@@ -254,7 +266,8 @@ export default function AIContentAssistant({
 }: AIContentAssistantProps) {
   const [theme, setTheme] = useState(defaultTheme)
   const [tone, setTone] = useState<AITone>(defaultTone)
-  const [size, setSize] = useState<AISize>('médio')
+  // Artigo já nasce "Extenso" (o admin pode reduzir); os outros tipos, "médio".
+  const [size, setSize] = useState<AISize>(contentType === 'article' ? 'extenso' : 'médio')
   const [extras, setExtras] = useState('')
   const [result, setResult] = useState('')
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')

@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, NotebookPen, Heart, Brain, CloudRain, Feather } from 
 import type { Article, Plan } from '../types'
 import type { User } from '@supabase/supabase-js'
 import { markArticleRead } from '../lib/readingProgress'
-import { renderArticleContent } from '../lib/renderArticle'
+import { renderArticleContent, estimateReadTime } from '../lib/renderArticle'
 import { setPendingAction } from '../lib/pendingAction'
 
 interface ArticleViewProps {
@@ -339,11 +339,11 @@ export default function ArticleView({
 
       <h1 className="font-serif text-3xl md:text-4xl text-sage-800 mb-4 leading-tight">{article.title}</h1>
 
-      {article.read_time && (
-        <div className="flex items-center gap-2 text-stone-400 text-sm mb-8 no-print">
-          <Clock size={14} /> {article.read_time} min de leitura
-        </div>
-      )}
+      {/* Tempo de leitura SEMPRE: usa o valor salvo ou calcula do conteúdo, para
+          artigos antigos (sem read_time) também exibirem. */}
+      <div className="flex items-center gap-2 text-stone-400 text-sm mb-8 no-print">
+        <Clock size={14} /> {article.read_time || estimateReadTime(article.content || '')} min de leitura
+      </div>
 
       {/* A) Quick Summary Card */}
       {showSummary && (

@@ -1,6 +1,6 @@
 import { X, Clock, Monitor, Smartphone } from 'lucide-react'
 import { useState } from 'react'
-import { renderArticleContent } from '../../lib/renderArticle'
+import { renderArticleContent, estimateReadTime } from '../../lib/renderArticle'
 
 interface Props {
   title: string
@@ -66,12 +66,10 @@ export default function ArticlePreview({ title, category, content, imageUrl, ima
             {title || <span className="text-sage-300">Título do artigo</span>}
           </h1>
 
-          {/* Tempo de leitura */}
-          {readTime > 0 && (
-            <div className="flex items-center gap-2 text-stone-400 text-sm mb-8">
-              <Clock size={14} /> {readTime} min de leitura
-            </div>
-          )}
+          {/* Tempo de leitura — sempre, calculado do conteúdo se o campo estiver zerado */}
+          <div className="flex items-center gap-2 text-stone-400 text-sm mb-8">
+            <Clock size={14} /> {readTime || estimateReadTime(content)} min de leitura
+          </div>
 
           {/* Capa */}
           <div className="rounded-2xl overflow-hidden mb-8 aspect-video bg-stone-100">
