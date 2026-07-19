@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { Search, Clock, ArrowRight, X, BookOpen, Lock } from 'lucide-react'
 import type { Article } from '../types'
@@ -18,7 +19,13 @@ const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d3
 
 // Filtros por tema (§3 / §10). Cada filtro casa por radicais no "haystack" do
 // conteúdo (categoria + tags + temas emocionais + palavras-chave + título).
-const FILTERS: { label: string; match: string[] }[] = [
+interface Filter { label: string; match: string[] }
+
+// Os temas agora vêm da tabela `categories` (admin → Conteúdo & IA → Categorias):
+// nome = rótulo do chip; match_terms = radicais buscados. Esta lista é só o
+// FALLBACK, usado se a busca das categorias falhar ou vier vazia — assim o blog
+// nunca fica sem filtros.
+const FALLBACK_FILTERS: Filter[] = [
   { label: 'Todos', match: [] },
   { label: 'Ansiedade', match: ['ansiedad', 'respira'] },
   { label: 'Sobrecarga', match: ['sobrecarg'] },
@@ -33,6 +40,11 @@ const FILTERS: { label: string; match: string[] }[] = [
   { label: 'Escrita guiada', match: ['escrita'] },
   { label: 'Descanso emocional', match: ['descanso', 'pausa', 'acolhiment'] },
 ]
+
+// Quebra "ansiedad, respira" (match_terms) em radicais normalizados.
+function parseTerms(raw: string | null | undefined): string[] {
+  return (raw || '').split(/[,;\n]/).map(t => deburr(t.trim())).filter(Boolean)
+}
 
 const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
   essential: { label: 'Essencial', cls: 'bg-mint text-forest-700' },
@@ -57,6 +69,7 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
   const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Todos')
+  const [filters, setFilters] = useState<Filter[]>(FALLBACK_FILTERS)
 
   const plan = profile?.plan
 
@@ -73,20 +86,51 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
     }
   }
 
-  useEffect(() => { load() }, [])
+  // Monta os chips de tema a partir das categorias ativas do admin. "Todos" é
+  // sempre o primeiro (opção do próprio blog). Se falhar, mantém o FALLBACK.
+  const loadFilters = async () => {
+    try {
+      const { data } = await supabase
+        .from('categories')
+        .select('name, match_terms, order_index')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true })
+      if (data && data.length) {
+        setFilters([
+          { label: 'Todos', match: [] },
+          ...(data as { name: string; match_terms: string | null }[]).map(c => ({
+            label: c.name,
+            match: parseTerms(c.match_terms),
+          })),
+        ])
+      }
+    } catch { /* mantém FALLBACK_FILTERS */ }
+  }
+
+  useEffect(() => { load(); loadFilters() }, [])
 
   const filtered = useMemo(() => {
     let result = catalog
-    const f = FILTERS.find(x => x.label === filter)
-    if (f && f.match.length) {
-      result = result.filter(it => { const hay = itemHaystack(it); return f.match.some(m => hay.includes(m)) })
+    const f = filters.find(x => x.label === filter)
+    if (f && f.label !== 'Todos') {
+      // Casa pela categoria do artigo (igualdade) OU por qualquer radical do tema.
+      // A igualdade garante que todo artigo marcado com a categoria apareça no
+      // chip dela, mesmo que a categoria não tenha match_terms cadastrados.
+      const label = deburr(f.label)
+      result = result.filter(it => {
+        if (deburr(it.category || '') === label) return true
+        if (!f.match.length) return false
+        const hay = itemHaystack(it)
+        return f.match.some(m => hay.includes(m))
+      })
     }
     if (search.trim()) {
       const q = deburr(search)
       result = result.filter(it => itemHaystack(it).includes(q))
     }
     return result
-  }, [catalog, filter, search])
+  }, [catalog, filter, search, filters])
 
   // Analytics: registra o termo buscado para o relatório "Termos mais buscados"
   // no admin. Debounce de 900ms para gravar só a busca "final", não cada tecla.
@@ -163,7 +207,7 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
 
       {/* Filtros por tema */}
       <div className="flex flex-wrap gap-2 mb-8">
-        {FILTERS.map(f => {
+        {filters.map(f => {
           const active = filter === f.label
           return (
             <button

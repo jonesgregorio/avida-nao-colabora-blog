@@ -90,9 +90,10 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
-    supabase.from('categories').select('name').eq('is_active', true).order('name').then(({ data: cats }) => {
-      if (cats) setCategories(cats.map(c => c.name))
-    })
+    supabase.from('categories').select('name, order_index').eq('is_active', true)
+      .order('order_index', { ascending: true }).order('name', { ascending: true }).then(({ data: cats }) => {
+        if (cats) setCategories(cats.map(c => c.name))
+      })
   }, [])
 
   useEffect(() => {
