@@ -463,22 +463,50 @@ export default function ArticleView({
         )}
       </div>
 
-      {/* CTA buttons */}
-      <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
-        <h3 className="font-bold text-stone-800 mb-2">Quer explorar isso mais de perto?</h3>
-        <p className="text-stone-600 text-sm mb-4">
-          Use o diário para registrar o que você está sentindo agora.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {/* E) Register how I'm feeling */}
-          <button
-            onClick={() => doNavigate(user ? 'diary' : 'auth')}
-            className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
-          >
-            <NotebookPen size={15} /> Registrar como estou hoje
-          </button>
+      {/* CTA final — logado registra no diário; visitante sem conta recebe o
+          convite de cadastro gratuito (aquisição). */}
+      {user ? (
+        <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
+          <h3 className="font-bold text-stone-800 mb-2">Quer explorar isso mais de perto?</h3>
+          <p className="text-stone-600 text-sm mb-4">
+            Use o diário para registrar o que você está sentindo agora.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => doNavigate('diary')}
+              className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
+            >
+              <NotebookPen size={15} /> Registrar como estou hoje
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
+          <h3 className="font-bold text-stone-800 mb-2">Quer transformar essa reflexão em um registro pessoal?</h3>
+          <p className="text-stone-600 text-sm mb-2">
+            Faça um check-in emocional gratuito. No <strong>A Vida Não Colabora</strong>, você acompanha seus padrões emocionais com diário, check-ins e mapa emocional.
+          </p>
+          <p className="text-stone-600 text-sm mb-4">
+            Crie sua conta gratuita para salvar seus registros e acompanhar sua evolução emocional.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              data-cta="artigo-criar-conta"
+              onClick={() => { setPendingAction({ view: 'diary' }); doNavigate('auth') }}
+              className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
+            >
+              <NotebookPen size={15} /> Criar conta gratuita
+            </button>
+            <button
+              data-cta="artigo-entrar"
+              onClick={() => doNavigate('auth')}
+              className="border border-line text-forest-800 px-5 py-2.5 rounded-lg text-sm font-medium hover:border-forest-300"
+            >
+              Já tenho conta — entrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Disclaimer */}
       <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-4 no-print">

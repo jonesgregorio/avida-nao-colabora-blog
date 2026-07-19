@@ -566,11 +566,15 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <input value={data.category} onChange={e => set('category', e.target.value)} placeholder="Ex: ansiedade" className={inputCls} />
               )}
             </Field>
-            <Field label="Plano requerido">
+            <Field label="Plano requerido" hint={
+              data.plan_required === 'free'
+                ? '(Público: qualquer visitante lê, com ou sem conta)'
+                : '(Exige login e o plano correspondente)'
+            }>
               <select value={data.plan_required} onChange={e => set('plan_required', e.target.value)} className={inputCls}>
-                <option value="free">Gratuito</option>
-                <option value="essential">Essencial</option>
-                <option value="plus">Plus</option>
+                <option value="free">Público — qualquer visitante (com ou sem conta)</option>
+                <option value="essential">Essencial (assinantes Essencial e Plus)</option>
+                <option value="plus">Plus (só assinantes Plus)</option>
               </select>
             </Field>
             <Field label="Tempo de leitura (min)" hint="(calculado do conteúdo; pode ajustar)">
