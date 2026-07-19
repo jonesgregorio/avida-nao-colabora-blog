@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Wind, Moon, Sparkles, FileCode, Zap, Repeat, CalendarDays, Clock, Tag, Image, Search, Star } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, Repeat, CalendarDays, Clock, Tag, Image, Search, Star } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
@@ -22,8 +22,6 @@ import AdminScheduled from './AdminScheduled'
 // "Recomendações IA" (entregas personalizadas) migrou para Orientação.
 const TABS = [
   { id: 'artigos',      label: 'Artigos',            icon: FileText },
-  { id: 'praticas',     label: 'Práticas',           icon: Wind },
-  { id: 'meditacoes',   label: 'Meditações',         icon: Moon },
   { id: 'gerar-ia',     label: 'Gerar com IA',       icon: Sparkles },
   { id: 'templates',    label: 'Templates de IA',    icon: FileCode },
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
@@ -85,8 +83,6 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
       </div>
       <div className="flex-1">
         {tab === 'artigos'     && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
-        {tab === 'praticas'    && <AdminArticles contentType="practice" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
-        {tab === 'meditacoes'  && <AdminArticles contentType="meditation" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'gerar-ia'    && <AdminFabricaIA />}
         {tab === 'templates'   && <AdminTemplatesIA />}
         {tab === 'automacoes'  && <AdminAutomacoesBlog />}
