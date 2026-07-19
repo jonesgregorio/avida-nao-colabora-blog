@@ -18,8 +18,10 @@ interface Automation {
 }
 
 const TYPES: [string, string][] = [
-  ['generate_daily', 'Gerar artigo diário'],
-  ['generate_weekly_package', 'Gerar pacote semanal'],
+  // O rótulo NÃO carrega a cadência (essa é o campo "frequência", ao lado) —
+  // "Gerar artigo diário" com frequência Semanal confundia.
+  ['generate_daily', 'Gerar artigo com IA'],
+  ['generate_weekly_package', 'Gerar pacote de artigos'],
   ['generate_pauta', 'Gerar pauta'],
   ['monthly_pauta', 'Pauta mensal'],
   ['update_old', 'Atualizar artigo antigo'],
@@ -111,7 +113,10 @@ export default function AdminAutomacoesBlog() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="font-serif text-3xl text-forest-900">Automações do blog</h1>
-          <p className="text-sm text-ink-soft mt-1">Regras de geração, publicação e divulgação. Fila de aprovação por padrão.</p>
+          <p className="text-sm text-ink-soft mt-1">
+            Regras que fazem a IA escrever artigos de blog sozinha, no ritmo que você definir.
+            Cada regra tem um tema, uma frequência e um plano — e nasce como rascunho para você aprovar (ou publica direto).
+          </p>
         </div>
         <div className="flex gap-2">
           <button onClick={publishDue} disabled={busy} className="inline-flex items-center gap-2 border border-line bg-white text-forest-800 px-4 py-2 rounded-xl text-sm font-medium hover:border-forest-300 disabled:opacity-50">
@@ -122,9 +127,11 @@ export default function AdminAutomacoesBlog() {
       </div>
 
       <div className="border border-[#e6d8b0] bg-[#fbf6e6] text-[#7a5c12] rounded-xl px-4 py-2.5 text-sm mb-5">
-        <strong>Publicação de agendados</strong> roda sozinha a cada 10 min (pg_cron). A <strong>geração por IA</strong> roda de hora em hora assim que você fizer <em>uma vez</em> no SQL Editor:
+        <strong>Para a geração automática funcionar</strong>, é preciso ativar uma vez: no Supabase → SQL Editor, rode
         <code className="mx-1 px-1.5 py-0.5 bg-white/70 rounded text-[12px]">select vault.create_secret('&lt;SERVICE_ROLE_KEY&gt;', 'service_role_key');</code>
-        (a service_role fica em Project Settings → API). Sem isso, nada quebra — só não gera sozinho. O botão abaixo é o gatilho manual.
+        trocando <code className="px-1 bg-white/70 rounded text-[12px]">&lt;SERVICE_ROLE_KEY&gt;</code> pela chave <em>service_role</em> (Project Settings → API).
+        Depois disso, a IA gera os artigos de hora em hora conforme as regras abaixo. <strong>Sem isso, nada quebra</strong> — as regras ficam paradas
+        (repare no “última:”). Quem quer disparar na hora usa <strong>“Publicar agendados vencidos”</strong> (publica o que já estava agendado).
       </div>
 
       {showNew && (
