@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { RefreshCw, Loader2, Cpu } from 'lucide-react'
+import { RefreshCw, Loader2, Cpu, Download } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
 
 // Histórico de uso de IA — lê ai_generation_logs (RLS: só admin, migration 026).
@@ -61,6 +61,39 @@ export default function AdminAIUsage() {
 
   const fmt = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
+  // Exporta o relatório (resumo + gerações) em CSV que o Excel abre direto.
+  function exportCSV() {
+    const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines: string[] = []
+    const push = (arr: (string | number)[]) => lines.push(arr.map(esc).join(','))
+
+    push(['Relatório de Uso de IA'])
+    push(['Gerado em', new Date().toLocaleString('pt-BR')])
+    push(['Registros no relatório', logs.length])
+    lines.push('')
+
+    push(['RESUMO POR PROVEDOR', 'Gerações (sucesso)', '% do total'])
+    providers.forEach(([p, n]) => push([providerLabel(p), n, `${Math.round((n / Math.max(1, ok.length)) * 100)}%`]))
+    if (fails > 0) push(['Falhas (tentativas com erro)', fails, ''])
+    lines.push('')
+
+    push(['GERAÇÕES', 'Quando', 'Tipo', 'IA usada', 'Status', 'Erro'])
+    logs.forEach(l => push([
+      '', new Date(l.created_at).toLocaleString('pt-BR'), typeLabel(l.content_type),
+      providerLabel(l.provider), l.status === 'success' ? 'sucesso' : 'erro', l.error_msg ?? '',
+    ]))
+
+    // BOM (via charCode p/ não usar espaço irregular no fonte) => acentos no Excel.
+    const bom = String.fromCharCode(0xFEFF)
+    const blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `uso-ia-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
@@ -68,9 +101,14 @@ export default function AdminAIUsage() {
           <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2"><Cpu className="w-6 h-6 text-forest-600" /> Uso de IA</h1>
           <p className="text-sm text-ink-soft mt-1">Qual IA (Gemini/Groq) gerou cada conteúdo. O app sempre tenta o Gemini primeiro e cai no Groq só quando o Gemini está indisponível/limitado.</p>
         </div>
-        <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-        </button>
+        <div className="flex gap-2">
+          <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+          </button>
+          <button onClick={exportCSV} disabled={loading || logs.length === 0} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
+            <Download className="w-4 h-4" /> Extrair relatório
+          </button>
+        </div>
       </div>
 
       {/* Resumo por provedor */}
