@@ -7,6 +7,7 @@ import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
 import { generateArticleCTA } from '../../lib/aiContent'
+import { DEFAULT_CTA } from '../../lib/articleCta'
 
 interface ArticleData {
   title: string
@@ -628,6 +629,29 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 Personalizado
               </label>
             </div>
+
+            {/* Preview do que será usado no modo Automático (fixo) */}
+            {data.cta_mode !== 'custom' && (
+              <div className="space-y-3 border-t border-line pt-4">
+                <p className="text-xs text-stone-500">Estes são os textos fixos que aparecerão no fim do artigo:</p>
+                <div className="rounded-xl border border-mint bg-mint/30 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-forest-600 mb-1">Para visitante sem conta</p>
+                  <p className="font-bold text-stone-800 text-sm">{DEFAULT_CTA.guest.title}</p>
+                  {DEFAULT_CTA.guest.paragraphs.map((p, i) => <p key={i} className="text-stone-600 text-xs mt-1">{p}</p>)}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {DEFAULT_CTA.guest.buttons.map(b => <span key={b} className="text-[11px] bg-forest-600 text-white px-2.5 py-1 rounded-md">{b}</span>)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-line bg-stone-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1">Para quem já tem conta</p>
+                  <p className="font-bold text-stone-800 text-sm">{DEFAULT_CTA.logged.title}</p>
+                  <p className="text-stone-600 text-xs mt-1">{DEFAULT_CTA.logged.paragraph}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-[11px] bg-forest-600 text-white px-2.5 py-1 rounded-md">{DEFAULT_CTA.logged.button}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {data.cta_mode === 'custom' && (
               <div className="space-y-3 border-t border-line pt-4">

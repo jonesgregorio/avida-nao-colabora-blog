@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js'
 import { markArticleRead } from '../lib/readingProgress'
 import { renderArticleContent, estimateReadTime } from '../lib/renderArticle'
 import { setPendingAction } from '../lib/pendingAction'
+import { DEFAULT_CTA } from '../lib/articleCta'
 
 interface ArticleViewProps {
   slug?: string
@@ -467,16 +468,14 @@ export default function ArticleView({
           convite de cadastro gratuito (aquisição). */}
       {user ? (
         <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
-          <h3 className="font-bold text-stone-800 mb-2">Quer explorar isso mais de perto?</h3>
-          <p className="text-stone-600 text-sm mb-4">
-            Use o diário para registrar o que você está sentindo agora.
-          </p>
+          <h3 className="font-bold text-stone-800 mb-2">{DEFAULT_CTA.logged.title}</h3>
+          <p className="text-stone-600 text-sm mb-4">{DEFAULT_CTA.logged.paragraph}</p>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => doNavigate('diary')}
               className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
             >
-              <NotebookPen size={15} /> Registrar como estou hoje
+              <NotebookPen size={15} /> {DEFAULT_CTA.logged.button}
             </button>
           </div>
         </div>
@@ -484,18 +483,15 @@ export default function ArticleView({
         <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
           {article?.cta_mode === 'custom' && (article.cta_custom_title || article.cta_custom_text) ? (
             <>
-              <h3 className="font-bold text-stone-800 mb-2">{article.cta_custom_title || 'Quer transformar essa reflexão em um registro pessoal?'}</h3>
+              <h3 className="font-bold text-stone-800 mb-2">{article.cta_custom_title || DEFAULT_CTA.guest.title}</h3>
               {article.cta_custom_text && <p className="text-stone-600 text-sm mb-4">{article.cta_custom_text}</p>}
             </>
           ) : (
             <>
-              <h3 className="font-bold text-stone-800 mb-2">Quer transformar essa reflexão em um registro pessoal?</h3>
-              <p className="text-stone-600 text-sm mb-2">
-                Faça um check-in emocional gratuito. No <strong>A Vida Não Colabora</strong>, você acompanha seus padrões emocionais com diário, check-ins e mapa emocional.
-              </p>
-              <p className="text-stone-600 text-sm mb-4">
-                Crie sua conta gratuita para salvar seus registros e acompanhar sua evolução emocional.
-              </p>
+              <h3 className="font-bold text-stone-800 mb-2">{DEFAULT_CTA.guest.title}</h3>
+              {DEFAULT_CTA.guest.paragraphs.map((p, i) => (
+                <p key={i} className={`text-stone-600 text-sm ${i === DEFAULT_CTA.guest.paragraphs.length - 1 ? 'mb-4' : 'mb-2'}`}>{p}</p>
+              ))}
             </>
           )}
           <div className="flex flex-wrap gap-3">
@@ -504,14 +500,14 @@ export default function ArticleView({
               onClick={() => { setPendingAction({ view: 'diary' }); doNavigate('auth') }}
               className="bg-forest-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-forest-700 flex items-center gap-2"
             >
-              <NotebookPen size={15} /> Criar conta gratuita
+              <NotebookPen size={15} /> {DEFAULT_CTA.guest.buttons[0]}
             </button>
             <button
               data-cta="artigo-entrar"
               onClick={() => doNavigate('auth')}
               className="border border-line text-forest-800 px-5 py-2.5 rounded-lg text-sm font-medium hover:border-forest-300"
             >
-              Já tenho conta — entrar
+              {DEFAULT_CTA.guest.buttons[1]}
             </button>
           </div>
         </div>
