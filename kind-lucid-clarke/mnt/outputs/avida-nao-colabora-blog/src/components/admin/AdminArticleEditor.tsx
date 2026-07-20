@@ -6,7 +6,7 @@ import CoverImageInput from './CoverImageInput'
 import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
-import { generateArticleCTA } from '../../lib/aiContent'
+import { generateArticleCTA, getLastProvider, providerLabel } from '../../lib/aiContent'
 import { DEFAULT_CTA } from '../../lib/articleCta'
 
 interface ArticleData {
@@ -105,7 +105,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     try {
       const { title, text } = await generateArticleCTA(data.title, data.content, data.category)
       setData(d => ({ ...d, cta_mode: 'custom', cta_custom_title: title, cta_custom_text: text }))
-      setToast({ msg: 'CTA gerado! Revise e ajuste se quiser.' }); setTimeout(() => setToast(null), 3500)
+      const via = providerLabel(getLastProvider())
+      setToast({ msg: `CTA gerado via ${via}! Revise e ajuste se quiser.` }); setTimeout(() => setToast(null), 4000)
     } catch {
       setToast({ msg: 'Não foi possível gerar o CTA agora. Tente novamente.', err: true }); setTimeout(() => setToast(null), 3500)
     } finally {

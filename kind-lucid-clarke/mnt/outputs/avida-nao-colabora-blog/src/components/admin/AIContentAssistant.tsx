@@ -3,7 +3,7 @@ import {
   Sparkles, Loader2, Copy, CheckCircle, AlertCircle,
   RefreshCw, X, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { callAI, generateQuestionnaireDraft, type AITone, type AISize } from '../../lib/aiContent'
+import { callAI, generateQuestionnaireDraft, getLastProvider, providerLabel, type AITone, type AISize } from '../../lib/aiContent'
 
 export type AIContentType =
   | 'article'
@@ -270,6 +270,7 @@ export default function AIContentAssistant({
   const [size, setSize] = useState<AISize>(contentType === 'article' ? 'extenso' : 'médio')
   const [extras, setExtras] = useState('')
   const [result, setResult] = useState('')
+  const [usedProvider, setUsedProvider] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -286,6 +287,7 @@ export default function AIContentAssistant({
     setStatus('generating')
     setError('')
     setResult('')
+    setUsedProvider(null)
     try {
       // Para questionários, chama diretamente sem instruções de tamanho/tom que corrompem o JSON
       let text: string
@@ -296,6 +298,7 @@ export default function AIContentAssistant({
         text = await callAI(prompt, { tone, size, extras })
       }
       setResult(text)
+      setUsedProvider(getLastProvider())
       setStatus('done')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido ao gerar.')
@@ -420,9 +423,14 @@ export default function AIContentAssistant({
 
           {status === 'done' && result && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CheckCircle className="w-4 h-4 text-forest-600" />
                 <span className="text-xs text-forest-800 font-medium">Gerado com sucesso</span>
+                {usedProvider && (
+                  <span className="text-[11px] bg-forest-100 text-forest-800 px-2 py-0.5 rounded-full font-medium">
+                    via {providerLabel(usedProvider)}
+                  </span>
+                )}
                 <span className="text-xs text-stone-400 ml-auto">Revise antes de inserir</span>
               </div>
               <textarea

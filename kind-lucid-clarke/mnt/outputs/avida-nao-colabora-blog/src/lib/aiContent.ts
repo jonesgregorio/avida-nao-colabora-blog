@@ -109,7 +109,17 @@ export async function generateWithFailover(prompt: string): Promise<string> {
   const out = data as { text?: string; provider?: AIProvider; error?: string } | null
   if (error) throw new Error(out?.error || error.message || 'Falha ao gerar com IA')
   if (!out?.text || !out.text.trim()) throw new Error(out?.error || 'IA indisponível ou resposta vazia')
+  if (out.provider) lastProvider = out.provider
   return out.text.trim()
+}
+
+// Guarda qual provider EFETIVAMENTE gerou a última resposta, para a UI mostrar
+// "Gerado via Gemini/Groq" na hora. Null antes da primeira geração.
+let lastProvider: AIProvider | null = null
+export function getLastProvider(): AIProvider | null { return lastProvider }
+export function providerLabel(p: string | null | undefined): string {
+  if (!p) return '—'
+  return (PROVIDER_LABELS as Record<string, string>)[p] ?? p
 }
 
 // Testa um provider específico (health check), sem failover — via servidor.

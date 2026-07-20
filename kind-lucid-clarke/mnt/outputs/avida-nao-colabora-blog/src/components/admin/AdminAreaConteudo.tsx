@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, Repeat, CalendarDays, Clock, Tag, Image, Search, Star } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, Repeat, CalendarDays, Clock, Tag, Image, Search, Star, Cpu } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
@@ -11,6 +11,7 @@ import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminAutomacoesBlog from './AdminAutomacoesBlog'
 import AdminAutomated from './AdminAutomated'
 import AdminScheduled from './AdminScheduled'
+import AdminAIUsage from './AdminAIUsage'
 
 // Conteúdo & IA — área única que reúne TUDO de conteúdo:
 //   • tipos de conteúdo (artigos, práticas, meditações)
@@ -23,6 +24,7 @@ import AdminScheduled from './AdminScheduled'
 const TABS = [
   { id: 'artigos',      label: 'Artigos',            icon: FileText },
   { id: 'gerar-ia',     label: 'Gerar com IA',       icon: Sparkles },
+  { id: 'uso-ia',       label: 'Uso de IA',          icon: Cpu },
   { id: 'templates',    label: 'Templates de IA',    icon: FileCode },
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
   { id: 'automaticos',  label: 'Conteúdo diário',    icon: Repeat },
@@ -84,6 +86,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
       <div className="flex-1">
         {tab === 'artigos'     && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'gerar-ia'    && <AdminFabricaIA />}
+        {tab === 'uso-ia'      && <AdminAIUsage />}
         {tab === 'templates'   && <AdminTemplatesIA />}
         {tab === 'automacoes'  && <AdminAutomacoesBlog />}
         {tab === 'automaticos' && <AdminAutomated />}
