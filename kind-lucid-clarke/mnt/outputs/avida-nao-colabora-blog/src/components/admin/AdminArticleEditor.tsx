@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Save, Eye, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Send, Sparkles, Loader2 } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
 import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
+import { generateArticleCTA } from '../../lib/aiContent'
 
 interface ArticleData {
   title: string
@@ -32,6 +33,11 @@ interface ArticleData {
   diary_question: string
   cta_text: string
   cta_link: string
+  // CTA final do artigo: 'auto' = texto padrão (visitante/logado); 'custom' =
+  // título/texto próprios (mostrados ao visitante sem conta).
+  cta_mode: string
+  cta_custom_title: string
+  cta_custom_text: string
   plan_required: string
   published_at: string
   scheduled_at: string
@@ -51,6 +57,7 @@ const EMPTY: ArticleData = {
   keyword: '', secondary_keywords: '', tags: '', emotion: '', journey_stage: '',
   intent: '', audience: '', og_image: '', origin: 'manual', internal_notes: '',
   diary_question: '', cta_text: '', cta_link: '',
+  cta_mode: 'auto', cta_custom_title: '', cta_custom_text: '',
   plan_required: 'free', published_at: '', scheduled_at: '',
   read_time: 5,
   keywords: '', emotional_themes: '', estimated_time_minutes: '',
@@ -88,6 +95,22 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
   const [versions, setVersions] = useState<ArticleVersion[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [ctaBusy, setCtaBusy] = useState(false)
+
+  // Gera o CTA personalizado com IA a partir do conteúdo real do artigo.
+  async function gerarCTAComIA() {
+    if (!data.content.trim()) { setToast({ msg: 'Escreva o conteúdo do artigo antes de gerar o CTA.', err: true }); setTimeout(() => setToast(null), 3500); return }
+    setCtaBusy(true)
+    try {
+      const { title, text } = await generateArticleCTA(data.title, data.content, data.category)
+      setData(d => ({ ...d, cta_mode: 'custom', cta_custom_title: title, cta_custom_text: text }))
+      setToast({ msg: 'CTA gerado! Revise e ajuste se quiser.' }); setTimeout(() => setToast(null), 3500)
+    } catch {
+      setToast({ msg: 'Não foi possível gerar o CTA agora. Tente novamente.', err: true }); setTimeout(() => setToast(null), 3500)
+    } finally {
+      setCtaBusy(false)
+    }
+  }
 
   useEffect(() => {
     supabase.from('categories').select('name, order_index').eq('is_active', true)
@@ -126,6 +149,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           diary_question: a.diary_question || '',
           cta_text: a.cta_text || '',
           cta_link: a.cta_link || '',
+          cta_mode: a.cta_mode || 'auto',
+          cta_custom_title: a.cta_custom_title || '',
+          cta_custom_text: a.cta_custom_text || '',
           plan_required: a.plan_required || 'free',
           published_at: a.published_at ? a.published_at.slice(0, 16) : '',
           scheduled_at: a.scheduled_at ? a.scheduled_at.slice(0, 16) : '',
@@ -212,6 +238,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       diary_question: data.diary_question,
       cta_text: data.cta_text,
       cta_link: data.cta_link,
+      cta_mode: data.cta_mode || 'auto',
+      cta_custom_title: data.cta_custom_title || null,
+      cta_custom_text: data.cta_custom_text || null,
       plan_required: data.plan_required,
       read_time: data.read_time,
       updated_at: new Date().toISOString(),
@@ -580,6 +609,51 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             <Field label="Tempo de leitura (min)" hint="(calculado do conteúdo; pode ajustar)">
               <input type="number" value={data.read_time} onChange={e => set('read_time', Number(e.target.value))} className={inputCls} min={1} />
             </Field>
+          </div>
+
+          {/* CTA final do artigo (aquisição para visitante sem conta) */}
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">CTA final do artigo</h2>
+            <p className="text-xs text-stone-500 -mt-2">
+              Bloco de convite no fim do artigo. Aparece para <strong>visitantes sem conta</strong> (aquisição).
+              Quem já tem conta continua vendo o convite padrão para registrar no diário.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
+                <input type="radio" name="cta_mode" checked={data.cta_mode !== 'custom'} onChange={() => set('cta_mode', 'auto')} />
+                Automático (texto padrão)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
+                <input type="radio" name="cta_mode" checked={data.cta_mode === 'custom'} onChange={() => set('cta_mode', 'custom')} />
+                Personalizado
+              </label>
+            </div>
+
+            {data.cta_mode === 'custom' && (
+              <div className="space-y-3 border-t border-line pt-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-xs text-stone-500">Escreva o convite, ou deixe a IA criar com base no conteúdo do artigo.</p>
+                  <button
+                    type="button"
+                    onClick={gerarCTAComIA}
+                    disabled={ctaBusy}
+                    className="inline-flex items-center gap-2 bg-forest-900 text-white px-3.5 py-2 rounded-lg text-sm font-medium hover:bg-forest-800 disabled:opacity-50"
+                  >
+                    {ctaBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {ctaBusy ? 'Gerando…' : 'Gerar com IA'}
+                  </button>
+                </div>
+                <Field label="Título do CTA">
+                  <input value={data.cta_custom_title} onChange={e => set('cta_custom_title', e.target.value)} placeholder="Ex: Sente a ansiedade apertar no fim do dia?" className={inputCls} />
+                </Field>
+                <Field label="Texto do CTA">
+                  <textarea value={data.cta_custom_text} onChange={e => set('cta_custom_text', e.target.value)} rows={3} placeholder="Ex: Comece um diário emocional gratuito e observe seus gatilhos ao longo da semana." className={inputCls} />
+                </Field>
+                <p className="text-[11px] text-stone-400">
+                  Os botões são fixos: “Criar conta gratuita” e “Já tenho conta — entrar”. Não cite preço, plano pago nem prometa tratamento.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Recomendação (Conteúdos Guiados) — alimenta o motor de recomendação (086). */}

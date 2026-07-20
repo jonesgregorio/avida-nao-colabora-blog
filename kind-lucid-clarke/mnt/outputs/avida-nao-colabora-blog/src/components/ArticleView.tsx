@@ -482,13 +482,22 @@ export default function ArticleView({
         </div>
       ) : (
         <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
-          <h3 className="font-bold text-stone-800 mb-2">Quer transformar essa reflexão em um registro pessoal?</h3>
-          <p className="text-stone-600 text-sm mb-2">
-            Faça um check-in emocional gratuito. No <strong>A Vida Não Colabora</strong>, você acompanha seus padrões emocionais com diário, check-ins e mapa emocional.
-          </p>
-          <p className="text-stone-600 text-sm mb-4">
-            Crie sua conta gratuita para salvar seus registros e acompanhar sua evolução emocional.
-          </p>
+          {article?.cta_mode === 'custom' && (article.cta_custom_title || article.cta_custom_text) ? (
+            <>
+              <h3 className="font-bold text-stone-800 mb-2">{article.cta_custom_title || 'Quer transformar essa reflexão em um registro pessoal?'}</h3>
+              {article.cta_custom_text && <p className="text-stone-600 text-sm mb-4">{article.cta_custom_text}</p>}
+            </>
+          ) : (
+            <>
+              <h3 className="font-bold text-stone-800 mb-2">Quer transformar essa reflexão em um registro pessoal?</h3>
+              <p className="text-stone-600 text-sm mb-2">
+                Faça um check-in emocional gratuito. No <strong>A Vida Não Colabora</strong>, você acompanha seus padrões emocionais com diário, check-ins e mapa emocional.
+              </p>
+              <p className="text-stone-600 text-sm mb-4">
+                Crie sua conta gratuita para salvar seus registros e acompanhar sua evolução emocional.
+              </p>
+            </>
+          )}
           <div className="flex flex-wrap gap-3">
             <button
               data-cta="artigo-criar-conta"

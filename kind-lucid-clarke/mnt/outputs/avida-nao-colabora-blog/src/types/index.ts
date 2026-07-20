@@ -46,6 +46,9 @@ export interface Article {
   diary_question?: string
   cta_text?: string
   cta_link?: string
+  cta_mode?: string
+  cta_custom_title?: string
+  cta_custom_text?: string
   published_at?: string
   scheduled_at?: string
   updated_at?: string

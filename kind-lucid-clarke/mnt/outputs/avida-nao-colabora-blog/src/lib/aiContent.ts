@@ -248,6 +248,54 @@ Seja gentil, nunca pressione. Formate como lista numerada.`,
   )
 }
 
+// CTA de aquisição personalizado para o FIM do artigo, dirigido ao VISITANTE
+// SEM conta. Gera com base no conteúdo real do artigo. Retorna { title, text }.
+// Faz parse robusto do JSON e, se falhar, cai num fallback determinístico.
+export async function generateArticleCTA(
+  title: string,
+  content: string,
+  category: string,
+): Promise<{ title: string; text: string }> {
+  const trecho = (content || '').replace(/\s+/g, ' ').trim().slice(0, 1200)
+  const prompt = `Você escreve microcopy de conversão para um app de saúde emocional
+chamado "A Vida Não Colabora" (diário emocional, check-ins e mapa emocional).
+
+Crie um CTA (chamada para ação) para o FIM do artigo abaixo, dirigido a um
+VISITANTE que ainda NÃO tem conta — convidando-o a criar uma conta gratuita e
+fazer um check-in emocional, conectando com o TEMA do artigo.
+
+Título do artigo: "${title}"
+Categoria: ${category || 'saúde emocional'}
+Trecho do conteúdo: "${trecho}"
+
+Regras:
+- Acolhedor, gentil, nunca pressione nem prometa cura/tratamento.
+- Não cite preço, plano pago, sessão ou profissional.
+- "title": uma pergunta/convite curto (máx. ~70 caracteres) ligado ao tema.
+- "text": 1 a 2 frases (máx. ~240 caracteres) reforçando o valor de registrar
+  e acompanhar as emoções, mencionando que a conta é gratuita.
+- NÃO escreva os botões (eles são fixos: "Criar conta gratuita" / "Entrar").
+
+Responda APENAS com um JSON válido, sem comentários, no formato exato:
+{"title": "...", "text": "..."}`
+
+  const raw = await generateWithFailover(prompt)
+  try {
+    const m = raw.match(/\{[\s\S]*\}/)
+    if (m) {
+      const obj = JSON.parse(m[0]) as { title?: string; text?: string }
+      const t = (obj.title || '').trim()
+      const x = (obj.text || '').trim()
+      if (t && x) return { title: t.slice(0, 120), text: x.slice(0, 400) }
+    }
+  } catch { /* cai no fallback */ }
+  // Fallback determinístico (sem inventar promessas).
+  return {
+    title: 'Quer transformar essa leitura em um passo prático?',
+    text: `Crie sua conta gratuita no A Vida Não Colabora e faça um check-in emocional para acompanhar seus padrões sobre ${(category || 'o que você sente').toLowerCase()}.`,
+  }
+}
+
 export async function generateQuestionnaireDraft(
   topic: string,
   type: string,
