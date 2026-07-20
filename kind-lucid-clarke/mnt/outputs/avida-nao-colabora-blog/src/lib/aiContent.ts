@@ -94,17 +94,21 @@ export function setActiveProviderLocal(p: AIProvider): void {
   try { localStorage.setItem(AI_PROVIDER_KEY, p) } catch { /* noop */ }
 }
 
-// Geração via Edge Function segura (chaves só no servidor). Envia o provider
-// ativo como preferência; o servidor tenta ele primeiro e faz failover para os
-// demais. Se um provider de fallback responder, ele é promovido a ativo.
+// Geração via Edge Function segura (chaves só no servidor). SEMPRE pede o
+// provider de MAIOR prioridade (PROVIDER_ORDER[0] = Gemini) e deixa o servidor
+// fazer o failover para os demais quando ele não responde.
+//
+// Antes o app "promovia" a provider ativo o fallback que respondeu e ficava
+// PRESO nele: um único soluço do Gemini (ex.: cota) deixava tudo grudado no
+// Groq para sempre. Agora cada geração tenta o Gemini de novo — se ele estiver
+// no ar, volta a ser usado sozinho; se não, o failover do servidor cobre.
 export async function generateWithFailover(prompt: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('generate-content', {
-    body: { prompt, provider: getActiveProvider() },
+    body: { prompt, provider: PROVIDER_ORDER[0] },
   })
   const out = data as { text?: string; provider?: AIProvider; error?: string } | null
   if (error) throw new Error(out?.error || error.message || 'Falha ao gerar com IA')
   if (!out?.text || !out.text.trim()) throw new Error(out?.error || 'IA indisponível ou resposta vazia')
-  if (out.provider && out.provider !== getActiveProvider()) setActiveProviderLocal(out.provider)
   return out.text.trim()
 }
 

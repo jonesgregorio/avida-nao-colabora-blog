@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { getActiveProvider, availableProviders, testProvider, PROVIDER_LABELS } from './aiContent'
+import { PROVIDER_ORDER, availableProviders, testProvider, PROVIDER_LABELS } from './aiContent'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -157,10 +157,12 @@ export async function checkSitePublic(): Promise<HealthCheckResult> {
 }
 
 export async function checkAI(): Promise<HealthCheckResult> {
-  // Testa o provider de IA ATIVO. Se ele falhar mas houver outro configurado,
-  // é degradação (o app faz failover automático) → alerta, e o botão "Corrigir"
-  // troca para o próximo. Sem alternativa configurada → erro.
-  const active = getActiveProvider()
+  // Testa o provider PRIMÁRIO (PROVIDER_ORDER[0] = Gemini), que é o que a geração
+  // sempre tenta primeiro. Se ele falhar mas houver outro configurado, é
+  // degradação (o app faz failover automático) → alerta com o erro REAL do
+  // primário (ex.: cota/HTTP 429), útil para diagnosticar a chave. Sem
+  // alternativa configurada → erro.
+  const active = PROVIDER_ORDER[0]
   const label = PROVIDER_LABELS[active]
   const res = await testProvider(active)
 
