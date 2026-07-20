@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   MessageSquare, Search, X, Send, Lock, AlertTriangle,
-  RefreshCw, RotateCcw, ChevronDown, LayoutList, Columns, FileText, Save, Inbox,
+  RefreshCw, RotateCcw, ChevronDown, LayoutList, Columns, FileText, Save, Inbox, Download,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { emailSupportReplyForUser } from '../../lib/emailTriggers'
@@ -447,6 +447,35 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
   }
   const hasFilters = !!(statusTab || priorityFilter || categoryFilter || planFilter || periodFilter || unreadOnly || overdueOnly || search)
 
+  // Extrai relatório dos tickets (respeitando os filtros ativos) em CSV/Excel.
+  function exportCSV() {
+    const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const header = ['#', 'Assunto', 'Status', 'Prioridade', 'Categoria', 'Plano', 'Usuário', 'E-mail', 'Criado em', 'Última atualização', 'SLA']
+    const rows = filtered.map(t => [
+      t.ticket_number,
+      t.subject ?? '',
+      STATUS_LABELS[t.status] ?? t.status,
+      PRIORITY_LABELS[t.priority] ?? t.priority,
+      t.category ?? '',
+      PLAN_LABELS[planOf(t)] ?? planOf(t) ?? '',
+      t.user_name ?? '',
+      t.user_email ?? '',
+      formatDateTime(t.created_at),
+      formatDateTime(t.last_message_at ?? t.updated_at ?? t.created_at),
+      (t.status === 'resolved' || t.status === 'closed') ? '—' : getSLA(t).label,
+    ])
+    const lines = [header, ...rows].map(r => r.map(esc).join(','))
+    // BOM (via charCode p/ não usar espaço irregular no fonte) => acentos no Excel.
+    const bom = String.fromCharCode(0xFEFF)
+    const blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `suporte-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const allMessages: Message[] = selectedTicket ? [descriptionAsMessage(selectedTicket), ...messages] : []
   const selectCls = 'px-2 py-1.5 text-xs border border-line rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 disabled:opacity-50'
   const pillCls = 'text-xs px-2.5 py-1.5 border border-line rounded-full bg-white focus:outline-none'
@@ -467,6 +496,9 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
             <div className="flex items-center gap-2">
               <button onClick={loadTickets} className="inline-flex items-center gap-2 border border-line bg-white px-3.5 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+              </button>
+              <button onClick={exportCSV} disabled={loading || filtered.length === 0} title="Exporta os tickets da lista (com os filtros ativos) em CSV/Excel" className="inline-flex items-center gap-2 border border-line bg-white px-3.5 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300 disabled:opacity-50">
+                <Download className="w-4 h-4" /> Extrair relatório
               </button>
               {onManageTemplates && (
                 <button onClick={onManageTemplates} className="inline-flex items-center gap-2 border border-line bg-white px-3.5 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
