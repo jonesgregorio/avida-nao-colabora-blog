@@ -18,6 +18,8 @@ export interface PendingAction {
   mood?: string
   /** Questionário específico a retomar após login (§13). */
   questionnaireId?: string
+  /** Ticket de suporte a abrir após login (link do e-mail de resposta). */
+  ticketId?: string
 }
 
 export function setPendingAction(action: PendingAction) {

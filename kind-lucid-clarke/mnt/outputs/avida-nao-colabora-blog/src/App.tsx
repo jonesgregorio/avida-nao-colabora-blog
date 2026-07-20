@@ -359,7 +359,12 @@ export default function App() {
     if (pending.diaryContext) setDiaryPromptContext(pending.diaryContext)
     if (pending.mood) setDiaryMood(pending.mood)
     if (pending.questionnaireId) setActiveQuestionnaireId(pending.questionnaireId)
-    navigate(pending.view)
+    // Ticket de suporte (link do e-mail): restaura ID + URL /suporte/:id.
+    if (pending.view === 'support-ticket' && pending.ticketId) {
+      navigate(`support-ticket:${pending.ticketId}`)
+    } else {
+      navigate(pending.view)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
@@ -636,6 +641,10 @@ export default function App() {
   }
 
   if (view === 'support-ticket' && activeSupportTicketId) {
+    // Link do e-mail aberto sem sessão (celular/outro navegador): manda ao login
+    // guardando o ticket, e volta pra cá depois de autenticar. Sem isto a consulta
+    // por user_id não acha nada e mostra "Ticket não encontrado".
+    if (!user) { setPendingAction({ view: 'support-ticket', ticketId: activeSupportTicketId }); navigate('auth'); return null }
     return appShell(
       <div className="pt-2">
         <SupportTicketDetail
