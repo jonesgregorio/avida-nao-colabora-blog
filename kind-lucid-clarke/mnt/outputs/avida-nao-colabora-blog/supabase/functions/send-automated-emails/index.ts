@@ -51,7 +51,7 @@ function buildEmailHtml(title: string, tipo: string, content: string): string {
 
     <!-- CTA -->
     <div style="padding:0 40px 40px;">
-      <a href="https://avida-nao-colabora-blog.vercel.app"
+      <a href="https://avidanaocolabora.com"
          style="display:inline-block;background:#10b981;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">
         Acessar A Vida Não Colabora →
       </a>
@@ -78,6 +78,10 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Remetente VERIFICADO no Resend (mesmo do send-transactional-email). O antigo
+    // noreply@...com.br não era verificado e fazia todo envio desta função falhar.
+    const EMAIL_FROM = Deno.env.get('EMAIL_FROM') || 'contato@avidanaocolabora.com'
+    const EMAIL_FROM_NAME = Deno.env.get('EMAIL_FROM_NAME') || 'A Vida Não Colabora'
 
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY não configurada')
 
@@ -141,7 +145,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'A Vida Não Colabora <noreply@avidanaocolabora.com.br>',
+            from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
             to: [user.email],
             subject: content.title,
             html: buildEmailHtml(content.title, content.type, content.content),

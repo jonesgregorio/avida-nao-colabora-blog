@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { createUserNotification } from '../../lib/notifications'
-import { emailPersonalizedContentForUser } from '../../lib/emailTriggers'
+import { emailPersonalizedContentForUser, emailProfessionalCommentForUser } from '../../lib/emailTriggers'
 import {
   Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
   CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
@@ -320,8 +320,13 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
       })
       .eq('id', delivery.id)
 
-    // E-mail de nova recomendação (assunto neutro; conteúdo fica na conta)
-    void emailPersonalizedContentForUser(task.user_id, delivery.id)
+    // E-mail de nova recomendação (assunto neutro; conteúdo fica na conta).
+    // Comentário profissional tem e-mail PRÓPRIO (professional_comment_available);
+    // os demais tipos usam o genérico de conteúdo personalizado.
+    const isProfComment = ['professional_comment', 'report_comment', 'monthly_report_comment'].includes(task.content_type ?? '')
+      || task.target_area === 'professional_comments'
+    if (isProfComment) void emailProfessionalCommentForUser(task.user_id, delivery.id)
+    else void emailPersonalizedContentForUser(task.user_id, delivery.id)
 
     // 2. Atualizar task para enviada
     await supabase

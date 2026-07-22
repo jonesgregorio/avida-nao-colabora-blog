@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   const diaDoMes = now.getUTCDate()
   const fimDoMes = diaDoMes >= 24
   let sent = 0
-  const summary: Record<string, number> = { weekly_report: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
+  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
 
   // Envia um e-mail via send-transactional-email (idempotência protege duplicados).
   async function send(to: string, template_key: string, variables: Record<string, unknown>, idem: string, user_id: string | null) {
@@ -98,12 +98,14 @@ Deno.serve(async (req) => {
   const lastEntry = new Map<string, number>()
   const weekCount = new Map<string, number>()
   const monthCount = new Map<string, number>()
-  const wk = isoWeek(now); const mo = monthStamp(now)
+  const recent7 = new Map<string, number>()   // registros nos últimos 7 dias
+  const wk = isoWeek(now); const mo = monthStamp(now); const sevenAgo = now.getTime() - 7 * DAY
   for (const d of (diary ?? []) as { user_id: string; created_at: string }[]) {
     const dt = new Date(d.created_at); const ts = dt.getTime()
     if (!lastEntry.has(d.user_id) || ts > (lastEntry.get(d.user_id) as number)) lastEntry.set(d.user_id, ts)
     if (isoWeek(dt) === wk) weekCount.set(d.user_id, (weekCount.get(d.user_id) ?? 0) + 1)
     if (monthStamp(dt) === mo) monthCount.set(d.user_id, (monthCount.get(d.user_id) ?? 0) + 1)
+    if (ts >= sevenAgo) recent7.set(d.user_id, (recent7.get(d.user_id) ?? 0) + 1)
   }
 
   // ── Anti-spam (§5): histórico de lembretes de autocuidado dos últimos 31 dias.
@@ -140,12 +142,10 @@ Deno.serve(async (req) => {
     const p = prefs.get(u.user_id) ?? {}
     if (p.email_enabled === false) return null // desligou tudo
 
-    // "Atividade" = último REGISTRO (check-in/diário/questionário) OU último
-    // ACESSO ao site (last_seen_at, 096). Assim quem navega sem registrar também
-    // conta como ativo e não recebe lembrete — cobre o "acessou nas últimas 24h".
-    const lastEntryTs = lastEntry.get(u.user_id)
-    const lastSeenTs = u.last_seen_at ? new Date(u.last_seen_at).getTime() : undefined
-    const last = Math.max(lastEntryTs ?? 0, lastSeenTs ?? 0) || undefined
+    // "Atividade" = último REGISTRO (check-in/diário/questionário). Acesso ao site
+    // (last_seen_at) NÃO conta: o lembrete é sobre dias sem CHECK-IN, então quem só
+    // navega sem registrar CONTINUA recebendo o lembrete.
+    const last = lastEntry.get(u.user_id)
     const accountAgeDays = (now.getTime() - new Date(u.created_at).getTime()) / DAY
     const gap = last ? (now.getTime() - last) / DAY : (accountAgeDays >= 3 ? accountAgeDays : 0)
     const wkN = weekCount.get(u.user_id) ?? 0
@@ -209,14 +209,31 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Relatório semanal (só segundas, Essencial+) ──
+  // ── Relatório semanal (só segundas, Essencial+, com registros recentes) ──
   if (isMonday) {
     for (const u of users) {
       if (sent >= MAX_PER_RUN) break
       if ((PLAN_RANK[u.plan] ?? 0) < 1) continue
       if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
+      // Só avisa "relatório pronto" se houve ≥1 registro nos últimos 7 dias
+      // (evita e-mail sobre um relatório vazio).
+      if ((recent7.get(u.user_id) ?? 0) < 1) continue
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
       if (await send(u.email, 'weekly_report_available', { nome, link_relatorio: `${SITE}/meu-plano` }, `weekly_report:${u.user_id}:${isoWeek(now)}`, u.user_id)) summary.weekly_report++
+    }
+  }
+
+  // ── Relatório mensal disponível (Plus, no 1º dia do mês) ──
+  // Avisa 1x que o relatório do mês ANTERIOR está fechado. Idempotência por mês.
+  // Regra do usuário: enviar a todo Plus ativo no início do mês seguinte.
+  if (diaDoMes === 1) {
+    const prevMo = monthStamp(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)))
+    for (const u of users) {
+      if (sent >= MAX_PER_RUN) break
+      if (tierOf(u.plan) !== 'plus') continue
+      if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
+      const nome = (u.full_name || '').split(' ')[0] || 'Olá'
+      if (await send(u.email, 'monthly_report_available', { nome, link_relatorios: `${SITE}/meu-relatorio` }, `monthly_report:${u.user_id}:${prevMo}`, u.user_id)) summary.monthly_report++
     }
   }
 
