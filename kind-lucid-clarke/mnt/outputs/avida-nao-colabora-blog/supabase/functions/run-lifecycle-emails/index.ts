@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   const diaDoMes = now.getUTCDate()
   const fimDoMes = diaDoMes >= 24
   let sent = 0
-  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, value_care_plan: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
+  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, value_care_plan: 0, value_guidance: 0, value_content: 0, value_essential: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
 
   // Envia um e-mail via send-transactional-email (idempotência protege duplicados).
   async function send(to: string, template_key: string, variables: Record<string, unknown>, idem: string, user_id: string | null) {
@@ -128,9 +128,9 @@ Deno.serve(async (req) => {
 
   // Preferências granulares (095). Ausência de linha/coluna = recebe (opt-out).
   const { data: prefsRows } = await admin.from('user_notification_preferences')
-    .select('user_id, email_enabled, receive_selfcare_reminders, receive_report_reminders, receive_care_plan_reminders')
+    .select('user_id, email_enabled, receive_selfcare_reminders, receive_report_reminders, receive_care_plan_reminders, receive_product_updates')
     .limit(20000)
-  type Prefs = { email_enabled?: boolean; receive_selfcare_reminders?: boolean; receive_report_reminders?: boolean; receive_care_plan_reminders?: boolean }
+  type Prefs = { email_enabled?: boolean; receive_selfcare_reminders?: boolean; receive_report_reminders?: boolean; receive_care_plan_reminders?: boolean; receive_product_updates?: boolean }
   const prefs = new Map<string, Prefs>()
   for (const p of (prefsRows ?? []) as (Prefs & { user_id: string })[]) prefs.set(p.user_id, p)
   const prefOn = (v: boolean | undefined) => v !== false // default true
@@ -247,32 +247,88 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Valor (usuário ATIVO): Plus no início do mês → revisar plano de autocuidado ──
-  // Não é reengajamento: só vai para quem ESTÁ presente (atividade nos últimos 14
-  // dias) e teve ao menos 1 registro no mês. Máx 1/mês (dedup) e nunca no mesmo dia
-  // de um lembrete de autocuidado. Respeita receive_care_plan_reminders.
-  if (diaDoMes <= 10) {
+  // ── E-mails de VALOR (usuário ATIVO): NÃO é reengajamento. Só vai para quem está
+  // PRESENTE (atividade nos últimos 14 dias). Máx 1 e-mail de valor por semana por
+  // pessoa (cap via email_logs 'value_%'), gatilho ÚNICO por prioridade, nunca no
+  // mesmo dia de um lembrete de autocuidado, respeitando as preferências. ──
+  {
+    const since7v = new Date(now.getTime() - 7 * DAY).toISOString()
+    const { data: valLogs } = await admin.from('email_logs')
+      .select('user_id').like('template_key', 'value_%').gte('created_at', since7v).limit(20000)
+    const valueThisWeek = new Set<string>()
+    for (const l of (valLogs ?? []) as { user_id: string | null }[]) if (l.user_id) valueThisWeek.add(l.user_id)
+
+    // Artigos publicados (gatilho de conteúdo recomendado).
+    const { data: pubArts } = await admin.from('articles')
+      .select('title, slug, summary, excerpt, plan_required')
+      .eq('status', 'published').order('published_at', { ascending: false }).limit(80)
+    const arts = (pubArts ?? []) as { title: string; slug: string; summary: string | null; excerpt: string | null; plan_required: string | null }[]
+
+    // Leitura por usuário (para NÃO recomendar o que já leu).
+    const { data: rhAll } = await admin.from('reading_history').select('user_id, article_slug').limit(40000)
+    const readByUser = new Map<string, Set<string>>()
+    for (const r of (rhAll ?? []) as { user_id: string; article_slug: string }[]) {
+      if (!readByUser.has(r.user_id)) readByUser.set(r.user_id, new Set())
+      readByUser.get(r.user_id)!.add(r.article_slug)
+    }
+
+    // Orientação do mês já enviada? (para não lembrar quem já mandou).
+    const { data: gReq } = await admin.from('monthly_guidance_requests').select('user_id').eq('month_key', mo).limit(20000)
+    const guidanceThisMonth = new Set<string>()
+    for (const g of (gReq ?? []) as { user_id: string }[]) guidanceThisMonth.add(g.user_id)
+
     for (const u of users) {
       if (sent >= MAX_PER_RUN) break
-      if (tierOf(u.plan) !== 'plus') continue
+      if (selfcareToday.has(u.user_id)) continue     // já recebeu um lembrete hoje
+      if (valueThisWeek.has(u.user_id)) continue       // cap: 1 e-mail de valor por semana
       if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
-      if (selfcareToday.has(u.user_id)) continue // já recebeu um e-mail de autocuidado hoje
       const pr = prefs.get(u.user_id) ?? {}
-      if (pr.email_enabled === false || !prefOn(pr.receive_care_plan_reminders)) continue
+      if (pr.email_enabled === false) continue
+
+      // ATIVO = atividade (registro OU acesso ao site) nos últimos 14 dias.
       const lastEntryTs = lastEntry.get(u.user_id)
       const lastSeenTs = u.last_seen_at ? new Date(u.last_seen_at).getTime() : undefined
       const last = Math.max(lastEntryTs ?? 0, lastSeenTs ?? 0)
-      const ativoRecente = last > 0 && (now.getTime() - last) < 14 * DAY
-      const temRegistroNoMes = (monthCount.get(u.user_id) ?? 0) >= 1
-      if (!ativoRecente || !temRegistroNoMes) continue
+      if (!(last > 0 && (now.getTime() - last) < 14 * DAY)) continue
+
+      const tier = tierOf(u.plan)
+      const moN = monthCount.get(u.user_id) ?? 0
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
-      if (await send(u.email, 'value_care_plan_review', {
-        nome,
-        cta_link: `${SITE}/plano-de-autocuidado`,
-        link_preferencias: `${SITE}/perfil`,
-      }, `value_care_plan:${u.user_id}:${monthStamp(now)}`, u.user_id)) {
-        summary.value_care_plan++
-        selfcareToday.add(u.user_id)
+      const prefLink = `${SITE}/perfil`
+
+      // Prioridade 1 — Plus, início do mês, com registros → revisar plano de autocuidado.
+      if (tier === 'plus' && diaDoMes <= 10 && moN >= 1 && prefOn(pr.receive_care_plan_reminders)) {
+        if (await send(u.email, 'value_care_plan_review', { nome, cta_link: `${SITE}/plano-de-autocuidado`, link_preferencias: prefLink }, `value_care_plan:${u.user_id}:${mo}`, u.user_id)) {
+          summary.value_care_plan++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
+        }
+        continue
+      }
+      // Prioridade 2 — Plus que ainda não enviou a orientação do mês → lembrete leve.
+      if (tier === 'plus' && !guidanceThisMonth.has(u.user_id) && prefOn(pr.receive_report_reminders)) {
+        if (await send(u.email, 'value_guidance_reminder', { nome, cta_link: `${SITE}/guia-mensal`, link_preferencias: prefLink }, `value_guidance:${u.user_id}:${mo}`, u.user_id)) {
+          summary.value_guidance++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
+        }
+        continue
+      }
+      // Prioridade 3 — conteúdo recomendado (todos os planos): 1 artigo não lido que o plano acessa.
+      if (prefOn(pr.receive_product_updates)) {
+        const rank = PLAN_RANK[u.plan] ?? 0
+        const read = readByUser.get(u.user_id) ?? new Set<string>()
+        const art = arts.find(a => (PLAN_RANK[a.plan_required || 'free'] ?? 0) <= rank && !read.has(a.slug))
+        if (art) {
+          const resumo = (art.summary || art.excerpt || '').slice(0, 200)
+          if (await send(u.email, 'value_content_recommendation', { nome, titulo: art.title, resumo, cta_link: `${SITE}/blog/${art.slug}`, link_preferencias: prefLink }, `value_content:${u.user_id}:${isoWeek(now)}`, u.user_id)) {
+            summary.value_content++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
+          }
+          continue
+        }
+      }
+      // Prioridade 4 — Free ativo, início do mês → convite leve ao Essencial.
+      if (tier === 'free' && diaDoMes <= 10 && prefOn(pr.receive_product_updates)) {
+        if (await send(u.email, 'value_essential_invite', { nome, cta_link: `${SITE}/?view=pricing`, link_preferencias: prefLink }, `value_essential:${u.user_id}:${mo}`, u.user_id)) {
+          summary.value_essential++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
+        }
+        continue
       }
     }
   }
