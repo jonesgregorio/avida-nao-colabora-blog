@@ -142,10 +142,14 @@ Deno.serve(async (req) => {
     const p = prefs.get(u.user_id) ?? {}
     if (p.email_enabled === false) return null // desligou tudo
 
-    // "Atividade" = último REGISTRO (check-in/diário/questionário). Acesso ao site
-    // (last_seen_at) NÃO conta: o lembrete é sobre dias sem CHECK-IN, então quem só
-    // navega sem registrar CONTINUA recebendo o lembrete.
-    const last = lastEntry.get(u.user_id)
+    // "Atividade" (prompt §1/§5/§13) = último REGISTRO (check-in/diário/questionário)
+    // OU último ACESSO ao site (last_seen_at, tocado no boot do app — cobre ler
+    // conteúdo guiado, ver relatório e ver plano, pois tudo abre o app). Quem esteve
+    // no site nas últimas 24h conta como PRESENTE e NÃO recebe reengajamento (nada de
+    // "você sumiu" para quem acessou ontem).
+    const lastEntryTs = lastEntry.get(u.user_id)
+    const lastSeenTs = u.last_seen_at ? new Date(u.last_seen_at).getTime() : undefined
+    const last = Math.max(lastEntryTs ?? 0, lastSeenTs ?? 0) || undefined
     const accountAgeDays = (now.getTime() - new Date(u.created_at).getTime()) / DAY
     const gap = last ? (now.getTime() - last) / DAY : (accountAgeDays >= 3 ? accountAgeDays : 0)
     const wkN = weekCount.get(u.user_id) ?? 0
@@ -153,13 +157,19 @@ Deno.serve(async (req) => {
     const ativoHoje = last ? (now.getTime() - last) < DAY : false
     const assinaturaOk = !u.subscription_status || ['active', 'trialing'].includes(u.subscription_status)
 
-    // 1) Plus, fim do mês, poucos registros no mês → relatório/plano do mês.
-    if (tier === 'plus' && assinaturaOk && fimDoMes && moN < 4 && !ativoHoje) {
-      if (prefOn(p.receive_report_reminders) || prefOn(p.receive_care_plan_reminders)) {
-        return { template: 'selfcare_monthly_low_data', categoria: 'report',
-          corpo: 'Seu relatório mensal e seu plano de autocuidado ficam mais úteis quando têm registros recentes. Um pequeno check-in pode ajudar a deixar a leitura do mês mais conectada ao que você viveu de verdade.',
-          cta: CTA_CHECKIN }
-      }
+    // 1a) Plus, fim do mês, poucos registros → relatório mensal com pouco contexto.
+    if (tier === 'plus' && assinaturaOk && fimDoMes && moN < 4 && !ativoHoje && prefOn(p.receive_report_reminders)) {
+      return { template: 'selfcare_monthly_low_data', categoria: 'report',
+        corpo: 'Seu relatório mensal fica mais útil quando tem registros recentes. Um pequeno check-in pode ajudar a completar melhor a leitura do seu mês, sem precisar escrever muito.',
+        cta: CTA_CHECKIN }
+    }
+    // 1b) Plus, fim do mês, poucos registros → plano de autocuidado com pouco contexto.
+    // (Só quando o lembrete de relatório está desligado mas o de plano está ligado —
+    // preserva a regra de 1 e-mail por gatilho.)
+    if (tier === 'plus' && assinaturaOk && fimDoMes && moN < 4 && !ativoHoje && prefOn(p.receive_care_plan_reminders)) {
+      return { template: 'selfcare_care_plan_low_data', categoria: 'care_plan',
+        corpo: 'Seus registros ajudam a deixar o plano de autocuidado mais conectado ao que você viveu de verdade. Um pequeno check-in já pode trazer mais contexto para as sugestões do mês.',
+        cta: CTA_CHECKIN }
     }
     // 2) Essencial/Plus, poucos registros na semana, ainda ativo → relatório semanal.
     if (tier !== 'free' && assinaturaOk && wkN < 2 && !ativoHoje && gap < 7 && prefOn(p.receive_report_reminders)) {
