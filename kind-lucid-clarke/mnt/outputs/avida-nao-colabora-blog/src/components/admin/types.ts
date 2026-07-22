@@ -2,6 +2,7 @@
 export type AdminAreaView =
   | 'visao-geral'
   | 'usuarios'
+  | 'engajamento'
   | 'planos'
   | 'conteudos'
   | 'fabrica-ia'
