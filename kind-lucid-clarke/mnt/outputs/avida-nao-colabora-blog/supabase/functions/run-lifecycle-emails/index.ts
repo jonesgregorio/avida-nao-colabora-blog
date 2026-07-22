@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   const diaDoMes = now.getUTCDate()
   const fimDoMes = diaDoMes >= 24
   let sent = 0
-  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
+  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, value_care_plan: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
 
   // Envia um e-mail via send-transactional-email (idempotência protege duplicados).
   async function send(to: string, template_key: string, variables: Record<string, unknown>, idem: string, user_id: string | null) {
@@ -244,6 +244,36 @@ Deno.serve(async (req) => {
       if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
       if (await send(u.email, 'monthly_report_available', { nome, link_relatorios: `${SITE}/meu-relatorio` }, `monthly_report:${u.user_id}:${prevMo}`, u.user_id)) summary.monthly_report++
+    }
+  }
+
+  // ── Valor (usuário ATIVO): Plus no início do mês → revisar plano de autocuidado ──
+  // Não é reengajamento: só vai para quem ESTÁ presente (atividade nos últimos 14
+  // dias) e teve ao menos 1 registro no mês. Máx 1/mês (dedup) e nunca no mesmo dia
+  // de um lembrete de autocuidado. Respeita receive_care_plan_reminders.
+  if (diaDoMes <= 10) {
+    for (const u of users) {
+      if (sent >= MAX_PER_RUN) break
+      if (tierOf(u.plan) !== 'plus') continue
+      if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
+      if (selfcareToday.has(u.user_id)) continue // já recebeu um e-mail de autocuidado hoje
+      const pr = prefs.get(u.user_id) ?? {}
+      if (pr.email_enabled === false || !prefOn(pr.receive_care_plan_reminders)) continue
+      const lastEntryTs = lastEntry.get(u.user_id)
+      const lastSeenTs = u.last_seen_at ? new Date(u.last_seen_at).getTime() : undefined
+      const last = Math.max(lastEntryTs ?? 0, lastSeenTs ?? 0)
+      const ativoRecente = last > 0 && (now.getTime() - last) < 14 * DAY
+      const temRegistroNoMes = (monthCount.get(u.user_id) ?? 0) >= 1
+      if (!ativoRecente || !temRegistroNoMes) continue
+      const nome = (u.full_name || '').split(' ')[0] || 'Olá'
+      if (await send(u.email, 'value_care_plan_review', {
+        nome,
+        cta_link: `${SITE}/plano-de-autocuidado`,
+        link_preferencias: `${SITE}/perfil`,
+      }, `value_care_plan:${u.user_id}:${monthStamp(now)}`, u.user_id)) {
+        summary.value_care_plan++
+        selfcareToday.add(u.user_id)
+      }
     }
   }
 
