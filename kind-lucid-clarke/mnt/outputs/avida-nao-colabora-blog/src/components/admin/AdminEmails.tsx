@@ -29,6 +29,11 @@ interface EmailTemplate {
   updated_at: string
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
+}
+
 const STATUS_STYLE: Record<string, { cls: string; icon: typeof CheckCircle; label: string }> = {
   sent:    { cls: 'text-forest-800 bg-mint border-forest-200', icon: CheckCircle, label: 'Enviado' },
   failed:  { cls: 'text-red-700 bg-red-50 border-red-200',             icon: XCircle,     label: 'Falhou' },
@@ -58,10 +63,18 @@ function fillPreview(text: string): string {
   return (text ?? '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => PREVIEW_VARS[k] ?? `[${k}]`)
 }
 
-export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'templates' }) {
-  const [tab, setTab] = useState<'logs' | 'templates'>(initialTab ?? 'logs')
+interface EmailStats {
+  totals: { sent: number; failed: number; pending: number; total: number }
+  by_trigger: { template_key: string; sent: number; failed: number; total: number }[]
+  by_plan: { plan: string; sent: number; total: number }[]
+  opt_outs: { master_off: number; selfcare_off: number; report_off: number; care_plan_off: number; product_off: number }
+}
+
+export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'templates' | 'resumo' }) {
+  const [tab, setTab] = useState<'logs' | 'templates' | 'resumo'>(initialTab ?? 'logs')
   const [logs, setLogs] = useState<EmailLog[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [stats, setStats] = useState<EmailStats | null>(null)
   const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending'>('all')
   const [loading, setLoading] = useState(true)
   const [resending, setResending] = useState<string | null>(null)
@@ -75,12 +88,14 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [logsRes, tplRes] = await Promise.all([
+    const [logsRes, tplRes, statsRes] = await Promise.all([
       supabase.from('email_logs').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('email_templates').select('id, template_key, subject, category, is_active, updated_at').order('template_key'),
+      supabase.rpc('get_email_stats'),
     ])
     setLogs((logsRes.data as unknown as EmailLog[]) ?? [])
     setTemplates((tplRes.data as unknown as EmailTemplate[]) ?? [])
+    setStats((statsRes.data as unknown as EmailStats) ?? null)
     setLoading(false)
   }, [])
 
@@ -153,12 +168,102 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
       </div>
 
       <div className="flex gap-1 border-b border-line mb-4">
-        {([['logs', 'Logs de envio'], ['templates', 'Templates']] as const).map(([id, label]) => (
+        {([['resumo', 'Resumo'], ['logs', 'Logs de envio'], ['templates', 'Templates']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className={`text-sm px-4 py-2 border-b-2 font-medium ${tab === id ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>{label}</button>
         ))}
       </div>
 
       {loading && <div className="py-16 text-center text-stone-400"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>}
+
+      {!loading && tab === 'resumo' && (
+        <div className="space-y-5">
+          {/* Totais + taxa de erro */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {([
+              ['Enviados', stats?.totals.sent ?? 0, 'text-forest-700'],
+              ['Falhas', stats?.totals.failed ?? 0, 'text-red-600'],
+              ['Pendentes', stats?.totals.pending ?? 0, 'text-amber-600'],
+              ['Total', stats?.totals.total ?? 0, 'text-stone-700'],
+            ] as [string, number, string][]).map(([label, n, tone]) => (
+              <div key={label} className="bg-white border border-line rounded-2xl p-4">
+                <p className={`font-serif text-3xl ${tone}`}>{n}</p>
+                <p className="text-xs text-ink-soft mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink-soft">
+            Taxa de erro: <strong className="text-forest-900">{stats && stats.totals.total > 0 ? Math.round((stats.totals.failed / stats.totals.total) * 100) : 0}%</strong> · Números sobre TODOS os envios registrados (não só os últimos 200 da aba Logs).
+          </p>
+
+          <div className="grid lg:grid-cols-2 gap-4">
+            {/* Por gatilho */}
+            <div className="bg-white border border-line rounded-2xl overflow-hidden">
+              <h3 className="font-serif text-lg text-forest-900 px-4 py-3 border-b border-line">Por gatilho</h3>
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-stone-50 sticky top-0"><tr>
+                    <th className="text-left px-4 py-2 text-stone-500 font-medium">Template</th>
+                    <th className="text-right px-3 py-2 text-stone-500 font-medium">Enviados</th>
+                    <th className="text-right px-4 py-2 text-stone-500 font-medium">Falhas</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {(stats?.by_trigger ?? []).map(t => (
+                      <tr key={t.template_key}>
+                        <td className="px-4 py-2 font-mono text-xs text-forest-900">{t.template_key}</td>
+                        <td className="px-3 py-2 text-right text-forest-700">{t.sent}</td>
+                        <td className="px-4 py-2 text-right">{t.failed > 0 ? <span className="text-red-600">{t.failed}</span> : <span className="text-stone-300">0</span>}</td>
+                      </tr>
+                    ))}
+                    {(stats?.by_trigger ?? []).length === 0 && <tr><td colSpan={3} className="px-4 py-6 text-center text-stone-400 text-sm">Sem envios ainda.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Por plano */}
+            <div className="bg-white border border-line rounded-2xl overflow-hidden">
+              <h3 className="font-serif text-lg text-forest-900 px-4 py-3 border-b border-line">Por plano</h3>
+              <table className="w-full text-sm">
+                <thead className="bg-stone-50"><tr>
+                  <th className="text-left px-4 py-2 text-stone-500 font-medium">Plano</th>
+                  <th className="text-right px-3 py-2 text-stone-500 font-medium">Enviados</th>
+                  <th className="text-right px-4 py-2 text-stone-500 font-medium">Total</th>
+                </tr></thead>
+                <tbody className="divide-y divide-stone-100">
+                  {(stats?.by_plan ?? []).map(p => (
+                    <tr key={p.plan}>
+                      <td className="px-4 py-2 text-forest-900">{PLAN_LABELS[p.plan] ?? p.plan}</td>
+                      <td className="px-3 py-2 text-right text-forest-700">{p.sent}</td>
+                      <td className="px-4 py-2 text-right text-stone-500">{p.total}</td>
+                    </tr>
+                  ))}
+                  {(stats?.by_plan ?? []).length === 0 && <tr><td colSpan={3} className="px-4 py-6 text-center text-stone-400 text-sm">Sem envios ainda.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Opt-outs */}
+          <div className="bg-white border border-line rounded-2xl p-4">
+            <h3 className="font-serif text-lg text-forest-900 mb-1">Usuários que desativaram e-mails</h3>
+            <p className="text-xs text-ink-soft mb-3">Quantos optaram por não receber cada tipo (as preferências no perfil).</p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {([
+                ['Todos os e-mails', stats?.opt_outs.master_off ?? 0],
+                ['Autocuidado', stats?.opt_outs.selfcare_off ?? 0],
+                ['Relatórios', stats?.opt_outs.report_off ?? 0],
+                ['Plano de autocuidado', stats?.opt_outs.care_plan_off ?? 0],
+                ['Novidades', stats?.opt_outs.product_off ?? 0],
+              ] as [string, number][]).map(([label, n]) => (
+                <div key={label} className="bg-stone-50 border border-line rounded-xl p-3 text-center">
+                  <p className="font-serif text-2xl text-stone-700">{n}</p>
+                  <p className="text-[11px] text-ink-soft mt-0.5 leading-tight">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!loading && tab === 'logs' && (
         <div>

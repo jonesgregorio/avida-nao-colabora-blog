@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   const diaDoMes = now.getUTCDate()
   const fimDoMes = diaDoMes >= 24
   let sent = 0
-  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, value_care_plan: 0, value_guidance: 0, value_content: 0, value_essential: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
+  const summary: Record<string, number> = { weekly_report: 0, monthly_report: 0, value_care_plan: 0, value_guidance: 0, value_evolution: 0, value_content: 0, value_essential: 0, new_content: 0, selfcare: 0, trial_ending: 0, card_expiring: 0 }
 
   // Envia um e-mail via send-transactional-email (idempotência protege duplicados).
   async function send(to: string, template_key: string, variables: Record<string, unknown>, idem: string, user_id: string | null) {
@@ -310,7 +310,15 @@ Deno.serve(async (req) => {
         }
         continue
       }
-      // Prioridade 3 — conteúdo recomendado (todos os planos): 1 artigo não lido que o plano acessa.
+      // Prioridade 3 — Essencial/Plus, início do mês → resumo de evolução do mês.
+      // Assunto neutro; o resumo real fica no app (Mapa Emocional), nunca no e-mail (§19).
+      if (tier !== 'free' && diaDoMes <= 10 && prefOn(pr.receive_report_reminders)) {
+        if (await send(u.email, 'value_evolution_summary', { nome, cta_link: `${SITE}/mapa-emocional`, link_preferencias: prefLink }, `value_evolution:${u.user_id}:${mo}`, u.user_id)) {
+          summary.value_evolution++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
+        }
+        continue
+      }
+      // Prioridade 4 — conteúdo recomendado (todos os planos): 1 artigo não lido que o plano acessa.
       if (prefOn(pr.receive_product_updates)) {
         const rank = PLAN_RANK[u.plan] ?? 0
         const read = readByUser.get(u.user_id) ?? new Set<string>()
@@ -323,7 +331,7 @@ Deno.serve(async (req) => {
           continue
         }
       }
-      // Prioridade 4 — Free ativo, início do mês → convite leve ao Essencial.
+      // Prioridade 5 — Free ativo, início do mês → convite leve ao Essencial.
       if (tier === 'free' && diaDoMes <= 10 && prefOn(pr.receive_product_updates)) {
         if (await send(u.email, 'value_essential_invite', { nome, cta_link: `${SITE}/?view=pricing`, link_preferencias: prefLink }, `value_essential:${u.user_id}:${mo}`, u.user_id)) {
           summary.value_essential++; selfcareToday.add(u.user_id); valueThisWeek.add(u.user_id)
