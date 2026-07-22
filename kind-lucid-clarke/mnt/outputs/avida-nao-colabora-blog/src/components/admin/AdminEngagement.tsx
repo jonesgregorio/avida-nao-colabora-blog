@@ -60,11 +60,11 @@ function bucketOf(d: number | null): Bucket {
   if (d <= 13) return 'esfriando'
   return 'inativo'
 }
-const BUCKET_META: Record<Bucket, { label: string; cls: string }> = {
-  ativo:     { label: 'Ativo',      cls: 'bg-forest-100 text-forest-800' },
-  esfriando: { label: 'Esfriando',  cls: 'bg-amber-100 text-amber-700' },
-  inativo:   { label: 'Inativo',    cls: 'bg-red-100 text-red-700' },
-  nunca:     { label: 'Nunca interagiu', cls: 'bg-stone-100 text-stone-500' },
+const BUCKET_META: Record<Bucket, { label: string; cls: string; dot: string; row: string; bar: string }> = {
+  ativo:     { label: 'Ativo',           cls: 'bg-forest-100 text-forest-800', dot: 'bg-forest-500', row: 'bg-mint/25',     bar: 'border-l-forest-500' },
+  esfriando: { label: 'Esfriando',       cls: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400',  row: 'bg-amber-50/60', bar: 'border-l-amber-400' },
+  inativo:   { label: 'Inativo',         cls: 'bg-red-100 text-red-700',       dot: 'bg-red-500',    row: 'bg-red-50/60',   bar: 'border-l-red-400' },
+  nunca:     { label: 'Nunca interagiu', cls: 'bg-stone-100 text-stone-500',   dot: 'bg-stone-300',  row: '',               bar: 'border-l-stone-300' },
 }
 
 export default function AdminEngagement() {
@@ -117,12 +117,19 @@ export default function AdminEngagement() {
 
   function exportCSV() {
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const header = ['Nome', 'E-mail', 'Plano', 'Status', 'Dias inativo', 'Última atividade', 'Último acesso', 'Último check-in', 'Último diário', 'Check-ins 30d', 'Diários 30d', 'Questionários 30d']
+    const header = [
+      'Nome', 'E-mail', 'Plano', 'Status', 'Dias sem interagir', 'Última atividade',
+      'Último acesso', 'Último check-in', 'Último diário', 'Último questionário', 'Último conteúdo',
+      'Check-ins 30d', 'Diários 30d', 'Questionários 30d', 'Conteúdos 30d',
+      'Check-ins total', 'Diários total',
+    ]
     const lines = filtered.map(r => [
       r.full_name ?? '', r.email ?? '', planLabel(r.plan), BUCKET_META[r.bucket].label,
       r.dias === null ? 'nunca' : r.dias,
       fmtDate(r.last_activity), fmtDate(r.last_seen_at), fmtDate(r.last_checkin), fmtDate(r.last_diary),
-      r.checkins_30d, r.diaries_30d, r.questionnaires_30d,
+      fmtDate(r.last_questionnaire), fmtDate(r.last_content),
+      r.checkins_30d, r.diaries_30d, r.questionnaires_30d, r.contents_30d,
+      r.checkins_total, r.diaries_total,
     ])
     const bom = String.fromCharCode(0xFEFF)
     const blob = new Blob([bom + [header, ...lines].map(r => r.map(esc).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -191,6 +198,28 @@ export default function AdminEngagement() {
         </label>
       </div>
 
+      {/* Filtro por status (nível de interação) */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-4">
+        <span className="text-xs text-ink-soft mr-1">Filtrar:</span>
+        {([
+          ['todos', 'Todos', counts.total],
+          ['ativo', 'Ativos', counts.ativo],
+          ['esfriando', 'Esfriando', counts.esfriando],
+          ['inativo', 'Inativos', counts.inativo],
+          ['nunca', 'Não interagem', counts.nunca],
+        ] as const).map(([key, label, n]) => {
+          const active = statusFilter === key
+          return (
+            <button key={key} onClick={() => setStatusFilter(key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}>
+              {key !== 'todos' && <span className={`w-2 h-2 rounded-full ${BUCKET_META[key].dot}`} />}
+              {label}
+              <span className={`text-[10px] px-1.5 rounded-full ${active ? 'bg-white/20' : 'bg-stone-100 text-stone-500'}`}>{n}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Tabela */}
       <div className="bg-white border border-line rounded-2xl overflow-hidden">
         {err && <p className="px-5 py-3 text-sm text-red-600">Erro ao carregar: {err}</p>}
@@ -224,8 +253,8 @@ export default function AdminEngagement() {
                   ].filter(c => c.n > 0)
                   const meta = BUCKET_META[r.bucket]
                   return (
-                    <tr key={r.user_id} className="align-top">
-                      <td className="px-4 py-3">
+                    <tr key={r.user_id} className={`align-top ${meta.row}`}>
+                      <td className={`px-4 py-3 border-l-4 ${meta.bar}`}>
                         <p className="font-medium text-forest-900">{r.full_name || '—'}</p>
                         <p className="text-xs text-stone-400">{r.email ?? '—'}</p>
                       </td>
@@ -255,7 +284,9 @@ export default function AdminEngagement() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${meta.cls}`}>{meta.label}</span>
+                        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${meta.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />{meta.label}
+                        </span>
                       </td>
                     </tr>
                   )
