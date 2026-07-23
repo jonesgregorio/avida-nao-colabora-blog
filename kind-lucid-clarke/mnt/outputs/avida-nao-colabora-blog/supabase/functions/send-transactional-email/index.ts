@@ -50,8 +50,23 @@ function boldPlanVars(vars: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
+// Token de descadastro: HMAC-SHA256 do user_id (sem estado; /unsubscribe recomputa
+// e compara). Usa UNSUBSCRIBE_SECRET, ou a service role como fallback (sempre setada).
+async function unsubToken(userId: string): Promise<string> {
+  const secret = Deno.env.get('UNSUBSCRIBE_SECRET') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(userId))
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Só os e-mails de ACOMPANHAMENTO (bulk) ganham List-Unsubscribe + link de cancelar.
+// Transacionais (pagamento, plano, boas-vindas, suporte) são isentos e não entram.
+function isBulkEmail(key: string): boolean {
+  return /^(selfcare_|value_)/.test(key) || ['weekly_report_available', 'monthly_report_available', 'new_content_published'].includes(key)
+}
+
 // Monta o HTML de marca a partir do texto (quando o template não tem body_html próprio)
-function buildHtml(subject: string, bodyText: string, category: string | null): string {
+function buildHtml(subject: string, bodyText: string, category: string | null, unsubUrl?: string): string {
   const paragraphs = bodyText.split('\n\n').map(block => {
     const safe = escapeHtml(block)
       .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#2f4232;">$1</strong>') // **destaque** → negrito na cor da marca
@@ -78,6 +93,7 @@ function buildHtml(subject: string, bodyText: string, category: string | null): 
       <p style="margin:0;color:#a8a29e;font-size:12px;font-family:Arial,sans-serif;line-height:1.6;">
         Você recebeu este e-mail porque é usuário de <strong>A Vida Não Colabora</strong>. O conteúdo completo fica dentro da sua conta.
       </p>
+      ${unsubUrl ? `<p style="margin:10px 0 0;color:#a8a29e;font-size:12px;font-family:Arial,sans-serif;line-height:1.6;"><a href="${unsubUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar o recebimento destes e-mails</a></p>` : ''}
       ${disclaimer}
     </div>
   </div>
@@ -175,9 +191,15 @@ Deno.serve(async (req: Request) => {
   const vars = (payload.variables ?? {}) as Record<string, unknown>
   const subject = render(tpl.subject, vars)
   const bodyText = render(tpl.body_text, vars)
+
+  // Descadastro em 1 clique (só nos e-mails de acompanhamento, e só se houver user_id).
+  const unsubUrl = (payload.user_id && isBulkEmail(payload.template_key))
+    ? `${SUPABASE_URL}/functions/v1/unsubscribe?u=${encodeURIComponent(payload.user_id)}&t=${await unsubToken(payload.user_id)}`
+    : ''
+
   const bodyHtml = tpl.body_html && String(tpl.body_html).trim()
     ? render(tpl.body_html, vars)
-    : buildHtml(subject, render(tpl.body_text, boldPlanVars(vars)), tpl.category)
+    : buildHtml(subject, render(tpl.body_text, boldPlanVars(vars)), tpl.category, unsubUrl || undefined)
 
   // ── Provider ────────────────────────────────────────────────────────────────
   if (!RESEND_API_KEY) {
@@ -198,6 +220,9 @@ Deno.serve(async (req: Request) => {
         subject,
         html: bodyHtml,
         text: bodyText,
+        // List-Unsubscribe (RFC 8058): botão "cancelar inscrição" nativo do Gmail/Yahoo,
+        // 1 clique, sem login. Só nos e-mails de acompanhamento.
+        ...(unsubUrl ? { headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
       }),
     })
     const result = await res.json().catch(() => ({}))

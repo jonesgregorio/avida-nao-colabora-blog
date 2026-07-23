@@ -57,3 +57,8 @@ verify_jwt = false
 # run-lifecycle-emails é chamada pelo pg_cron via pg_net (autentica por token).
 [functions.run-lifecycle-emails]
 verify_jwt = false
+
+# unsubscribe é PÚBLICA (link de descadastro no e-mail e one-click do Gmail/Yahoo):
+# valida o token HMAC dentro da função, então o gateway não deve exigir JWT.
+[functions.unsubscribe]
+verify_jwt = false
