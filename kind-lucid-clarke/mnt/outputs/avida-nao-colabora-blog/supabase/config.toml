@@ -62,3 +62,8 @@ verify_jwt = false
 # valida o token HMAC dentro da função, então o gateway não deve exigir JWT.
 [functions.unsubscribe]
 verify_jwt = false
+
+# resend-webhook é chamada pelo Resend (sem JWT do Supabase); valida a assinatura
+# Svix internamente quando RESEND_WEBHOOK_SECRET está setada.
+[functions.resend-webhook]
+verify_jwt = false

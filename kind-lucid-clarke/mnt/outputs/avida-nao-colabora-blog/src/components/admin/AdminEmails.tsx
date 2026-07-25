@@ -18,6 +18,9 @@ interface EmailLog {
   metadata: { variables?: Record<string, unknown> } | null
   created_at: string
   sent_at: string | null
+  delivered_at: string | null
+  opened_at: string | null
+  bounced_at: string | null
 }
 
 interface EmailTemplate {
@@ -35,9 +38,12 @@ const PLAN_LABELS: Record<string, string> = {
 }
 
 const STATUS_STYLE: Record<string, { cls: string; icon: typeof CheckCircle; label: string }> = {
-  sent:    { cls: 'text-forest-800 bg-mint border-forest-200', icon: CheckCircle, label: 'Enviado' },
-  failed:  { cls: 'text-red-700 bg-red-50 border-red-200',             icon: XCircle,     label: 'Falhou' },
-  pending: { cls: 'text-amber-700 bg-amber-50 border-amber-200',       icon: Clock,       label: 'Pendente' },
+  sent:      { cls: 'text-forest-800 bg-mint border-forest-200',   icon: CheckCircle, label: 'Enviado' },
+  delivered: { cls: 'text-forest-800 bg-mint border-forest-200',   icon: CheckCircle, label: 'Entregue' },
+  bounced:   { cls: 'text-red-700 bg-red-50 border-red-200',       icon: XCircle,     label: 'Rejeitado' },
+  complained:{ cls: 'text-orange-700 bg-orange-50 border-orange-200', icon: XCircle,  label: 'Spam' },
+  failed:    { cls: 'text-red-700 bg-red-50 border-red-200',       icon: XCircle,     label: 'Falhou' },
+  pending:   { cls: 'text-amber-700 bg-amber-50 border-amber-200', icon: Clock,       label: 'Pendente' },
 }
 
 function fmt(iso: string | null): string {
@@ -64,7 +70,7 @@ function fillPreview(text: string): string {
 }
 
 interface EmailStats {
-  totals: { sent: number; failed: number; pending: number; total: number }
+  totals: { sent: number; delivered: number; opened: number; bounced: number; failed: number; pending: number; total: number }
   by_trigger: { template_key: string; sent: number; failed: number; total: number }[]
   by_plan: { plan: string; sent: number; total: number }[]
   opt_outs: { master_off: number; selfcare_off: number; report_off: number; care_plan_off: number; product_off: number }
@@ -178,11 +184,13 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
       {!loading && tab === 'resumo' && (
         <div className="space-y-5">
           {/* Totais + taxa de erro */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {([
-              ['Enviados', stats?.totals.sent ?? 0, 'text-forest-700'],
+              ['Aceitos (Enviado)', stats?.totals.sent ?? 0, 'text-forest-700'],
+              ['Entregues', stats?.totals.delivered ?? 0, 'text-forest-700'],
+              ['Abertos', stats?.totals.opened ?? 0, 'text-forest-700'],
+              ['Rejeitados (bounce)', stats?.totals.bounced ?? 0, 'text-red-600'],
               ['Falhas', stats?.totals.failed ?? 0, 'text-red-600'],
-              ['Pendentes', stats?.totals.pending ?? 0, 'text-amber-600'],
               ['Total', stats?.totals.total ?? 0, 'text-stone-700'],
             ] as [string, number, string][]).map(([label, n, tone]) => (
               <div key={label} className="bg-white border border-line rounded-2xl p-4">
@@ -191,8 +199,8 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
               </div>
             ))}
           </div>
-          <p className="text-xs text-ink-soft">
-            Taxa de erro: <strong className="text-forest-900">{stats && stats.totals.total > 0 ? Math.round((stats.totals.failed / stats.totals.total) * 100) : 0}%</strong> · Números sobre TODOS os envios registrados (não só os últimos 200 da aba Logs).
+          <p className="text-xs text-ink-soft leading-relaxed">
+            <strong className="text-forest-900">Aceito (Enviado)</strong> = o Resend aceitou a chamada. <strong className="text-forest-900">Entregue</strong> = confirmado pelo provedor do destinatário (via webhook do Resend). Um e-mail "Entregue" ainda pode cair em Spam/Promoções — isso o provedor decide. Números sobre TODOS os envios (não só os últimos 200 da aba Logs).
           </p>
 
           <div className="grid lg:grid-cols-2 gap-4">
@@ -291,6 +299,8 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
                     <tr key={log.id} className="border-b border-line hover:bg-stone-50/50">
                       <td className="py-2.5 px-3">
                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${st.cls}`}><Icon className="w-3 h-3" />{st.label}</span>
+                        {log.delivered_at && log.status === 'sent' && <span className="ml-1 text-[10px] text-forest-700">✓ entregue</span>}
+                        {log.opened_at && <span className="ml-1 text-[10px] text-blue-600">aberto</span>}
                         {(log.error_message || log.error) && <p className="text-[10px] text-red-500 mt-0.5 max-w-[200px] truncate">{log.error_message || log.error}</p>}
                       </td>
                       <td className="py-2.5 px-3 text-stone-700 text-xs">{log.to_email ?? log.email ?? '—'}</td>
