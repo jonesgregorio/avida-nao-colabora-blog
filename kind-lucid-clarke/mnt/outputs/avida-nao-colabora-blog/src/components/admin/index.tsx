@@ -9,6 +9,7 @@ import AdminOverview from './AdminOverview'
 import AdminUsers from './AdminUsers'
 import AdminEngagement from './AdminEngagement'
 import AdminPlanosPage from './AdminPlanosPage'
+import AdminCancellations from './AdminCancellations'
 import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
 import AdminFinanceiro from './AdminFinanceiro'
 import AdminAreaOrientacao from './AdminAreaOrientacao'
@@ -27,7 +28,7 @@ const ADMIN_KEY = 'avida_admin_view'
 // "visao-geral" — por isso adicionar um item no menu exige registrá-lo AQUI
 // também, senão ele existe mas não abre.
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'engajamento', 'planos', 'conteudos', 'analytics', 'financeiro',
+  'visao-geral', 'usuarios', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'analytics', 'financeiro',
   'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
 ]
 
@@ -165,6 +166,7 @@ export default function AdminPanel() {
       case 'usuarios': return <AdminUsers />
       case 'engajamento': return <AdminEngagement />
       case 'planos': return <AdminPlanosPage />
+      case 'cancelamentos': return <AdminCancellations />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'financeiro': return <AdminFinanceiro />

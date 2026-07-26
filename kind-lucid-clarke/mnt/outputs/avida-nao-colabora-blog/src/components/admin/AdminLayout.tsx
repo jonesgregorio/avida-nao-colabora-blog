@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart, CalendarCheck,
-  MessageSquare, Mail, LifeBuoy, Settings2, Activity,
+  MessageSquare, Mail, LifeBuoy, Settings2, Activity, Ban,
   ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { id: 'usuarios', label: 'Usuários', icon: Users },
   { id: 'engajamento', label: 'Engajamento', icon: Activity },
   { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard },
+  { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
   { id: 'conteudos', label: 'Conteúdo & IA', icon: BookOpen },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'financeiro', label: 'Financeiro', icon: DollarSign },

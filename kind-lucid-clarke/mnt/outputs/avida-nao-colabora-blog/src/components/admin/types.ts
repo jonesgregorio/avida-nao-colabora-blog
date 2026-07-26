@@ -4,6 +4,7 @@ export type AdminAreaView =
   | 'usuarios'
   | 'engajamento'
   | 'planos'
+  | 'cancelamentos'
   | 'conteudos'
   | 'fabrica-ia'
   | 'calendario'

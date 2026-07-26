@@ -4,7 +4,7 @@ import type { AdminView } from './types'
 import {
   Users, CreditCard, Clock, MessageSquare, RefreshCw, ArrowRight,
   MessageCircle, LifeBuoy, BarChart3, CalendarCheck, AlertTriangle,
-  UserPlus, TrendingUp, Mail, Database, Cpu, HardDrive, ChevronRight,
+  UserPlus, TrendingUp, Mail, Database, Cpu, HardDrive, ChevronRight, Ban,
 } from 'lucide-react'
 
 interface OverviewProps {
@@ -21,11 +21,12 @@ interface Counts {
   reportsToReview: number
   selfCarePending: number
   emailFailures: number
+  pendingCancellations: number
 }
 
 const EMPTY: Counts = {
   users: 0, newUsers7d: 0, paid: 0, pendingComments: 0, pendingGuidance: 0,
-  openTickets: 0, reportsToReview: 0, selfCarePending: 0, emailFailures: 0,
+  openTickets: 0, reportsToReview: 0, selfCarePending: 0, emailFailures: 0, pendingCancellations: 0,
 }
 
 // conta defensiva — 0 se a tabela/coluna não existir
@@ -49,7 +50,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
     const users = await safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }))
     setDbOk(true)
-    const [newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures] = await Promise.all([
+    const [newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, pendingCancellations] = await Promise.all([
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', since)),
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).in('plan', ['essential', 'plus'])),
       safeCount(() => supabase.from('professional_comments').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
@@ -58,8 +59,9 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       safeCount(() => supabase.from('monthly_reports').select('*', { count: 'exact', head: true }).eq('status', 'draft')),
       safeCount(() => supabase.from('self_care_plans').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
       safeCount(() => supabase.from('email_logs').select('*', { count: 'exact', head: true }).eq('status', 'failed')),
+      safeCount(() => supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted')),
     ])
-    setC({ users, newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures })
+    setC({ users, newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, pendingCancellations })
 
     // Atividade recente (novos usuários + mudanças de plano)
     const acts: Activity[] = []
@@ -82,7 +84,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
 
   useEffect(() => { load() }, [])
 
-  const pendencias = c.pendingComments + c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures
+  const pendencias = c.pendingComments + c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.pendingCancellations
 
   const cards = [
     { label: 'Usuários ativos', value: c.users, delta: c.newUsers7d > 0 ? `+${c.newUsers7d} nesta semana` : 'Total de contas', Icon: Users, bg: 'bg-mint', color: 'text-forest-600' },
@@ -98,6 +100,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     { Icon: BarChart3, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Relatórios a revisar', sub: 'Relatórios mensais aguardando revisão', qtd: c.reportsToReview, nav: 'pdf' as AdminView },
     { Icon: CalendarCheck, color: 'text-forest-600', bg: 'bg-mint', title: 'Planos de autocuidado pendentes', sub: 'Aguardando geração ou envio', qtd: c.selfCarePending, nav: 'self-care-plans' as AdminView },
     { Icon: AlertTriangle, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas de e-mail ou IA', sub: 'Eventos que precisam de atenção', qtd: c.emailFailures, nav: 'notifications' as AdminView },
+    { Icon: Ban, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Cancelamentos a revisar', sub: 'Pedidos de cancelamento aguardando resposta', qtd: c.pendingCancellations, nav: 'cancelamentos' as AdminView },
   ]
 
   // Saúde básica (mockup): DB/E-mails/IA operacionais, Pagamentos em teste.

@@ -145,6 +145,16 @@ export function emailDiaryLimitReached(userId: string, toEmail: string, nome: st
   })
 }
 
+// Resposta do admin a uma solicitação de cancelamento (retenção). Mensagem livre.
+export function emailCancellationReply(userId: string, toEmail: string, nome: string, mensagem: string, feedbackId: string) {
+  return sendTransactionalEmail({
+    userId, toEmail, templateKey: 'cancellation_reply',
+    variables: { nome, mensagem, link_meu_plano: LINKS.meuPlano },
+    relatedType: 'cancellation_feedback', relatedId: feedbackId,
+    idempotencyKey: `cancellation_reply:${feedbackId}:${Date.now()}`,
+  })
+}
+
 // ─── Wrappers "ForUser": buscam email/nome do perfil e disparam ────────────────
 // (admin lê perfil de outros via RLS de admin; usuário lê o próprio)
 async function recipientOf(userId: string): Promise<{ email?: string; nome: string }> {

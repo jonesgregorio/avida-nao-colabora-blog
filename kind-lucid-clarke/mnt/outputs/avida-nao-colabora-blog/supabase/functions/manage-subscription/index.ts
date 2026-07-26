@@ -72,6 +72,14 @@ const fmtBR = (iso: string): string => {
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
+// Rótulos dos motivos p/ o e-mail de alerta ao admin (Deno não importa cancelReasons).
+const REASON_LABELS_PT: Record<string, string> = {
+  financial: 'Financeiro', bugs: 'Erros ou bugs', missing_feature: 'Falta de funcionalidade',
+  content_not_expected: 'Conteúdo não atendeu', chose_competitor: 'Preferiu outro serviço',
+  did_not_understand_features: 'Não entendeu os recursos', other: 'Outro motivo',
+}
+const reasonsLabelPt = (rs: string[]): string => rs.map((r) => REASON_LABELS_PT[r] ?? r).join(', ')
+
 // Dispara e-mail transacional (nunca quebra o fluxo — erro só é logado).
 async function sendTxEmail(templateKey: string, toEmail: string | null | undefined, variables: Record<string, unknown>, idempotencyKey: string, userId?: string | null): Promise<void> {
   if (!toEmail) return
@@ -318,6 +326,20 @@ Deno.serve(async (req) => {
         data_fim_ciclo: fmtBR(effectiveAt),
         link_meu_plano: `${SITE}/meu-plano`,
       }, `plan_cancel_requested:${user.id}:${effectiveAt}`, user.id)
+
+      // Alerta ao(s) admin(s): a solicitação "vem até você" com o motivo. Best-effort.
+      try {
+        const { data: admins } = await supabase.from('profiles').select('email').eq('role', 'admin').not('email', 'is', null)
+        for (const a of (admins ?? []) as { email: string }[]) {
+          await sendTxEmail('admin_cancellation_alert', a.email, {
+            usuario: profile?.full_name || profile?.email || user.email || '—',
+            plano: planLabel(currentPlan),
+            motivo: reasonsLabelPt(reasons),
+            comentario: comment || '—',
+            link_admin: `${SITE}/admin`,
+          }, `admin_cancel_alert:${user.id}:${effectiveAt}:${a.email}`, null)
+        }
+      } catch (e) { console.error('admin_cancellation_alert:', (e as Error).message) }
 
       return jsonResponse({
         ok: true,
