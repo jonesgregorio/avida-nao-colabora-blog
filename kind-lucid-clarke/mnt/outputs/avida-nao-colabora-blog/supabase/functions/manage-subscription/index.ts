@@ -68,6 +68,22 @@ const fmtBR = (iso: string): string => {
     d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
   return d.toLocaleDateString('pt-BR', { timeZone: isCalendarDate ? 'UTC' : BILLING_TZ })
 }
+
+// Projeta um fim de ciclo VENCIDO para a próxima fronteira futura, em passos de 30
+// dias — MESMA regra do front (lib/billingCycle.ts → rollForward). Um
+// current_period_end no passado é dado estragado (webhook atrasado ou linha escrita
+// à mão) e não pode virar a data mostrada ao usuário. Sem isto, o e-mail e o banner
+// mostravam a data vencida (14/07) enquanto a tela, que já projeta, mostrava a certa.
+const MS_PER_CYCLE = 30 * 86_400_000
+const rollForwardIso = (iso: string, now: Date = new Date()): string => {
+  const boundary = new Date(iso)
+  if (Number.isNaN(boundary.getTime())) return iso
+  const diff = now.getTime() - boundary.getTime()
+  if (diff <= 0) return boundary.toISOString()
+  const cycles = Math.ceil(diff / MS_PER_CYCLE)
+  return new Date(boundary.getTime() + cycles * MS_PER_CYCLE).toISOString()
+}
+
 // Hierarquia — distingue upgrade (subiu) de downgrade (desceu).
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
@@ -224,12 +240,14 @@ Deno.serve(async (req) => {
     if (stripeSubId) {
       try {
         const s = await stripe.subscriptions.retrieve(stripeSubId)
-        if (s.current_period_end) return new Date(s.current_period_end * 1000).toISOString()
+        // Assinatura real: o Stripe mantém o fim de ciclo sempre no futuro, então o
+        // rollForward é no-op aqui — só protege dados de teste/legado sem renovação.
+        if (s.current_period_end) return rollForwardIso(new Date(s.current_period_end * 1000).toISOString())
       } catch (e) {
         console.error('resolvePeriodEnd (Stripe):', (e as Error).message)
       }
     }
-    return sub?.current_period_end ?? null
+    return sub?.current_period_end ? rollForwardIso(sub.current_period_end) : null
   }
 
   try {
@@ -327,18 +345,18 @@ Deno.serve(async (req) => {
         link_meu_plano: `${SITE}/meu-plano`,
       }, `plan_cancel_requested:${user.id}:${effectiveAt}`, user.id)
 
-      // Alerta ao(s) admin(s): a solicitação "vem até você" com o motivo. Best-effort.
+      // Alerta ao admin: vai SÓ para a caixa oficial do negócio — NUNCA para todos os
+      // perfis admin (o próprio solicitante pode ser admin e receberia o aviso do
+      // próprio cancelamento). Configurável por env, com o e-mail oficial como padrão.
       try {
-        const { data: admins } = await supabase.from('profiles').select('email').eq('role', 'admin').not('email', 'is', null)
-        for (const a of (admins ?? []) as { email: string }[]) {
-          await sendTxEmail('admin_cancellation_alert', a.email, {
-            usuario: profile?.full_name || profile?.email || user.email || '—',
-            plano: planLabel(currentPlan),
-            motivo: reasonsLabelPt(reasons),
-            comentario: comment || '—',
-            link_admin: `${SITE}/admin`,
-          }, `admin_cancel_alert:${user.id}:${effectiveAt}:${a.email}`, null)
-        }
+        const adminEmail = Deno.env.get('ADMIN_ALERT_EMAIL') || 'contato@avidanaocolabora.com'
+        await sendTxEmail('admin_cancellation_alert', adminEmail, {
+          usuario: profile?.full_name || profile?.email || user.email || '—',
+          plano: planLabel(currentPlan),
+          motivo: reasonsLabelPt(reasons),
+          comentario: comment || '—',
+          link_admin: `${SITE}/admin`,
+        }, `admin_cancel_alert:${user.id}:${effectiveAt}`, null)
       } catch (e) { console.error('admin_cancellation_alert:', (e as Error).message) }
 
       return jsonResponse({
