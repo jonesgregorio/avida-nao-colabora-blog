@@ -24,6 +24,9 @@ interface Payload {
   related_entity_type?: string
   related_entity_id?: string
   idempotency_key?: string
+  // Metadados extras gravados junto do log (ex.: envio admin 1:1 guarda quem
+  // enviou e o modelo usado). Aditivo: chamadores antigos simplesmente não passam.
+  metadata?: Record<string, unknown>
 }
 
 function escapeHtml(s: string): string {
@@ -144,6 +147,17 @@ Deno.serve(async (req: Request) => {
     if (!isAdmin && !isSelf) return json({ error: 'Sem permissão para este envio' }, 403)
   }
 
+  // Envio administrativo 1:1 (Admin > Usuários): garante, no servidor, que o
+  // destinatário É mesmo o usuário selecionado — o campo vem travado no front,
+  // mas não confiamos só nisso. Bloqueia qualquer e-mail para endereço divergente.
+  if ((payload.metadata as Record<string, unknown> | undefined)?.kind === 'admin_user_email' && payload.user_id) {
+    const { data: target } = await admin.from('profiles').select('email').eq('user_id', payload.user_id).maybeSingle()
+    const targetEmail = (target?.email ?? '').toLowerCase()
+    if (!targetEmail || targetEmail !== payload.to_email.toLowerCase()) {
+      return json({ error: 'Destinatário não confere com o usuário selecionado' }, 403)
+    }
+  }
+
   // ── Idempotência: insere log 'pending' primeiro (índice único protege) ──────
   const insertRow: Record<string, unknown> = {
     user_id: payload.user_id ?? null,
@@ -155,7 +169,7 @@ Deno.serve(async (req: Request) => {
     related_entity_type: payload.related_entity_type ?? null,
     related_entity_id: payload.related_entity_id ?? null,
     idempotency_key: payload.idempotency_key ?? null,
-    metadata: { variables: payload.variables ?? {} },
+    metadata: { variables: payload.variables ?? {}, ...(payload.metadata ?? {}) },
   }
 
   const { data: logRow, error: insertErr } = await admin

@@ -6,13 +6,15 @@ interface Template {
   id: string
   title: string
   category: string | null
+  subject: string | null
   body: string
+  usage_context: string
   is_active: boolean
   is_favorite: boolean
   updated_at: string
 }
 
-const EMPTY = { title: '', category: '', body: '', is_active: true, is_favorite: false }
+const EMPTY = { title: '', category: '', subject: '', body: '', usage_context: 'both', is_active: true, is_favorite: false }
 
 export default function AdminReplyTemplates({ onBack }: { onBack?: () => void }) {
   const [items, setItems] = useState<Template[]>([])
@@ -27,7 +29,7 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
   async function load() {
     setLoading(true)
     const { data, error } = await supabase.from('support_reply_templates')
-      .select('id, title, category, body, is_active, is_favorite, updated_at')
+      .select('id, title, category, subject, body, usage_context, is_active, is_favorite, updated_at')
       .order('category').order('title')
     if (error) setMissing(true)
     setItems((data as Template[]) ?? [])
@@ -37,13 +39,13 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
 
   function open(t: Template | 'new') {
     setSel(t)
-    setForm(t === 'new' ? EMPTY : { title: t.title, category: t.category ?? '', body: t.body, is_active: t.is_active, is_favorite: t.is_favorite })
+    setForm(t === 'new' ? EMPTY : { title: t.title, category: t.category ?? '', subject: t.subject ?? '', body: t.body, usage_context: t.usage_context ?? 'both', is_active: t.is_active, is_favorite: t.is_favorite })
   }
 
   async function save() {
     if (!form.title.trim() || !form.body.trim()) { flash('Título e corpo são obrigatórios.', true); return }
     setSaving(true)
-    const payload = { title: form.title, category: form.category || null, body: form.body, is_active: form.is_active, is_favorite: form.is_favorite, updated_at: new Date().toISOString() }
+    const payload = { title: form.title, category: form.category || null, subject: form.subject || null, body: form.body, usage_context: form.usage_context || 'both', is_active: form.is_active, is_favorite: form.is_favorite, updated_at: new Date().toISOString() }
     const { error } = sel === 'new'
       ? await supabase.from('support_reply_templates').insert(payload)
       : await supabase.from('support_reply_templates').update(payload).eq('id', (sel as Template).id)
@@ -78,9 +80,24 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
             <div><label className="block text-xs text-stone-500 mb-1">Título</label><input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputCls} /></div>
             <div><label className="block text-xs text-stone-500 mb-1">Categoria</label><input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="Ex: Planos, Suporte..." className={inputCls} /></div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Assunto (e-mail)</label>
+              <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Usado ao enviar como e-mail; vazio = título" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Onde aparece</label>
+              <select value={form.usage_context} onChange={e => setForm(f => ({ ...f, usage_context: e.target.value }))} className={inputCls}>
+                <option value="both">Suporte e e-mail</option>
+                <option value="support">Só resposta de suporte</option>
+                <option value="user_email">Só e-mail ao usuário</option>
+              </select>
+            </div>
+          </div>
           <div>
             <label className="block text-xs text-stone-500 mb-1">Corpo da resposta</label>
             <textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} rows={10} className={`${inputCls} leading-relaxed`} />
+            <p className="text-[11px] text-stone-400 mt-1">Variáveis (no e-mail ao usuário): {'{{nome}}'}, {'{{email}}'}, {'{{plano}}'}, {'{{data_atual}}'}, {'{{meu_plano_url}}'}, {'{{suporte_url}}'}.</p>
           </div>
           <div className="flex items-center gap-4">
             <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-forest-700" /> Ativo</label>

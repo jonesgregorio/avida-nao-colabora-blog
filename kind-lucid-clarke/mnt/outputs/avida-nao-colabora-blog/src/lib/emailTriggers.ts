@@ -37,6 +37,7 @@ interface EmailArgs {
   relatedType?: string
   relatedId?: string
   idempotencyKey?: string
+  metadata?: Record<string, unknown>
 }
 
 export async function sendTransactionalEmail(args: EmailArgs): Promise<{ ok: boolean; error?: string }> {
@@ -50,6 +51,7 @@ export async function sendTransactionalEmail(args: EmailArgs): Promise<{ ok: boo
         related_entity_type: args.relatedType,
         related_entity_id: args.relatedId,
         idempotency_key: args.idempotencyKey,
+        metadata: args.metadata,
       },
     })
     if (error) return { ok: false, error: error.message }
@@ -205,4 +207,61 @@ export async function emailDiaryLimitWarningForUser(userId: string, monthKey: st
 export async function emailDiaryLimitReachedForUser(userId: string, monthKey: string) {
   const { email, nome } = await recipientOf(userId)
   if (email) void emailDiaryLimitReached(userId, email, nome, monthKey)
+}
+
+// ─── E-mail manual do admin para um usuário (Admin > Usuários > Comunicação) ────
+// Reaproveita o template genérico `admin_custom_message` ({{assunto}}/{{corpo}}):
+// o admin escreve/edita livremente e enviamos via a MESMA Edge Function, com todo
+// o branding/log já existente. Nada de provedor novo nem lógica de envio duplicada.
+
+const ADMIN_EMAIL_PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus', therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
+}
+
+/** Variáveis dinâmicas disponíveis nos modelos de e-mail administrativo. */
+export function adminEmailVars(u: { full_name?: string | null; email?: string | null; plan?: string | null }): Record<string, string> {
+  return {
+    nome: (u.full_name ?? '').trim() || 'Olá',
+    email: u.email ?? '',
+    plano: (u.plan && ADMIN_EMAIL_PLAN_LABELS[u.plan]) || 'Gratuito',
+    data_atual: new Date().toLocaleDateString('pt-BR'),
+    app_url: APP,
+    suporte_url: LINKS.suporte,
+    meu_plano_url: LINKS.meuPlano,
+  }
+}
+
+/** Substitui {{chave}} pelas variáveis; desconhecidas viram string vazia. */
+export function fillTemplateVars(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => (key in vars ? vars[key] : ''))
+}
+
+export interface AdminUserEmailInput {
+  userId: string
+  toEmail: string
+  assunto: string
+  corpo: string
+  adminId?: string | null
+  adminEmail?: string | null
+  templateId?: string | null
+  templateTitle?: string | null
+}
+
+export function sendAdminUserEmail(p: AdminUserEmailInput): Promise<{ ok: boolean; error?: string }> {
+  return sendTransactionalEmail({
+    userId: p.userId,
+    toEmail: p.toEmail,
+    templateKey: 'admin_custom_message',
+    variables: { assunto: p.assunto, corpo: p.corpo },
+    relatedType: 'admin_user_email',
+    relatedId: p.userId,
+    idempotencyKey: `admin_user_email:${p.userId}:${Date.now()}`,
+    metadata: {
+      kind: 'admin_user_email',
+      sent_by_admin_id: p.adminId ?? null,
+      sent_by_admin_email: p.adminEmail ?? null,
+      template_id: p.templateId ?? null,
+      template_title: p.templateTitle ?? null,
+    },
+  })
 }

@@ -201,9 +201,13 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
   const [showTemplatePanel, setShowTemplatePanel] = useState(false)
 
   useEffect(() => {
-    supabase.from('support_reply_templates').select('id,title,category,body').eq('is_active', true).order('category').order('title').then(({ data }) => {
-      if (data && data.length > 0) setTemplates(data as ReplyTemplate[])
-    })
+    // Só modelos voltados a resposta de ticket (usage_context 'support'/'both').
+    // Modelos criados só para e-mail administrativo ('user_email') não entram aqui.
+    // Os modelos EXISTENTES têm default 'both', então nada some do Suporte.
+    supabase.from('support_reply_templates').select('id,title,category,body').eq('is_active', true)
+      .in('usage_context', ['support', 'both']).order('category').order('title').then(({ data }) => {
+        if (data && data.length > 0) setTemplates(data as ReplyTemplate[])
+      })
   }, [])
 
   const bottomRef = useRef<HTMLDivElement>(null)

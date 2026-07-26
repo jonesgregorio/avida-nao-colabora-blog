@@ -9,9 +9,11 @@ import {
   Search, X, Users, Crown, Bell, FileText, Star, XCircle,
   MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
   LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle, Download,
+  Mail, ChevronDown,
 } from 'lucide-react'
 import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
+import AdminSendUserEmail from './AdminSendUserEmail'
 
 interface UserRow {
   id: string
@@ -125,7 +127,18 @@ function timeSince(iso: string): string {
 
 const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
-type DrawerTab = 'resumo' | 'plano' | 'mapa' | 'orientacoes' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
+type DrawerTab = 'resumo' | 'plano' | 'mapa' | 'orientacoes' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'comunicacao' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
+
+// Log de e-mail administrativo enviado ao usuário (template_key = admin_custom_message).
+interface EmailLogRow {
+  id: string
+  created_at: string
+  sent_at: string | null
+  subject: string | null
+  status: string | null
+  error_message: string | null
+  metadata: { variables?: { assunto?: string; corpo?: string }; template_title?: string | null; sent_by_admin_email?: string | null } | null
+}
 
 interface AISummaryRow {
   id: string
@@ -168,6 +181,11 @@ export default function AdminUsers() {
   const [userGuidance, setUserGuidance] = useState<{ id: string; month_key: string; status: string; created_at: string; message: string | null }[]>([])
   const [lastDiary, setLastDiary] = useState<string | null>(null)
   const [loadingDrawer, setLoadingDrawer] = useState(false)
+  // Comunicação: e-mails manuais enviados pelo admin a este usuário
+  const [emailHistory, setEmailHistory] = useState<EmailLogRow[]>([])
+  const [loadingEmailHistory, setLoadingEmailHistory] = useState(false)
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
+  const [showEmailModal, setShowEmailModal] = useState(false)
 
   // Summary stats
   const [stats, setStats] = useState({
@@ -329,6 +347,21 @@ export default function AdminUsers() {
       unreadNotifs: (notifRes.data || []).filter((n: NotifRow) => !n.is_read).length,
     })
     setLoadingDrawer(false)
+    void loadEmailHistory(userId)
+  }
+
+  // Histórico de e-mails manuais enviados pelo admin (RLS de admin permite o SELECT).
+  async function loadEmailHistory(userId: string) {
+    setLoadingEmailHistory(true)
+    const { data } = await supabase
+      .from('email_logs')
+      .select('id, created_at, sent_at, subject, status, error_message, metadata')
+      .eq('user_id', userId)
+      .eq('template_key', 'admin_custom_message')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setEmailHistory((data as EmailLogRow[]) ?? [])
+    setLoadingEmailHistory(false)
   }
 
   async function loadAiSummaries(userId: string) {
@@ -843,6 +876,7 @@ export default function AdminUsers() {
     { key: 'acesso', label: 'Acesso' },
     { key: 'suporte', label: 'Suporte' },
     { key: 'notificacoes', label: 'Notificações' },
+    { key: 'comunicacao', label: 'Comunicação' },
     { key: 'uso', label: 'Uso' },
     { key: 'descontos', label: 'Descontos' },
     { key: 'notas', label: 'Notas' },
@@ -1502,6 +1536,84 @@ export default function AdminUsers() {
                   </div>
                 )}
 
+                {/* Tab: Comunicação — enviar e-mail + histórico */}
+                {drawerTab === 'comunicacao' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-forest-900">E-mails enviados</h3>
+                        <p className="text-xs text-stone-400">Mensagens manuais enviadas por você a este usuário.</p>
+                      </div>
+                      <button
+                        onClick={() => setShowEmailModal(true)}
+                        disabled={!selectedUser.email}
+                        title={selectedUser.email ? '' : 'Este usuário não possui e-mail cadastrado.'}
+                        className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50 flex-shrink-0"
+                      >
+                        <Mail className="w-3.5 h-3.5" /> Enviar e-mail
+                      </button>
+                    </div>
+
+                    {!selectedUser.email && (
+                      <div className="flex items-start gap-2 text-xs px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        Este usuário não possui e-mail cadastrado.
+                      </div>
+                    )}
+
+                    {loadingEmailHistory ? (
+                      <div className="flex items-center gap-2 text-sm text-stone-400 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
+                    ) : emailHistory.length === 0 ? (
+                      <div className="text-center py-10 text-stone-400">
+                        <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Nenhum e-mail enviado ainda.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {emailHistory.map(e => {
+                          const status = e.status ?? 'pending'
+                          const statusCls = status === 'sent' ? 'bg-green-100 text-green-700'
+                            : status === 'failed' ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                          const statusLabel = status === 'sent' ? 'Enviado' : status === 'failed' ? 'Falhou' : 'Pendente'
+                          const corpo = e.metadata?.variables?.corpo ?? ''
+                          const expanded = expandedEmailId === e.id
+                          return (
+                            <div key={e.id} className="rounded-xl border border-line bg-white p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-forest-900 truncate">{e.subject || '(sem assunto)'}</p>
+                                  <p className="text-xs text-stone-400 mt-0.5">
+                                    {new Date(e.sent_at ?? e.created_at).toLocaleString('pt-BR')}
+                                    {e.metadata?.template_title ? <> · modelo: {e.metadata.template_title}</> : null}
+                                    {e.metadata?.sent_by_admin_email ? <> · por {e.metadata.sent_by_admin_email}</> : null}
+                                  </p>
+                                </div>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${statusCls}`}>{statusLabel}</span>
+                              </div>
+                              {status === 'failed' && e.error_message && (
+                                <p className="text-[11px] text-red-600 mt-1.5">{e.error_message}</p>
+                              )}
+                              <button
+                                onClick={() => setExpandedEmailId(expanded ? null : e.id)}
+                                className="inline-flex items-center gap-1 text-xs text-forest-700 hover:text-forest-900 mt-2"
+                              >
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                                {expanded ? 'Ocultar conteúdo' : 'Ver conteúdo'}
+                              </button>
+                              {expanded && (
+                                <div className="mt-2 pt-2 border-t border-line text-sm text-ink leading-relaxed whitespace-pre-wrap">
+                                  {corpo || '(conteúdo indisponível)'}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Tab: Uso */}
                 {drawerTab === 'uso' && (
                   <div className="grid grid-cols-1 gap-3">
@@ -1936,6 +2048,16 @@ export default function AdminUsers() {
       )}
 
       {/* Send message modal */}
+      {showEmailModal && selectedUser && (
+        <AdminSendUserEmail
+          user={{ user_id: selectedUser.user_id, full_name: selectedUser.full_name, email: selectedUser.email, plan: selectedUser.plan }}
+          adminId={adminUser?.id ?? null}
+          adminEmail={adminUser?.email ?? null}
+          onClose={() => setShowEmailModal(false)}
+          onSent={() => { if (selectedUser) void loadEmailHistory(selectedUser.user_id) }}
+        />
+      )}
+
       {showMsgModal && selectedUser && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
