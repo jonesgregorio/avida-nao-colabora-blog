@@ -66,7 +66,7 @@ function isBulkEmail(key: string): boolean {
 }
 
 // Monta o HTML de marca a partir do texto (quando o template não tem body_html próprio)
-function buildHtml(subject: string, bodyText: string, category: string | null, unsubUrl?: string): string {
+function buildHtml(subject: string, bodyText: string, category: string | null): string {
   const paragraphs = bodyText.split('\n\n').map(block => {
     const safe = escapeHtml(block)
       .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#2f4232;">$1</strong>') // **destaque** → negrito na cor da marca
@@ -93,7 +93,6 @@ function buildHtml(subject: string, bodyText: string, category: string | null, u
       <p style="margin:0;color:#a8a29e;font-size:12px;font-family:Arial,sans-serif;line-height:1.6;">
         Você recebeu este e-mail porque é usuário de <strong>A Vida Não Colabora</strong>. O conteúdo completo fica dentro da sua conta.
       </p>
-      ${unsubUrl ? `<p style="margin:10px 0 0;color:#a8a29e;font-size:12px;font-family:Arial,sans-serif;line-height:1.6;"><a href="${unsubUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar o recebimento destes e-mails</a></p>` : ''}
       ${disclaimer}
     </div>
   </div>
@@ -197,9 +196,12 @@ Deno.serve(async (req: Request) => {
     ? `${SUPABASE_URL}/functions/v1/unsubscribe?u=${encodeURIComponent(payload.user_id)}&t=${await unsubToken(payload.user_id)}`
     : ''
 
+  // O cancelamento vai no cabeçalho List-Unsubscribe (não como link do corpo), para
+  // que TODOS os links visíveis fiquem no domínio do remetente (avidanaocolabora.com)
+  // — melhora a reputação/entregabilidade. O corpo já traz "gerenciar preferências".
   const bodyHtml = tpl.body_html && String(tpl.body_html).trim()
     ? render(tpl.body_html, vars)
-    : buildHtml(subject, render(tpl.body_text, boldPlanVars(vars)), tpl.category, unsubUrl || undefined)
+    : buildHtml(subject, render(tpl.body_text, boldPlanVars(vars)), tpl.category)
 
   // ── Provider ────────────────────────────────────────────────────────────────
   if (!RESEND_API_KEY) {
