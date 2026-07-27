@@ -1,12 +1,16 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Upload, Loader2, X, ImageIcon, Link2 } from 'lucide-react'
+import { Upload, Loader2, X, ImageIcon, Link2, Sparkles } from 'lucide-react'
+import { searchCoverImage } from '../../lib/imageSearch'
 
 interface Props {
   url: string
   alt: string
   onChangeUrl: (u: string) => void
   onChangeAlt: (a: string) => void
+  // Tema do artigo (título) e categoria — usados para buscar uma capa relacionada.
+  topic?: string
+  category?: string
 }
 
 // Limites: o bucket é público e a capa vai no topo do artigo — arquivo gigante
@@ -18,12 +22,29 @@ const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'i
 // de Mídia — leitura pública, escrita só por admin (RLS no storage.objects).
 // Antes, o editor só aceitava URL: era preciso subir o arquivo em outro lugar e
 // colar o link aqui.
-export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt }: Props) {
+export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt, topic, category }: Props) {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [arrastando, setArrastando] = useState(false)
   const [modoUrl, setModoUrl] = useState(false)
+  const [buscando, setBuscando] = useState(false)
   const inputFile = useRef<HTMLInputElement>(null)
+
+  // Busca uma capa relacionada ao tema (IA gera a busca visual → Pexels). Não
+  // sobrescreve um alt que a pessoa já escreveu.
+  async function buscarRelacionada() {
+    const tema = (topic ?? '').trim()
+    if (!tema) { setErro('Preencha o título do artigo primeiro para buscar uma imagem relacionada.'); return }
+    setErro(null); setBuscando(true)
+    try {
+      const img = await searchCoverImage(tema, category)
+      if (!img) { setErro('Não foi possível encontrar uma imagem relacionada agora. Tente de novo ou envie uma.'); return }
+      onChangeUrl(img.url)
+      if (!alt.trim()) onChangeAlt(img.alt)
+    } finally {
+      setBuscando(false)
+    }
+  }
 
   async function enviar(file: File) {
     setErro(null)
@@ -123,6 +144,17 @@ export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt }: 
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void enviar(f); e.target.value = '' }}
       />
+
+      {/* Capa relacionada ao tema: IA gera uma busca visual → foto do Pexels. */}
+      <button
+        type="button"
+        onClick={() => void buscarRelacionada()}
+        disabled={buscando || enviando}
+        className="w-full inline-flex items-center justify-center gap-2 text-xs bg-mint text-forest-800 hover:bg-forest-100 disabled:opacity-50 px-3 py-2 rounded-lg font-medium transition-colors"
+      >
+        {buscando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+        {buscando ? 'Buscando imagem relacionada…' : url ? 'Buscar outra imagem relacionada ao tema' : 'Buscar imagem relacionada ao tema'}
+      </button>
 
       {erro && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>

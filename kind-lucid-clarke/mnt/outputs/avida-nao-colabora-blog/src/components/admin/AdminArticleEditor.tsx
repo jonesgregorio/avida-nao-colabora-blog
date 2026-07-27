@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Save, Eye, Send, Sparkles, Loader2 } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
+import { searchCoverImage } from '../../lib/imageSearch'
 import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
@@ -308,10 +309,28 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     setTimeout(() => setToast(null), 4000)
   }
 
+  // Busca e define uma capa relacionada ao tema (IA gera a busca → Pexels).
+  // Silenciosa em caso de falha: a capa é secundária ao conteúdo.
+  async function autoCover(title: string, categoria: string, currentAlt: string) {
+    showToast('Buscando imagem de capa relacionada ao tema…')
+    try {
+      const img = await searchCoverImage(title, categoria)
+      if (img) {
+        set('image_url', img.url)
+        if (!currentAlt.trim()) set('image_alt', img.alt)
+        showToast('Capa relacionada ao tema definida.')
+      }
+    } catch { /* capa é secundária — não interrompe o fluxo */ }
+  }
+
   function handleAIInsert(result: string) {
     if (!aiModal) return
     switch (aiModal.type) {
-      case 'article':           set('content', result); set('origin', 'ia'); break
+      case 'article':
+        set('content', result); set('origin', 'ia')
+        // Capa automática relacionada ao tema, só se ainda não houver imagem.
+        if (!data.image_url.trim() && data.title.trim()) void autoCover(data.title, data.category, data.image_alt)
+        break
       case 'article_title':     set('title', result); break
       case 'article_summary':   set('summary', result); break
       case 'article_seo': {
@@ -733,6 +752,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               alt={data.image_alt}
               onChangeUrl={u => set('image_url', u)}
               onChangeAlt={a => set('image_alt', a)}
+              topic={data.title}
+              category={data.category}
             />
           </div>
 
