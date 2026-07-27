@@ -25,11 +25,12 @@ Regras de linguagem obrigatórias:
 // AIContentAssistant). A IA NUNCA escreve URL de vídeo (evita link inventado);
 // apenas emite o marcador ::video-query{...} e o servidor (generate-content)
 // resolve para um vídeo real do YouTube.
-export const VIDEO_MARKER_INSTRUCTION = `VÍDEOS DE REFERÊNCIA (opcional — só quando agregar valor real):
-- Se, e SOMENTE se, um vídeo ajudar de verdade o leitor (ex.: uma técnica de respiração, um exercício de relaxamento, uma prática guiada), insira em uma LINHA PRÓPRIA o marcador: ::video-query{termos de busca em português}
-- No máximo 1 ou 2 vídeos no artigo inteiro, e apenas onde faça sentido. Se não fizer sentido, NÃO inclua nenhum.
-- Use termos neutros, seguros e específicos do tema (ex.: ::video-query{exercício de respiração diafragmática para ansiedade}).
-- NUNCA escreva a URL do vídeo você mesmo — apenas o marcador ::video-query{...}. O sistema encontra o vídeo real automaticamente.`
+export const VIDEO_MARKER_INSTRUCTION = `VÍDEOS DE REFERÊNCIA (use com PARCIMÔNIA — a MAIORIA dos artigos NÃO precisa):
+- Só inclua um vídeo se ESTE artigo ensinar uma PRÁTICA CONCRETA, passo a passo (ex.: uma técnica específica), que um vídeo demonstraria melhor do que o texto. Artigos reflexivos, teóricos ou de opinião NÃO levam vídeo.
+- No MÁXIMO 1 vídeo no artigo inteiro. Na dúvida, NÃO inclua nenhum.
+- Quando (e só quando) fizer sentido, escreva em uma LINHA PRÓPRIA: ::video-query{termos de busca}
+- Os termos DEVEM descrever o tema ESPECÍFICO DESTE artigo — nunca um exemplo genérico, nunca os mesmos termos de outro artigo. Em português, neutros e seguros.
+- NUNCA escreva a URL do vídeo — apenas o marcador ::video-query{...}. O sistema encontra o vídeo real.`
 
 export type AITone =
   | 'acolhedor'
@@ -239,6 +240,7 @@ export async function generateArticleTitle(theme: string, opts: AICallOptions = 
   return callAI(
     `Gere 5 opções de título para um artigo de blog sobre saúde emocional com o tema: "${theme}".
 Os títulos devem ser acolhedores, simples, sem clickbait exagerado e sem prometer cura.
+Cada título com NO MÁXIMO 80 caracteres.
 Formate como uma lista numerada simples.`,
     { size: 'curto', ...opts }
   )
@@ -247,10 +249,10 @@ Formate como uma lista numerada simples.`,
 export async function generateArticleSummary(title: string, content: string, opts: AICallOptions = {}): Promise<string> {
   const preview = content.slice(0, 500)
   return callAI(
-    `Escreva um resumo de 2 a 3 frases para este artigo de blog:
+    `Escreva um resumo de 1 a 2 frases para este artigo de blog:
 Título: "${title}"
 Trecho: "${preview}"
-O resumo será exibido na listagem do site. Deve ser direto e convidativo.`,
+O resumo será exibido na listagem do site. Deve ser direto e convidativo, com NO MÁXIMO 200 caracteres (incluindo espaços). Não ultrapasse esse limite.`,
     { size: 'curto', ...opts }
   )
 }

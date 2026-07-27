@@ -125,7 +125,7 @@ ${VIDEO_MARKER_INSTRUCTION}`
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`
 
     case 'article_summary':
-      return `Escreva um resumo de 2 a 3 frases para um artigo.${ctx}${preview}. O resumo será exibido na listagem do site.`
+      return `Escreva um resumo de 1 a 2 frases para um artigo.${ctx}${preview}. O resumo será exibido na listagem do site. Máximo 200 caracteres (incluindo espaços); não ultrapasse.`
 
     case 'article_seo':
       return `Gere metadados SEO para um artigo.${ctx}${preview}${cat}

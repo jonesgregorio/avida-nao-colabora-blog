@@ -88,6 +88,10 @@ interface ArticleVersion {
   snapshot: Record<string, unknown>
 }
 
+// Limites de caracteres (média recomendada) — respeitados no campo (maxLength +
+// contador) E ao inserir texto gerado pela IA (clamp em handleAIInsert).
+const LIMITS = { title: 80, summary: 220, seoTitle: 60, seoDescription: 160 }
+
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
   const [loading, setLoading] = useState(!!articleId)
@@ -343,13 +347,13 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         if (!data.image_url.trim()) void autoCover(data.title, data.category, data.image_alt, result)
         break
       case 'article_title':     set('title', result); break
-      case 'article_summary':   set('summary', result); break
+      case 'article_summary':   set('summary', result.trim().slice(0, LIMITS.summary)); break
       case 'article_seo': {
-        // Tenta extrair campos do bloco SEO gerado
+        // Tenta extrair campos do bloco SEO gerado — respeitando os limites.
         const titleMatch = result.match(/META TITLE:\s*(.+)/i)
         const descMatch  = result.match(/META DESCRIPTION:\s*(.+)/i)
-        if (titleMatch) set('seo_title', titleMatch[1].trim())
-        if (descMatch)  set('seo_description', descMatch[1].trim())
+        if (titleMatch) set('seo_title', titleMatch[1].trim().slice(0, LIMITS.seoTitle))
+        if (descMatch)  set('seo_description', descMatch[1].trim().slice(0, LIMITS.seoDescription))
         break
       }
       case 'article_diary_question': set('diary_question', result); break
@@ -500,14 +504,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Conteúdo</h2>
-            <Field label="Título">
-              <input value={data.title} onChange={e => set('title', e.target.value)} placeholder="Título do artigo" className={inputCls} />
+            <Field label="Título" hint={`(${data.title.length}/${LIMITS.title} caracteres)`}>
+              <input value={data.title} onChange={e => set('title', e.target.value)} maxLength={LIMITS.title} placeholder="Título do artigo" className={inputCls} />
             </Field>
             <Field label="Slug">
               <input value={data.slug} onChange={e => set('slug', e.target.value)} placeholder="slug-do-artigo" className={inputCls} />
             </Field>
-            <Field label="Resumo">
-              <textarea value={data.summary} onChange={e => set('summary', e.target.value)} rows={2} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
+            <Field label="Resumo" hint={`(${data.summary.length}/${LIMITS.summary} caracteres)`}>
+              <textarea value={data.summary} onChange={e => set('summary', e.target.value)} maxLength={LIMITS.summary} rows={2} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
             </Field>
             <Field label="Conteúdo">
               <FormattedTextarea

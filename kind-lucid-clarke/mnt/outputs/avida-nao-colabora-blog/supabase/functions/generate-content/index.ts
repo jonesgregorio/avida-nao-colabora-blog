@@ -90,7 +90,7 @@ const FN: Record<Provider, (p: string) => Promise<string>> = {
 // A IA emite marcadores `::video-query{termos}` (nunca URLs — evita link inventado
 // /quebrado). Aqui trocamos cada marcador por um vídeo REAL do YouTube (Data API)
 // ou, se não houver chave/resultado, por um link de busca (nunca embed quebrado).
-const MAX_VIDEOS = 2
+const MAX_VIDEOS = 1
 const searchLink = (q: string): string =>
   `[▶ Ver vídeos sobre “${q}” no YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(q)})`
 
@@ -98,13 +98,17 @@ async function searchYouTube(query: string): Promise<{ id: string; title: string
   const key = Deno.env.get('YOUTUBE_API_KEY')
   if (!key) return null
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=1&relevanceLanguage=pt&q=${encodeURIComponent(query)}&key=${key}`
+    // Busca VÁRIOS resultados e escolhe um entre os mais relevantes — evita cair
+    // sempre no mesmo vídeo quando duas buscas ficam parecidas.
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=8&relevanceLanguage=pt&q=${encodeURIComponent(query)}&key=${key}`
     const res = await withTimeout(url, { method: 'GET' })
     if (!res.ok) return null
     const data = await res.json()
-    const item = data?.items?.[0]
-    const id = item?.id?.videoId
-    if (!id) return null
+    const items = (Array.isArray(data?.items) ? data.items : []).filter((it: { id?: { videoId?: string } }) => it?.id?.videoId)
+    if (items.length === 0) return null
+    const top = items.slice(0, Math.min(items.length, 5))
+    const item = top[Math.floor(Math.random() * top.length)]
+    const id = item.id.videoId
     const title = String(item?.snippet?.title ?? query).replace(/[[\]]/g, '').trim()
     return { id, title: title || query }
   } catch { return null }
