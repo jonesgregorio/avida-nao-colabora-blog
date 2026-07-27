@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Heading, Heading2, Bold, Italic, List, ListOrdered, Quote, Link2, Minus, Eye } from 'lucide-react'
+import { Heading, Heading2, Bold, Italic, List, ListOrdered, Quote, Link2, Minus, Eye, Video } from 'lucide-react'
 
 interface Props {
   value: string
@@ -75,6 +75,17 @@ export default function FormattedTextarea({ value, onChange, rows = 16, placehol
     })
   }
 
+  // Vídeo do YouTube: ::video[legenda](url) em bloco próprio. A seleção vira a
+  // legenda e o cursor cai na URL para colar o link do vídeo.
+  function inserirVideo() {
+    aplicar(sel => {
+      const legenda = sel || 'Legenda do vídeo'
+      const t = `\n::video[${legenda}](url)\n`
+      const inicioUrl = t.length - 5 // posição de "url"
+      return { texto: t, selInicio: inicioUrl, selFim: inicioUrl + 3 }
+    })
+  }
+
   // Envolve a seleção (negrito).
   function envolver(abre: string, fecha: string, exemplo: string) {
     aplicar(sel => {
@@ -114,6 +125,9 @@ export default function FormattedTextarea({ value, onChange, rows = 16, placehol
         </button>
         <button type="button" onClick={inserirLink} className={btn} title="Link [texto](url)">
           <Link2 className="w-3.5 h-3.5" /> Link
+        </button>
+        <button type="button" onClick={inserirVideo} className={btn} title="Vídeo do YouTube ::video[legenda](url)">
+          <Video className="w-3.5 h-3.5" /> Vídeo
         </button>
         <button type="button" onClick={() => inserirBloco('---')} className={btn} title="Divisor (---)">
           <Minus className="w-3.5 h-3.5" /> Divisor

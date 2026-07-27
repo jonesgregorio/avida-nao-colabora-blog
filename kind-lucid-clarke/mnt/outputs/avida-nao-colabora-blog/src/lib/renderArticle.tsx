@@ -10,8 +10,22 @@ import type { ReactNode } from 'react'
 //   - item  /  1. item    (agrupados em lista com marcador/número)
 //   > citação             (linhas consecutivas viram um bloco)
 //   ---                   (divisor)
+//   ::video[legenda](url) (vídeo de referência do YouTube, embed responsivo)
 //   **negrito**  *itálico*  [texto](url)  — inline, dentro de qualquer parágrafo
 // ============================================================================
+
+// Extrai o ID de um vídeo do YouTube de qualquer forma de URL (watch, youtu.be,
+// embed, shorts). Retorna null se não for um link do YouTube reconhecido.
+export function youTubeId(url: string): string | null {
+  const patterns = [
+    /youtube\.com\/watch\?[^\s]*\bv=([\w-]{11})/,
+    /youtu\.be\/([\w-]{11})/,
+    /youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/,
+    /youtube\.com\/shorts\/([\w-]{11})/,
+  ]
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1] }
+  return null
+}
 
 // Estima o tempo de leitura em minutos (~200 palavras/min em pt-BR). Mínimo 1.
 export function estimateReadTime(content: string): number {
@@ -69,6 +83,39 @@ export function renderArticleContent(content: string): ReactNode[] {
     // Divisor
     if (/^(---|\*\*\*|___)\s*$/.test(t)) {
       out.push(<hr key={`hr-${i}`} className="my-8 border-t border-sage-200" />)
+      i++; continue
+    }
+    // Vídeo de referência: ::video[legenda](url) — embed responsivo do YouTube.
+    // Se a URL não for um YouTube reconhecido, cai como link (nunca embed quebrado).
+    const vmatch = t.match(/^::video\[([^\]]*)\]\(([^)\s]+)\)$/)
+    if (vmatch) {
+      const caption = vmatch[1].trim()
+      const vid = youTubeId(vmatch[2])
+      if (vid) {
+        out.push(
+          <figure key={`vid-${i}`} className="my-6">
+            <div className="relative w-full overflow-hidden rounded-xl border border-sage-200 bg-black" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube-nocookie.com/embed/${vid}`}
+                title={caption || 'Vídeo de referência'}
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            {caption && <figcaption className="text-xs text-sage-500 mt-2 text-center">{caption}</figcaption>}
+          </figure>,
+        )
+      } else {
+        out.push(
+          <p key={`vidlink-${i}`} className="text-sage-600 leading-relaxed mb-4">
+            <a href={vmatch[2]} target="_blank" rel="noopener noreferrer" className="text-forest-700 underline underline-offset-2 hover:text-forest-900">
+              {caption || vmatch[2]}
+            </a>
+          </p>,
+        )
+      }
       i++; continue
     }
     // Subtítulos

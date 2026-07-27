@@ -3,7 +3,7 @@ import {
   Sparkles, Loader2, Copy, CheckCircle, AlertCircle,
   RefreshCw, X, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { callAI, generateQuestionnaireDraft, getLastProvider, providerLabel, type AITone, type AISize } from '../../lib/aiContent'
+import { callAI, generateQuestionnaireDraft, getLastProvider, providerLabel, VIDEO_MARKER_INSTRUCTION, type AITone, type AISize } from '../../lib/aiContent'
 
 export type AIContentType =
   | 'article'
@@ -117,7 +117,9 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
 - Use "> " para a pergunta do diário e 1 ou 2 reflexões marcantes (citação).
 - Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
-- NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.`
+- NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.
+
+${VIDEO_MARKER_INSTRUCTION}`
 
     case 'article_title':
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`

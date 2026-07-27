@@ -21,6 +21,16 @@ Regras de linguagem obrigatórias:
 - Nunca use markdown em excesso; prefira texto corrido e legível
 `.trim()
 
+// Instrução de VÍDEO DE REFERÊNCIA — reutilizada nos prompts de artigo (aqui e no
+// AIContentAssistant). A IA NUNCA escreve URL de vídeo (evita link inventado);
+// apenas emite o marcador ::video-query{...} e o servidor (generate-content)
+// resolve para um vídeo real do YouTube.
+export const VIDEO_MARKER_INSTRUCTION = `VÍDEOS DE REFERÊNCIA (opcional — só quando agregar valor real):
+- Se, e SOMENTE se, um vídeo ajudar de verdade o leitor (ex.: uma técnica de respiração, um exercício de relaxamento, uma prática guiada), insira em uma LINHA PRÓPRIA o marcador: ::video-query{termos de busca em português}
+- No máximo 1 ou 2 vídeos no artigo inteiro, e apenas onde faça sentido. Se não fizer sentido, NÃO inclua nenhum.
+- Use termos neutros, seguros e específicos do tema (ex.: ::video-query{exercício de respiração diafragmática para ansiedade}).
+- NUNCA escreva a URL do vídeo você mesmo — apenas o marcador ::video-query{...}. O sistema encontra o vídeo real automaticamente.`
+
 export type AITone =
   | 'acolhedor'
   | 'simples'
@@ -202,7 +212,9 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
 - Use "> " para a pergunta do diário e para 1 ou 2 reflexões marcantes (citação).
 - Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
-- NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.`,
+- NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.
+
+${VIDEO_MARKER_INSTRUCTION}`,
     { size: 'extenso', ...opts }
   )
 }

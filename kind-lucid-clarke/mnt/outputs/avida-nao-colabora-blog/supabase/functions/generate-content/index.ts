@@ -86,6 +86,48 @@ const FN: Record<Provider, (p: string) => Promise<string>> = {
   gemini: callGemini, groq: callGroq, openai: callOpenAI,
 }
 
+// ─── Vídeos de referência ────────────────────────────────────────────────────
+// A IA emite marcadores `::video-query{termos}` (nunca URLs — evita link inventado
+// /quebrado). Aqui trocamos cada marcador por um vídeo REAL do YouTube (Data API)
+// ou, se não houver chave/resultado, por um link de busca (nunca embed quebrado).
+const MAX_VIDEOS = 2
+const searchLink = (q: string): string =>
+  `[▶ Ver vídeos sobre “${q}” no YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(q)})`
+
+async function searchYouTube(query: string): Promise<{ id: string; title: string } | null> {
+  const key = Deno.env.get('YOUTUBE_API_KEY')
+  if (!key) return null
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=1&relevanceLanguage=pt&q=${encodeURIComponent(query)}&key=${key}`
+    const res = await withTimeout(url, { method: 'GET' })
+    if (!res.ok) return null
+    const data = await res.json()
+    const item = data?.items?.[0]
+    const id = item?.id?.videoId
+    if (!id) return null
+    const title = String(item?.snippet?.title ?? query).replace(/[[\]]/g, '').trim()
+    return { id, title: title || query }
+  } catch { return null }
+}
+
+// Troca todos os `::video-query{...}` do texto. Resolve queries ÚNICAS (cap de 2
+// vídeos embutidos); o excedente e as falhas viram link de busca.
+async function resolveVideoMarkers(text: string): Promise<string> {
+  const re = /^[ \t]*::video-query\{([^}]+)\}[ \t]*$/gm
+  const queries = [...text.matchAll(re)].map(m => m[1].trim()).filter(Boolean)
+  if (queries.length === 0) return text
+  const map = new Map<string, string>()
+  let embedded = 0
+  for (const q of [...new Set(queries)]) {
+    if (embedded < MAX_VIDEOS) {
+      const v = await searchYouTube(q)
+      if (v) { map.set(q, `::video[${v.title}](https://www.youtube-nocookie.com/embed/${v.id})`); embedded++; continue }
+    }
+    map.set(q, searchLink(q))
+  }
+  return text.replace(re, (_m, q) => map.get(String(q).trim()) ?? searchLink(String(q).trim()))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
@@ -123,7 +165,11 @@ Deno.serve(async (req) => {
   const tried: string[] = []
   for (const p of chain) {
     try {
-      const text = await FN[p](prompt)
+      const raw = await FN[p](prompt)
+      // Resolve marcadores de vídeo (::video-query{...}) para vídeos reais do
+      // YouTube. No-op se o texto não tiver marcadores. Nunca quebra a geração.
+      let text = raw
+      try { text = await resolveVideoMarkers(raw) } catch { text = raw }
       admin.from('ai_generation_logs').insert({
         admin_id: user.id, content_type: body.contentType ?? 'generic',
         prompt_preview: prompt.slice(0, 280), result_preview: text.slice(0, 280),
