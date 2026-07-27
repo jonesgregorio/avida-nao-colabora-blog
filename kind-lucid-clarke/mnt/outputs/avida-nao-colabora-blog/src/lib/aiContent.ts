@@ -213,9 +213,7 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
 - Use "> " para a pergunta do diário e para 1 ou 2 reflexões marcantes (citação).
 - Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
-- NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.
-
-${VIDEO_MARKER_INSTRUCTION}`,
+- NÃO use "#" de título nível 1 (o título do artigo já existe), nem HTML, nem tabelas.`,
     { size: 'extenso', ...opts }
   )
 }

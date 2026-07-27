@@ -96,7 +96,8 @@ function buildPrompt(
   extras: string,
   contextTitle?: string,
   contextContent?: string,
-  contextCategory?: string
+  contextCategory?: string,
+  includeVideo = false,
 ): string {
   const ctx = contextTitle ? `\nTítulo/contexto: "${contextTitle}"` : ''
   const preview = contextContent ? `\nTrecho do conteúdo: "${contextContent.slice(0, 600)}"` : ''
@@ -117,9 +118,7 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
 - Use "> " para a pergunta do diário e 1 ou 2 reflexões marcantes (citação).
 - Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
-- NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.
-
-${VIDEO_MARKER_INSTRUCTION}`
+- NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.${includeVideo ? `\n\n${VIDEO_MARKER_INSTRUCTION}` : ''}`
 
     case 'article_title':
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`
@@ -270,6 +269,9 @@ export default function AIContentAssistant({
   const [tone, setTone] = useState<AITone>(defaultTone)
   // Artigo já nasce "Extenso" (o admin pode reduzir); os outros tipos, "médio".
   const [size, setSize] = useState<AISize>(contentType === 'article' ? 'extenso' : 'médio')
+  // Vídeo de referência: OPCIONAL e DESLIGADO por padrão (antes vinha em todo
+  // artigo). Só quando marcado a IA sugere um vídeo do YouTube ligado ao tema.
+  const [includeVideo, setIncludeVideo] = useState(false)
   const [extras, setExtras] = useState('')
   const [result, setResult] = useState('')
   const [usedProvider, setUsedProvider] = useState<string | null>(null)
@@ -296,7 +298,7 @@ export default function AIContentAssistant({
       if (contentType === 'questionnaire') {
         text = await generateQuestionnaireDraft(theme, 'autoavaliação')
       } else {
-        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
+        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory, includeVideo)
         text = await callAI(prompt, { tone, size, extras })
       }
       setResult(text)
@@ -372,6 +374,14 @@ export default function AIContentAssistant({
               </select>
             </div>
           </div>
+
+          {/* Vídeo de referência — só para artigo, e desligado por padrão. */}
+          {contentType === 'article' && (
+            <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+              <input type="checkbox" checked={includeVideo} onChange={e => setIncludeVideo(e.target.checked)} className="accent-forest-600" />
+              Sugerir um vídeo de referência do YouTube (só quando o tema pedir)
+            </label>
+          )}
 
           {/* Instruções extras (collapsível) */}
           <div>
