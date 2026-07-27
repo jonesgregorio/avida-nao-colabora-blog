@@ -225,15 +225,17 @@ ${VIDEO_MARKER_INSTRUCTION}`,
 // Retorna só a expressão, já limpa. Em falha, o chamador usa o título como busca.
 export async function generateCoverImageQuery(title: string, category?: string, content?: string): Promise<string> {
   const base = (title || '').trim()
-  const snippet = (content || '').replace(/\s+/g, ' ').trim().slice(0, 600)
-  const prompt = `Sugira UMA expressão de busca de banco de imagens (2 a 4 palavras), em INGLÊS, que represente VISUALMENTE o tema abaixo, para escolher uma FOTO de capa acolhedora (natureza, luz suave, calma, bem-estar, objetos simples do dia a dia).
-Evite: fotos clínicas/hospitalares, sofrimento explícito, texto na imagem, e closes de rosto triste.
+  const snippet = (content || '').replace(/\s+/g, ' ').trim().slice(0, 800)
+  const prompt = `Você escolhe a FOTO DE CAPA de um artigo. Sugira UMA expressão de busca de banco de fotos (3 a 6 palavras), em INGLÊS, ESPECÍFICA para o assunto do artigo abaixo.
+A foto deve ser uma FOTOGRAFIA REALISTA e MODERNA que mostre PESSOAS reais em um ambiente/situação diretamente ligada ao tema (ou, quando fizer mais sentido, OBJETOS e cenas concretas do assunto).
+NÃO use: paisagens, natureza genérica, céu/montanha/mar, fundo abstrato, ilustração, desenho, arte 3D/render, nem nada sem relação clara com o tema.
+Baseie-se no assunto ESPECÍFICO do artigo (não em "bem-estar" ou "calma" genéricos). Inclua a palavra "realistic" quando ajudar.
 ${base ? `Título: "${base}"` : ''}
 ${category ? `Categoria: ${category}` : ''}
 ${snippet ? `Trecho do conteúdo: "${snippet}"` : ''}
-Responda APENAS com a expressão de busca, sem aspas, sem pontuação final, sem explicação.`
+Responda APENAS com a expressão de busca em inglês, sem aspas, sem pontuação final, sem explicação.`
   const raw = await generateWithFailover(prompt)
-  return raw.split('\n').map(l => l.trim()).find(Boolean)?.replace(/^["'`]|["'`.]+$/g, '').trim().slice(0, 60) || base || 'calm wellness nature'
+  return raw.split('\n').map(l => l.trim()).find(Boolean)?.replace(/^["'`]|["'`.]+$/g, '').trim().slice(0, 80) || base || 'person realistic lifestyle'
 }
 
 export async function generateArticleTitle(theme: string, opts: AICallOptions = {}): Promise<string> {

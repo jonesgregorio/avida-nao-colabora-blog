@@ -216,21 +216,25 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     setSaving(true)
 
     const targetStatus = status || data.status
+    // Garante os limites de caracteres no que é GRAVADO — independentemente de
+    // como o texto chegou ao campo (IA, digitação, colagem ou dado legado).
+    const titleC = data.title.trim().slice(0, LIMITS.title)
+    const summaryC = data.summary.trim().slice(0, LIMITS.summary)
     const payload: Record<string, unknown> = {
-      title: data.title,
+      title: titleC,
       slug: data.slug,
       status: targetStatus,
       content_type: data.content_type,
       category: data.category,
       content: data.content,
-      summary: data.summary,
-      excerpt: data.summary,
+      summary: summaryC,
+      excerpt: summaryC,
       image_url: data.image_url,
       cover_image: data.image_url,
       cover_image_url: data.image_url,
       image_alt: data.image_alt,
-      seo_title: data.seo_title,
-      seo_description: data.seo_description,
+      seo_title: (data.seo_title || '').slice(0, LIMITS.seoTitle),
+      seo_description: (data.seo_description || '').slice(0, LIMITS.seoDescription),
       keyword: data.keyword,
       secondary_keywords: data.secondary_keywords,
       // Colunas TEXT[] (086): sempre array, nunca string.
