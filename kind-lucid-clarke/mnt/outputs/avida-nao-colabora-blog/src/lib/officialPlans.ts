@@ -137,6 +137,33 @@ export function hasPlanAccess(
   return PLAN_RANK[normalizePlan(userPlan)] >= PLAN_RANK[normalizePlan(requiredPlan)]
 }
 
+// Níveis de acesso de CONTEÚDO (plan_required do artigo). Diferente de PlanKey:
+// inclui 'account' — que NÃO é um plano, e sim "exige estar logado" (gratuito).
+//   free      → Público: qualquer visitante (com ou sem conta)
+//   account   → Gratuito: exige estar logado (qualquer plano)
+//   essential/plus → exigem o plano correspondente
+export type ContentAccess = 'free' | 'account' | 'essential' | 'plus'
+
+export const CONTENT_ACCESS_LABEL: Record<ContentAccess, string> = {
+  free: 'Público', account: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+}
+
+/**
+ * Regra ÚNICA de bloqueio de conteúdo. Retorna true se o conteúdo está BLOQUEADO
+ * para este usuário. 'account' depende só de estar logado (não do plano); os
+ * pagos usam hasPlanAccess. Não passe 'account' por normalizePlan (viraria free).
+ */
+export function isContentLocked(
+  planRequired: string | null | undefined,
+  userPlan: string | null | undefined,
+  isLoggedIn: boolean,
+): boolean {
+  const req = planRequired || 'free'
+  if (req === 'free') return false          // público: nunca bloqueia
+  if (req === 'account') return !isLoggedIn  // gratuito: basta ter conta (login)
+  return !hasPlanAccess(userPlan, req)       // essential/plus: checa o plano
+}
+
 /** Objeto oficial do plano (sempre normalizado — nunca retorna undefined). */
 export function getPlan(plan: string | null | undefined): OfficialPlan {
   const key = normalizePlan(plan)

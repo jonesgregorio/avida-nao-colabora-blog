@@ -261,6 +261,9 @@ export default function ArticleView({
 
   // Paywall: artigo existe e está publicado, mas o corpo é exclusivo do plano.
   if (locked) {
+    // 'account' = conteúdo GRATUITO que exige apenas ter conta (login). Só cai aqui
+    // para visitante sem conta → mostramos prévia + convite para criar conta.
+    const isAccount = locked.plan_required === 'account'
     const planLabel = locked.plan_required === 'plus' ? 'Plus' : 'Essencial'
     return (
       <div className="max-w-2xl mx-auto px-4 py-16">
@@ -269,23 +272,40 @@ export default function ArticleView({
         </button>
         <div className="bg-white border border-line rounded-2xl p-8 text-center">
           <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-mint text-forest-700 mb-4">
-            Conteúdo exclusivo do plano {planLabel}
+            {isAccount ? 'Conteúdo gratuito — requer conta' : `Conteúdo exclusivo do plano ${planLabel}`}
           </span>
           <h1 className="font-serif text-2xl md:text-3xl text-forest-900 leading-tight">{locked.title}</h1>
           {(locked.summary || locked.excerpt) && (
             <p className="text-ink-soft mt-3">{locked.summary || locked.excerpt}</p>
           )}
           <p className="text-sm text-ink-soft mt-5">
-            Assine o plano <strong>{planLabel}</strong> para ler este conteúdo completo e acompanhar seus padrões emocionais.
+            {isAccount ? (
+              <>Crie sua conta <strong>gratuita</strong> para ler este conteúdo completo e acompanhar seus padrões emocionais.</>
+            ) : (
+              <>Assine o plano <strong>{planLabel}</strong> para ler este conteúdo completo e acompanhar seus padrões emocionais.</>
+            )}
           </p>
           <div className="flex flex-wrap gap-3 justify-center mt-6">
-            <button data-cta="artigo-ver-planos" onClick={() => (navigate ? navigate('pricing') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
-              Ver planos
-            </button>
-            {!user && (
-              <button onClick={() => (navigate ? navigate('auth') : onBack())} className="border border-line text-forest-800 px-5 py-2.5 rounded-xl text-sm font-medium hover:border-forest-300">
-                Já assino — entrar
-              </button>
+            {isAccount ? (
+              <>
+                <button data-cta="artigo-criar-conta" onClick={() => (navigate ? navigate('auth') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
+                  Criar conta gratuita
+                </button>
+                <button onClick={() => (navigate ? navigate('auth') : onBack())} className="border border-line text-forest-800 px-5 py-2.5 rounded-xl text-sm font-medium hover:border-forest-300">
+                  Já tenho conta — entrar
+                </button>
+              </>
+            ) : (
+              <>
+                <button data-cta="artigo-ver-planos" onClick={() => (navigate ? navigate('pricing') : onBack())} className="bg-forest-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800">
+                  Ver planos
+                </button>
+                {!user && (
+                  <button onClick={() => (navigate ? navigate('auth') : onBack())} className="border border-line text-forest-800 px-5 py-2.5 rounded-xl text-sm font-medium hover:border-forest-300">
+                    Já assino — entrar
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

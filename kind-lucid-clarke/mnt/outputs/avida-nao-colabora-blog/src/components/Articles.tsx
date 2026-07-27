@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { Search, Clock, ArrowRight, X, BookOpen, Lock } from 'lucide-react'
 import type { Article } from '../types'
-import { hasPlanAccess } from '../lib/officialPlans'
+import { isContentLocked } from '../lib/officialPlans'
 import { fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
 import RecommendedContent from './RecommendedContent'
 
@@ -47,6 +47,7 @@ function parseTerms(raw: string | null | undefined): string[] {
 }
 
 const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
+  account: { label: 'Gratuito', cls: 'bg-blue-50 text-blue-700' },
   essential: { label: 'Essencial', cls: 'bg-mint text-forest-700' },
   plus: { label: 'Plus', cls: 'bg-coral/60 text-[#7a3320]' },
 }
@@ -246,7 +247,7 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map(it => {
-            const locked = !hasPlanAccess(plan, it.plan_required ?? 'free')
+            const locked = isContentLocked(it.plan_required, plan, !!user)
             return (
               <LibraryCard
                 key={it.id}
@@ -278,7 +279,7 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
         {locked && (
           <div className="absolute inset-0 flex items-center justify-center bg-forest-900/25">
             <span className="inline-flex items-center gap-1.5 bg-white/90 text-forest-800 text-xs font-medium px-3 py-1.5 rounded-full">
-              <Lock size={12} /> Disponível no {badge?.label ?? 'Plus'}
+              <Lock size={12} /> {item.plan_required === 'account' ? 'Crie sua conta grátis' : `Disponível no ${badge?.label ?? 'Plus'}`}
             </span>
           </div>
         )}
@@ -297,9 +298,16 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
         <div className="mt-auto flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-forest-700 bg-mint px-2.5 py-1 rounded-full truncate max-w-[55%]">{item.category || 'Conteúdo'}</span>
           {locked ? (
-            <button onClick={onUpgrade} className="inline-flex items-center gap-1 text-sm font-medium text-[#7a3320] hover:gap-1.5 transition-all flex-shrink-0">
-              Conhecer o {badge?.label ?? 'Plus'} <ArrowRight size={14} />
-            </button>
+            item.plan_required === 'account' ? (
+              // Gratuito (com conta): abrir o artigo mostra a prévia + convite p/ criar conta.
+              <button onClick={onOpen} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 hover:gap-1.5 transition-all flex-shrink-0">
+                Criar conta para ler <ArrowRight size={14} />
+              </button>
+            ) : (
+              <button onClick={onUpgrade} className="inline-flex items-center gap-1 text-sm font-medium text-[#7a3320] hover:gap-1.5 transition-all flex-shrink-0">
+                Conhecer o {badge?.label ?? 'Plus'} <ArrowRight size={14} />
+              </button>
+            )
           ) : (
             <button onClick={onOpen} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 group-hover:gap-1.5 transition-all flex-shrink-0">
               Abrir conteúdo <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />

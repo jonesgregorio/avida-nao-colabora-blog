@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Plus, Pencil, Trash2, Copy, Search, Send, Archive, FileText, Sparkles, Loader2 } from 'lucide-react'
 import { generateSEO } from '../../lib/aiContent'
-import { OFFICIAL_PLANS, normalizePlan } from '../../lib/officialPlans'
+import { normalizePlan } from '../../lib/officialPlans'
 
 interface Article {
   id: string
@@ -26,10 +26,12 @@ interface Article {
 
 const PLAN_BADGE: Record<string, string> = {
   free: 'bg-stone-100 text-stone-600',
+  account: 'bg-blue-50 text-blue-700',
   essential: 'bg-blue-100 text-blue-700',
   plus: 'bg-coral text-[#c05f3c]',
 }
-const PLAN_TXT: Record<string, string> = { free: 'Gratuito', essential: 'Essencial', plus: 'Plus' }
+// free = Público (sem conta); account = Gratuito (com conta).
+const PLAN_TXT: Record<string, string> = { free: 'Público', account: 'Gratuito', essential: 'Essencial', plus: 'Plus' }
 
 function seoOk(a: Article) { return !!(a.seo_title && a.seo_description) }
 function imageOk(a: Article) { return !!(a.image_url || a.cover_image || a.cover_image_url) }
@@ -151,9 +153,10 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
       filterCategory === 'all' ? true
       : filterCategory === '__sem__' ? !(a.category || '').trim()
       : (a.category || '').trim() === filterCategory
-    // plan_required nulo = conteúdo aberto (Gratuito). normalizePlan cuida dos
-    // planos legados (therapeutic → plus), senão eles sumiriam do filtro.
-    const matchPlan = filterPlan === 'all' || normalizePlan(a.plan_required || 'free') === filterPlan
+    // free = Público (sem conta); account = Gratuito (com conta). 'account' NÃO
+    // pode passar por normalizePlan (viraria 'free'); os demais normalizam legados.
+    const artAccess = a.plan_required === 'account' ? 'account' : normalizePlan(a.plan_required || 'free')
+    const matchPlan = filterPlan === 'all' || artAccess === filterPlan
     return matchSearch && matchStatus && matchType && matchQuality && matchCategory && matchPlan
   })
 
@@ -271,8 +274,11 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
           onChange={e => setFilterPlan(e.target.value)}
           className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
         >
-          <option value="all">Todos os planos</option>
-          {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          <option value="all">Todos os acessos</option>
+          <option value="free">Público (sem conta)</option>
+          <option value="account">Gratuito (com conta)</option>
+          <option value="essential">Essencial</option>
+          <option value="plus">Plus</option>
         </select>
         <select
           value={filterQuality}
