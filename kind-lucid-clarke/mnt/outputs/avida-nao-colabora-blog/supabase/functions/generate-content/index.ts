@@ -98,16 +98,16 @@ async function searchYouTube(query: string): Promise<{ id: string; title: string
   const key = Deno.env.get('YOUTUBE_API_KEY')
   if (!key) return null
   try {
-    // Busca VÁRIOS resultados e escolhe um entre os mais relevantes — evita cair
-    // sempre no mesmo vídeo quando duas buscas ficam parecidas.
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=8&relevanceLanguage=pt&q=${encodeURIComponent(query)}&key=${key}`
+    // Busca de máxima PRECISÃO: ordena por relevância, prioriza pt-BR/Brasil e
+    // pega o PRIMEIRO resultado (o mais relevante para os termos). Como o vídeo
+    // agora é opt-in e a query é específica do artigo, o nº 1 é o mais certeiro.
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&order=relevance&maxResults=5&relevanceLanguage=pt&regionCode=BR&q=${encodeURIComponent(query)}&key=${key}`
     const res = await withTimeout(url, { method: 'GET' })
     if (!res.ok) return null
     const data = await res.json()
     const items = (Array.isArray(data?.items) ? data.items : []).filter((it: { id?: { videoId?: string } }) => it?.id?.videoId)
     if (items.length === 0) return null
-    const top = items.slice(0, Math.min(items.length, 5))
-    const item = top[Math.floor(Math.random() * top.length)]
+    const item = items[0]
     const id = item.id.videoId
     const title = String(item?.snippet?.title ?? query).replace(/[[\]]/g, '').trim()
     return { id, title: title || query }

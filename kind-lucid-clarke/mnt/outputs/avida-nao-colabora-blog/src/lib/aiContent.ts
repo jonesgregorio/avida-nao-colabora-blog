@@ -25,12 +25,12 @@ Regras de linguagem obrigatórias:
 // AIContentAssistant). A IA NUNCA escreve URL de vídeo (evita link inventado);
 // apenas emite o marcador ::video-query{...} e o servidor (generate-content)
 // resolve para um vídeo real do YouTube.
-export const VIDEO_MARKER_INSTRUCTION = `VÍDEOS DE REFERÊNCIA (use com PARCIMÔNIA — a MAIORIA dos artigos NÃO precisa):
-- Só inclua um vídeo se ESTE artigo ensinar uma PRÁTICA CONCRETA, passo a passo (ex.: uma técnica específica), que um vídeo demonstraria melhor do que o texto. Artigos reflexivos, teóricos ou de opinião NÃO levam vídeo.
-- No MÁXIMO 1 vídeo no artigo inteiro. Na dúvida, NÃO inclua nenhum.
-- Quando (e só quando) fizer sentido, escreva em uma LINHA PRÓPRIA: ::video-query{termos de busca}
-- Os termos DEVEM descrever o tema ESPECÍFICO DESTE artigo — nunca um exemplo genérico, nunca os mesmos termos de outro artigo. Em português, neutros e seguros.
-- NUNCA escreva a URL do vídeo — apenas o marcador ::video-query{...}. O sistema encontra o vídeo real.`
+export const VIDEO_MARKER_INSTRUCTION = `VÍDEO DE REFERÊNCIA (no MÁXIMO 1, e só quando fizer sentido de verdade):
+- Só inclua se ESTE artigo ensinar uma PRÁTICA CONCRETA, passo a passo (uma técnica/exercício específico), que um vídeo demonstre melhor do que o texto. Artigos reflexivos, teóricos ou de opinião NÃO levam vídeo. Na dúvida, NÃO inclua.
+- Quando (e só quando) couber, escreva em uma LINHA PRÓPRIA: ::video-query{busca}
+- A busca deve ser EXTREMAMENTE PRECISA — exatamente o que uma pessoa digitaria no YouTube para encontrar ESSE vídeo. NOMEIE a técnica/prática concreta e o formato desejado (por exemplo, o nome da técnica seguido de "passo a passo", "como fazer" ou "guiado"). Em português (pt-BR).
+- NÃO use termos genéricos soltos (ex.: "bem-estar", "relaxamento", "saúde emocional"); seja específico ao conteúdo exato do artigo, com 4 a 8 palavras.
+- NUNCA escreva a URL do vídeo — apenas o marcador ::video-query{...}. O sistema busca o vídeo REAL mais relevante para esses termos.`
 
 export type AITone =
   | 'acolhedor'
