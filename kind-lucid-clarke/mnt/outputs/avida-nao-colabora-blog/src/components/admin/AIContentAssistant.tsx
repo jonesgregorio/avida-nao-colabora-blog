@@ -61,6 +61,7 @@ const SIZES: { value: AISize; label: string }[] = [
   { value: 'médio', label: 'Médio (200–350 palavras)' },
   { value: 'longo', label: 'Longo (500–800 palavras)' },
   { value: 'extenso', label: 'Extenso (1500–3000 palavras)' },
+  { value: 'gigante', label: 'Muito extenso (3000–5000 palavras)' },
 ]
 
 const TYPE_LABELS: Record<AIContentType, string> = {

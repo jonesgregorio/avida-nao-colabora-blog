@@ -43,13 +43,14 @@ export type AITone =
   | 'direto'
   | 'humor leve'
 
-export type AISize = 'curto' | 'médio' | 'longo' | 'extenso'
+export type AISize = 'curto' | 'médio' | 'longo' | 'extenso' | 'gigante'
 
 const SIZE_WORDS: Record<AISize, string> = {
   curto: '80 a 150 palavras',
   médio: '200 a 350 palavras',
   longo: '500 a 800 palavras',
   extenso: '1500 a 3000 palavras (artigo aprofundado, bem desenvolvido)',
+  gigante: '3000 a 5000 palavras (artigo muito extenso, completo e bem aprofundado)',
 }
 
 export interface AICallOptions {
@@ -172,7 +173,7 @@ export async function callAI(prompt: string, options: AICallOptions = {}): Promi
   const fullPrompt = `${prompt}
 
 Tom de voz: ${tone}.
-Tamanho: ${SIZE_WORDS[size]}.
+Tamanho OBRIGATÓRIO: ${SIZE_WORDS[size]}. Desenvolva o conteúdo ATÉ atingir essa faixa de tamanho — NÃO entregue um texto mais curto e NÃO pare antes. Se precisar, aprofunde com mais exemplos, explicações e seções para chegar na quantidade pedida. Também não ultrapasse muito o limite superior.
 ${extras ? `Instruções extras: ${extras}` : ''}
 
 ${LANGUAGE_RULES.replace('${' + "''/* será substituído por parâmetro */" + '}', tone)}
