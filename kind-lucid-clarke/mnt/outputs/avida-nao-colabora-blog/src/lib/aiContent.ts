@@ -222,14 +222,17 @@ ${VIDEO_MARKER_INSTRUCTION}`,
 // Gera uma expressão de busca VISUAL (curta, em inglês) para escolher a capa do
 // artigo num banco de fotos (Pexels). Inglês melhora muito a relevância do banco.
 // Retorna só a expressão, já limpa. Em falha, o chamador usa o título como busca.
-export async function generateCoverImageQuery(title: string, category?: string): Promise<string> {
+export async function generateCoverImageQuery(title: string, category?: string, content?: string): Promise<string> {
+  const base = (title || '').trim()
+  const snippet = (content || '').replace(/\s+/g, ' ').trim().slice(0, 600)
   const prompt = `Sugira UMA expressão de busca de banco de imagens (2 a 4 palavras), em INGLÊS, que represente VISUALMENTE o tema abaixo, para escolher uma FOTO de capa acolhedora (natureza, luz suave, calma, bem-estar, objetos simples do dia a dia).
 Evite: fotos clínicas/hospitalares, sofrimento explícito, texto na imagem, e closes de rosto triste.
-Título: "${title}"
+${base ? `Título: "${base}"` : ''}
 ${category ? `Categoria: ${category}` : ''}
+${snippet ? `Trecho do conteúdo: "${snippet}"` : ''}
 Responda APENAS com a expressão de busca, sem aspas, sem pontuação final, sem explicação.`
   const raw = await generateWithFailover(prompt)
-  return raw.split('\n').map(l => l.trim()).find(Boolean)?.replace(/^["'`]|["'`.]+$/g, '').trim().slice(0, 60) || title
+  return raw.split('\n').map(l => l.trim()).find(Boolean)?.replace(/^["'`]|["'`.]+$/g, '').trim().slice(0, 60) || base || 'calm wellness nature'
 }
 
 export async function generateArticleTitle(theme: string, opts: AICallOptions = {}): Promise<string> {

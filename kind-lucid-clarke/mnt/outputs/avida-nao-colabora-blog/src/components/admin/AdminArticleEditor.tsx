@@ -311,10 +311,10 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
   // Busca e define uma capa relacionada ao tema (IA gera a busca → Pexels).
   // Silenciosa em caso de falha: a capa é secundária ao conteúdo.
-  async function autoCover(title: string, categoria: string, currentAlt: string) {
+  async function autoCover(title: string, categoria: string, currentAlt: string, content: string) {
     showToast('Buscando imagem de capa relacionada ao tema…')
     try {
-      const img = await searchCoverImage(title, categoria)
+      const img = await searchCoverImage(title, categoria, content)
       if (img) {
         set('image_url', img.url)
         if (!currentAlt.trim()) set('image_alt', img.alt)
@@ -328,8 +328,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     switch (aiModal.type) {
       case 'article':
         set('content', result); set('origin', 'ia')
-        // Capa automática relacionada ao tema, só se ainda não houver imagem.
-        if (!data.image_url.trim() && data.title.trim()) void autoCover(data.title, data.category, data.image_alt)
+        // Capa automática relacionada ao tema (usa o conteúdo gerado — não depende
+        // do título estar preenchido), só se ainda não houver imagem.
+        if (!data.image_url.trim()) void autoCover(data.title, data.category, data.image_alt, result)
         break
       case 'article_title':     set('title', result); break
       case 'article_summary':   set('summary', result); break
@@ -754,6 +755,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               onChangeAlt={a => set('image_alt', a)}
               topic={data.title}
               category={data.category}
+              content={data.content}
             />
           </div>
 

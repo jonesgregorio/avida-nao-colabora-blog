@@ -12,16 +12,19 @@ export interface CoverImage {
   credit?: string
 }
 
-export async function searchCoverImage(topic: string, category?: string): Promise<CoverImage | null> {
+export async function searchCoverImage(topic: string, category?: string, content?: string): Promise<CoverImage | null> {
   const base = (topic || '').trim()
-  if (!base) return null
+  const body = (content || '').trim()
+  // Precisa de ALGO para se basear — título OU conteúdo.
+  if (!base && !body) return null
 
-  // 1) Expressão de busca visual (IA). Se falhar, usa o próprio título.
-  let query = base
+  // 1) Expressão de busca visual (IA), a partir do título e/ou do conteúdo.
+  // Se falhar, usa o título (ou um termo acolhedor genérico) como busca.
+  let query = base || 'calm wellness nature'
   try {
-    const q = await generateCoverImageQuery(base, category)
+    const q = await generateCoverImageQuery(base, category, body)
     if (q && q.trim()) query = q.trim()
-  } catch { /* usa o título como busca */ }
+  } catch { /* usa o fallback acima */ }
 
   // 2) Foto real via Pexels (Edge Function).
   try {

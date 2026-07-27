@@ -8,9 +8,11 @@ interface Props {
   alt: string
   onChangeUrl: (u: string) => void
   onChangeAlt: (a: string) => void
-  // Tema do artigo (título) e categoria — usados para buscar uma capa relacionada.
+  // Tema do artigo (título), categoria e conteúdo — usados para buscar uma capa
+  // relacionada. O conteúdo permite achar imagem mesmo com o título vazio.
   topic?: string
   category?: string
+  content?: string
 }
 
 // Limites: o bucket é público e a capa vai no topo do artigo — arquivo gigante
@@ -22,7 +24,7 @@ const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'i
 // de Mídia — leitura pública, escrita só por admin (RLS no storage.objects).
 // Antes, o editor só aceitava URL: era preciso subir o arquivo em outro lugar e
 // colar o link aqui.
-export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt, topic, category }: Props) {
+export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt, topic, category, content }: Props) {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [arrastando, setArrastando] = useState(false)
@@ -34,10 +36,11 @@ export default function CoverImageInput({ url, alt, onChangeUrl, onChangeAlt, to
   // sobrescreve um alt que a pessoa já escreveu.
   async function buscarRelacionada() {
     const tema = (topic ?? '').trim()
-    if (!tema) { setErro('Preencha o título do artigo primeiro para buscar uma imagem relacionada.'); return }
+    const corpo = (content ?? '').trim()
+    if (!tema && !corpo) { setErro('Escreva o título ou gere o conteúdo do artigo primeiro para buscar uma imagem relacionada.'); return }
     setErro(null); setBuscando(true)
     try {
-      const img = await searchCoverImage(tema, category)
+      const img = await searchCoverImage(tema, category, corpo)
       if (!img) { setErro('Não foi possível encontrar uma imagem relacionada agora. Tente de novo ou envie uma.'); return }
       onChangeUrl(img.url)
       if (!alt.trim()) onChangeAlt(img.alt)
