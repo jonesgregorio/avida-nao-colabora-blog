@@ -98,6 +98,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [versions, setVersions] = useState<ArticleVersion[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [ctaBusy, setCtaBusy] = useState(false)
+  // ID do artigo recém-criado (insert). O articleId da prop é null para artigo
+  // novo; sem guardar o id gerado, um 2º "Salvar" criaria DUPLICATA e o editor
+  // ficaria preso em "Novo artigo". effectiveId = o id que realmente vale agora.
+  const [createdId, setCreatedId] = useState<string | null>(null)
+  const effectiveId = articleId ?? createdId
 
   // Gera o CTA personalizado com IA a partir do conteúdo real do artigo.
   async function gerarCTAComIA() {
@@ -186,7 +191,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       // Tempo de leitura SEMPRE em dia com o conteúdo (~200 palavras/min).
       // Cobre digitação, toolbar e inserção da IA num ponto só.
       if (key === 'content') next.read_time = estimateReadTime(value as string)
-      if (key === 'title' && !articleId) {
+      if (key === 'title' && !effectiveId) {
         next.slug = (value as string).toLowerCase()
           .normalize('NFD').replace(/[̀-ͯ]/g, '')
           .replace(/[^a-z0-9\s-]/g, '')
@@ -260,8 +265,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     // gravando só o essencial (o editor não pode quebrar por causa do deploy).
     const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable']
     const writeArticle = (p: Record<string, unknown>) =>
-      articleId
-        ? supabase.from('articles').update(p).eq('id', articleId)
+      effectiveId
+        ? supabase.from('articles').update(p).eq('id', effectiveId)
         : supabase.from('articles').insert(p).select('id').single()
 
     let res = await writeArticle(payload)
@@ -272,7 +277,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       if (!res.error) showToast('Salvo. Os campos editoriais serão gravados após a atualização do banco.')
     }
     const error: { message: string } | null = res.error
-    const savedId: string | null = articleId ?? ((res.data as { id?: string } | null)?.id ?? null)
+    const savedId: string | null = effectiveId ?? ((res.data as { id?: string } | null)?.id ?? null)
 
     if (error) {
       showToast('Erro ao salvar: ' + error.message, true)
@@ -299,9 +304,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       } catch { /* content_versions indisponível */ }
     }
 
-    showToast('Salvo com sucesso!')
+    // Guarda o id gerado (artigo novo) para não duplicar e refletir o estado salvo.
+    if (!effectiveId && savedId) setCreatedId(savedId)
     if (status) setData(d => ({ ...d, status }))
-    setSaving(false)
+    showToast(targetStatus === 'published' ? 'Publicado com sucesso!' : 'Rascunho salvo!')
+    // Volta para a lista de artigos — que recarrega ao montar e mostra o artigo
+    // no topo (ordenado por mais recente). Resolve "a página não atualiza".
+    // Mantém `saving` até navegar, para os botões ficarem desabilitados no meio.
+    setTimeout(() => { setSaving(false); onBack() }, 800)
   }
 
   function showToast(msg: string, err = false) {
@@ -431,7 +441,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="font-serif text-2xl text-forest-900 flex-1">
-          {articleId ? 'Editar artigo' : 'Novo artigo'}
+          {effectiveId ? 'Editar artigo' : 'Novo artigo'}
         </h1>
         <div className="flex gap-2">
           <button
