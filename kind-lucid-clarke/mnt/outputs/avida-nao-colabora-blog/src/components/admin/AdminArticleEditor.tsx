@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Save, Eye, Send, Sparkles, Loader2 } from 'lucide-react'
 import AIContentAssistant, { type AIContentType } from './AIContentAssistant'
 import CoverImageInput from './CoverImageInput'
+import RelatedVideoPicker from './RelatedVideoPicker'
 import { searchCoverImage } from '../../lib/imageSearch'
 import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
@@ -740,6 +741,22 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Vídeo relacionado — busca a partir dos DADOS do artigo; o admin escolhe
+              entre os candidatos (evita repetir sempre o mesmo). O vídeo fica no
+              conteúdo (::video[...]) e é salvo por artigo pelo save() normal. */}
+          <div className="bg-white rounded-xl border border-line p-5">
+            <RelatedVideoPicker
+              article={{
+                id: effectiveId,
+                title: data.title, category: data.category, tags: data.tags,
+                keyword: data.keyword, secondary_keywords: data.secondary_keywords,
+                summary: data.summary, emotion: data.emotion, emotional_themes: data.emotional_themes,
+              }}
+              content={data.content}
+              onChangeContent={c => set('content', c)}
+            />
           </div>
 
           {/* Recomendação (Conteúdos Guiados) — alimenta o motor de recomendação (086). */}

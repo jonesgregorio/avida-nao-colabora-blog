@@ -274,9 +274,6 @@ export default function AIContentAssistant({
   const [tone, setTone] = useState<AITone>(defaultTone)
   // Artigo já nasce "Extenso" (o admin pode reduzir); os outros tipos, "médio".
   const [size, setSize] = useState<AISize>(contentType === 'article' ? 'extenso' : 'médio')
-  // Vídeo de referência: OPCIONAL e DESLIGADO por padrão (antes vinha em todo
-  // artigo). Só quando marcado a IA sugere um vídeo do YouTube ligado ao tema.
-  const [includeVideo, setIncludeVideo] = useState(false)
   const [extras, setExtras] = useState('')
   const [result, setResult] = useState('')
   const [usedProvider, setUsedProvider] = useState<string | null>(null)
@@ -303,7 +300,7 @@ export default function AIContentAssistant({
       if (contentType === 'questionnaire') {
         text = await generateQuestionnaireDraft(theme, 'autoavaliação')
       } else {
-        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory, includeVideo)
+        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
         text = await callAI(prompt, { tone, size, extras })
       }
       setResult(text)
@@ -380,13 +377,6 @@ export default function AIContentAssistant({
             </div>
           </div>
 
-          {/* Vídeo de referência — só para artigo, e desligado por padrão. */}
-          {contentType === 'article' && (
-            <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-              <input type="checkbox" checked={includeVideo} onChange={e => setIncludeVideo(e.target.checked)} className="accent-forest-600" />
-              Sugerir um vídeo de referência do YouTube (só quando o tema pedir)
-            </label>
-          )}
 
           {/* Instruções extras (collapsível) */}
           <div>
