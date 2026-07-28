@@ -128,13 +128,17 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
       return `Escreva um resumo de 1 a 2 frases para um artigo.${ctx}${preview}. O resumo será exibido na listagem do site. Máximo 200 caracteres (incluindo espaços); não ultrapasse.`
 
     case 'article_seo':
-      return `Gere metadados SEO para um artigo.${ctx}${preview}${cat}
-Retorne EXATAMENTE:
+      return `Gere os metadados de SEO e editoriais para um artigo de saúde emocional.${ctx}${preview}${cat}
+Retorne EXATAMENTE neste formato, UM POR LINHA, sem nada antes nem depois, preenchendo TODOS os campos:
 META TITLE: [máximo 60 caracteres]
 META DESCRIPTION: [máximo 155 caracteres]
-SLUG: [slug-kebab-case]
-KEYWORDS: [palavra1, palavra2, palavra3, palavra4, palavra5]
-ALT IMAGE: [descrição da imagem de capa]`
+PALAVRA-CHAVE: [a palavra-chave principal do artigo, 2 a 4 palavras]
+PALAVRAS-CHAVE SECUNDÁRIAS: [3 a 5 termos relacionados, separados por vírgula]
+TAGS: [3 a 6 tags, separadas por vírgula]
+EMOÇÃO: [a emoção ou dor principal tratada no artigo, 1 a 3 palavras]
+ETAPA DA JORNADA: [exatamente uma destas: descoberta, consideracao ou decisao]
+INTENÇÃO: [a intenção do conteúdo, ex.: acolher, educar, orientar]
+PÚBLICO-ALVO: [descrição curta do público, ex.: adultos com rotina intensa]`
 
     case 'article_diary_question':
       return `Gere 3 perguntas reflexivas para o diário do usuário, relacionadas ao tema: "${theme}"${ctx}. Convide à reflexão pessoal, sem julgamento. Liste numeradas.`

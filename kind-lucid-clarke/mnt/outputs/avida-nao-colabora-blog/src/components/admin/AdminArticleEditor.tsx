@@ -353,11 +353,31 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       case 'article_title':     set('title', result); break
       case 'article_summary':   set('summary', result.trim().slice(0, LIMITS.summary)); break
       case 'article_seo': {
-        // Tenta extrair campos do bloco SEO gerado — respeitando os limites.
-        const titleMatch = result.match(/META TITLE:\s*(.+)/i)
-        const descMatch  = result.match(/META DESCRIPTION:\s*(.+)/i)
-        if (titleMatch) set('seo_title', titleMatch[1].trim().slice(0, LIMITS.seoTitle))
-        if (descMatch)  set('seo_description', descMatch[1].trim().slice(0, LIMITS.seoDescription))
+        // Extrai TODOS os campos do bloco SEO/editorial gerado. Tolerante a
+        // acentos e a variações de rótulo; limpa colchetes/aspas em volta.
+        const pick = (re: RegExp): string => {
+          const m = result.match(re)
+          return m ? m[1].trim().replace(/^\[|\]$/g, '').replace(/^["']|["']$/g, '').trim() : ''
+        }
+        const title    = pick(/META TITLE:\s*(.+)/i)
+        const desc     = pick(/META DESCRIPTION:\s*(.+)/i)
+        const kw       = pick(/PALAVRA-CHAVE(?:\s+PRINCIPAL)?:\s*(.+)/i)
+        const kwSec    = pick(/PALAVRAS?-CHAVE\s+SECUND[ÁA]RIAS?:\s*(.+)/i)
+        const tags     = pick(/TAGS:\s*(.+)/i)
+        const emotion  = pick(/EMO[ÇC][ÃA]O:\s*(.+)/i)
+        const jRaw     = pick(/ETAPA DA JORNADA:\s*(.+)/i).toLowerCase()
+        const journey  = ['descoberta', 'consideracao', 'decisao'].find(j => jRaw.includes(j)) ?? ''
+        const intent   = pick(/INTEN[ÇC][ÃA]O(?:\s+DO CONTE[ÚU]DO)?:\s*(.+)/i)
+        const audience = pick(/P[ÚU]BLICO[- ]?ALVO:\s*(.+)/i)
+        if (title)    set('seo_title', title.slice(0, LIMITS.seoTitle))
+        if (desc)     set('seo_description', desc.slice(0, LIMITS.seoDescription))
+        if (kw)       set('keyword', kw)
+        if (kwSec)    set('secondary_keywords', kwSec)
+        if (tags)     set('tags', tags)
+        if (emotion)  set('emotion', emotion)
+        if (journey)  set('journey_stage', journey)
+        if (intent)   set('intent', intent)
+        if (audience) set('audience', audience)
         break
       }
       case 'article_diary_question': set('diary_question', result); break
