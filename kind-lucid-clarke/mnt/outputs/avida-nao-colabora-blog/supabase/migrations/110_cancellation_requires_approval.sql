@@ -58,3 +58,24 @@ Equipe A Vida Não Colabora$b$,
 ON CONFLICT (template_key) DO UPDATE SET
   subject = EXCLUDED.subject, preheader = EXCLUDED.preheader, body_text = EXCLUDED.body_text,
   category = EXCLUDED.category, is_active = true, updated_at = now();
+
+-- 3) Com o fluxo em duas etapas, o e-mail de "recebido/em análise" é o do PEDIDO
+--    (plan_cancel_pending_review acima). O template plan_cancel_requested passa a
+--    ser enviado só na APROVAÇÃO (admin-schedule-cancellation) — então o texto
+--    deve CONFIRMAR o cancelamento e a data, não dizer "solicitado/recebido".
+UPDATE email_templates SET
+  subject = 'Cancelamento confirmado',
+  preheader = 'Seu plano fica ativo até o fim do ciclo já pago.',
+  body_text = $b$Olá, {{nome}}.
+
+Seu cancelamento foi confirmado.
+
+Seu plano {{plano_atual}} continua ativo até {{data_fim_ciclo}}. Depois dessa data, sua conta voltará automaticamente para o plano Gratuito e seus dados serão preservados.
+
+Mudou de ideia? Você ainda pode desfazer o cancelamento antes do fim do ciclo:
+{{link_meu_plano}}
+
+Com carinho,
+Equipe A Vida Não Colabora$b$,
+  is_active = true, updated_at = now()
+WHERE template_key = 'plan_cancel_requested';
