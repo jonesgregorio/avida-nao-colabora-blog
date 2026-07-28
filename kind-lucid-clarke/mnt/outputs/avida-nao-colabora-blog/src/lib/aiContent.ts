@@ -141,9 +141,12 @@ export async function testProvider(p: AIProvider): Promise<{ ok: boolean; error?
     const { data, error } = await supabase.functions.invoke('generate-content', {
       body: { prompt: 'Responda apenas com o texto: OK', provider: p, test: true, contentType: 'health_check' },
     })
-    const out = data as { text?: string; error?: string } | null
-    if (error) return { ok: false, error: out?.error || error.message, ms: Date.now() - t0 }
-    return { ok: !!out?.text && !!out.text.trim(), error: out?.text ? undefined : out?.error, ms: Date.now() - t0 }
+    // Surfacing do detalhe (ex.: "Gemini HTTP 403") — o erro amigável esconde o
+    // código real, essencial para diagnosticar chave restrita / API não ativada.
+    const out = data as { text?: string; error?: string; detail?: string } | null
+    const withDetail = (msg?: string) => (out?.detail ? `${msg ?? ''} — ${out.detail}`.trim() : (msg ?? ''))
+    if (error) return { ok: false, error: withDetail(out?.error || error.message), ms: Date.now() - t0 }
+    return { ok: !!out?.text && !!out.text.trim(), error: out?.text ? undefined : withDetail(out?.error), ms: Date.now() - t0 }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e), ms: Date.now() - t0 }
   }
