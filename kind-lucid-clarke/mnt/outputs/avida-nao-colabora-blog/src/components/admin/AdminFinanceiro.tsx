@@ -389,10 +389,11 @@ export default function AdminFinanceiro() {
                       <td className="py-2 pr-2 text-stone-500">{formatDateTimeShort(f.effective_at)}</td>
                       <td className="py-2">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                          f.status === 'scheduled' ? 'bg-amber-100 text-amber-700'
+                          f.status === 'pending_approval' ? 'bg-amber-100 text-amber-800'
+                            : f.status === 'scheduled' ? 'bg-forest-100 text-forest-700'
                             : f.status === 'completed' ? 'bg-stone-100 text-stone-500' : 'bg-green-100 text-green-700'
                         }`}>
-                          {f.status === 'scheduled' ? 'agendado' : f.status === 'completed' ? 'efetivado' : 'revertido'}
+                          {f.status === 'pending_approval' ? 'em análise' : f.status === 'scheduled' ? 'agendado' : f.status === 'completed' ? 'efetivado' : 'revertido'}
                         </span>
                       </td>
                     </tr>

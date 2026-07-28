@@ -136,8 +136,9 @@ export default function AdminSubscriptionPanel({ userId, plan }: Props) {
     plan,
   })
 
-  // Saída agendada (ainda não efetivada) — é o que o admin precisa ver em destaque.
-  const agendado = feedbacks.find(f => f.status === 'scheduled')
+  // Saída em curso (ainda não efetivada) — é o que o admin precisa ver em destaque.
+  // Inclui pedido em análise (pending_approval, 110) e saída já agendada (scheduled).
+  const agendado = feedbacks.find(f => f.status === 'scheduled' || f.status === 'pending_approval')
   const semDados = !sub && eventos.length === 0
 
   return (
@@ -186,7 +187,9 @@ export default function AdminSubscriptionPanel({ userId, plan }: Props) {
       {agendado && (
         <div className={`border rounded-xl p-4 ${agendado.change_type === 'cancellation' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
           <p className={`text-xs font-semibold mb-2 ${agendado.change_type === 'cancellation' ? 'text-amber-800' : 'text-blue-800'}`}>
-            {agendado.change_type === 'cancellation' ? 'Cancelamento solicitado' : 'Downgrade solicitado'}
+            {agendado.change_type === 'cancellation'
+              ? (agendado.status === 'pending_approval' ? 'Cancelamento solicitado (aguardando aprovação)' : 'Cancelamento agendado')
+              : 'Downgrade solicitado'}
           </p>
           <div className="space-y-1 text-xs text-stone-700">
             <p><strong>{planLabel(agendado.current_plan)} → {planLabel(agendado.target_plan)}</strong></p>
@@ -254,7 +257,7 @@ export default function AdminSubscriptionPanel({ userId, plan }: Props) {
       </div>
 
       {/* Histórico de motivos já efetivados/revertidos */}
-      {feedbacks.filter(f => f.status !== 'scheduled').length > 0 && (
+      {feedbacks.filter(f => f.status !== 'scheduled' && f.status !== 'pending_approval').length > 0 && (
         <div className="bg-stone-50 border border-line rounded-xl p-4">
           <p className="text-xs font-semibold text-stone-700 mb-2">Motivos informados anteriormente</p>
           <div className="space-y-2">

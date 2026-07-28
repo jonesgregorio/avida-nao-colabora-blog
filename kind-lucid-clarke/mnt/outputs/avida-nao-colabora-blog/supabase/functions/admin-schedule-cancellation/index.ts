@@ -84,10 +84,15 @@ Deno.serve(async (req: Request) => {
 
   // ── Carrega o registro de cancelamento e a assinatura do banco ──────────────
   const { data: fb } = await admin.from('subscription_change_feedback')
-    .select('id, user_id, change_type, current_plan, reasons, comment, effective_at, subscription_id')
+    .select('id, user_id, change_type, current_plan, reasons, comment, effective_at, subscription_id, status')
     .eq('id', feedbackId).maybeSingle()
   if (!fb) return json({ error: 'Registro de cancelamento não encontrado.' }, 404)
   if (fb.change_type !== 'cancellation') return json({ error: 'Este registro não é um cancelamento.' }, 400)
+  // Aprovação (110): não agendar um pedido que o usuário já retirou. 'reverted'
+  // significa que a pessoa desistiu antes da aprovação — aprovar seria um erro.
+  if ((fb as { status?: string }).status === 'reverted') {
+    return json({ error: 'Este pedido foi retirado pelo usuário e não pode ser aprovado.', code: 'reverted' })
+  }
 
   const targetUserId = fb.user_id as string
 

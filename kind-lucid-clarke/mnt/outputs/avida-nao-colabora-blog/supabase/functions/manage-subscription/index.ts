@@ -217,6 +217,7 @@ Deno.serve(async (req) => {
     changeType: 'cancellation' | 'downgrade',
     targetPlanFinal: string,
     effectiveAt: string | null,
+    statusFinal: 'pending_approval' | 'scheduled' = 'scheduled',
   ): Promise<void> {
     const { error } = await supabase.from('subscription_change_feedback').insert({
       user_id: user.id,
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
       reasons,
       comment: comment || null,
       effective_at: effectiveAt,
-      status: 'scheduled',
+      status: statusFinal,
     })
     if (error) throw new Error('Erro ao registrar o motivo: ' + error.message)
   }
@@ -286,36 +287,26 @@ Deno.serve(async (req) => {
 
     if (action === 'cancel') {
       // Motivo é obrigatório (§9) e validado AQUI, não só no front — que pode ser
-      // burlado. Recusamos antes de tocar no Stripe.
+      // burlado. Recusamos antes de registrar o pedido.
       const erroMotivo = validarMotivos(reasons, comment)
       if (erroMotivo) return jsonResponse({ error: erroMotivo }, 400)
 
-      // Cancela ao fim do período
-      if (stripeSubId) {
-        await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true })
-      }
+      // ── APROVAÇÃO OBRIGATÓRIA (110) ─────────────────────────────────────────
+      // O pedido do usuário NÃO toca no Stripe e NÃO altera a assinatura. Ele só
+      // é REGISTRADO como 'pending_approval'. O cancelamento só vira agendamento
+      // (cancel_at_period_end=true) quando o ADMIN aprovar na aba Cancelamentos
+      // (Edge Function admin-schedule-cancellation). Até lá o usuário mantém o
+      // plano e o acesso normalmente. Fim do ciclo aqui é só uma PROJEÇÃO para
+      // exibir — a data real é fixada na aprovação.
+      const projectedEnd = await resolvePeriodEnd()
 
-      const effectiveAt = await resolvePeriodEnd()
-      if (!effectiveAt) {
-        return jsonResponse({ error: 'Não foi possível determinar o fim do ciclo da sua assinatura. Tente novamente em instantes.' }, 409)
-      }
-
-      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
-        user_id: user.id,
-        status: 'cancel_pending',
-        cancel_at_period_end: true,
-        pending_plan: 'free',
-        pending_plan_starts_at: effectiveAt,
-      }, { onConflict: 'user_id' })
-      if (subErr) throw new Error('Erro ao atualizar assinatura: ' + subErr.message)
-
-      await registrarFeedback('cancellation', 'free', effectiveAt)
+      await registrarFeedback('cancellation', 'free', projectedEnd, 'pending_approval')
       await registrarEvento('cancellation_requested', {
         new_plan: 'free',
-        status: 'scheduled',
+        status: 'pending',
         reasons,
         comment: comment || null,
-        metadata: { current_plan: currentPlan, target_plan: 'free', effective_at: effectiveAt },
+        metadata: { current_plan: currentPlan, target_plan: 'free', requires_admin_approval: true, projected_end: projectedEnd },
       })
 
       await supabase.from('plan_change_history').insert({
@@ -324,26 +315,26 @@ Deno.serve(async (req) => {
         new_plan: 'free',
         change_type: 'cancel',
         amount_charged: 0,
-        effective_at: effectiveAt,
+        effective_at: projectedEnd,
         source: 'user',
-        notes: `Cancelamento agendado para ${fmtBR(effectiveAt)}`,
+        notes: 'Cancelamento solicitado — aguardando aprovação do admin',
       }).then(({ error }) => { if (error) console.error('plan_change_history cancel:', error) })
 
       await supabase.from('notifications').insert({
         user_id: user.id,
-        title: 'Cancelamento agendado',
-        body: `Sua assinatura será encerrada ao fim do ciclo atual. Você mantém acesso até lá.`,
+        title: 'Pedido de cancelamento recebido',
+        body: `Seu pedido está em análise. Você mantém acesso normalmente até a confirmação — avisaremos quando o cancelamento for confirmado.`,
         type: 'info',
         action_url: 'my-plan', destination_path: 'my-plan',
       }).then(({ error }) => { if (error) console.error('notif cancel:', error) })
 
-      // E-mail de confirmação de cancelamento solicitado (não bloqueia o fluxo)
-      await sendTxEmail('plan_cancel_requested', profile?.email ?? user.email, {
+      // E-mail: pedido RECEBIDO e em análise (não promete data — ela só existe
+      // após a aprovação). Não bloqueia o fluxo.
+      await sendTxEmail('plan_cancel_pending_review', profile?.email ?? user.email, {
         nome: profile?.full_name || 'você',
         plano_atual: planLabel(currentPlan),
-        data_fim_ciclo: fmtBR(effectiveAt),
         link_meu_plano: `${SITE}/meu-plano`,
-      }, `plan_cancel_requested:${user.id}:${effectiveAt}`, user.id)
+      }, `plan_cancel_pending:${user.id}:${Date.now()}`, user.id)
 
       // Alerta ao admin: vai SÓ para a caixa oficial do negócio — NUNCA para todos os
       // perfis admin (o próprio solicitante pode ser admin e receberia o aviso do
@@ -356,13 +347,14 @@ Deno.serve(async (req) => {
           motivo: reasonsLabelPt(reasons),
           comentario: comment || '—',
           link_admin: `${SITE}/admin`,
-        }, `admin_cancel_alert:${user.id}:${effectiveAt}`, null)
+        }, `admin_cancel_alert:${user.id}:${Date.now()}`, null)
       } catch (e) { console.error('admin_cancellation_alert:', (e as Error).message) }
 
       return jsonResponse({
         ok: true,
-        message: `Cancelamento agendado para ${fmtBR(effectiveAt)}.`,
-        effectiveAt,
+        pendingApproval: true,
+        message: 'Recebemos seu pedido de cancelamento. Ele está em análise e você mantém acesso normalmente até a confirmação.',
+        effectiveAt: projectedEnd,
       })
     }
 
@@ -460,11 +452,12 @@ Deno.serve(async (req) => {
       }).eq('user_id', user.id)
       if (subErr) throw new Error('Erro ao reativar assinatura: ' + subErr.message)
 
-      // O usuário desistiu da saída: o feedback agendado vira 'reverted' para não
-      // contar como cancelamento/downgrade real no Analytics.
+      // O usuário desistiu da saída: o feedback agendado OU o pedido ainda em
+      // análise (pending_approval, 110) vira 'reverted' para não contar como
+      // cancelamento/downgrade real no Analytics nem seguir para aprovação.
       await supabase.from('subscription_change_feedback')
         .update({ status: 'reverted', updated_at: new Date().toISOString() })
-        .eq('user_id', user.id).eq('status', 'scheduled')
+        .eq('user_id', user.id).in('status', ['scheduled', 'pending_approval'])
         .then(({ error }) => { if (error) console.error('feedback reverted:', error) })
 
       await supabase.from('plan_change_history').insert({

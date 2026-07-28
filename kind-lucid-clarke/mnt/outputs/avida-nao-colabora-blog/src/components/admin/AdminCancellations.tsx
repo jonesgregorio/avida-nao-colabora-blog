@@ -28,7 +28,7 @@ interface Row {
   comment: string | null
   requested_at: string
   effective_at: string | null
-  status: string // scheduled | completed | reverted
+  status: string // pending_approval | scheduled | completed | reverted
   admin_handled_at: string | null
   admin_reply: string | null
   admin_replied_at: string | null
@@ -45,9 +45,10 @@ const PLAN_LABELS: Record<string, string> = {
 const planLabel = (p: string) => PLAN_LABELS[p] ?? p
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-  scheduled: { label: 'Agendado (ainda no ciclo)', cls: 'bg-amber-100 text-amber-700' },
+  pending_approval: { label: 'Aguardando sua aprovação', cls: 'bg-amber-100 text-amber-800' },
+  scheduled: { label: 'Aprovado (agendado, ainda no ciclo)', cls: 'bg-forest-100 text-forest-800' },
   completed: { label: 'Encerrado', cls: 'bg-stone-100 text-stone-500' },
-  reverted:  { label: 'Voltou atrás', cls: 'bg-forest-100 text-forest-800' },
+  reverted:  { label: 'Pedido retirado pelo usuário', cls: 'bg-stone-100 text-stone-500' },
 }
 
 function fmt(iso: string | null): string {
@@ -85,13 +86,17 @@ function stripeStateOf(r: Row): StripeState {
   if (subStatus === 'cancelled' || subStatus === 'canceled' || r.status === 'completed') {
     return { badge: 'Já cancelado', badgeCls: 'bg-stone-100 text-stone-500', canSchedule: false, btnLabel: 'Já cancelado' }
   }
+  // Pedido retirado pelo usuário antes da aprovação (110): não há o que aprovar.
+  if (r.status === 'reverted') {
+    return { badge: 'Pedido retirado', badgeCls: 'bg-stone-100 text-stone-500', canSchedule: false, btnLabel: 'Pedido retirado' }
+  }
   if (sub.cancel_at_period_end === true || r.stripe_sync_status === 'success') {
     return { badge: 'Agendado no Stripe', badgeCls: 'bg-forest-100 text-forest-800', canSchedule: false, btnLabel: 'Já agendado' }
   }
   if (r.stripe_sync_status === 'failed') {
     return { badge: 'Erro ao enviar', badgeCls: 'bg-red-100 text-red-700', canSchedule: true, btnLabel: 'Tentar novamente' }
   }
-  return { badge: 'Não enviado', badgeCls: 'bg-amber-100 text-amber-700', canSchedule: true, btnLabel: 'Agendar no Stripe' }
+  return { badge: 'Aguardando aprovação', badgeCls: 'bg-amber-100 text-amber-700', canSchedule: true, btnLabel: 'Aprovar e agendar' }
 }
 
 export default function AdminCancellations() {
@@ -216,7 +221,7 @@ export default function AdminCancellations() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2"><Ban className="w-6 h-6 text-forest-600" /> Cancelamentos</h1>
-          <p className="text-sm text-ink-soft mt-1">Cada pedido chega com o motivo. O cancelamento é agendado no Stripe para o <strong>fim do ciclo</strong> — o usuário mantém acesso até lá. Aqui você garante/sincroniza o agendamento e pode responder por e-mail.</p>
+          <p className="text-sm text-ink-soft mt-1">Cada pedido chega para a <strong>sua aprovação</strong> com o motivo. Nada é enviado ao Stripe até você aprovar. Ao aprovar, o cancelamento é agendado para o <strong>fim do ciclo</strong> — o usuário mantém acesso até lá. Você também pode responder por e-mail antes de decidir.</p>
         </div>
         <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
@@ -311,7 +316,7 @@ export default function AdminCancellations() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="flex items-center gap-2 p-5 border-b border-line">
                 <CreditCard className="w-5 h-5 text-forest-700" />
-                <h2 className="font-semibold text-forest-900 flex-1">Agendar cancelamento no Stripe?</h2>
+                <h2 className="font-semibold text-forest-900 flex-1">Aprovar e agendar cancelamento no Stripe?</h2>
                 <button onClick={() => setConfirmRow(null)} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100"><X className="w-4 h-4" /></button>
               </div>
               <div className="p-5 space-y-3 text-sm">
@@ -334,7 +339,7 @@ export default function AdminCancellations() {
                 <button onClick={() => setConfirmRow(null)} className="px-4 py-2 text-sm text-stone-500 border border-line rounded-lg hover:bg-stone-50">Cancelar</button>
                 <button onClick={() => handleSchedule(confirmRow)} disabled={scheduling === confirmRow.id}
                   className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg">
-                  {scheduling === confirmRow.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} Confirmar agendamento no Stripe
+                  {scheduling === confirmRow.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} Aprovar e agendar no Stripe
                 </button>
               </div>
             </div>

@@ -123,7 +123,8 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
   // Motivo já informado numa saída agendada (§17) — para o usuário lembrar do que disse.
-  const [feedback, setFeedback] = useState<{ reasons: string[]; comment: string | null; change_type: string } | null>(null)
+  // status: 'pending_approval' (pedido em análise pelo admin) | 'scheduled' (aprovado) — 110.
+  const [feedback, setFeedback] = useState<{ reasons: string[]; comment: string | null; change_type: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string } | null>(null)
   const [acting, setActing] = useState(false)
@@ -164,15 +165,16 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // Motivo da saída agendada (RLS garante que só vem o do próprio usuário).
+      // Motivo da saída agendada OU do pedido em análise (110) — RLS garante que
+      // só vem o do próprio usuário.
       supabase.from('subscription_change_feedback')
-        .select('reasons, comment, change_type')
-        .eq('user_id', user!.id).eq('status', 'scheduled')
+        .select('reasons, comment, change_type, status')
+        .eq('user_id', user!.id).in('status', ['scheduled', 'pending_approval'])
         .order('requested_at', { ascending: false }).limit(1).maybeSingle(),
     ])
     setSub(subRes.data as Subscription | null)
     setHistory((histRes.data as PlanChangeRecord[]) ?? [])
-    setFeedback((fbRes.data as { reasons: string[]; comment: string | null; change_type: string } | null) ?? null)
+    setFeedback((fbRes.data as { reasons: string[]; comment: string | null; change_type: string; status: string } | null) ?? null)
     // Data de ativação: registro no plan_change_history, ou user_plan_history como fallback
     if (planHistRes.data?.created_at) {
       setPlanActivatedAt(planHistRes.data.created_at)
@@ -258,7 +260,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
       })
       if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao cancelar assinatura')
       setModal(null)
-      setActionMsg({ type: 'ok', text: data.message ?? 'Cancelamento agendado. Você mantém acesso até o fim do ciclo.' })
+      setActionMsg({ type: 'ok', text: data.message ?? 'Recebemos seu pedido de cancelamento. Ele está em análise e você mantém acesso normalmente.' })
       loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao cancelar assinatura'
@@ -314,7 +316,13 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
 
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
   const isCancelPending = sub?.cancel_at_period_end || sub?.status === 'cancel_pending'
+  // Pedido de cancelamento em análise pelo admin (110): ainda NÃO agendado no
+  // Stripe — o usuário mantém tudo até a aprovação.
+  const isCancelRequested = !isCancelPending
+    && feedback?.change_type === 'cancellation' && feedback?.status === 'pending_approval'
   const hasPendingDowngrade = !!sub?.pending_plan && sub.pending_plan !== currentPlan && !isCancelPending
+  // Enquanto há saída em curso (agendada ou em análise), travamos trocas de plano.
+  const blockPlanChanges = isCancelPending || isCancelRequested
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -367,6 +375,18 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
           </div>
         )}
 
+        {isCancelRequested && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
+            <strong>Pedido de cancelamento em análise.</strong> Recebemos sua solicitação e nossa equipe vai revisá-la. Até a confirmação, <strong>nada muda</strong>: você mantém o plano {PLAN_LABELS[currentPlan]} e todo o acesso normalmente. Quando for confirmado, avisaremos a data em que seu plano será encerrado (sempre no fim do ciclo já pago).
+            {feedback?.change_type === 'cancellation' && feedback.reasons?.length > 0 && (
+              <p className="mt-1.5 text-amber-700">
+                <strong>Motivos que você informou:</strong> {reasonsLabel(feedback.reasons)}
+                {feedback.comment ? <><br /><span className="italic">“{feedback.comment}”</span></> : null}
+              </p>
+            )}
+          </div>
+        )}
+
         {isCancelPending && (
           <div className="bg-amber-100 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
             <strong>Cancelamento agendado.</strong> Seu plano ficará ativo até {formatDate(effectivePeriodEnd)}. Após essa data, ele será encerrado e você voltará para o plano Gratuito. Seus dados serão preservados.
@@ -399,6 +419,13 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
             >
               Manter meu plano
+            </button>
+          ) : isCancelRequested ? (
+            <button
+              onClick={() => openModal({ type: 'reactivate' })}
+              className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              Cancelar solicitação
             </button>
           ) : currentPlan !== 'free' ? (
             <button
@@ -435,7 +462,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               <div className="mt-4">
                 {isCurrent ? (
                   <span className="block text-center text-sm font-medium bg-mint text-forest-700 rounded-xl py-2.5">Plano atual</span>
-                ) : isCancelPending ? (
+                ) : blockPlanChanges ? (
                   <span className="block text-center text-sm text-ink-soft rounded-xl py-2.5 border border-line">Indisponível agora</span>
                 ) : (
                   <button
@@ -657,7 +684,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-red-700">Cancelar assinatura</h3>
+              <h3 className="font-semibold text-red-700">Solicitar cancelamento</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
@@ -673,13 +700,14 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               </div>
 
-              {/* Data */}
+              {/* Como funciona */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-xs font-semibold text-amber-800 mb-1">Acesso garantido até</p>
-                <p className="text-lg font-bold text-amber-900">{formatDate(effectivePeriodEnd)}</p>
+                <p className="text-xs font-semibold text-amber-800 mb-1">Seu pedido passa por uma análise</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Você continua com acesso completo ao plano <strong>{PLAN_LABELS[currentPlan]}</strong> até essa data.
-                  Depois disso, sua conta será migrada automaticamente para o plano <strong>Gratuito</strong>.
+                  Ao confirmar, enviamos sua solicitação para revisão da nossa equipe. <strong>Nada muda na hora</strong>: você
+                  segue com acesso completo ao plano <strong>{PLAN_LABELS[currentPlan]}</strong>. Quando o cancelamento for
+                  confirmado, ele valerá até o <strong>fim do ciclo já pago</strong> — depois disso sua conta migra para o
+                  plano <strong>Gratuito</strong>.
                 </p>
               </div>
 
@@ -717,7 +745,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 />
               </div>
 
-              <p className="text-xs text-stone-400">Seus dados não serão apagados. Você poderá reativar seu plano a qualquer momento antes da data de expiração.</p>
+              <p className="text-xs text-stone-400">Seus dados não serão apagados. Você pode retirar o pedido a qualquer momento enquanto ele estiver em análise.</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -726,7 +754,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Confirmar cancelamento
+                Enviar pedido de cancelamento
               </button>
               <button onClick={() => setModal(null)} className="px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">Desistir</button>
             </div>
@@ -739,10 +767,14 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sage-800">Manter meu plano</h3>
+              <h3 className="font-semibold text-sage-800">{isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-sm text-stone-600 mb-5">Deseja remover o cancelamento agendado e manter o plano {PLAN_LABELS[currentPlan]} ativo?</p>
+            <p className="text-sm text-stone-600 mb-5">
+              {isCancelRequested
+                ? `Deseja retirar seu pedido de cancelamento e continuar com o plano ${PLAN_LABELS[currentPlan]} normalmente?`
+                : `Deseja remover o cancelamento agendado e manter o plano ${PLAN_LABELS[currentPlan]} ativo?`}
+            </p>
             <div className="flex gap-2">
               <button
                 onClick={handleReactivate}
@@ -750,7 +782,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Manter meu plano
+                {isCancelRequested ? 'Retirar pedido' : 'Manter meu plano'}
               </button>
               <button onClick={() => setModal(null)} className="px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">Voltar</button>
             </div>
