@@ -125,7 +125,7 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`
 
     case 'article_summary':
-      return `Escreva um resumo de 1 a 3 frases para um artigo.${ctx}${preview}. O resumo será exibido na listagem do site. Máximo 300 caracteres (incluindo espaços); não ultrapasse.`
+      return `Escreva um resumo para um artigo.${ctx}${preview}. O resumo será exibido na listagem do site. Pode ter de 1 a 2 parágrafos. Máximo 3000 caracteres (incluindo espaços); não ultrapasse.`
 
     case 'article_seo':
       return `Gere os metadados de SEO e editoriais para um artigo de saúde emocional.${ctx}${preview}${cat}

@@ -91,7 +91,7 @@ interface ArticleVersion {
 
 // Limites de caracteres (média recomendada) — respeitados no campo (maxLength +
 // contador) E ao inserir texto gerado pela IA (clamp em handleAIInsert).
-const LIMITS = { title: 80, summary: 300, seoTitle: 60, seoDescription: 160 }
+const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 160 }
 
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
@@ -536,7 +536,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <input value={data.slug} onChange={e => set('slug', e.target.value)} placeholder="slug-do-artigo" className={inputCls} />
             </Field>
             <Field label="Resumo" hint={`(${data.summary.length}/${LIMITS.summary} caracteres)`}>
-              <textarea value={data.summary} onChange={e => set('summary', e.target.value)} maxLength={LIMITS.summary} rows={2} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
+              <textarea value={data.summary} onChange={e => set('summary', e.target.value)} maxLength={LIMITS.summary} rows={6} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
             </Field>
             <Field label="Conteúdo">
               <FormattedTextarea
