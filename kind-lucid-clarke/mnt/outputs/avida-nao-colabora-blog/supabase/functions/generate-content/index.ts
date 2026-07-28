@@ -15,7 +15,12 @@ const corsHeaders = {
 const TIMEOUT_MS = 60_000
 // Teto de saída alto para o artigo extenso não ser truncado pelo default do provedor.
 const MAX_OUTPUT_TOKENS = 8000
-const GEMINI_MODEL = 'gemini-2.0-flash'
+// Modelos Gemini tentados EM ORDEM até um responder (Google renomeia/aposenta
+// modelos; um nome fixo dava HTTP 404). Pode fixar/ajustar via env GEMINI_MODEL
+// (um nome, ou vários separados por vírgula).
+const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') ||
+  'gemini-2.5-flash,gemini-2.0-flash-001,gemini-flash-latest,gemini-2.0-flash,gemini-1.5-flash')
+  .split(',').map(m => m.trim()).filter(Boolean)
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
 const OPENAI_MODEL = 'gpt-4o-mini'
 
@@ -56,15 +61,21 @@ async function callOpenAI(prompt: string): Promise<string> {
 async function callGemini(prompt: string): Promise<string> {
   const key = Deno.env.get('GEMINI_API_KEY')
   if (!key) throw new Error('Gemini: GEMINI_API_KEY não configurada no servidor')
-  const res = await withTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS } }) },
-  )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
-  const data = await res.json()
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text || !String(text).trim()) throw new Error('Gemini: resposta vazia')
-  return String(text).trim()
+  let last = 0
+  for (const model of GEMINI_MODELS) {
+    const res = await withTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS } }) },
+    )
+    // 404 = modelo inexistente/aposentado → tenta o próximo da lista.
+    if (res.status === 404) { last = 404; continue }
+    if (!res.ok) throw new Error(`Gemini HTTP ${res.status} (${model})`)
+    const data = await res.json()
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text || !String(text).trim()) throw new Error('Gemini: resposta vazia')
+    return String(text).trim()
+  }
+  throw new Error(`Gemini HTTP ${last || 404}: nenhum dos modelos existe (${GEMINI_MODELS.join(', ')}). Ajuste o env GEMINI_MODEL.`)
 }
 
 async function callGroq(prompt: string): Promise<string> {
