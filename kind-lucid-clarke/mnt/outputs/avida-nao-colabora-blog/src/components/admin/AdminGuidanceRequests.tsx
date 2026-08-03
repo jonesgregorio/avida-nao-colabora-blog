@@ -183,7 +183,7 @@ export default function AdminGuidanceRequests() {
   const gMetrics = [
     { n: openCount, label: 'Aguardando resposta', Icon: Clock, tone: openCount > 0 ? 'text-amber-600' : 'text-forest-600' },
     { n: answeredThisMonth, label: 'Respondidas no mês', Icon: MessageSquare, tone: 'text-forest-600' },
-    { n: oldestOpenDays, suffix: oldestOpenDays === 1 ? 'dia' : 'dias', label: 'Mais antiga aguardando', Icon: Calendar, tone: oldestOpenDays >= 5 ? 'text-red-600' : 'text-forest-600' },
+    { n: oldestOpenDays, suffix: oldestOpenDays === 1 ? 'dia' : 'dias', label: 'Mais antiga aguardando', Icon: Calendar, tone: oldestOpenDays >= RESPONSE_SLA_DAYS ? 'text-red-600' : oldestOpenDays >= 5 ? 'text-amber-600' : 'text-forest-600' },
     { n: requests.length, label: 'Total no período', Icon: Users, tone: 'text-forest-600' },
   ]
 
@@ -417,7 +417,10 @@ export default function AdminGuidanceRequests() {
                 <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{selected.message}</p>
                 {selected.context && <Field label="O que já tentou" value={selected.context} />}
                 {selected.expected_help && <Field label="Tipo de ajuda esperada" value={selected.expected_help} />}
-                <p className="text-xs text-stone-400 mt-2">Enviada em {sentAtLabel(selected.created_at)}</p>
+                <div className="flex items-center gap-2 flex-wrap mt-2">
+                  <p className="text-xs text-stone-400">Enviada em {sentAtLabel(selected.created_at)}</p>
+                  {!answered && selected.status !== 'closed' && <DeadlineBadge createdAt={selected.created_at} />}
+                </div>
               </section>
 
               {answered ? (
