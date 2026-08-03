@@ -8,12 +8,13 @@ import {
   MessageCircle, Sprout,
   Clock, ArrowRight, ChevronDown, RefreshCw,
   Info, Download, Search, ChevronRight, X, Heart, Zap, Activity,
+  Target, Smile, AlertCircle, Check, Sparkles, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { computeEmotionalAnalysis, MOOD_EMOJI, type DiaryRowLite } from '../lib/emotionalAnalytics'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
+import { AreaChart, Area, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
   getCurrentWeeklyPeriod, getPreviousWeeklyPeriod, getCurrentMonthlyPeriod, getPreviousMonthlyPeriod,
   formatPeriodShort, formatDateBR, monthTitle, ymd, parseYmd, type Period,
@@ -167,6 +168,209 @@ function SynthCharts({ energyByDay = [], anxietyByDay = [], emotions = [], trigg
   )
 }
 
+// ─── Peças do relatório semanal (redesign visual) ─────────────────────────────
+const WD_ABBR = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+// Mapa dia-do-mês → rótulo "ter 27/07", cobrindo o período do relatório.
+function buildDayLabels(startYmd: string, endYmd: string): Map<number, string> {
+  const m = new Map<number, string>()
+  let d = parseYmd(startYmd)
+  const end = parseYmd(endYmd).getTime()
+  let guard = 0
+  while (d.getTime() <= end && guard < 40) {
+    m.set(d.getDate(), `${WD_ABBR[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`)
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12); guard++
+  }
+  return m
+}
+interface ChartDay { day: number; label: string; energia: number | null; ansiedade: number | null }
+function mergeDaySeries(energy: DayPoint[], anxiety: DayPoint[], labels: Map<number, string>): ChartDay[] {
+  const eMap = new Map(energy.map(p => [p.day, p.value]))
+  const aMap = new Map(anxiety.map(p => [p.day, p.value]))
+  const days = [...new Set([...eMap.keys(), ...aMap.keys()])].sort((a, b) => a - b)
+  return days.map(day => ({ day, label: labels.get(day) ?? `Dia ${day}`, energia: eMap.get(day) ?? null, ansiedade: aMap.get(day) ?? null }))
+}
+function pickDay(points: DayPoint[], mode: 'max' | 'min'): DayPoint | null {
+  if (!points || points.length === 0) return null
+  return points.reduce((a, b) => (mode === 'max' ? (b.value > a.value ? b : a) : (b.value < a.value ? b : a)))
+}
+
+function HeroDecoration() {
+  return (
+    <svg className="hidden sm:block absolute right-0 bottom-0 h-full w-56 pointer-events-none" viewBox="0 0 220 120" fill="none" aria-hidden="true">
+      <circle cx="152" cy="40" r="15" fill="#F3C6A8" opacity="0.75" />
+      <path d="M0 120 Q60 80 120 100 T220 92 V120 Z" fill="#E8F0EB" />
+      <path d="M118 120 Q168 82 220 104 V120 Z" fill="#DDE9E0" />
+      <path d="M196 120 C196 96 208 84 220 82 V120 Z" fill="#8FB5A1" opacity="0.85" />
+      <path d="M190 118 C183 104 187 92 197 86 C201 98 199 111 190 118 Z" fill="#5c8a72" />
+    </svg>
+  )
+}
+function WeeklySummaryHero({ summary }: { summary: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-line bg-paper-soft p-5">
+      <div className="relative z-10 flex items-start gap-3 sm:max-w-[75%]">
+        <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Sprout className="w-5 h-5" /></span>
+        <div>
+          <h3 className="font-serif text-lg text-forest-900">Resumo da semana</h3>
+          <p className="text-sm text-stone-600 leading-relaxed mt-1">{summary}</p>
+        </div>
+      </div>
+      <HeroDecoration />
+    </div>
+  )
+}
+
+function MetricTile({ icon, label, value, unit, sub, accent }: { icon: React.ReactNode; label: string; value: string | number; unit?: string; sub?: string; accent?: 'forest' | 'coral' }) {
+  const iconCls = accent === 'coral' ? 'bg-coral/60 text-[#c2673f]' : 'bg-mint text-forest-600'
+  const valCls = accent === 'coral' ? 'text-[#c2673f]' : 'text-forest-900'
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-3.5 text-center flex flex-col items-center">
+      <span className={`w-9 h-9 rounded-full flex items-center justify-center mb-2 ${iconCls}`}>{icon}</span>
+      <p className="text-[11px] text-ink-soft leading-tight">{label}</p>
+      <p className={`font-serif text-lg mt-0.5 leading-tight ${valCls}`}>{value}{unit && <span className="text-xs font-sans text-ink-soft">{unit}</span>}</p>
+      {sub && <p className="text-[10px] text-ink-soft mt-0.5">{sub}</p>}
+    </div>
+  )
+}
+
+function HighlightRow({ icon, tone, label, value }: { icon: React.ReactNode; tone: 'forest' | 'coral'; label: string; value: string }) {
+  const cls = tone === 'coral' ? 'bg-coral/50 text-[#c2673f]' : 'bg-mint text-forest-600'
+  return (
+    <div className="flex items-start gap-2 bg-white border border-line rounded-xl p-3 flex-1">
+      <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${cls}`}>{icon}</span>
+      <div className="min-w-0"><p className="text-[11px] text-ink-soft leading-tight">{label}</p><p className="text-sm font-medium text-forest-900 leading-tight">{value}</p></div>
+    </div>
+  )
+}
+function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels }: { data: ChartDay[]; bestEnergy: DayPoint | null; lowAnx: DayPoint | null; labels: Map<number, string> }) {
+  const dayName = (p: DayPoint) => labels.get(p.day) ?? `Dia ${p.day}`
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-lg text-forest-900 mb-3">Energia e ansiedade ao longo da semana</h3>
+      {data.length >= 2 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_13rem] gap-4 items-center">
+          <div className="min-w-0">
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8a8a8a' }} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: '#8a8a8a' }} axisLine={false} tickLine={false} width={24} />
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E6E1D8', fontSize: 12 }} />
+                  <Line type="monotone" dataKey="energia" name="Energia" stroke="#2f9e6f" strokeWidth={2.5} dot={{ r: 3, fill: '#2f9e6f' }} connectNulls />
+                  <Line type="monotone" dataKey="ansiedade" name="Ansiedade" stroke="#d98b3c" strokeWidth={2.5} dot={{ r: 3, fill: '#d98b3c' }} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center gap-4 justify-center mt-1 text-xs text-ink-soft">
+              <span className="flex items-center gap-1.5"><span className="w-3.5 h-0.5 rounded bg-[#2f9e6f]" /> Energia</span>
+              <span className="flex items-center gap-1.5"><span className="w-3.5 h-0.5 rounded bg-[#d98b3c]" /> Ansiedade</span>
+            </div>
+          </div>
+          <div className="flex flex-row lg:flex-col gap-2">
+            {bestEnergy && <HighlightRow icon={<ArrowUp className="w-4 h-4" />} tone="forest" label="Melhor dia de energia" value={`${dayName(bestEnergy)} · ${bestEnergy.value}/5`} />}
+            {lowAnx && <HighlightRow icon={<ArrowDown className="w-4 h-4" />} tone="coral" label="Menor ansiedade" value={`${dayName(lowAnx)} · ${lowAnx.value}/5`} />}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Gráfico indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período. Continue registrando para acompanhar sua semana.</p>
+      )}
+    </div>
+  )
+}
+
+const DONUT_COLORS = ['#2f5d47', '#5c8a72', '#8fb5a1', '#d98b3c', '#e8a87c', '#c0d8c9']
+function EmotionDonut({ emotions }: { emotions: { label: string; count: number }[] }) {
+  const total = emotions.reduce((n, e) => n + e.count, 0)
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-lg text-forest-900 mb-3">Emoções mais frequentes</h3>
+      {total > 0 ? (
+        <div className="flex items-center gap-4">
+          <div className="w-28 h-28 flex-shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={emotions.slice(0, 6)} dataKey="count" nameKey="label" innerRadius={32} outerRadius={52} paddingAngle={2} stroke="none">
+                  {emotions.slice(0, 6).map((e, i) => <Cell key={e.label} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => [`${Math.round((v / total) * 100)}%`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #E6E1D8', fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <ul className="flex-1 min-w-0 space-y-1.5">
+            {emotions.slice(0, 6).map((e, i) => (
+              <li key={e.label} className="flex items-center gap-2 text-sm">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                <span className="text-stone-700 truncate flex-1">{e.label}</span>
+                <span className="text-ink-soft text-xs">{Math.round((e.count / total) * 100)}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com emoções neste período. Continue registrando para ver seu panorama emocional.</p>
+      )}
+    </div>
+  )
+}
+
+function TriggerRanking({ triggers }: { triggers: { tag: string; count: number }[] }) {
+  const total = triggers.reduce((n, t) => n + t.count, 0)
+  const max = Math.max(...triggers.map(t => t.count), 1)
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-lg text-forest-900 mb-3">Gatilhos principais</h3>
+      {total > 0 ? (
+        <div className="space-y-2.5">
+          {triggers.slice(0, 5).map((t, i) => (
+            <div key={t.tag} className="flex items-center gap-3">
+              <span className="w-5 h-5 rounded-full bg-mint text-forest-700 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+              <span className="text-sm text-stone-700 w-24 sm:w-32 flex-shrink-0 truncate">{t.tag}</span>
+              <div className="flex-1 h-2 rounded-full bg-mint overflow-hidden"><div className="h-full rounded-full bg-[#e8a87c]" style={{ width: `${(t.count / max) * 100}%` }} /></div>
+              <span className="text-xs text-ink-soft w-9 text-right">{Math.round((t.count / total) * 100)}%</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com gatilhos neste período.</p>
+      )}
+    </div>
+  )
+}
+
+function InsightCard({ icon, title, tone, children }: { icon: React.ReactNode; title: string; tone?: 'forest' | 'coral'; children: React.ReactNode }) {
+  const cls = tone === 'coral' ? 'bg-coral/50 text-[#c2673f]' : 'bg-mint text-forest-600'
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-4 sm:p-5">
+      <div className="flex items-center gap-2.5 mb-2">
+        <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${cls}`}>{icon}</span>
+        <h4 className="text-sm font-semibold text-forest-900">{title}</h4>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+const NEXT_STEP_ICONS = [Check, BookOpen, Sparkles, BarChart2]
+function WeeklyNextSteps({ steps }: { steps: string[] }) {
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-lg text-forest-900 mb-3">Próximos passos</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {steps.map((s, i) => {
+          const Icon = NEXT_STEP_ICONS[i % NEXT_STEP_ICONS.length]
+          return (
+            <div key={i} className="flex items-start gap-2.5">
+              <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Icon className="w-4 h-4" /></span>
+              <span className="text-sm text-stone-700 leading-snug">{s}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────
 function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance, forPdf }: {
   report: StoredReport; plan: string
@@ -185,60 +389,69 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
 
   if (report.content.kind === 'weekly') {
     const c = report.content as WeeklyContent
+    const dayLabels = buildDayLabels(report.period_start, report.period_end)
+    const chartData = mergeDaySeries(c.energyByDay, c.anxietyByDay, dayLabels)
+    const bestEnergy = pickDay(c.energyByDay, 'max')
+    const lowAnx = pickDay(c.anxietyByDay, 'min')
     return (
-      <div className="space-y-5">
-        {/* Resumo */}
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Resumo da semana</p>
-          <p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p></div>
+      <div className="space-y-4">
+        {/* Resumo da semana (hero) */}
+        <WeeklySummaryHero summary={c.summary} />
 
-        {/* Dados principais */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <StatPill label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
-          <StatPill label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
-          <StatPill label="Ansiedade média" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} />
-          <StatPill label="Check-ins" value={c.checkinCount ?? 0} />
-          <StatPill label="Diários" value={c.diaryCount ?? 0} />
-          <StatPill label="Gatilho principal" value={c.topTrigger ?? '—'} />
+        {/* Métricas principais */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
+          <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
+          <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade média" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} accent="coral" />
+          <MetricTile icon={<Calendar className="w-4 h-4" />} label="Check-ins" value={c.checkinCount ?? 0} sub="registros" />
+          <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários" value={c.diaryCount ?? 0} sub="registros" />
+          <MetricTile icon={<Target className="w-4 h-4" />} label="Gatilho principal" value={c.topTrigger ?? '—'} accent="coral" />
         </div>
 
-        {/* Gráficos de síntese */}
-        <SynthCharts energyByDay={c.energyByDay} anxietyByDay={c.anxietyByDay} emotions={c.topEmotions} triggers={c.triggers} />
+        {/* Energia e ansiedade ao longo da semana */}
+        <EnergyAnxietyPanel data={chartData} bestEnergy={bestEnergy} lowAnx={lowAnx} labels={dayLabels} />
 
-        {/* Interpretação */}
-        <div className="bg-mint/40 border border-forest-100 rounded-xl p-4"><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">O que seus registros parecem indicar</p>
-          <p className="text-sm text-forest-800 leading-relaxed">{c.interpretation}</p></div>
+        {/* Emoções + gatilhos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <EmotionDonut emotions={c.topEmotions} />
+          <TriggerRanking triggers={c.triggers} />
+        </div>
 
-        {/* Principais padrões da semana */}
-        {(c.patterns?.length ?? 0) > 0 && (
-          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Principais padrões da semana</p>
-            <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul></div>
-        )}
+        {/* Blocos interpretativos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que seus registros parecem indicar">
+            <p className="text-sm text-stone-700 leading-relaxed">{c.interpretation}</p>
+          </InsightCard>
+          <InsightCard icon={<TrendingUp className="w-4 h-4" />} title="Comparação com a semana anterior">
+            {c.comparison.length > 0
+              ? <ul className="space-y-1.5">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
+              : <p className="text-sm text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>}
+          </InsightCard>
+          {(c.attentionPoints?.length ?? 0) > 0 && (
+            <InsightCard icon={<AlertCircle className="w-4 h-4" />} title="Pontos de atenção da semana" tone="coral">
+              <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-[#d98b3c] mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+          {c.improvementMoments && (
+            <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
+              <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p>
+            </InsightCard>
+          )}
+          {(c.patterns?.length ?? 0) > 0 && (
+            <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões da semana">
+              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+        </div>
 
-        {c.comparison.length > 0 && (
-          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">O que mudou em relação à semana anterior</p>
-            <ul className="space-y-1">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
-        )}
-        {c.comparison.length === 0 && (
-          <p className="text-xs text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>
-        )}
-
-        {/* Pontos de atenção + momentos de melhora */}
-        {(c.attentionPoints?.length ?? 0) > 0 && (
-          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Pontos de atenção da semana</p>
-            <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-amber-500 mt-0.5">•</span>{p}</li>)}</ul></div>
-        )}
-        {c.improvementMoments && (
-          <div className="bg-mint/30 border border-line rounded-xl p-4"><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Momentos de melhora</p>
-            <p className="text-sm text-forest-800 leading-relaxed">{c.improvementMoments}</p></div>
-        )}
-
+        {/* Conteúdos recomendados */}
         {!forPdf && recs.length > 0 && (
-          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Conteúdos guiados recomendados</p>
+          <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1.5">Conteúdos guiados recomendados</p>
             <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
         )}
 
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Próximos passos</p>
-          <ul className="grid sm:grid-cols-2 gap-x-3 gap-y-1">{c.nextSteps.map((s, i) => <li key={i} className="text-sm text-stone-600 flex gap-1.5"><span className="text-forest-400">→</span>{s}</li>)}</ul></div>
+        {/* Próximos passos */}
+        {c.nextSteps.length > 0 && <WeeklyNextSteps steps={c.nextSteps} />}
       </div>
     )
   }
@@ -1004,7 +1217,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
     : `Prévia em construção · Fecha em ${formatDateBR(viewer.period.end)}`
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-paper-soft rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-paper-soft rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-start gap-3 p-4 sm:p-5 border-b border-line">
           <div className="min-w-0 flex-1">
             <h2 className="font-serif text-lg sm:text-xl text-forest-900 leading-tight">{title}</h2>
@@ -1012,7 +1225,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
           </div>
           {isReport && (
             <button onClick={() => onPdf(viewer.report)} disabled={pdfBusy} className="inline-flex items-center gap-1.5 text-xs text-forest-700 border border-line px-3 py-1.5 rounded-xl hover:bg-mint/50 disabled:opacity-60 flex-shrink-0">
-              {pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} PDF
+              {pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar PDF
             </button>
           )}
           <button onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 flex-shrink-0"><X className="w-4 h-4" /></button>
