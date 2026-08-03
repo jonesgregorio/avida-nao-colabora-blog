@@ -24,36 +24,25 @@ interface GuidanceRequest {
   created_at: string
 }
 
-interface SubInfo {
-  current_period_start: string | null
-  current_period_end: string | null
-}
-
 interface Cycle {
-  start: Date
-  end: Date
-  key: string
+  key: string           // YYYY-MM do mês-calendário atual (uma orientação por mês)
+  deadline: Date        // dia 23 do mês atual (fim do dia) — prazo p/ solicitar
+  nextOpen: Date        // 1º dia do próximo mês — quando o período reabre
+  isPastDeadline: boolean
 }
 
-// ── Ciclo de orientação = ciclo da assinatura ────────────────────────────────
-// A pessoa pode solicitar UMA orientação por ciclo. O ciclo segue as datas da
-// assinatura (current_period_start/end). Ex.: assinou 12/07 → tem até 12/08 para
-// solicitar; depois dessa data o período reinicia (12/08 → 12/09) e ela pode de
-// novo. Se não houver assinatura com período válido, cai no mês-calendário.
-function billingCycle(sub: SubInfo | null): Cycle {
-  const now = new Date()
-  let start = sub?.current_period_start ? new Date(sub.current_period_start) : null
-  let end = sub?.current_period_end ? new Date(sub.current_period_end) : null
-
-  if (!(start && end && start <= now && end > now)) {
-    const anchorDay = start ? start.getDate() : 1
-    start = new Date(now.getFullYear(), now.getMonth(), anchorDay)
-    if (start > now) start = new Date(now.getFullYear(), now.getMonth() - 1, anchorDay)
-    end = new Date(start.getFullYear(), start.getMonth() + 1, anchorDay)
-  }
-
-  const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
-  return { start, end, key }
+// ── Ciclo de orientação = MÊS-CALENDÁRIO, com prazo no dia 23 ─────────────────
+// Regra (03/08/2026): a orientação mensal segue o mês do calendário, não o ciclo
+// de cobrança. A pessoa pode solicitar UMA orientação por mês, até o DIA 23. Depois
+// do dia 23 o período do mês encerra e reabre no dia 1º do mês seguinte. A resposta
+// chega em até 7 dias CORRIDOS.
+const DEADLINE_DAY = 23
+function guidanceCycle(now: Date = new Date()): Cycle {
+  const y = now.getFullYear(), m = now.getMonth()
+  const deadline = new Date(y, m, DEADLINE_DAY, 23, 59, 59, 999)
+  const nextOpen = new Date(y, m + 1, 1)
+  const key = `${y}-${String(m + 1).padStart(2, '0')}`
+  return { key, deadline, nextOpen, isPastDeadline: now > deadline }
 }
 
 function currentMonthLabel() {
@@ -73,7 +62,7 @@ function formatShort(d: Date | string) {
 export default function MonthlyGuidancePage({ user, profile, onBack, onNavigatePricing }: Props) {
   const [loading, setLoading] = useState(true)
   const [request, setRequest] = useState<GuidanceRequest | null>(null)
-  const [cycle, setCycle] = useState<Cycle>(() => billingCycle(null))
+  const [cycle, setCycle] = useState<Cycle>(() => guidanceCycle())
   const [message, setMessage] = useState('')
   const [context, setContext] = useState('')
   const [expectedHelp, setExpectedHelp] = useState('')
@@ -98,16 +87,11 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
   async function load() {
     setLoading(true)
-    // 1) Assinatura → define o ciclo atual (datas de solicitação).
-    const { data: subData } = await supabase
-      .from('user_subscriptions')
-      .select('current_period_start,current_period_end')
-      .eq('user_id', user!.id)
-      .maybeSingle()
-    const cyc = billingCycle((subData as SubInfo) ?? null)
+    // 1) Ciclo = mês-calendário atual, com prazo no dia 23 (não depende da assinatura).
+    const cyc = guidanceCycle()
     setCycle(cyc)
 
-    // 2) Carrega TODO o histórico do usuário (nunca apagado). O pedido do ciclo
+    // 2) Carrega TODO o histórico do usuário (nunca apagado). O pedido do mês
     //    atual controla o formulário; os demais aparecem em "Orientações anteriores".
     const { data } = await supabase
       .from('monthly_guidance_requests')
@@ -171,8 +155,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     )
   }
 
-  const deadline = formatShort(cycle.end) // data-limite do ciclo / reabertura
-  // Histórico = todos os pedidos, exceto o do ciclo atual (que aparece no topo).
+  const deadline = formatShort(cycle.deadline)   // dia 23 do mês atual
+  const reopen = formatShort(cycle.nextOpen)     // 1º do próximo mês (reabertura)
+  // Histórico = todos os pedidos, exceto o do mês atual (que aparece no topo).
   const history = requests.filter(r => r.id !== request?.id)
 
   return (
@@ -192,8 +177,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           </div>
         </div>
         <p className="text-sm text-sage-500 mt-2 leading-relaxed">
-          Uma vez por ciclo, você envia uma mensagem e recebe de volta, aqui dentro do site, uma
+          Uma vez por mês, você envia uma mensagem e recebe de volta, aqui dentro do site, uma
           orientação de apoio individual e não emergencial, escrita com base nos seus registros.
+          A resposta chega em até <strong className="text-sage-700">7 dias corridos</strong>.
         </p>
         <p className="text-sm text-sage-500 mt-2 leading-relaxed">
           Você pode pedir orientação sobre <strong className="text-sage-700">o que quiser</strong> e trazer os pontos que
@@ -203,39 +189,53 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         </p>
       </div>
 
-      {/* Destaque do ciclo: até quando pode solicitar / quando reabre */}
-      {!request ? (
-        <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/50 p-4 flex items-start gap-3">
-          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0">
-            <CalendarClock className="w-4 h-4" />
-          </span>
-          <div className="text-sm leading-relaxed">
-            <p className="text-forest-800">
-              Você tem até <strong className="text-forest-900">{deadline}</strong> para enviar a orientação deste ciclo.
-            </p>
-            <p className="text-forest-700/80 text-xs mt-0.5">
-              É uma solicitação por ciclo. Depois dessa data, o período reinicia e você pode solicitar de novo.
-            </p>
-          </div>
-        </div>
-      ) : (
+      {/* Destaque do mês: até quando pode solicitar / quando reabre */}
+      {request ? (
         <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-amber-600 flex-shrink-0">
             <CheckCircle className="w-4 h-4" />
           </span>
           <div className="text-sm leading-relaxed">
             <p className="text-amber-800">
-              Você já usou a orientação deste ciclo. 🌱
+              Você já usou a orientação deste mês. 🌱
             </p>
             <p className="text-amber-700/90 text-xs mt-0.5">
-              Uma nova solicitação abre em <strong className="text-amber-900">{deadline}</strong>, no início do próximo ciclo da sua assinatura.
+              A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
+            </p>
+          </div>
+        </div>
+      ) : cycle.isPastDeadline ? (
+        <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50 p-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-stone-500 flex-shrink-0">
+            <CalendarClock className="w-4 h-4" />
+          </span>
+          <div className="text-sm leading-relaxed">
+            <p className="text-stone-700">
+              O prazo para solicitar a orientação deste mês encerrou no <strong className="text-stone-900">dia 23</strong>.
+            </p>
+            <p className="text-stone-500 text-xs mt-0.5">
+              Você poderá solicitar novamente a partir de <strong className="text-stone-700">{reopen}</strong>.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/50 p-4 flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0">
+            <CalendarClock className="w-4 h-4" />
+          </span>
+          <div className="text-sm leading-relaxed">
+            <p className="text-forest-800">
+              Você tem até <strong className="text-forest-900">{deadline}</strong> (dia 23) para enviar a orientação deste mês.
+            </p>
+            <p className="text-forest-700/80 text-xs mt-0.5">
+              É uma solicitação por mês. A resposta chega em até <strong className="text-forest-900">7 dias corridos</strong>.
             </p>
           </div>
         </div>
       )}
 
-      {/* Formulário — apenas quando ainda não há pedido neste ciclo */}
-      {!request && (
+      {/* Formulário — apenas quando ainda não há pedido no mês E o prazo (dia 23) não passou */}
+      {!request && !cycle.isPastDeadline && (
         <div className="bg-white border border-forest-100 rounded-2xl p-6 shadow-sm">
           <h2 className="font-semibold text-sage-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
 
@@ -280,7 +280,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             Enviar orientação deste ciclo
           </button>
           <p className="text-[11px] text-stone-400 mt-3 flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline}. É uma orientação por ciclo.
+            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline} (dia 23). Uma orientação por mês, respondida em até 7 dias corridos.
           </p>
         </div>
       )}
@@ -304,7 +304,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       )}
 
       <p className="text-xs text-stone-400 text-center mt-6">
-        Sua orientação será respondida em até 7 dias úteis. Este espaço não é um canal de emergência.
+        Sua orientação será respondida em até 7 dias corridos. Este espaço não é um canal de emergência.
       </p>
     </div>
   )
