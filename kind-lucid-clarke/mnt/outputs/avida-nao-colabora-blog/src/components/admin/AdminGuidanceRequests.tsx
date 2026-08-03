@@ -60,6 +60,19 @@ function sentAtLabel(iso: string) {
   return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// Prazo de resposta prometido ao usuário: 7 dias CORRIDOS a partir do envio.
+const RESPONSE_SLA_DAYS = 7
+function responseDueDate(iso: string): Date {
+  return new Date(new Date(iso).getTime() + RESPONSE_SLA_DAYS * 86400_000)
+}
+// Dias restantes até o prazo (arredonda p/ cima; negativo = atrasada).
+function daysUntilDue(iso: string): number {
+  return Math.ceil((responseDueDate(iso).getTime() - Date.now()) / 86400_000)
+}
+function dueShort(iso: string): string {
+  return responseDueDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
 // Monta o prompt de rascunho: usa APENAS o pedido do usuário + as anotações da
 // equipe. Linguagem acolhedora e nunca diagnóstica.
 function buildGuidancePrompt(req: GuidanceRequest, notes: string): string {
@@ -354,6 +367,7 @@ export default function AdminGuidanceRequests() {
                           <span className="text-xs text-stone-400 capitalize">{monthLabel(r.month_key)}</span>
                         </div>
                         <p className="text-sm text-stone-600 line-clamp-2 mt-1">{r.message}</p>
+                        {waiting && <div className="mt-1.5"><DeadlineBadge createdAt={r.created_at} /></div>}
                       </div>
                       <div className="flex-shrink-0"><StatusBadge status={r.status} /></div>
                     </div>
@@ -503,6 +517,31 @@ export default function AdminGuidanceRequests() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Selo de prazo de resposta (7 dias corridos a partir do envio). Cor por urgência:
+// verde (folga), âmbar (≤2 dias), vermelho (vence hoje / atrasada).
+function DeadlineBadge({ createdAt }: { createdAt: string }) {
+  const left = daysUntilDue(createdAt)
+  const due = dueShort(createdAt)
+  let cls = 'bg-forest-100 text-forest-700'
+  let label = `Responder até ${due} · ${left} dias`
+  if (left < 0) {
+    cls = 'bg-red-100 text-red-700'
+    const n = Math.abs(left)
+    label = `Atrasada há ${n} ${n === 1 ? 'dia' : 'dias'}`
+  } else if (left === 0) {
+    cls = 'bg-red-100 text-red-700'
+    label = 'Vence hoje'
+  } else if (left <= 2) {
+    cls = 'bg-amber-100 text-amber-700'
+    label = `Responder até ${due} · ${left} ${left === 1 ? 'dia' : 'dias'}`
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
+      <Calendar className="w-3 h-3" /> {label}
+    </span>
   )
 }
 
