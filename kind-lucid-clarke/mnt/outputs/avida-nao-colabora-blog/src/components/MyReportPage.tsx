@@ -426,10 +426,10 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         <MetricTile icon={<BarChart2 className="w-4 h-4" />} label="Registros analisados" value={totalRecords} sub="Total do mês" />
         <MetricTile icon={<Calendar className="w-4 h-4" />} label="Check-ins" value={c.checkinCount ?? 0} sub="Dias registrados" />
         <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários" value={c.diaryCount ?? 0} sub="Registros" />
-        <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy ? `${c.avgEnergy}` : '—'} unit={c.avgEnergy ? '/10' : ''} sub="Média do mês" />
+        <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy ? `${c.avgEnergy}` : '—'} unit={c.avgEnergy ? '/5' : ''} sub="Média do mês" />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade percebida" value={c.avgAnxiety ? `${c.avgAnxiety}` : '—'} unit={c.avgAnxiety ? '/10' : ''} sub="Média do mês" accent="coral" />
+        <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade percebida" value={c.avgAnxiety ? `${c.avgAnxiety}` : '—'} unit={c.avgAnxiety ? '/5' : ''} sub="Média do mês" accent="coral" />
         <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção predominante" value={dominantEmotion ?? '—'} sub="Mais frequente" />
         <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Ponto de atenção" value={topTrigger ?? '—'} sub="Principal sinal" accent="coral" />
         <MetricTile icon={<Target className="w-4 h-4" />} label="Prioridade sugerida" value={c.selfCarePlan?.priority ?? '—'} sub="Foco do mês" />
