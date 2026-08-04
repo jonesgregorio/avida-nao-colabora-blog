@@ -14,7 +14,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { computeEmotionalAnalysis, MOOD_EMOJI, type DiaryRowLite } from '../lib/emotionalAnalytics'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
-import { AreaChart, Area, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
   getCurrentWeeklyPeriod, getPreviousWeeklyPeriod, getCurrentMonthlyPeriod, getPreviousMonthlyPeriod,
   formatPeriodShort, formatDateBR, monthTitle, ymd, parseYmd, type Period,
@@ -76,14 +76,6 @@ function StatPill({ label, value, unit = '' }: { label: string; value: string | 
     </div>
   )
 }
-function SelfCareRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-l-2 border-forest-200 pl-3">
-      <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide">{label}</p>
-      <p className="text-sm text-stone-700 leading-snug">{value}</p>
-    </div>
-  )
-}
 function LockedSection({ title, description, onUpgrade }: { title: string; description: string; onUpgrade: () => void }) {
   return (
     <div className="rounded-2xl border border-dashed border-line bg-mint/30 p-6 text-center space-y-3">
@@ -96,77 +88,6 @@ function LockedSection({ title, description, onUpgrade }: { title: string; descr
 }
 
 // ─── Gráficos de síntese (apoio ao relatório — não substituem o Mapa) ─────────
-function MiniLine({ title, data, color, yLabels }: { title: string; data: DayPoint[]; color: string; yLabels?: Record<number, string> }) {
-  if (!data || data.length < 2) return null
-  const gid = 'rg-' + color.replace('#', '')
-  return (
-    <div>
-      <p className="text-[10px] text-ink-soft uppercase tracking-wider mb-1">{title}</p>
-      <div className="h-28">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 4, right: 6, left: -22, bottom: 0 }}>
-            <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.25} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#8a8a8a' }} axisLine={false} tickLine={false} />
-            <YAxis domain={[1, 5]} ticks={[1, 3, 5]} tick={{ fontSize: 9, fill: '#8a8a8a' }} axisLine={false} tickLine={false} width={20} />
-            <Tooltip formatter={(v: number) => [yLabels ? `${v} · ${yLabels[Math.round(v)] ?? ''}` : v, title]} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 10, border: '1px solid #E6E1D8', fontSize: 11 }} />
-            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gid})`} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
-}
-function MiniRankBars({ title, items, color }: { title: string; items: { label: string; count: number }[]; color: string }) {
-  if (!items || items.length === 0) return null
-  const max = Math.max(...items.map(i => i.count), 1)
-  return (
-    <div>
-      <p className="text-[10px] text-ink-soft uppercase tracking-wider mb-2">{title}</p>
-      <div className="space-y-1.5">
-        {items.map(i => (
-          <div key={i.label} className="flex items-center gap-2">
-            <span className="text-xs text-ink w-24 flex-shrink-0 truncate">{i.label}</span>
-            <div className="flex-1 h-2 rounded-full overflow-hidden bg-mint"><div className="h-full rounded-full" style={{ width: `${(i.count / max) * 100}%`, background: color }} /></div>
-            <span className="text-[11px] text-ink-soft w-5 text-right">{i.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-function SynthCharts({ energyByDay = [], anxietyByDay = [], emotions = [], triggers = [] }: {
-  energyByDay?: DayPoint[]; anxietyByDay?: DayPoint[]
-  emotions?: { label: string; count: number }[]; triggers?: { tag: string; count: number }[]
-}) {
-  const hasLine = energyByDay.length > 1 || anxietyByDay.length > 1
-  const hasBars = emotions.length > 0 || triggers.length > 0
-  return (
-    <div>
-      <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-2">Gráficos de síntese</p>
-      {hasLine ? (
-        <div className="grid sm:grid-cols-2 gap-4 mb-4">
-          <MiniLine title="Energia por dia" data={energyByDay} color="#2f9e6f" />
-          <MiniLine title="Ansiedade por dia" data={anxietyByDay} color="#d98b3c" />
-        </div>
-      ) : (
-        <p className="text-xs text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2 mb-4">
-          Gráfico de energia e ansiedade indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período.
-        </p>
-      )}
-      {hasBars ? (
-        <div className="grid sm:grid-cols-2 gap-4">
-          <MiniRankBars title="Emoções mais frequentes" items={emotions} color="#2f5d47" />
-          <MiniRankBars title="Gatilhos mais citados" items={triggers.map(t => ({ label: t.tag, count: t.count }))} color="#d98b3c" />
-        </div>
-      ) : (
-        <p className="text-xs text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2">
-          Ranking de emoções e gatilhos indisponível: ainda não há check-ins com emoções ou gatilhos neste período.
-        </p>
-      )}
-    </div>
-  )
-}
 
 // ─── Peças do relatório semanal (redesign visual) ─────────────────────────────
 const WD_ABBR = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
@@ -242,11 +163,12 @@ function HighlightRow({ icon, tone, label, value }: { icon: React.ReactNode; ton
     </div>
   )
 }
-function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels }: { data: ChartDay[]; bestEnergy: DayPoint | null; lowAnx: DayPoint | null; labels: Map<number, string> }) {
+function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels, title = 'Energia e ansiedade ao longo da semana' }: { data: ChartDay[]; bestEnergy: DayPoint | null; lowAnx: DayPoint | null; labels: Map<number, string>; title?: string }) {
   const dayName = (p: DayPoint) => labels.get(p.day) ?? `Dia ${p.day}`
+  const tickInterval = data.length > 10 ? Math.ceil(data.length / 8) - 1 : 0
   return (
     <div className="bg-paper-soft border border-line rounded-2xl p-5">
-      <h3 className="font-serif text-lg text-forest-900 mb-3">Energia e ansiedade ao longo da semana</h3>
+      <h3 className="font-serif text-lg text-forest-900 mb-3">{title}</h3>
       {data.length >= 2 ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_13rem] gap-4 items-center">
           <div className="min-w-0">
@@ -254,7 +176,7 @@ function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels }: { data: ChartD
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8a8a8a' }} axisLine={false} tickLine={false} interval={0} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8a8a8a' }} axisLine={false} tickLine={false} interval={tickInterval} />
                   <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: '#8a8a8a' }} axisLine={false} tickLine={false} width={24} />
                   <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E6E1D8', fontSize: 12 }} />
                   <Line type="monotone" dataKey="energia" name="Energia" stroke="#2f9e6f" strokeWidth={2.5} dot={{ r: 3, fill: '#2f9e6f' }} connectNulls />
@@ -456,70 +378,297 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
     )
   }
 
-  // Mensal aprofundado
+  // ══════════ Mensal aprofundado (redesign fiel à referência) ══════════
   const c = report.content as MonthlyContent
+  const totalRecords = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
+  const dominantEmotion = c.topEmotions[0]?.label ?? null
+  const topTrigger = c.topTriggers?.[0]?.tag ?? null
+
+  const dayLabelsM = buildDayLabels(report.period_start, report.period_end)
+  const chartDataM = mergeDaySeries(c.energyByDay, c.anxietyByDay, dayLabelsM)
+  const bestEnergyM = pickDay(c.energyByDay, 'max')
+  const lowAnxM = pickDay(c.anxietyByDay, 'min')
+
+  const MICRO_INSIGHTS = [
+    { icon: <Heart className="w-3.5 h-3.5" />, text: 'Registrar é se ouvir' },
+    { icon: <Smile className="w-3.5 h-3.5" />, text: 'Compreender é criar escolhas' },
+    { icon: <Sprout className="w-3.5 h-3.5" />, text: 'Pequenas ações geram mudança' },
+    { icon: <Star className="w-3.5 h-3.5" />, text: 'Você não precisa fazer tudo hoje' },
+  ]
+
   return (
     <div className="space-y-5">
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Resumo geral do mês</p><p className="text-sm text-forest-800 leading-relaxed">{c.summary}</p></div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <StatPill label="Energia" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
-        <StatPill label="Ansiedade" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} />
-        {c.avgSleep > 0 && <StatPill label="Sono" value={c.avgSleep} unit="/5" />}
-        <StatPill label="Registros" value={c.topEmotions.reduce((n, e) => n + e.count, 0)} />
-      </div>
-
-      {/* Como o mês se desenhou (linha narrativa) */}
-      {(c.narrative?.length ?? 0) > 0 && (
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-2">Como o mês se desenhou</p>
-          <div className="space-y-2">{c.narrative.map((n, i) => (
-            <div key={i} className="flex gap-3">
-              <span className="text-xs font-semibold text-forest-700 w-24 flex-shrink-0">{n.phase}</span>
-              <span className="text-sm text-stone-700 leading-snug">{n.text}</span>
-            </div>
-          ))}</div></div>
-      )}
-
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Principais padrões emocionais</p>
-        <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul></div>
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Emoções predominantes</p>
-        {c.topEmotions.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{c.topEmotions.map(e => <span key={e.label} className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">{e.emoji} {e.label} ×{e.count}</span>)}</div>}
-        <p className="text-sm text-stone-700 leading-relaxed">{c.predominantEmotions}</p></div>
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Energia, ansiedade e descanso</p><p className="text-sm text-stone-700 leading-relaxed">{c.energyAnxietySleep}</p></div>
-
-      {/* Relações percebidas */}
-      {(c.relations?.length ?? 0) > 0 && (
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Relações percebidas</p>
-          <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul></div>
-      )}
-
-      <SynthCharts energyByDay={c.energyByDay} anxietyByDay={c.anxietyByDay} emotions={c.topEmotions} triggers={c.topTriggers} />
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Gatilhos mais recorrentes</p><p className="text-sm text-stone-700 leading-relaxed">{c.triggersText}</p></div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Dias de maior atenção</p>
-          {c.attentionDays.length > 0 ? <ul className="space-y-1">{c.attentionDays.map(d => <li key={d.day} className="text-sm text-stone-700"><span className="font-semibold text-forest-700">Dia {d.day}</span> — {d.reason}</li>)}</ul> : <p className="text-sm text-stone-400">Sem dias suficientes.</p>}</div>
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Momentos de melhora</p><p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p></div>
-      </div>
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Comparação com o mês anterior</p>
-        <ul className="space-y-1">{c.monthlyComparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">→</span>{l}</li>)}</ul></div>
-      {!forPdf && recs.length > 0 && (
-        <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Conteúdos guiados recomendados</p>
-          <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
-      )}
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Plano de autocuidado sugerido</p>
-        <div className="space-y-2">
-          <SelfCareRow label="Prioridade do mês" value={c.selfCarePlan.priority} />
-          <SelfCareRow label="Cuidado principal" value={c.selfCarePlan.mainCare} />
-          <SelfCareRow label="Prática recomendada" value={c.selfCarePlan.practice} />
-          <SelfCareRow label="Ponto de atenção" value={c.selfCarePlan.attention} />
-          <SelfCareRow label="Pequeno compromisso" value={c.selfCarePlan.commitment} />
+      {/* ── 1. Hero "Seu mês em perspectiva" ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-paper-soft">
+        <div className="relative z-10 p-5 sm:p-6 sm:max-w-[72%]">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600"><Sprout className="w-5 h-5" /></span>
+            <h3 className="font-serif text-xl text-forest-900">Seu mês em perspectiva</h3>
+          </div>
+          <p className="text-sm text-stone-600 leading-relaxed">{c.summary}</p>
         </div>
-        {!forPdf && onNavigateSelfCare && <button onClick={onNavigateSelfCare} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><Sprout className="w-4 h-4" /> Abrir plano de autocuidado</button>}</div>
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Perguntas para reflexão</p>
-        <ul className="space-y-1">{c.reflectionQuestions.map((q, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400">?</span>{q}</li>)}</ul>
-        {!forPdf && <button onClick={onNavigateDiary} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>}</div>
-      <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1">Síntese para orientação</p>
-        <div className="bg-mint/40 border border-forest-100 rounded-xl p-3"><p className="text-sm text-forest-800 leading-relaxed">{c.guidanceSynthesis}</p></div>
-        {!forPdf && <button onClick={onNavigateGuidance} className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2 rounded-xl"><MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem</button>}</div>
+        <div className="flex flex-wrap gap-2 px-5 sm:px-6 pb-5">
+          {MICRO_INSIGHTS.map((mi, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 text-xs text-forest-700 bg-white/80 border border-line rounded-full px-3 py-1.5">
+              {mi.icon} {mi.text}
+            </span>
+          ))}
+        </div>
+        <MonthlyHeroDecoration />
+      </div>
+
+      {/* ── 2. Grade de métricas (8 cards) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <MetricTile icon={<BarChart2 className="w-4 h-4" />} label="Registros analisados" value={totalRecords} sub="Total do mês" />
+        <MetricTile icon={<Calendar className="w-4 h-4" />} label="Check-ins" value={c.checkinCount ?? 0} sub="Dias registrados" />
+        <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários" value={c.diaryCount ?? 0} sub="Registros" />
+        <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy ? `${c.avgEnergy}` : '—'} unit={c.avgEnergy ? '/10' : ''} sub="Média do mês" />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade percebida" value={c.avgAnxiety ? `${c.avgAnxiety}` : '—'} unit={c.avgAnxiety ? '/10' : ''} sub="Média do mês" accent="coral" />
+        <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção predominante" value={dominantEmotion ?? '—'} sub="Mais frequente" />
+        <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Ponto de atenção" value={topTrigger ?? '—'} sub="Principal sinal" accent="coral" />
+        <MetricTile icon={<Target className="w-4 h-4" />} label="Prioridade sugerida" value={c.selfCarePlan?.priority ?? '—'} sub="Foco do mês" />
+      </div>
+
+      {/* ── Aviso de poucos dados ── */}
+      {!c.hasEnoughData && (
+        <div className="flex items-start gap-3 bg-coral/30 border border-coral/60 rounded-2xl p-4">
+          <AlertCircle className="w-5 h-5 text-[#c2673f] flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-[#9a3b26]">Relatório com poucos registros</p>
+            <p className="text-sm text-stone-700 leading-relaxed mt-1">Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Continue registrando check-ins e diários para que os próximos relatórios tragam insights mais precisos.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Seção "Análises do mês" ── */}
+      <div>
+        <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
+          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><TrendingUp className="w-4 h-4" /></span>
+          Análises do mês
+        </h3>
+
+        <div className="space-y-3">
+          {/* Gráfico energia × ansiedade */}
+          <EnergyAnxietyPanel data={chartDataM} bestEnergy={bestEnergyM} lowAnx={lowAnxM} labels={dayLabelsM} title="Energia e ansiedade ao longo do mês" />
+
+          {/* Emoções + gatilhos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <EmotionDonut emotions={c.topEmotions} />
+            <TriggerRanking triggers={c.topTriggers ?? []} />
+          </div>
+
+          {/* Dias de maior atenção */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-8 h-8 rounded-full bg-coral/50 flex items-center justify-center text-[#c2673f]"><AlertCircle className="w-4 h-4" /></span>
+              <div>
+                <h4 className="text-sm font-semibold text-forest-900">Dias de maior atenção</h4>
+                <p className="text-xs text-ink-soft">Os dias abaixo tiveram mais registros de ansiedade ou energia muito baixa.</p>
+              </div>
+            </div>
+            {c.attentionDays.length > 0 ? (
+              <div className="space-y-2">
+                {c.attentionDays.slice(0, 5).map((d, i) => (
+                  <div key={d.day} className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-coral/40 text-[#9a3b26] text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                    <span className="text-sm text-stone-700"><strong className="text-forest-900">Dia {d.day}</strong> — {d.reason}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Não houve dias com sinais fortes de atenção neste período.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. Seção "Interpretações e insights" ── */}
+      <div>
+        <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
+          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><FileText className="w-4 h-4" /></span>
+          Interpretações e insights
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Resumo geral do mês */}
+          <InsightCard icon={<Sprout className="w-4 h-4" />} title="Resumo geral do mês">
+            <p className="text-sm text-stone-700 leading-relaxed">{c.summary}</p>
+            {c.energyAnxietySleep && <p className="text-sm text-stone-600 leading-relaxed mt-2">{c.energyAnxietySleep}</p>}
+          </InsightCard>
+
+          {/* Principais padrões emocionais */}
+          <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões emocionais">
+            <p className="text-sm text-stone-700 leading-relaxed mb-2">{c.predominantEmotions}</p>
+            {c.patterns.length > 0 && (
+              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-600 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
+            )}
+          </InsightCard>
+
+          {/* Relações percebidas */}
+          <InsightCard icon={<Activity className="w-4 h-4" />} title="Relações percebidas">
+            {(c.relations?.length ?? 0) > 0 ? (
+              <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul>
+            ) : (
+              <p className="text-sm text-ink-soft">Ainda não há dados suficientes para identificar relações claras entre seus registros.</p>
+            )}
+          </InsightCard>
+
+          {/* Momentos de melhora */}
+          <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
+            <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments || 'Continue registrando para que seus momentos de melhora fiquem mais visíveis.'}</p>
+          </InsightCard>
+
+          {/* Comparação com o mês anterior (span full) */}
+          <div className="lg:col-span-2 bg-paper-soft border border-line rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><TrendingUp className="w-4 h-4" /></span>
+              <h4 className="text-sm font-semibold text-forest-900">Comparação com o mês anterior</h4>
+            </div>
+            {c.monthlyComparison.length > 0 ? (
+              <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                <ul className="flex-1 space-y-1.5">{c.monthlyComparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
+                <MonthlyDeltas avgEnergy={c.avgEnergy} avgAnxiety={c.avgAnxiety} />
+              </div>
+            ) : (
+              <p className="text-sm text-ink-soft">Ainda não há um mês anterior suficiente para comparação. No próximo ciclo, esta seção trará a evolução entre os meses.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Como o mês se desenhou (narrativa) */}
+      {(c.narrative?.length ?? 0) > 0 && (
+        <div className="bg-paper-soft border border-line rounded-2xl p-5">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><Calendar className="w-4 h-4" /></span>
+            <h4 className="text-sm font-semibold text-forest-900">Como o mês se desenhou</h4>
+          </div>
+          <div className="space-y-3">{c.narrative.map((n, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <span className="text-xs font-semibold text-forest-700 bg-mint rounded-lg px-2 py-1 flex-shrink-0 mt-0.5">{n.phase}</span>
+              <span className="text-sm text-stone-700 leading-relaxed">{n.text}</span>
+            </div>
+          ))}</div>
+        </div>
+      )}
+
+      {/* ── 5. Seção "Plano de ação e autocuidado" ── */}
+      <div>
+        <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
+          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><Target className="w-4 h-4" /></span>
+          Plano de ação e autocuidado
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Plano de autocuidado sugerido */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h4 className="text-sm font-semibold text-forest-900 mb-1">Plano de autocuidado sugerido</h4>
+            <p className="text-xs text-ink-soft mb-4">Pequenas escolhas diárias geram grandes transformações.</p>
+            <div className="space-y-3">
+              <MonthlySelfCareRow icon={<Target className="w-3.5 h-3.5" />} label="Prioridade do mês" value={c.selfCarePlan.priority} />
+              <MonthlySelfCareRow icon={<Heart className="w-3.5 h-3.5" />} label="Cuidado principal" value={c.selfCarePlan.mainCare} />
+              <MonthlySelfCareRow icon={<Sprout className="w-3.5 h-3.5" />} label="Prática recomendada" value={c.selfCarePlan.practice} />
+              <MonthlySelfCareRow icon={<AlertCircle className="w-3.5 h-3.5" />} label="Ponto de atenção" value={c.selfCarePlan.attention} />
+              <MonthlySelfCareRow icon={<Check className="w-3.5 h-3.5" />} label="Pequeno compromisso" value={c.selfCarePlan.commitment} />
+            </div>
+            {!forPdf && onNavigateSelfCare && (
+              <button onClick={onNavigateSelfCare} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><Sprout className="w-4 h-4" /> Abrir plano de autocuidado</button>
+            )}
+          </div>
+
+          {/* Perguntas para reflexão */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h4 className="text-sm font-semibold text-forest-900 mb-4">Perguntas para reflexão</h4>
+            {c.reflectionQuestions.length > 0 ? (
+              <ul className="space-y-3">{c.reflectionQuestions.map((q, i) => (
+                <li key={i} className="text-sm text-stone-700 flex gap-2.5 leading-relaxed">
+                  <span className="text-forest-500 mt-0.5 flex-shrink-0">•</span>{q}
+                </li>
+              ))}</ul>
+            ) : (
+              <p className="text-sm text-ink-soft">Perguntas de reflexão ficarão disponíveis quando houver mais registros no período.</p>
+            )}
+            {!forPdf && (
+              <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Conteúdos recomendados */}
+      {!forPdf && recs.length > 0 && (
+        <div className="bg-paper-soft border border-line rounded-2xl p-5">
+          <h4 className="text-sm font-semibold text-forest-900 mb-3">Conteúdos guiados recomendados</h4>
+          <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div>
+        </div>
+      )}
+
+      {/* ── 6. Síntese para orientação ── */}
+      <div className="bg-paper-soft border border-line rounded-2xl p-5">
+        <div className="flex items-center gap-2.5 mb-3">
+          <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center text-white"><MessageCircle className="w-4 h-4" /></span>
+          <h3 className="font-serif text-lg text-forest-900">Síntese para orientação</h3>
+        </div>
+        <div className="bg-mint/40 border border-forest-100 rounded-xl p-4">
+          <p className="text-sm text-forest-800 leading-relaxed">{c.guidanceSynthesis || 'Continue registrando com constância para aprofundar ainda mais seu autoconhecimento. Cada registro é um ato de cuidado e presença com você mesma(o).'}</p>
+        </div>
+        {!forPdf && (
+          <button onClick={onNavigateGuidance} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2 rounded-xl"><MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem</button>
+        )}
+      </div>
+
+      {/* ── 7. Disclaimer ── */}
+      <div className="flex items-start gap-2.5 text-xs text-ink-soft bg-paper-soft border border-line rounded-2xl px-4 py-3">
+        <Lock className="w-4 h-4 text-forest-500 flex-shrink-0 mt-0.5" />
+        <span>{DISCLAIMER}</span>
+      </div>
+    </div>
+  )
+}
+
+function MonthlyHeroDecoration() {
+  return (
+    <svg className="hidden sm:block absolute right-0 top-0 h-full w-64 pointer-events-none" viewBox="0 0 260 160" fill="none" aria-hidden="true">
+      <circle cx="200" cy="35" r="20" fill="#F3C6A8" opacity="0.7" />
+      <path d="M80 160 Q130 90 180 120 T260 100 V160 Z" fill="#E8F0EB" />
+      <path d="M150 160 Q200 80 260 110 V160 Z" fill="#DDE9E0" />
+      <path d="M220 160 C220 120 240 100 260 95 V160 Z" fill="#8FB5A1" opacity="0.85" />
+      <path d="M210 155 C202 135 208 118 220 110 C225 125 223 145 210 155 Z" fill="#5c8a72" />
+      <path d="M235 158 C230 145 232 132 240 126 C243 136 242 150 235 158 Z" fill="#5c8a72" opacity="0.6" />
+    </svg>
+  )
+}
+
+function MonthlySelfCareRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="w-7 h-7 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0 mt-0.5">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide">{label}</p>
+        <p className="text-sm text-stone-700 leading-snug">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function MonthlyDeltas({ avgEnergy, avgAnxiety }: { avgEnergy: number; avgAnxiety: number }) {
+  if (!avgEnergy && !avgAnxiety) return null
+  return (
+    <div className="flex flex-row lg:flex-col gap-3 flex-shrink-0">
+      {avgEnergy > 0 && (
+        <div className="bg-white border border-line rounded-xl p-3 text-center min-w-[7rem]">
+          <p className="text-[11px] text-ink-soft">Energia</p>
+          <p className="font-serif text-lg text-forest-700">{avgEnergy.toFixed(1)}</p>
+        </div>
+      )}
+      {avgAnxiety > 0 && (
+        <div className="bg-white border border-line rounded-xl p-3 text-center min-w-[7rem]">
+          <p className="text-[11px] text-ink-soft">Ansiedade</p>
+          <p className="font-serif text-lg text-[#c2673f]">{avgAnxiety.toFixed(1)}</p>
+        </div>
+      )}
     </div>
   )
 }
