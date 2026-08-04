@@ -165,6 +165,7 @@ export default function AdminUsers() {
   const [filterAccess, setFilterAccess] = useState('all') // discount / unlimited / tickets…
   const [exporting, setExporting] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [activeTab, setActiveTab] = useState('all')
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('resumo')
 
@@ -867,6 +868,13 @@ export default function AdminUsers() {
     }
   }
 
+  function setTabFilter(tab: string) {
+    setActiveTab(tab)
+    if (tab === 'all') { setFilterPlan('all'); setFilterStatus('all') }
+    else if (tab === 'cancelled') { setFilterPlan('all'); setFilterStatus('cancelled') }
+    else { setFilterPlan(tab); setFilterStatus('all') }
+  }
+
   const DRAWER_TABS: { key: DrawerTab; label: string }[] = [
     { key: 'resumo', label: 'Resumo' },
     { key: 'plano', label: 'Plano' },
@@ -917,6 +925,51 @@ export default function AdminUsers() {
               </div>
             ))}
           </div>
+
+          {/* Usuários que precisam de atenção */}
+          {!loading && (
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-wide mb-2">Usuários que precisam de atenção</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => { setTabFilter('all'); setFilterAccess('all'); setSearch('') }}
+                  className="bg-red-50 border border-red-100 rounded-xl p-3 text-left hover:bg-red-100 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Bell className="w-3.5 h-3.5 text-red-400" />
+                    <span className="text-[10px] font-medium text-red-500 uppercase tracking-wide leading-tight">Notificações pendentes</span>
+                  </div>
+                  <p className="text-xl font-serif text-red-700 leading-none">
+                    {users.filter(u => (u.unread_notifs ?? 0) > 0).length}
+                  </p>
+                  <p className="text-[10px] text-red-400 mt-0.5">usuários com não lidas</p>
+                </button>
+                <button
+                  onClick={() => { setTabFilter('all'); setFilterAccess('tickets'); setSearch('') }}
+                  className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-left hover:bg-blue-100 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Ticket className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide leading-tight">Tickets em aberto</span>
+                  </div>
+                  <p className="text-xl font-serif text-blue-700 leading-none">{stats.openTickets}</p>
+                  <p className="text-[10px] text-blue-400 mt-0.5">aguardando atendimento</p>
+                </button>
+                <button
+                  onClick={() => setTabFilter('cancelled')}
+                  className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-left hover:bg-amber-100 transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <XCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[10px] font-medium text-amber-500 uppercase tracking-wide leading-tight">Cancelamentos</span>
+                  </div>
+                  <p className="text-xl font-serif text-amber-700 leading-none">{stats.cancelled}</p>
+                  <p className="text-[10px] text-amber-400 mt-0.5">usuários cancelados</p>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -977,6 +1030,36 @@ export default function AdminUsers() {
                 <Columns className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Plan quick-filter tabs */}
+        <div className="px-6 border-b border-line bg-white flex-shrink-0">
+          <div className="flex gap-1.5 py-2.5 overflow-x-auto">
+            {[
+              { key: 'all',       label: 'Todos',      count: stats.total },
+              { key: 'plus',      label: 'Plus',        count: stats.plus },
+              { key: 'essential', label: 'Essencial',   count: stats.essential },
+              { key: 'free',      label: 'Gratuitos',   count: stats.free },
+              { key: 'cancelled', label: 'Cancelados',  count: stats.cancelled },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTabFilter(t.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  activeTab === t.key
+                    ? 'bg-forest-900 text-white'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                {t.label}
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  activeTab === t.key ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-500'
+                }`}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
