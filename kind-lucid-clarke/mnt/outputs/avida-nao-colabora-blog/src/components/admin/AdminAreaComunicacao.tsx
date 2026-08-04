@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Bell, Mail, FileText } from 'lucide-react'
+import { Bell, Mail, FileText, Sparkles } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminEmails from './AdminEmails'
+import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 
-// Comunicação — apenas os canais de mensagem: notificações in-app + e-mails
-// (enviados e templates). "Conteúdos automáticos" (Automáticos/Programados)
-// migraram para a área "Conteúdo & IA".
+// Comunicação — canais de mensagem: notificações in-app + e-mails + criador IA
 const TABS = [
-  { id: 'notificacoes', label: 'Notificações',        icon: Bell },
-  { id: 'emails',       label: 'E-mails enviados',     icon: Mail },
-  { id: 'templates',    label: 'Templates de e-mail',  icon: FileText },
+  { id: 'notificacoes',  label: 'Notificações',        icon: Bell },
+  { id: 'emails',        label: 'E-mails enviados',     icon: Mail },
+  { id: 'templates',     label: 'Templates de e-mail',  icon: FileText },
+  { id: 'criador-ia',   label: 'Criador com IA',        icon: Sparkles },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -62,6 +62,7 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
         {tab === 'notificacoes' && <AdminNotifications />}
         {tab === 'emails'       && <AdminEmails initialTab="logs" />}
         {tab === 'templates'    && <AdminEmails initialTab="templates" />}
+        {tab === 'criador-ia'  && <AdminEmailCreatorIA />}
       </div>
     </div>
   )
