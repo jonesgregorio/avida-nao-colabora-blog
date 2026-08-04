@@ -381,13 +381,17 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
   // ══════════ Mensal aprofundado (redesign fiel à referência) ══════════
   const c = report.content as MonthlyContent
   const totalRecords = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
-  const dominantEmotion = c.topEmotions[0]?.label ?? null
-  const topTrigger = c.topTriggers?.[0]?.tag ?? null
+  const mEmotions = c.topEmotions ?? []
+  const mTriggers = c.topTriggers ?? []
+  const dominantEmotion = mEmotions[0]?.label ?? null
+  const topTrigger = mTriggers[0]?.tag ?? null
 
+  const eByDay = c.energyByDay ?? []
+  const aByDay = c.anxietyByDay ?? []
   const dayLabelsM = buildDayLabels(report.period_start, report.period_end)
-  const chartDataM = mergeDaySeries(c.energyByDay, c.anxietyByDay, dayLabelsM)
-  const bestEnergyM = pickDay(c.energyByDay, 'max')
-  const lowAnxM = pickDay(c.anxietyByDay, 'min')
+  const chartDataM = mergeDaySeries(eByDay, aByDay, dayLabelsM)
+  const bestEnergyM = pickDay(eByDay, 'max')
+  const lowAnxM = pickDay(aByDay, 'min')
 
   const MICRO_INSIGHTS = [
     { icon: <Heart className="w-3.5 h-3.5" />, text: 'Registrar é se ouvir' },
@@ -455,8 +459,8 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
 
           {/* Emoções + gatilhos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <EmotionDonut emotions={c.topEmotions} />
-            <TriggerRanking triggers={c.topTriggers ?? []} />
+            <EmotionDonut emotions={mEmotions} />
+            <TriggerRanking triggers={mTriggers} />
           </div>
 
           {/* Dias de maior atenção */}

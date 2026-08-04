@@ -17,7 +17,7 @@ const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 
 
 // Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
 // fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
-const CONTENT_VERSION = 3
+const CONTENT_VERSION = 4
 
 export interface DayPoint { day: number; value: number }
 
