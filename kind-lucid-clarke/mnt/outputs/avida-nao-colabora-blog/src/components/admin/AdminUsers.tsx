@@ -30,6 +30,7 @@ interface UserRow {
   admin_tags: string[] | null
   open_tickets?: number
   unread_notifs?: number
+  last_activity?: string | null
 }
 
 interface AdminSubscription {
@@ -264,7 +265,7 @@ export default function AdminUsers() {
     if (!profileData) { setLoading(false); return }
 
     const userIds = profileData.map((p: UserRow) => p.user_id)
-    const [ticketRes, notifRes, openTicketCountRes] = await Promise.all([
+    const [ticketRes, notifRes, openTicketCountRes, lastDiaryRes] = await Promise.all([
       userIds.length > 0
         ? supabase.from('support_tickets').select('user_id').in('user_id', userIds).not('status', 'in', '("closed","resolved")')
         : Promise.resolve({ data: [] }),
@@ -272,6 +273,9 @@ export default function AdminUsers() {
         ? supabase.from('notifications').select('user_id').in('user_id', userIds).eq('is_read', false)
         : Promise.resolve({ data: [] }),
       supabase.from('support_tickets').select('id', { count: 'exact', head: true }).not('status', 'in', '("closed","resolved")'),
+      userIds.length > 0
+        ? supabase.from('diary_entries').select('user_id, created_at').in('user_id', userIds).order('created_at', { ascending: false }).limit(1000)
+        : Promise.resolve({ data: [] }),
     ])
 
     const ticketData = ticketRes.data || []
@@ -281,11 +285,16 @@ export default function AdminUsers() {
     for (const t of ticketData) ticketMap.set(t.user_id, (ticketMap.get(t.user_id) ?? 0) + 1)
     const notifMap = new Map<string, number>()
     for (const n of notifData) notifMap.set(n.user_id, (notifMap.get(n.user_id) ?? 0) + 1)
+    const lastDiaryMap = new Map<string, string>()
+    for (const e of lastDiaryRes.data ?? []) {
+      if (!lastDiaryMap.has(e.user_id)) lastDiaryMap.set(e.user_id, e.created_at)
+    }
 
     const rows: UserRow[] = profileData.map((p: UserRow) => ({
       ...p,
       open_tickets: ticketMap.get(p.user_id) ?? 0,
       unread_notifs: notifMap.get(p.user_id) ?? 0,
+      last_activity: lastDiaryMap.get(p.user_id) ?? null,
     }))
 
     setUsers(rows)
@@ -1079,6 +1088,7 @@ export default function AdminUsers() {
                     <th className="text-left px-3 py-3 text-stone-500 font-medium">Plano</th>
                     <th className="text-left px-3 py-3 text-stone-500 font-medium hidden sm:table-cell">Status</th>
                     <th className="text-left px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Membro desde</th>
+                    <th className="text-left px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">Atividade</th>
                     <th className="text-center px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Tickets</th>
                     <th className="text-center px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">Notif.</th>
                     <th className="px-4 py-3 text-stone-500 font-medium text-right">Ações</th>
@@ -1121,6 +1131,11 @@ export default function AdminUsers() {
                           </div>
                         </td>
                         <td className="px-3 py-3 text-ink-soft text-xs hidden md:table-cell whitespace-nowrap">{timeSince(u.created_at)}</td>
+                        <td className="px-3 py-3 text-xs hidden lg:table-cell whitespace-nowrap">
+                          {u.last_activity
+                            ? <span className="text-forest-700">{timeSince(u.last_activity)}</span>
+                            : <span className="text-stone-300">Sem registros</span>}
+                        </td>
                         <td className="px-3 py-3 text-center hidden md:table-cell">
                           {(u.open_tickets ?? 0) > 0
                             ? <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full"><Ticket className="w-3 h-3" />{u.open_tickets}</span>
