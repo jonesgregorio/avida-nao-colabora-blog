@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { sendUserMessage } from '../../lib/messaging'
@@ -156,7 +156,7 @@ const KANBAN_COLUMNS = [
   { key: 'plus', label: 'Plus', color: 'border-[#f0c3b4] bg-coral/30', badge: 'bg-coral text-[#c05f3c]' },
 ]
 
-export default function AdminUsers() {
+export default function AdminUsers({ initialUserId }: { initialUserId?: string | null }) {
   const { user: adminUser } = useAuth()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -319,6 +319,20 @@ export default function AdminUsers() {
   }, [])
 
   useEffect(() => { loadUsers() }, [loadUsers])
+
+  // Abre drawer automaticamente quando vindo de outra página (ex: "Ver perfil" no Suporte)
+  const pendingOpenRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (initialUserId) pendingOpenRef.current = initialUserId
+  }, [initialUserId])
+  useEffect(() => {
+    if (!loading && pendingOpenRef.current && users.length > 0) {
+      const target = users.find(u => u.user_id === pendingOpenRef.current)
+      if (target) { openDrawer(target); pendingOpenRef.current = null }
+    }
+  // openDrawer é estável (não é useCallback); users e loading são as dependências reais
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, users])
 
   useEffect(() => {
     if (drawerTab === 'resumo-inteligente' && selectedUser && !aiExtraLoaded) {

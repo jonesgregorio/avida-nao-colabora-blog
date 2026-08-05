@@ -98,6 +98,7 @@ export default function AdminPanel() {
     return 'visao-geral'
   })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     // Persiste a área atual; ignora o editor (efêmero) pra não restaurar nele.
@@ -163,7 +164,7 @@ export default function AdminPanel() {
   function renderView() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
-      case 'usuarios': return <AdminUsers />
+      case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
       case 'engajamento': return <AdminEngagement />
       case 'planos': return <AdminPlanosPage />
       case 'cancelamentos': return <AdminCancellations />
@@ -174,7 +175,7 @@ export default function AdminPanel() {
       case 'autocuidado': return <AdminMonthlyCarePlans />
       case 'orientacao': return <AdminAreaOrientacao />
       case 'comunicacao': return <AdminAreaComunicacao />
-      case 'suporte': return <AdminSuportePage />
+      case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'sistema': return <AdminAreaSistema />
       case 'article-editor':
         return (

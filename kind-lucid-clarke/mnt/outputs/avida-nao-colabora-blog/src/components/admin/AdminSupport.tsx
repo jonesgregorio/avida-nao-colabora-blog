@@ -223,7 +223,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
   return src.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-export default function AdminSupport({ onManageTemplates }: { onManageTemplates?: () => void }) {
+export default function AdminSupport({ onManageTemplates, onViewUser }: { onManageTemplates?: () => void; onViewUser?: (userId: string) => void }) {
   const { user } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
@@ -860,7 +860,10 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-forest-900 text-sm truncate">{selectedTicket.user_name ?? 'Usuário'}</p>
-                        <button className="flex-shrink-0 text-xs border border-line px-2.5 py-1 rounded-lg text-stone-600 hover:bg-stone-50 whitespace-nowrap">Ver perfil</button>
+                        <button
+                          onClick={() => onViewUser?.(selectedTicket.user_id)}
+                          className="flex-shrink-0 text-xs border border-line px-2.5 py-1 rounded-lg text-stone-600 hover:bg-stone-50 whitespace-nowrap"
+                        >Ver perfil</button>
                       </div>
                       {selectedTicket.user_email && (
                         <div className="flex items-center gap-1.5 mt-0.5">
