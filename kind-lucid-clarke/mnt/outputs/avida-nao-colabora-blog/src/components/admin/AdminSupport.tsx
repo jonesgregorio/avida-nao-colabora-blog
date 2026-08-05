@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import {
   MessageSquare, Search, X, Send, Lock, AlertTriangle,
   RefreshCw, RotateCcw, ChevronDown, LayoutList, Columns, FileText, Save, Inbox, Download,
-  Star, MoreVertical, Copy, CheckCircle2, Clock, ArrowUpDown,
+  Star, MoreVertical, Copy, CheckCircle2, Clock, ArrowUpDown, Crown,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { emailSupportReplyForUser } from '../../lib/emailTriggers'
@@ -31,6 +31,7 @@ interface Ticket {
   user_name?: string | null
   user_plan?: string | null
   user_email?: string | null
+  user_joined_at?: string | null
 }
 
 interface Message {
@@ -136,17 +137,33 @@ function getSLA(ticket: Ticket): { label: string; color: string } {
   if (hours > limit * 0.75) return { label: 'Perto de vencer', color: 'bg-yellow-100 text-yellow-700' }
   return { label: 'Dentro do prazo', color: 'bg-green-100 text-green-700' }
 }
-function getSLADeadline(ticket: Ticket): string {
+function getSLARemaining(ticket: Ticket): {
+  timeStr: string; isOverdue: boolean; isWarning: boolean; isOk: boolean
+  deadline: string; limitHours: number
+} {
   const created = new Date(ticket.created_at).getTime()
   const slaHours: Record<string, number> = {
     free: 72, essential: 48, plus: 24, therapeutic: 24, 'therapeutic-plus': 24,
   }
   const limit = slaHours[ticket.user_plan ?? ticket.plan_at_creation ?? 'free'] ?? 72
-  const deadline = new Date(created + limit * 3600000)
-  return deadline.toLocaleString('pt-BR', {
+  const deadlineMs = created + limit * 3600000
+  const deadlineStr = new Date(deadlineMs).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
     timeZone: 'America/Sao_Paulo',
   })
+  const remaining = deadlineMs - Date.now()
+  if (remaining <= 0) {
+    const e = Math.abs(remaining)
+    const h = Math.floor(e / 3600000), m = Math.floor((e % 3600000) / 60000)
+    return { timeStr: `-${h > 0 ? `${h}h ${m}m` : `${m}m`}`, isOverdue: true, isWarning: false, isOk: false, deadline: deadlineStr, limitHours: limit }
+  }
+  const h = Math.floor(remaining / 3600000), m = Math.floor((remaining % 3600000) / 60000)
+  const isWarning = remaining < limit * 3600000 * 0.25
+  return { timeStr: h > 0 ? `${h}h ${m}m` : `${m}m`, isOverdue: false, isWarning, isOk: !isWarning, deadline: deadlineStr, limitHours: limit }
+}
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
 }
 function formatAvgTime(ms: number | null): string {
   if (ms === null) return '—'
@@ -172,6 +189,21 @@ function descriptionAsMessage(ticket: Ticket): Message {
     created_at: ticket.created_at,
   }
 }
+
+const STATUS_DOT_OPTIONS = [
+  { value: 'open', label: 'Novo', dot: 'bg-blue-500' },
+  { value: 'in_progress', label: 'Em atendimento', dot: 'bg-orange-500' },
+  { value: 'awaiting_admin', label: 'Aguard. suporte', dot: 'bg-red-500' },
+  { value: 'awaiting_user', label: 'Aguard. usuário', dot: 'bg-purple-500' },
+  { value: 'resolved', label: 'Resolvido', dot: 'bg-green-500' },
+  { value: 'closed', label: 'Fechado', dot: 'bg-stone-400' },
+]
+const PRIORITY_DOT_OPTIONS = [
+  { value: 'low', label: 'Baixa', dot: 'bg-stone-400' },
+  { value: 'medium', label: 'Média', dot: 'bg-yellow-500' },
+  { value: 'high', label: 'Alta', dot: 'bg-orange-500' },
+  { value: 'urgent', label: 'Urgente', dot: 'bg-red-500' },
+]
 
 const KANBAN_COLUMNS = [
   { key: 'open', label: 'Novo', color: 'bg-blue-100 text-blue-700' },
@@ -251,16 +283,17 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
 
     const userIds = [...new Set(data.map((t: Ticket) => t.user_id))]
     const { data: profiles } = userIds.length > 0
-      ? await supabase.from('profiles').select('user_id, full_name, plan, email').in('user_id', userIds)
+      ? await supabase.from('profiles').select('user_id, full_name, plan, email, created_at').in('user_id', userIds)
       : { data: [] }
 
-    const profileMap = new Map((profiles || []).map((p: { user_id: string; full_name: string | null; plan: string; email: string | null }) => [p.user_id, p]))
+    const profileMap = new Map((profiles || []).map((p: { user_id: string; full_name: string | null; plan: string; email: string | null; created_at: string | null }) => [p.user_id, p]))
 
     setTickets(data.map((t: Ticket) => ({
       ...t,
       user_name: profileMap.get(t.user_id)?.full_name ?? null,
       user_plan: profileMap.get(t.user_id)?.plan ?? null,
       user_email: profileMap.get(t.user_id)?.email ?? null,
+      user_joined_at: profileMap.get(t.user_id)?.created_at ?? null,
     })))
     setLoading(false)
   }, [])
@@ -786,7 +819,10 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
                     )}
                   </div>
                   <p className="font-semibold text-forest-900 leading-snug line-clamp-2">{selectedTicket.subject}</p>
-                  <p className="text-[11px] text-stone-400 mt-0.5">{formatDateTime(selectedTicket.created_at)}</p>
+                  <p className="text-[11px] text-stone-400 mt-0.5">
+                    Aberto em {formatDateTime(selectedTicket.created_at)}
+                    {selectedTicket.source && ` via ${selectedTicket.source.charAt(0).toUpperCase() + selectedTicket.source.slice(1)}`}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => toggleStar(selectedTicket.id)} className={`p-1.5 rounded-lg hover:bg-stone-100 ${starredTickets.has(selectedTicket.id) ? 'text-amber-400' : 'text-stone-300 hover:text-amber-400'}`}>
@@ -816,28 +852,41 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
             <div className="overflow-y-auto flex-shrink-0 max-h-[280px] border-b border-line bg-stone-50">
               {/* Card do usuário */}
               <div className="px-5 pt-4 pb-3">
-                <div className="flex items-start gap-3 mb-3">
-                  <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-sm font-semibold text-forest-700 flex-shrink-0">
-                    {initials(selectedTicket.user_name, selectedTicket.user_email)}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-forest-900 text-sm truncate">{selectedTicket.user_name ?? 'Usuário'}</p>
-                    {selectedTicket.user_email && (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <p className="text-xs text-stone-400 truncate">{selectedTicket.user_email}</p>
-                        <button onClick={() => copyEmail(selectedTicket.user_email!)} className="flex-shrink-0 text-stone-300 hover:text-stone-500" title="Copiar e-mail">
-                          {copiedEmail ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                        </button>
+                <div className="bg-white rounded-2xl border border-line p-4 mb-3">
+                  <div className="flex items-start gap-3">
+                    <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-sm font-semibold text-forest-700 flex-shrink-0">
+                      {initials(selectedTicket.user_name, selectedTicket.user_email)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-forest-900 text-sm truncate">{selectedTicket.user_name ?? 'Usuário'}</p>
+                        <button className="flex-shrink-0 text-xs border border-line px-2.5 py-1 rounded-lg text-stone-600 hover:bg-stone-50 whitespace-nowrap">Ver perfil</button>
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-line text-stone-600">
-                        {PLAN_LABELS[planOf(selectedTicket)] ?? planOf(selectedTicket) ?? '—'}
-                      </span>
-                      {priorSameUser > 0 && (
-                        <span className="text-[10px] text-stone-400">{priorSameUser} ticket{priorSameUser !== 1 ? 's' : ''} anterior{priorSameUser !== 1 ? 'es' : ''}</span>
+                      {selectedTicket.user_email && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-xs text-stone-400 truncate">{selectedTicket.user_email}</p>
+                          <button onClick={() => copyEmail(selectedTicket.user_email!)} className="flex-shrink-0 text-stone-300 hover:text-stone-500" title="Copiar e-mail">
+                            {copiedEmail ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                        </div>
                       )}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-4 mt-3 text-xs text-stone-500 flex-wrap border-t border-stone-50 pt-3">
+                    <span className="flex items-center gap-1.5">
+                      <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      {PLAN_LABELS[planOf(selectedTicket)] ?? planOf(selectedTicket) ?? '—'}
+                    </span>
+                    {selectedTicket.user_joined_at && (
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+                        Desde {formatShortDate(selectedTicket.user_joined_at)}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" />
+                      {priorSameUser + 1} ticket{priorSameUser + 1 !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 </div>
 
@@ -845,52 +894,63 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div>
                     <p className="text-[10px] text-stone-400 uppercase tracking-wide mb-1">Status</p>
-                    <select className={selectCls} value={selectedTicket.status} disabled={updatingStatus} onChange={e => updateTicket('status', e.target.value)}>
-                      <option value="open">Novo</option>
-                      <option value="in_progress">Em atendimento</option>
-                      <option value="awaiting_admin">Aguard. suporte</option>
-                      <option value="awaiting_user">Aguard. usuário</option>
-                      <option value="resolved">Resolvido</option>
-                      <option value="closed">Fechado</option>
-                    </select>
+                    <DotSelect
+                      value={selectedTicket.status}
+                      onChange={v => updateTicket('status', v)}
+                      disabled={updatingStatus}
+                      options={STATUS_DOT_OPTIONS}
+                    />
                   </div>
                   <div>
                     <p className="text-[10px] text-stone-400 uppercase tracking-wide mb-1">Prioridade</p>
-                    <select className={selectCls} value={selectedTicket.priority} disabled={updatingStatus} onChange={e => updateTicket('priority', e.target.value)}>
-                      <option value="low">Baixa</option>
-                      <option value="medium">Média</option>
-                      <option value="high">Alta</option>
-                      <option value="urgent">Urgente</option>
-                    </select>
+                    <DotSelect
+                      value={selectedTicket.priority}
+                      onChange={v => updateTicket('priority', v)}
+                      disabled={updatingStatus}
+                      options={PRIORITY_DOT_OPTIONS}
+                    />
                   </div>
                   <div>
                     <p className="text-[10px] text-stone-400 uppercase tracking-wide mb-1">SLA</p>
-                    {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' ? (
-                      <div>
-                        <span className={`inline-flex text-[10px] px-2 py-1 rounded-lg font-medium w-full justify-center ${getSLA(selectedTicket).color}`}>
-                          {getSLA(selectedTicket).label}
-                        </span>
-                        <p className="text-[9px] text-stone-400 mt-0.5 text-center">Prazo: {getSLADeadline(selectedTicket)}</p>
-                      </div>
-                    ) : (
-                      <span className="inline-flex text-[10px] px-2 py-1 rounded-lg bg-stone-100 text-stone-400 w-full justify-center">—</span>
+                    {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' ? (() => {
+                      const sla = getSLARemaining(selectedTicket)
+                      const timeColor = sla.isOverdue ? 'text-red-600' : sla.isWarning ? 'text-yellow-600' : 'text-green-600'
+                      const iconColor = sla.isOverdue ? 'text-red-500' : sla.isWarning ? 'text-yellow-500' : 'text-green-500'
+                      return (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1">
+                            <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+                            <span className={`text-base font-bold leading-none ${timeColor}`}>{sla.timeStr}</span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 mt-1">{sla.isOverdue ? 'vencido' : sla.isWarning ? 'perto de vencer' : 'dentro da meta'}</p>
+                        </div>
+                      )
+                    })() : (
+                      <span className="text-xs text-stone-400">—</span>
                     )}
                   </div>
                 </div>
 
-                {/* Alerta SLA */}
-                {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && isOverdue(selectedTicket) && (
-                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-3">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                    <p className="text-xs text-red-700">SLA vencido — ticket precisa de atenção imediata.</p>
-                  </div>
-                )}
-                {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && getSLA(selectedTicket).label === 'Perto de vencer' && (
-                  <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-3 py-2 mb-3">
-                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                    <p className="text-xs text-yellow-700">SLA próximo de vencer — responda em breve.</p>
-                  </div>
-                )}
+                {/* Card SLA */}
+                {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (() => {
+                  const sla = getSLARemaining(selectedTicket)
+                  const cardCls = sla.isOverdue
+                    ? 'bg-red-50 border-red-200'
+                    : sla.isWarning ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'
+                  const textCls = sla.isOverdue ? 'text-red-700' : sla.isWarning ? 'text-yellow-700' : 'text-green-700'
+                  const iconCls = sla.isOverdue ? 'text-red-500' : sla.isWarning ? 'text-yellow-500' : 'text-green-500'
+                  const label = sla.isOverdue ? 'SLA vencido' : sla.isWarning ? 'Perto de vencer' : 'Dentro da meta de resposta'
+                  const Icon = sla.isOverdue || sla.isWarning ? AlertTriangle : CheckCircle2
+                  return (
+                    <div className={`flex items-start gap-2.5 border rounded-xl px-3.5 py-3 mb-3 ${cardCls}`}>
+                      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconCls}`} />
+                      <div>
+                        <p className={`text-xs font-semibold ${textCls}`}>{label}</p>
+                        <p className="text-[10px] text-stone-400 mt-0.5">Meta: {sla.limitHours}h | Responder até: {sla.deadline}</p>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Ações rápidas */}
                 <div className="flex gap-2 flex-wrap">
@@ -1060,11 +1120,52 @@ export default function AdminSupport({ onManageTemplates }: { onManageTemplates?
   )
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function DotSelect({
+  value, onChange, disabled, options,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  options: { value: string; label: string; dot: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = options.find(o => o.value === value)
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
   return (
-    <div className="min-w-0">
-      <p className="text-[10px] text-stone-400 uppercase tracking-wide">{label}</p>
-      <p className="text-stone-700 truncate">{value}</p>
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-1.5 px-2.5 py-2 border border-line rounded-xl bg-white text-xs hover:border-stone-300 disabled:opacity-50 text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {current && <span className={`w-2 h-2 rounded-full flex-shrink-0 ${current.dot}`} />}
+          <span className="truncate text-stone-700">{current?.label ?? value}</span>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-stone-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-line rounded-xl shadow-lg z-30 py-1 min-w-[160px]">
+          {options.map(o => (
+            <button key={o.value} type="button"
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-stone-50 text-left ${o.value === value ? 'text-forest-700 font-medium' : 'text-stone-700'}`}>
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${o.dot}`} />
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
