@@ -89,7 +89,7 @@ export default function ArticleView({
       loadArticle(slug)
     } else if (initialArticle) {
       setArticle(initialArticle)
-      loadRelated(initialArticle.category, initialArticle.slug)
+      loadRelated(initialArticle)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, initialArticle])
@@ -176,7 +176,7 @@ export default function ArticleView({
         return
       }
       setArticle(data)
-      if (data.category) await loadRelated(data.category, s)
+      await loadRelated(data)
     } catch {
       setArticle(null)
     } finally {
@@ -184,17 +184,82 @@ export default function ArticleView({
     }
   }
 
-  async function loadRelated(category: string, currentSlug: string) {
+  async function loadRelated(art: Article) {
     try {
-      const { data } = await supabase
-        .from('articles')
-        .select('id, title, slug, category, read_time, image_url, cover_image_url, cover_image')
-        .eq('category', category)
-        .neq('slug', currentSlug)
-        .limit(3)
-      setRelated(data || [])
+      const sel = 'id, title, slug, category, tags, keywords, emotional_themes, read_time, image_url, cover_image_url, cover_image'
+
+      // 1. Slugs curados manualmente têm prioridade máxima
+      if (art.related_slugs && art.related_slugs.length > 0) {
+        const { data } = await supabase
+          .from('articles')
+          .select(sel)
+          .in('slug', art.related_slugs)
+          .eq('published', true)
+          .limit(3)
+        if (data && data.length >= 2) { setRelated(data); return }
+      }
+
+      // 2. Busca candidatos em paralelo via sinais disponíveis
+      const hasTags = (art.tags ?? []).length > 0
+      const hasThemes = (art.emotional_themes ?? []).length > 0
+      const hasKeywords = (art.keywords ?? []).length > 0
+
+      const queries: Promise<{ data: unknown[] | null }>[] = []
+
+      if (hasTags) {
+        queries.push(
+          supabase.from('articles').select(sel)
+            .overlaps('tags', art.tags!)
+            .neq('slug', art.slug).eq('published', true).limit(20) as Promise<{ data: unknown[] | null }>
+        )
+      }
+      if (hasThemes) {
+        queries.push(
+          supabase.from('articles').select(sel)
+            .overlaps('emotional_themes', art.emotional_themes!)
+            .neq('slug', art.slug).eq('published', true).limit(15) as Promise<{ data: unknown[] | null }>
+        )
+      }
+      if (hasKeywords && !hasTags) {
+        queries.push(
+          supabase.from('articles').select(sel)
+            .overlaps('keywords', art.keywords!)
+            .neq('slug', art.slug).eq('published', true).limit(15) as Promise<{ data: unknown[] | null }>
+        )
+      }
+      // Categoria é sempre buscada como âncora de fallback
+      queries.push(
+        supabase.from('articles').select(sel)
+          .eq('category', art.category).neq('slug', art.slug)
+          .eq('published', true).order('published_at', { ascending: false }).limit(12) as Promise<{ data: unknown[] | null }>
+      )
+
+      const results = await Promise.all(queries)
+
+      // 3. Merge e dedup
+      type Candidate = { id: string; slug: string; category: string; tags?: string[]; keywords?: string[]; emotional_themes?: string[]; title: string; read_time?: number; image_url?: string; cover_image_url?: string; cover_image?: string }
+      const seen = new Set<string>()
+      const pool: Candidate[] = []
+      for (const r of results) {
+        for (const a of (r.data ?? []) as Candidate[]) {
+          if (!seen.has(a.slug)) { seen.add(a.slug); pool.push(a) }
+        }
+      }
+
+      // 4. Pontua cada candidato pelo número de sinais em comum
+      function scoreCandidate(a: Candidate): number {
+        let s = 0
+        if (a.category === art.category) s += 1
+        s += (a.tags ?? []).filter(t => (art.tags ?? []).includes(t)).length * 3
+        s += (a.emotional_themes ?? []).filter(t => (art.emotional_themes ?? []).includes(t)).length * 2
+        s += (a.keywords ?? []).filter(k => (art.keywords ?? []).includes(k)).length * 2
+        return s
+      }
+
+      pool.sort((a, b) => scoreCandidate(b) - scoreCandidate(a))
+      setRelated(pool.slice(0, 3))
     } catch {
-      // silencia erro de relacionados — não crítico
+      // não crítico
     }
   }
 
