@@ -83,6 +83,17 @@ export default function ArticleView({
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSummary, setShowSummary] = useState(true)
 
+  // Redireciona visitantes não logados para login quando o artigo exige conta/plano.
+  // Salva o slug no pendingAction para retomar o artigo após autenticação.
+  useEffect(() => {
+    if (!locked || user) return
+    const currentSlug = slug || article?.slug
+    if (!currentSlug) return
+    setPendingAction({ view: 'article', articleSlug: currentSlug })
+    if (navigate) navigate('auth')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked, user])
+
   // ---- Load article ----
   useEffect(() => {
     if (slug) {

@@ -20,6 +20,8 @@ export interface PendingAction {
   questionnaireId?: string
   /** Ticket de suporte a abrir após login (link do e-mail de resposta). */
   ticketId?: string
+  /** Slug do artigo a abrir após login (link de e-mail para conteúdo protegido). */
+  articleSlug?: string
 }
 
 export function setPendingAction(action: PendingAction) {
