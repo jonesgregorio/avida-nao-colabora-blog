@@ -24,6 +24,7 @@ import { ResponsibilityPage } from './components/ResponsibilityPage'
 import QuestionnairesPage from './components/QuestionnairesPage'
 import QuestionnairePlayer from './components/QuestionnairePlayer'
 import ContactPage from './components/ContactPage'
+import FAQPage from './components/FAQPage'
 import SuccessPage from './components/SuccessPage'
 import SupportPage from './components/SupportPage'
 import SupportTicketDetail from './components/SupportTicketDetail'
@@ -44,7 +45,7 @@ const PERSIST_KEY = 'avida_nav'
 const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
   'about','privacy','terms','questionnaire','questionarios','pricing',
-  'articles','article','responsibility','admin','contact','success',
+  'articles','article','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','self-care',
   'notifications',
 ]
@@ -55,6 +56,8 @@ const URL_TO_VIEW: Record<string, View> = {
   '/blog':                       'articles',
   '/conteudos':                  'articles',
   '/planos':                     'pricing',
+  '/faq':                        'faq',
+  '/perguntas-frequentes':       'faq',
   '/sobre':                      'about',
   '/contato':                    'contact',
   '/privacidade':                'privacy',
@@ -307,7 +310,7 @@ export default function App() {
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
-      'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success',
+      'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
       'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
       'notifications',
     ]
@@ -539,6 +542,18 @@ export default function App() {
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ResponsibilityPage />
+        </main>
+        <Footer onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (view === 'faq') {
+    return (
+      <>
+        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <main className="min-h-screen">
+          <FAQPage onNavigate={navigate} />
         </main>
         <Footer onNavigate={navigate} />
       </>

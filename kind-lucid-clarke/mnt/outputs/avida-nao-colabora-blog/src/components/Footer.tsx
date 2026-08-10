@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Instagram, Facebook, Mail, Heart } from 'lucide-react'
+import { Instagram, Mail, Heart } from 'lucide-react'
 import { LogoIcon } from './Logo'
 
 interface FooterProps {
@@ -19,7 +19,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
   {
     title: 'Recursos',
     links: [
-      { label: 'Perguntas frequentes', id: 'contact' },
+      { label: 'Perguntas frequentes', id: 'faq' },
       { label: 'Privacidade', id: 'privacy' },
       { label: 'Termos de uso', id: 'terms' },
       { label: 'Segurança', id: 'responsibility' },
@@ -30,7 +30,6 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
     links: [
       { label: 'Sobre', id: 'about' },
       { label: 'Contato', id: 'contact' },
-      { label: 'Carreiras', id: 'contact' },
     ],
   },
 ]
@@ -53,21 +52,24 @@ export default function Footer({ onNavigate }: FooterProps) {
               Um lugar para se organizar por dentro nos dias difíceis.
             </p>
             <div className="flex items-center gap-3 mt-4">
-              {[
-                { Icon: Instagram, label: 'Instagram' },
-                { Icon: Facebook, label: 'Facebook' },
-                { Icon: Mail, label: 'E-mail' },
-              ].map(({ Icon, label }) => (
-                <a
-                  key={label}
-                  href="#"
-                  aria-label={label}
-                  onClick={e => e.preventDefault()}
-                  className="w-9 h-9 rounded-full border border-line flex items-center justify-center text-forest-700 hover:bg-mint hover:border-mint transition-colors"
-                >
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
+              {/* Instagram — abre em nova aba */}
+              <a
+                href="https://www.instagram.com/avidanaocolabora?igsh=NzV5cGN1OGZmNDJv&utm_source=qr"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="w-9 h-9 rounded-full border border-line flex items-center justify-center text-forest-700 hover:bg-mint hover:border-mint transition-colors"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+              {/* E-mail — abre formulário de contato */}
+              <button
+                onClick={() => onNavigate('contact')}
+                aria-label="Contato por e-mail"
+                className="w-9 h-9 rounded-full border border-line flex items-center justify-center text-forest-700 hover:bg-mint hover:border-mint transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -102,7 +104,7 @@ export default function Footer({ onNavigate }: FooterProps) {
             className="flex flex-col sm:flex-row gap-2 w-full md:justify-end"
           >
             {sent ? (
-              <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades. 💚</p>
+              <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades.</p>
             ) : (
               <>
                 <input
