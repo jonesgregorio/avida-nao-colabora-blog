@@ -267,8 +267,12 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
 function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; locked: boolean; onOpen: () => void; onUpgrade?: () => void }) {
   const time = item.estimated_time_minutes ?? item.read_time ?? null
   const badge = planBadge(item.plan_required)
+  const handleCardClick = locked && item.plan_required !== 'account' ? onUpgrade : onOpen
   return (
-    <div className="group flex flex-col text-left bg-paper-soft border border-line rounded-2xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all">
+    <div
+      onClick={handleCardClick}
+      className="group flex flex-col text-left bg-paper-soft border border-line rounded-2xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all cursor-pointer"
+    >
       <div className="relative aspect-video bg-mint overflow-hidden">
         <img
           src={item.image_url || FALLBACK_IMAGE}
@@ -299,17 +303,16 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
           <span className="text-xs font-medium text-forest-700 bg-mint px-2.5 py-1 rounded-full truncate max-w-[55%]">{item.category || 'Conteúdo'}</span>
           {locked ? (
             item.plan_required === 'account' ? (
-              // Gratuito (com conta): abrir o artigo mostra a prévia + convite p/ criar conta.
-              <button onClick={onOpen} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 hover:gap-1.5 transition-all flex-shrink-0">
+              <button onClick={e => { e.stopPropagation(); onOpen() }} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 hover:gap-1.5 transition-all flex-shrink-0">
                 Criar conta para ler <ArrowRight size={14} />
               </button>
             ) : (
-              <button onClick={onUpgrade} className="inline-flex items-center gap-1 text-sm font-medium text-[#7a3320] hover:gap-1.5 transition-all flex-shrink-0">
+              <button onClick={e => { e.stopPropagation(); onUpgrade?.() }} className="inline-flex items-center gap-1 text-sm font-medium text-[#7a3320] hover:gap-1.5 transition-all flex-shrink-0">
                 Conhecer o {badge?.label ?? 'Plus'} <ArrowRight size={14} />
               </button>
             )
           ) : (
-            <button onClick={onOpen} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 group-hover:gap-1.5 transition-all flex-shrink-0">
+            <button onClick={e => { e.stopPropagation(); onOpen() }} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 group-hover:gap-1.5 transition-all flex-shrink-0">
               Abrir conteúdo <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           )}
