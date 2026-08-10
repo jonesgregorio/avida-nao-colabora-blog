@@ -365,6 +365,11 @@ export default function App() {
     // Ticket de suporte (link do e-mail): restaura ID + URL /suporte/:id.
     if (pending.view === 'support-ticket' && pending.ticketId) {
       navigate(`support-ticket:${pending.ticketId}`)
+    } else if (pending.view === 'article' && pending.articleSlug) {
+      setSelectedArticleSlug(pending.articleSlug)
+      setView('article')
+      pushURL('article', pending.articleSlug)
+      window.scrollTo(0, 0)
     } else {
       navigate(pending.view)
     }
