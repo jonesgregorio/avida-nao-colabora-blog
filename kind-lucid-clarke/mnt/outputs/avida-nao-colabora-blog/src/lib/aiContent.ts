@@ -57,6 +57,7 @@ export interface AICallOptions {
   tone?: AITone
   size?: AISize
   extras?: string
+  preserveLength?: boolean  // true = não injeta instrução de tamanho (improve/rewrite)
 }
 
 // ─── Providers de IA + failover ──────────────────────────────────────────────
@@ -171,12 +172,16 @@ export async function persistActiveProvider(p: AIProvider): Promise<void> {
 // ─── Chamada base (monta o prompt e usa o failover) ──────────────────────────
 
 export async function callAI(prompt: string, options: AICallOptions = {}): Promise<string> {
-  const { tone = 'acolhedor', size = 'médio', extras = '' } = options
+  const { tone = 'acolhedor', size = 'médio', extras = '', preserveLength = false } = options
+
+  const sizeInstruction = preserveLength
+    ? 'Comprimento: preserve o tamanho original do texto — não corte, não resuma, não encurte.'
+    : `Tamanho OBRIGATÓRIO: ${SIZE_WORDS[size]}. Desenvolva o conteúdo ATÉ atingir essa faixa de tamanho — NÃO entregue um texto mais curto e NÃO pare antes. Se precisar, aprofunde com mais exemplos, explicações e seções para chegar na quantidade pedida. Também não ultrapasse muito o limite superior.`
 
   const fullPrompt = `${prompt}
 
 Tom de voz: ${tone}.
-Tamanho OBRIGATÓRIO: ${SIZE_WORDS[size]}. Desenvolva o conteúdo ATÉ atingir essa faixa de tamanho — NÃO entregue um texto mais curto e NÃO pare antes. Se precisar, aprofunde com mais exemplos, explicações e seções para chegar na quantidade pedida. Também não ultrapasse muito o limite superior.
+${sizeInstruction}
 ${extras ? `Instruções extras: ${extras}` : ''}
 
 ${LANGUAGE_RULES.replace('${' + "''/* será substituído por parâmetro */" + '}', tone)}
@@ -451,7 +456,7 @@ export async function improveText(text: string, opts: AICallOptions = {}): Promi
 "${text}"
 
 Retorne apenas o texto melhorado, sem comentários.`,
-    { size: 'médio', ...opts }
+    { preserveLength: true, ...opts }
   )
 }
 
@@ -462,7 +467,7 @@ export async function rewriteText(text: string, opts: AICallOptions = {}): Promi
 "${text}"
 
 Retorne apenas o texto reescrito, sem comentários.`,
-    { tone: 'acolhedor', ...opts }
+    { tone: 'acolhedor', preserveLength: true, ...opts }
   )
 }
 

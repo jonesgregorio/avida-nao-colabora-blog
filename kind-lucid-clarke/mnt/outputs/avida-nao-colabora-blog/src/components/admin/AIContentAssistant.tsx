@@ -301,7 +301,8 @@ export default function AIContentAssistant({
         text = await generateQuestionnaireDraft(theme, 'autoavaliação')
       } else {
         const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
-        text = await callAI(prompt, { tone, size, extras })
+        const preserveLength = contentType === 'improve' || contentType === 'rewrite'
+        text = await callAI(prompt, { tone, size, extras, preserveLength })
       }
       setResult(text)
       setUsedProvider(getLastProvider())
