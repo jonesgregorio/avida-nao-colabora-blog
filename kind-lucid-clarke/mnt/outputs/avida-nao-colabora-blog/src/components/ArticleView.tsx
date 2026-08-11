@@ -24,14 +24,29 @@ interface ArticleViewProps {
 // --- Quick summary extracted from article content ---
 function extractSummary(content: string, _title: string) {
   const lines = content.split('\n').filter(l => l.trim())
-  // First non-heading paragraph
-  const firstPara = lines.find(l => !l.startsWith('#') && l.length > 60) || ''
-  return {
-    topic: firstPara.slice(0, 120) + (firstPara.length > 120 ? '…' : ''),
-    mainIdea: 'Você não precisa resolver tudo hoje. Entender o que está sentindo já é um passo.',
-    smallAction: 'Reserve 5 minutos para anotar uma palavra que descreve como você está agora.',
-    diaryQuestion: 'O que está pesando mais para mim hoje, e o que eu precisaria para me sentir um pouco mais leve?',
-  }
+  const paras = lines.filter(l => !l.startsWith('#') && !l.startsWith('::') && l.length > 50)
+
+  const firstPara = paras[0] || ''
+  const topic = firstPara.slice(0, 120) + (firstPara.length > 120 ? '…' : '')
+
+  // mainIdea: segundo parágrafo substancial ou primeiro
+  const mainIdea = (paras[1] || paras[0] || '').replace(/\*\*/g, '').slice(0, 180)
+
+  // smallAction: linha com verbo de ação
+  const actionVerbs = /^(tente|reserve|pratique|observe|respire|escreva|anote|faça|permita|lembre|cuide|dedique|escolha|experimente)/i
+  const actionLine = lines.find(l => actionVerbs.test(l.trim()))
+  const smallAction = actionLine
+    ? actionLine.replace(/^[-*]\s*/, '').slice(0, 160)
+    : (paras[2] || paras[1] || '').replace(/\*\*/g, '').slice(0, 160)
+
+  // diaryQuestion: primeira frase interrogativa do texto
+  const allText = content.replace(/#{1,6}\s/g, '')
+  const questionMatch = allText.match(/[^.!?\n]{20,}[?]/)?.[0]
+  const diaryQuestion = questionMatch
+    ? questionMatch.trim().slice(0, 200)
+    : 'O que esse conteúdo despertou em mim hoje?'
+
+  return { topic, mainIdea, smallAction, diaryQuestion }
 }
 
 // --- Parse diary questions from content ---
@@ -393,7 +408,7 @@ export default function ArticleView({
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <p className="text-stone-500">Artigo não encontrado.</p>
-        <button onClick={onBack} className="mt-4 text-sage-600 hover:underline">
+        <button onClick={onBack} className="mt-4 text-forest-600 hover:underline">
           Ver todos os artigos
         </button>
       </div>
@@ -412,7 +427,7 @@ export default function ArticleView({
       {/* Print header (only shows when printing) */}
       <div className="print-only article-print-header">
         <div className="flex items-center gap-2 mb-2">
-          <span className="font-serif text-xl font-bold text-sage-800">A Vida Não Colabora</span>
+          <span className="font-serif text-xl font-bold text-forest-800">A Vida Não Colabora</span>
         </div>
         <h1 className="text-2xl font-bold text-stone-800 mb-1">{article.title}</h1>
         <p className="text-sm text-stone-500">{article.category} · {formattedDate}</p>
@@ -448,7 +463,7 @@ export default function ArticleView({
         </span>
       </div>
 
-      <h1 className="font-serif text-3xl md:text-4xl text-sage-800 mb-4 leading-tight">{article.title}</h1>
+      <h1 className="font-serif text-3xl md:text-4xl text-forest-800 mb-4 leading-tight">{article.title}</h1>
 
       {/* Tempo de leitura SEMPRE: usa o valor salvo ou calcula do conteúdo, para
           artigos antigos (sem read_time) também exibirem. */}
@@ -506,12 +521,12 @@ export default function ArticleView({
       {/* B) Diary questions */}
       {diaryQuestions.length > 0 && (
         <div className="mt-12 no-print" data-noprint>
-          <h3 className="font-bold text-sage-800 mb-1 text-lg">Perguntas para o diário</h3>
+          <h3 className="font-bold text-forest-800 mb-1 text-lg">Perguntas para o diário</h3>
           <p className="text-stone-500 text-sm mb-4">Use estas perguntas para explorar o que esse artigo tocou em você.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {diaryQuestions.map((q, i) => (
               <div key={i} className="bg-stone-50 border border-stone-100 rounded-xl p-4 flex flex-col gap-3">
-                <p className="text-sage-700 text-sm leading-relaxed">{q}</p>
+                <p className="text-forest-700 text-sm leading-relaxed">{q}</p>
                 <button
                   onClick={() => handleAnswerInDiary(q)}
                   className="self-start text-xs font-medium text-forest-700 border border-forest-200 bg-mint/40 px-3 py-1.5 rounded-full hover:bg-mint transition-colors flex items-center gap-1"
@@ -527,9 +542,9 @@ export default function ArticleView({
 
       {/* C) Emotional thermometer */}
       <div className="mt-10 no-print article-feedback" data-noprint>
-        <h3 className="font-bold text-sage-800 mb-1">Como esse artigo encontrou você hoje?</h3>
+        <h3 className="font-bold text-forest-800 mb-1">Como esse artigo encontrou você hoje?</h3>
         {feedbackDone ? (
-          <p className="text-sage-500 text-sm mt-2">
+          <p className="text-forest-500 text-sm mt-2">
             Sua resposta foi registrada. Que bom ter você aqui. 💚
           </p>
         ) : (
@@ -543,8 +558,8 @@ export default function ArticleView({
                   disabled={feedbackSaving}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm border transition-all ${
                     selectedFeedback === opt.type
-                      ? 'bg-sage-600 text-white border-sage-600'
-                      : 'bg-white border-stone-200 text-sage-700 hover:border-sage-400'
+                      ? 'bg-forest-600 text-white border-forest-600'
+                      : 'bg-white border-stone-200 text-forest-700 hover:border-forest-400'
                   }`}
                 >
                   {opt.icon} {opt.label}
@@ -628,7 +643,7 @@ export default function ArticleView({
       {/* F) Related articles */}
       {related.length > 0 && (
         <div className="mt-12 no-print">
-          <h3 className="text-lg font-bold text-sage-800 mb-4">Conteúdos relacionados</h3>
+          <h3 className="text-lg font-bold text-forest-800 mb-4">Conteúdos relacionados</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {related.map(rel => (
               <button
@@ -647,8 +662,8 @@ export default function ArticleView({
                   />
                 </div>
                 <div className="p-3">
-                  <span className="text-xs text-sage-600">{rel.category}</span>
-                  <p className="font-medium text-sage-700 text-sm mt-1 line-clamp-2">{rel.title}</p>
+                  <span className="text-xs text-forest-600">{rel.category}</span>
+                  <p className="font-medium text-forest-700 text-sm mt-1 line-clamp-2">{rel.title}</p>
                 </div>
               </button>
             ))}

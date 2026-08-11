@@ -296,7 +296,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center">
-        <p className="text-sage-500 mb-4">Faça login para visualizar seu plano.</p>
+        <p className="text-forest-500 mb-4">Faça login para visualizar seu plano.</p>
         <button onClick={onNavigateAuth} className="bg-purple-600 text-white px-6 py-3 rounded-full text-sm font-medium">Entrar</button>
       </div>
     )
@@ -499,7 +499,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
       {/* Histórico */}
       {history.length > 0 && (
         <div>
-          <h2 className="font-semibold text-sage-800 mb-3 text-sm">Histórico de alterações</h2>
+          <h2 className="font-semibold text-forest-800 mb-3 text-sm">Histórico de alterações</h2>
           <div className="space-y-2">
             {history.map(h => (
               <div key={h.id} className="bg-white border border-stone-100 rounded-xl p-3 flex items-start gap-3">
@@ -541,7 +541,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sage-800">Confirmar upgrade</h3>
+              <h3 className="font-semibold text-forest-800">Confirmar upgrade</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3 mb-5">
@@ -600,7 +600,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sage-800">Confirmar downgrade de plano</h3>
+              <h3 className="font-semibold text-forest-800">Confirmar downgrade de plano</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
@@ -767,7 +767,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sage-800">{isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
+              <h3 className="font-semibold text-forest-800">{isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-sm text-stone-600 mb-5">

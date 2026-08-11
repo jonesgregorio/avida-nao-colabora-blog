@@ -25,7 +25,7 @@ export default function AdminStripeSetup() {
   return (
     <div className="bg-white rounded-xl border border-line p-5 mb-6">
       <div className="flex items-center gap-2 mb-1">
-        <CreditCard className="w-4 h-4 text-sage-600" />
+        <CreditCard className="w-4 h-4 text-forest-600" />
         <h3 className="font-semibold text-forest-900 text-sm">Stripe — setup &amp; autoteste</h3>
       </div>
       <p className="text-xs text-stone-500 mb-4">
@@ -56,7 +56,7 @@ export default function AdminStripeSetup() {
           Diagnosticar entrega de eventos
         </button>
         <button onClick={() => call('configure-stripe-webhook')} disabled={!!busy}
-          className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50 transition-colors">
           {busy === 'configure-stripe-webhook' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
           Configurar eventos do webhook
         </button>

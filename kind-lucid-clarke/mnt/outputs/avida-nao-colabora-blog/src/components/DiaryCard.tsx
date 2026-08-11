@@ -18,11 +18,11 @@ export default function DiaryCard({ onOpenDiary, onNewEntry, user }: DiaryCardPr
           alt="Diário de Bem-Estar"
           className="w-full h-56 md:h-64 object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-sage-900/80 to-sage-900/30 flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-forest-900/80 to-forest-900/30 flex items-center">
           <div className="px-8">
-            <p className="text-sage-200 text-sm uppercase tracking-widest mb-2">Seu espaço</p>
+            <p className="text-forest-200 text-sm uppercase tracking-widest mb-2">Seu espaço</p>
             <h2 className="font-serif text-3xl md:text-4xl text-white mb-2">Diário de Bem-Estar</h2>
-            <p className="text-sage-200 text-sm max-w-md">
+            <p className="text-forest-200 text-sm max-w-md">
               Registre como você está, acompanhe sua evolução e acesse meditações e avaliações.
             </p>
             <div className="flex items-center gap-2 mt-4 text-white text-sm font-medium">
@@ -35,7 +35,7 @@ export default function DiaryCard({ onOpenDiary, onNewEntry, user }: DiaryCardPr
       <div className="flex justify-center mt-4">
         <button
           onClick={e => { e.stopPropagation(); onNewEntry() }}
-          className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors shadow-md"
+          className="flex items-center gap-2 bg-forest-600 hover:bg-forest-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors shadow-md"
         >
           <Plus className="w-4 h-4" /> Nova Entrada no Diário
         </button>

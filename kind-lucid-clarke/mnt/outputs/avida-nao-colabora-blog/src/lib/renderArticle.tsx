@@ -57,7 +57,7 @@ function renderInline(texto: string, keyBase: string): ReactNode[] {
         </a>,
       )
     } else if (m[4]) {
-      out.push(<strong key={k} className="font-semibold text-sage-800">{m[5]}</strong>)
+      out.push(<strong key={k} className="font-semibold text-forest-800">{m[5]}</strong>)
     } else if (m[6]) {
       out.push(<em key={k} className="italic">{m[7]}</em>)
     } else if (m[8]) {
@@ -82,7 +82,7 @@ export function renderArticleContent(content: string): ReactNode[] {
 
     // Divisor
     if (/^(---|\*\*\*|___)\s*$/.test(t)) {
-      out.push(<hr key={`hr-${i}`} className="my-8 border-t border-sage-200" />)
+      out.push(<hr key={`hr-${i}`} className="my-8 border-t border-forest-200" />)
       i++; continue
     }
     // Vídeo de referência: ::video[legenda](url) — embed responsivo do YouTube.
@@ -94,7 +94,7 @@ export function renderArticleContent(content: string): ReactNode[] {
       if (vid) {
         out.push(
           <figure key={`vid-${i}`} className="my-6">
-            <div className="relative w-full overflow-hidden rounded-xl border border-sage-200 bg-black" style={{ paddingBottom: '56.25%' }}>
+            <div className="relative w-full overflow-hidden rounded-xl border border-forest-200 bg-black" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute inset-0 w-full h-full"
                 src={`https://www.youtube-nocookie.com/embed/${vid}`}
@@ -104,12 +104,12 @@ export function renderArticleContent(content: string): ReactNode[] {
                 allowFullScreen
               />
             </div>
-            {caption && <figcaption className="text-xs text-sage-500 mt-2 text-center">{caption}</figcaption>}
+            {caption && <figcaption className="text-xs text-forest-500 mt-2 text-center">{caption}</figcaption>}
           </figure>,
         )
       } else {
         out.push(
-          <p key={`vidlink-${i}`} className="text-sage-600 leading-relaxed mb-4">
+          <p key={`vidlink-${i}`} className="text-forest-600 leading-relaxed mb-4">
             <a href={vmatch[2]} target="_blank" rel="noopener noreferrer" className="text-forest-700 underline underline-offset-2 hover:text-forest-900">
               {caption || vmatch[2]}
             </a>
@@ -120,11 +120,11 @@ export function renderArticleContent(content: string): ReactNode[] {
     }
     // Subtítulos
     if (t.startsWith('## ')) {
-      out.push(<h2 key={`h2-${i}`} className="font-serif text-2xl text-sage-800 mt-10 mb-3">{renderInline(t.slice(3), `h2-${i}`)}</h2>)
+      out.push(<h2 key={`h2-${i}`} className="font-serif text-2xl text-forest-800 mt-10 mb-3">{renderInline(t.slice(3), `h2-${i}`)}</h2>)
       i++; continue
     }
     if (t.startsWith('### ')) {
-      out.push(<h3 key={`h3-${i}`} className="font-serif text-xl text-sage-700 mt-8 mb-2">{renderInline(t.slice(4), `h3-${i}`)}</h3>)
+      out.push(<h3 key={`h3-${i}`} className="font-serif text-xl text-forest-700 mt-8 mb-2">{renderInline(t.slice(4), `h3-${i}`)}</h3>)
       i++; continue
     }
     // Lista não ordenada (itens consecutivos)
@@ -133,10 +133,10 @@ export function renderArticleContent(content: string): ReactNode[] {
       let j = i
       while (j < linhas.length && /^[-*]\s+/.test(linhas[j].trim())) {
         const conteudo = linhas[j].trim().replace(/^[-*]\s+/, '')
-        itens.push(<li key={`li-${j}`} className="text-sage-600 leading-relaxed">{renderInline(conteudo, `li-${j}`)}</li>)
+        itens.push(<li key={`li-${j}`} className="text-forest-600 leading-relaxed">{renderInline(conteudo, `li-${j}`)}</li>)
         j++
       }
-      out.push(<ul key={`ul-${i}`} className="list-disc pl-6 space-y-1.5 my-4 marker:text-sage-400">{itens}</ul>)
+      out.push(<ul key={`ul-${i}`} className="list-disc pl-6 space-y-1.5 my-4 marker:text-forest-400">{itens}</ul>)
       i = j; continue
     }
     // Lista ordenada
@@ -145,10 +145,10 @@ export function renderArticleContent(content: string): ReactNode[] {
       let j = i
       while (j < linhas.length && /^\d+\.\s+/.test(linhas[j].trim())) {
         const conteudo = linhas[j].trim().replace(/^\d+\.\s+/, '')
-        itens.push(<li key={`oli-${j}`} className="text-sage-600 leading-relaxed">{renderInline(conteudo, `oli-${j}`)}</li>)
+        itens.push(<li key={`oli-${j}`} className="text-forest-600 leading-relaxed">{renderInline(conteudo, `oli-${j}`)}</li>)
         j++
       }
-      out.push(<ol key={`ol-${i}`} className="list-decimal pl-6 space-y-1.5 my-4 marker:text-sage-400 marker:font-medium">{itens}</ol>)
+      out.push(<ol key={`ol-${i}`} className="list-decimal pl-6 space-y-1.5 my-4 marker:text-forest-400 marker:font-medium">{itens}</ol>)
       i = j; continue
     }
     // Citação (linhas consecutivas viram um bloco só)
@@ -160,7 +160,7 @@ export function renderArticleContent(content: string): ReactNode[] {
         j++
       }
       out.push(
-        <blockquote key={`bq-${i}`} className="border-l-4 border-sage-300 bg-mint/30 pl-4 pr-3 py-2 italic text-sage-700 my-5 rounded-r-lg">
+        <blockquote key={`bq-${i}`} className="border-l-4 border-forest-300 bg-mint/30 pl-4 pr-3 py-2 italic text-forest-700 my-5 rounded-r-lg">
           {renderInline(partes.join(' '), `bq-${i}`)}
         </blockquote>,
       )
@@ -170,7 +170,7 @@ export function renderArticleContent(content: string): ReactNode[] {
     if (t === '') { out.push(<div key={`sp-${i}`} className="h-2" />); i++; continue }
 
     // Parágrafo normal (com inline)
-    out.push(<p key={`p-${i}`} className="text-sage-600 leading-relaxed mb-4">{renderInline(linha, `p-${i}`)}</p>)
+    out.push(<p key={`p-${i}`} className="text-forest-600 leading-relaxed mb-4">{renderInline(linha, `p-${i}`)}</p>)
     i++
   }
 

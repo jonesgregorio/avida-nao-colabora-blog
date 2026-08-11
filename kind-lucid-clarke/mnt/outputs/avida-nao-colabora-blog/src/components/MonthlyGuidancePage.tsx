@@ -137,8 +137,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         <div className="w-14 h-14 bg-mint rounded-2xl flex items-center justify-center mx-auto mb-4">
           <MessageSquare className="w-7 h-7 text-forest-700" />
         </div>
-        <h1 className="font-serif text-2xl text-sage-800 mb-2">Orientação mensal por mensagem</h1>
-        <p className="text-sage-500 mb-6">Este recurso está disponível no plano Plus.</p>
+        <h1 className="font-serif text-2xl text-forest-800 mb-2">Orientação mensal por mensagem</h1>
+        <p className="text-forest-500 mb-6">Este recurso está disponível no plano Plus.</p>
         <button onClick={onNavigatePricing} className="bg-forest-900 hover:bg-forest-800 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors">
           Ver planos
         </button>
@@ -172,17 +172,17 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             <MessageSquare className="w-4 h-4 text-forest-700" />
           </div>
           <div>
-            <h1 className="font-serif text-2xl text-sage-800">Orientação mensal</h1>
+            <h1 className="font-serif text-2xl text-forest-800">Orientação mensal</h1>
             <p className="text-xs text-stone-400 capitalize">{currentMonthLabel()}</p>
           </div>
         </div>
-        <p className="text-sm text-sage-500 mt-2 leading-relaxed">
+        <p className="text-sm text-forest-500 mt-2 leading-relaxed">
           Uma vez por mês, você envia uma mensagem e recebe de volta, aqui dentro do site, uma
           orientação de apoio individual e não emergencial, escrita com base nos seus registros.
-          A resposta chega em até <strong className="text-sage-700">7 dias corridos</strong>.
+          A resposta chega em até <strong className="text-forest-700">7 dias corridos</strong>.
         </p>
-        <p className="text-sm text-sage-500 mt-2 leading-relaxed">
-          Você pode pedir orientação sobre <strong className="text-sage-700">o que quiser</strong> e trazer os pontos que
+        <p className="text-sm text-forest-500 mt-2 leading-relaxed">
+          Você pode pedir orientação sobre <strong className="text-forest-700">o que quiser</strong> e trazer os pontos que
           desejar — como está se sentindo, uma situação difícil, dúvidas sobre o seu processo, hábitos que
           quer mudar, sugestões de autocuidado ou ajuda para organizar as ideias. Escreva com liberdade, no
           seu tempo: não há limite de caracteres.
@@ -237,7 +237,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       {/* Formulário — apenas quando ainda não há pedido no mês E o prazo (dia 23) não passou */}
       {!request && !cycle.isPastDeadline && (
         <div className="bg-white border border-forest-100 rounded-2xl p-6 shadow-sm">
-          <h2 className="font-semibold text-sage-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
+          <h2 className="font-semibold text-forest-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
 
           <div className="mb-3">
             <label className="text-xs font-medium text-stone-500 mb-1 block">Sobre o que quer orientação <span className="text-forest-500">*</span></label>
@@ -293,7 +293,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       {/* Histórico — nunca apagado, sempre disponível, fechado por padrão */}
       {history.length > 0 && (
         <div className="mt-6">
-          <h2 className="font-serif text-lg text-sage-800 mb-1">Orientações anteriores</h2>
+          <h2 className="font-serif text-lg text-forest-800 mb-1">Orientações anteriores</h2>
           <p className="text-xs text-stone-400 mb-3">Seu histórico fica sempre aqui. Toque para abrir.</p>
           <div className="space-y-2">
             {history.map(r => (
@@ -320,7 +320,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
         className="w-full text-left px-5 py-4 flex items-start justify-between gap-3 hover:bg-stone-50 transition-colors"
       >
         <div className="min-w-0">
-          <p className="font-semibold text-sage-800 text-sm">Sua orientação de <span className="capitalize">{monthKeyLabel(req.month_key)}</span></p>
+          <p className="font-semibold text-forest-800 text-sm">Sua orientação de <span className="capitalize">{monthKeyLabel(req.month_key)}</span></p>
           <p className="text-xs text-stone-400 mt-0.5">Enviada em {formatDate(req.created_at)}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

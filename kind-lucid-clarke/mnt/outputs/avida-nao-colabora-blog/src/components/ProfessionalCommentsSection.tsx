@@ -53,8 +53,8 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
     return (
       <div className="bg-white border border-stone-100 rounded-2xl p-6 text-center">
         <Star className="w-8 h-8 text-stone-200 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-sage-800 mb-1">Comentário individual do profissional</p>
-        <p className="text-xs text-sage-500 mb-4">Disponível no plano Plus — um comentário personalizado sobre seu relatório mensal.</p>
+        <p className="text-sm font-semibold text-forest-800 mb-1">Comentário individual do profissional</p>
+        <p className="text-xs text-forest-500 mb-4">Disponível no plano Plus — um comentário personalizado sobre seu relatório mensal.</p>
         {onNavigatePricing && (
           <button onClick={onNavigatePricing} className="text-xs text-forest-700 hover:underline font-medium">Ver planos</button>
         )}
@@ -74,15 +74,15 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
     return (
       <div className="bg-white border border-stone-100 rounded-2xl p-6 text-center">
         <Star className="w-8 h-8 text-stone-200 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-sage-800 mb-1">Nenhum comentário ainda</p>
-        <p className="text-xs text-sage-500">Seu comentário mensal do profissional aparecerá aqui após o primeiro relatório.</p>
+        <p className="text-sm font-semibold text-forest-800 mb-1">Nenhum comentário ainda</p>
+        <p className="text-xs text-forest-500">Seu comentário mensal do profissional aparecerá aqui após o primeiro relatório.</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-sage-700 flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-forest-700 flex items-center gap-2">
         <Star className="w-4 h-4 text-forest-400" />
         Comentários do profissional
       </h3>
@@ -99,7 +99,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
               {new Date(c.created_at).toLocaleDateString('pt-BR')}
             </span>
           </div>
-          <p className="text-sm text-sage-700 leading-relaxed whitespace-pre-wrap">{c.comment_text}</p>
+          <p className="text-sm text-forest-700 leading-relaxed whitespace-pre-wrap">{c.comment_text}</p>
           {onNavigateDiary && (
             <button
               onClick={onNavigateDiary}

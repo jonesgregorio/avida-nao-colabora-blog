@@ -115,13 +115,17 @@ export default function Auth({ onBack }: AuthProps) {
                   </li>
                 ))}
               </ul>
-              <div className="mt-7 hidden sm:block rounded-2xl overflow-hidden aspect-[16/7] bg-mint">
-                <img
-                  src="https://images.unsplash.com/photo-1495197359483-d092478c170a?w=700&q=80"
-                  alt=""
-                  className="w-full h-full object-cover"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
+              <div className="mt-7 hidden sm:block rounded-2xl overflow-hidden aspect-[16/7] bg-mint flex items-center justify-center">
+                <svg viewBox="0 0 560 245" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                  <rect width="560" height="245" fill="#E8F0EB"/>
+                  <circle cx="80" cy="180" r="60" fill="#c0d8c9" opacity="0.5"/>
+                  <circle cx="480" cy="60" r="80" fill="#c0d8c9" opacity="0.35"/>
+                  <circle cx="280" cy="220" r="45" fill="#8fb5a1" opacity="0.25"/>
+                  <path d="M0 160 Q140 100 280 140 Q420 180 560 120 L560 245 L0 245Z" fill="#b9d3c3" opacity="0.4"/>
+                  <path d="M0 190 Q140 150 280 170 Q420 190 560 155 L560 245 L0 245Z" fill="#8fb5a1" opacity="0.3"/>
+                  <text x="280" y="115" textAnchor="middle" fontFamily="Georgia, serif" fontSize="22" fill="#1c4a37" opacity="0.7">A Vida Não Colabora</text>
+                  <text x="280" y="140" textAnchor="middle" fontFamily="Georgia, serif" fontSize="13" fill="#3f6f57" opacity="0.6">um lugar para se organizar por dentro</text>
+                </svg>
               </div>
             </div>
 

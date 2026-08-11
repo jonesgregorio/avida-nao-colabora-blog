@@ -1406,7 +1406,7 @@ function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userI
     <Section icon={<Star className="w-4 h-4" />} title="Comentário do profissional" badge="Plus">
       {comment ? (
         <div className="space-y-2">
-          <p className="text-sm text-sage-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
+          <p className="text-sm text-forest-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
           {comment.professional_name && <p className="text-[10px] text-stone-400">{comment.professional_name}</p>}
           <button onClick={onNavigateDiary} className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium mt-1"><BookOpen className="w-3.5 h-3.5" /> Responder no diário</button>
         </div>

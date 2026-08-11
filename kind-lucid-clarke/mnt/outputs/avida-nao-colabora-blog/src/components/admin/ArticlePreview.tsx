@@ -62,8 +62,8 @@ export default function ArticlePreview({ title, category, content, imageUrl, ima
           )}
 
           {/* Título */}
-          <h1 className="font-serif text-3xl md:text-4xl text-sage-800 mb-4 leading-tight">
-            {title || <span className="text-sage-300">Título do artigo</span>}
+          <h1 className="font-serif text-3xl md:text-4xl text-forest-800 mb-4 leading-tight">
+            {title || <span className="text-forest-300">Título do artigo</span>}
           </h1>
 
           {/* Tempo de leitura — sempre, calculado do conteúdo se o campo estiver zerado */}
@@ -83,7 +83,7 @@ export default function ArticlePreview({ title, category, content, imageUrl, ima
 
           {/* Conteúdo */}
           <div className="prose prose-sage max-w-none article-content">
-            {content.trim() ? renderArticleContent(content) : <p className="text-sage-400 italic">Sem conteúdo ainda.</p>}
+            {content.trim() ? renderArticleContent(content) : <p className="text-forest-400 italic">Sem conteúdo ainda.</p>}
           </div>
         </article>
       </div>
