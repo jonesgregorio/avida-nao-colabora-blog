@@ -28,8 +28,8 @@ enabled = true
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://avida-nao-colabora-blog.vercel.app"]
+site_url = "https://avidanaocolabora.com"
+additional_redirect_urls = ["https://www.avidanaocolabora.com", "https://avida-nao-colabora-blog.vercel.app"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 

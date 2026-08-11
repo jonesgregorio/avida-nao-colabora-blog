@@ -638,6 +638,7 @@ export default function App() {
         onNavigateDiary={() => navigate('diary')}
         onNavigateHome={() => navigate('home')}
         onRefreshProfile={refreshProfile}
+        userPlan={profile?.plan}
       />
     )
   }
