@@ -31,6 +31,12 @@ function slugify(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 72)
 }
+// Resumo curto p/ card do blog — 1º parágrafo substancial do conteúdo gerado,
+// sem chamar a IA de novo (evita custo/latência extra por artigo).
+function excerptFrom(content: string): string {
+  const firstPara = content.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#') && l.length > 40) || ''
+  return firstPara.replace(/[*_`]/g, '').slice(0, 200)
+}
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
 const AI_TIMEOUT_MS = 45_000
@@ -178,9 +184,10 @@ Não use markdown pesado, não dê diagnóstico e não prometa cura.`
       const publish = a.mode === 'auto_publish'
       const nowIso = new Date().toISOString()
 
+      const excerpt = excerptFrom(content)
       const { data: art, error: insErr } = await admin.from('articles').insert({
         title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-4)}`,
-        content, summary: '', excerpt: '', category: a.category || null,
+        content, summary: excerpt, excerpt, category: a.category || null,
         plan_required: a.plan_required || 'free', content_type: tipo, origin: 'ia',
         status: publish ? 'published' : 'draft',
         published_at: publish ? nowIso : null, updated_at: nowIso,

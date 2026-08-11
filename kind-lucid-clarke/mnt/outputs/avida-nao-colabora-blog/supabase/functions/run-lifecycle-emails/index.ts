@@ -94,20 +94,23 @@ Deno.serve(async (req) => {
   // Atividade emocional (§13): última data + contagens da semana/mês por usuário.
   // Sinal = qualquer registro em diary_entries (checkin, diary, questionnaire,
   // evaluation). Distinguir tipos não é preciso: os gatilhos escalam pelo GAP.
+  // Agregado no banco via RPC (GROUP BY) em vez de carregar linhas cruas para
+  // o runtime da função e somar em JS — evita puxar dezenas de milhares de
+  // linhas para memória a cada execução do cron.
   const since45 = new Date(now.getTime() - 45 * DAY).toISOString()
-  const { data: diary } = await admin.from('diary_entries').select('user_id, created_at').gte('created_at', since45).limit(30000)
+  const { data: activity } = await admin.rpc('get_diary_activity_since', { p_since: since45 })
   const lastEntry = new Map<string, number>()
   const weekCount = new Map<string, number>()
   const monthCount = new Map<string, number>()
   const recent7 = new Map<string, number>()   // registros nos últimos 7 dias
-  const wk = isoWeek(now); const mo = monthStamp(now); const sevenAgo = now.getTime() - 7 * DAY
-  for (const d of (diary ?? []) as { user_id: string; created_at: string }[]) {
-    const dt = new Date(d.created_at); const ts = dt.getTime()
-    if (!lastEntry.has(d.user_id) || ts > (lastEntry.get(d.user_id) as number)) lastEntry.set(d.user_id, ts)
-    if (isoWeek(dt) === wk) weekCount.set(d.user_id, (weekCount.get(d.user_id) ?? 0) + 1)
-    if (monthStamp(dt) === mo) monthCount.set(d.user_id, (monthCount.get(d.user_id) ?? 0) + 1)
-    if (ts >= sevenAgo) recent7.set(d.user_id, (recent7.get(d.user_id) ?? 0) + 1)
+  for (const row of (activity ?? []) as { user_id: string; last_entry_at: string; week_count: number; month_count: number; recent7_count: number }[]) {
+    lastEntry.set(row.user_id, new Date(row.last_entry_at).getTime())
+    weekCount.set(row.user_id, row.week_count)
+    monthCount.set(row.user_id, row.month_count)
+    recent7.set(row.user_id, row.recent7_count)
   }
+
+  const mo = monthStamp(now)
 
   // ── Anti-spam (§5): histórico de lembretes de autocuidado dos últimos 31 dias.
   const since31 = new Date(now.getTime() - 31 * DAY).toISOString()

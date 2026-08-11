@@ -204,7 +204,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
       .from('diary_entries')
-      .select('*')
+      .select('id,mood,date,entry_type,created_at,text,emotional_tags,gratitude')
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })

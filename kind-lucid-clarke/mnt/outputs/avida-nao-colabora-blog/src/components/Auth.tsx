@@ -83,7 +83,7 @@ export default function Auth({ onBack }: AuthProps) {
     <div className="min-h-screen bg-paper flex flex-col">
       {/* Top bar */}
       <header className="px-4 sm:px-6 h-16 flex items-center justify-between border-b border-line">
-        <button onClick={onBack} className="flex items-center gap-2.5" aria-label="A Vida Não Colabora">
+        <button onClick={onBack} className="flex items-center gap-2.5" aria-label="Voltar ao site">
           <LogoIcon className="w-7 h-7 text-forest-800" />
           <span className="font-serif text-lg text-forest-900 hidden sm:inline">A Vida Não Colabora</span>
         </button>
@@ -157,17 +157,18 @@ export default function Auth({ onBack }: AuthProps) {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {isSignup && (
-                  <Field label="Nome completo">
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Digite seu nome" className={inputCls} required />
+                  <Field label="Nome completo" htmlFor="auth-name">
+                    <input id="auth-name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Digite seu nome" className={inputCls} required />
                   </Field>
                 )}
-                <Field label="E-mail">
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seuemail@email.com" className={inputCls} required />
+                <Field label="E-mail" htmlFor="auth-email">
+                  <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seuemail@email.com" className={inputCls} required />
                 </Field>
                 {mode !== 'reset' && (
-                  <Field label="Senha">
+                  <Field label="Senha" htmlFor="auth-password">
                     <div className="relative">
                       <input
+                        id="auth-password"
                         type={showPass ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
@@ -183,8 +184,8 @@ export default function Auth({ onBack }: AuthProps) {
                   </Field>
                 )}
                 {isSignup && (
-                  <Field label="Confirmar senha">
-                    <input type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Digite novamente sua senha" className={inputCls} required minLength={6} />
+                  <Field label="Confirmar senha" htmlFor="auth-confirm-password">
+                    <input id="auth-confirm-password" type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Digite novamente sua senha" className={inputCls} required minLength={6} />
                   </Field>
                 )}
 
@@ -247,10 +248,10 @@ export default function Auth({ onBack }: AuthProps) {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-forest-800 mb-1.5">{label}</label>
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-forest-800 mb-1.5">{label}</label>
       {children}
     </div>
   )

@@ -34,6 +34,11 @@ function resolveSiteUrl(origin: unknown): string {
   }
   return Deno.env.get('SITE_URL') || 'http://localhost:5173'
 }
+// Mensagens que podem ir direto ao usuário (já em português, sem detalhe
+// técnico). Qualquer outro erro (ex.: SDK do Stripe, que responde em inglês)
+// cai no fallback genérico do catch — nunca vaza texto em inglês pro usuário.
+class UserFacingError extends Error {}
+
 function corsFor(req: Request) {
   const origin = req.headers.get('Origin')
   const allowed = origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin))
@@ -60,11 +65,11 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     )
-    if (authError || !user) throw new Error('Não autorizado')
+    if (authError || !user) throw new UserFacingError('Não autorizado')
 
     const { plan, origin } = await req.json()
     const priceId = PRICE_IDS[plan]
-    if (!priceId) throw new Error(`Plano inválido ou Price ID não configurado: ${plan}`)
+    if (!priceId) throw new UserFacingError(`Plano inválido ou Price ID não configurado: ${plan}`)
 
     // Retorno na MESMA origem do navegador (validada) — evita logout apex vs www.
     const siteUrl = resolveSiteUrl(origin)
@@ -116,7 +121,10 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('create-checkout error:', err)
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    const message = err instanceof UserFacingError
+      ? err.message
+      : 'Não foi possível iniciar o pagamento. Tente novamente em instantes.'
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })

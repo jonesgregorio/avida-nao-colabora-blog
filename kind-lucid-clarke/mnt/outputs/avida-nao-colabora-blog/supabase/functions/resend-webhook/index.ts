@@ -42,20 +42,25 @@ async function verifySignature(req: Request, body: string): Promise<boolean> {
   } catch { return false }
 }
 
+// Webhook do Resend — chamado server-to-server (nunca por navegador). CORS
+// aqui é só defensivo, para o caso de o Resend ou algum proxy fazer preflight.
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, svix-id, svix-timestamp, svix-signature' }
+
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors })
 
   const body = await req.text()
   if (!(await verifySignature(req, body))) {
-    return new Response('invalid signature', { status: 401 })
+    return new Response('invalid signature', { status: 401, headers: cors })
   }
 
   let event: { type?: string; data?: { email_id?: string; bounce?: { message?: string }; reason?: string } }
-  try { event = JSON.parse(body) } catch { return new Response('bad json', { status: 400 }) }
+  try { event = JSON.parse(body) } catch { return new Response('bad json', { status: 400, headers: cors }) }
 
   const type = event.type || ''
   const emailId = event.data?.email_id
-  if (!emailId) return new Response(JSON.stringify({ received: true, ignored: 'no email_id' }), { headers: { 'Content-Type': 'application/json' } })
+  if (!emailId) return new Response(JSON.stringify({ received: true, ignored: 'no email_id' }), { headers: { ...cors, 'Content-Type': 'application/json' } })
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const now = new Date().toISOString()
@@ -75,11 +80,11 @@ Deno.serve(async (req) => {
   }
 
   if (Object.keys(patch).length <= 1) {
-    return new Response(JSON.stringify({ received: true, type }), { headers: { 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ received: true, type }), { headers: { ...cors, 'Content-Type': 'application/json' } })
   }
 
   const { error } = await admin.from('email_logs').update(patch).eq('provider_message_id', emailId)
   if (error) console.error('resend-webhook update:', error.message)
 
-  return new Response(JSON.stringify({ received: true, type, updated: !error }), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify({ received: true, type, updated: !error }), { headers: { ...cors, 'Content-Type': 'application/json' } })
 })

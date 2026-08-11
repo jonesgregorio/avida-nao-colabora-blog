@@ -57,12 +57,12 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!description.trim()) return
+    if (!description.trim() || !user) return
     setSending(true)
     setError(null)
 
     const { error: err } = await supabase.from('support_tickets').insert({
-      user_id: user!.id,
+      user_id: user.id,
       subject,
       description: description.trim(),
       priority,

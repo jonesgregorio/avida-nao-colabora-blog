@@ -64,7 +64,8 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
       // RLS: só devolve os PRÓPRIOS planos já ENVIADOS (nunca draft, nunca de outro).
       supabase.from('monthly_care_plans').select('id, month_reference, period_start, period_end, sent_at, ai_summary, ai_summary_json, care_plan, recommended_content_ids')
         .eq('user_id', user.id).eq('status', 'sent').order('month_reference', { ascending: false }).limit(120),
-      supabase.from('self_care_plan_reviews').select('*').eq('user_id', user.id).order('month_key', { ascending: false }).limit(120),
+      supabase.from('self_care_plan_reviews').select('id, month_key, summary, suggested_adjustments, next_focus, pdf_url, created_at')
+        .eq('user_id', user.id).order('month_key', { ascending: false }).limit(120),
       supabase.from('personalized_content_deliveries')
         .select('id, title, body, content_type, sent_at')
         .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'self_care_plan')

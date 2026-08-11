@@ -168,6 +168,8 @@ export default function FAQPage({ onNavigate }: FAQPageProps) {
               <div key={idx} className="bg-white border border-line rounded-2xl overflow-hidden">
                 <button
                   onClick={() => setOpen(isOpen ? null : idx)}
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${idx}`}
                   className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left hover:bg-paper-soft transition-colors"
                 >
                   <span className="font-medium text-forest-900 text-sm leading-snug">{faq.question}</span>
@@ -176,7 +178,7 @@ export default function FAQPage({ onNavigate }: FAQPageProps) {
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-6 pb-5 pt-0">
+                  <div id={`faq-answer-${idx}`} className="px-6 pb-5 pt-0">
                     <div className="border-t border-line pt-4">
                       <p className="text-ink-soft text-sm leading-relaxed">{faq.answer}</p>
                     </div>

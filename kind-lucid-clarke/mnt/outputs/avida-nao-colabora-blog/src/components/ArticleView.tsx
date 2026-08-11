@@ -177,7 +177,8 @@ export default function ArticleView({
     setLoading(true)
     setLocked(null)
     try {
-      const { data, error } = await supabase.from('articles').select('*').eq('slug', s).single()
+      const articleCols = 'id,slug,title,category,content,created_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords'
+      const { data, error } = await supabase.from('articles').select(articleCols).eq('slug', s).single()
       if (error || !data) {
         setArticle(null)
         // Pode ser conteúdo exclusivo (RLS bloqueou o corpo por plano). Busca o

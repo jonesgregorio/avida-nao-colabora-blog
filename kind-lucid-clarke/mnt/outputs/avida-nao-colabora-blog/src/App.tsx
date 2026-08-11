@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense, type ReactNode } from 'react'
 import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
@@ -267,7 +267,7 @@ export default function App() {
     }
   }
 
-  const navigate = (section: string, articleSlug?: string) => {
+  const navigate = useCallback((section: string, articleSlug?: string) => {
     // Redireciona views de módulos removidos do MVP para destinos válidos.
     if (LEGACY_VIEW_REDIRECT[section]) section = LEGACY_VIEW_REDIRECT[section]
 
@@ -331,7 +331,8 @@ export default function App() {
       const el = document.getElementById(section)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   // Leva ao login guardando a ação pretendida, para retornar a ela após autenticar.
   const goAuth = (targetView: string) => {
@@ -373,8 +374,7 @@ export default function App() {
     } else {
       navigate(pending.view)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user, navigate])
 
   // Suporte ao botão Voltar/Avançar do navegador
   useEffect(() => {

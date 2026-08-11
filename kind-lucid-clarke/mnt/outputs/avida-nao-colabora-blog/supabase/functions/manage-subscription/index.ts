@@ -22,9 +22,6 @@ function corsHeaders(origin: string | null) {
   }
 }
 
-// Alias para OPTIONS (sem corpo, origem não importa)
-const CORS_HEADERS = corsHeaders('https://avidanaocolabora.com')
-
 // Ações suportadas
 type Action = 'cancel' | 'downgrade' | 'reactivate' | 'upgrade'
 
@@ -127,6 +124,10 @@ async function sendTxEmail(templateKey: string, toEmail: string | null | undefin
 }
 
 Deno.serve(async (req) => {
+  // Origem resolvida por requisição — evita mismatch entre apex/www (e evita
+  // estado mutável compartilhado entre requisições concorrentes de origens diferentes).
+  const CORS_HEADERS = corsHeaders(req.headers.get('Origin'))
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS })
   }
@@ -505,8 +506,10 @@ Deno.serve(async (req) => {
       })
     }
   } catch (err) {
+    // Detalhe completo só no log do servidor (pode vir de Postgres/Stripe, em
+    // inglês) — o usuário recebe sempre uma mensagem genérica em português.
     console.error(`manage-subscription ${action}:`, (err as Error).message)
-    return new Response(JSON.stringify({ error: (err as Error).message ?? 'Erro interno' }), {
+    return new Response(JSON.stringify({ error: 'Não foi possível concluir a ação. Tente novamente em instantes.' }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })

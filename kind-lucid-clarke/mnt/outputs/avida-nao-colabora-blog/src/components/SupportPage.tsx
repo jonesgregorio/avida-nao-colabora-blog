@@ -68,6 +68,7 @@ const inputCls = 'w-full px-3.5 py-2.5 border border-line rounded-xl text-sm bg-
 export default function SupportPage({ user, profile, navigate, onBack, onOpenTicket }: Props) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
@@ -84,13 +85,14 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
 
   async function loadTickets() {
     setLoading(true)
-    const { data: ticketData } = await supabase
+    setLoadError(false)
+    const { data: ticketData, error } = await supabase
       .from('support_tickets')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
 
-    if (!ticketData) { setLoading(false); return }
+    if (error || !ticketData) { setLoading(false); setLoadError(true); return }
 
     const ids = ticketData.map(t => t.id)
     const { data: msgs } = ids.length > 0
@@ -253,6 +255,16 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
             <p className="text-sm text-ink-soft mb-4">Veja o status das suas solicitações recentes.</p>
             {loading ? (
               <div className="space-y-2">{[1, 2].map(i => <div key={i} className="h-14 bg-mint/40 rounded-2xl animate-pulse" />)}</div>
+            ) : loadError ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-ink-soft mb-3">Não foi possível carregar seus chamados agora.</p>
+                <button
+                  onClick={loadTickets}
+                  className="text-sm font-medium text-forest-700 hover:text-forest-800 underline"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             ) : tickets.length === 0 ? (
               <p className="text-sm text-ink-soft text-center py-6">Você ainda não abriu nenhum chamado.</p>
             ) : (
