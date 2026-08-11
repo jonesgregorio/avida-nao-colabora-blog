@@ -53,7 +53,16 @@ export default function Auth({ onBack }: AuthProps) {
           email, password, options: { data: { full_name: name } },
         })
         if (error) throw error
-        if (signUpData.user) void emailWelcome(signUpData.user.id, email, name || 'você')
+        if (signUpData.user) {
+          const uid = signUpData.user.id
+          const displayName = name || 'você'
+          const tryEmail = (attempt: number) => {
+            emailWelcome(uid, email, displayName).catch(() => {
+              if (attempt < 3) setTimeout(() => tryEmail(attempt + 1), attempt * 2000)
+            })
+          }
+          tryEmail(1)
+        }
         setSuccess('Conta criada com sucesso! Entrando…')
         setTimeout(() => onBack(), 1200)
       } else {

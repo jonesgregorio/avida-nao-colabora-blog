@@ -21,17 +21,21 @@ function slugify(s: string) {
     .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 72)
 }
 
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
+
 async function genAI(prompt: string): Promise<string> {
-  // Ordem de failover: Gemini → Groq → OpenAI (gpt-4o-mini). Chaves só no servidor.
+  // Ordem de failover: Gemini (lista de modelos) → Groq → OpenAI. Chaves só no servidor.
   const gk = Deno.env.get('GEMINI_API_KEY')
   if (gk) {
-    try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${gk}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      })
-      if (r.ok) { const d = await r.json(); const t = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (t?.trim()) return String(t).trim() }
-    } catch { /* próximo provedor */ }
+    for (const model of GEMINI_MODELS) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${gk}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        })
+        if (r.ok) { const d = await r.json(); const t = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (t?.trim()) return String(t).trim() }
+      } catch { /* tenta próximo modelo */ }
+    }
   }
   const qk = Deno.env.get('GROQ_API_KEY')
   if (qk) {

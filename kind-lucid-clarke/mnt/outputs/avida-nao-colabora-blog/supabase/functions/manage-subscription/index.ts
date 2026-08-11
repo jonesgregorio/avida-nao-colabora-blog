@@ -5,11 +5,25 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = new Set([
+  'https://avidanaocolabora.com',
+  'https://www.avidanaocolabora.com',
+  'https://avida-nao-colabora-blog.vercel.app',
+])
+
+function corsHeaders(origin: string | null) {
+  const allowed = origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin))
+    ? origin
+    : Deno.env.get('SITE_URL') ?? 'https://avidanaocolabora.com'
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
+
+// Alias para OPTIONS (sem corpo, origem não importa)
+const CORS_HEADERS = corsHeaders('https://avidanaocolabora.com')
 
 // Ações suportadas
 type Action = 'cancel' | 'downgrade' | 'reactivate' | 'upgrade'
