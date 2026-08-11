@@ -6,8 +6,19 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 // no calendário editorial. Se o modo for 'auto_publish', publica direto.
 // Nada aqui usa JWT de usuário — é um job de servidor.
 
+// Chamada só por pg_cron/pg_net (server-to-server) — nunca por navegador.
+// Origem restrita por consistência com as demais funções, mesmo sem risco de CORS real aqui.
+const ALLOWED_ORIGINS = new Set([
+  'https://avidanaocolabora.com',
+  'https://www.avidanaocolabora.com',
+  'https://avida-nao-colabora-blog.vercel.app',
+])
+function resolveOrigin(origin: string | null): string {
+  if (origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin))) return origin
+  return Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com'
+}
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': resolveOrigin(null),
   'Access-Control-Allow-Headers': 'authorization, content-type',
 }
 const FREQ_DAYS: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 }
@@ -22,6 +33,14 @@ function slugify(s: string) {
 }
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
+const AI_TIMEOUT_MS = 45_000
+
+async function withTimeout(url: string, init: RequestInit): Promise<Response> {
+  const c = new AbortController()
+  const t = setTimeout(() => c.abort(), AI_TIMEOUT_MS)
+  try { return await fetch(url, { ...init, signal: c.signal }) }
+  finally { clearTimeout(t) }
+}
 
 async function genAI(prompt: string): Promise<string> {
   // Ordem de failover: Gemini (lista de modelos) → Groq → OpenAI. Chaves só no servidor.
@@ -29,7 +48,7 @@ async function genAI(prompt: string): Promise<string> {
   if (gk) {
     for (const model of GEMINI_MODELS) {
       try {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${gk}`, {
+        const r = await withTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${gk}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         })
@@ -40,7 +59,7 @@ async function genAI(prompt: string): Promise<string> {
   const qk = Deno.env.get('GROQ_API_KEY')
   if (qk) {
     try {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const r = await withTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${qk}` },
         body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] }),
       })
@@ -50,7 +69,7 @@ async function genAI(prompt: string): Promise<string> {
   const ok = Deno.env.get('OPENAI_API_KEY')
   if (ok) {
     try {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      const r = await withTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ok}` },
         body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }] }),
       })

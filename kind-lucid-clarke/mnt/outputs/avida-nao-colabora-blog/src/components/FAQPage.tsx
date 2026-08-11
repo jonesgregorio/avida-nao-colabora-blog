@@ -111,13 +111,15 @@ export default function FAQPage({ onNavigate }: FAQPageProps) {
     setSending(true)
     setError('')
     try {
-      await supabase.from('support_tickets').insert({
-        user_email: form.email.trim(),
+      const { error: err } = await supabase.from('support_tickets').insert({
+        contact_email: form.email.trim(),
+        contact_name: form.name.trim(),
         subject: form.subject.trim() || 'Contato via FAQ',
-        message: `Nome: ${form.name.trim()}\n\n${form.message.trim()}`,
-        source: 'web',
+        description: form.message.trim(),
+        source: 'faq',
         status: 'open',
       })
+      if (err) throw err
       setSent(true)
     } catch {
       setError('Não foi possível enviar. Tente novamente em instantes.')

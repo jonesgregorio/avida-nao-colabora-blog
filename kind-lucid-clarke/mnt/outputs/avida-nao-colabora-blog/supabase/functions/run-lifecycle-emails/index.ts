@@ -8,8 +8,9 @@ import Stripe from 'npm:stripe@14'
 // Respeita email_notifications e usa idempotency_key para NÃO duplicar.
 // (card_expiring fica de fora: não há expiração de cartão no banco → exige Stripe.)
 
+// Chamada só por pg_cron/pg_net (server-to-server) — nunca por navegador.
 const cors = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com',
   'Access-Control-Allow-Headers': 'authorization, content-type',
 }
 const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'

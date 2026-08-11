@@ -1,10 +1,21 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGINS = new Set([
+  'https://avidanaocolabora.com',
+  'https://www.avidanaocolabora.com',
+  'https://avida-nao-colabora-blog.vercel.app',
+])
+function corsFor(req: Request) {
+  const origin = req.headers.get('Origin')
+  const allowed = origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin))
+    ? origin
+    : (Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com')
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 // Templates que um usuário comum pode disparar para o PRÓPRIO e-mail
@@ -103,6 +114,13 @@ function buildHtml(subject: string, bodyText: string, category: string | null): 
 }
 
 Deno.serve(async (req: Request) => {
+  // cors/json são redeclarados por requisição (closure) — evita estado
+  // mutável compartilhado entre requisições concorrentes de origens diferentes.
+  const cors = corsFor(req)
+  function json(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  }
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -227,20 +245,28 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
-        to: [payload.to_email],
-        subject,
-        html: bodyHtml,
-        text: bodyText,
-        // List-Unsubscribe (RFC 8058): botão "cancelar inscrição" nativo do Gmail/Yahoo,
-        // 1 clique, sem login. Só nos e-mails de acompanhamento.
-        ...(unsubUrl ? { headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
-      }),
-    })
+    const timeoutCtrl = new AbortController()
+    const timeoutId = setTimeout(() => timeoutCtrl.abort(), 15_000)
+    let res: Response
+    try {
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
+          to: [payload.to_email],
+          subject,
+          html: bodyHtml,
+          text: bodyText,
+          // List-Unsubscribe (RFC 8058): botão "cancelar inscrição" nativo do Gmail/Yahoo,
+          // 1 clique, sem login. Só nos e-mails de acompanhamento.
+          ...(unsubUrl ? { headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
+        }),
+        signal: timeoutCtrl.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
     const result = await res.json().catch(() => ({}))
 
     if (!res.ok) {
@@ -264,7 +290,3 @@ Deno.serve(async (req: Request) => {
     return json({ error: msg, log_id: logId }, 200)
   }
 })
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
-}

@@ -21,12 +21,7 @@ const PRICE_IDS: Record<string, string | undefined> = {
   plus:      PLUS_PRICE_ID,
 }
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Origens permitidas para o retorno pós-checkout (evita open-redirect).
+// Origens permitidas para CORS e para o retorno pós-checkout (evita open-redirect).
 // Aceita a origem que o navegador enviou SÓ se estiver na lista; senão usa SITE_URL.
 const ALLOWED_ORIGINS = new Set([
   'https://avidanaocolabora.com',
@@ -39,8 +34,19 @@ function resolveSiteUrl(origin: unknown): string {
   }
   return Deno.env.get('SITE_URL') || 'http://localhost:5173'
 }
+function corsFor(req: Request) {
+  const origin = req.headers.get('Origin')
+  const allowed = origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin))
+    ? origin
+    : (Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com')
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
 
 Deno.serve(async (req) => {
+  const cors = corsFor(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
