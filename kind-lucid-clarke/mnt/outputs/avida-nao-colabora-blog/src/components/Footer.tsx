@@ -70,7 +70,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                 aria-label="Instagram"
                 className="w-9 h-9 rounded-full border border-line flex items-center justify-center text-forest-700 hover:bg-mint hover:border-mint transition-colors"
               >
-                <Instagram className="w-4 h-4" />
+                <InstagramIcon className="w-4 h-4" />
               </a>
               {/* E-mail — abre formulário de contato */}
               <button

@@ -18,7 +18,7 @@ import type { EmotionalAnalysis } from './emotionalAnalytics'
 
 export type Theme =
   | 'ansiedade' | 'cansaco' | 'sobrecarga' | 'autocobranca'
-  | 'tristeza' | 'irritacao' | 'alimentacao' | 'sono'
+  | 'tristeza' | 'irritacao' | 'alimentacao' | 'sono' | 'bem_estar'
 
 interface ThemeDef {
   /** Rótulo natural usado no motivo da recomendação (§8.2). */
@@ -35,7 +35,7 @@ interface ThemeDef {
 const THEMES: Record<Theme, ThemeDef> = {
   ansiedade: {
     label: 'ansiedade',
-    userWords: ['ansiedad', 'ansios', 'nervos', 'medo', 'preocupa', 'coracao acelerad', 'tensa', 'inquiet', 'crise', 'panico', 'agonia', 'aflit', 'apreensa', 'pensament acelerad', 'excesso de pensament'],
+    userWords: ['ansiedad', 'ansios', 'nervos', 'medo', 'preocupa', 'coracao acelerad', 'tensa', 'inquiet', 'crise', 'panico', 'agonia', 'aflit', 'apreensa', 'pensament acelerad', 'excesso de pensament', 'insegur', 'confus'],
     contentThemes: ['ansiedade'],
     contentWords: ['ansiedade', 'respiracao', 'regulacao', 'pausa', 'aterramento', 'pensament', 'calma'],
   },
@@ -65,7 +65,7 @@ const THEMES: Record<Theme, ThemeDef> = {
   },
   irritacao: {
     label: 'irritação',
-    userWords: ['irrita', 'raiva', 'odio', 'impacient', 'explodir', 'sem pacienc', 'estress', 'nervos a flor'],
+    userWords: ['irrita', 'raiva', 'odio', 'impacient', 'explodir', 'sem pacienc', 'estress', 'nervos a flor', 'frustra'],
     contentThemes: ['irritacao', 'limites'],
     contentWords: ['irritacao', 'pausa', 'regulacao', 'respiracao', 'limites'],
   },
@@ -81,9 +81,19 @@ const THEMES: Record<Theme, ThemeDef> = {
     contentThemes: ['sono', 'rotina'],
     contentWords: ['sono', 'rotina', 'descanso', 'desaceleracao', 'organizacao', 'noturn'],
   },
+  // Estados leves/positivos (§ Feelings Wheel, Willcox 1982 — "joyful"/"peaceful"/
+  // "powerful"): sem este tema, marcar algo como "alegria" ou "calma" não casava
+  // com NENHUM tema (todos os outros são voltados a estados difíceis) e a pessoa
+  // nunca via nenhum conteúdo relacionado ao que marcou.
+  bem_estar: {
+    label: 'bem-estar',
+    userWords: ['alegr', 'gratida', 'grato', 'grata', 'esperanc', 'calma', 'tranquil', 'orgulh', 'confianc', 'motiva', 'leveza', 'paz', 'aliviad', 'alivio'],
+    contentThemes: ['autocuidado', 'bem-estar', 'bemestar', 'gratidao'],
+    contentWords: ['autocuidado', 'gratidao', 'bem-estar', 'calma', 'leveza', 'habito', 'celebrar'],
+  },
 }
 
-const THEME_ORDER: Theme[] = ['ansiedade', 'sobrecarga', 'cansaco', 'autocobranca', 'alimentacao', 'sono', 'irritacao', 'tristeza']
+const THEME_ORDER: Theme[] = ['ansiedade', 'sobrecarga', 'cansaco', 'autocobranca', 'alimentacao', 'sono', 'irritacao', 'tristeza', 'bem_estar']
 
 // Linguagem de risco (§15): NÃO tratar apenas com conteúdo — orientar ajuda.
 const RISK_WORDS = [

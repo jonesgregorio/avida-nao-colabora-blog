@@ -7,7 +7,7 @@ import type { User } from '@supabase/supabase-js'
 import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '../lib/emailTriggers'
 import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
 import { hasPlanAccess } from '../lib/officialPlans'
-import { signalFromEntry, type Signal } from '../lib/contentRecommendation'
+import { signalFromEntry, signalFromTags, topThemes, THEMES, type Signal } from '../lib/contentRecommendation'
 import RecommendedContent from './RecommendedContent'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
@@ -52,9 +52,15 @@ const CHIP_TO_MOOD: Record<string, string> = {
   irritada: 'irritacao', irritado: 'irritacao', neutro: 'outro', neutra: 'outro',
 }
 
+// Baseado na Feelings Wheel (Gloria Willcox, 1982) — referência clássica em
+// terapia para nomear emoções, organizada em 6 núcleos: triste, com raiva,
+// com medo, alegre, forte e em paz. Cobrimos os 6 (não só os difíceis) para
+// que qualquer marcação — inclusive as leves — gere sugestão de conteúdo.
 const emotionalTags = [
-  'ansiedade', 'tristeza', 'alegria', 'irritação', 'medo',
-  'esperança', 'cansaço', 'energia', 'calma', 'confusão',
+  'ansiedade', 'medo', 'preocupação', 'insegurança',
+  'tristeza', 'desânimo', 'solidão', 'culpa',
+  'irritação', 'raiva', 'frustração', 'cansaço', 'sobrecarga', 'confusão',
+  'calma', 'esperança', 'alegria', 'gratidão',
 ]
 
 // Prompts por plano (brief §8.7). Cada plano vê o conjunto adequado ao seu momento.
@@ -160,6 +166,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [smallPride, setSmallPride] = useState('')
   const [freeNote, setFreeNote] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [showOtherTag, setShowOtherTag] = useState(false)
+  const [otherTagInput, setOtherTagInput] = useState('')
 
   // Therapeutic+ fields — escala 1–5, default 3 (meio)
   const [sleepQuality, setSleepQuality] = useState(3)
@@ -257,6 +265,20 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
   }
 
+  const addOtherTag = () => {
+    const t = otherTagInput.trim().toLowerCase()
+    if (t && !selectedTags.includes(t)) setSelectedTags(prev => [...prev, t])
+    setOtherTagInput('')
+    setShowOtherTag(false)
+  }
+
+  // Prévia local — mesmo motor que gera as sugestões após salvar (§ RecommendedContent),
+  // mas calculada na hora, sem chamada ao servidor: mostra que a marcação já "faz
+  // alguma coisa" no momento em que a pessoa toca no chip, não só depois de salvar.
+  const tagPreviewThemes = selectedTags.length > 0
+    ? topThemes(signalFromTags(selectedTags), 2).map(t => THEMES[t].label)
+    : []
+
   const selectChip = (chipKey: string) => {
     setCheckinChip(chipKey)
     setMood(CHIP_TO_MOOD[chipKey] ?? 'outro')
@@ -270,6 +292,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setMood('outro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
     setMoodScore(3); setEnergy(3); setAnxietyLevel(3); setStressLevel(3)
     setGratitude(''); setSmallPride(''); setFreeNote(''); setSelectedTags([])
+    setShowOtherTag(false); setOtherTagInput('')
     setSleepQuality(3); setSelfEsteem(3); setIrritability(3); setOverload(3)
     setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
     setError('')
@@ -632,7 +655,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
                 {fieldOn('emotional_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-2">Marque o que aparecer</label>
+                    <label className="text-xs text-ink-soft font-medium block mb-1">Quais sentimentos você reconhece agora?</label>
+                    <p className="text-[11px] text-ink-soft/80 mb-2">Marque quantos quiser. Isso ajuda a sugerir conteúdos que combinam com o seu momento.</p>
                     <div className="flex flex-wrap gap-2">
                       {emotionalTags.map(tag => (
                         <button
@@ -643,7 +667,42 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                           {tag}
                         </button>
                       ))}
+                      {selectedTags.filter(t => !emotionalTags.includes(t)).map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className="text-xs px-3 py-1.5 rounded-full border bg-forest-900 text-white border-forest-900 transition-colors"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                      {showOtherTag ? (
+                        <span className="inline-flex items-center gap-1">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={otherTagInput}
+                            onChange={e => setOtherTagInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOtherTag() } if (e.key === 'Escape') { setShowOtherTag(false); setOtherTagInput('') } }}
+                            onBlur={addOtherTag}
+                            placeholder="Digite e pressione Enter"
+                            className="text-xs px-3 py-1.5 rounded-full border border-forest-300 bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 w-40"
+                          />
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setShowOtherTag(true)}
+                          className="text-xs px-3 py-1.5 rounded-full border border-dashed border-line text-ink-soft hover:border-forest-300 hover:text-forest-700 transition-colors"
+                        >
+                          + Outros
+                        </button>
+                      )}
                     </div>
+                    {tagPreviewThemes.length > 0 && (
+                      <p className="text-xs text-forest-700 bg-mint/50 rounded-xl px-3 py-2 mt-2.5 leading-relaxed">
+                        Isso pode se relacionar com <strong>{tagPreviewThemes.join(' e ')}</strong> — ao salvar, você vê conteúdos que conversam com isso.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="grid sm:grid-cols-2 gap-3 mt-4">
