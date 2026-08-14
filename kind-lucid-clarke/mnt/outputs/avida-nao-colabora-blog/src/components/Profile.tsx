@@ -8,6 +8,7 @@ import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
 import { SupportCard } from './user/ui'
 import EmailPreferences from './EmailPreferences'
+import { ymd } from '../lib/reportPeriods'
 
 interface ProfileProps {
   user: User | null
@@ -54,10 +55,12 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
       const checkins = rows.filter(e => e.entry_type === 'checkin').length
       // streak: dias consecutivos (terminando hoje/ontem) com qualquer registro (check-in ou diário)
       const days = new Set(rows.map(e => String(e.date ?? '').slice(0, 10)).filter(Boolean))
+      // Data LOCAL (ymd) — toISOString() é UTC e à noite no Brasil (UTC-3) já
+      // conta como o dia seguinte, quebrando a sequência incorretamente.
       const d = new Date()
-      if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1)
+      if (!days.has(ymd(d))) d.setDate(d.getDate() - 1)
       let streak = 0
-      while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1) }
+      while (days.has(ymd(d))) { streak++; d.setDate(d.getDate() - 1) }
       setStats({ checkins, streak })
     })()
     return () => { active = false }

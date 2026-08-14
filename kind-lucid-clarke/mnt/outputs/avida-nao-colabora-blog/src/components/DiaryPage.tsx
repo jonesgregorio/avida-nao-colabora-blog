@@ -8,6 +8,7 @@ import { emailDiaryLimitWarningForUser, emailDiaryLimitReachedForUser } from '..
 import { fetchDiaryConfig, defaultDiaryConfig, type DiaryPlanConfig } from '../lib/diaryConfig'
 import { hasPlanAccess } from '../lib/officialPlans'
 import { signalFromEntry, signalFromTags, topThemes, THEMES, type Signal } from '../lib/contentRecommendation'
+import { ymd } from '../lib/reportPeriods'
 import RecommendedContent from './RecommendedContent'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
@@ -126,11 +127,13 @@ function SliderField({ label, value, onChange, min = 1, max = 5 }: { label: stri
 }
 
 // Sequência de dias consecutivos de escrita, terminando hoje ou ontem.
+// Usa data LOCAL (ymd) — toISOString() é UTC e, à noite no Brasil (UTC-3),
+// já conta como o dia seguinte, quebrando a sequência incorretamente.
 function calcStreak(days: Set<string>): number {
   const d = new Date()
-  if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1)
+  if (!days.has(ymd(d))) d.setDate(d.getDate() - 1)
   let s = 0
-  while (days.has(d.toISOString().slice(0, 10))) { s++; d.setDate(d.getDate() - 1) }
+  while (days.has(ymd(d))) { s++; d.setDate(d.getDate() - 1) }
   return s
 }
 
@@ -323,7 +326,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
     const payload: Partial<DiaryEntry> & { user_id: string } = {
       user_id: user!.id,
-      date: new Date().toISOString().split('T')[0],
+      // Data LOCAL do usuário — toISOString() é UTC, então à noite no Brasil
+      // (UTC-3) um registro feito "hoje" ficava salvo com a data de amanhã.
+      date: ymd(new Date()),
       mood: moodObj.label,
       // Escala oficial 1–5 (§7). normalizeScale garante inteiro válido no banco.
       mood_score: normalizeScale(isEssential ? moodScore : moodObj.score, 3),
@@ -377,7 +382,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       setEntries(prev => [data, ...prev])
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status
       if (plan === 'free' && entryLimit != null) {
-        const monthKey = new Date().toISOString().slice(0, 7)
+        const monthKey = ymd(new Date()).slice(0, 7)
         const count = [data, ...entries].filter(e => String(e.date ?? '').startsWith(monthKey) && e.entry_type === 'diary').length
         if (count === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
         else if (count >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
