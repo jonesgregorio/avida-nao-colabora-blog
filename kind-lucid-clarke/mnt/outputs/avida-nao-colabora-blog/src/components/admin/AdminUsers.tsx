@@ -28,6 +28,7 @@ interface UserRow {
   discount_percent: number | null
   discount_fixed: number | null
   admin_tags: string[] | null
+  last_seen_at?: string | null
   open_tickets?: number
   unread_notifs?: number
   last_activity?: string | null
@@ -259,7 +260,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setLoading(true)
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, discount_percent, discount_fixed, admin_tags')
+      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, discount_percent, discount_fixed, admin_tags, last_seen_at')
       .order('created_at', { ascending: false })
 
     if (!profileData) { setLoading(false); return }
@@ -290,12 +291,21 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       if (!lastDiaryMap.has(e.user_id)) lastDiaryMap.set(e.user_id, e.created_at)
     }
 
-    const rows: UserRow[] = profileData.map((p: UserRow) => ({
-      ...p,
-      open_tickets: ticketMap.get(p.user_id) ?? 0,
-      unread_notifs: notifMap.get(p.user_id) ?? 0,
-      last_activity: lastDiaryMap.get(p.user_id) ?? null,
-    }))
+    // Atividade = o mais recente entre "esteve no site" (last_seen_at, tocado a
+    // cada login/boot) e "escreveu no diário". Só olhar diary_entries deixava
+    // "Sem registros" pra quase todo mundo — a maioria acessa (lê conteúdo, vê
+    // o mapa emocional) sem necessariamente escrever no diário naquele dia.
+    const rows: UserRow[] = profileData.map((p: UserRow) => {
+      const seen = p.last_seen_at ? new Date(p.last_seen_at).getTime() : 0
+      const diary = lastDiaryMap.has(p.user_id) ? new Date(lastDiaryMap.get(p.user_id)!).getTime() : 0
+      const latest = Math.max(seen, diary)
+      return {
+        ...p,
+        open_tickets: ticketMap.get(p.user_id) ?? 0,
+        unread_notifs: notifMap.get(p.user_id) ?? 0,
+        last_activity: latest > 0 ? new Date(latest).toISOString() : null,
+      }
+    })
 
     setUsers(rows)
 
