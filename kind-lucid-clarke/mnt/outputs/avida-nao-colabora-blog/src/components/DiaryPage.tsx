@@ -172,7 +172,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [showOtherTag, setShowOtherTag] = useState(false)
   const [otherTagInput, setOtherTagInput] = useState('')
 
-  // Therapeutic+ fields — escala 1–5, default 3 (meio)
+  // Plus advanced fields — escala 1–5, default 3 (meio)
   const [sleepQuality, setSleepQuality] = useState(3)
   const [selfEsteem, setSelfEsteem] = useState(3)
   const [irritability, setIrritability] = useState(3)
@@ -215,7 +215,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
       .from('diary_entries')
-      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude')
+      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride')
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -306,11 +306,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       // Check-in (spec §6): basta o estado emocional (chip). Energia e ansiedade
       // percebida têm valor sempre (sliders); a nota é OPCIONAL — nunca exige texto.
       if (!checkinChip) {
-        setError('Escolha um estado emocional para registrar o check-in.')
+        setError('Escolha um estado emocional para registrar seu check-in.')
         return
       }
     } else if (!whatHappened.trim() && !mainEmotion.trim() && !freeNote.trim()) {
-      setError('Escreva algo antes de salvar.')
+      setError('Escreva algo antes de salvar seu diário.')
       return
     }
     if (saveBlockedByLimit) {
@@ -430,7 +430,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           <CheckCircle2 className="w-8 h-8 text-forest-600" />
         </div>
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900">
-          {isCheckinConfirm ? 'Check-in registrado 💚' : 'Registro salvo 💚'}
+          {isCheckinConfirm ? 'Check-in registrado 💚' : 'Diário salvo 💚'}
         </h1>
         <p className="mt-3 text-ink-soft leading-relaxed">
           {isCheckinConfirm
@@ -593,37 +593,44 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               </div>
             )}
 
-            {/* Prompts */}
-            <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>
-            <p className="text-sm text-ink-soft mt-1 mb-3">Use as sugestões ou escreva livremente.</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {planPrompts.map(p => (
-                <button
-                  key={p}
-                  onClick={() => applyPrompt(p)}
-                  className="text-sm px-3 py-1.5 rounded-full border border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            {/* Prompts + reflexão sugerida — só no diário completo (§3): no check-in
+                rápido eles fariam a tela parecer um mini diário). */}
+            {entryMode === 'full' && (
+              <>
+                <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>
+                <p className="text-sm text-ink-soft mt-1 mb-3">Use as sugestões ou escreva livremente.</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {planPrompts.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => applyPrompt(p)}
+                      className="text-sm px-3 py-1.5 rounded-full border border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
 
-            {/* Reflexão sugerida do dia */}
-            {prompt && (
-              <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
-                <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
-                <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
-                <button onClick={fetchPrompt} className="text-ink-soft hover:text-forest-700 text-xs" title="Outra sugestão">↻</button>
-              </div>
+                {prompt && (
+                  <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
+                    <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
+                    <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
+                    <button onClick={fetchPrompt} className="text-ink-soft hover:text-forest-700 text-xs" title="Outra sugestão">↻</button>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Textarea principal */}
+            {/* Nota — grande e livre no diário completo; curta e opcional no check-in (§3) */}
             <div className="relative">
+              {entryMode === 'quick' && (
+                <label className="text-xs text-ink-soft font-medium block mb-1">Nota rápida (opcional)</label>
+              )}
               <textarea
                 value={whatHappened}
                 onChange={e => setWhatHappened(e.target.value)}
-                placeholder="Escreva aqui o que está sentindo…"
-                rows={6}
+                placeholder={entryMode === 'quick' ? 'Quer deixar uma nota curta? Não é obrigatório.' : 'Escreva aqui o que está sentindo…'}
+                rows={entryMode === 'quick' ? 3 : 6}
                 disabled={saveBlockedByLimit}
                 className="w-full border border-line rounded-2xl px-4 py-3 text-sm resize-none bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 disabled:opacity-60"
               />
@@ -743,7 +750,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 disabled={saving || saveBlockedByLimit}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : 'Salvar entrada'}
+                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : entryMode === 'quick' ? 'Salvar check-in' : 'Salvar diário'}
               </button>
               {canExportPDF && (
                 <button
@@ -801,13 +808,20 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                       </button>
                       {isOpen && (
                         <div className="px-4 pb-4 border-t border-line">
-                          <p className="text-sm text-ink leading-relaxed whitespace-pre-line mt-3">{entry.text}</p>
+                          {(!!entry.energy || !!entry.anxiety_level) && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {!!entry.energy && <span className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">Energia: {entry.energy}/5</span>}
+                              {!!entry.anxiety_level && <span className="text-xs bg-coral/40 text-[#8a3b23] px-2.5 py-1 rounded-full">Ansiedade: {entry.anxiety_level}/5</span>}
+                            </div>
+                          )}
+                          {entry.text && <p className="text-sm text-ink leading-relaxed whitespace-pre-line mt-3">{entry.text}</p>}
                           {entry.emotional_tags && entry.emotional_tags.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {entry.emotional_tags.map(tag => <span key={tag} className="text-xs bg-mint text-forest-700 px-2 py-0.5 rounded-full">{tag}</span>)}
                             </div>
                           )}
                           {entry.gratitude && <p className="text-xs text-ink-soft mt-2">🙏 Gratidão: {entry.gratitude}</p>}
+                          {entry.small_pride && <p className="text-xs text-ink-soft mt-1">✨ Pequeno orgulho: {entry.small_pride}</p>}
                         </div>
                       )}
                     </div>

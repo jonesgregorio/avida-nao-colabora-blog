@@ -102,6 +102,8 @@ export interface EmotionalAnalysis {
   energyByDay: { day: number; value: number }[]
   anxietyByDay: { day: number; value: number }[]
   topEmotions: { label: string; count: number; emoji: string }[]
+  /** Emoção dominante de cada dia ativo (1 voto/dia) — não distorce quando há vários check-ins no mesmo dia. */
+  topEmotionsByDay: { label: string; count: number; emoji: string }[]
   triggers: { tag: string; count: number }[]
   periods: PeriodStat[]
   calendar: { day: number; label: string; avg: number; count: number }[]
@@ -171,6 +173,14 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
   const calendar = [...calMap.entries()].map(([day, v]) => ({
     day, avg: round1(avg(v.scores)), count: v.rows.length, label: dominantMoodOf(v.rows) ?? '—',
   })).sort((a, b) => a.day - b.day)
+
+  // Emoção predominante por dia (§10): 1 voto por dia ativo, a partir do
+  // `calendar` já calculado — vários check-ins no mesmo dia com a mesma emoção
+  // não pesam mais do que um único dia marcante.
+  const dayEmoCount: Record<string, number> = {}
+  for (const c of calendar) { if (c.label && c.label !== '—') dayEmoCount[c.label] = (dayEmoCount[c.label] ?? 0) + 1 }
+  const topEmotionsByDay = Object.entries(dayEmoCount).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .map(([label, count]) => ({ label, count, emoji: MOOD_EMOJI[label] ?? '•' }))
 
   // Relação energia × ansiedade: nos dias de energia mais baixa, como fica a ansiedade?
   const energyByDayVal = new Map<number, number>()
@@ -253,7 +263,7 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
     moodByDay: seriesByDay(entries, moodScoreOf),
     energyByDay: seriesByDay(entries, en),
     anxietyByDay: seriesByDay(entries, anx),
-    topEmotions, triggers, periods, calendar, energyAnxiety,
+    topEmotions, topEmotionsByDay, triggers, periods, calendar, energyAnxiety,
     weekly: { hasData: weeklyLines.length > 0, lines: weeklyLines },
   }
 }

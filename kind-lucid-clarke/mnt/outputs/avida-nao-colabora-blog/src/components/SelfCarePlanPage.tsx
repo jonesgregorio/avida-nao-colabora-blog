@@ -222,11 +222,6 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
 
       {open && (
         <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
-          {(plan.ai_summary || s?.general_overview) && (
-            <div className="bg-mint/40 border border-forest-100 rounded-2xl p-4 mt-4">
-              <p className="text-sm text-forest-800 leading-relaxed">{plan.ai_summary || s?.general_overview}</p>
-            </div>
-          )}
           {c?.monthly_priority && <Field label="Prioridade do mês" value={c.monthly_priority} strong />}
           {c?.main_care && <Field label="Cuidado principal" value={c.main_care} />}
           {c?.recommended_practice && <Field label="Prática recomendada" value={c.recommended_practice} />}
@@ -263,6 +258,15 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Resumo do mês — apoio ao plano, não o foco. Fica por último, pequeno,
+              para o olhar ir primeiro para as ações (§14). */}
+          {(plan.ai_summary || s?.general_overview) && (
+            <div className="bg-mint/30 border border-line rounded-2xl p-3.5">
+              <p className="text-[11px] text-forest-700 font-medium flex items-center gap-1.5 mb-1"><Sparkles className="w-3.5 h-3.5" /> Por que este plano foi sugerido</p>
+              <p className="text-sm text-forest-800/90 leading-relaxed">{plan.ai_summary || s?.general_overview}</p>
             </div>
           )}
 

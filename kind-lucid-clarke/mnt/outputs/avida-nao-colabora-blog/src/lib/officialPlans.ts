@@ -47,7 +47,7 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
   { key: 'diary_mood_symptoms_summary',            name: 'Mapa emocional completo',         category: 'Mapa emocional',          order: 6, aliases: ['evolution_highlights_no_clinical_analysis', 'monthly_comparative_charts', 'extra_emotional_markers'] },
   { key: 'full_history',                           name: 'Histórico e gráficos',            category: 'Histórico',               order: 7, aliases: ['simple_evolution_charts', 'limited_history'] },
   { key: 'emotional_exercise_library',             name: 'Conteúdos guiados completos',     category: 'Conteúdo',                order: 8, aliases: ['guided_text_meditations', 'guided_diary_notes'] },
-  { key: 'weekly_assessments',                     name: 'Relatório semanal automático',    category: 'Relatórios',              order: 9, aliases: ['monthly_pdf_reports'] },
+  { key: 'weekly_assessments',                     name: 'Relatório semanal automático',    category: 'Relatórios',              order: 9 },
   // Plus
   { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
   { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },

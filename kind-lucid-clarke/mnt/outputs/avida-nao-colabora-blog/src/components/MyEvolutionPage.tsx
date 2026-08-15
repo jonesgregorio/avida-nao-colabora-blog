@@ -8,6 +8,7 @@ import {
   BarChart2, Heart, Leaf,
   Lock, AlertCircle, TrendingUp, BookOpen, Loader2,
   Smile, Zap, Moon, Waves, Sparkles, Sun, Sunset, CloudMoon, Clock, Flame,
+  CheckCircle2, CalendarDays,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
@@ -84,6 +85,7 @@ interface DiaryStats {
   avgSleep: number
   avgAnxiety: number
   avgSelfEsteem: number
+  avgStress: number
   dominantMood: string
   topTags: string[]
   weeklyEntries: number[]
@@ -94,7 +96,7 @@ interface DiaryStats {
 }
 
 const emptyStats: DiaryStats = {
-  totalEntries: 0, avgMood: 0, avgEnergy: 0, avgSleep: 0, avgAnxiety: 0, avgSelfEsteem: 0,
+  totalEntries: 0, avgMood: 0, avgEnergy: 0, avgSleep: 0, avgAnxiety: 0, avgSelfEsteem: 0, avgStress: 0,
   dominantMood: '—', topTags: [], weeklyEntries: [0, 0, 0, 0], dailyMoods: [],
   prevMonthAvgMood: 0, prevMonthAvgEnergy: 0, prevMonthAvgSleep: 0,
 }
@@ -215,14 +217,14 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
     const prevEnd = start
 
     Promise.all([
-      supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,emotional_tags,created_at').eq('user_id', userId).gte('created_at', start).lt('created_at', end),
+      supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,stress_level,emotional_tags,created_at').eq('user_id', userId).gte('created_at', start).lt('created_at', end),
       supabase.from('diary_entries').select('mood,energy,sleep_quality').eq('user_id', userId).gte('created_at', prevStart).lt('created_at', prevEnd),
     ]).then(([curr, prev]) => {
       const entries = curr.data ?? []
       const prevEntries = prev.data ?? []
 
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
-      type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; emotional_tags?: string[] | string; created_at: string }
+      type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; stress_level?: number; emotional_tags?: string[] | string; created_at: string }
       // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número na
       // escala oficial 1–5 (Bem-estar=5, Outro=3, Sobrecarga=1). Dados antigos em
       // 1–10 foram normalizados para 1–5 pela migration 080, então aqui só validamos
@@ -248,6 +250,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       const sl = (e: DiaryRow) => Number(e.sleep_quality)
       const anx = (e: DiaryRow) => Number(e.anxiety_level)
       const se = (e: DiaryRow) => Number(e.self_esteem)
+      const st = (e: DiaryRow) => Number(e.stress_level)
 
       const tagCounts: Record<string, number> = {}
       ;(entries as DiaryRow[]).forEach((e) => {
@@ -291,6 +294,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         avgSleep: avgByDay(entries as DiaryRow[], sl),
         avgAnxiety: avgByDay(entries as DiaryRow[], anx),
         avgSelfEsteem: avgByDay(entries as DiaryRow[], se),
+        avgStress: avgByDay(entries as DiaryRow[], st),
         dominantMood,
         topTags,
         weeklyEntries,
@@ -421,8 +425,11 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
             <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia" value={stats.avgEnergy > 0 ? `${stats.avgEnergy.toFixed(1)}/5` : '—'} trend={trend(stats.avgEnergy, stats.prevMonthAvgEnergy)} />
             <MetricTile icon={<Moon className="w-4 h-4" />} label="Sono" value={stats.avgSleep > 0 ? `${stats.avgSleep.toFixed(1)}/5` : '—'} trend={trend(stats.avgSleep, stats.prevMonthAvgSleep)} />
             <MetricTile icon={<Waves className="w-4 h-4" />} label="Ansiedade" value={stats.avgAnxiety > 0 ? `${stats.avgAnxiety.toFixed(1)}/5` : '—'} goodDown />
-            <MetricTile icon={<Heart className="w-4 h-4" />} label="Autoestima" value={stats.avgSelfEsteem > 0 ? `${stats.avgSelfEsteem.toFixed(1)}/5` : '—'} />
             <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Gatilhos frequentes" value={stats.topTags[0] ?? '—'} sub={stats.topTags.slice(0, 3).join(' · ') || undefined} />
+            {/* Autoestima e estresse são campos avançados do Plus (diaryConfig.ts) — só
+                existem no diário do Plus, então só aparecem como métrica do Plus aqui. */}
+            {isPlus && <MetricTile icon={<Heart className="w-4 h-4" />} label="Autoestima" value={stats.avgSelfEsteem > 0 ? `${stats.avgSelfEsteem.toFixed(1)}/5` : '—'} />}
+            {isPlus && <MetricTile icon={<Flame className="w-4 h-4" />} label="Estresse" value={stats.avgStress > 0 ? `${stats.avgStress.toFixed(1)}/5` : '—'} goodDown />}
           </>
         ) : (
           <div className="col-span-2 rounded-2xl border border-dashed border-line bg-mint/20 p-4 flex flex-col items-center justify-center gap-2 text-center">
@@ -587,6 +594,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const a = analysis
   const insights = buildEssentialInsights(a)
   const maxEmo = Math.max(...a.topEmotions.map(e => e.count), 1)
+  const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
   const maxTrig = Math.max(...a.triggers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
 
@@ -607,6 +615,14 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
         </div>
       ) : (
         <>
+          {/* Contagens do período (§9): check-in mede frequência emocional, diário
+              mede reflexão — separados para não confundir os dois. */}
+          <div className="grid grid-cols-3 gap-3">
+            <MetricTile icon={<CheckCircle2 className="w-4 h-4" />} label="Check-ins no período" value={a.checkinCount} />
+            <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários no período" value={a.diaryCount} />
+            <MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} />
+          </div>
+
           {/* Insights automáticos */}
           {insights.length > 0 && (
             <div className="bg-paper-soft border border-line rounded-3xl p-5">
@@ -633,10 +649,12 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             <p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p>
           </div>
 
-          {/* Emoções mais frequentes + gatilhos */}
+          {/* Emoções mais registradas × emoção predominante por dia (§10): a 1ª conta
+              todo registro (check-ins incluídos); a 2ª vota só 1x por dia ativo, então
+              muitos check-ins da mesma emoção no mesmo dia não dominam a leitura. */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-paper-soft border border-line rounded-2xl p-5">
-              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais frequentes</h3>
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais registradas</h3>
               {a.topEmotions.length > 0 ? (
                 <div className="space-y-2">
                   {a.topEmotions.map(e => (
@@ -652,19 +670,37 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
 
             <div className="bg-paper-soft border border-line rounded-2xl p-5">
-              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Gatilhos mais citados</h3>
-              {a.triggers.length > 0 ? (
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><CalendarDays className="w-4 h-4 text-forest-500" /> Emoção predominante por dia</h3>
+              {a.topEmotionsByDay.length > 0 ? (
                 <div className="space-y-2">
-                  {a.triggers.map(t => (
-                    <div key={t.tag} className="flex items-center gap-2">
-                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span>
-                      <div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxTrig) * 100}%` }} /></div>
-                      <span className="text-xs text-ink-soft w-6 text-right">{t.count}</span>
+                  {a.topEmotionsByDay.map(e => (
+                    <div key={e.label} className="flex items-center gap-2">
+                      <span className="text-base w-5 text-center">{e.emoji}</span>
+                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span>
+                      <div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmoDay) * 100}%` }} /></div>
+                      <span className="text-xs text-ink-soft w-6 text-right">{e.count}</span>
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais o sistema identifica gatilhos recorrentes.</p>}
+              ) : <p className="text-xs text-ink-soft py-4 text-center">Registre em mais dias para ver esse padrão.</p>}
             </div>
+          </div>
+          <p className="text-xs text-ink-soft px-1 -mt-2">Quando há muitos check-ins no mesmo dia, o mapa também considera a emoção predominante do dia para evitar distorções.</p>
+
+          {/* Gatilhos mais citados */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Gatilhos mais citados</h3>
+            {a.triggers.length > 0 ? (
+              <div className="space-y-2">
+                {a.triggers.map(t => (
+                  <div key={t.tag} className="flex items-center gap-2">
+                    <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span>
+                    <div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxTrig) * 100}%` }} /></div>
+                    <span className="text-xs text-ink-soft w-6 text-right">{t.count}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais o sistema identifica gatilhos recorrentes.</p>}
           </div>
 
           {/* Mapa por período do dia */}
