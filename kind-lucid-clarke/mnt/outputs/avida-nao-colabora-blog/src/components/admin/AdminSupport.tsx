@@ -559,7 +559,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
   const quickSuggestions = templates.slice(0, 3)
   const isClosed = selectedTicket?.status === 'closed' || selectedTicket?.status === 'resolved'
   const priorSameUser = selectedTicket ? tickets.filter(t => t.user_id === selectedTicket.user_id && t.id !== selectedTicket.id).length : 0
-  const selectCls = 'w-full px-2 py-1.5 text-xs border border-line rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 disabled:opacity-50'
 
   return (
     <div className="flex h-full overflow-hidden bg-paper">

@@ -237,28 +237,28 @@ export default function ArticleView({
         queries.push(
           supabase.from('articles').select(sel)
             .overlaps('tags', art.tags!)
-            .neq('slug', art.slug).eq('published', true).limit(20) as Promise<{ data: unknown[] | null }>
+            .neq('slug', art.slug).eq('published', true).limit(20) as unknown as Promise<{ data: unknown[] | null }>
         )
       }
       if (hasThemes) {
         queries.push(
           supabase.from('articles').select(sel)
             .overlaps('emotional_themes', art.emotional_themes!)
-            .neq('slug', art.slug).eq('published', true).limit(15) as Promise<{ data: unknown[] | null }>
+            .neq('slug', art.slug).eq('published', true).limit(15) as unknown as Promise<{ data: unknown[] | null }>
         )
       }
       if (hasKeywords && !hasTags) {
         queries.push(
           supabase.from('articles').select(sel)
             .overlaps('keywords', art.keywords!)
-            .neq('slug', art.slug).eq('published', true).limit(15) as Promise<{ data: unknown[] | null }>
+            .neq('slug', art.slug).eq('published', true).limit(15) as unknown as Promise<{ data: unknown[] | null }>
         )
       }
       // Categoria é sempre buscada como âncora de fallback
       queries.push(
         supabase.from('articles').select(sel)
           .eq('category', art.category).neq('slug', art.slug)
-          .eq('published', true).order('published_at', { ascending: false }).limit(12) as Promise<{ data: unknown[] | null }>
+          .eq('published', true).order('published_at', { ascending: false }).limit(12) as unknown as Promise<{ data: unknown[] | null }>
       )
 
       const results = await Promise.all(queries)
@@ -274,7 +274,7 @@ export default function ArticleView({
       }
 
       // 4. Pontua cada candidato pelo número de sinais em comum
-      function scoreCandidate(a: Candidate): number {
+      const scoreCandidate = (a: Candidate): number => {
         let s = 0
         if (a.category === art.category) s += 1
         s += (a.tags ?? []).filter(t => (art.tags ?? []).includes(t)).length * 3

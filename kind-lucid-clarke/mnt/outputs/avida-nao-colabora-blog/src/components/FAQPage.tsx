@@ -95,7 +95,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
 
 const CATEGORIES = [...new Set(FAQS.map(f => f.category))]
 
-export default function FAQPage({ onNavigate }: FAQPageProps) {
+export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
   const [open, setOpen] = useState<number | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('Todos')
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
@@ -161,7 +161,7 @@ export default function FAQPage({ onNavigate }: FAQPageProps) {
 
         {/* Acordeão */}
         <div className="space-y-2">
-          {filtered.map((faq, i) => {
+          {filtered.map((faq) => {
             const idx = FAQS.indexOf(faq)
             const isOpen = open === idx
             return (

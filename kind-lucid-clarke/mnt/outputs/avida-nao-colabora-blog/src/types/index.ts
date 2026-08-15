@@ -41,6 +41,9 @@ export interface Article {
   author?: string
   category: string
   related_slugs?: string[]
+  tags?: string[]
+  emotional_themes?: string[]
+  keywords?: string[]
   seo_title?: string
   seo_description?: string
   diary_question?: string

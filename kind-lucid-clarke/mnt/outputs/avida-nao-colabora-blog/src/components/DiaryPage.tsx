@@ -142,7 +142,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [loading, setLoading] = useState(true)
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'diary' | 'questionnaire'>('all')
+  const [filter, setFilter] = useState<'all' | 'checkin' | 'diary' | 'questionnaire'>('all')
   // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
   const [entryMode, setEntryMode] = useState<'quick' | 'full'>('quick')
   const [saving, setSaving] = useState(false)
@@ -215,7 +215,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
       .from('diary_entries')
-      .select('id,mood,date,entry_type,created_at,text,emotional_tags,gratitude')
+      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude')
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -400,9 +400,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     if (onClearPromptContext) onClearPromptContext()
   }
 
-  const filteredEntries = entries.filter(e =>
-    filter === 'all' ? true : filter === 'diary' ? e.entry_type === 'diary' : e.entry_type === 'questionnaire'
-  )
+  const filteredEntries = entries.filter(e => filter === 'all' ? true : e.entry_type === filter)
 
   const formatDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
@@ -650,10 +648,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                   <SliderField label="Humor" value={moodScore} onChange={setMoodScore} />
                   {fieldOn('energy') && <SliderField label="Energia" value={energy} onChange={setEnergy} />}
                   {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxietyLevel} onChange={setAnxietyLevel} />}
-                  {fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
-                  {/* Sono e Autoestima também no Essencial: o Mapa Emocional mostra essas métricas (§ mapa completo). */}
+                  {isPlus && fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
+                  {/* Sono é Essencial+: o Mapa Emocional mostra essa métrica desde o plano Essencial. */}
                   {fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
-                  {fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
+                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
                   {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
                   {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
                 </div>
@@ -764,13 +762,13 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="font-serif text-lg sm:text-xl text-forest-900">Suas entradas</h2>
               <div className="flex items-center gap-2">
-                {(['all', 'diary', 'questionnaire'] as const).map(f => (
+                {(['all', 'checkin', 'diary', 'questionnaire'] as const).map(f => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
                     className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filter === f ? 'bg-forest-900 text-white border-forest-900' : 'border-line text-ink-soft hover:border-forest-300 bg-white'}`}
                   >
-                    {f === 'all' ? 'Tudo' : f === 'diary' ? 'Diário' : 'Avaliações'}
+                    {f === 'all' ? 'Tudo' : f === 'checkin' ? 'Check-ins' : f === 'diary' ? 'Diário' : 'Avaliações'}
                   </button>
                 ))}
                 <button onClick={fetchEntries} className="p-1.5 text-ink-soft hover:text-forest-700" title="Atualizar"><RefreshCw className="w-4 h-4" /></button>
@@ -793,7 +791,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-forest-700">{entry.mood}</span>
+                            {entry.entry_type === 'checkin' && <span className="text-[10px] bg-sky text-[#3d6ea5] px-2 py-0.5 rounded-full">Check-in</span>}
                             {entry.entry_type === 'questionnaire' && <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full">Avaliação</span>}
+                            {entry.entry_type === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-2 py-0.5 rounded-full">Diário</span>}
                           </div>
                           <p className="text-xs text-ink-soft mt-0.5 capitalize">{formatDate(entry.date ?? '')}</p>
                         </div>

@@ -331,7 +331,6 @@ export default function App() {
       const el = document.getElementById(section)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   // Leva ao login guardando a ação pretendida, para retornar a ela após autenticar.

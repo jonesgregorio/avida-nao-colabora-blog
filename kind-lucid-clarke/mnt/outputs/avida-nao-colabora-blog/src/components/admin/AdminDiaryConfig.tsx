@@ -96,7 +96,7 @@ export default function AdminDiaryConfig() {
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Limites e acesso</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-stone-500 mb-1">Entradas por mês (vazio = ilimitado)</label>
+              <label className="block text-xs text-stone-500 mb-1">Entradas de diário completo por mês (vazio = ilimitado)</label>
               <input
                 type="number"
                 value={cfg.entriesPerMonth ?? ''}
@@ -105,6 +105,9 @@ export default function AdminDiaryConfig() {
                 className={inputCls}
                 min={1}
               />
+              <p className="text-[11px] text-stone-400 mt-1">
+                Vale só para registros de diário completo. Check-ins rápidos são sempre ilimitados e nunca entram nessa conta, em nenhum plano.
+              </p>
             </div>
             <div>
               <label className="block text-xs text-stone-500 mb-1">Histórico disponível</label>

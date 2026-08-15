@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Sparkles, Plus, Edit2, Copy, Send, Play, Pause, Archive,
-  Eye, List, ChevronDown, ChevronUp, X, Check, AlertTriangle,
-  Clock, Zap, Users, Filter, RefreshCw, Mail, Info, Trash2
+  Sparkles, Edit2, Copy, Send, Play, Pause, Archive,
+  List, ChevronDown, ChevronUp, X, Check, AlertTriangle,
+  Clock, Zap, Users, Filter, RefreshCw, Mail, Info
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -429,7 +429,7 @@ export default function AdminEmailCreatorIA() {
 
 function TemplateList({
   templates, automations, loading, confirmActivate,
-  onEdit, onDuplicate, onChangeStatus, onArchive, onConfirmActivate, onViewLogs,
+  onEdit, onDuplicate, onChangeStatus, onArchive, onConfirmActivate, onViewLogs: _onViewLogs,
 }: {
   templates: CustomEmailTemplate[]
   automations: EmailAutomation[]
@@ -572,7 +572,7 @@ function TemplateList({
 // ─── Editor de template ───────────────────────────────────────────────────────
 
 function TemplateEditor({
-  initial, automations, onSave, onClose, onSaved,
+  initial, automations, onSave, onClose, onSaved: _onSaved,
 }: {
   initial: CustomEmailTemplate | null
   automations: EmailAutomation[]
@@ -599,7 +599,7 @@ function TemplateEditor({
   const [targetAudience, setTargetAudience] = useState(initial?.target_audience ?? 'all')
   const [tone, setTone] = useState(initial?.tone ?? 'acolhedor')
   const [emailType, setEmailType] = useState(initial?.email_type ?? 'reengajamento')
-  const [relatedPlan, setRelatedPlan] = useState(initial?.related_plan ?? 'nenhum')
+  const [relatedPlan] = useState(initial?.related_plan ?? 'nenhum')
   const [aiInstruction, setAiInstruction] = useState(initial?.ai_instruction ?? '')
   const [ctaLabel, setCtaLabel] = useState(initial?.cta_label ?? '')
   const [ctaUrl, setCtaUrl] = useState(initial?.cta_url ?? '/diario?modo=checkin')
@@ -1420,7 +1420,7 @@ function VariablesPanel({ show, onToggle }: { show: boolean; onToggle: () => voi
 // ─── Painel de logs ───────────────────────────────────────────────────────────
 
 function LogsPanel({
-  logs, templates, filter, onFilterChange, onBack, onRefresh,
+  logs, templates: _templates, filter, onFilterChange, onBack, onRefresh,
 }: {
   logs: EmailLogItem[]
   templates: CustomEmailTemplate[]
