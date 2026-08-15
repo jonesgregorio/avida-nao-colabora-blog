@@ -56,7 +56,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     // necessidade e ações de cuidado ficam explicitamente off (ausência de chave
     // é tratada como "ligado" por fieldOn(), então aqui precisa ser explícito).
     fields: { mood: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: false, need_tags: false, care_action_tags: false },
-    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?'],
+    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'O que ajudou um pouco?'],
     graphs: [], reports: [],
   },
   {
@@ -66,7 +66,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     // do Plus (DiaryPage.tsx exige isPlus). Ausência de chave = fieldOn() trata
     // como "ligado", então aqui precisa ser explícito para não vazar pro Essencial.
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, energy: true, anxiety_level: true, stress_level: false, sleep_quality: true, self_esteem: false, gratitude: true, small_pride: true },
-    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Tem algo que gostaria de mudar amanhã?'],
+    guidedQuestions: ['Como você está se sentindo agora?', 'O que mais mexeu com você hoje?', 'O que parece ter contribuído para isso?', 'Que pequena coisa te trouxe algum alívio?'],
     graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Ansiedade percebida', 'Sono', 'Tags emocionais', 'Contextos mais frequentes', 'Necessidades mais frequentes'],
     reports: ['Relatório semanal automático'],
   },
@@ -74,7 +74,9 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     plan: 'plus', label: 'Plus', entriesPerMonth: null, exportPDF: true,
     history: 'Completo',
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
-    guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?', 'Como posso me preparar melhor para o próximo mês?'],
+    // §10: perguntas do diário são sempre do DIA, nunca da semana/mês — essas
+    // pertencem ao Relatório e ao Plano de Autocuidado, não aqui.
+    guidedQuestions: ['Como você está se sentindo agora?', 'O que mais mexeu com você hoje?', 'O que você gostaria apenas de observar, sem tentar resolver agora?', 'O que seu corpo parece ter pedido hoje?', 'Que situação você gostaria de entender melhor?'],
     graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Ansiedade percebida', 'Sono', 'Tags emocionais', 'Contextos mais frequentes', 'Necessidades mais frequentes', 'Autoestima', 'Estresse', 'Sobrecarga', 'Mapa de gatilhos', 'Padrões avançados', 'Evolução semanal'],
     reports: ['Relatório semanal automático', 'Relatório mensal aprofundado', 'Plano de autocuidado mensal'],
   },

@@ -85,27 +85,6 @@ function entryTags(e: { emotional_tags?: string[]; context_tags?: string[]; need
   ]
 }
 
-// Prompts por plano (brief §8.7). Cada plano vê o conjunto adequado ao seu momento.
-const PROMPTS_BY_PLAN: Record<'free' | 'essential' | 'plus', string[]> = {
-  free: [
-    'Como você está hoje?',
-    'O que mais pesou?',
-    'O que ajudou um pouco?',
-  ],
-  essential: [
-    'O que se repetiu nas suas emoções esta semana?',
-    'Que padrão você percebe entre sono, energia e humor?',
-    'Qual situação gerou mais sobrecarga?',
-    'O que você pode tentar diferente amanhã?',
-  ],
-  plus: [
-    'O que você quer priorizar no seu cuidado este mês?',
-    'Qual padrão emocional apareceu com mais frequência?',
-    'Que tipo de apoio você gostaria de receber na orientação por mensagem?',
-    'Qual pequeno compromisso de autocuidado parece possível agora?',
-  ],
-}
-
 interface DiaryPageProps {
   user: User | null
   plan: Plan
@@ -124,14 +103,26 @@ interface DiaryPageProps {
   onOpenArticle?: (slug: string) => void
 }
 
-function SliderField({ label, value, onChange, min = 1, max = 5 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+// §6: sliders opcionais não podem salvar um valor "3/5" que o usuário nunca
+// escolheu de fato. `touched` diz se a pessoa já interagiu; enquanto não
+// interage, mostra "Não informado" (o thumb fica visualmente no meio, mas
+// isso é só a posição inicial — não é uma resposta real até `onChange` disparar).
+function SliderField({ label, value, onChange, touched = true, onClear, min = 1, max = 5 }: {
+  label: string; value: number; onChange: (v: number) => void
+  touched?: boolean; onClear?: () => void; min?: number; max?: number
+}) {
   const pct = ((value - min) / (max - min)) * 100
   const emoji = pct < 30 ? '😟' : pct < 60 ? '😐' : '😊'
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
         <label className="text-xs text-ink-soft font-medium">{label}</label>
-        <span className="text-xs text-forest-500">{emoji} {value}/{max}</span>
+        <span className="text-xs text-forest-500 flex items-center gap-1.5">
+          {touched ? <>{emoji} {value}/{max}</> : <span className="text-ink-soft/70">Não informado</span>}
+          {touched && onClear && (
+            <button type="button" onClick={onClear} className="text-[10px] text-ink-soft/60 hover:text-forest-700 underline underline-offset-2">Limpar</button>
+          )}
+        </span>
       </div>
       <input
         type="range"
@@ -140,8 +131,8 @@ function SliderField({ label, value, onChange, min = 1, max = 5 }: { label: stri
         value={value}
         onChange={e => onChange(Number(e.target.value))}
         aria-label={label}
-        aria-valuetext={`${value} de ${max}`}
-        className="w-full accent-forest-600"
+        aria-valuetext={touched ? `${value} de ${max}` : 'não informado'}
+        className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`}
       />
     </div>
   )
@@ -158,9 +149,19 @@ function calcStreak(days: Set<string>): number {
   return s
 }
 
+// §11.5: nunca buscar o histórico inteiro de uma vez — pesado pra quem tem
+// centenas/milhares de registros. Paginação simples por range.
+const ENTRIES_PAGE_SIZE = 30
+const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags'
+
 export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreEntries, setHasMoreEntries] = useState(true)
+  // Contagem do mês (só importa pro Gratuito) via COUNT dedicado — não pode
+  // depender da lista paginada, que só tem os registros mais recentes.
+  const [monthDiaryCount, setMonthDiaryCount] = useState(0)
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'checkin' | 'diary' | 'questionnaire'>('all')
@@ -170,7 +171,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
   // Recap para a tela de confirmação exibida após salvar um registro.
-  const [savedConfirm, setSavedConfirm] = useState<null | { kind: 'checkin' | 'diary'; mood: string; emoji: string; energy: number; anxiety: number; signal: Signal }>(null)
+  const [savedConfirm, setSavedConfirm] = useState<null | { kind: 'checkin' | 'diary'; mood: string; emoji: string; energy: number | null; anxiety: number | null; signal: Signal }>(null)
   const entriesRef = useRef<HTMLElement>(null)
 
   // Free fields
@@ -192,9 +193,25 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showOtherTag, setShowOtherTag] = useState(false)
   const [otherTagInput, setOtherTagInput] = useState('')
+  // §5.1: "Qual emoção marcou seu dia?" é redundante com os chips de humor —
+  // vira opcional/recolhido em vez de aparecer sempre aberto.
+  const [showMainEmotion, setShowMainEmotion] = useState(false)
   const [contextTags, setContextTags] = useState<string[]>([])
   const [needTags, setNeedTags] = useState<string[]>([])
   const [careActionTags, setCareActionTags] = useState<string[]>([])
+
+  // §6: sliders opcionais só contam como resposta real depois que o usuário
+  // interage — evita salvar "3/5" (valor visual inicial) como se fosse dado.
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
+  const touch = (key: string) => setTouchedFields(prev => prev.has(key) ? prev : new Set(prev).add(key))
+  const untouch = (key: string) => setTouchedFields(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
+  // Props prontos pra um SliderField opcional — evita repetir onChange/touched/onClear em cada um.
+  const sliderProps = (key: string, val: number, setVal: (v: number) => void) => ({
+    value: val,
+    onChange: (v: number) => { setVal(v); touch(key) },
+    touched: touchedFields.has(key),
+    onClear: () => { setVal(3); untouch(key) },
+  })
 
   // Plus advanced fields — escala 1–5, default 3 (meio)
   const [sleepQuality, setSleepQuality] = useState(3)
@@ -209,8 +226,6 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const isEssential = hasPlanAccess(plan, 'essential')
   const isPlus = hasPlanAccess(plan, 'plus')
-  const planKey: 'free' | 'essential' | 'plus' = isPlus ? 'plus' : isEssential ? 'essential' : 'free'
-  const planPrompts = PROMPTS_BY_PLAN[planKey]
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
@@ -220,14 +235,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   // Limite conta APENAS entradas reais de diário (brief §8.3): não contam
   // check-ins técnicos, respostas de questionário nem eventos automáticos.
-  const currentMonthEntries = entries.filter(e => {
-    if (e.entry_type !== 'diary') return false
-    const d = new Date(e.created_at)
-    const now = new Date()
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  })
+  // Vem de monthDiaryCount (COUNT dedicado) — a lista `entries` é paginada
+  // e não pode ser usada pra contar o mês com segurança (§11.5).
   const entryLimit = cfg.entriesPerMonth // null = ilimitado
-  const freeEntryCount = currentMonthEntries.length
+  const freeEntryCount = monthDiaryCount
   const atLimit = entryLimit != null && freeEntryCount >= entryLimit
   // O limite bloqueia SÓ o diário completo. Check-in rápido é ilimitado (§8):
   // não conta e nunca é bloqueado, mesmo com os 5 registros do mês já usados.
@@ -239,13 +250,38 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
       .from('diary_entries')
-      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags')
+      .select(ENTRIES_SELECT)
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
+      .range(0, ENTRIES_PAGE_SIZE - 1)
     setEntries(data || [])
+    setHasMoreEntries((data?.length ?? 0) === ENTRIES_PAGE_SIZE)
     setLoading(false)
   }, [user])
+
+  const loadMoreEntries = useCallback(async () => {
+    setLoadingMore(true)
+    const { data } = await supabase
+      .from('diary_entries')
+      .select(ENTRIES_SELECT)
+      .eq('user_id', user!.id)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(entries.length, entries.length + ENTRIES_PAGE_SIZE - 1)
+    setEntries(prev => [...prev, ...(data ?? [])])
+    setHasMoreEntries((data?.length ?? 0) === ENTRIES_PAGE_SIZE)
+    setLoadingMore(false)
+  }, [user, entries.length])
+
+  // Contagem do mês (Gratuito) — separada da lista paginada de propósito (§11.5/§8.3).
+  const fetchMonthCount = useCallback(async () => {
+    if (plan !== 'free') { setMonthDiaryCount(0); return }
+    const monthStart = ymd(new Date()).slice(0, 7) + '-01'
+    const { count } = await supabase.from('diary_entries').select('id', { count: 'exact', head: true })
+      .eq('user_id', user!.id).eq('entry_type', 'diary').gte('date', monthStart)
+    setMonthDiaryCount(count ?? 0)
+  }, [user, plan])
 
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
@@ -270,7 +306,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   useEffect(() => {
     fetchEntries()
     fetchPrompt()
-  }, [fetchEntries, fetchPrompt])
+    fetchMonthCount()
+  }, [fetchEntries, fetchPrompt, fetchMonthCount])
 
   // When arriving from article with a prompt context, pre-fill
   useEffect(() => {
@@ -316,10 +353,6 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setMood(CHIP_TO_MOOD[chipKey] ?? 'outro')
   }
 
-  const applyPrompt = (p: string) => {
-    setWhatHappened(prev => prev.trim() ? prev : p + '\n\n')
-  }
-
   const resetForm = () => {
     setMood('outro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
     setMoodScore(3); setEnergy(3); setAnxietyLevel(3); setStressLevel(3)
@@ -328,6 +361,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setSleepQuality(3); setSelfEsteem(3); setIrritability(3); setOverload(3)
     setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
     setContextTags([]); setNeedTags([]); setCareActionTags([])
+    setTouchedFields(new Set())
+    setShowMainEmotion(false)
     setError('')
   }
 
@@ -361,26 +396,29 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       date: ymd(new Date()),
       mood: moodObj.label,
       // Escala oficial 1–5 (§7). normalizeScale garante inteiro válido no banco.
-      mood_score: normalizeScale(isEssential ? moodScore : moodObj.score, 3),
+      // Humor: se a pessoa mexeu no slider "Humor" (Essencial+), usa esse valor;
+      // senão deriva da emoção marcada nos chips — nunca um 3/5 não escolhido (§6).
+      mood_score: normalizeScale(isEssential && touchedFields.has('mood_score') ? moodScore : moodObj.score, 3),
       text: entryText,
       // Check-in rápido NÃO conta como diário (§8): salva como 'checkin'.
       entry_type: isCheckin ? 'checkin' : 'diary',
     }
 
-    // Check-in rápido (§8.1): energia + ansiedade percebida, para todos os planos.
+    // Check-in rápido (§8.1/§6): energia e ansiedade são opcionais — só salvam
+    // se a pessoa realmente tocou no slider, nunca o valor visual inicial.
     if (isCheckin) {
-      payload.energy = normalizeScale(energy, 3)
-      payload.anxiety_level = normalizeScale(anxietyLevel, 3)
+      if (touchedFields.has('energy')) payload.energy = normalizeScale(energy, 3)
+      if (touchedFields.has('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
     } else {
       // Tags emocionais: disponíveis também no Gratuito (versão básica curada) —
       // não são exclusivas do Essencial+, então salvam fora do bloco abaixo.
       if (fieldOn('emotional_tags')) payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
       if (isEssential) {
-        if (fieldOn('energy')) payload.energy = normalizeScale(energy, 3)
-        if (fieldOn('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
-        if (fieldOn('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
-        if (fieldOn('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
-        if (fieldOn('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
+        if (fieldOn('energy') && touchedFields.has('energy')) payload.energy = normalizeScale(energy, 3)
+        if (fieldOn('anxiety_level') && touchedFields.has('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
+        if (fieldOn('stress_level') && touchedFields.has('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
+        if (fieldOn('sleep_quality') && touchedFields.has('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
+        if (fieldOn('self_esteem') && touchedFields.has('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
         if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
         if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
         if (fieldOn('free_note')) payload.free_note = freeNote || undefined
@@ -391,8 +429,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     }
 
     if (!isCheckin && isPlus) {
-      if (fieldOn('irritability')) payload.irritability = normalizeScale(irritability, 3)
-      if (fieldOn('overload')) payload.overload = normalizeScale(overload, 3)
+      if (fieldOn('irritability') && touchedFields.has('irritability')) payload.irritability = normalizeScale(irritability, 3)
+      if (fieldOn('overload') && touchedFields.has('overload')) payload.overload = normalizeScale(overload, 3)
       if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
       if (fieldOn('recurring_thoughts')) payload.recurring_thoughts = recurringThoughts || undefined
       if (fieldOn('emotional_need')) payload.emotional_need = emotionalNeed || undefined
@@ -417,18 +455,25 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     }
     if (data) {
       setEntries(prev => [data, ...prev])
-      // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status
-      if (plan === 'free' && entryLimit != null) {
-        const monthKey = ymd(new Date()).slice(0, 7)
-        const count = [data, ...entries].filter(e => String(e.date ?? '').startsWith(monthKey) && e.entry_type === 'diary').length
-        if (count === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
-        else if (count >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
+      // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status.
+      // Usa monthDiaryCount (COUNT dedicado, §11.5) como fonte de verdade —
+      // não dá pra contar pela lista paginada.
+      if (!isCheckin && plan === 'free') {
+        const newCount = monthDiaryCount + 1
+        setMonthDiaryCount(newCount)
+        if (entryLimit != null) {
+          const monthKey = ymd(new Date()).slice(0, 7)
+          if (newCount === entryLimit - 1) void emailDiaryLimitWarningForUser(user!.id, monthKey)
+          else if (newCount >= entryLimit) void emailDiaryLimitReachedForUser(user!.id, monthKey)
+        }
       }
       // Guarda o recap e dispara a tela de confirmação explícita. O sinal do
       // registro recém-salvo alimenta a recomendação de conteúdos (§9.1/§9.2).
       setSavedConfirm({
         kind: isCheckin ? 'checkin' : 'diary',
-        mood: moodObj.label, emoji: moodObj.emoji, energy, anxiety: anxietyLevel,
+        mood: moodObj.label, emoji: moodObj.emoji,
+        energy: touchedFields.has('energy') ? energy : null,
+        anxiety: touchedFields.has('anxiety_level') ? anxietyLevel : null,
         signal: signalFromEntry(payload),
       })
     }
@@ -441,8 +486,6 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const formatDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-  const formatShort = (d: string) =>
-    new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 
   const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -480,15 +523,15 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           <span className="inline-flex items-center gap-1.5 bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-forest-900">
             <span aria-hidden>{savedConfirm.emoji}</span> {savedConfirm.mood}
           </span>
-          {isCheckinConfirm && (
-            <>
-              <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
-                Energia <strong className="text-forest-800">{savedConfirm.energy}/5</strong>
-              </span>
-              <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
-                Ansiedade <strong className="text-forest-800">{savedConfirm.anxiety}/5</strong>
-              </span>
-            </>
+          {isCheckinConfirm && savedConfirm.energy != null && (
+            <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
+              Energia <strong className="text-forest-800">{savedConfirm.energy}/5</strong>
+            </span>
+          )}
+          {isCheckinConfirm && savedConfirm.anxiety != null && (
+            <span className="bg-paper-soft border border-line rounded-full px-3.5 py-1.5 text-sm text-ink">
+              Ansiedade <strong className="text-forest-800">{savedConfirm.anxiety}/5</strong>
+            </span>
           )}
         </div>
 
@@ -625,37 +668,19 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {/* Check-in rápido: energia + ansiedade percebida (§8.1) — nota opcional abaixo */}
             {entryMode === 'quick' && (
               <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                <SliderField label="Energia" value={energy} onChange={setEnergy} />
-                <SliderField label="Ansiedade percebida" value={anxietyLevel} onChange={setAnxietyLevel} />
+                <SliderField label="Energia" {...sliderProps('energy', energy, setEnergy)} />
+                <SliderField label="Ansiedade percebida" {...sliderProps('anxiety_level', anxietyLevel, setAnxietyLevel)} />
               </div>
             )}
 
-            {/* Prompts + reflexão sugerida — só no diário completo (§3): no check-in
-                rápido eles fariam a tela parecer um mini diário). */}
-            {entryMode === 'full' && (
-              <>
-                <h3 className="font-serif text-base text-forest-900">O que você gostaria de registrar hoje?</h3>
-                <p className="text-sm text-ink-soft mt-1 mb-3">Use as sugestões ou escreva livremente.</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {planPrompts.map(p => (
-                    <button
-                      key={p}
-                      onClick={() => applyPrompt(p)}
-                      className="text-sm px-3 py-1.5 rounded-full border border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-
-                {prompt && (
-                  <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
-                    <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
-                    <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
-                    <button onClick={fetchPrompt} className="text-ink-soft hover:text-forest-700 text-xs" title="Outra sugestão">↻</button>
-                  </div>
-                )}
-              </>
+            {/* Uma pergunta guiada por vez, com botão pra trocar (§10) — nada de
+                mostrar várias ao mesmo tempo. Só no diário completo (§3). */}
+            {entryMode === 'full' && prompt && (
+              <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
+                <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
+                <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
+                <button onClick={fetchPrompt} className="text-xs font-medium text-forest-700 hover:text-forest-900 underline underline-offset-2 flex-shrink-0" title="Ver outra pergunta">Outra pergunta</button>
+              </div>
             )}
 
             {/* Nota — grande e livre no diário completo; curta e opcional no check-in (§3) */}
@@ -677,9 +702,18 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {/* Campos livres complementares — só no diário completo (§8.2) */}
             {entryMode === 'full' && (
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
-                <input type="text" value={mainEmotion} onChange={e => setMainEmotion(e.target.value)} placeholder="Qual emoção marcou seu dia?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
                 <input type="text" value={whatINeed} onChange={e => setWhatINeed(e.target.value)} placeholder="O que você precisa agora?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
-                <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="sm:col-span-2 border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                {/* §5.1: redundante com os chips de humor — some por padrão. */}
+                <div className="sm:col-span-2">
+                  {!showMainEmotion ? (
+                    <button type="button" onClick={() => setShowMainEmotion(true)} className="text-xs text-ink-soft hover:text-forest-700 underline underline-offset-2">
+                      Quer descrever melhor essa emoção?
+                    </button>
+                  ) : (
+                    <input type="text" autoFocus value={mainEmotion} onChange={e => setMainEmotion(e.target.value)} placeholder="Quer descrever melhor essa emoção?" className="w-full border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                  )}
+                </div>
               </div>
             )}
 
@@ -704,15 +738,15 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 <h3 className="font-serif text-base text-forest-900 mb-1">Como está o seu corpo e sua mente agora?</h3>
                 <p className="text-sm text-ink-soft mb-4">Atualize seus indicadores do momento.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <SliderField label="Humor" value={moodScore} onChange={setMoodScore} />
-                  {fieldOn('energy') && <SliderField label="Energia" value={energy} onChange={setEnergy} />}
-                  {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxietyLevel} onChange={setAnxietyLevel} />}
-                  {isPlus && fieldOn('stress_level') && <SliderField label="Estresse" value={stressLevel} onChange={setStressLevel} />}
+                  <SliderField label="Humor" {...sliderProps('mood_score', moodScore, setMoodScore)} />
+                  {fieldOn('energy') && <SliderField label="Energia" {...sliderProps('energy', energy, setEnergy)} />}
+                  {fieldOn('anxiety_level') && <SliderField label="Ansiedade" {...sliderProps('anxiety_level', anxietyLevel, setAnxietyLevel)} />}
+                  {isPlus && fieldOn('stress_level') && <SliderField label="Estresse" {...sliderProps('stress_level', stressLevel, setStressLevel)} />}
                   {/* Sono é Essencial+: o Mapa Emocional mostra essa métrica desde o plano Essencial. */}
-                  {fieldOn('sleep_quality') && <SliderField label="Sono" value={sleepQuality} onChange={setSleepQuality} />}
-                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" value={selfEsteem} onChange={setSelfEsteem} />}
-                  {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" value={irritability} onChange={setIrritability} />}
-                  {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" value={overload} onChange={setOverload} />}
+                  {fieldOn('sleep_quality') && <SliderField label="Sono" {...sliderProps('sleep_quality', sleepQuality, setSleepQuality)} />}
+                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" {...sliderProps('self_esteem', selfEsteem, setSelfEsteem)} />}
+                  {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" {...sliderProps('irritability', irritability, setIrritability)} />}
+                  {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" {...sliderProps('overload', overload, setOverload)} />}
                 </div>
 
                 {fieldOn('emotional_tags') && (
@@ -921,31 +955,25 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 })}
               </div>
             )}
+            {/* §11.5: nunca carrega tudo de uma vez — só mais uma página por clique. */}
+            {hasMoreEntries && filteredEntries.length > 0 && (
+              <div className="flex justify-center mt-4">
+                <button
+                  onClick={loadMoreEntries}
+                  disabled={loadingMore}
+                  className="text-sm font-medium text-forest-700 border border-line px-4 py-2 rounded-xl hover:bg-mint/40 disabled:opacity-60"
+                >
+                  {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                </button>
+              </div>
+            )}
           </section>
         </div>
 
         {/* ─── Coluna lateral ─── */}
         <aside className="space-y-5">
-          {/* Registros recentes */}
-          <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <h2 className="font-serif text-lg text-forest-900 mb-3">Seus registros recentes</h2>
-            {entries.length === 0 ? (
-              <p className="text-sm text-ink-soft">Seus registros aparecerão aqui.</p>
-            ) : (
-              <ul className="space-y-2.5">
-                {entries.slice(0, 5).map(e => {
-                  const moodObj = moodOptions.find(m => m.label === e.mood || m.value === e.mood)
-                  return (
-                    <li key={e.id} className="flex items-center gap-2.5 text-sm">
-                      <span>{moodObj?.emoji || '📝'}</span>
-                      <span className="text-ink-soft capitalize flex-1 min-w-0 truncate">{formatShort(e.date ?? '')}</span>
-                      <span className="text-xs text-forest-700">{e.mood}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
+          {/* (§12) "Seus registros recentes" foi removido daqui — duplicava "Suas
+              entradas" na coluna principal, com o mesmo conteúdo. */}
 
           {/* Sua jornada */}
           <div className="bg-paper-soft border border-line rounded-3xl p-5">

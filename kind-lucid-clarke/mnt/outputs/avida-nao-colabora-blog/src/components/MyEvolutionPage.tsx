@@ -491,7 +491,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
       {!isEssential && (
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
-          <p className="flex-1 text-sm leading-relaxed text-forest-50">O Mapa Emocional completo — com energia, sono, ansiedade, autoestima e a linha do tempo emocional — está disponível a partir do plano Essencial.</p>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">O Mapa Emocional completo — com energia, sono, ansiedade, padrões e a linha do tempo emocional — está disponível a partir do plano Essencial. No Plus, você também acompanha autoestima, estresse, sobrecarga e padrões avançados.</p>
           <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap">Conhecer o Essencial</button>
         </div>
       )}
@@ -709,9 +709,11 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
           </div>
           <p className="text-xs text-ink-soft px-1 -mt-2">Quando há muitos check-ins no mesmo dia, o mapa também considera a emoção predominante do dia para evitar distorções.</p>
 
-          {/* Gatilhos mais citados */}
+          {/* §13.1: a fonte aqui é emotional_tags (sentimentos marcados), não um
+              gatilho real — "Gatilhos" seria conceitualmente errado (ansiedade,
+              tristeza etc. não são gatilhos, são emoções). */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
-            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Gatilhos mais citados</h3>
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Marcadores emocionais mais frequentes</h3>
             {a.triggers.length > 0 ? (
               <div className="space-y-2">
                 {a.triggers.map(t => (
@@ -722,7 +724,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
                   </div>
                 ))}
               </div>
-            ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais o sistema identifica gatilhos recorrentes.</p>}
+            ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}
           </div>
 
           {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
