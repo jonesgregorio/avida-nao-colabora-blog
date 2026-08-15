@@ -28,6 +28,9 @@ export const DIARY_FIELDS = [
   { key: 'free_note', label: 'Campo livre' },
   { key: 'guided_question', label: 'Pergunta guiada' },
   { key: 'emotional_tags', label: 'Tags emocionais' },
+  { key: 'context_tags', label: 'Tags de contexto' },
+  { key: 'need_tags', label: 'Tags de necessidade' },
+  { key: 'care_action_tags', label: 'Tags de ações de cuidado' },
   { key: 'energy', label: 'Energia' },
   { key: 'anxiety_level', label: 'Nível de ansiedade' },
   { key: 'stress_level', label: 'Nível de estresse' },
@@ -48,7 +51,11 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   {
     plan: 'free', label: 'Gratuito', entriesPerMonth: 5, exportPDF: false,
     history: '30 dias',
-    fields: { mood: true, free_note: true, guided_question: true },
+    // emotional_tags explícito: Gratuito tem uma seleção BÁSICA e curada (6 tags,
+    // ver DiaryPage.tsx) — não o catálogo completo do Essencial/Plus. Contexto,
+    // necessidade e ações de cuidado ficam explicitamente off (ausência de chave
+    // é tratada como "ligado" por fieldOn(), então aqui precisa ser explícito).
+    fields: { mood: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: false, need_tags: false, care_action_tags: false },
     guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?'],
     graphs: [], reports: [],
   },
@@ -58,16 +65,17 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     // stress_level/self_esteem ficam explicitamente false: são campos avançados
     // do Plus (DiaryPage.tsx exige isPlus). Ausência de chave = fieldOn() trata
     // como "ligado", então aqui precisa ser explícito para não vazar pro Essencial.
-    fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, energy: true, anxiety_level: true, stress_level: false, sleep_quality: true, self_esteem: false, gratitude: true, small_pride: true },
+    fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, energy: true, anxiety_level: true, stress_level: false, sleep_quality: true, self_esteem: false, gratitude: true, small_pride: true },
     guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Tem algo que gostaria de mudar amanhã?'],
-    graphs: ['Humor ao longo do tempo', 'Nível de energia'], reports: ['Relatório semanal automático'],
+    graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Ansiedade percebida', 'Sono', 'Tags emocionais', 'Contextos mais frequentes', 'Necessidades mais frequentes'],
+    reports: ['Relatório semanal automático'],
   },
   {
     plan: 'plus', label: 'Plus', entriesPerMonth: null, exportPDF: true,
     history: 'Completo',
-    fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
+    fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
     guidedQuestions: ['Como você está se sentindo agora?', 'O que marcou seu dia hoje?', 'Quais padrões você percebeu esta semana?', 'O que você precisa mais de você mesmo hoje?', 'Como posso me preparar melhor para o próximo mês?'],
-    graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Padrões emocionais', 'Mapa de gatilhos', 'Evolução semanal'],
+    graphs: ['Humor ao longo do tempo', 'Nível de energia', 'Ansiedade percebida', 'Sono', 'Tags emocionais', 'Contextos mais frequentes', 'Necessidades mais frequentes', 'Autoestima', 'Estresse', 'Sobrecarga', 'Mapa de gatilhos', 'Padrões avançados', 'Evolução semanal'],
     reports: ['Relatório semanal automático', 'Relatório mensal aprofundado', 'Plano de autocuidado mensal'],
   },
 ]

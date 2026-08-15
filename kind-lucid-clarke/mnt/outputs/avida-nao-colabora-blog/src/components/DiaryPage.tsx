@@ -10,6 +10,8 @@ import { hasPlanAccess } from '../lib/officialPlans'
 import { signalFromEntry, signalFromTags, topThemes, THEMES, type Signal } from '../lib/contentRecommendation'
 import { ymd } from '../lib/reportPeriods'
 import RecommendedContent from './RecommendedContent'
+import DiaryTagChip from './DiaryTagChip'
+import type { TagCategory } from '../lib/tagCategories'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
@@ -63,6 +65,25 @@ const emotionalTags = [
   'irritação', 'raiva', 'frustração', 'cansaço', 'sobrecarga', 'confusão',
   'calma', 'esperança', 'alegria', 'gratidão',
 ]
+
+// Tags básicas do Gratuito (§2.1): subconjunto curado, não o catálogo completo acima.
+const FREE_EMOTIONAL_TAGS = ['ansiedade', 'tristeza', 'cansaço', 'sobrecarga', 'calma', 'gratidão']
+
+// Onde isso apareceu / o que precisa / o que ajuda — Essencial+ (§7/§8/§9).
+const contextTagOptions = ['trabalho', 'família', 'relacionamento', 'amizades', 'dinheiro', 'saúde', 'corpo', 'casa', 'estudos', 'redes sociais', 'solidão', 'rotina', 'futuro', 'autoimagem', 'sono', 'alimentação', 'responsabilidades']
+const needTagOptions = ['descanso', 'acolhimento', 'clareza', 'silêncio', 'conversa', 'limite', 'organização', 'ajuda', 'pausa', 'leveza', 'segurança', 'coragem', 'paciência', 'presença', 'menos cobrança']
+const careActionTagOptions = ['tomar banho', 'beber água', 'respirar', 'ouvir música', 'caminhar', 'dormir mais cedo', 'conversar com alguém', 'organizar uma tarefa', 'ficar em silêncio', 'escrever mais', 'ver um conteúdo guiado', 'reduzir redes sociais', 'fazer uma pausa', 'comer algo leve', 'pedir ajuda']
+
+interface EntryTag { tag: string; category?: TagCategory }
+// Junta as 4 categorias de tag de um registro numa lista só, pra exibição no histórico.
+function entryTags(e: { emotional_tags?: string[]; context_tags?: string[]; need_tags?: string[]; care_action_tags?: string[] }): EntryTag[] {
+  return [
+    ...(e.emotional_tags ?? []).map(tag => ({ tag })),
+    ...(e.context_tags ?? []).map(tag => ({ tag, category: 'context' as TagCategory })),
+    ...(e.need_tags ?? []).map(tag => ({ tag, category: 'need' as TagCategory })),
+    ...(e.care_action_tags ?? []).map(tag => ({ tag, category: 'care_action' as TagCategory })),
+  ]
+}
 
 // Prompts por plano (brief §8.7). Cada plano vê o conjunto adequado ao seu momento.
 const PROMPTS_BY_PLAN: Record<'free' | 'essential' | 'plus', string[]> = {
@@ -171,6 +192,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showOtherTag, setShowOtherTag] = useState(false)
   const [otherTagInput, setOtherTagInput] = useState('')
+  const [contextTags, setContextTags] = useState<string[]>([])
+  const [needTags, setNeedTags] = useState<string[]>([])
+  const [careActionTags, setCareActionTags] = useState<string[]>([])
 
   // Plus advanced fields — escala 1–5, default 3 (meio)
   const [sleepQuality, setSleepQuality] = useState(3)
@@ -215,7 +239,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
       .from('diary_entries')
-      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride')
+      .select('id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags')
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -268,6 +292,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
   }
 
+  // Toggle genérico para as 3 novas categorias de tag (contexto/necessidade/cuidado).
+  const toggleInArray = (arr: string[], setArr: (v: string[]) => void, tag: string) => {
+    setArr(arr.includes(tag) ? arr.filter(t => t !== tag) : [...arr, tag])
+  }
+
   const addOtherTag = () => {
     const t = otherTagInput.trim().toLowerCase()
     if (t && !selectedTags.includes(t)) setSelectedTags(prev => [...prev, t])
@@ -298,6 +327,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setShowOtherTag(false); setOtherTagInput('')
     setSleepQuality(3); setSelfEsteem(3); setIrritability(3); setOverload(3)
     setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
+    setContextTags([]); setNeedTags([]); setCareActionTags([])
     setError('')
   }
 
@@ -341,16 +371,23 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     if (isCheckin) {
       payload.energy = normalizeScale(energy, 3)
       payload.anxiety_level = normalizeScale(anxietyLevel, 3)
-    } else if (isEssential) {
-      if (fieldOn('energy')) payload.energy = normalizeScale(energy, 3)
-      if (fieldOn('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
-      if (fieldOn('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
-      if (fieldOn('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
-      if (fieldOn('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
-      if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
-      if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
-      if (fieldOn('free_note')) payload.free_note = freeNote || undefined
+    } else {
+      // Tags emocionais: disponíveis também no Gratuito (versão básica curada) —
+      // não são exclusivas do Essencial+, então salvam fora do bloco abaixo.
       if (fieldOn('emotional_tags')) payload.emotional_tags = selectedTags.length > 0 ? selectedTags : undefined
+      if (isEssential) {
+        if (fieldOn('energy')) payload.energy = normalizeScale(energy, 3)
+        if (fieldOn('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
+        if (fieldOn('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
+        if (fieldOn('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
+        if (fieldOn('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
+        if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
+        if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
+        if (fieldOn('free_note')) payload.free_note = freeNote || undefined
+        if (fieldOn('context_tags')) payload.context_tags = contextTags.length > 0 ? contextTags : undefined
+        if (fieldOn('need_tags')) payload.need_tags = needTags.length > 0 ? needTags : undefined
+        if (fieldOn('care_action_tags')) payload.care_action_tags = careActionTags.length > 0 ? careActionTags : undefined
+      }
     }
 
     if (!isCheckin && isPlus) {
@@ -646,6 +683,21 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               </div>
             )}
 
+            {/* Tags emocionais básicas — Gratuito (§2.1/§4): versão curada, sem o
+                catálogo completo nem os blocos de contexto/necessidade/cuidado
+                (Essencial+, mais abaixo). */}
+            {entryMode === 'full' && !isEssential && fieldOn('emotional_tags') && (
+              <div className="mt-4">
+                <label className="text-xs text-ink-soft font-medium block mb-1">Quais sentimentos você reconhece agora?</label>
+                <p className="text-[11px] text-ink-soft/80 mb-2">Marque quantos quiser.</p>
+                <div className="flex flex-wrap gap-2">
+                  {FREE_EMOTIONAL_TAGS.map(tag => (
+                    <DiaryTagChip key={tag} label={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Indicadores — Essencial+ (só no diário completo) */}
             {entryMode === 'full' && isEssential && (
               <div className="border-t border-line pt-5 mt-5">
@@ -669,22 +721,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                     <p className="text-[11px] text-ink-soft/80 mb-2">Marque quantos quiser. Isso ajuda a sugerir conteúdos que combinam com o seu momento.</p>
                     <div className="flex flex-wrap gap-2">
                       {emotionalTags.map(tag => (
-                        <button
-                          key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedTags.includes(tag) ? 'bg-forest-900 text-white border-forest-900' : 'border-line text-ink-soft hover:border-forest-300 bg-white'}`}
-                        >
-                          {tag}
-                        </button>
+                        <DiaryTagChip key={tag} label={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
                       ))}
                       {selectedTags.filter(t => !emotionalTags.includes(t)).map(tag => (
-                        <button
-                          key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className="text-xs px-3 py-1.5 rounded-full border bg-forest-900 text-white border-forest-900 transition-colors"
-                        >
-                          {tag}
-                        </button>
+                        <DiaryTagChip key={tag} label={tag} selected onClick={() => toggleTag(tag)} />
                       ))}
                       {showOtherTag ? (
                         <span className="inline-flex items-center gap-1">
@@ -715,6 +755,46 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                     )}
                   </div>
                 )}
+
+                {/* Onde isso apareceu? (§7) — Essencial+ */}
+                {fieldOn('context_tags') && (
+                  <div className="mt-4">
+                    <label className="text-xs text-ink-soft font-medium block mb-1">Onde isso apareceu?</label>
+                    <p className="text-[11px] text-ink-soft/80 mb-2">Marque os contextos que mais tiveram relação com o seu dia.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {contextTagOptions.map(tag => (
+                        <DiaryTagChip key={tag} label={tag} category="context" selected={contextTags.includes(tag)} onClick={() => toggleInArray(contextTags, setContextTags, tag)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* O que eu preciso agora? (§8) — Essencial+ */}
+                {fieldOn('need_tags') && (
+                  <div className="mt-4">
+                    <label className="text-xs text-ink-soft font-medium block mb-1">O que você sente que precisa agora?</label>
+                    <p className="text-[11px] text-ink-soft/80 mb-2">Escolha uma ou mais necessidades que combinam com este momento.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {needTagOptions.map(tag => (
+                        <DiaryTagChip key={tag} label={tag} category="need" selected={needTags.includes(tag)} onClick={() => toggleInArray(needTags, setNeedTags, tag)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* O que pode me ajudar? (§9) — Essencial+ */}
+                {fieldOn('care_action_tags') && (
+                  <div className="mt-4">
+                    <label className="text-xs text-ink-soft font-medium block mb-1">O que pode te ajudar um pouco?</label>
+                    <p className="text-[11px] text-ink-soft/80 mb-2">Escolha pequenas possibilidades de cuidado. Não precisa virar obrigação.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {careActionTagOptions.map(tag => (
+                        <DiaryTagChip key={tag} label={tag} category="care_action" selected={careActionTags.includes(tag)} onClick={() => toggleInArray(careActionTags, setCareActionTags, tag)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-3 mt-4">
                   {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você sente gratidão hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
@@ -803,6 +883,18 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                             {entry.entry_type === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-2 py-0.5 rounded-full">Diário</span>}
                           </div>
                           <p className="text-xs text-ink-soft mt-0.5 capitalize">{formatDate(entry.date ?? '')}</p>
+                          {(() => {
+                            const tags = entryTags(entry)
+                            if (tags.length === 0) return null
+                            const shown = tags.slice(0, 5)
+                            const extra = tags.length - shown.length
+                            return (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {shown.map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
+                                {extra > 0 && <span className="text-[10px] text-ink-soft px-1">+{extra}</span>}
+                              </div>
+                            )
+                          })()}
                         </div>
                         {isOpen ? <ChevronUp className="w-4 h-4 text-ink-soft flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-ink-soft flex-shrink-0" />}
                       </button>
@@ -815,9 +907,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                             </div>
                           )}
                           {entry.text && <p className="text-sm text-ink leading-relaxed whitespace-pre-line mt-3">{entry.text}</p>}
-                          {entry.emotional_tags && entry.emotional_tags.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {entry.emotional_tags.map(tag => <span key={tag} className="text-xs bg-mint text-forest-700 px-2 py-0.5 rounded-full">{tag}</span>)}
+                          {entryTags(entry).length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {entryTags(entry).map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
                             </div>
                           )}
                           {entry.gratitude && <p className="text-xs text-ink-soft mt-2">🙏 Gratidão: {entry.gratitude}</p>}

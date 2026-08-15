@@ -16,6 +16,9 @@ export interface DiaryRowLite {
   self_esteem?: number | null
   stress_level?: number | null
   emotional_tags?: string[] | string | null
+  context_tags?: string[] | string | null
+  need_tags?: string[] | string | null
+  care_action_tags?: string[] | string | null
   entry_type?: string | null
   created_at?: string | null
   date?: string | null
@@ -61,11 +64,18 @@ function hourOf(e: DiaryRowLite): number | null {
   const d = new Date(e.created_at)
   return Number.isNaN(d.getTime()) ? null : d.getHours()
 }
-function tagsOf(e: DiaryRowLite): string[] {
-  const t = e.emotional_tags
-  if (Array.isArray(t)) return t
-  if (typeof t === 'string' && t.trim()) { try { const p = JSON.parse(t); return Array.isArray(p) ? p : [t] } catch { return [t] } }
+function arrField(v: string[] | string | null | undefined): string[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); return Array.isArray(p) ? p : [v] } catch { return [v] } }
   return []
+}
+function tagsOf(e: DiaryRowLite): string[] { return arrField(e.emotional_tags) }
+
+/** Ranking simples de ocorrências de um campo de tags (contexto/necessidade/cuidado). */
+function tagRanking(entries: DiaryRowLite[], getField: (e: DiaryRowLite) => string[] | string | null | undefined): { tag: string; count: number }[] {
+  const count: Record<string, number> = {}
+  for (const e of entries) for (const t of arrField(getField(e))) { const k = t.trim(); if (k) count[k] = (count[k] ?? 0) + 1 }
+  return Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, c]) => ({ tag, count: c }))
 }
 
 // Média das médias diárias — check-in ilimitado não distorce (1 valor por dia).
@@ -105,6 +115,10 @@ export interface EmotionalAnalysis {
   /** Emoção dominante de cada dia ativo (1 voto/dia) — não distorce quando há vários check-ins no mesmo dia. */
   topEmotionsByDay: { label: string; count: number; emoji: string }[]
   triggers: { tag: string; count: number }[]
+  /** Contextos, necessidades e ações de cuidado marcados no diário (Essencial+). */
+  contexts: { tag: string; count: number }[]
+  needs: { tag: string; count: number }[]
+  careActions: { tag: string; count: number }[]
   periods: PeriodStat[]
   calendar: { day: number; label: string; avg: number; count: number }[]
   energyAnxiety: { hasData: boolean; text: string }
@@ -150,6 +164,11 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
   const tagCount: Record<string, number> = {}
   for (const e of entries) for (const t of tagsOf(e)) { const k = t.trim(); if (k) tagCount[k] = (tagCount[k] ?? 0) + 1 }
   const triggers = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count }))
+
+  // Contextos, necessidades e ações de cuidado (Essencial+).
+  const contexts = tagRanking(entries, e => e.context_tags)
+  const needs = tagRanking(entries, e => e.need_tags)
+  const careActions = tagRanking(entries, e => e.care_action_tags)
 
   // Períodos do dia (usa created_at).
   const periods: PeriodStat[] = PERIODS.map(p => {
@@ -263,7 +282,7 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
     moodByDay: seriesByDay(entries, moodScoreOf),
     energyByDay: seriesByDay(entries, en),
     anxietyByDay: seriesByDay(entries, anx),
-    topEmotions, topEmotionsByDay, triggers, periods, calendar, energyAnxiety,
+    topEmotions, topEmotionsByDay, triggers, contexts, needs, careActions, periods, calendar, energyAnxiety,
     weekly: { hasData: weeklyLines.length > 0, lines: weeklyLines },
   }
 }

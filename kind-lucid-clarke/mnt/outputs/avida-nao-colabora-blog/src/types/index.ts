@@ -103,6 +103,9 @@ export interface DiaryEntry {
   relationships?: string
   habits?: string
   emotional_tags?: string[]
+  context_tags?: string[]
+  need_tags?: string[]
+  care_action_tags?: string[]
   gratitude?: string
   small_pride?: string
   free_note?: string

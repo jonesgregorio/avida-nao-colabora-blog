@@ -16,6 +16,8 @@ import {
   type DiaryRowLite, type EmotionalAnalysis,
 } from '../lib/emotionalAnalytics'
 import RecommendedContent from './RecommendedContent'
+import DiaryTagChip from './DiaryTagChip'
+import type { TagCategory } from '../lib/tagCategories'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
@@ -522,7 +524,7 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     const start = new Date(y, m - 1, 1).toISOString()
     const end = new Date(y, m, 1).toISOString()
     const prevStart = new Date(y, m - 2, 1).toISOString()
-    const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,entry_type,created_at,date'
+    const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,entry_type,created_at,date'
     Promise.all([
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', start).lt('created_at', end),
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', prevStart).lt('created_at', start),
@@ -563,6 +565,26 @@ function LineChartCard({ title, subtitle, data, color, yLabels }: {
       ) : (
         <p className="text-xs text-ink-soft py-6 text-center">Poucos registros para traçar a linha. Continue registrando check-ins.</p>
       )}
+    </div>
+  )
+}
+
+// Frequência de uma categoria de tag (contexto/necessidade/cuidado) — chips
+// coloridos por categoria em vez de barra, já que aqui a cor É a leitura.
+function TagFreqPanel({ title, items, category }: { title: string; items: { tag: string; count: number }[]; category: TagCategory }) {
+  return (
+    <div className="bg-paper-soft border border-line rounded-2xl p-5">
+      <h3 className="font-serif text-base text-forest-900 mb-3">{title}</h3>
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map(it => (
+            <span key={it.tag} className="inline-flex items-center gap-1.5">
+              <DiaryTagChip label={it.tag} category={category} />
+              <span className="text-[10px] text-ink-soft">×{it.count}</span>
+            </span>
+          ))}
+        </div>
+      ) : <p className="text-xs text-ink-soft py-4 text-center">Sem registros suficientes ainda.</p>}
     </div>
   )
 }
@@ -702,6 +724,14 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
               </div>
             ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais o sistema identifica gatilhos recorrentes.</p>}
           </div>
+
+          {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
+              completo (§14), pra não ficarem ignoradas no Mapa. */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" />
+            <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
+          </div>
+          <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
 
           {/* Mapa por período do dia */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
