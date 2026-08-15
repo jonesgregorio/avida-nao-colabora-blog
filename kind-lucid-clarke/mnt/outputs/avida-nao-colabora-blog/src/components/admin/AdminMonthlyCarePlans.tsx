@@ -353,7 +353,7 @@ function emptySummary(): CareSummary {
   return { general_overview: '', main_emotions: [], recurring_triggers: [], energy_anxiety_relation: '', attention_days: [], improvement_moments: [], patterns: [], attention_points: [] }
 }
 function emptyPlan(): CarePlanContent {
-  return { monthly_priority: '', main_care: '', recommended_practice: '', attention_point: '', small_commitment: '', checkin_suggestion: '', reflection_questions: [], final_message: '' }
+  return { monthly_priority: '', main_care: '', recommended_practice: '', attention_point: '', small_commitment: '', checkin_suggestion: '', practical_tips: [], reflection_questions: [], final_message: '' }
 }
 const lines = (s: string) => s.split('\n').map(t => t.trim()).filter(Boolean)
 
@@ -558,6 +558,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             <Area label="Ponto de atenção" value={care.attention_point} onChange={v => setCare({ ...care, attention_point: v })} ro={readOnly} cls={inputCls} rows={2} />
             <Area label="Pequeno compromisso possível" value={care.small_commitment} onChange={v => setCare({ ...care, small_commitment: v })} ro={readOnly} cls={inputCls} rows={2} />
             <Area label="Sugestão de check-in" value={care.checkin_suggestion} onChange={v => setCare({ ...care, checkin_suggestion: v })} ro={readOnly} cls={inputCls} rows={2} />
+            <ListArea label="Dicas práticas" arr={care.practical_tips} onChange={a => setCare({ ...care, practical_tips: a })} ro={readOnly} cls={inputCls} />
             <ListArea label="Perguntas para reflexão" arr={care.reflection_questions} onChange={a => setCare({ ...care, reflection_questions: a })} ro={readOnly} cls={inputCls} />
             <Area label="Mensagem final acolhedora" value={care.final_message} onChange={v => setCare({ ...care, final_message: v })} ro={readOnly} cls={inputCls} rows={2} />
           </section>

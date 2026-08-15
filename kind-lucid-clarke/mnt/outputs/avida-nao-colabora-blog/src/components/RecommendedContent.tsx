@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Sparkles, Clock, ArrowRight, BookOpen, LifeBuoy, PenLine, Heart } from 'lucide-react'
+import { Sparkles, Clock, ArrowRight, BookOpen, PenLine } from 'lucide-react'
 import {
   fetchGuidedCatalog, fetchReadSlugsForRec, fetchUserSignal, scoreCatalog,
-  logRecommendationsShown, RISK_HELP,
+  logRecommendationsShown,
   type Signal, type CatalogItem, type ScoredContent,
 } from '../lib/contentRecommendation'
+import RiskHelpBanner from './RiskHelpBanner'
 
 const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
   essential: { label: 'Essencial', cls: 'bg-mint text-forest-700' },
@@ -62,21 +63,7 @@ export default function RecommendedContent({
   }, [user?.id, profile?.plan, signal, catalog])
 
   // Linguagem de risco (§15): não tratar só com conteúdo — orientar ajuda.
-  if (risk) {
-    return (
-      <section className="rounded-3xl border border-coral/50 bg-coral/10 p-5 sm:p-6">
-        <div className="flex items-center gap-2 text-[#7a3320] mb-2">
-          <LifeBuoy className="w-5 h-5" />
-          <h2 className="font-serif text-lg sm:text-xl">{RISK_HELP.title}</h2>
-        </div>
-        <p className="text-sm text-ink leading-relaxed mb-3">{RISK_HELP.message}</p>
-        <ul className="space-y-1.5 text-sm text-ink">
-          <li className="flex gap-2"><Heart className="w-4 h-4 text-[#7a3320] flex-shrink-0 mt-0.5" /> {RISK_HELP.cvv}</li>
-          <li className="flex gap-2"><Heart className="w-4 h-4 text-[#7a3320] flex-shrink-0 mt-0.5" /> {RISK_HELP.emergency}</li>
-        </ul>
-      </section>
-    )
-  }
+  if (risk) return <RiskHelpBanner />
 
   if (scored === null) {
     // Carregando — placeholder discreto (não polui blocos embutidos).

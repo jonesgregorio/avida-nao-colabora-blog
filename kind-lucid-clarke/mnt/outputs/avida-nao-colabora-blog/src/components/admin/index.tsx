@@ -10,9 +10,8 @@ import AdminUsers from './AdminUsers'
 import AdminEngagement from './AdminEngagement'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminCancellations from './AdminCancellations'
-import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
 import AdminFinanceiro from './AdminFinanceiro'
-import AdminAreaOrientacao from './AdminAreaOrientacao'
+import AdminAreaEmocional from './AdminAreaEmocional'
 import AdminSuportePage from './AdminSuportePage'
 import AdminAreaConteudo from './AdminAreaConteudo'
 import AdminAreaComunicacao from './AdminAreaComunicacao'
@@ -29,7 +28,7 @@ const ADMIN_KEY = 'avida_admin_view'
 // também, senão ele existe mas não abre.
 const AREAS: AdminView[] = [
   'visao-geral', 'usuarios', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'analytics', 'financeiro',
-  'mapa', 'autocuidado', 'orientacao', 'comunicacao', 'suporte', 'sistema',
+  'mapa', 'emocional', 'comunicacao', 'suporte', 'sistema',
 ]
 
 // Views legadas (URL/localStorage antigos) → nova área (+ aba interna se houver).
@@ -55,12 +54,15 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   questionnaires: { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'questionarios' },
   'diary-config': { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'configuracoes' },
   pdf: { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'relatorios' },
-  'self-care-plans': { area: 'autocuidado' },
-  'guidance-requests': { area: 'orientacao', tabKey: 'admin-orientacao-tab', tab: 'mensagem' },
-  'professional-comments': { area: 'orientacao' },
-  personalization: { area: 'orientacao', tabKey: 'admin-orientacao-tab', tab: 'recomendacoes' },
-  professionals: { area: 'orientacao' },
-  'evolution-sessions': { area: 'orientacao' }, atendimento: { area: 'orientacao' },
+  'self-care-plans': { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'planos' },
+  'guidance-requests': { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'mensagem' },
+  'professional-comments': { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'mensagem' },
+  personalization: { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'recomendacoes' },
+  professionals: { area: 'emocional' },
+  'evolution-sessions': { area: 'emocional' }, atendimento: { area: 'emocional' },
+  // ex-áreas próprias (menu antigo) → agora abas dentro de 'emocional' (§ consolidação IA Emocional)
+  autocuidado: { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'planos' },
+  orientacao: { area: 'emocional', tabKey: 'admin-emocional-tab', tab: 'mensagem' },
   notifications: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'notificacoes' },
   emails: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'emails' },
   templates: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'templates' },
@@ -172,8 +174,7 @@ export default function AdminPanel() {
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'financeiro': return <AdminFinanceiro />
       case 'mapa': return <AdminMapaArea />
-      case 'autocuidado': return <AdminMonthlyCarePlans />
-      case 'orientacao': return <AdminAreaOrientacao />
+      case 'emocional': return <AdminAreaEmocional />
       case 'comunicacao': return <AdminAreaComunicacao />
       case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'sistema': return <AdminAreaSistema />

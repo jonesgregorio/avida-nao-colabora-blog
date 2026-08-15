@@ -1,8 +1,8 @@
 import { ReactNode, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  LayoutDashboard, Users, CreditCard, BookOpen, LineChart, CalendarCheck,
-  MessageSquare, Mail, LifeBuoy, Settings2, Activity, Ban,
+  LayoutDashboard, Users, CreditCard, BookOpen, LineChart,
+  Sparkles, Mail, LifeBuoy, Settings2, Activity, Ban,
   ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
@@ -21,8 +21,7 @@ const NAV: NavItem[] = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   { id: 'mapa', label: 'Diário e mapa emocional', icon: LineChart },
-  { id: 'autocuidado', label: 'Plano de autocuidado', icon: CalendarCheck },
-  { id: 'orientacao', label: 'Orientação profissional', icon: MessageSquare },
+  { id: 'emocional', label: 'IA Emocional', icon: Sparkles },
   { id: 'comunicacao', label: 'Comunicação', icon: Mail },
   { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
   { id: 'sistema', label: 'Sistema', icon: Settings2 },

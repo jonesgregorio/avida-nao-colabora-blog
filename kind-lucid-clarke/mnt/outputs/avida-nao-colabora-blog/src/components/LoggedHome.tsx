@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   NotebookPen, LineChart, BookOpen, Sprout, MessageCircle, CreditCard,
-  BarChart3, ClipboardList, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf,
+  BarChart3, TrendingUp, ClipboardList, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf, Lock,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
-import { normalizePlan } from '../lib/officialPlans'
+import { normalizePlan, hasPlanAccess, type PlanKey } from '../lib/officialPlans'
+import { fetchDiaryConfig } from '../lib/diaryConfig'
+import { ymd } from '../lib/reportPeriods'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
@@ -23,45 +26,84 @@ function greeting() {
   return 'Boa noite'
 }
 
-// Atalhos — SOMENTE funções que existem nos planos oficiais.
-const QUICK = [
-  { title: 'Diário',               desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',                        Icon: NotebookPen },
-  { title: 'Questionários',        desc: 'Autopercepção guiada, no seu tempo.',            to: 'questionarios',                Icon: ClipboardList },
-  { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',                 Icon: LineChart },
-  { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',                     Icon: BookOpen },
-  { title: 'Relatórios',           desc: 'Veja sua evolução ao longo do tempo.',           to: 'my-report',                    Icon: BarChart3 },
-  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'self-care',                    Icon: Sprout },
-  { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance',             Icon: MessageCircle },
-  { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',                      Icon: CreditCard },
+interface QuickItem {
+  title: string
+  desc: string
+  to: string
+  Icon: LucideIcon
+  /** Ausente = disponível em todos os planos (§3). */
+  requiredPlan?: 'essential' | 'plus'
+  /** Card com dica contextual própria (contador do diário / prévia do mapa). */
+  hintKind?: 'diary' | 'mapa'
+}
+
+// Atalhos — SOMENTE funções que existem nos planos oficiais. Relatório semanal
+// e mensal viram cards separados (mesma página my-report) porque respondem
+// perguntas diferentes e têm disponibilidade diferente por plano (§1/§3).
+const QUICK: QuickItem[] = [
+  { title: 'Diário',               desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',            Icon: NotebookPen,   hintKind: 'diary' },
+  { title: 'Questionários',        desc: 'Autopercepção guiada, no seu tempo.',            to: 'questionarios',    Icon: ClipboardList },
+  { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',     Icon: LineChart,     hintKind: 'mapa' },
+  { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',         Icon: BookOpen },
+  { title: 'Relatório semanal',    desc: 'Resumo leve do que sua semana mostrou.',         to: 'my-report',        Icon: BarChart3,     requiredPlan: 'essential' },
+  { title: 'Relatório mensal',     desc: 'Leitura mais profunda dos padrões do mês.',      to: 'my-report',        Icon: TrendingUp,    requiredPlan: 'plus' },
+  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'self-care',        Icon: Sprout,        requiredPlan: 'plus' },
+  { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance', Icon: MessageCircle, requiredPlan: 'plus' },
+  { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',          Icon: CreditCard },
 ]
+
+interface HomeStats { presence: number; checkins: number; reflections: number; diaryThisMonth: number; diaryLimit: number | null; loaded: boolean }
+
+// Dica contextual por card: bloqueio por plano tem prioridade; senão, cards com
+// hintKind mostram contador (diário) ou nível de acesso (mapa). null = sem dica.
+function quickHint(item: QuickItem, plan: PlanKey, stats: HomeStats): { text: string; locked: boolean } | null {
+  if (item.requiredPlan && !hasPlanAccess(plan, item.requiredPlan)) {
+    return { text: item.requiredPlan === 'plus' ? 'Disponível no Plus' : 'Disponível no Essencial', locked: true }
+  }
+  if (item.hintKind === 'diary') {
+    if (plan !== 'free') return { text: 'Ilimitado', locked: false }
+    return stats.diaryLimit != null ? { text: `${stats.diaryThisMonth}/${stats.diaryLimit} este mês`, locked: false } : null
+  }
+  if (item.hintKind === 'mapa' && plan === 'free') return { text: 'Prévia', locked: false }
+  return null
+}
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
   const plan = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
-  const [stats, setStats] = useState({ presence: 0, checkins: 0, reflections: 0, loaded: false })
+  const [stats, setStats] = useState<HomeStats>({ presence: 0, checkins: 0, reflections: 0, diaryThisMonth: 0, diaryLimit: null, loaded: false })
 
   useEffect(() => {
     if (!user) return
     let active = true
     ;(async () => {
       const since = new Date(Date.now() - 30 * 864e5).toISOString()
-      const { data } = await supabase.from('diary_entries').select('created_at,entry_type').eq('user_id', user.id).gte('created_at', since)
+      const [{ data }, diaryCfg] = await Promise.all([
+        supabase.from('diary_entries').select('created_at,entry_type,date').eq('user_id', user.id).gte('created_at', since),
+        fetchDiaryConfig(profile?.plan ?? 'free'),
+      ])
       if (!active) return
-      const entries = (data ?? []) as { created_at?: string; entry_type?: string }[]
+      const entries = (data ?? []) as { created_at?: string; entry_type?: string; date?: string }[]
       const days = new Set(entries.map(e => String(e.created_at ?? '').slice(0, 10)))
       // Separa check-ins rápidos de reflexões completas (§8) para os números baterem
       // com o que cada registro realmente é.
       const checkins = entries.filter(e => e.entry_type === 'checkin').length
       const reflections = entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
+      // Mesma regra de mês-calendário usada no aviso de limite do DiaryPage —
+      // conta só entradas de diário completo (check-in nunca entra no limite).
+      const monthKey = ymd(new Date()).slice(0, 7)
+      const diaryThisMonth = entries.filter(e => (e.entry_type ?? 'diary') === 'diary' && String(e.date ?? '').startsWith(monthKey)).length
       setStats({
         presence: Math.min(100, Math.round((days.size / 30) * 100)),
         checkins,
         reflections,
+        diaryThisMonth,
+        diaryLimit: diaryCfg.entriesPerMonth,
         loaded: true,
       })
     })()
     return () => { active = false }
-  }, [user])
+  }, [user, profile?.plan])
 
   const upgrade =
     plan === 'free'
@@ -116,20 +158,28 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           <section>
             <h2 className="font-serif text-lg sm:text-xl text-forest-900 mb-3 px-1">Acesso rápido</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {QUICK.map(q => (
-                <button
-                  key={q.title}
-                  onClick={() => onNavigate(q.to)}
-                  className="group text-left bg-paper-soft border border-line rounded-2xl p-4 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-                >
-                  <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 mb-3">
-                    <q.Icon className="w-5 h-5" />
-                  </span>
-                  <p className="font-serif text-base text-forest-900 leading-tight">{q.title}</p>
-                  <p className="text-xs text-ink-soft mt-1 leading-snug line-clamp-2">{q.desc}</p>
-                  <ArrowRight className="w-4 h-4 text-ink-soft mt-2 group-hover:translate-x-0.5 group-hover:text-forest-700 transition-all" />
-                </button>
-              ))}
+              {QUICK.map(q => {
+                const hint = quickHint(q, plan, stats)
+                return (
+                  <button
+                    key={q.title}
+                    onClick={() => onNavigate(q.to)}
+                    className="group text-left bg-paper-soft border border-line rounded-2xl p-4 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+                  >
+                    <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 mb-3">
+                      <q.Icon className="w-5 h-5" />
+                    </span>
+                    <p className="font-serif text-base text-forest-900 leading-tight">{q.title}</p>
+                    <p className="text-xs text-ink-soft mt-1 leading-snug line-clamp-2">{q.desc}</p>
+                    {hint && (
+                      <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${hint.locked ? 'bg-stone-100 text-stone-500' : 'bg-mint text-forest-700'}`}>
+                        {hint.locked && <Lock className="w-2.5 h-2.5" />} {hint.text}
+                      </span>
+                    )}
+                    <ArrowRight className="w-4 h-4 text-ink-soft mt-2 group-hover:translate-x-0.5 group-hover:text-forest-700 transition-all" />
+                  </button>
+                )
+              })}
               {/* Novo check-in — destaque */}
               <button
                 onClick={() => onNavigate('diary')}

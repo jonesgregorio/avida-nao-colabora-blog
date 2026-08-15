@@ -30,6 +30,7 @@ export interface CarePlanContent {
   attention_point: string
   small_commitment: string
   checkin_suggestion: string
+  practical_tips: string[]
   reflection_questions: string[]
   final_message: string
 }
@@ -110,6 +111,7 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     '- Baseie-se SOMENTE nas métricas fornecidas. Não invente fatos, dias ou padrões que os dados não sustentam.',
     '- Se dados_suficientes for false, deixe o texto mais suave e incentive registrar mais, sem forçar conclusões.',
     '- Escreva em português do Brasil.',
+    '- OBRIGATÓRIO: preencha TODOS os campos de "care_plan" — nenhum pode ficar vazio ou genérico demais. Cada campo de texto precisa ter 1 a 3 frases com orientação prática de verdade (não apenas um título ou uma palavra).',
     '',
     'MÉTRICAS DO MÊS (JSON):',
     JSON.stringify(metrics, null, 2),
@@ -130,10 +132,11 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
   "care_plan": {
     "monthly_priority": "...",
     "main_care": "...",
-    "recommended_practice": "...",
+    "recommended_practice": "descreva 1-2 práticas concretas, com um mínimo de 'como fazer'",
     "attention_point": "...",
     "small_commitment": "...",
     "checkin_suggestion": "...",
+    "practical_tips": ["3 a 5 dicas curtas e práticas de autocuidado para o mês, complementares ao cuidado principal — cada uma com uma ação clara"],
     "reflection_questions": ["3 a 5 perguntas"],
     "final_message": "mensagem curta e humana"
   },
@@ -167,8 +170,30 @@ function validate(parsed: unknown): CarePlanResult | null {
   const p = parsed as Record<string, unknown>
   const s = (p.summary ?? {}) as Record<string, unknown>
   const c = (p.care_plan ?? {}) as Record<string, unknown>
-  // precisa ter ao menos o essencial do plano
-  if (!asString(c.monthly_priority) && !asString(c.main_care) && !asString(s.general_overview)) return null
+  const care_plan: CarePlanContent = {
+    monthly_priority: asString(c.monthly_priority),
+    main_care: asString(c.main_care),
+    recommended_practice: asString(c.recommended_practice),
+    attention_point: asString(c.attention_point),
+    small_commitment: asString(c.small_commitment),
+    checkin_suggestion: asString(c.checkin_suggestion),
+    practical_tips: asStringArray(c.practical_tips),
+    reflection_questions: asStringArray(c.reflection_questions),
+    final_message: asString(c.final_message),
+  }
+  // A IA às vezes devolve o JSON só parcialmente preenchido (bug relatado: "não
+  // preenche todos os campos"). Em vez de aceitar um plano pela metade, exige
+  // TODOS os campos essenciais — se faltar algo, rejeita (generateCarePlanAI
+  // tenta de novo e, no limite, cai no rascunho determinístico, que é sempre
+  // completo).
+  const scalarsComplete = [
+    care_plan.monthly_priority, care_plan.main_care, care_plan.recommended_practice,
+    care_plan.attention_point, care_plan.small_commitment, care_plan.checkin_suggestion,
+    care_plan.final_message,
+  ].every(Boolean)
+  if (!scalarsComplete || care_plan.reflection_questions.length < 2 || care_plan.practical_tips.length < 2) {
+    return null
+  }
   return {
     summary: {
       general_overview: asString(s.general_overview),
@@ -180,16 +205,7 @@ function validate(parsed: unknown): CarePlanResult | null {
       patterns: asStringArray(s.patterns),
       attention_points: asStringArray(s.attention_points),
     },
-    care_plan: {
-      monthly_priority: asString(c.monthly_priority),
-      main_care: asString(c.main_care),
-      recommended_practice: asString(c.recommended_practice),
-      attention_point: asString(c.attention_point),
-      small_commitment: asString(c.small_commitment),
-      checkin_suggestion: asString(c.checkin_suggestion),
-      reflection_questions: asStringArray(c.reflection_questions),
-      final_message: asString(c.final_message),
-    },
+    care_plan,
     recommended_content_tags: asStringArray(p.recommended_content_tags),
     generatedByAI: true,
     hasEnoughData: true,
@@ -217,6 +233,11 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
       attention_point: dr.selfCarePlan.attention,
       small_commitment: dr.selfCarePlan.commitment,
       checkin_suggestion: dr.selfCarePlan.checkin,
+      practical_tips: dr.patterns.length > 0 ? dr.patterns.slice(0, 4) : [
+        'Reserve alguns minutos do seu dia só para você, sem cobrança de produtividade.',
+        'Beba água e faça pausas curtas entre tarefas — pequenos cuidados físicos ajudam o emocional.',
+        'Quando perceber tensão, experimente respirar fundo por alguns segundos antes de continuar.',
+      ],
       reflection_questions: dr.reflectionQuestions,
       final_message: 'Este plano não precisa ser seguido com perfeição. Ele é um ponto de apoio para perceber seus sinais com mais cuidado e escolher pequenos passos possíveis.',
     },
@@ -234,12 +255,17 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
 export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummary): Promise<CarePlanResult> {
   // Poucos dados: não força a IA a inventar; entrega rascunho suave direto.
   if (!rs.hasEnoughData) return fallbackCarePlan(a, rs.monthLabel)
-  try {
-    const raw = await generateWithFailover(buildCarePlanPrompt(rs))
-    const parsed = validate(extractJson(raw))
-    if (parsed) return parsed
-  } catch {
-    /* cai no fallback */
+  // Até 2 tentativas: validate() agora rejeita respostas com campos faltando,
+  // então uma 2ª tentativa muitas vezes já resolve antes de cair no rascunho
+  // determinístico (mais genérico que o da IA).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await generateWithFailover(buildCarePlanPrompt(rs))
+      const parsed = validate(extractJson(raw))
+      if (parsed) return parsed
+    } catch {
+      /* tenta de novo; se for a última tentativa, cai no fallback abaixo */
+    }
   }
   return fallbackCarePlan(a, rs.monthLabel)
 }

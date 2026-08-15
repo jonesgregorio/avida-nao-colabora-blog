@@ -234,6 +234,15 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
           {c?.small_commitment && <Field label="Pequeno compromisso possível" value={c.small_commitment} />}
           {c?.checkin_suggestion && <Field label="Sugestão de check-in" value={c.checkin_suggestion} />}
 
+          {(c?.practical_tips?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Dicas práticas</p>
+              <ul className="space-y-1.5">
+                {c!.practical_tips.map((t, i) => <li key={i} className="text-sm text-ink leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{t}</li>)}
+              </ul>
+            </div>
+          )}
+
           {(c?.reflection_questions?.length ?? 0) > 0 && (
             <div>
               <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><HelpCircle className="w-3.5 h-3.5" /> Perguntas para reflexão</p>

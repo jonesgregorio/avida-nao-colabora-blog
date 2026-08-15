@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   MessageSquare, CheckCircle, Clock, Send, Loader2, Filter, Sparkles,
-  ChevronLeft, Search, Users, Calendar, Bookmark, RefreshCw,
+  ChevronLeft, Search, Users, Calendar, Bookmark, RefreshCw, LifeBuoy,
 } from 'lucide-react'
 import { generateWithFailover } from '../../lib/aiContent'
 import { emailGuidanceAnsweredForUser } from '../../lib/emailTriggers'
+import { detectRisk } from '../../lib/contentRecommendation'
 
 interface GuidanceRequest {
   id: string
@@ -58,6 +59,20 @@ function daysSince(iso: string) {
 function sentAtLabel(iso: string) {
   const d = new Date(iso)
   return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+// §15: mesma detecção de linguagem de risco usada no check-in/diário. Aqui só
+// sinaliza visualmente (o admin já lê o texto) — não muda a ordenação FIFO,
+// para não esconder outras solicitações antigas.
+function isRisky(r: GuidanceRequest): boolean {
+  return detectRisk(r.message) || detectRisk(r.context)
+}
+function RiskBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+      <LifeBuoy className="w-3 h-3" /> Sinal de risco
+    </span>
+  )
 }
 
 // Prazo de resposta prometido ao usuário: 7 dias CORRIDOS a partir do envio.
@@ -363,6 +378,7 @@ export default function AdminGuidanceRequests() {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-medium text-forest-900 text-sm">{r.user?.full_name ?? 'Usuário'}</p>
                           {r.user?.plan && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[r.user.plan] ?? 'bg-stone-100'}`}>{PLAN_LABELS[r.user.plan] ?? r.user.plan}</span>}
+                          {isRisky(r) && <RiskBadge />}
                           <span className="text-xs text-stone-300">·</span>
                           <span className="text-xs text-stone-400 capitalize">{monthLabel(r.month_key)}</span>
                         </div>
@@ -406,6 +422,7 @@ export default function AdminGuidanceRequests() {
                     <p className="font-semibold text-forest-900">{selected.user?.full_name ?? 'Usuário'}</p>
                     {selected.user?.plan && <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[selected.user.plan] ?? 'bg-stone-100'}`}>{PLAN_LABELS[selected.user.plan] ?? selected.user.plan}</span>}
                     <StatusBadge status={selected.status} />
+                    {isRisky(selected) && <RiskBadge />}
                   </div>
                   {selected.user?.email && <p className="text-xs text-stone-400 mt-0.5 truncate">{selected.user.email}</p>}
                 </div>

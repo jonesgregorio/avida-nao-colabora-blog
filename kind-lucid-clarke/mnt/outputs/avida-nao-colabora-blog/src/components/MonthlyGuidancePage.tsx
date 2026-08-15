@@ -4,6 +4,8 @@ import { MessageSquare, Send, ChevronLeft, ChevronDown, Loader2, CheckCircle, Cl
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
+import { detectRisk } from '../lib/contentRecommendation'
+import RiskHelpBanner from './RiskHelpBanner'
 
 interface Props {
   user: User | null
@@ -68,6 +70,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [expectedHelp, setExpectedHelp] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // §15: se o pedido tiver linguagem de risco, o prazo normal de 7 dias é
+  // longo demais — mostramos apoio imediato (CVV/emergência) além do envio.
+  const [riskFlag, setRiskFlag] = useState(false)
   // Histórico completo (nunca apagado). Cards começam FECHADOS.
   const [requests, setRequests] = useState<GuidanceRequest[]>([])
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
@@ -125,6 +130,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       setSending(false)
       return
     }
+    if (detectRisk(message) || detectRisk(context)) setRiskFlag(true)
     setRequest(data as GuidanceRequest)
     setRequests(prev => [data as GuidanceRequest, ...prev])
     setMessage(''); setContext(''); setExpectedHelp('')
@@ -188,6 +194,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           seu tempo: não há limite de caracteres.
         </p>
       </div>
+
+      {riskFlag && <div className="mb-5"><RiskHelpBanner /></div>}
 
       {/* Destaque do mês: até quando pode solicitar / quando reabre */}
       {request ? (
