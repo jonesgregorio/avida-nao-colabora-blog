@@ -129,24 +129,6 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     }
   }
 
-  // Tabela Item | Sugestão (plano de autocuidado).
-  const kvTable = (rows: [string, string][]) => {
-    const c1 = 148, c2 = contentW - c1
-    rows.forEach((r, i) => {
-      const lines = pdf.splitTextToSize(clean(r[1]), c2 - 20) as string[]
-      const h = Math.max(22, lines.length * 12 + 10)
-      ensure(h)
-      pdf.setFillColor(...(i % 2 === 0 ? CARD : [255, 255, 255] as RGB)); pdf.rect(M, y, contentW, h, 'F')
-      pdf.setDrawColor(...LINE); pdf.setLineWidth(0.5); pdf.rect(M, y, contentW, h); pdf.line(M + c1, y, M + c1, y + h)
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8.5); pdf.setTextColor(...FOREST)
-      ;(pdf.splitTextToSize(clean(r[0]), c1 - 20) as string[]).forEach((ln, k) => pdf.text(ln, M + 10, y + 15 + k * 11))
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9.5); pdf.setTextColor(...INK)
-      lines.forEach((ln, k) => pdf.text(ln, M + c1 + 10, y + 15 + k * 12))
-      y += h
-    })
-    y += 10
-  }
-
   // Mini-gráficos.
   const chartLine = (title: string, data: { day: number; value: number }[], rgb: RGB) => {
     subLabel(title)
@@ -252,7 +234,6 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
       { label: 'Emoção predominante', value: c.topEmotions?.[0]?.label ?? '—' },
     ])
     noteBox('Ponto de atenção', atencao)
-    noteBox('Prioridade sugerida do mês', c.selfCarePlan.priority)
     if (!c.hasEnoughData) noteBox('Sobre a precisão deste relatório', 'Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Para relatórios mais completos, registre check-ins, diários e questionários ao longo do mês.', 'amber')
 
     heading('Resumo geral do mês'); para(c.summary)
@@ -267,16 +248,10 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     heading('Momentos de melhora'); para(c.improvementMoments)
     heading('Comparação com o mês anterior'); bullets(c.monthlyComparison)
     if (recTitles.length) { heading('Conteúdos guiados recomendados'); bullets(recTitles) }
-    heading('Plano de autocuidado sugerido')
-    kvTable([
-      ['Prioridade do mês', c.selfCarePlan.priority],
-      ['Cuidado principal', c.selfCarePlan.mainCare],
-      ['Prática recomendada', c.selfCarePlan.practice],
-      ['Ponto de atenção', c.selfCarePlan.attention],
-      ['Pequeno compromisso', c.selfCarePlan.commitment],
-    ])
     heading('Perguntas para reflexão'); bullets(c.reflectionQuestions)
-    heading('Síntese para orientação'); noteBox('', c.guidanceSynthesis)
+    heading('Próximos recursos')
+    noteBox('Plano de autocuidado', c.bridgeToSelfCarePlan ?? 'Seu plano de autocuidado pode transformar um ponto deste mês em uma ação leve para o próximo ciclo.')
+    noteBox('Orientação mensal', c.bridgeToProfessionalGuidance ?? 'Se fizer sentido, leve um ponto deste relatório para sua orientação mensal.')
   }
 
   heading('Aviso importante'); para(DISCLAIMER, 4, 9)

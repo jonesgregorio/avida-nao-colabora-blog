@@ -841,7 +841,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </div>
         <div className="space-y-4">
           <LockedSection title="Relatório semanal automático" description="Resumo da semana com emoções, marcadores emocionais, energia, ansiedade e conteúdos recomendados. Disponível no plano Essencial." onUpgrade={onNavigatePricing} />
-          <LockedSection title="Relatório mensal aprofundado" description="Leitura completa do mês — padrões, plano de autocuidado e síntese para orientação. Disponível no plano Plus." onUpgrade={onNavigatePricing} />
+          <LockedSection title="Relatório mensal aprofundado" description="Leitura retrospectiva do mês com padrões emocionais, evolução, contextos, necessidades, sinais de melhora, dias de atenção e perguntas de reflexão. Disponível no Plus." onUpgrade={onNavigatePricing} />
         </div>
         <button onClick={onNavigateDiary} className="mt-6 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium hover:text-forest-900"><BookOpen className="w-4 h-4" /> Abrir meu diário</button>
       </div>

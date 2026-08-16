@@ -54,7 +54,7 @@ export interface WeeklyContent {
   topTrigger?: string | null
 }
 
-export interface MonthlyContent extends DeepReport {
+export interface MonthlyContent extends Omit<DeepReport, 'selfCarePlan' | 'guidanceSynthesis'> {
   kind: 'monthly'
   v?: number
   narrative: { phase: string; text: string }[]
@@ -74,6 +74,9 @@ export interface MonthlyContent extends DeepReport {
   anxietyByDay: DayPoint[]
   checkinCount: number
   diaryCount: number
+  /** Pontes curtas; o plano e a orientação permanecem em suas próprias áreas. */
+  bridgeToSelfCarePlan?: string
+  bridgeToProfessionalGuidance?: string
 }
 
 export type ReportContent = WeeklyContent | MonthlyContent
@@ -125,8 +128,11 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
 
 export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string): MonthlyContent {
   const deep = buildDeepReport(analysis, periodLabel)
+  const retrospective = { ...deep }
+  delete (retrospective as Partial<DeepReport>).selfCarePlan
+  delete (retrospective as Partial<DeepReport>).guidanceSynthesis
   return {
-    ...deep, kind: 'monthly', v: CONTENT_VERSION,
+    ...retrospective, kind: 'monthly', v: CONTENT_VERSION,
     narrative: deriveNarrative(analysis),
     relations: deriveRelations(analysis),
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
@@ -134,6 +140,8 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     topContexts: analysis.contexts.slice(0, 6), topNeeds: analysis.needs.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
     checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,
+    bridgeToSelfCarePlan: 'Com base nesta leitura, seu plano de autocuidado pode transformar um ponto de atenção em uma ação leve para o próximo ciclo.',
+    bridgeToProfessionalGuidance: 'Se fizer sentido, leve um ponto deste mês para sua orientação mensal.',
   }
 }
 

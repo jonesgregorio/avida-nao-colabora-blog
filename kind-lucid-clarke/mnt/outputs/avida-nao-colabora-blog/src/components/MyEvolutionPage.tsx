@@ -213,9 +213,13 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
     setLoading(true)
 
     const [y, m] = selectedMonth.split('-').map(Number)
-    const start = new Date(y, m - 1, 1).toISOString()
-    const end = new Date(y, m, 1).toISOString()
-    const prevStart = new Date(y, m - 2, 1).toISOString()
+    const boundary = (offset: number) => {
+      const d = new Date(y, m - 1 + offset, 1, 12)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    }
+    const start = boundary(0)
+    const end = boundary(1)
+    const prevStart = boundary(-1)
     const prevEnd = start
 
     Promise.all([
@@ -526,8 +530,8 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     const prevStart = new Date(y, m - 2, 1).toISOString()
     const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags,entry_type,created_at,date'
     Promise.all([
-      supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', start).lt('created_at', end),
-      supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', prevStart).lt('created_at', start),
+      supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', start).lt('date', end),
+      supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', prevStart).lt('date', start),
     ]).then(([cur, prev]) => {
       setAnalysis(computeEmotionalAnalysis((cur.data ?? []) as DiaryRowLite[], (prev.data ?? []) as DiaryRowLite[]))
       setLoading(false)

@@ -249,12 +249,31 @@ export default function AdminGuidanceRequests() {
       const monthReference = `${selected.month_key}-01`
       // Não enviamos texto do diário: somente records_summary já agregado pelo
       // fluxo mensal, com fallback seguro quando o plano ainda não existe.
-      const { data: carePlan } = await supabase.from('monthly_care_plans')
-        .select('records_summary').eq('user_id', selected.user_id)
-        .eq('month_reference', monthReference).maybeSingle()
+      const [{ data: carePlan }, { data: monthlyReport }, { data: previousGuidance }] = await Promise.all([
+        supabase.from('monthly_care_plans').select('records_summary,care_plan,ai_summary_json').eq('user_id', selected.user_id)
+          .eq('month_reference', monthReference).maybeSingle(),
+        supabase.from('reports').select('content,summary,period_start,period_end').eq('user_id', selected.user_id)
+          .eq('report_type', 'monthly').gte('period_start', monthReference).order('period_start', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('monthly_guidance_requests').select('response,month_key').eq('user_id', selected.user_id)
+          .neq('id', selected.id).not('response', 'is', null).order('month_key', { ascending: false }).limit(3),
+      ])
+      // O relatório mensal salvo é a fonte principal; o resumo do plano é só
+      // complemento. Assim a orientação não depende exclusivamente de
+      // records_summary e continua usando dados agregados, sem texto íntimo.
+      const report = monthlyReport as { content?: SummaryRecord; summary?: string; period_start?: string; period_end?: string } | null
+      const care = carePlan as { records_summary?: SummaryRecord; care_plan?: SummaryRecord; ai_summary_json?: SummaryRecord } | null
+      const combined: SummaryRecord = {
+        ...(care?.records_summary ?? {}),
+        ...(report?.content ?? {}),
+        period_start: report?.period_start ?? monthReference,
+        period_end: report?.period_end ?? `${selected.month_key}-31`,
+        monthly_report_summary: report?.summary ?? null,
+        self_care_plan: care?.care_plan ?? null,
+        previous_guidance_count: previousGuidance?.length ?? 0,
+      }
       const summary = summaryFromStoredData(
         selected.month_key, selected.user?.plan,
-        (carePlan as { records_summary?: SummaryRecord } | null)?.records_summary ?? null,
+        combined,
       )
       const raw = await generateWithFailover(buildProfessionalGuidancePrompt(summary, selected, adminNotes))
       const text = extractDraft(raw)
