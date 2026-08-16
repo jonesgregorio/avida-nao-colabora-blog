@@ -7,6 +7,8 @@ import {
 import { generateWithFailover } from '../../lib/aiContent'
 import { emailGuidanceAnsweredForUser } from '../../lib/emailTriggers'
 import { detectRisk } from '../../lib/contentRecommendation'
+import { buildProfessionalGuidancePrompt } from '../../lib/aiPrompts/emotionalPrompts'
+import type { EmotionalSummary } from '../../lib/emotionalAnalytics'
 
 interface GuidanceRequest {
   id: string
@@ -88,30 +90,53 @@ function dueShort(iso: string): string {
   return responseDueDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
-// Monta o prompt de rascunho: usa APENAS o pedido do usuário + as anotações da
-// equipe. Linguagem acolhedora e nunca diagnóstica.
-function buildGuidancePrompt(req: GuidanceRequest, notes: string): string {
-  return [
-    'Você ajuda uma equipe de bem-estar a escrever uma resposta de ORIENTAÇÃO POR MENSAGEM (apoio individual e NÃO emergencial) para uma pessoa usuária de um app de saúde emocional.',
-    '',
-    'REGRAS OBRIGATÓRIAS:',
-    '- Escreva em português do Brasil, com tom acolhedor, humano e prático.',
-    '- NUNCA diagnostique. Não use: "diagnóstico", "transtorno", "tratamento", "prescrição", "sessão", "consulta", "terapêutico", "psicanalista", "cura".',
-    '- Use "seus registros sugerem", "vale observar", "pode ser útil perceber".',
-    '- Baseie-se SOMENTE no que a pessoa escreveu e nas anotações da equipe. Não invente fatos.',
-    '- Quando fizer sentido, lembre com delicadeza que esta orientação não substitui acompanhamento profissional e não é um canal de emergência.',
-    '',
-    `NOME DA PESSOA: ${req.user?.full_name || 'não informado'}`,
-    '',
-    'PEDIDO DA PESSOA:',
-    req.message,
-    req.context ? `O que já tentou: ${req.context}` : '',
-    req.expected_help ? `Tipo de ajuda esperada: ${req.expected_help}` : '',
-    '',
-    notes.trim() ? `ANOTAÇÕES DA EQUIPE (incorpore com naturalidade os pontos abaixo):\n${notes.trim()}` : '(Sem anotações extras da equipe.)',
-    '',
-    'Escreva a resposta final pronta para revisão (2 a 5 parágrafos curtos), começando por um cumprimento acolhedor pelo nome quando houver. Sem markdown, sem títulos — apenas a mensagem.',
-  ].filter(Boolean).join('\n')
+type SummaryRecord = Record<string, unknown>
+const asList = (value: unknown): { tag: string; count: number }[] => Array.isArray(value)
+  ? value.map(item => typeof item === 'string' ? { tag: item, count: 1 } : item as { tag?: unknown; count?: unknown })
+    .filter(item => typeof item.tag === 'string')
+    .map(item => ({ tag: String(item.tag), count: Number(item.count) || 1 }))
+  : []
+const asEmotions = (value: unknown) => asList(value).map(item => ({ label: item.tag, count: item.count, emoji: '•' }))
+
+/** Converte somente métricas previamente agregadas em um resumo seguro para IA. */
+function summaryFromStoredData(monthKey: string, plan: string | undefined, source: SummaryRecord | null): EmotionalSummary {
+  const total = Number(source?.totalEntries ?? source?.total_entries ?? 0) || 0
+  const activeDays = Number(source?.activeDays ?? source?.active_days ?? 0) || 0
+  const quality = total >= 5 && activeDays >= 3 ? 'high' : total >= 3 ? 'medium' : 'low'
+  return {
+    period_start: `${monthKey}-01`, period_end: `${monthKey}-31`,
+    plan: plan === 'plus' || plan === 'therapeutic' || plan === 'therapeutic-plus' ? 'plus' : 'essential',
+    total_entries: total,
+    total_checkins: Number(source?.checkinCount ?? source?.checkin_count ?? 0) || 0,
+    total_main_diaries: Number(source?.diaryCount ?? source?.diary_count ?? 0) || 0,
+    total_addons: 0, active_days: activeDays,
+    dominant_emotions: asEmotions(source?.topEmotions ?? source?.top_emotions),
+    emotional_markers: asList(source?.emotionalMarkers ?? source?.emotional_markers),
+    contexts: asList(source?.contexts), needs: asList(source?.needs),
+    care_actions: asList(source?.careActions ?? source?.care_actions),
+    real_triggers: asList(source?.realTriggers ?? source?.real_triggers),
+    averages: {
+      mood: Number(source?.avgMood ?? source?.avg_mood ?? 0) || 0,
+      energy: Number(source?.avgEnergy ?? source?.avg_energy ?? 0) || 0,
+      anxiety: Number(source?.avgAnxiety ?? source?.avg_anxiety ?? 0) || 0,
+      sleep: Number(source?.avgSleep ?? source?.avg_sleep ?? 0) || 0,
+      selfEsteem: Number(source?.avgSelfEsteem ?? source?.avg_self_esteem ?? 0) || 0,
+      stress: Number(source?.avgStress ?? source?.avg_stress ?? 0) || 0,
+    },
+    data_quality: {
+      has_enough_data: quality !== 'low', total_entries: total, active_days: activeDays,
+      confidence_level: quality,
+      message: quality === 'low' ? 'Há poucos registros agregados neste período; evite conclusões amplas.' : 'Há dados agregados suficientes para uma leitura cuidadosa.',
+    },
+  }
+}
+
+function extractDraft(raw: string): string {
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '') as { draft?: unknown }
+    if (typeof json.draft === 'string' && json.draft.trim()) return json.draft.trim()
+  } catch { /* fallback: resposta não estruturada do provedor */ }
+  return raw.trim()
 }
 
 export default function AdminGuidanceRequests() {
@@ -221,7 +246,18 @@ export default function AdminGuidanceRequests() {
     if (!selected) return
     setGenerating(true)
     try {
-      const text = await generateWithFailover(buildGuidancePrompt(selected, adminNotes))
+      const monthReference = `${selected.month_key}-01`
+      // Não enviamos texto do diário: somente records_summary já agregado pelo
+      // fluxo mensal, com fallback seguro quando o plano ainda não existe.
+      const { data: carePlan } = await supabase.from('monthly_care_plans')
+        .select('records_summary').eq('user_id', selected.user_id)
+        .eq('month_reference', monthReference).maybeSingle()
+      const summary = summaryFromStoredData(
+        selected.month_key, selected.user?.plan,
+        (carePlan as { records_summary?: SummaryRecord } | null)?.records_summary ?? null,
+      )
+      const raw = await generateWithFailover(buildProfessionalGuidancePrompt(summary, selected, adminNotes))
+      const text = extractDraft(raw)
       setSuggestion(text)
       setResponse(prev => prev.trim() ? prev : text)
       showToast('Sugestão gerada. Revise e ajuste antes de enviar.')
