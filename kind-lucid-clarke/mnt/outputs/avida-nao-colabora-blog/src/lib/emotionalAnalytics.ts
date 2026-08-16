@@ -21,6 +21,7 @@ export interface DiaryRowLite {
   care_action_tags?: string[] | string | null
   trigger_tags?: string[] | string | null
   entry_type?: string | null
+  diary_kind?: string | null
   created_at?: string | null
   date?: string | null
 }
@@ -498,4 +499,47 @@ export function deriveNarrative(a: EmotionalAnalysis): { phase: string; text: st
     return `${ds.length} dia(s) com registro, ${tone}${anxTxt}.`
   }
   return thirds.filter(t => t.days.length > 0).map(t => ({ phase: t.phase, text: describe(t.days) }))
+}
+
+/**
+ * Fonte única, segura e sem texto íntimo para relatórios, plano e orientação.
+ * `emotionalMarkers` vem exclusivamente de emotional_tags; `realTriggers`, de
+ * trigger_tags. A camada consumidora decide se o plano pode ver métricas Plus.
+ */
+export interface EmotionalSummary {
+  period_start: string
+  period_end: string
+  plan: 'free' | 'essential' | 'plus'
+  total_entries: number
+  total_checkins: number
+  total_main_diaries: number
+  total_addons: number
+  active_days: number
+  dominant_emotions: EmotionalAnalysis['topEmotions']
+  emotional_markers: EmotionalAnalysis['emotionalMarkers']
+  contexts: EmotionalAnalysis['contexts']
+  needs: EmotionalAnalysis['needs']
+  care_actions: EmotionalAnalysis['careActions']
+  real_triggers: EmotionalAnalysis['realTriggers']
+  averages: EmotionalAnalysis['avg']
+  data_quality: { has_enough_data: boolean; total_entries: number; active_days: number; confidence_level: 'low' | 'medium' | 'high'; message: string }
+}
+
+export function buildEmotionalSummary(entries: DiaryRowLite[], periodStart: string, periodEnd: string, plan: string, previous: DiaryRowLite[] = []): EmotionalSummary {
+  const analysis = computeEmotionalAnalysis(entries, previous)
+  const normalizedPlan = plan === 'plus' ? 'plus' : plan === 'essential' ? 'essential' : 'free'
+  const totalAddons = entries.filter(e => (e as DiaryRowLite & { diary_kind?: string }).diary_kind === 'addon').length
+  const totalMain = analysis.diaryCount - totalAddons
+  const confidence_level = analysis.activeDays >= 10 && analysis.totalEntries >= 12 ? 'high' : analysis.activeDays >= 3 && analysis.totalEntries >= 5 ? 'medium' : 'low'
+  const has_enough_data = confidence_level !== 'low'
+  return {
+    period_start: periodStart, period_end: periodEnd, plan: normalizedPlan,
+    total_entries: analysis.totalEntries, total_checkins: analysis.checkinCount, total_main_diaries: Math.max(0, totalMain), total_addons: totalAddons,
+    active_days: analysis.activeDays, dominant_emotions: analysis.topEmotions,
+    emotional_markers: analysis.emotionalMarkers, contexts: analysis.contexts, needs: analysis.needs, care_actions: analysis.careActions,
+    real_triggers: normalizedPlan === 'plus' ? analysis.realTriggers : [],
+    averages: normalizedPlan === 'plus' ? analysis.avg : { ...analysis.avg, selfEsteem: 0, stress: 0 },
+    data_quality: { has_enough_data, total_entries: analysis.totalEntries, active_days: analysis.activeDays, confidence_level,
+      message: has_enough_data ? 'Há registros suficientes para uma leitura cuidadosa do período.' : 'Seus registros deste período ainda são poucos, então esta leitura deve ser vista como um ponto de partida, não como conclusão.' },
+  }
 }
