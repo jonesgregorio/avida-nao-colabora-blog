@@ -12,6 +12,7 @@ import {
   Mail, ChevronDown,
 } from 'lucide-react'
 import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
+import { PLAN_LABELS } from '../../lib/planConstants'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 import AdminSendUserEmail from './AdminSendUserEmail'
 
@@ -79,10 +80,6 @@ interface PlanHistoryRow {
   created_at: string
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
-  therapeutic: 'Plus', 'therapeutic-plus': 'Plus', // legado → exibe Plus
-}
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-mint text-forest-700',
   essential: 'bg-sky text-[#3d6ea5]',

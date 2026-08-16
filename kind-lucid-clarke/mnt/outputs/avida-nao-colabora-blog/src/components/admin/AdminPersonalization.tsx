@@ -15,13 +15,10 @@ import {
   refreshTasksForAllUsers,
 } from '../../lib/personalizationTasks'
 import { sendPersonalizedDelivery } from '../../services/personalizedDeliveryService'
+import { PLAN_LABELS } from '../../lib/planConstants'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
-  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
-}
 const PLAN_COLORS: Record<string, string> = {
   free: 'bg-stone-100 text-stone-600',
   essential: 'bg-blue-100 text-blue-700',

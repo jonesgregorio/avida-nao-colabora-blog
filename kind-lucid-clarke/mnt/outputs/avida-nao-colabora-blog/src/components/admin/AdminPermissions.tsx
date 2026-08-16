@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { logAdminAction } from '../../lib/adminAudit'
 import { Shield } from 'lucide-react'
 
 interface AdminUser {
@@ -12,9 +14,11 @@ interface AdminUser {
 }
 
 export default function AdminPermissions() {
+  const { user } = useAuth()
   const [admins, setAdmins] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
 
   async function load() {
     const { data } = await supabase
@@ -28,11 +32,30 @@ export default function AdminPermissions() {
 
   useEffect(() => { load() }, [])
 
-  async function revokeAdmin(id: string, name: string) {
-    if (!confirm(`Remover permissão de admin de ${name}?`)) return
-    await supabase.from('profiles').update({ role: 'user' }).eq('id', id)
-    showToast('Permissão removida.')
-    load()
+  async function revokeAdmin(admin: AdminUser) {
+    const isSelf = admin.user_id === user?.id
+    const confirmation = isSelf
+      ? 'Você está prestes a remover a sua própria permissão de administrador. Você perderá acesso imediato ao painel. Deseja continuar?'
+      : `Remover a permissão de administrador de ${admin.full_name || admin.user_id.slice(0, 8)}?`
+    if (!window.confirm(confirmation)) return
+
+    setRevokingId(admin.id)
+    const { error } = await supabase.from('profiles').update({ role: 'user' }).eq('id', admin.id)
+    setRevokingId(null)
+
+    if (error) {
+      showToast(error.message.includes('último administrador')
+        ? 'Não é possível remover o último administrador da plataforma.'
+        : 'Não foi possível atualizar a permissão. Tente novamente.')
+      return
+    }
+
+    void logAdminAction('revoke_admin', 'profile', admin.user_id, {
+      role: 'user',
+      revoked_self: isSelf,
+    })
+    showToast('Permissão removida e registrada no log de auditoria.')
+    void load()
   }
 
   function showToast(msg: string) {
@@ -69,10 +92,11 @@ export default function AdminPermissions() {
                   </p>
                 </div>
                 <button
-                  onClick={() => revokeAdmin(a.id, a.full_name || a.user_id.slice(0, 8))}
-                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50"
+                  onClick={() => void revokeAdmin(a)}
+                  disabled={revokingId === a.id}
+                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-wait"
                 >
-                  Revogar admin
+                  {revokingId === a.id ? 'Revogando…' : 'Revogar admin'}
                 </button>
               </div>
             ))}

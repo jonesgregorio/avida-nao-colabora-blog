@@ -11,34 +11,49 @@ import Hero from './components/Hero'
 import HomeContent from './components/HomeContent'
 import LoggedHome from './components/LoggedHome'
 import UserLayout from './components/user/UserLayout'
-import Articles from './components/Articles'
-import ArticleView from './components/ArticleView'
-import DiaryPage from './components/DiaryPage'
 import Pricing from './components/Pricing'
 import Auth from './components/Auth'
-import ProfilePage from './components/Profile'
 import AboutPage from './components/AboutPage'
 import PrivacyPage from './components/PrivacyPage'
 import TermsPage from './components/TermsPage'
 import { ResponsibilityPage } from './components/ResponsibilityPage'
-import QuestionnairesPage from './components/QuestionnairesPage'
-import QuestionnairePlayer from './components/QuestionnairePlayer'
 import ContactPage from './components/ContactPage'
 import FAQPage from './components/FAQPage'
 import SuccessPage from './components/SuccessPage'
-import SupportPage from './components/SupportPage'
-import SupportTicketDetail from './components/SupportTicketDetail'
-import NotificationsPage from './components/NotificationsPage'
 import ForceChangePassword from './components/ForceChangePassword'
-import MonthlyGuidancePage from './components/MonthlyGuidancePage'
-import ProfessionalCommentsSection from './components/ProfessionalCommentsSection'
-import MyPlanPage from './components/MyPlanPage'
-import MyReportPage from './components/MyReportPage'
-import MyEvolutionPage, { type Tab } from './components/MyEvolutionPage'
-import SelfCarePlanPage from './components/SelfCarePlanPage'
+import type { Tab } from './components/MyEvolutionPage'
 
-// AdminPanel carregado sob demanda — o maior chunk do bundle
+// Páginas de aplicação são carregadas apenas quando a rota exige. Isso preserva
+// a home leve, sem mudar URLs, permissões ou a experiência de navegação.
+const Articles = lazy(() => import('./components/Articles'))
+const ArticleView = lazy(() => import('./components/ArticleView'))
+const DiaryPage = lazy(() => import('./components/DiaryPage'))
+const ProfilePage = lazy(() => import('./components/Profile'))
+const QuestionnairesPage = lazy(() => import('./components/QuestionnairesPage'))
+const QuestionnairePlayer = lazy(() => import('./components/QuestionnairePlayer'))
+const SupportPage = lazy(() => import('./components/SupportPage'))
+const SupportTicketDetail = lazy(() => import('./components/SupportTicketDetail'))
+const NotificationsPage = lazy(() => import('./components/NotificationsPage'))
+const MonthlyGuidancePage = lazy(() => import('./components/MonthlyGuidancePage'))
+const ProfessionalCommentsSection = lazy(() => import('./components/ProfessionalCommentsSection'))
+const MyPlanPage = lazy(() => import('./components/MyPlanPage'))
+const MyReportPage = lazy(() => import('./components/MyReportPage'))
+const MyEvolutionPage = lazy(() => import('./components/MyEvolutionPage'))
+const SelfCarePlanPage = lazy(() => import('./components/SelfCarePlanPage'))
+
+// AdminPanel carregado sob demanda — o maior chunk do bundle.
 const AdminPanel = lazy(() => import('./components/admin'))
+
+function PageLoading() {
+  return (
+    <div className="min-h-[16rem] flex items-center justify-center px-4" role="status" aria-live="polite">
+      <div className="text-center text-sm text-ink-soft">
+        <div className="w-7 h-7 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        Carregando página…
+      </div>
+    </div>
+  )
+}
 
 const PERSIST_KEY = 'avida_nav'
 // Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
@@ -401,18 +416,20 @@ export default function App() {
 
   // Moldura das páginas "app": usuário logado → sidebar (UserLayout);
   // visitante → header público. Mantém a navegação coerente em toda a área logada.
-  const appShell = (content: ReactNode) =>
-    user ? (
+  const appShell = (content: ReactNode) => {
+    const page = <Suspense fallback={<PageLoading />}>{content}</Suspense>
+    return user ? (
       <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
-        {content}
+        {page}
       </UserLayout>
     ) : (
       <>
         <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">{content}</main>
+        <main className="min-h-screen bg-stone-50">{page}</main>
         <Footer onNavigate={navigate} />
       </>
     )
+  }
 
   if (loading) {
     return (

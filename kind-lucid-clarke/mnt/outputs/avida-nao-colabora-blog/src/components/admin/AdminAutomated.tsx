@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { generateWithFailover } from '../../lib/aiContent'
+import { PLAN_LABELS } from '../../lib/planConstants'
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   Sparkles, Loader2, CheckCircle, AlertCircle, Eye, Save
@@ -36,11 +37,6 @@ const FREQUENCIES = [
   { label: 'Quinzenal', value: 'biweekly' },
   { label: 'Mensal', value: 'monthly' },
 ]
-
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
-  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
-}
 
 const TYPE_LABELS: Record<string, string> = Object.fromEntries(TYPES.map(t => [t.value, t.label]))
 const FREQ_LABELS: Record<string, string> = Object.fromEntries(FREQUENCIES.map(f => [f.value, f.label]))

@@ -3,6 +3,7 @@
 // por usuário, conforme plano, período e histórico de envios.
 
 import { supabase } from './supabase'
+import { monthKey } from './dateUtils'
 import { getContentTypeLabel } from './personalizedContentLabels'
 import { generateWithFailover } from './aiContent'
 
@@ -396,9 +397,7 @@ export function biweekKey(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${half}`
 }
 
-export function monthKey(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+export { monthKey }
 
 export function periodKeyForDef(def: TaskDef, d = new Date(), eventId?: string): string {
   switch (def.frequency) {

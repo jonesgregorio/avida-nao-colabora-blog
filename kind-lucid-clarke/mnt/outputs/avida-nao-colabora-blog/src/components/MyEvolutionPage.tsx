@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { hasPlanAccess, getPlanLabel } from '../lib/officialPlans'
+import { monthKey } from '../lib/dateUtils'
 import PlanBadge from './PlanBadge'
 import {
   BarChart2, Heart, Leaf,
@@ -26,10 +27,6 @@ const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconheciment
 // Mapa Emocional é SÓ visualização (§10): Resumo + Gráficos. As demais funções
 // (Relatórios, Plano de Autocuidado, Orientação, Comentário) ficam nos seus menus.
 export type Tab = 'resumo' | 'graficos'
-
-function monthKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-}
 
 function monthLabel(key: string) {
   const [y, m] = key.split('-')
