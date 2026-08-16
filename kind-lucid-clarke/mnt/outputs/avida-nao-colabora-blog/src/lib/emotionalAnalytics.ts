@@ -115,12 +115,13 @@ export interface EmotionalAnalysis {
   topEmotions: { label: string; count: number; emoji: string }[]
   /** Emoção dominante de cada dia ativo (1 voto/dia) — não distorce quando há vários check-ins no mesmo dia. */
   topEmotionsByDay: { label: string; count: number; emoji: string }[]
-  triggers: { tag: string; count: number }[]
+  /** Marcadores emocionais vindos de `emotional_tags` — sentimentos, não gatilhos. */
+  emotionalMarkers: { tag: string; count: number }[]
   /** Contextos, necessidades e ações de cuidado marcados no diário (Essencial+). */
   contexts: { tag: string; count: number }[]
   needs: { tag: string; count: number }[]
   careActions: { tag: string; count: number }[]
-  /** Gatilhos REAIS (§13.1) — Plus. Diferente de `triggers` (que são sentimentos). */
+  /** Gatilhos REAIS (§13.1) — Plus. Diferente dos marcadores emocionais. */
   realTriggers: { tag: string; count: number }[]
   periods: PeriodStat[]
   calendar: { day: number; label: string; avg: number; count: number }[]
@@ -163,10 +164,10 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
   const topEmotions = Object.entries(emoCount).sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([label, count]) => ({ label, count, emoji: MOOD_EMOJI[label] ?? '•' }))
 
-  // Gatilhos (emotional_tags).
+  // Marcadores emocionais (emotional_tags).
   const tagCount: Record<string, number> = {}
   for (const e of entries) for (const t of tagsOf(e)) { const k = t.trim(); if (k) tagCount[k] = (tagCount[k] ?? 0) + 1 }
-  const triggers = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count }))
+  const emotionalMarkers = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count }))
 
   // Contextos, necessidades e ações de cuidado (Essencial+).
   const contexts = tagRanking(entries, e => e.context_tags)
@@ -286,7 +287,7 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
     moodByDay: seriesByDay(entries, moodScoreOf),
     energyByDay: seriesByDay(entries, en),
     anxietyByDay: seriesByDay(entries, anx),
-    topEmotions, topEmotionsByDay, triggers, contexts, needs, careActions, realTriggers, periods, calendar, energyAnxiety,
+    topEmotions, topEmotionsByDay, emotionalMarkers, contexts, needs, careActions, realTriggers, periods, calendar, energyAnxiety,
     weekly: { hasData: weeklyLines.length > 0, lines: weeklyLines },
   }
 }
@@ -303,8 +304,8 @@ export function buildEssentialInsights(a: EmotionalAnalysis): string[] {
   if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Energia baixa apareceu junto de ansiedade mais alta em alguns dias.')
   // Comparativo semanal
   if (a.weekly.hasData) out.push(a.weekly.lines[0])
-  // Gatilho recorrente
-  if (a.triggers[0] && a.triggers[0].count >= 2) out.push(`O marcador mais recorrente foi "${a.triggers[0].tag}".`)
+  // Marcador emocional recorrente
+  if (a.emotionalMarkers[0] && a.emotionalMarkers[0].count >= 2) out.push(`O marcador mais recorrente foi "${a.emotionalMarkers[0].tag}".`)
   return out.slice(0, 4)
 }
 
@@ -335,7 +336,7 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
 
   // 8.1 Resumo geral
   const summary = hasEnoughData
-    ? `Em ${monthLabel}, seus registros sugerem uma presença maior de ${(negativeTop ?? top ?? 'algumas emoções').toLowerCase()} em alguns períodos${a.triggers[0] ? `, muitas vezes ligada a "${a.triggers[0].tag}"` : ''}. Apesar disso, também aparecem sinais de recuperação em momentos com mais pausa e menos cobrança. Este é um retrato de autopercepção — não um diagnóstico.`
+    ? `Em ${monthLabel}, seus registros sugerem uma presença maior de ${(negativeTop ?? top ?? 'algumas emoções').toLowerCase()} em alguns períodos${a.emotionalMarkers[0] ? `, muitas vezes ligada a "${a.emotionalMarkers[0].tag}"` : ''}. Apesar disso, também aparecem sinais de recuperação em momentos com mais pausa e menos cobrança. Este é um retrato de autopercepção — não um diagnóstico.`
     : `Este mês ainda tem poucos registros para uma leitura aprofundada. Mesmo assim, alguns sinais iniciais já podem ser observados. Quanto mais check-ins, diários e questionários você registrar, mais clara fica a leitura do seu mês.`
 
   // 8.2 Padrões
@@ -344,7 +345,7 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
   if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) patterns.push('Energia baixa esteve associada a ansiedade percebida mais alta em vários dias.')
   const nightNeg = a.periods.find(p => p.key === 'noite' && p.dominant && NEGATIVE_MOODS.has(p.dominant))
   if (nightNeg) patterns.push(`À noite apareceram mais registros de ${nightNeg.dominant!.toLowerCase()}.`)
-  if (a.triggers[0]) patterns.push(`O marcador "${a.triggers[0].tag}" apareceu junto de registros de ${(negativeTop ?? 'tensão').toLowerCase()}.`)
+  if (a.emotionalMarkers[0]) patterns.push(`O marcador "${a.emotionalMarkers[0].tag}" apareceu junto de registros de ${(negativeTop ?? 'tensão').toLowerCase()}.`)
   if (patterns.length === 0) patterns.push('Ainda não há registros suficientes para identificar padrões claros. Continue registrando para que eles apareçam.')
 
   // 8.3 Emoções predominantes (interpretação cuidadosa)
@@ -358,8 +359,8 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
   const energyAnxietySleep = parts.join(' ')
 
   // 8.5 Gatilhos
-  const triggersText = a.triggers.length > 0
-    ? `Os marcadores mais citados foram ${a.triggers.slice(0, 3).map(t => t.tag).join(', ')}. Eles aparecem ligados a registros de ${(negativeTop ?? 'tensão emocional').toLowerCase()}.`
+  const triggersText = a.emotionalMarkers.length > 0
+    ? `Os marcadores mais citados foram ${a.emotionalMarkers.slice(0, 3).map(t => t.tag).join(', ')}. Eles aparecem ligados a registros de ${(negativeTop ?? 'tensão emocional').toLowerCase()}.`
     : 'Ainda não há gatilhos registrados. Anotar o que aconteceu antes de um registro difícil ajuda a percebê-los.'
 
   // 8.6 Dias de atenção (pior humor / maior ansiedade)
@@ -392,7 +393,7 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
   const reflectionQuestions = [
     negativeTop ? `O que costuma acontecer antes dos dias de mais ${negativeTop.toLowerCase()}?` : 'O que costuma acontecer nos seus dias mais difíceis?',
     'Quais pausas realmente ajudaram neste mês?',
-    a.triggers[0] ? `Como o marcador "${a.triggers[0].tag}" apareceu no seu dia a dia?` : 'Que tipo de cobrança apareceu com mais frequência?',
+    a.emotionalMarkers[0] ? `Como o marcador "${a.emotionalMarkers[0].tag}" apareceu no seu dia a dia?` : 'Que tipo de cobrança apareceu com mais frequência?',
     'O que você gostaria de repetir no próximo mês?',
   ]
 
@@ -408,12 +409,12 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
 
   // 8.12 Síntese para orientação
   const guidanceSynthesis = hasEnoughData
-    ? `Neste mês, os registros indicam ${(negativeTop ?? top ?? 'oscilações emocionais').toLowerCase()} com frequência${a.triggers[0] ? `, principalmente associada a "${a.triggers[0].tag}"` : ''}${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? ' e baixa energia' : ''}. Também aparecem sinais de melhora quando houve pausas e menor sobrecarga. O ponto principal para orientação parece ser como criar pequenas pausas antes do acúmulo emocional.`
+    ? `Neste mês, os registros indicam ${(negativeTop ?? top ?? 'oscilações emocionais').toLowerCase()} com frequência${a.emotionalMarkers[0] ? `, principalmente associada a "${a.emotionalMarkers[0].tag}"` : ''}${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? ' e baixa energia' : ''}. Também aparecem sinais de melhora quando houve pausas e menor sobrecarga. O ponto principal para orientação parece ser como criar pequenas pausas antes do acúmulo emocional.`
     : `Ainda há poucos registros neste mês. Uma primeira leitura sugere começar observando ${(negativeTop ?? 'como você tem se sentido').toLowerCase()} e registrar com mais frequência para uma orientação mais precisa.`
 
   // Tags para recomendação de conteúdo (gatilhos + emoções negativas)
   const recommendTags = [...new Set([
-    ...a.triggers.map(t => t.tag),
+    ...a.emotionalMarkers.map(t => t.tag),
     ...a.topEmotions.filter(e => NEGATIVE_MOODS.has(e.label)).map(e => e.label),
   ])]
 
@@ -436,9 +437,9 @@ export function derivePatterns(a: EmotionalAnalysis): string[] {
   const night = a.periods.find(p => p.key === 'noite' && p.dominant && NEGATIVE_MOODS.has(p.dominant))
   if (night) out.push(`Registros à noite trouxeram mais ${night.dominant!.toLowerCase()}.`)
   if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Energia baixa apareceu junto de ansiedade percebida mais alta em vários registros.')
-  if (a.triggers[0]) out.push(`O marcador "${a.triggers[0].tag}" apareceu junto de registros de ${(neg ?? 'tensão').toLowerCase()}.`)
+  if (a.emotionalMarkers[0]) out.push(`O marcador "${a.emotionalMarkers[0].tag}" apareceu junto de registros de ${(neg ?? 'tensão').toLowerCase()}.`)
   const positive = a.topEmotions.filter(e => POSITIVE_MOODS.has(e.label)).reduce((n, e) => n + e.count, 0)
-  if (positive > 0 && a.triggers.length <= 1) out.push('Momentos de tranquilidade apareceram mais em dias com menos gatilhos.')
+  if (positive > 0 && a.emotionalMarkers.length <= 1) out.push('Momentos de tranquilidade apareceram mais em dias com menos marcadores emocionais.')
   if (neg && out.length < 3) out.push(`${neg} apareceu com mais frequência nas suas anotações.`)
   return [...new Set(out)].slice(0, 5)
 }
@@ -451,7 +452,7 @@ export function deriveAttentionPoints(a: EmotionalAnalysis): string[] {
   const sensitive = [...a.periods].filter(p => p.count > 0 && p.dominant && NEGATIVE_MOODS.has(p.dominant)).sort((x, y) => y.avgAnxiety - x.avgAnxiety)[0]
   if (sensitive) out.push(`Acompanhe se a ${sensitive.label.toLowerCase()} continua sendo o período mais sensível.`)
   if (neg === 'Sobrecarga') out.push('Tente registrar o gatilho quando perceber sobrecarga.')
-  else if (a.triggers[0]) out.push(`Perceba se ${(neg ?? 'a tensão').toLowerCase()} aparece mais em dias ligados a "${a.triggers[0].tag}".`)
+  else if (a.emotionalMarkers[0]) out.push(`Perceba se ${(neg ?? 'a tensão').toLowerCase()} aparece mais em dias ligados a "${a.emotionalMarkers[0].tag}".`)
   if (out.length === 0) out.push('Continue registrando check-ins e diários para que os pontos de atenção fiquem mais claros.')
   return out.slice(0, 4)
 }
@@ -469,7 +470,7 @@ export function deriveRelations(a: EmotionalAnalysis): string[] {
   const out: string[] = []
   const neg = negTopOf(a)
   if (a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade')) out.push('Nos dias em que a energia apareceu mais baixa, a ansiedade percebida também tendeu a ser mais alta — seu estado emocional parece mais sensível quando há menos recuperação.')
-  if (a.triggers[0]) out.push(`O gatilho "${a.triggers[0].tag}" apareceu ligado a registros de ${(neg ?? 'tensão').toLowerCase()}.`)
+  if (a.emotionalMarkers[0]) out.push(`O marcador emocional "${a.emotionalMarkers[0].tag}" apareceu ligado a registros de ${(neg ?? 'tensão').toLowerCase()}.`)
   const night = a.periods.find(p => p.key === 'noite')
   if (night && night.avgAnxiety >= 3.5) out.push('Check-ins à noite trouxeram, em média, ansiedade percebida mais alta.')
   if (a.weekdayInsight) out.push(a.weekdayInsight)

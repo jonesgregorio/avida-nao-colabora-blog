@@ -350,7 +350,7 @@ export default function AdminMonthlyCarePlans() {
 
 // ── Drawer de detalhe / edição / envio ────────────────────────────────────────
 function emptySummary(): CareSummary {
-  return { general_overview: '', main_emotions: [], recurring_triggers: [], energy_anxiety_relation: '', attention_days: [], improvement_moments: [], patterns: [], attention_points: [] }
+  return { general_overview: '', main_emotions: [], recurring_emotional_markers: [], energy_anxiety_relation: '', attention_days: [], improvement_moments: [], patterns: [], attention_points: [] }
 }
 function emptyPlan(): CarePlanContent {
   return { monthly_priority: '', main_care: '', recommended_practice: '', attention_point: '', small_commitment: '', checkin_suggestion: '', practical_tips: [], reflection_questions: [], final_message: '' }
@@ -408,13 +408,13 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
 
   // Resolve conteúdos recomendados quando há tags salvas.
   useEffect(() => {
-    const tags = [...summary.recurring_triggers, ...summary.main_emotions].filter(Boolean)
+    const tags = [...(summary.recurring_emotional_markers ?? summary.recurring_triggers ?? []), ...summary.main_emotions].filter(Boolean)
     if (!tags.length) return
     let active = true
     resolveRecommendedContent(tags, 'plus', 4).then(r => { if (active) setContent(r) }).catch(() => {})
     return () => { active = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary.recurring_triggers.join(','), summary.main_emotions.join(',')])
+  }, [(summary.recurring_emotional_markers ?? summary.recurring_triggers ?? []).join(','), summary.main_emotions.join(',')])
 
   async function runAI() {
     if (!analysis) return
@@ -524,10 +524,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
                       {analysis.topEmotions.length === 0 && <span className="text-xs text-stone-400">—</span>}
                     </div>
                   </div>
-                  {analysis.triggers.length > 0 && (
+                  {analysis.emotionalMarkers.length > 0 && (
                     <div className="col-span-2 sm:col-span-4">
-                      <p className="text-xs text-ink-soft mb-1">Gatilhos recorrentes</p>
-                      <p className="text-sm text-stone-700">{analysis.triggers.slice(0, 6).map(t => `${t.tag} (${t.count})`).join(', ')}</p>
+                      <p className="text-xs text-ink-soft mb-1">Marcadores emocionais recorrentes</p>
+                      <p className="text-sm text-stone-700">{analysis.emotionalMarkers.slice(0, 6).map(t => `${t.tag} (${t.count})`).join(', ')}</p>
                     </div>
                   )}
                 </div>
@@ -547,7 +547,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             <Area label="Visão geral do mês" value={summary.general_overview} onChange={v => setSummary({ ...summary, general_overview: v })} ro={readOnly} cls={inputCls} />
             <Area label="Relação energia × ansiedade" value={summary.energy_anxiety_relation} onChange={v => setSummary({ ...summary, energy_anxiety_relation: v })} ro={readOnly} cls={inputCls} rows={2} />
             <ListArea label="Principais emoções" arr={summary.main_emotions} onChange={a => setSummary({ ...summary, main_emotions: a })} ro={readOnly} cls={inputCls} />
-            <ListArea label="Gatilhos recorrentes" arr={summary.recurring_triggers} onChange={a => setSummary({ ...summary, recurring_triggers: a })} ro={readOnly} cls={inputCls} />
+            <ListArea label="Marcadores emocionais recorrentes" arr={summary.recurring_emotional_markers ?? summary.recurring_triggers ?? []} onChange={a => setSummary({ ...summary, recurring_emotional_markers: a })} ro={readOnly} cls={inputCls} />
             <ListArea label="Padrões percebidos" arr={summary.patterns} onChange={a => setSummary({ ...summary, patterns: a })} ro={readOnly} cls={inputCls} />
             <ListArea label="Pontos que merecem atenção" arr={summary.attention_points} onChange={a => setSummary({ ...summary, attention_points: a })} ro={readOnly} cls={inputCls} />
           </section>

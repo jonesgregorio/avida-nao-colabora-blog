@@ -17,7 +17,7 @@ const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 
 
 // Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
 // fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
-const CONTENT_VERSION = 6
+const CONTENT_VERSION = 7
 
 export interface DayPoint { day: number; value: number }
 
@@ -34,7 +34,9 @@ export interface WeeklyContent {
   avgEnergy: number
   avgAnxiety: number
   avgMood: number
-  triggers: { tag: string; count: number }[]
+  emotionalMarkers: { tag: string; count: number }[]
+  /** Compatibilidade com relatórios fechados antes da versão 7. */
+  triggers?: { tag: string; count: number }[]
   // §14.1: contextos que mais apareceram na semana.
   topContexts: { tag: string; count: number }[]
   comparison: string[]
@@ -46,7 +48,9 @@ export interface WeeklyContent {
   checkinCount: number
   diaryCount: number
   dominantEmotion: string | null
-  topTrigger: string | null
+  topEmotionalMarker: string | null
+  /** Compatibilidade com relatórios fechados antes da versão 7. */
+  topTrigger?: string | null
 }
 
 export interface MonthlyContent extends DeepReport {
@@ -58,7 +62,9 @@ export interface MonthlyContent extends DeepReport {
   avgAnxiety: number
   avgSleep: number
   topEmotions: { label: string; count: number; emoji: string }[]
-  topTriggers: { tag: string; count: number }[]
+  topEmotionalMarkers: { tag: string; count: number }[]
+  /** Compatibilidade com relatórios fechados antes da versão 7. */
+  topTriggers?: { tag: string; count: number }[]
   // §14.2: contextos e necessidades mais recorrentes do mês.
   topContexts: { tag: string; count: number }[]
   topNeeds: { tag: string; count: number }[]
@@ -92,13 +98,13 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
   const negativeTop = a.topEmotions.find(e => NEGATIVE.has(e.label))?.label
   const top = a.topEmotions[0]?.label
   const summary = hasEnoughData
-    ? `Nesta semana, seus registros indicam maior presença de ${(negativeTop ?? top ?? 'algumas emoções').toLowerCase()}${a.triggers[0] ? `, muitas vezes ligada a "${a.triggers[0].tag}"` : ''}. ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'A energia média ficou mais baixa nos dias com mais registros de tensão.' : 'Também apareceram momentos de mais leveza ao longo dos dias.'}`
+    ? `Nesta semana, seus registros indicam maior presença de ${(negativeTop ?? top ?? 'algumas emoções').toLowerCase()}${a.emotionalMarkers[0] ? `, muitas vezes ligada a "${a.emotionalMarkers[0].tag}"` : ''}. ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'A energia média ficou mais baixa nos dias com mais registros de tensão.' : 'Também apareceram momentos de mais leveza ao longo dos dias.'}`
     : (a.totalEntries === 0
       ? 'Não encontramos registros suficientes nesta semana. Continue usando check-ins e diário para que o próximo relatório tenha mais informações.'
       : 'Ainda há poucos registros nesta semana para uma leitura mais precisa. Mesmo assim, alguns sinais iniciais aparecem nos seus check-ins.')
   // Interpretação da semana (§6.5) — autopercepção, sem diagnóstico.
   const interpretation = hasEnoughData
-    ? `Seus registros sugerem que os momentos de maior ${(negativeTop ?? 'tensão').toLowerCase()} apareceram ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'junto de baixa energia e sensação de sobrecarga' : 'em alguns momentos da semana'}${a.triggers[0] ? `, muitas vezes ligados a "${a.triggers[0].tag}"` : ''}. Pode ser útil perceber esses sinais antes do acúmulo — pequenas pausas ao longo do dia ajudam.`
+    ? `Seus registros sugerem que os momentos de maior ${(negativeTop ?? 'tensão').toLowerCase()} apareceram ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'junto de baixa energia e sensação de sobrecarga' : 'em alguns momentos da semana'}${a.emotionalMarkers[0] ? `, muitas vezes ligados a "${a.emotionalMarkers[0].tag}"` : ''}. Pode ser útil perceber esses sinais antes do acúmulo — pequenas pausas ao longo do dia ajudam.`
     : 'Ainda há poucos registros para uma leitura mais precisa desta semana. Cada check-in ajuda a revelar seus padrões com mais clareza.'
   return {
     kind: 'weekly', v: CONTENT_VERSION, hasEnoughData, summary, interpretation,
@@ -107,12 +113,12 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     improvementMoments: deriveImprovement(a),
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
-    triggers: a.triggers.slice(0, 5), topContexts: a.contexts.slice(0, 5), comparison: a.weekly.lines,
+    emotionalMarkers: a.emotionalMarkers.slice(0, 5), topContexts: a.contexts.slice(0, 5), comparison: a.weekly.lines,
     nextSteps: ['Fazer um check-in no meio do dia', 'Registrar diário em dias de maior sobrecarga', 'Ler um conteúdo guiado recomendado', 'Acompanhar o padrão no Mapa Emocional'],
-    recommendTags: [...new Set([...a.triggers.map(t => t.tag), ...a.topEmotions.filter(e => NEGATIVE.has(e.label)).map(e => e.label)])],
+    recommendTags: [...new Set([...a.emotionalMarkers.map(t => t.tag), ...a.topEmotions.filter(e => NEGATIVE.has(e.label)).map(e => e.label)])],
     energyByDay: a.energyByDay, anxietyByDay: a.anxietyByDay,
     checkinCount: a.checkinCount, diaryCount: a.diaryCount,
-    dominantEmotion: a.topEmotions[0]?.label ?? null, topTrigger: a.triggers[0]?.tag ?? null,
+    dominantEmotion: a.topEmotions[0]?.label ?? null, topEmotionalMarker: a.emotionalMarkers[0]?.tag ?? null,
   }
 }
 
@@ -123,7 +129,7 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     narrative: deriveNarrative(analysis),
     relations: deriveRelations(analysis),
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
-    topEmotions: analysis.topEmotions.slice(0, 6), topTriggers: analysis.triggers.slice(0, 6),
+    topEmotions: analysis.topEmotions.slice(0, 6), topEmotionalMarkers: analysis.emotionalMarkers.slice(0, 6),
     topContexts: analysis.contexts.slice(0, 6), topNeeds: analysis.needs.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
     checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,

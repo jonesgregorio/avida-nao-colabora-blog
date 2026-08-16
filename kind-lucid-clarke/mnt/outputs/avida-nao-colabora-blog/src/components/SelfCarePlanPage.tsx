@@ -96,7 +96,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
   // Sinal para conteúdos ligados à prioridade do mês (usa o plano novo; se não
   // houver, cai para a revisão legada).
   const focusText = current
-    ? [current.care_plan?.monthly_priority, ...(current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
+    ? [current.care_plan?.monthly_priority, ...(current.ai_summary_json?.recurring_emotional_markers ?? current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
     : reviews[0] ? [reviews[0].next_focus, reviews[0].summary].filter(Boolean).join(' ') : ''
   const focusSignal = focusText ? signalFromTags([focusText]) : null
   const careSignal = focusSignal && focusSignal.hasData ? focusSignal : undefined
