@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Eye, EyeOff, Sprout, HeartHandshake, LineChart, ShieldCheck, Leaf } from 'lucide-react'
 import { emailWelcome } from '../lib/emailTriggers'
+import { trackEvent } from '../lib/analytics'
 import { LogoIcon } from './Logo'
 
 type AuthMode = 'login' | 'signup' | 'reset'
@@ -47,6 +48,7 @@ export default function Auth({ onBack }: AuthProps) {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        trackEvent('login_success', { metadata: { location: 'auth' } })
         onBack()
       } else if (mode === 'signup') {
         const { data: signUpData, error } = await supabase.auth.signUp({
@@ -54,6 +56,7 @@ export default function Auth({ onBack }: AuthProps) {
         })
         if (error) throw error
         if (signUpData.user) {
+          trackEvent('register_success', { user_id: signUpData.user.id, metadata: { location: 'auth' } })
           const uid = signUpData.user.id
           const displayName = name || 'você'
           const tryEmail = (attempt: number) => {

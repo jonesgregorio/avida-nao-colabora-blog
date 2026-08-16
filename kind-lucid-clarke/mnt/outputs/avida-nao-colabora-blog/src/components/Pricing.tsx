@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
+import { trackEvent } from '../lib/analytics'
 import { Check, Loader2, Sprout, Star, LineChart, ShieldCheck } from 'lucide-react'
 import { PLAN_COMPARE_ROWS, PLAN_BENEFITS, type PlanCompareValue } from '../lib/planComparison'
 
@@ -55,7 +56,8 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
   const current = normalize(currentPlan)
 
   const handleSubscribe = async (planKey: PlanKey) => {
-    if (!user) { onNavigateAuth(); return }
+    trackEvent('plan_click', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
+    if (!user) { trackEvent('signup_click', { entity_id: planKey, metadata: { location: 'pricing', plan: planKey } }); onNavigateAuth(); return }
     setLoadingPlan(planKey)
     setError(null)
     try {
@@ -63,6 +65,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
         body: { plan: CHECKOUT_PLAN[planKey] ?? planKey, origin: window.location.origin },
       })
       if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao iniciar o pagamento')
+      trackEvent('checkout_started', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
       window.location.href = data.url
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao redirecionar para pagamento.')
@@ -132,6 +135,8 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                 ) : (
                   <button
                     data-cta={`assinar-${plan.key}`}
+                    data-cta-location="pricing"
+                    data-cta-plan={plan.key}
                     onClick={() => handleSubscribe(plan.key)}
                     disabled={loadingPlan === plan.key}
                     className={`w-full py-3 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 ${

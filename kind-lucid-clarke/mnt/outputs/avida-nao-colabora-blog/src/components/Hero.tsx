@@ -87,6 +87,7 @@ export default function Hero({ onNavigate }: HeroProps) {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
                 data-cta="hero-comecar-gratis"
+                data-cta-location="hero"
                 onClick={() => onNavigate('diary')}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white font-medium text-sm px-6 py-3.5 rounded-2xl transition-colors shadow-sm"
               >
@@ -95,6 +96,8 @@ export default function Hero({ onNavigate }: HeroProps) {
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
+                data-cta="hero-fazer-checkin"
+                data-cta-location="hero"
                 onClick={() => onNavigate('diary')}
                 className="inline-flex items-center gap-2 text-forest-800 font-medium text-sm px-2 py-3.5 hover:text-forest-900 transition-colors"
               >
@@ -151,6 +154,8 @@ export default function Hero({ onNavigate }: HeroProps) {
 
               {selectedMood ? (
                 <button
+                  data-cta="hero-continuar-diario"
+                  data-cta-location="hero"
                   onClick={() => onNavigate(`diary?mood=${HERO_MOOD_TO_CHIP[selectedMood] ?? 'outro'}`)}
                   className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium py-3 rounded-2xl transition-colors"
                 >
@@ -190,6 +195,8 @@ export default function Hero({ onNavigate }: HeroProps) {
               </div>
 
               <button
+                data-cta="hero-saber-mais-plus"
+                data-cta-location="hero"
                 onClick={() => onNavigate('pricing')}
                 className="mt-5 pt-4 border-t border-line w-full inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors"
               >
@@ -214,6 +221,8 @@ export default function Hero({ onNavigate }: HeroProps) {
           {PATHS.map(({ Icon, bg, color, cardBg, title, desc, cta, to }) => (
             <button
               key={title}
+              data-cta={`hero-caminho-${to}`}
+              data-cta-location="hero_paths"
               onClick={() => onNavigate(to)}
               className={`text-left ${cardBg} border border-line rounded-3xl p-6 hover:shadow-md hover:border-forest-200 transition-all group flex flex-col`}
             >

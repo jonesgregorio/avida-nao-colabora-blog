@@ -385,7 +385,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
       ['Visitantes', m.visitors],
       ['Leram artigo', new Set(events.filter(e => e.event === 'article_view').map(e => e.session_id)).size],
       ['Clicaram em CTA', new Set(events.filter(e => e.event === 'cta_click').map(e => e.session_id)).size],
-      ['Criaram conta', signups], ['Assinaram plano', conversions],
+      ['Iniciaram cadastro', new Set(events.filter(e => e.event === 'signup_click').map(e => e.session_id)).size],
+      ['Cadastros confirmados', signups],
+      ['Iniciaram checkout', new Set(events.filter(e => e.event === 'checkout_started').map(e => e.session_id)).size],
+      ['Assinaturas registradas', conversions],
     ]
     fSteps.forEach(([l, n], i) => push([l, n, i > 0 && fSteps[i - 1][1] > 0 ? pct(n, fSteps[i - 1][1]) : '—', i > 0 && fSteps[0][1] > 0 ? pct(n, fSteps[0][1]) : '—']))
     lines.push('')
@@ -596,14 +599,17 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
 
         {tab === 'funnel' && (
           <div className={card}>
-            <h2 className="font-serif text-xl text-forest-900 mb-4">Funil de conversão</h2>
+            <h2 className="font-serif text-xl text-forest-900 mb-1">Funil de conversão</h2>
+            <p className="text-xs text-ink-soft mb-4">Navegação e cliques vêm de eventos; cadastros vêm de perfis criados; assinaturas registradas vêm de <span className="font-mono">plan_change_history</span>, não de receita do Stripe.</p>
             {(() => {
               const steps = [
                 { label: 'Visitantes', n: m.visitors },
                 { label: 'Leram artigo', n: new Set(events.filter(e => e.event === 'article_view').map(e => e.session_id)).size },
                 { label: 'Clicaram em CTA', n: new Set(events.filter(e => e.event === 'cta_click').map(e => e.session_id)).size },
-                { label: 'Criaram conta', n: signups },
-                { label: 'Assinaram plano', n: conversions },
+                { label: 'Iniciaram cadastro', n: new Set(events.filter(e => e.event === 'signup_click').map(e => e.session_id)).size },
+                { label: 'Cadastros confirmados', n: signups },
+                { label: 'Iniciaram checkout', n: new Set(events.filter(e => e.event === 'checkout_started').map(e => e.session_id)).size },
+                { label: 'Assinaturas registradas', n: conversions },
               ]
               const max = Math.max(1, steps[0].n)
               return steps.every(s => s.n === 0) ? <Empty text="Sem dados de funil ainda — depende dos eventos do site (article_view, cta_click) que começam a fluir após o deploy." /> : (
@@ -765,7 +771,10 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
               ['Visitantes', m.visitors],
               ['Leram artigo', new Set(events.filter(e => e.event === 'article_view').map(e => e.session_id)).size],
               ['Clicaram em CTA', new Set(events.filter(e => e.event === 'cta_click').map(e => e.session_id)).size],
-              ['Criaram conta', signups], ['Assinaram plano', conversions],
+              ['Iniciaram cadastro', new Set(events.filter(e => e.event === 'signup_click').map(e => e.session_id)).size],
+              ['Cadastros confirmados', signups],
+              ['Iniciaram checkout', new Set(events.filter(e => e.event === 'checkout_started').map(e => e.session_id)).size],
+              ['Assinaturas registradas', conversions],
             ]
             const max = Math.max(1, steps[0][1])
             return <div className="space-y-2">{steps.map(([l, n], i) => (
@@ -882,13 +891,14 @@ const TOGGLES: { key: keyof SettingsConfig; label: string; hint: string }[] = [
   { key: 'track_web_vitals', label: 'Core Web Vitals', hint: 'LCP, CLS, FCP, TTFB' },
   { key: 'anonymize', label: 'Anonimizar visitante', hint: 'sem IP, sessão aleatória (LGPD)' },
 ]
-interface CustomEvent { id: string; name: string; description: string | null; selector: string | null; url_pattern: string | null; is_active: boolean }
+type CustomInteraction = 'click' | 'submit' | 'view'
+interface CustomEvent { id: string; name: string; description: string | null; selector: string | null; url_pattern: string | null; interaction_type: CustomInteraction; is_active: boolean }
 function AnalyticsSettingsPanel() {
   const [cfg, setCfg] = useState<SettingsConfig>(DEFAULT_CFG)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [ces, setCes] = useState<CustomEvent[]>([])
-  const [nName, setNName] = useState(''); const [nSel, setNSel] = useState(''); const [nUrl, setNUrl] = useState('')
+  const [nName, setNName] = useState(''); const [nSel, setNSel] = useState(''); const [nUrl, setNUrl] = useState(''); const [nInteraction, setNInteraction] = useState<CustomInteraction>('click')
 
   async function load() {
     const [sRes, cRes] = await Promise.all([
@@ -906,9 +916,11 @@ function AnalyticsSettingsPanel() {
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500)
   }
   async function addCE() {
-    if (!nName.trim()) return
-    await supabase.from('analytics_custom_events').insert({ name: nName.trim(), selector: nSel.trim() || null, url_pattern: nUrl.trim() || null })
-    setNName(''); setNSel(''); setNUrl(''); load()
+    const name = nName.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+    if (!name || !nSel.trim()) return
+    try { document.querySelector(nSel.trim()) } catch { return }
+    await supabase.from('analytics_custom_events').insert({ name, selector: nSel.trim(), url_pattern: nUrl.trim() || null, interaction_type: nInteraction })
+    setNName(''); setNSel(''); setNUrl(''); setNInteraction('click'); load()
   }
   async function toggleCE(c: CustomEvent) { await supabase.from('analytics_custom_events').update({ is_active: !c.is_active }).eq('id', c.id); load() }
   async function delCE(c: CustomEvent) { await supabase.from('analytics_custom_events').delete().eq('id', c.id); load() }
@@ -937,17 +949,18 @@ function AnalyticsSettingsPanel() {
 
       <div className={card}>
         <h2 className="font-serif text-xl text-forest-900 mb-1">Eventos personalizados</h2>
-        <p className="text-xs text-ink-soft mb-4">Defina eventos extras a acompanhar (por seletor CSS e/ou padrão de URL). Ficam registrados aqui para orientar a instrumentação.</p>
+        <p className="text-xs text-ink-soft mb-4">Defina eventos extras por seletor CSS. O site aplica somente definições ativas e ignora seletor inválido sem interromper a navegação.</p>
         <div className="flex flex-wrap items-end gap-2 mb-4">
           <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Nome</label><input value={nName} onChange={e => setNName(e.target.value)} placeholder="ex.: clique_whatsapp" className={`${inp} w-full`} /></div>
           <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Seletor CSS</label><input value={nSel} onChange={e => setNSel(e.target.value)} placeholder="[data-cta='whatsapp']" className={`${inp} w-full`} /></div>
+          <div className="min-w-[120px]"><label className="block text-xs text-ink-soft mb-1">Interação</label><select value={nInteraction} onChange={e => setNInteraction(e.target.value as CustomInteraction)} className={`${inp} w-full`}><option value="click">Clique</option><option value="submit">Envio de formulário</option><option value="view">Visualização</option></select></div>
           <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Padrão de URL</label><input value={nUrl} onChange={e => setNUrl(e.target.value)} placeholder="/contato" className={`${inp} w-full`} /></div>
           <button onClick={addCE} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Adicionar</button>
         </div>
         {ces.length === 0 ? <Empty text="Nenhum evento personalizado ainda." /> : (
           <div className="space-y-2">{ces.map(c => (
             <div key={c.id} className="flex items-center justify-between border border-line rounded-xl px-3 py-2">
-              <div><span className="text-sm text-forest-900 font-mono text-xs">{c.name}</span>{(c.selector || c.url_pattern) && <span className="block text-xs text-ink-soft">{c.selector} {c.url_pattern && `· ${c.url_pattern}`}</span>}</div>
+              <div><span className="text-sm text-forest-900 font-mono text-xs">{c.name}</span>{(c.selector || c.url_pattern) && <span className="block text-xs text-ink-soft">{c.interaction_type || 'click'} · {c.selector} {c.url_pattern && `· ${c.url_pattern}`}</span>}</div>
               <div className="flex items-center gap-2">
                 <button onClick={() => toggleCE(c)} className={`text-xs px-2 py-1 rounded-lg ${c.is_active ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-400'}`}>{c.is_active ? 'ativo' : 'inativo'}</button>
                 <button onClick={() => delCE(c)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>

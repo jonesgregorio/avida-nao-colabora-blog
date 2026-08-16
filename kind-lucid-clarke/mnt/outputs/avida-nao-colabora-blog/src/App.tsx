@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
 import { confirmDialog } from './lib/confirmDialog'
-import { trackEvent, initWebVitals, initAcquisition, initCustomEvents } from './lib/analytics'
+import { trackEvent, initWebVitals, initAcquisition, initCustomEvents, trackCustomViews } from './lib/analytics'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -226,7 +226,7 @@ export default function App() {
 
   // Analytics: page_view a cada troca de página (privacy-safe, sem conteúdo)
   useEffect(() => {
-    trackEvent('page_view', { entity_id: view, entity_title: selectedArticleSlug || view, user_id: user?.id ?? null })
+    trackEvent('page_view', { entity_id: window.location.pathname, entity_title: selectedArticleSlug || view, user_id: user?.id ?? null, metadata: { view } })
   }, [view, selectedArticleSlug, user?.id])
 
   // Analytics: Web Vitals (1x) + captura de cliques em CTA marcados com data-cta
@@ -234,13 +234,19 @@ export default function App() {
     initWebVitals()
     initAcquisition()
     initCustomEvents(user?.id)
+    trackCustomViews()
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement | null)?.closest?.('[data-cta]') as HTMLElement | null
-      if (el) trackEvent('cta_click', { entity_id: el.getAttribute('data-cta') || undefined, entity_title: (el.textContent || '').trim().slice(0, 60), user_id: user?.id ?? null })
+      if (el) trackEvent('cta_click', {
+        entity_id: el.getAttribute('data-cta') || undefined,
+        entity_title: (el.textContent || '').trim().slice(0, 60),
+        user_id: user?.id ?? null,
+        metadata: { location: el.getAttribute('data-cta-location') || view, plan: el.getAttribute('data-cta-plan') || undefined },
+      })
     }
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
-  }, [user?.id])
+  }, [user?.id, view])
   const [diaryPromptContext, setDiaryPromptContext] = useState<{
     prompt: string
     articleTitle: string

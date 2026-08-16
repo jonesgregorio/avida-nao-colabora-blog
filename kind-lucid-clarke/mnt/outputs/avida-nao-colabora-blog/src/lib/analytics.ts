@@ -28,6 +28,9 @@ export type AnalyticsEvent =
   | 'auth_signup' | 'auth_login' | 'web_vital' | 'visit_source' | 'diary_open' | 'checkin_start'
   | 'checkin_complete' | 'emotional_map_view' | 'weekly_report_view' | 'monthly_report_view'
   | 'self_care_plan_view' | 'professional_guidance_request' | 'professional_guidance_view'
+  | 'signup_click' | 'register_success' | 'login_success' | 'plan_click' | 'checkout_started'
+  | 'subscription_started' | 'upgrade_started' | 'upgrade_completed' | 'downgrade_requested'
+  | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save'
 const BLOCKED_KEYS = new Set(['password', 'token', 'access_token', 'refresh_token', 'diary_text', 'message_body', 'personal_note', 'health_description', 'email'])
 const seenEvents = new Set<string>()
 function sanitize(value: unknown, depth = 0): unknown {
@@ -56,7 +59,7 @@ function loadConfig() {
 // Qual flag controla cada evento (eventos sem mapeamento são sempre enviados).
 function allowedByConfig(event: string): boolean {
   if (event === 'page_view' || event === 'article_view') return cfg.track_pageviews
-  if (event.startsWith('scroll_')) return cfg.track_scroll
+  if (event.startsWith('scroll_') || event.startsWith('article_scroll_')) return cfg.track_scroll
   if (event === 'cta_click' || event === 'article_click') return cfg.track_cta
   if (event === 'error_404') return cfg.track_errors
   if (event === 'web_vital') return cfg.track_web_vitals
@@ -74,11 +77,12 @@ function coarseUA(ua: string): string {
 export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
     loadConfig()
-    if (!allowedByConfig(event)) return
+    const normalized = (event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event)
+      .trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+    if (!normalized || !allowedByConfig(normalized)) return
     const rawUA = navigator.userAgent
     let referrer: string | null = document.referrer || null
     if (cfg.anonymize && referrer) { try { referrer = new URL(referrer).hostname } catch { /* mantém */ } }
-    const normalized = event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event
     const key = ['page_view', 'article_view', 'article_scroll_50', 'article_scroll_75', 'article_scroll_100'].includes(normalized) ? `${getSessionId()}:${normalized}:${opts.entity_id ?? location.pathname}` : ''
     if (key && seenEvents.has(key)) return
     if (key) seenEvents.add(key)
@@ -87,7 +91,7 @@ export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {})
       event: normalized,
       entity_id: opts.entity_id ?? null,
       entity_title: opts.entity_title ?? null,
-      metadata: sanitize(opts.metadata) ?? null,
+      metadata: sanitize({ path: location.pathname, ...(opts.metadata ?? {}) }) ?? null,
       session_id: getSessionId(),
       referrer,
       user_agent: cfg.anonymize ? coarseUA(rawUA) : rawUA,
@@ -150,26 +154,52 @@ export function initAcquisition(): void {
   } catch { /* noop */ }
 }
 
+type CustomInteraction = 'click' | 'submit' | 'view'
+interface CustomEventDefinition { name: string; selector: string | null; url_pattern: string | null; interaction_type?: CustomInteraction | null }
 let customInit = false
 let customUserId: string | null = null
-/** Aplica definições ativas do Admin com um único listener delegado e tolerante a seletor inválido. */
+let customDefinitions: CustomEventDefinition[] = []
+const customViewSeen = new Set<string>()
+function customEventMatches(row: CustomEventDefinition, target: Element | null) {
+  if (!row.selector || !target) return false
+  try { return Boolean(target.closest(row.selector)) } catch { return false }
+}
+function customEventAllowedHere(row: CustomEventDefinition) { return !row.url_pattern || location.pathname.includes(row.url_pattern) }
+export function trackCustomViews(): void {
+  customDefinitions.filter(row => (row.interaction_type ?? 'click') === 'view' && customEventAllowedHere(row)).forEach(row => {
+    const key = `${getSessionId()}:${row.name}:${location.pathname}`
+    if (customViewSeen.has(key) || !document.querySelector(row.selector!)) return
+    customViewSeen.add(key)
+    trackEvent(row.name, { user_id: customUserId, entity_id: row.selector!, metadata: { custom_event: true, interaction: 'view' } })
+  })
+}
+/** Aplica definições ativas do Admin com listeners delegados e tolerantes a seletor inválido. */
 export function initCustomEvents(userId?: string | null): void {
   customUserId = userId ?? null
   if (customInit) return
   customInit = true
-  supabase.from('analytics_custom_events').select('name,selector,url_pattern').eq('is_active', true)
+  supabase.from('analytics_custom_events').select('name,selector,url_pattern,interaction_type').eq('is_active', true)
     .then(({ data, error }) => {
       if (error) { if (import.meta.env.DEV) console.warn('[analytics] eventos personalizados indisponíveis', error.message); return }
-      const events = (data ?? []).filter(row => {
+      customDefinitions = ((data ?? []) as CustomEventDefinition[]).filter(row => {
         if (!row.selector) return false
         try { document.querySelector(row.selector) } catch { if (import.meta.env.DEV) console.warn('[analytics] seletor inválido', row.selector); return false }
-        return !row.url_pattern || location.pathname.includes(row.url_pattern)
+        return true
       })
-      document.addEventListener('click', (e) => {
-        const target = e.target as Element | null
-        events.forEach(row => { if (target?.closest(row.selector!)) trackEvent(row.name, { user_id: customUserId, entity_id: row.selector!, metadata: { custom_event: true, path: location.pathname } }) })
-      })
+      trackCustomViews()
     })
+  document.addEventListener('click', (e) => {
+    const target = e.target as Element | null
+    customDefinitions.filter(row => (row.interaction_type ?? 'click') === 'click' && customEventAllowedHere(row) && customEventMatches(row, target)).forEach(row => {
+      trackEvent(row.name, { user_id: customUserId, entity_id: row.selector!, metadata: { custom_event: true, interaction: 'click' } })
+    })
+  })
+  document.addEventListener('submit', (e) => {
+    const target = e.target as Element | null
+    customDefinitions.filter(row => row.interaction_type === 'submit' && customEventAllowedHere(row) && customEventMatches(row, target)).forEach(row => {
+      trackEvent(row.name, { user_id: customUserId, entity_id: row.selector!, metadata: { custom_event: true, interaction: 'submit' } })
+    })
+  })
 }
 
 // ─── Core Web Vitals (nativo, sem dependência externa) ───────────────────────
