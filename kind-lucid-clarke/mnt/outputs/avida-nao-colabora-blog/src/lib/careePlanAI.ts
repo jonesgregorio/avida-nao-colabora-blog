@@ -27,6 +27,19 @@ export interface CareSummary {
   attention_points: string[]
 }
 export interface CarePlanContent {
+  /** Contrato atual do roteiro mensal. Os campos legados abaixo continuam para planos já persistidos. */
+  title?: string
+  month_label?: string
+  based_on_period?: string
+  main_focus?: string
+  why_this_focus?: string
+  three_care_priorities?: Array<{ priority: string; why_it_matters: string; small_actions: string[] }>
+  weekly_rhythm?: { week_1?: string; week_2?: string; week_3?: string; week_4?: string }
+  suggested_micro_actions?: string[]
+  recommended_guided_contents?: string[]
+  gentle_reminders?: string[]
+  what_not_to_force?: string
+  light_emotional_goal?: string
   monthly_priority: string
   main_care: string
   recommended_practice: string
@@ -148,15 +161,21 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     "attention_points": ["..."]
   },
   "care_plan": {
-    "monthly_priority": "...",
-    "main_care": "...",
-    "recommended_practice": "descreva 1-2 práticas concretas, com um mínimo de 'como fazer'",
-    "attention_point": "...",
-    "small_commitment": "...",
-    "checkin_suggestion": "...",
-    "practical_tips": ["3 a 5 dicas curtas e práticas de autocuidado para o mês, complementares ao cuidado principal — cada uma com uma ação clara"],
-    "reflection_questions": ["3 a 5 perguntas"],
-    "final_message": "mensagem curta e humana"
+    "title": "título curto do roteiro",
+    "month_label": "mês de aplicação",
+    "based_on_period": "período dos registros usados",
+    "main_focus": "foco leve e possível do próximo ciclo",
+    "why_this_focus": "1 a 3 frases ligando o foco apenas aos dados agregados",
+    "three_care_priorities": [{"priority":"prioridade","why_it_matters":"por que importa","small_actions":["2 ações pequenas"]}],
+    "weekly_rhythm": {"week_1":"observar sem se cobrar","week_2":"uma ação pequena","week_3":"ajustar o que funcionou","week_4":"revisar com gentileza"},
+    "suggested_micro_actions": ["3 a 5 ações curtas e possíveis"],
+    "recommended_guided_contents": ["até 3 temas reais do catálogo"],
+    "gentle_reminders": ["2 lembretes acolhedores"],
+    "what_not_to_force": "algo que não precisa ser resolvido agora",
+    "light_emotional_goal": "meta leve, sem cobrança",
+    "checkin_suggestion": "sugestão concreta",
+    "reflection_questions": ["3 perguntas"],
+    "final_message": "mensagem humana curta"
   },
   "recommended_content_tags": ["ansiedade","sobrecarga","descanso","autocobranca","limites","rotina","sono","fome emocional","autoestima"]
 }`,
@@ -210,11 +229,30 @@ function validate(parsed: unknown): CarePlanResult | null {
   const s = (p.summary ?? {}) as Record<string, unknown>
   const c = (p.care_plan ?? {}) as Record<string, unknown>
   const care_plan: CarePlanContent = {
-    monthly_priority: asString(c.monthly_priority),
-    main_care: asString(c.main_care),
-    recommended_practice: asString(c.recommended_practice),
-    attention_point: asString(c.attention_point),
-    small_commitment: asString(c.small_commitment),
+    title: asString(c.title),
+    month_label: asString(c.month_label),
+    based_on_period: asString(c.based_on_period),
+    main_focus: asString(c.main_focus ?? c.monthly_priority),
+    why_this_focus: asString(c.why_this_focus ?? c.main_care),
+    three_care_priorities: Array.isArray(c.three_care_priorities)
+      ? c.three_care_priorities.map(item => {
+        const row = (item ?? {}) as Record<string, unknown>
+        return { priority: asString(row.priority), why_it_matters: asString(row.why_it_matters), small_actions: asStringArray(row.small_actions) }
+      }).filter(item => item.priority && item.why_it_matters && item.small_actions.length)
+      : [],
+    weekly_rhythm: (c.weekly_rhythm && typeof c.weekly_rhythm === 'object')
+      ? { week_1: asString((c.weekly_rhythm as Record<string, unknown>).week_1), week_2: asString((c.weekly_rhythm as Record<string, unknown>).week_2), week_3: asString((c.weekly_rhythm as Record<string, unknown>).week_3), week_4: asString((c.weekly_rhythm as Record<string, unknown>).week_4) }
+      : undefined,
+    suggested_micro_actions: asStringArray(c.suggested_micro_actions ?? c.practical_tips),
+    recommended_guided_contents: asStringArray(c.recommended_guided_contents),
+    gentle_reminders: asStringArray(c.gentle_reminders),
+    what_not_to_force: asString(c.what_not_to_force),
+    light_emotional_goal: asString(c.light_emotional_goal),
+    monthly_priority: asString(c.monthly_priority ?? c.main_focus),
+    main_care: asString(c.main_care ?? c.why_this_focus),
+    recommended_practice: asString(c.recommended_practice ?? (Array.isArray(c.suggested_micro_actions) ? c.suggested_micro_actions[0] : '')),
+    attention_point: asString(c.attention_point ?? c.why_this_focus),
+    small_commitment: asString(c.small_commitment ?? (Array.isArray(c.suggested_micro_actions) ? c.suggested_micro_actions[1] : '')),
     checkin_suggestion: asString(c.checkin_suggestion),
     practical_tips: asStringArray(c.practical_tips),
     reflection_questions: asStringArray(c.reflection_questions),
@@ -225,12 +263,14 @@ function validate(parsed: unknown): CarePlanResult | null {
   // TODOS os campos essenciais — se faltar algo, rejeita (generateCarePlanAI
   // tenta de novo e, no limite, cai no rascunho determinístico, que é sempre
   // completo).
-  const scalarsComplete = [
-    care_plan.monthly_priority, care_plan.main_care, care_plan.recommended_practice,
-    care_plan.attention_point, care_plan.small_commitment, care_plan.checkin_suggestion,
-    care_plan.final_message,
-  ].every(Boolean)
-  if (!scalarsComplete || care_plan.reflection_questions.length < 2 || care_plan.practical_tips.length < 2) {
+  const hasNewContract = Boolean(
+    care_plan.main_focus && care_plan.why_this_focus && care_plan.three_care_priorities &&
+    care_plan.three_care_priorities.length >= 3 && care_plan.weekly_rhythm?.week_1 &&
+    care_plan.weekly_rhythm.week_2 && care_plan.weekly_rhythm.week_3 && care_plan.weekly_rhythm.week_4 &&
+    (care_plan.suggested_micro_actions?.length ?? 0) >= 2 && care_plan.what_not_to_force && care_plan.light_emotional_goal,
+  )
+  const hasLegacyContract = [care_plan.monthly_priority, care_plan.main_care, care_plan.recommended_practice, care_plan.attention_point, care_plan.small_commitment, care_plan.checkin_suggestion, care_plan.final_message].every(Boolean)
+  if ((!hasNewContract && !hasLegacyContract) || care_plan.reflection_questions.length < 2 || (care_plan.suggested_micro_actions?.length ?? care_plan.practical_tips.length) < 2) {
     return null
   }
   return {
@@ -266,6 +306,20 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
       attention_points: dr.patterns.slice(0, 2),
     },
     care_plan: {
+      title: 'Seu roteiro de cuidado',
+      month_label: monthLabel,
+      main_focus: dr.selfCarePlan.priority,
+      why_this_focus: dr.selfCarePlan.mainCare,
+      three_care_priorities: [
+        { priority: 'Observar seus sinais', why_it_matters: dr.selfCarePlan.attention, small_actions: [dr.selfCarePlan.checkin, 'Anote um momento que mereça atenção, sem precisar explicar tudo.'] },
+        { priority: 'Escolher uma pausa possível', why_it_matters: 'Pequenas pausas podem criar espaço para perceber o que ajuda no seu ritmo.', small_actions: [dr.selfCarePlan.practice, 'Escolha uma ação leve que caiba no seu dia.'] },
+        { priority: 'Revisar com gentileza', why_it_matters: 'O plano é um apoio, não uma cobrança de desempenho.', small_actions: [dr.selfCarePlan.commitment, 'No fim da semana, note o que fez sentido manter.'] },
+      ],
+      weekly_rhythm: { week_1: 'Observar sem se cobrar.', week_2: 'Escolher uma pequena ação possível.', week_3: 'Ajustar o que funcionou.', week_4: 'Revisar com gentileza.' },
+      suggested_micro_actions: dr.patterns.length > 0 ? dr.patterns.slice(0, 4) : undefined,
+      gentle_reminders: ['Sem pressa: uma ação pequena já conta.', 'O plano pode ser ajustado ao seu momento.'],
+      what_not_to_force: 'Você não precisa resolver todos os pontos de uma vez.',
+      light_emotional_goal: 'Perceber um sinal seu por dia e escolher um cuidado possível.',
       monthly_priority: dr.selfCarePlan.priority,
       main_care: dr.selfCarePlan.mainCare,
       recommended_practice: dr.selfCarePlan.practice,

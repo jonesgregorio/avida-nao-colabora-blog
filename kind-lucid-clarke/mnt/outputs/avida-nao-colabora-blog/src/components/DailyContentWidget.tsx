@@ -31,14 +31,27 @@ const FREQ_LABEL: Record<string, string> = {
 
 const TYPE_EMOJI: Record<string, string> = {
   'Sugestão de artigo': '📖',
+  'Pausa emocional guiada': '🧘',
   'Meditação guiada em texto': '🧘',
+  'Meditação guiada': '🧘',
   'Exercício emocional': '💪',
+  'Pequena prática guiada': '🎯',
   'Mini-desafio': '🎯',
   'Avaliação semanal': '📊',
+  'Autocuidado prático': '🌱',
   'Plano semanal de autocuidado': '🌱',
   'Lembrete de diário': '📔',
   'Reflexão guiada': '💭',
+  'Conteúdo educativo': '🔬',
   'Técnica terapêutica': '🔬',
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  'Meditação guiada em texto': 'Pausa emocional guiada',
+  'Meditação guiada': 'Pausa emocional guiada',
+  'Mini-desafio': 'Pequena prática guiada',
+  'Plano semanal de autocuidado': 'Autocuidado prático',
+  'Técnica terapêutica': 'Conteúdo educativo',
 }
 
 // Escolhe conteúdo determinístico pelo dia (mesmo conteúdo o dia todo)
@@ -87,6 +100,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
   if (!user || loading || !content) return null
 
   const emoji = TYPE_EMOJI[content.type] || '✨'
+  const typeLabel = TYPE_LABEL[content.type] || content.type
   const label = FREQ_LABEL[content.frequency] || 'Para você'
 
   return (
@@ -108,7 +122,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
             <p className="text-sm font-semibold text-stone-800 truncate">{content.title}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-stone-400 hidden sm:block">{content.type}</span>
+            <span className="text-xs text-stone-400 hidden sm:block">{typeLabel}</span>
             {expanded
               ? <ChevronUp size={16} className="text-stone-400" />
               : <ChevronDown size={16} className="text-stone-400" />}

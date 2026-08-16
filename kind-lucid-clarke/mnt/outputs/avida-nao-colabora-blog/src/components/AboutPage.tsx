@@ -64,7 +64,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
               { Icon: FileText, title: 'Diário de bem-estar', desc: 'Espaço para registrar sentimentos com diferentes níveis de profundidade conforme o plano.' },
               { Icon: Sparkles, title: 'Questionários de autoavaliação', desc: 'Perguntas acolhedoras para entender como você está se sentindo.' },
               { Icon: BarChart2, title: 'Gráficos e relatórios', desc: 'Visualize seus padrões emocionais e evolução ao longo do tempo.' },
-              { Icon: Heart, title: 'Mini-desafios de autocuidado', desc: 'Ações pequenas e práticas para criar hábitos positivos no dia a dia.' },
+              { Icon: Heart, title: 'Pequenas práticas de autocuidado', desc: 'Ações pequenas e práticas para criar hábitos positivos no dia a dia.' },
               { Icon: BookOpen, title: 'Artigos e conteúdos', desc: 'Textos reflexivos sobre bem-estar emocional, autoconhecimento e autocuidado.' },
               { Icon: Map, title: 'Planos personalizados', desc: 'Sugestões e planos de autocuidado adaptados ao que você está vivendo.' },
             ].map(({ Icon, title, desc }, i) => (

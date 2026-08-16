@@ -74,9 +74,9 @@ FORMATO EXATO:
 
 export function buildSelfCarePlanPrompt(summary: EmotionalSummary): string {
   return `${base('self_care_plan', summary)}
-TAREFA: crie um plano prospectivo, realista e pequeno para o próximo mês. Não repita uma retrospectiva detalhada nem assuma que a pessoa seguirá as sugestões.
+TAREFA: crie um roteiro prospectivo, realista e pequeno para o próximo mês. Não repita uma retrospectiva detalhada nem assuma que a pessoa seguirá as sugestões. As prioridades e ações devem ser opcionais, concretas e baseadas apenas nos dados agregados.
 FORMATO EXATO:
-{"monthly_priority":"prioridade prática","main_care":"1 a 3 frases","recommended_practice":"como praticar de modo simples","small_commitment":"compromisso pequeno e opcional","checkin_suggestion":"sugestão concreta","practical_tips":["3 a 5 ações curtas"],"reflection_questions":["3 perguntas"],"final_message":"mensagem humana curta","data_quality_message":"mensagem curta"}`
+{"title":"título curto","month_label":"mês do próximo ciclo","based_on_period":"período analisado","main_focus":"foco leve","why_this_focus":"1 a 3 frases","three_care_priorities":[{"priority":"prioridade","why_it_matters":"por que importa","small_actions":["2 ações pequenas"]},{"priority":"prioridade","why_it_matters":"por que importa","small_actions":["2 ações pequenas"]},{"priority":"prioridade","why_it_matters":"por que importa","small_actions":["2 ações pequenas"]}],"weekly_rhythm":{"week_1":"observar sem se cobrar","week_2":"uma ação pequena","week_3":"ajustar o que funcionou","week_4":"revisar com gentileza"},"suggested_micro_actions":["3 a 5 ações curtas"],"recommended_guided_contents":["até 3 temas existentes"],"gentle_reminders":["2 lembretes acolhedores"],"what_not_to_force":"algo que não precisa ser resolvido agora","light_emotional_goal":"meta leve","checkin_suggestion":"sugestão concreta","reflection_questions":["3 perguntas"],"final_message":"mensagem humana curta","data_quality_message":"mensagem curta"}`
 }
 
 export function buildProfessionalGuidancePrompt(

@@ -79,20 +79,23 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     ;(async () => {
       const since = new Date(Date.now() - 30 * 864e5).toISOString()
       const [{ data }, diaryCfg] = await Promise.all([
-        supabase.from('diary_entries').select('created_at,entry_type,date').eq('user_id', user.id).gte('created_at', since),
+        supabase.from('diary_entries').select('created_at,entry_type,diary_kind,date').eq('user_id', user.id).gte('created_at', since),
         fetchDiaryConfig(profile?.plan ?? 'free'),
       ])
       if (!active) return
-      const entries = (data ?? []) as { created_at?: string; entry_type?: string; date?: string }[]
+      const entries = (data ?? []) as { created_at?: string; entry_type?: string; diary_kind?: string; date?: string }[]
       const days = new Set(entries.map(e => String(e.created_at ?? '').slice(0, 10)))
       // Separa check-ins rápidos de reflexões completas (§8) para os números baterem
       // com o que cada registro realmente é.
       const checkins = entries.filter(e => e.entry_type === 'checkin').length
       const reflections = entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
-      // Mesma regra de mês-calendário usada no aviso de limite do DiaryPage —
-      // conta só entradas de diário completo (check-in nunca entra no limite).
+      // Mesma regra de mês-calendário usada no Diário: para o Gratuito, o
+      // contador considera exclusivamente registros básicos; check-ins e
+      // complementos nunca consomem a franquia.
       const monthKey = ymd(new Date()).slice(0, 7)
-      const diaryThisMonth = entries.filter(e => (e.entry_type ?? 'diary') === 'diary' && String(e.date ?? '').startsWith(monthKey)).length
+      const diaryThisMonth = entries.filter(e =>
+        (e.entry_type ?? 'diary') === 'diary' && e.diary_kind === 'basic' && String(e.date ?? '').startsWith(monthKey),
+      ).length
       setStats({
         presence: Math.min(100, Math.round((days.size / 30) * 100)),
         checkins,
@@ -154,9 +157,10 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
             </div>
           </section>
 
-          {/* Acesso rápido */}
+          {/* Jornada emocional: cada atalho explica seu papel no cuidado. */}
           <section>
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900 mb-3 px-1">Acesso rápido</h2>
+            <h2 className="font-serif text-lg sm:text-xl text-forest-900 px-1">Minha rotina emocional</h2>
+            <p className="text-sm text-ink-soft mt-1 mb-3 px-1">Registre, perceba seus padrões e escolha pequenos próximos passos no seu tempo.</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {QUICK.map(q => {
                 const hint = quickHint(q, plan, stats)

@@ -44,6 +44,30 @@ function monthLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
+function focusOf(c: CarePlanContent | null) {
+  return c?.main_focus || c?.monthly_priority || ''
+}
+
+function whyOf(c: CarePlanContent | null) {
+  return c?.why_this_focus || c?.main_care || ''
+}
+
+function prioritiesOf(c: CarePlanContent | null) {
+  if (c?.three_care_priorities?.length) return c.three_care_priorities
+  const actions = c?.suggested_micro_actions?.length ? c.suggested_micro_actions : (c?.practical_tips ?? [])
+  return [
+    c?.main_care ? { priority: 'Cuidado principal', why_it_matters: c.main_care, small_actions: c.recommended_practice ? [c.recommended_practice] : [] } : null,
+    c?.attention_point ? { priority: 'O que vale observar', why_it_matters: c.attention_point, small_actions: c.small_commitment ? [c.small_commitment] : [] } : null,
+    actions[0] ? { priority: 'Uma ação possível', why_it_matters: 'Escolha apenas o que fizer sentido para o seu momento.', small_actions: actions.slice(0, 2) } : null,
+  ].filter(Boolean) as Array<{ priority: string; why_it_matters: string; small_actions: string[] }>
+}
+
+function rhythmOf(c: CarePlanContent | null) {
+  const r = c?.weekly_rhythm
+  if (r && [r.week_1, r.week_2, r.week_3, r.week_4].some(Boolean)) return [r.week_1, r.week_2, r.week_3, r.week_4].filter(Boolean) as string[]
+  return (c?.practical_tips ?? []).slice(0, 4)
+}
+
 // Área PRÓPRIA do Plano de Autocuidado — exclusiva do Plus. Cada plano é um
 // cartão sanfona: fechado por padrão (só cabeçalho + prioridade), abre para ver
 // o plano de ação completo — assim a página não fica enorme.
@@ -96,7 +120,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
   // Sinal para conteúdos ligados à prioridade do mês (usa o plano novo; se não
   // houver, cai para a revisão legada).
   const focusText = current
-    ? [current.care_plan?.monthly_priority, ...(current.ai_summary_json?.recurring_emotional_markers ?? current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
+    ? [focusOf(current.care_plan), ...(current.ai_summary_json?.recurring_emotional_markers ?? current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
     : reviews[0] ? [reviews[0].next_focus, reviews[0].summary].filter(Boolean).join(' ') : ''
   const focusSignal = focusText ? signalFromTags([focusText]) : null
   const careSignal = focusSignal && focusSignal.hasData ? focusSignal : undefined
@@ -204,18 +228,22 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
   const c = plan.care_plan
   const s = plan.ai_summary_json
   const recs = (plan.recommended_content_ids ?? []).map(id => catalog.get(id)).filter(Boolean) as CatalogItem[]
-  const rhythm = (c?.practical_tips ?? []).slice(0, 4)
+  const focus = focusOf(c)
+  const why = whyOf(c)
+  const priorities = prioritiesOf(c)
+  const rhythm = rhythmOf(c)
+  const microActions = c?.suggested_micro_actions?.length ? c.suggested_micro_actions : (c?.practical_tips ?? [])
   return (
     <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
       <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
         <div className="min-w-0">
-          <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthTitle(plan.month_reference)}</h3>
+          <h3 className="font-serif text-lg text-forest-900 capitalize">{c?.title || `Plano de ${monthTitle(plan.month_reference)}`}</h3>
           <p className="text-xs text-ink-soft mt-0.5">
             {formatPeriodShort({ start: plan.period_start, end: plan.period_end })}
             {plan.sent_at ? ` · enviado ${formatDateBR(plan.sent_at.slice(0, 10))}` : ''}
           </p>
-          {!open && c?.monthly_priority && (
-            <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Prioridade: </span>{c.monthly_priority}</p>
+          {!open && focus && (
+            <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Foco: </span>{focus}</p>
           )}
         </div>
         <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -223,11 +251,24 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
 
       {open && (
         <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
-          {c?.monthly_priority && <Field label="Foco de cuidado deste mês" value={c.monthly_priority} strong />}
-          {c?.main_care && <Field label="Cuidado principal" value={c.main_care} />}
-          {c?.recommended_practice && <Field label="Prática recomendada" value={c.recommended_practice} />}
-          {c?.attention_point && <Field label="Ponto de atenção" value={c.attention_point} />}
-          {c?.small_commitment && <Field label="Pequeno compromisso possível" value={c.small_commitment} />}
+          {focus && <Field label="Seu foco de cuidado para este mês" value={focus} strong />}
+          {why && <Field label="Por que este foco" value={why} />}
+
+          {priorities.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {priorities.slice(0, 3).map((item, i) => (
+                <div key={`${item.priority}-${i}`} className="rounded-2xl border border-line bg-white/70 p-3">
+                  <p className="text-[10px] uppercase tracking-wide text-forest-500 mb-1">Prioridade {i + 1}</p>
+                  <p className="text-sm font-medium text-forest-900">{item.priority}</p>
+                  <p className="text-xs text-ink-soft mt-1 leading-relaxed">{item.why_it_matters}</p>
+                  {item.small_actions.length > 0 && <p className="text-xs text-forest-700 mt-2 leading-relaxed">{item.small_actions[0]}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {c?.what_not_to_force && <Field label="O que não forçar agora" value={c.what_not_to_force} />}
+          {c?.light_emotional_goal && <Field label="Meta emocional leve" value={c.light_emotional_goal} />}
           {c?.checkin_suggestion && <Field label="Sugestão de check-in" value={c.checkin_suggestion} />}
 
           {rhythm.length > 0 && (
@@ -244,12 +285,19 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
             </div>
           )}
 
-          {(c?.practical_tips?.length ?? 0) > 0 && (
+          {microActions.length > 0 && (
             <div>
-              <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Dicas práticas</p>
+              <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Pequenas ações possíveis</p>
               <ul className="space-y-1.5">
-                {c!.practical_tips.map((t, i) => <li key={i} className="text-sm text-ink leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{t}</li>)}
+                {microActions.map((t, i) => <li key={i} className="text-sm text-ink leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{t}</li>)}
               </ul>
+            </div>
+          )}
+
+          {(c?.gentle_reminders?.length ?? 0) > 0 && (
+            <div className="rounded-2xl bg-mint/25 border border-forest-100 p-3.5">
+              <p className="text-xs font-medium text-forest-800 mb-1">Lembretes gentis</p>
+              <ul className="space-y-1">{c!.gentle_reminders!.map((item, i) => <li key={i} className="text-sm text-forest-800 leading-relaxed">{item}</li>)}</ul>
             </div>
           )}
 

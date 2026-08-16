@@ -6,7 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 // Deno não importa o bundle React; manter tipo+versão explícitos evita prompts
 // paralelos e torna cada geração auditável.
 const PROMPT_VERSION: Record<'weekly_report' | 'monthly_deep_report' | 'self_care_plan', string> = {
-  weekly_report: 'weekly_report_v1', monthly_deep_report: 'monthly_deep_report_v1', self_care_plan: 'self_care_plan_v1',
+  weekly_report: 'weekly_report_v1', monthly_deep_report: 'monthly_deep_report_v1', self_care_plan: 'self_care_plan_v2',
 }
 const cors = { 'Access-Control-Allow-Origin': 'https://www.avidanaocolabora.com', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
@@ -39,8 +39,8 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
     ? '{"summary":"2 a 4 frases","patterns":["até 3"],"attention_points":["até 2"],"next_steps":["até 3"],"data_quality_message":"texto"}'
     : kind === 'monthly_deep_report'
       ? '{"summary":"3 a 5 frases","patterns":["até 4"],"relations":["até 3"],"improvement_moments":["até 3"],"reflection_questions":["3 perguntas"],"data_quality_message":"texto"}'
-      : '{"monthly_priority":"texto","main_care":"texto","recommended_practice":"texto","small_commitment":"texto","checkin_suggestion":"texto","practical_tips":["3 a 5"],"reflection_questions":["3"],"final_message":"texto","data_quality_message":"texto"}'
-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Não diagnostique, prescreva, prometa cura, invente fatos nem trate marcadores emocionais como gatilhos. Se houver poucos dados, reconheça a limitação. Retorne exclusivamente JSON válido e sem markdown.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+      : '{"title":"texto","month_label":"texto","based_on_period":"texto","main_focus":"texto","why_this_focus":"texto","three_care_priorities":[{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]}],"weekly_rhythm":{"week_1":"texto","week_2":"texto","week_3":"texto","week_4":"texto"},"suggested_micro_actions":["3 a 5"],"recommended_guided_contents":["até 3 temas"],"gentle_reminders":["2"],"what_not_to_force":"texto","light_emotional_goal":"texto","checkin_suggestion":"texto","reflection_questions":["3"],"final_message":"texto","data_quality_message":"texto"}'
+  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Não diagnostique, prescreva, prometa cura, invente fatos nem trate marcadores emocionais como gatilhos. Se houver poucos dados, reconheça a limitação. Para self_care_plan, crie um roteiro prospectivo e leve: três prioridades, um ritmo semanal e pequenas ações possíveis; não repita uma retrospectiva detalhada. Retorne exclusivamente JSON válido e sem markdown.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
@@ -57,6 +57,17 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
 function parse(raw: string): Record<string, unknown> | null { try { const match = raw.match(/\{[\s\S]*\}/); const obj = JSON.parse(match?.[0] || ''); return obj && typeof obj === 'object' ? obj as Record<string, unknown> : null } catch { return null } }
 function texts(v: unknown, limit: number) { return Array.isArray(v) ? v.map(String).map(s => s.trim().slice(0, limit)).filter(Boolean).slice(0, 5) : [] }
 function str(v: unknown, fallback: string) { return typeof v === 'string' && v.trim() ? v.trim().slice(0, 1200) : fallback }
+function carePriorities(v: unknown) {
+  if (!Array.isArray(v)) return []
+  return v.map(item => {
+    const row = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+    return { priority: str(row.priority, ''), why_it_matters: str(row.why_it_matters, ''), small_actions: texts(row.small_actions, 260) }
+  }).filter(item => item.priority && item.why_it_matters && item.small_actions.length).slice(0, 3)
+}
+function weeklyRhythm(v: unknown) {
+  const row = v && typeof v === 'object' ? v as Record<string, unknown> : {}
+  return { week_1: str(row.week_1, ''), week_2: str(row.week_2, ''), week_3: str(row.week_3, ''), week_4: str(row.week_4, '') }
+}
 
 function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string, unknown> | null) {
   const markers = s.emotional_markers; const patterns = texts(ai?.patterns, 320)
@@ -122,8 +133,9 @@ Deno.serve(async (req) => {
         const { data: rows } = await admin.from('diary_entries').select('entry_type,diary_kind,date,created_at,mood,mood_score,energy,anxiety_level,sleep_quality,stress_level,self_esteem,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags').eq('user_id', profile.user_id).gte('date', isoDay(monthStart)).lte('date', isoDay(monthEnd))
         const s = summaryOf((rows || []) as Record<string, unknown>[], isoDay(monthStart), isoDay(monthEnd), 'plus')
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
-        try { const generated = await generate(prompt('self_care_plan', s)); parsed = parse(generated.text); if (!parsed || !parsed.monthly_priority) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
-        const care = { monthly_priority: str(parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care, s.data_quality.message), recommended_practice: str(parsed?.recommended_practice, 'Reserve alguns minutos para observar como você está, sem cobrança.'), attention_point: s.data_quality.message, small_commitment: str(parsed?.small_commitment, 'Escolha uma ação leve em um dia da semana.'), checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), practical_tips: texts(parsed?.practical_tips, 260), reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
+        try { const generated = await generate(prompt('self_care_plan', s)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
+        const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
+        const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${isoDay(monthStart)} a ${isoDay(monthEnd)}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
         await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: isoDay(monthStart), period_end: isoDay(monthEnd), available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: s, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
         await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
         results.push(`${profile.user_id}:plano:ok`)
