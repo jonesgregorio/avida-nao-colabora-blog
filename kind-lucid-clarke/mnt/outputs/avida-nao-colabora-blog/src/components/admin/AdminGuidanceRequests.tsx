@@ -21,6 +21,7 @@ interface GuidanceRequest {
   status: string
   responded_at: string | null
   created_at: string
+  ai_draft_json?: { draft?: string; generated_at?: string; prompt_type?: string } | null
   user?: { full_name?: string; email?: string; plan?: string }
 }
 
@@ -42,6 +43,10 @@ const draftKey = (id: string) => `avnc-guidance-draft-${id}`
 function monthLabel(key: string) {
   const [y, m] = key.split('-')
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+}
+function monthEnd(key: string): string {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(year, month, 0).toISOString().slice(0, 10)
 }
 function getMonthOptions() {
   const opts: string[] = []
@@ -104,7 +109,7 @@ function summaryFromStoredData(monthKey: string, plan: string | undefined, sourc
   const activeDays = Number(source?.activeDays ?? source?.active_days ?? 0) || 0
   const quality = total >= 5 && activeDays >= 3 ? 'high' : total >= 3 ? 'medium' : 'low'
   return {
-    period_start: `${monthKey}-01`, period_end: `${monthKey}-31`,
+    period_start: `${monthKey}-01`, period_end: monthEnd(monthKey),
     plan: plan === 'plus' || plan === 'therapeutic' || plan === 'therapeutic-plus' ? 'plus' : 'essential',
     total_entries: total,
     total_checkins: Number(source?.checkinCount ?? source?.checkin_count ?? 0) || 0,
@@ -231,7 +236,7 @@ export default function AdminGuidanceRequests() {
     setSelected(r)
     let draft = ''
     try { draft = localStorage.getItem(draftKey(r.id)) ?? '' } catch { /* noop */ }
-    setResponse(r.response ?? draft)
+    setResponse(r.response ?? r.ai_draft_json?.draft ?? draft)
     setSuggestion('')
     setAdminNotes('')
   }
@@ -266,7 +271,7 @@ export default function AdminGuidanceRequests() {
         ...(care?.records_summary ?? {}),
         ...(report?.content ?? {}),
         period_start: report?.period_start ?? monthReference,
-        period_end: report?.period_end ?? `${selected.month_key}-31`,
+        period_end: report?.period_end ?? monthEnd(selected.month_key),
         monthly_report_summary: report?.summary ?? null,
         self_care_plan: care?.care_plan ?? null,
         previous_guidance_count: previousGuidance?.length ?? 0,
@@ -277,6 +282,13 @@ export default function AdminGuidanceRequests() {
       )
       const raw = await generateWithFailover(buildProfessionalGuidancePrompt(summary, selected, adminNotes))
       const text = extractDraft(raw)
+      const generatedAt = new Date().toISOString()
+      const draft = { draft: text, generated_at: generatedAt, prompt_type: 'professional_guidance' }
+      const { error: draftError } = await supabase.from('monthly_guidance_requests')
+        .update({ ai_draft_json: draft, updated_at: generatedAt })
+        .eq('id', selected.id)
+      if (draftError) throw draftError
+      setSelected(current => current ? { ...current, ai_draft_json: draft } : current)
       setSuggestion(text)
       setResponse(prev => prev.trim() ? prev : text)
       showToast('Sugestão gerada. Revise e ajuste antes de enviar.')
@@ -287,13 +299,19 @@ export default function AdminGuidanceRequests() {
     }
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!selected) return
+    const savedAt = new Date().toISOString()
+    const draft = response.trim() ? { draft: response.trim(), generated_at: savedAt, prompt_type: 'professional_guidance' } : {}
+    const { error } = await supabase.from('monthly_guidance_requests')
+      .update({ ai_draft_json: draft, updated_at: savedAt })
+      .eq('id', selected.id)
+    if (error) { showToast('Não foi possível salvar o rascunho: ' + error.message, true); return }
     try {
       if (response.trim()) localStorage.setItem(draftKey(selected.id), response)
       else localStorage.removeItem(draftKey(selected.id))
     } catch { /* noop */ }
-    showToast('Rascunho salvo neste dispositivo.')
+    showToast('Rascunho salvo para revisão no Admin.')
   }
 
   async function respond() {

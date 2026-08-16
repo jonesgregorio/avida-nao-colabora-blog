@@ -513,7 +513,7 @@ interface ProfileRow {
 const NEW_USER_GRACE_DAYS = 3
 
 interface GuidanceRow { id: string; user_id: string; created_at: string; message?: string }
-interface ReportRow { id: string; user_id: string; created_at: string; month_key: string }
+interface ReportRow { id: string; user_id: string; created_at: string }
 
 export async function refreshTasksForAllUsers(): Promise<{ created: number; updated: number; errors: string[] }> {
   const now = new Date()
@@ -532,6 +532,8 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   const curMonth = monthKey(now)
   const curWeek = weekKey(now)
   const curBiweek = biweekKey(now)
+  const monthStart = `${curMonth}-01T00:00:00.000Z`
+  const monthEndExclusive = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
 
   // ── 2. Carregar pendências existentes (todos os status para dedup correto) ──
   const { data: existingTasks } = await supabase
@@ -551,7 +553,14 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
     { data: reports },
   ] = await Promise.all([
     supabase.from('monthly_guidance_requests').select('id, user_id, created_at').eq('status', 'open'),
-    supabase.from('monthly_reports').select('id, user_id, created_at, month_key').eq('month_key', curMonth),
+    // A tabela canônica é reports. A janela usa created_at para manter a mesma
+    // semântica da antiga month_key: tarefas só nascem para relatórios gerados
+    // neste mês, nunca para um rascunho ou registro histórico.
+    supabase.from('reports').select('id, user_id, created_at')
+      .eq('report_type', 'monthly')
+      .eq('status', 'generated')
+      .gte('created_at', monthStart)
+      .lt('created_at', monthEndExclusive),
   ])
 
   const guidanceByUser: Record<string, GuidanceRow[]> = {}

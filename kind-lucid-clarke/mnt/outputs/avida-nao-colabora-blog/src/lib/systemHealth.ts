@@ -123,7 +123,7 @@ export async function checkGuidanceRequests(): Promise<HealthCheckResult> {
 }
 
 export async function checkMonthlyReports(): Promise<HealthCheckResult> {
-  return checkSupabaseTable('db_reports', 'Relatórios Mensais', 'clinical', 'monthly_reports')
+  return checkSupabaseTable('db_reports', 'Relatórios Mensais', 'clinical', 'reports')
 }
 
 export async function checkSupportTickets(): Promise<HealthCheckResult> {

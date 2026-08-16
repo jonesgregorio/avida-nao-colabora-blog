@@ -30,7 +30,8 @@ export type AnalyticsEvent =
   | 'self_care_plan_view' | 'professional_guidance_request' | 'professional_guidance_view'
   | 'signup_click' | 'register_success' | 'login_success' | 'plan_click' | 'checkout_started'
   | 'subscription_started' | 'upgrade_started' | 'upgrade_completed' | 'downgrade_requested'
-  | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save'
+  | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save';
+
 const BLOCKED_KEYS = new Set(['password', 'token', 'access_token', 'refresh_token', 'diary_text', 'message_body', 'personal_note', 'health_description', 'email'])
 const seenEvents = new Set<string>()
 function sanitize(value: unknown, depth = 0): unknown {

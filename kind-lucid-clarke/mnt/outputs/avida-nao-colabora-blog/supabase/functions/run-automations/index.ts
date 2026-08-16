@@ -92,7 +92,7 @@ async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: str
     admin.from('diary_entries').select('mood, tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     admin.from('questionnaire_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     admin.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-    admin.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event_type', 'article_read'),
+    admin.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event', 'article_view'),
   ])
   const tagFreq: Record<string, number> = {}
   let moodSum = 0, moodCount = 0

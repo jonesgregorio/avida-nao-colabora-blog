@@ -415,7 +415,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     const [guidanceRes, commentsRes, reportsRes, diaryTagsRes] = await Promise.all([
       supabase.from('monthly_guidance_requests').select('id, status').eq('user_id', userId),
       supabase.from('professional_comments').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase.from('monthly_reports').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('reports').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('report_type', 'monthly'),
       supabase.from('diary_entries').select('emotional_tags, mood').eq('user_id', userId).limit(100),
     ])
     const guidance = guidanceRes.data ?? []

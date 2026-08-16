@@ -21,12 +21,13 @@ interface Counts {
   reportsToReview: number
   selfCarePending: number
   emailFailures: number
+  aiFailures: number
   pendingCancellations: number
 }
 
 const EMPTY: Counts = {
   users: 0, newUsers7d: 0, paid: 0, pendingComments: 0, pendingGuidance: 0,
-  openTickets: 0, reportsToReview: 0, selfCarePending: 0, emailFailures: 0, pendingCancellations: 0,
+  openTickets: 0, reportsToReview: 0, selfCarePending: 0, emailFailures: 0, aiFailures: 0, pendingCancellations: 0,
 }
 
 // conta defensiva — 0 se a tabela/coluna não existir
@@ -50,18 +51,19 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
     const users = await safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }))
     setDbOk(true)
-    const [newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, pendingCancellations] = await Promise.all([
+    const [newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations] = await Promise.all([
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', since)),
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).in('plan', ['essential', 'plus'])),
       safeCount(() => supabase.from('professional_comments').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
-      safeCount(() => supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
+      safeCount(() => supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       safeCount(() => supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')),
-      safeCount(() => supabase.from('monthly_reports').select('*', { count: 'exact', head: true }).eq('status', 'draft')),
-      safeCount(() => supabase.from('self_care_plans').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
+      safeCount(() => supabase.from('reports').select('*', { count: 'exact', head: true }).eq('report_type', 'monthly').in('status', ['draft', 'generated'])),
+      safeCount(() => supabase.from('monthly_care_plans').select('*', { count: 'exact', head: true }).in('status', ['pending_generation', 'generated'])),
       safeCount(() => supabase.from('email_logs').select('*', { count: 'exact', head: true }).eq('status', 'failed')),
+      safeCount(() => supabase.from('ai_generation_logs').select('*', { count: 'exact', head: true }).eq('status', 'error')),
       safeCount(() => supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted')),
     ])
-    setC({ users, newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, pendingCancellations })
+    setC({ users, newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations })
 
     // Atividade recente (novos usuários + mudanças de plano)
     const acts: Activity[] = []
@@ -84,7 +86,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
 
   useEffect(() => { load() }, [])
 
-  const pendencias = c.pendingComments + c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.pendingCancellations
+  const pendencias = c.pendingComments + c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.aiFailures + c.pendingCancellations
 
   const cards = [
     { label: 'Usuários ativos', value: c.users, delta: c.newUsers7d > 0 ? `+${c.newUsers7d} nesta semana` : 'Total de contas', Icon: Users, bg: 'bg-mint', color: 'text-forest-600' },
@@ -99,17 +101,17 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     { Icon: LifeBuoy, color: 'text-forest-600', bg: 'bg-mint', title: 'Tickets de suporte abertos', sub: 'Em atendimento', qtd: c.openTickets, nav: 'support' as AdminView },
     { Icon: BarChart3, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Relatórios a revisar', sub: 'Relatórios mensais aguardando revisão', qtd: c.reportsToReview, nav: 'pdf' as AdminView },
     { Icon: CalendarCheck, color: 'text-forest-600', bg: 'bg-mint', title: 'Planos de autocuidado pendentes', sub: 'Aguardando geração ou envio', qtd: c.selfCarePending, nav: 'self-care-plans' as AdminView },
-    { Icon: AlertTriangle, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas de e-mail ou IA', sub: 'Eventos que precisam de atenção', qtd: c.emailFailures, nav: 'notifications' as AdminView },
+    { Icon: AlertTriangle, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas de e-mail ou IA', sub: 'Eventos que precisam de atenção', qtd: c.emailFailures + c.aiFailures, nav: 'notifications' as AdminView },
     { Icon: Ban, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Cancelamentos a revisar', sub: 'Pedidos de cancelamento aguardando resposta', qtd: c.pendingCancellations, nav: 'cancelamentos' as AdminView },
   ]
 
-  // Saúde básica (mockup): DB/E-mails/IA operacionais, Pagamentos em teste.
+  // Statuses só são marcados como operacionais quando há uma checagem real.
   const health: { Icon: typeof Database; label: string; state: 'ok' | 'warn' | 'unknown'; note: string }[] = [
     { Icon: Database, label: 'Banco de dados', state: dbOk ? 'ok' : 'unknown', note: dbOk ? 'Operacional' : 'Ver detalhes' },
-    { Icon: Mail, label: 'E-mails', state: c.emailFailures > 0 ? 'warn' : 'ok', note: c.emailFailures > 0 ? `${c.emailFailures} falha(s)` : 'Operacional' },
-    { Icon: CreditCard, label: 'Pagamentos', state: 'warn', note: 'Em teste' },
-    { Icon: Cpu, label: 'IA e recomendações', state: 'ok', note: 'Operacional' },
-    { Icon: HardDrive, label: 'Storage', state: 'ok', note: 'Operacional' },
+    { Icon: Mail, label: 'E-mails', state: c.emailFailures > 0 ? 'warn' : 'unknown', note: c.emailFailures > 0 ? `${c.emailFailures} falha(s) registrada(s)` : 'Sem falhas registradas' },
+    { Icon: CreditCard, label: 'Pagamentos', state: 'unknown', note: 'Ver Analytics Financeiro' },
+    { Icon: Cpu, label: 'IA e recomendações', state: c.aiFailures > 0 ? 'warn' : 'unknown', note: c.aiFailures > 0 ? `${c.aiFailures} falha(s) registrada(s)` : 'Última verificação indisponível' },
+    { Icon: HardDrive, label: 'Storage', state: 'unknown', note: 'Última verificação indisponível' },
   ]
 
   return (

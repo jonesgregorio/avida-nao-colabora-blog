@@ -78,7 +78,7 @@ async function buildSnapshot(userId: string, plan: string, taskKey: string): Pro
     supabase.from('diary_entries').select('mood, tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     supabase.from('questionnaire_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-    supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event_type', 'article_read'),
+    supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event', 'article_view'),
   ])
   const tagFreq: Record<string, number> = {}
   let moodSum = 0; let moodCount = 0
@@ -966,8 +966,10 @@ function HistoryTable({ profileMap }: { profileMap: Record<string, UserRow> }) {
 
   useEffect(() => {
     setLoading(true)
+    const [year, month] = monthFilter.split('-').map(Number)
+    const nextMonth = new Date(year, month, 1).toISOString().slice(0, 10)
     supabase.from('personalized_content_deliveries').select('*').eq('status', 'sent')
-      .gte('sent_at', `${monthFilter}-01`).lte('sent_at', `${monthFilter}-31`)
+      .gte('sent_at', `${monthFilter}-01`).lt('sent_at', nextMonth)
       .order('sent_at', { ascending: false }).limit(200)
       .then(({ data }) => { setDeliveries((data ?? []) as Delivery[]); setLoading(false) })
   }, [monthFilter])

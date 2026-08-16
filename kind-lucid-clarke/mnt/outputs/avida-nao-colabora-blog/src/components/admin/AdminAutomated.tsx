@@ -20,11 +20,12 @@ interface AutoContent {
 
 const TYPES = [
   { label: 'Sugestão de artigo', value: 'article_recommendation' },
-  { label: 'Meditação guiada em texto', value: 'guided_meditation' },
-  { label: 'Exercício emocional', value: 'emotional_exercise' },
-  { label: 'Mini-desafio', value: 'mini_challenge' },
-  { label: 'Avaliação semanal', value: 'weekly_evaluation' },
-  { label: 'Plano semanal de autocuidado', value: 'weekly_self_care' },
+  { label: 'Exercício de escrita', value: 'writing_exercise' },
+  { label: 'Pausa emocional', value: 'emotional_pause' },
+  { label: 'Organização emocional', value: 'emotional_organization' },
+  { label: 'Limites e rotina', value: 'boundaries_and_routine' },
+  { label: 'Autocuidado prático', value: 'practical_self_care' },
+  { label: 'Conteúdo educativo', value: 'educational_content' },
   { label: 'Lembrete de diário', value: 'diary_reminder' },
   { label: 'Reflexão guiada', value: 'guided_reflection' },
 ]
@@ -54,7 +55,7 @@ const FREQ_COLORS: Record<string, string> = {
 const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 async function generateContent(tema: string, tipo: string, frequencia: string): Promise<string> {
-  const prompt = `Você é um psicólogo especializado em saúde mental e bem-estar emocional.
+  const prompt = `Você é uma IA de apoio emocional do projeto A Vida Não Colabora. Sua função é criar conteúdo acolhedor, não clínico e não diagnóstico.
 Crie um conteúdo do tipo "${tipo}" sobre o tema: "${tema}". Frequência de envio: ${frequencia}
 Requisitos: escreva em português brasileiro, tom acolhedor e empático, entre 150 e 250 palavras, inclua uma dica prática ou exercício ao final, escreva em parágrafos corridos sem listas ou markdown, termine com uma frase de encorajamento. Retorne APENAS o texto, sem título.`
   // Via Edge Function segura (Gemini → Groq → OpenAI), chaves só no servidor.

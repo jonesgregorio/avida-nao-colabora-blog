@@ -431,7 +431,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
     const planFilter = isPlus
-      ? ['free', 'essential', 'plus', 'therapeutic', 'therapeutic-plus']
+      ? ['free', 'essential', 'plus']
       : isEssential
       ? ['free', 'essential']
       : ['free']

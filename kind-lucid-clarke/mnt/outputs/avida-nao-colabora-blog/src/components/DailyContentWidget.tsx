@@ -62,10 +62,11 @@ export default function DailyContentWidget({ user, profile }: Props) {
 
   async function loadContent() {
     setLoading(true)
-    // Planos elegíveis (do usuário para baixo), incluindo legados no tier Plus.
+    // Planos elegíveis (do usuário para baixo). Valores legados do perfil são
+    // normalizados antes desta consulta; o catálogo usa apenas os 3 planos atuais.
     const norm = normalizePlan(profile?.plan)
     const eligiblePlans = norm === 'plus'
-      ? ['free', 'essential', 'plus', 'therapeutic', 'therapeutic-plus']
+      ? ['free', 'essential', 'plus']
       : norm === 'essential'
         ? ['free', 'essential']
         : ['free']
