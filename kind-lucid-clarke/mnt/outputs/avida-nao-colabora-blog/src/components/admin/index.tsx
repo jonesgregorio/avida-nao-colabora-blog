@@ -1,23 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import type { AdminView } from './types'
 import { useAuth } from '../../hooks/useAuth'
 import { logAdminAction } from '../../lib/adminAudit'
 import AdminLayout from './AdminLayout'
 import AdminLogin from './AdminLogin'
-import AdminArticleEditor from './AdminArticleEditor'
-import AdminOverview from './AdminOverview'
-import AdminUsers from './AdminUsers'
-import AdminEngagement from './AdminEngagement'
-import AdminPlanosPage from './AdminPlanosPage'
-import AdminCancellations from './AdminCancellations'
-import AdminFinanceiro from './AdminFinanceiro'
-import AdminAreaEmocional from './AdminAreaEmocional'
-import AdminSuportePage from './AdminSuportePage'
-import AdminAreaConteudo from './AdminAreaConteudo'
-import AdminAreaComunicacao from './AdminAreaComunicacao'
-import AdminAreaSistema from './AdminAreaSistema'
-import AdminMapaArea from './AdminMapaArea'
-import AnalyticsPage from './AnalyticsPage'
+
+// Cada área do painel é independente. Carregá-las sob demanda evita baixar
+// editores, gráficos e integrações que o administrador não abriu nesta sessão.
+const AdminArticleEditor = lazy(() => import('./AdminArticleEditor'))
+const AdminOverview = lazy(() => import('./AdminOverview'))
+const AdminUsers = lazy(() => import('./AdminUsers'))
+const AdminEngagement = lazy(() => import('./AdminEngagement'))
+const AdminPlanosPage = lazy(() => import('./AdminPlanosPage'))
+const AdminCancellations = lazy(() => import('./AdminCancellations'))
+const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
+const AdminAreaEmocional = lazy(() => import('./AdminAreaEmocional'))
+const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
+const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
+const AdminAreaComunicacao = lazy(() => import('./AdminAreaComunicacao'))
+const AdminAreaSistema = lazy(() => import('./AdminAreaSistema'))
+const AdminMapaArea = lazy(() => import('./AdminMapaArea'))
+const AnalyticsPage = lazy(() => import('./AnalyticsPage'))
+
+function AdminSectionLoading() {
+  return (
+    <div className="min-h-[18rem] flex items-center justify-center" role="status" aria-live="polite">
+      <div className="w-7 h-7 border-2 border-forest-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export type { AdminView } from './types'
 
@@ -204,7 +215,7 @@ export default function AdminPanel() {
       onExit={handleExit}
       userName={profile?.full_name || profile?.display_name || profile?.preferred_name || undefined}
     >
-      {renderView()}
+      <Suspense fallback={<AdminSectionLoading />}>{renderView()}</Suspense>
     </AdminLayout>
   )
 }
