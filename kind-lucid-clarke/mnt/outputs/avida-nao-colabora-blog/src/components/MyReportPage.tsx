@@ -236,12 +236,14 @@ function EmotionDonut({ emotions }: { emotions: { label: string; count: number }
   )
 }
 
-function TriggerRanking({ triggers }: { triggers: { tag: string; count: number }[] }) {
+function TriggerRanking({ triggers, title = 'Gatilhos principais', emptyText = 'Ainda não há check-ins com gatilhos neste período.' }: {
+  triggers: { tag: string; count: number }[]; title?: string; emptyText?: string
+}) {
   const total = triggers.reduce((n, t) => n + t.count, 0)
   const max = Math.max(...triggers.map(t => t.count), 1)
   return (
     <div className="bg-paper-soft border border-line rounded-2xl p-5">
-      <h3 className="font-serif text-lg text-forest-900 mb-3">Gatilhos principais</h3>
+      <h3 className="font-serif text-lg text-forest-900 mb-3">{title}</h3>
       {total > 0 ? (
         <div className="space-y-2.5">
           {triggers.slice(0, 5).map((t, i) => (
@@ -254,7 +256,7 @@ function TriggerRanking({ triggers }: { triggers: { tag: string; count: number }
           ))}
         </div>
       ) : (
-        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com gatilhos neste período.</p>
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">{emptyText}</p>
       )}
     </div>
   )
@@ -338,6 +340,11 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <EmotionDonut emotions={c.topEmotions} />
           <TriggerRanking triggers={c.triggers} />
         </div>
+
+        {/* Contextos (§14.1) */}
+        {c.topContexts && c.topContexts.length > 0 && (
+          <TriggerRanking triggers={c.topContexts} title="Contextos que mais apareceram" emptyText="Ainda não há contextos marcados nesta semana." />
+        )}
 
         {/* Blocos interpretativos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -462,6 +469,14 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             <EmotionDonut emotions={mEmotions} />
             <TriggerRanking triggers={mTriggers} />
           </div>
+
+          {/* Contextos e necessidades mais recorrentes (§14.2) */}
+          {((c.topContexts?.length ?? 0) > 0 || (c.topNeeds?.length ?? 0) > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <TriggerRanking triggers={c.topContexts ?? []} title="Contextos mais recorrentes" emptyText="Ainda não há contextos marcados neste mês." />
+              <TriggerRanking triggers={c.topNeeds ?? []} title="Necessidades emocionais mais presentes" emptyText="Ainda não há necessidades marcadas neste mês." />
+            </div>
+          )}
 
           {/* Dias de maior atenção */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">

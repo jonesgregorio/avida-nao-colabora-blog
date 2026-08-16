@@ -19,6 +19,7 @@ export interface DiaryRowLite {
   context_tags?: string[] | string | null
   need_tags?: string[] | string | null
   care_action_tags?: string[] | string | null
+  trigger_tags?: string[] | string | null
   entry_type?: string | null
   created_at?: string | null
   date?: string | null
@@ -119,6 +120,8 @@ export interface EmotionalAnalysis {
   contexts: { tag: string; count: number }[]
   needs: { tag: string; count: number }[]
   careActions: { tag: string; count: number }[]
+  /** Gatilhos REAIS (§13.1) — Plus. Diferente de `triggers` (que são sentimentos). */
+  realTriggers: { tag: string; count: number }[]
   periods: PeriodStat[]
   calendar: { day: number; label: string; avg: number; count: number }[]
   energyAnxiety: { hasData: boolean; text: string }
@@ -169,6 +172,7 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
   const contexts = tagRanking(entries, e => e.context_tags)
   const needs = tagRanking(entries, e => e.need_tags)
   const careActions = tagRanking(entries, e => e.care_action_tags)
+  const realTriggers = tagRanking(entries, e => e.trigger_tags)
 
   // Períodos do dia (usa created_at).
   const periods: PeriodStat[] = PERIODS.map(p => {
@@ -282,7 +286,7 @@ export function computeEmotionalAnalysis(entries: DiaryRowLite[], prevEntries: D
     moodByDay: seriesByDay(entries, moodScoreOf),
     energyByDay: seriesByDay(entries, en),
     anxietyByDay: seriesByDay(entries, anx),
-    topEmotions, topEmotionsByDay, triggers, contexts, needs, careActions, periods, calendar, energyAnxiety,
+    topEmotions, topEmotionsByDay, triggers, contexts, needs, careActions, realTriggers, periods, calendar, energyAnxiety,
     weekly: { hasData: weeklyLines.length > 0, lines: weeklyLines },
   }
 }

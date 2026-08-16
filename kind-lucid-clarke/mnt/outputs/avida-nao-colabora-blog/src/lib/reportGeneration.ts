@@ -17,7 +17,7 @@ const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 
 
 // Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
 // fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
-const CONTENT_VERSION = 5
+const CONTENT_VERSION = 6
 
 export interface DayPoint { day: number; value: number }
 
@@ -35,6 +35,8 @@ export interface WeeklyContent {
   avgAnxiety: number
   avgMood: number
   triggers: { tag: string; count: number }[]
+  // §14.1: contextos que mais apareceram na semana.
+  topContexts: { tag: string; count: number }[]
   comparison: string[]
   nextSteps: string[]
   recommendTags: string[]
@@ -57,6 +59,9 @@ export interface MonthlyContent extends DeepReport {
   avgSleep: number
   topEmotions: { label: string; count: number; emoji: string }[]
   topTriggers: { tag: string; count: number }[]
+  // §14.2: contextos e necessidades mais recorrentes do mês.
+  topContexts: { tag: string; count: number }[]
+  topNeeds: { tag: string; count: number }[]
   // Gráficos de síntese (§7.10)
   energyByDay: DayPoint[]
   anxietyByDay: DayPoint[]
@@ -102,7 +107,7 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     improvementMoments: deriveImprovement(a),
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
-    triggers: a.triggers.slice(0, 5), comparison: a.weekly.lines,
+    triggers: a.triggers.slice(0, 5), topContexts: a.contexts.slice(0, 5), comparison: a.weekly.lines,
     nextSteps: ['Fazer um check-in no meio do dia', 'Registrar diário em dias de maior sobrecarga', 'Ler um conteúdo guiado recomendado', 'Acompanhar o padrão no Mapa Emocional'],
     recommendTags: [...new Set([...a.triggers.map(t => t.tag), ...a.topEmotions.filter(e => NEGATIVE.has(e.label)).map(e => e.label)])],
     energyByDay: a.energyByDay, anxietyByDay: a.anxietyByDay,
@@ -119,6 +124,7 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     relations: deriveRelations(analysis),
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
     topEmotions: analysis.topEmotions.slice(0, 6), topTriggers: analysis.triggers.slice(0, 6),
+    topContexts: analysis.contexts.slice(0, 6), topNeeds: analysis.needs.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
     checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,
   }

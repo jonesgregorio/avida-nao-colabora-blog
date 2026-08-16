@@ -73,15 +73,19 @@ const FREE_EMOTIONAL_TAGS = ['ansiedade', 'tristeza', 'cansaço', 'sobrecarga', 
 const contextTagOptions = ['trabalho', 'família', 'relacionamento', 'amizades', 'dinheiro', 'saúde', 'corpo', 'casa', 'estudos', 'redes sociais', 'solidão', 'rotina', 'futuro', 'autoimagem', 'sono', 'alimentação', 'responsabilidades']
 const needTagOptions = ['descanso', 'acolhimento', 'clareza', 'silêncio', 'conversa', 'limite', 'organização', 'ajuda', 'pausa', 'leveza', 'segurança', 'coragem', 'paciência', 'presença', 'menos cobrança']
 const careActionTagOptions = ['tomar banho', 'beber água', 'respirar', 'ouvir música', 'caminhar', 'dormir mais cedo', 'conversar com alguém', 'organizar uma tarefa', 'ficar em silêncio', 'escrever mais', 'ver um conteúdo guiado', 'reduzir redes sociais', 'fazer uma pausa', 'comer algo leve', 'pedir ajuda']
+// Gatilhos REAIS (§13.1) — Plus. Diferente de emotional_tags (sentimentos):
+// aqui é o que costuma provocar a reação, não a reação em si.
+const triggerTagOptions = ['cobrança', 'conflito', 'excesso de tarefas', 'crítica', 'rejeição', 'comparação', 'incerteza', 'falta de descanso', 'mudança de planos', 'sensação de fracasso', 'dificuldade financeira', 'conversa difícil', 'pressão familiar', 'exposição em redes sociais']
 
 interface EntryTag { tag: string; category?: TagCategory }
-// Junta as 4 categorias de tag de um registro numa lista só, pra exibição no histórico.
-function entryTags(e: { emotional_tags?: string[]; context_tags?: string[]; need_tags?: string[]; care_action_tags?: string[] }): EntryTag[] {
+// Junta as categorias de tag de um registro numa lista só, pra exibição no histórico.
+function entryTags(e: { emotional_tags?: string[]; context_tags?: string[]; need_tags?: string[]; care_action_tags?: string[]; trigger_tags?: string[] }): EntryTag[] {
   return [
     ...(e.emotional_tags ?? []).map(tag => ({ tag })),
     ...(e.context_tags ?? []).map(tag => ({ tag, category: 'context' as TagCategory })),
     ...(e.need_tags ?? []).map(tag => ({ tag, category: 'need' as TagCategory })),
     ...(e.care_action_tags ?? []).map(tag => ({ tag, category: 'care_action' as TagCategory })),
+    ...(e.trigger_tags ?? []).map(tag => ({ tag, category: 'advanced' as TagCategory })),
   ]
 }
 
@@ -221,7 +225,7 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
 // §11.5: nunca buscar o histórico inteiro de uma vez — pesado pra quem tem
 // centenas/milhares de registros. Paginação simples por range.
 const ENTRIES_PAGE_SIZE = 30
-const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags'
+const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags,trigger_tags'
 
 export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
@@ -234,6 +238,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'checkin' | 'diary' | 'questionnaire'>('all')
+  const [periodFilter, setPeriodFilter] = useState<'all' | '7d' | '30d' | 'month'>('all')
   // §3/§11: a página vira 2 abas — Registrar (formulário) e Histórico (lista,
   // agora agrupada por dia). Evita mostrar tudo de uma vez na mesma tela.
   const [pageTab, setPageTab] = useState<'registrar' | 'historico'>('registrar')
@@ -277,6 +282,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [contextTags, setContextTags] = useState<string[]>([])
   const [needTags, setNeedTags] = useState<string[]>([])
   const [careActionTags, setCareActionTags] = useState<string[]>([])
+  const [triggerTags, setTriggerTags] = useState<string[]>([])
 
   // §6: sliders opcionais só contam como resposta real depois que o usuário
   // interage — evita salvar "3/5" (valor visual inicial) como se fosse dado.
@@ -438,7 +444,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setShowOtherTag(false); setOtherTagInput('')
     setSleepQuality(3); setSelfEsteem(3); setIrritability(3); setOverload(3)
     setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
-    setContextTags([]); setNeedTags([]); setCareActionTags([])
+    setContextTags([]); setNeedTags([]); setCareActionTags([]); setTriggerTags([])
     setTouchedFields(new Set())
     setShowMainEmotion(false)
     setError('')
@@ -510,6 +516,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       if (fieldOn('irritability') && touchedFields.has('irritability')) payload.irritability = normalizeScale(irritability, 3)
       if (fieldOn('overload') && touchedFields.has('overload')) payload.overload = normalizeScale(overload, 3)
       if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
+      if (fieldOn('trigger_tags')) payload.trigger_tags = triggerTags.length > 0 ? triggerTags : undefined
       if (fieldOn('recurring_thoughts')) payload.recurring_thoughts = recurringThoughts || undefined
       if (fieldOn('emotional_need')) payload.emotional_need = emotionalNeed || undefined
       if (fieldOn('relationships')) payload.relationships = relationships || undefined
@@ -560,7 +567,18 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     if (onClearPromptContext) onClearPromptContext()
   }
 
-  const filteredEntries = entries.filter(e => filter === 'all' ? true : e.entry_type === filter)
+  // §11.4: filtro de período, sobre os registros já carregados (a paginação
+  // continua trazendo mais páginas por baixo — "Carregar mais" ainda funciona).
+  const periodCutoff = periodFilter === '7d' ? ymd(new Date(Date.now() - 7 * 864e5))
+    : periodFilter === '30d' ? ymd(new Date(Date.now() - 30 * 864e5)) : null
+  const currentMonthKey = ymd(new Date()).slice(0, 7)
+  const filteredEntries = entries.filter(e => {
+    if (filter !== 'all' && e.entry_type !== filter) return false
+    const d = String(e.date ?? '').slice(0, 10)
+    if (periodFilter === 'month') return d.startsWith(currentMonthKey)
+    if (periodCutoff) return d >= periodCutoff
+    return true
+  })
 
   const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -928,9 +946,21 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                   {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você sente gratidão hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                 </div>
+                {/* Gatilhos reais (§13.1) — separados dos sentimentos (emotional_tags). */}
+                {isPlus && fieldOn('trigger_tags') && (
+                  <div className="mt-4">
+                    <label className="text-xs text-ink-soft font-medium block mb-1">O que costuma disparar isso?</label>
+                    <p className="text-[11px] text-ink-soft/80 mb-2">Situações que costumam vir antes desse tipo de dia — não é a mesma coisa que o sentimento em si.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {triggerTagOptions.map(tag => (
+                        <DiaryTagChip key={tag} label={tag} category="advanced" selected={triggerTags.includes(tag)} onClick={() => toggleInArray(triggerTags, setTriggerTags, tag)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {isPlus && (
                   <div className="grid gap-3 mt-3">
-                    {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                    {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje… (texto livre)" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                     {fieldOn('recurring_thoughts') && <input type="text" value={recurringThoughts} onChange={e => setRecurringThoughts(e.target.value)} placeholder="Pensamentos recorrentes…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                     {fieldOn('emotional_need') && <input type="text" value={emotionalNeed} onChange={e => setEmotionalNeed(e.target.value)} placeholder="Necessidade emocional principal…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                     {fieldOn('relationships') && <input type="text" value={relationships} onChange={e => setRelationships(e.target.value)} placeholder="Relações e limites hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
@@ -990,6 +1020,17 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                     {f === 'all' ? 'Tudo' : f === 'checkin' ? 'Check-ins' : f === 'diary' ? 'Diário' : 'Avaliações'}
                   </button>
                 ))}
+                {/* §11.4: período — sobre o que já foi carregado. */}
+                <select
+                  value={periodFilter}
+                  onChange={e => setPeriodFilter(e.target.value as typeof periodFilter)}
+                  className="text-xs px-2.5 py-1.5 rounded-full border border-line bg-white text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+                >
+                  <option value="all">Todos os períodos</option>
+                  <option value="7d">Últimos 7 dias</option>
+                  <option value="30d">Últimos 30 dias</option>
+                  <option value="month">Mês atual</option>
+                </select>
                 <button onClick={fetchEntries} className="p-1.5 text-ink-soft hover:text-forest-700" title="Atualizar"><RefreshCw className="w-4 h-4" /></button>
               </div>
             </div>

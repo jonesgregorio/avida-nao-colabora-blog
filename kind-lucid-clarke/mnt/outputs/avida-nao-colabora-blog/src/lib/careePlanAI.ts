@@ -52,6 +52,12 @@ export interface RecordsSummary {
   avgSleep: number
   topEmotions: { label: string; count: number }[]
   triggers: { tag: string; count: number }[]
+  // §16: contexto/necessidade/cuidado/gatilhos reais marcados no diário —
+  // dão ao plano uma base concreta em vez de só resumo genérico do mês.
+  contexts: { tag: string; count: number }[]
+  needs: { tag: string; count: number }[]
+  careActions: { tag: string; count: number }[]
+  realTriggers: { tag: string; count: number }[]
   attentionDays: number[]
   hasEnoughData: boolean
   monthLabel: string
@@ -78,6 +84,10 @@ export function buildRecordsSummary(a: EmotionalAnalysis, monthLabel: string, pe
     avgSleep: a.avg.sleep,
     topEmotions: a.topEmotions.map(e => ({ label: e.label, count: e.count })),
     triggers: a.triggers.map(t => ({ tag: t.tag, count: t.count })),
+    contexts: a.contexts.map(t => ({ tag: t.tag, count: t.count })),
+    needs: a.needs.map(t => ({ tag: t.tag, count: t.count })),
+    careActions: a.careActions.map(t => ({ tag: t.tag, count: t.count })),
+    realTriggers: a.realTriggers.map(t => ({ tag: t.tag, count: t.count })),
     attentionDays: attention,
     hasEnoughData: a.totalEntries >= 5 && a.activeDays >= 3,
     monthLabel,
@@ -98,7 +108,11 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     ansiedade_media: rs.avgAnxiety,
     sono_medio: rs.avgSleep,
     emocoes_frequentes: rs.topEmotions.slice(0, 6),
-    gatilhos: rs.triggers.slice(0, 8),
+    marcadores_emocionais: rs.triggers.slice(0, 8),
+    contextos_frequentes: rs.contexts.slice(0, 6),
+    necessidades_frequentes: rs.needs.slice(0, 6),
+    acoes_de_cuidado_escolhidas: rs.careActions.slice(0, 6),
+    gatilhos_reais: rs.realTriggers.slice(0, 6),
     dias_de_atencao: rs.attentionDays,
     dados_suficientes: rs.hasEnoughData,
   }
@@ -112,6 +126,7 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     '- Se dados_suficientes for false, deixe o texto mais suave e incentive registrar mais, sem forçar conclusões.',
     '- Escreva em português do Brasil.',
     '- OBRIGATÓRIO: preencha TODOS os campos de "care_plan" — nenhum pode ficar vazio ou genérico demais. Cada campo de texto precisa ter 1 a 3 frases com orientação prática de verdade (não apenas um título ou uma palavra).',
+    '- Use contextos_frequentes, necessidades_frequentes e acoes_de_cuidado_escolhidas para tornar o plano concreto — ex.: "seus registros mostram que trabalho e sobrecarga apareceram com frequência, enquanto descanso e pausa foram necessidades marcadas várias vezes". Não ignore esses dados se estiverem presentes.',
     '',
     'MÉTRICAS DO MÊS (JSON):',
     JSON.stringify(metrics, null, 2),

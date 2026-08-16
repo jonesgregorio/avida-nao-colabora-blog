@@ -161,6 +161,10 @@ interface DiarySignalRow {
   energy?: number | null
   anxiety_level?: number | null
   emotional_tags?: string[] | string | null
+  context_tags?: string[] | string | null
+  need_tags?: string[] | string | null
+  care_action_tags?: string[] | string | null
+  trigger_tags?: string[] | string | null
   emotional_triggers?: string | null
   recurring_thoughts?: string | null
   emotional_need?: string | null
@@ -173,12 +177,18 @@ interface DiarySignalRow {
   date?: string | null
 }
 
+function arrTagsText(v: string[] | string | null | undefined): string {
+  if (Array.isArray(v)) return v.join(' ')
+  return typeof v === 'string' ? v : ''
+}
+
 function rowText(e: DiarySignalRow): string {
-  const tags = Array.isArray(e.emotional_tags)
-    ? e.emotional_tags.join(' ')
-    : (typeof e.emotional_tags === 'string' ? e.emotional_tags : '')
-  return [e.mood, e.text, e.emotional_triggers, e.recurring_thoughts, e.emotional_need, e.free_note, e.relationships, e.habits, tags]
-    .filter(Boolean).join(' \n ')
+  // §16: contexto/necessidade/cuidado/gatilhos reais também entram no texto
+  // combinado — casam com os mesmos temas (ex.: "trabalho" já reforça sobrecarga).
+  return [
+    e.mood, e.text, e.emotional_triggers, e.recurring_thoughts, e.emotional_need, e.free_note, e.relationships, e.habits,
+    arrTagsText(e.emotional_tags), arrTagsText(e.context_tags), arrTagsText(e.need_tags), arrTagsText(e.care_action_tags), arrTagsText(e.trigger_tags),
+  ].filter(Boolean).join(' \n ')
 }
 
 /** Constrói o sinal a partir de uma lista de registros (diário + check-in). */

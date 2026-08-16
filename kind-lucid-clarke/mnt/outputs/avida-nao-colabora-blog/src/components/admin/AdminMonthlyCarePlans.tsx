@@ -394,7 +394,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         energy: d.energy as number, anxiety_level: d.anxiety_level as number,
         sleep_quality: d.sleep_quality as number, self_esteem: d.self_esteem as number,
         stress_level: d.stress_level as number,
-        emotional_tags: d.emotional_tags as string[], entry_type: d.entry_type as string,
+        emotional_tags: d.emotional_tags as string[],
+        context_tags: d.context_tags as string[], need_tags: d.need_tags as string[],
+        care_action_tags: d.care_action_tags as string[], trigger_tags: d.trigger_tags as string[],
+        entry_type: d.entry_type as string,
         created_at: d.created_at as string, date: d.entry_date as string,
       }))
       setAnalysis(computeEmotionalAnalysis(rows))

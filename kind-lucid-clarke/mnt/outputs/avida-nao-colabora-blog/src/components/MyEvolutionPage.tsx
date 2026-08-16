@@ -524,7 +524,7 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     const start = new Date(y, m - 1, 1).toISOString()
     const end = new Date(y, m, 1).toISOString()
     const prevStart = new Date(y, m - 2, 1).toISOString()
-    const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,entry_type,created_at,date'
+    const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags,entry_type,created_at,date'
     Promise.all([
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', start).lt('created_at', end),
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('created_at', prevStart).lt('created_at', start),
@@ -734,6 +734,12 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
           </div>
           <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
+
+          {/* Gatilhos reais (§13.1) — Plus. Diferente do bloco "Marcadores
+              emocionais" acima, que é sentimento, não gatilho. */}
+          {hasPlan(plan, 'plus') && (
+            <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
+          )}
 
           {/* Mapa por período do dia */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">

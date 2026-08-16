@@ -106,6 +106,7 @@ export interface DiaryEntry {
   context_tags?: string[]
   need_tags?: string[]
   care_action_tags?: string[]
+  trigger_tags?: string[]
   gratitude?: string
   small_pride?: string
   free_note?: string
