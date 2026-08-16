@@ -19,6 +19,10 @@ export interface DiaryPlanConfig {
   history: string
   graphs: string[]
   reports: string[]
+  /** Regras não editáveis pelo admin: deixam a experiência de cada plano explícita. */
+  diaryExperience?: 'basic' | 'complete' | 'advanced'
+  mainEntriesPerDay?: number
+  addonsEnabled?: boolean
 }
 
 // Campos configuráveis (rótulos usados no admin).
@@ -51,7 +55,7 @@ export const DIARY_FIELDS = [
 export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   {
     plan: 'free', label: 'Gratuito', entriesPerMonth: 5, exportPDF: false,
-    history: '30 dias',
+    history: '30 dias', diaryExperience: 'basic', mainEntriesPerDay: 1, addonsEnabled: false,
     // emotional_tags explícito: Gratuito tem uma seleção BÁSICA e curada (6 tags,
     // ver DiaryPage.tsx) — não o catálogo completo do Essencial/Plus. Contexto,
     // necessidade e ações de cuidado ficam explicitamente off (ausência de chave
@@ -62,7 +66,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   },
   {
     plan: 'essential', label: 'Essencial', entriesPerMonth: null, exportPDF: true,
-    history: 'Completo',
+    history: 'Completo', diaryExperience: 'complete', mainEntriesPerDay: 1, addonsEnabled: true,
     // stress_level/self_esteem ficam explicitamente false: são campos avançados
     // do Plus (DiaryPage.tsx exige isPlus). Ausência de chave = fieldOn() trata
     // como "ligado", então aqui precisa ser explícito para não vazar pro Essencial.
@@ -73,7 +77,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   },
   {
     plan: 'plus', label: 'Plus', entriesPerMonth: null, exportPDF: true,
-    history: 'Completo',
+    history: 'Completo', diaryExperience: 'advanced', mainEntriesPerDay: 1, addonsEnabled: true,
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, trigger_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
     // §10: perguntas do diário são sempre do DIA, nunca da semana/mês — essas
     // pertencem ao Relatório e ao Plano de Autocuidado, não aqui.

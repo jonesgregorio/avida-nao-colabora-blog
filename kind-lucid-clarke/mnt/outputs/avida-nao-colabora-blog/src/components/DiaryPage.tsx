@@ -202,6 +202,10 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
   const moodObj = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)
   const time = entry.created_at ? new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
   const isCheckinRow = entry.entry_type === 'checkin'
+  const diaryLabel = entry.diary_kind === 'basic' ? 'Registro básico'
+    : entry.diary_kind === 'addon' ? 'Complemento'
+    : entry.diary_kind === 'advanced' ? 'Aprofundamento'
+    : 'Diário'
   const tags = entryTags(entry)
   return (
     <div>
@@ -212,7 +216,7 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
           <span className="text-xs font-medium text-forest-700 flex-shrink-0">{entry.mood}</span>
           {entry.entry_type === 'checkin' && <span className="text-[10px] bg-sky text-[#3d6ea5] px-1.5 py-0.5 rounded-full flex-shrink-0">Check-in</span>}
           {entry.entry_type === 'questionnaire' && <span className="text-[10px] bg-mint text-forest-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Avaliação</span>}
-          {(entry.entry_type ?? 'diary') === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-1.5 py-0.5 rounded-full flex-shrink-0">Diário</span>}
+          {(entry.entry_type ?? 'diary') === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-1.5 py-0.5 rounded-full flex-shrink-0">{diaryLabel}</span>}
           {isCheckinRow && !!entry.energy && <span className="text-[11px] text-ink-soft flex-shrink-0">Energia {entry.energy}/5</span>}
           {isCheckinRow && !!entry.anxiety_level && <span className="text-[11px] text-ink-soft flex-shrink-0">Ansiedade {entry.anxiety_level}/5</span>}
           {!isCheckinRow && tags.slice(0, 3).map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
@@ -245,7 +249,7 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
 // §11.5: nunca buscar o histórico inteiro de uma vez — pesado pra quem tem
 // centenas/milhares de registros. Paginação simples por range.
 const ENTRIES_PAGE_SIZE = 30
-const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags,trigger_tags'
+const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,diary_kind,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags,trigger_tags'
 
 export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
@@ -269,7 +273,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     return n
   })
   // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
-  const [entryMode, setEntryMode] = useState<'quick' | 'full'>('quick')
+  const [entryMode, setEntryMode] = useState<'quick' | 'full' | 'addon' | 'main-saved'>('quick')
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -333,6 +338,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const isEssential = hasPlanAccess(plan, 'essential')
   const isPlus = hasPlanAccess(plan, 'plus')
+  const isFree = plan === 'free'
 
   // Configuração do diário por plano (admin → "Diário por Plano"). Fallback = padrão do plano.
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
@@ -350,6 +356,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   // O limite bloqueia SÓ o diário completo. Check-in rápido é ilimitado (§8):
   // não conta e nunca é bloqueado, mesmo com os 5 registros do mês já usados.
   const saveBlockedByLimit = atLimit && entryMode !== 'quick'
+  const todayKey = ymd(new Date())
+  const todayMainEntry = entries.find(e => String(e.date ?? '').slice(0, 10) === todayKey && (e.entry_type ?? 'diary') === 'diary' && ['basic', 'main'].includes(e.diary_kind ?? 'main'))
+  const isDiaryForm = entryMode === 'full' || entryMode === 'addon'
 
   const writeDays = new Set(entries.filter(e => e.entry_type === 'diary').map(e => String(e.date ?? '').slice(0, 10)))
   const streak = calcStreak(writeDays)
@@ -494,7 +503,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
         setError('Escolha um estado emocional para registrar seu check-in.')
         return
       }
-    } else if (!diaryText.trim() && !mainEmotion.trim() && !freeNote.trim()) {
+    } else if (!isDiaryForm || (!diaryText.trim() && !mainEmotion.trim() && !freeNote.trim())) {
       setError('Escreva algo antes de salvar seu diário.')
       return
     }
@@ -506,6 +515,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setError('')
 
     const isCheckin = entryMode === 'quick'
+    const diaryKind: NonNullable<DiaryEntry['diary_kind']> = isFree ? 'basic' : entryMode === 'addon' ? 'addon' : 'main'
     const moodObj = moodOptions.find(m => m.value === mood) || moodOptions.find(m => m.value === 'outro') || moodOptions[0]
     const entryText = isCheckin ? quickNote : [mainEmotion, diaryText, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
@@ -522,6 +532,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       text: entryText,
       // Check-in rápido NÃO conta como diário (§8): salva como 'checkin'.
       entry_type: isCheckin ? 'checkin' : 'diary',
+      ...(isCheckin ? {} : { diary_kind: diaryKind }),
     }
 
     // Check-in rápido (§8.1/§6): energia e ansiedade são opcionais — só salvam
@@ -559,7 +570,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       if (fieldOn('habits')) payload.habits = habits || undefined
     }
 
-    const { data, error: err } = await supabase.from('diary_entries').insert(payload).select().single()
+    const { data, error: err } = editingEntryId
+      ? await supabase.from('diary_entries').update(payload).eq('id', editingEntryId).select().single()
+      : await supabase.from('diary_entries').insert(payload).select().single()
     if (err) {
       // O detalhe técnico (constraint, SQL, tabela) fica só no console para debug (§17).
       console.error('[diary save] falhou', err, 'payload:', payload)
@@ -575,7 +588,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       return
     }
     if (data) {
-      setEntries(prev => [data, ...prev])
+      setEntries(prev => editingEntryId ? prev.map(e => e.id === data.id ? data : e) : [data, ...prev])
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status.
       // Usa monthDiaryCount (COUNT dedicado, §11.5) como fonte de verdade —
       // não dá pra contar pela lista paginada.
@@ -599,6 +612,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       })
     }
     resetForm()
+    setEditingEntryId(null)
     setSaving(false)
     if (onClearPromptContext) onClearPromptContext()
   }
@@ -788,28 +802,40 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 Check-in rápido
               </button>
               <button
-                onClick={() => setEntryMode('full')}
-                aria-pressed={entryMode === 'full'}
-                className={`text-sm px-4 py-1.5 rounded-full transition-colors ${entryMode === 'full' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
+                onClick={() => setEntryMode(todayMainEntry ? 'main-saved' : 'full')}
+                aria-pressed={entryMode === 'full' || entryMode === 'main-saved'}
+                className={`text-sm px-4 py-1.5 rounded-full transition-colors ${entryMode === 'full' || entryMode === 'main-saved' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
               >
-                Diário completo
+                {isFree ? 'Registro básico' : 'Diário completo'}
               </button>
             </div>
 
             {/* Cada modo tem uma intenção e uma linguagem própria. */}
             <h2 className="font-serif text-lg sm:text-xl text-forest-900">
-              {entryMode === 'quick' ? 'Como você está agora?' : 'Registrar meu dia'}
+              {entryMode === 'quick' ? 'Como você está agora?' : entryMode === 'addon' ? 'Adicionar complemento ao diário de hoje' : isFree ? 'Registro básico' : 'Diário completo'}
             </h2>
             <p className="text-sm text-ink-soft mt-1 mb-3">
               {entryMode === 'quick'
                 ? 'Escolha o que mais combina com este momento. É rápido e não conta no limite do diário.'
-                : 'Escreva sobre o que aconteceu, marque o que sentiu e organize seu cuidado no seu tempo.'}
+                : entryMode === 'addon' ? 'Use este espaço se algo novo aconteceu ou se você quer acrescentar uma observação ao registro de hoje.' : isFree ? 'Um espaço simples para começar a observar como você está se sentindo.' : isPlus ? 'Registre seu dia, aprofunde seus padrões e transforme observações em cuidado.' : 'Registre seu dia com mais detalhes e acompanhe sua rotina emocional com clareza.'}
             </p>
             {entryMode === 'quick' && (
               <p className="text-xs text-forest-600 mb-3 flex items-center gap-1.5">
                 <Sprout className="w-3.5 h-3.5 flex-shrink-0" /> Check-ins são ilimitados e não contam no limite do diário.
               </p>
             )}
+            {entryMode === 'main-saved' ? (
+              <div className="mb-6 rounded-2xl border border-forest-100 bg-mint/40 p-4">
+                <h3 className="font-semibold text-forest-900">Você já escreveu seu {isFree ? 'registro básico' : 'diário principal'} de hoje.</h3>
+                <p className="text-sm text-ink-soft mt-1">Você pode editar esse registro, acrescentar algo novo ou fazer um check-in rápido.</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button type="button" onClick={() => { if (!todayMainEntry) return; setEditingEntryId(todayMainEntry.id); setDiaryText(todayMainEntry.text ?? ''); setMood(String(todayMainEntry.mood)); setSelectedTags(todayMainEntry.emotional_tags ?? []); setEntryMode('full') }} className="text-sm px-3 py-2 rounded-xl bg-forest-900 text-white">Editar {isFree ? 'registro de hoje' : 'diário de hoje'}</button>
+                  {!isFree && <button type="button" onClick={() => { setEditingEntryId(null); setEntryMode('addon') }} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Adicionar complemento</button>}
+                  {isPlus && <button type="button" onClick={() => { setEditingEntryId(null); setEntryMode('full'); setAdvancedOpen(true) }} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Aprofundar meu registro</button>}
+                  <button type="button" onClick={() => setEntryMode('quick')} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Fazer check-in rápido</button>
+                </div>
+              </div>
+            ) : <>
             <div className="flex flex-wrap gap-2 mb-6">
               {MOODS.map(m => (
                 <MoodChip key={m.key} mood={m} active={checkinChip === m.key} onClick={() => selectChip(m.key)} />
@@ -826,7 +852,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
             {/* Uma pergunta guiada por vez, com botão pra trocar (§10) — nada de
                 mostrar várias ao mesmo tempo. Só no diário completo (§3). */}
-            {entryMode === 'full' && prompt && (
+            {isDiaryForm && prompt && (
               <div className="bg-mint/40 border border-line rounded-2xl p-3 mb-4 flex items-start gap-2.5">
                 <Lightbulb className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
                 <p className="flex-1 text-sm text-forest-800 italic">"{prompt}"</p>
@@ -835,11 +861,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             )}
 
             {/* Nota — grande e livre no diário completo; curta e opcional no check-in (§3) */}
-            <div className={`relative ${entryMode === 'full' ? 'bg-paper-soft border border-line rounded-3xl p-5 sm:p-6' : ''}`}>
+            <div className={`relative ${isDiaryForm ? 'bg-paper-soft border border-line rounded-3xl p-5 sm:p-6' : ''}`}>
               {entryMode === 'quick' && (
                 <label className="text-sm text-forest-900 font-semibold block mb-1">Nota rápida (opcional)</label>
               )}
-              {entryMode === 'full' && (
+              {isDiaryForm && (
                 <>
                   <h3 className="font-serif text-lg text-forest-900">Meu registro</h3>
                   <p className="text-sm text-ink-soft mt-1 mb-4">Escreva do seu jeito. Não precisa estar bonito, organizado ou completo.</p>
@@ -848,8 +874,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               <textarea
                 value={entryMode === 'quick' ? quickNote : diaryText}
                 onChange={e => entryMode === 'quick' ? setQuickNote(e.target.value) : setDiaryText(e.target.value)}
-                placeholder={entryMode === 'quick' ? 'Quer registrar algo rápido sobre este momento?' : 'Escreva aqui o que aconteceu, o que você sentiu ou o que precisa tirar da cabeça…'}
-                rows={entryMode === 'quick' ? 3 : 6}
+                placeholder={entryMode === 'quick' ? 'Quer registrar algo rápido sobre este momento?' : isFree ? 'Escreva em poucas palavras como foi seu dia ou o que você está sentindo…' : 'Escreva aqui o que aconteceu, o que você sentiu ou o que precisa tirar da cabeça…'}
+                rows={entryMode === 'quick' ? 3 : isFree ? 4 : 6}
                 disabled={saveBlockedByLimit}
                 className="w-full border border-line rounded-2xl px-4 py-3 text-sm resize-none bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 disabled:opacity-60"
               />
@@ -857,7 +883,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             </div>
 
             {/* Campos livres complementares — só no diário completo (§8.2) */}
-            {entryMode === 'full' && (
+            {isDiaryForm && !isFree && (
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 <input type="text" value={whatINeed} onChange={e => setWhatINeed(e.target.value)} placeholder="O que você precisa agora?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
                 <input type="text" value={smallThing} onChange={e => setSmallThing(e.target.value)} placeholder="Uma coisa pequena que consegui fazer hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
@@ -877,7 +903,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {/* Tags emocionais básicas — Gratuito (§2.1/§4): versão curada, sem o
                 catálogo completo nem os blocos de contexto/necessidade/cuidado
                 (Essencial+, mais abaixo). */}
-            {entryMode === 'full' && !isEssential && fieldOn('emotional_tags') && (
+            {isDiaryForm && !isEssential && fieldOn('emotional_tags') && (
               <div className="mt-4">
                 <label className="text-sm text-forest-900 font-semibold block mb-1">Quais sentimentos você reconhece agora?</label>
                 <p className="text-xs text-ink-soft mb-2">Marque quantos quiser.</p>
@@ -890,7 +916,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             )}
 
             {/* Indicadores — Essencial+ (só no diário completo) */}
-            {entryMode === 'full' && isEssential && (
+            {isDiaryForm && isEssential && (
               <div className="border-t border-line pt-5 mt-5">
                 <h3 className="font-serif text-base text-forest-900 mb-1">Detalhar meu momento</h3>
                 <p className="text-sm text-ink-soft mb-4">Esses detalhes ajudam seu mapa emocional e o relatório semanal.</p>
@@ -1019,7 +1045,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 disabled={saving || saveBlockedByLimit}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : entryMode === 'quick' ? 'Salvar check-in' : 'Salvar diário'}
+                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : entryMode === 'quick' ? 'Salvar check-in' : editingEntryId ? 'Salvar alterações' : entryMode === 'addon' ? 'Salvar complemento' : isFree ? 'Salvar registro básico' : 'Salvar diário'}
               </button>
               {canExportPDF && (
                 <button
@@ -1031,6 +1057,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 </button>
               )}
             </div>
+          </>}
           </section>
           </>
           )}
@@ -1077,7 +1104,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 {groupEntriesByDay(filteredEntries).map(group => {
                   const dayOpen = expandedDays.has(group.date)
                   const checkins = group.entries.filter(e => e.entry_type === 'checkin').length
-                  const diaries = group.entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
+                  const diaries = group.entries.filter(e => (e.entry_type ?? 'diary') === 'diary' && (e.diary_kind ?? 'main') !== 'addon' && (e.diary_kind ?? 'main') !== 'advanced').length
+                  const addons = group.entries.filter(e => (e.entry_type ?? 'diary') === 'diary' && (e.diary_kind === 'addon' || e.diary_kind === 'advanced')).length
                   const evals = group.entries.filter(e => e.entry_type === 'questionnaire').length
                   const dayTags = group.entries.flatMap(entryTags)
                   const shownDayTags = dayTags.slice(0, 5)
@@ -1093,6 +1121,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                             {group.entries.length} {group.entries.length === 1 ? 'registro' : 'registros'}
                             {checkins > 0 && ` · ${checkins} check-in${checkins > 1 ? 's' : ''}`}
                             {diaries > 0 && ` · ${diaries} diário${diaries > 1 ? 's' : ''}`}
+                            {addons > 0 && ` · ${addons} complemento${addons > 1 ? 's' : ''}`}
                             {evals > 0 && ` · ${evals} avaliaç${evals > 1 ? 'ões' : 'ão'}`}
                           </p>
                           {shownDayTags.length > 0 && (

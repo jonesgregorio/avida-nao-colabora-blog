@@ -117,6 +117,8 @@ export interface DiaryEntry {
   guided_question_4?: string
   markers?: string[]
   entry_type?: 'diary' | 'checkin' | 'questionnaire' | 'evaluation'
+  /** basic = Gratuito, main = diário principal, addon = complemento, advanced = aprofundamento Plus. */
+  diary_kind?: 'basic' | 'main' | 'addon' | 'advanced'
   questionnaire_score?: number
   questionnaire_category?: string
   created_at: string
