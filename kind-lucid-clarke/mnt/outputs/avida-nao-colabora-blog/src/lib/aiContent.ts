@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { EMOTIONAL_SUPPORT_DISCLAIMER } from './emotionalDisclaimers'
 
 // ─── Camada central de IA para geração de conteúdo ───────────────────────────
 // Providers com failover: Gemini → Groq → OpenAI (gpt-4o-mini).
@@ -7,8 +8,7 @@ import { supabase } from './supabase'
 // generateWithFailover cai automaticamente para o próximo disponível.
 
 // Aviso obrigatório de responsabilidade (append automático quando relevante)
-export const DISCLAIMER =
-  'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+export const DISCLAIMER = EMOTIONAL_SUPPORT_DISCLAIMER
 
 // Regras de linguagem obrigatórias injetadas em todo prompt
 const LANGUAGE_RULES = `

@@ -16,6 +16,7 @@ import {
 } from '../../lib/personalizationTasks'
 import { sendPersonalizedDelivery } from '../../services/personalizedDeliveryService'
 import { PLAN_LABELS } from '../../lib/planConstants'
+import { EMOTIONAL_SUPPORT_DISCLAIMER } from '../../lib/emotionalDisclaimers'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ const PLAN_COLORS: Record<string, string> = {
   therapeutic: 'bg-mint text-forest-800',
   'therapeutic-plus': 'bg-mint text-forest-800',
 }
-const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+const DISCLAIMER = EMOTIONAL_SUPPORT_DISCLAIMER
 const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

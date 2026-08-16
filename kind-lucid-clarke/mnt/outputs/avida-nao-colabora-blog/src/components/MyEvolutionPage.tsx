@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { hasPlanAccess, getPlanLabel } from '../lib/officialPlans'
 import { monthKey } from '../lib/dateUtils'
+import { EMOTIONAL_SUPPORT_DISCLAIMER } from '../lib/emotionalDisclaimers'
 import PlanBadge from './PlanBadge'
 import {
   BarChart2, Heart, Leaf,
@@ -22,7 +23,7 @@ import type { TagCategory } from '../lib/tagCategories'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
-const DISCLAIMER = 'Este conteúdo é uma ferramenta de apoio ao autoconhecimento e à organização emocional. Ele não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
+const DISCLAIMER = EMOTIONAL_SUPPORT_DISCLAIMER
 
 // Mapa Emocional é SÓ visualização (§10): Resumo + Gráficos. As demais funções
 // (Relatórios, Plano de Autocuidado, Orientação, Comentário) ficam nos seus menus.
