@@ -9,8 +9,9 @@
 // determinístico (buildDeepReport) — o admin nunca fica sem um ponto de partida.
 // ─────────────────────────────────────────────────────────────────────────────
 import { generateWithFailover } from './aiContent'
-import { buildDeepReport, type EmotionalAnalysis } from './emotionalAnalytics'
+import { buildDeepReport, type EmotionalAnalysis, type EmotionalSummary } from './emotionalAnalytics'
 import { fetchGuidedCatalog, signalFromTags, scoreCatalog } from './contentRecommendation'
+import { buildSelfCarePlanPrompt } from './aiPrompts/emotionalPrompts'
 
 // ── Formato exato esperado da IA (§19) ────────────────────────────────────────
 export interface CareSummary {
@@ -163,6 +164,27 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
   ].join('\n')
 }
 
+/** Adaptador de compatibilidade: o admin legado trabalha com RecordsSummary,
+ * mas o prompt canônico recebe sempre EmotionalSummary. */
+function asEmotionalSummary(rs: RecordsSummary): EmotionalSummary {
+  const quality = rs.hasEnoughData ? 'medium' : 'low'
+  return {
+    period_start: rs.periodLabel.split(' a ')[0] ?? rs.monthLabel,
+    period_end: rs.periodLabel.split(' a ')[1] ?? rs.monthLabel,
+    plan: 'plus', total_entries: rs.totalEntries, total_checkins: rs.checkinCount,
+    total_main_diaries: rs.diaryCount, total_addons: 0, active_days: rs.activeDays,
+    dominant_emotions: rs.topEmotions.map(e => ({ ...e, emoji: '•' })),
+    emotional_markers: rs.emotionalMarkers, contexts: rs.contexts, needs: rs.needs,
+    care_actions: rs.careActions, real_triggers: rs.realTriggers,
+    averages: { mood: 0, energy: rs.avgEnergy, anxiety: rs.avgAnxiety, sleep: rs.avgSleep, stress: 0, selfEsteem: 0 },
+    data_quality: {
+      has_enough_data: rs.hasEnoughData, total_entries: rs.totalEntries, active_days: rs.activeDays,
+      confidence_level: quality,
+      message: rs.hasEnoughData ? 'Há registros suficientes para uma leitura cuidadosa do período.' : 'Ainda há poucos registros para uma leitura personalizada completa.',
+    },
+  }
+}
+
 // ── Parse robusto ─────────────────────────────────────────────────────────────
 function extractJson(raw: string): unknown | null {
   if (!raw) return null
@@ -277,7 +299,9 @@ export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummar
   // determinístico (mais genérico que o da IA).
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const raw = await generateWithFailover(buildCarePlanPrompt(rs))
+      // Fonte oficial do prompt emocional; buildCarePlanPrompt permanece
+      // exportado apenas para compatibilidade com integrações antigas.
+      const raw = await generateWithFailover(buildSelfCarePlanPrompt(asEmotionalSummary(rs)))
       const parsed = validate(extractJson(raw))
       if (parsed) return parsed
     } catch {

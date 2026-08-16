@@ -20,7 +20,7 @@ import {
   formatPeriodShort, formatDateBR, monthTitle, ymd, parseYmd, type Period,
 } from '../lib/reportPeriods'
 import {
-  ensureClosedReport, loadReportHistory, buildWeeklyContent, buildMonthlyContent,
+  loadReportHistory, buildWeeklyContent, buildMonthlyContent,
   type StoredReport, type WeeklyContent, type MonthlyContent, type DayPoint,
 } from '../lib/reportGeneration'
 
@@ -776,21 +776,21 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     const all = (data ?? []) as DiaryRowLite[]
     setEntries(all)
 
-    // 3) Gera (uma vez) os relatórios FECHADOS disponíveis
+    // 3) Relatórios fechados são produzidos pela automação no servidor. A tela
+    // apenas lê o conteúdo persistido: abrir esta página jamais cria, altera ou
+    // regenera um relatório histórico.
     const now = new Date()
     const lastW = getPreviousWeeklyPeriod(act, now)
     if (lastW) {
-      const wEntries = all.filter(e => inPeriod(e, lastW))
-      const wPrev = all.filter(e => inPeriod(e, prevRange(lastW)))
-      setLastWeekly(await ensureClosedReport(user.id, 'weekly', planKey, lastW, wEntries, wPrev))
+      const saved = await loadReportHistory(user.id, 'weekly')
+      setLastWeekly(saved.find(r => r.period_start === lastW.start && r.period_end === lastW.end) ?? null)
     } else setLastWeekly(null)
 
     if (isPlus) {
       const lastM = getPreviousMonthlyPeriod(act, now)
       if (lastM) {
-        const mEntries = all.filter(e => inPeriod(e, lastM))
-        const mPrev = all.filter(e => inPeriod(e, prevRange(lastM)))
-        setLastMonthly(await ensureClosedReport(user.id, 'monthly', planKey, lastM, mEntries, mPrev))
+        const saved = await loadReportHistory(user.id, 'monthly')
+        setLastMonthly(saved.find(r => r.period_start === lastM.start && r.period_end === lastM.end) ?? null)
       } else setLastMonthly(null)
     }
 

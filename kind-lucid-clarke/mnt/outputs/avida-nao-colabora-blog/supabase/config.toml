@@ -54,6 +54,11 @@ verify_jwt = false
 [functions.run-automations]
 verify_jwt = false
 
+# A automação emocional é chamada por pg_cron com token interno; também aceita
+# JWT de administrador para execução manual. A função valida ambos no código.
+[functions.run-emotional-automations]
+verify_jwt = false
+
 # run-lifecycle-emails é chamada pelo pg_cron via pg_net (autentica por token).
 [functions.run-lifecycle-emails]
 verify_jwt = false

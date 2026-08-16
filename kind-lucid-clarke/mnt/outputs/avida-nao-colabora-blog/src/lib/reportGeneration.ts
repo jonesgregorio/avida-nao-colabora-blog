@@ -185,33 +185,12 @@ export async function ensureClosedReport(
     return stored
   }
 
-  // 2) Gera e salva. onConflict ignora corrida (dois acessos simultâneos).
-  const report = buildReport(type, plan, period, entries, prevEntries)
-  const { data, error } = await supabase
-    .from('reports')
-    .upsert({
-      user_id: userId,
-      report_type: report.report_type,
-      plan_required: report.plan_required,
-      period_start: report.period_start,
-      period_end: report.period_end,
-      available_at: report.available_at,
-      status: 'generated',
-      title: report.title,
-      summary: report.summary,
-      content: report.content,
-      generated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,report_type,period_start,period_end', ignoreDuplicates: false })
-    .select('*')
-    .maybeSingle()
-  if (error) {
-    // Se falhar por corrida, tenta reler.
-    const { data: again } = await supabase.from('reports').select('*')
-      .eq('user_id', userId).eq('report_type', type)
-      .eq('period_start', period.start).eq('period_end', period.end).maybeSingle()
-    return (again as unknown as StoredReport) ?? report
-  }
-  return (data as unknown as StoredReport) ?? report
+  // A geração foi movida para run-emotional-automations. Mantemos esta função
+  // como compatibilidade de leitura para chamadas antigas, mas ela não deve
+  // persistir nada no navegador nem fabricar um segundo conteúdo para o mesmo
+  // período. A fonte de verdade é sempre a linha já salva no banco.
+  void plan; void entries; void prevEntries; void period
+  return null
 }
 
 export async function loadReportHistory(userId: string, type?: ReportType): Promise<StoredReport[]> {
