@@ -17,6 +17,8 @@ ALTER TABLE public.analytics_events
 -- o seu próprio auth.uid(); isso evita forjar eventos em nome de outro usuário.
 DROP POLICY IF EXISTS "Qualquer um pode inserir evento" ON public.analytics_events;
 DROP POLICY IF EXISTS "ae_public_insert" ON public.analytics_events;
+DROP POLICY IF EXISTS "ae_anon_insert" ON public.analytics_events;
+DROP POLICY IF EXISTS "ae_authenticated_insert" ON public.analytics_events;
 CREATE POLICY "ae_anon_insert" ON public.analytics_events
   FOR INSERT TO anon
   WITH CHECK (user_id IS NULL);
