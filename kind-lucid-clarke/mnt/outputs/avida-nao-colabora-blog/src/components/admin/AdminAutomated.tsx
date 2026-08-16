@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { generateWithFailover } from '../../lib/aiContent'
 import { PLAN_LABELS } from '../../lib/planConstants'
+import { ADMIN_INPUT_CLASS as inputCls } from '../../lib/styleConstants'
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   Sparkles, Loader2, CheckCircle, AlertCircle, Eye, Save
@@ -47,8 +48,6 @@ const FREQ_COLORS: Record<string, string> = {
   biweekly: 'bg-purple-100 text-purple-700',
   monthly:  'bg-stone-100 text-stone-600',
 }
-
-const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 async function generateContent(tema: string, tipo: string, frequencia: string): Promise<string> {
   const prompt = `Você é uma IA de apoio emocional do projeto A Vida Não Colabora. Sua função é criar conteúdo acolhedor, não clínico e não diagnóstico.

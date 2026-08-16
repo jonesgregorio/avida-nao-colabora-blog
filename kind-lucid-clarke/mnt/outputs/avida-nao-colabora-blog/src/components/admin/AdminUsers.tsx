@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { PLAN_LABELS } from '../../lib/planConstants'
+import { ADMIN_INPUT_CLASS as inputCls } from '../../lib/styleConstants'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 import AdminSendUserEmail from './AdminSendUserEmail'
 
@@ -124,7 +125,6 @@ function timeSince(iso: string): string {
     : `há ${y} ano${y !== 1 ? 's' : ''}`
 }
 
-const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
 type DrawerTab = 'resumo' | 'plano' | 'mapa' | 'orientacoes' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'comunicacao' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
 
