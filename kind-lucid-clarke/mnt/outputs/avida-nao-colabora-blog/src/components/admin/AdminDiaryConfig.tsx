@@ -115,7 +115,7 @@ export default function AdminDiaryConfig() {
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Limites e acesso</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-stone-500 mb-1">Entradas de diário completo por mês (vazio = ilimitado)</label>
+              <label className="block text-xs text-stone-500 mb-1">Registros básicos por mês (vazio = ilimitado)</label>
               <input
                 type="number"
                 value={cfg.entriesPerMonth ?? ''}
@@ -126,7 +126,7 @@ export default function AdminDiaryConfig() {
                 disabled={activeTab === 'free'}
               />
               <p className="text-[11px] text-stone-400 mt-1">
-                Vale só para registros de diário completo. Check-ins rápidos são sempre ilimitados e nunca entram nessa conta, em nenhum plano.
+                Check-ins rápidos são sempre ilimitados. No Gratuito, há 5 registros básicos por mês e 1 por dia; no Essencial e Plus, o diário principal é 1 por dia e os complementos são liberados.
               </p>
             </div>
             <div>
@@ -159,9 +159,9 @@ export default function AdminDiaryConfig() {
         </div>
 
         <div className="rounded-xl border border-forest-100 bg-forest-50/50 px-4 py-3 text-sm text-forest-800 leading-relaxed">
-          {activeTab === 'free' && 'No Gratuito, o diário completo é limitado a 5 registros por mês. Check-ins continuam ilimitados.'}
-          {activeTab === 'essential' && 'O Essencial possui relatório semanal, mas não possui relatório mensal nem campos avançados do Plus.'}
-          {activeTab === 'plus' && 'O Plus permite aprofundar padrões e transformar registros em ações de cuidado.'}
+          {activeTab === 'free' && 'No Gratuito, check-ins são ilimitados e o Registro Básico permite até 5 registros por mês, um por dia. Diário Completo e complementos ficam desativados.'}
+          {activeTab === 'essential' && 'O Essencial possui Diário Completo, um diário principal por dia e complementos liberados. Possui relatório semanal, mas não mensal.'}
+          {activeTab === 'plus' && 'O Plus possui Diário Completo, complementos e aprofundamento avançado, com relatório mensal, plano de autocuidado e orientação.'}
         </div>
 
         {/* Guided questions */}
