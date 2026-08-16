@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { MessageSquare, Send, ChevronLeft, ChevronDown, Loader2, CheckCircle, Clock, CalendarClock, Sparkles } from 'lucide-react'
+import { MessageSquare, Send, ChevronLeft, ChevronDown, Loader2, CheckCircle, Clock, CalendarClock, Sparkles, FileText } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
@@ -183,8 +183,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           </div>
         </div>
         <p className="text-sm text-forest-500 mt-2 leading-relaxed">
-          Uma vez por mês, você envia uma mensagem e recebe de volta, aqui dentro do site, uma
-          orientação de apoio individual e não emergencial, escrita com base nos seus registros.
+          Uma leitura cuidadosa do seu momento, baseada na sua pergunta e nos seus registros recentes.
+          Você envia uma mensagem e recebe, aqui dentro do site, uma orientação de apoio individual e não emergencial.
           A resposta chega em até <strong className="text-forest-700">7 dias corridos</strong>.
         </p>
         <p className="text-sm text-forest-500 mt-2 leading-relaxed">
@@ -196,6 +196,16 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       </div>
 
       {riskFlag && <div className="mb-5"><RiskHelpBanner /></div>}
+
+      <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/30 p-4">
+        <div className="flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><FileText className="w-4 h-4" /></span>
+          <div>
+            <h2 className="font-serif text-base text-forest-900">O que será considerado</h2>
+            <p className="text-xs text-forest-800/80 mt-1 leading-relaxed">Sua pergunta, o que você já tentou, registros agregados do mês, Mapa Emocional, relatório mensal e plano de autocuidado quando estiverem disponíveis.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Destaque do mês: até quando pode solicitar / quando reabre */}
       {request ? (
@@ -365,7 +375,10 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
           )}
           {answered ? (
             <div className="bg-white border border-forest-100 rounded-xl p-4">
-              <p className="text-[11px] font-semibold text-forest-700 mb-1">Resposta da equipe</p>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
+              </div>
               <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{req.response}</p>
               {req.responded_at && (
                 <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>

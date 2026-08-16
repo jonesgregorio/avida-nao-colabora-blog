@@ -131,7 +131,7 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
             <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
               Mapa emocional <Leaf className="w-6 h-6 text-forest-400" />
             </h1>
-            <p className="mt-2 text-ink-soft">Entenda seus padrões emocionais e veja sua evolução ao longo do tempo.</p>
+            <p className="mt-2 text-ink-soft">Uma forma visual de perceber o que vem aparecendo nos seus registros.</p>
           </div>
           <PlanBadge plan={plan} member size="sm" className="mt-1" />
         </div>
@@ -223,14 +223,17 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
     const prevEnd = start
 
     Promise.all([
-      supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,stress_level,emotional_tags,created_at').eq('user_id', userId).gte('created_at', start).lt('created_at', end),
-      supabase.from('diary_entries').select('mood,energy,sleep_quality').eq('user_id', userId).gte('created_at', prevStart).lt('created_at', prevEnd),
+      // `date` é o dia emocional escolhido pela pessoa. Horário, fuso ou uma
+      // edição tardia não devem mover um registro de mês.
+      supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,stress_level,emotional_tags,date,created_at').eq('user_id', userId).gte('date', start).lt('date', end),
+      supabase.from('diary_entries').select('mood,mood_score,energy,sleep_quality,date,created_at').eq('user_id', userId).gte('date', prevStart).lt('date', prevEnd),
     ]).then(([curr, prev]) => {
       const entries = curr.data ?? []
       const prevEntries = prev.data ?? []
 
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
-      type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; stress_level?: number; emotional_tags?: string[] | string; created_at: string }
+      type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; stress_level?: number; emotional_tags?: string[] | string; date?: string; created_at: string }
+      const entryDay = (e: DiaryRow) => new Date(e.date || e.created_at).getDate()
       // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número na
       // escala oficial 1–5 (Bem-estar=5, Outro=3, Sobrecarga=1). Dados antigos em
       // 1–10 foram normalizados para 1–5 pela migration 080, então aqui só validamos
@@ -247,7 +250,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         rows.forEach((e) => {
           const v = getVal(e)
           if (!Number.isFinite(v) || v <= 0) return
-          const day = new Date(e.created_at).getDate()
+          const day = entryDay(e)
           const arr = byDay.get(day) ?? []; arr.push(v); byDay.set(day, arr)
         })
         return avg([...byDay.values()].map((vs) => avg(vs)))
@@ -271,7 +274,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
 
       const weeklyEntries = [0, 0, 0, 0]
       ;(entries as DiaryRow[]).forEach((e) => {
-        const d = new Date(e.created_at)
+        const d = new Date(e.date || e.created_at)
         const weekIdx = Math.min(3, Math.floor((d.getDate() - 1) / 7))
         weeklyEntries[weekIdx]++
       })
@@ -284,7 +287,7 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       ;(entries as DiaryRow[]).forEach((e) => {
         const m = moodTo5(e)
         if (m <= 0) return
-        const day = new Date(e.created_at).getDate()
+        const day = entryDay(e)
         const arr = moodByDay.get(day) ?? []
         arr.push(m)
         moodByDay.set(day, arr)
@@ -461,7 +464,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
       {/* Linha do tempo emocional */}
       {chartData.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
-          <h3 className="font-serif text-base sm:text-lg text-forest-900">Linha do tempo emocional</h3>
+          <h3 className="font-serif text-base sm:text-lg text-forest-900">Seu período em cores</h3>
           <p className="text-sm text-ink-soft mt-1 mb-4">Seu mês em cores, um registro por dia.</p>
           <div className="flex flex-wrap gap-1.5">
             {chartData.map(d => (

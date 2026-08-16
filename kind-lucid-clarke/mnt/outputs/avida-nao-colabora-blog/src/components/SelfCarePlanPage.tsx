@@ -108,7 +108,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
           <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
             Plano de Autocuidado <Sprout className="w-6 h-6 text-forest-400" />
           </h1>
-          <p className="mt-2 text-ink-soft">Suas prioridades e pequenos cuidados do mês, a partir dos seus registros.</p>
+          <p className="mt-2 text-ink-soft">Com base nos seus registros, este roteiro propõe pequenas ações possíveis para o próximo ciclo.</p>
         </div>
         <PlanBadge plan={profile?.plan} member size="sm" className="mt-1" />
       </header>
@@ -145,8 +145,8 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
           {/* Lista sanfona: cada plano abre para mostrar o plano de ação. */}
           <div>
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h2 className="font-serif text-lg text-forest-900">Seus planos de autocuidado</h2>
-              <p className="text-xs text-ink-soft">Toque em um plano para ver o plano de ação.</p>
+              <h2 className="font-serif text-lg text-forest-900">Seus roteiros de cuidado</h2>
+              <p className="text-xs text-ink-soft">Toque em um roteiro para ver ações possíveis, sem pressa.</p>
             </div>
             <div className="space-y-3">
               {sentPlans.map(p => (
@@ -204,6 +204,7 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
   const c = plan.care_plan
   const s = plan.ai_summary_json
   const recs = (plan.recommended_content_ids ?? []).map(id => catalog.get(id)).filter(Boolean) as CatalogItem[]
+  const rhythm = (c?.practical_tips ?? []).slice(0, 4)
   return (
     <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
       <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
@@ -222,12 +223,26 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
 
       {open && (
         <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
-          {c?.monthly_priority && <Field label="Prioridade do mês" value={c.monthly_priority} strong />}
+          {c?.monthly_priority && <Field label="Foco de cuidado deste mês" value={c.monthly_priority} strong />}
           {c?.main_care && <Field label="Cuidado principal" value={c.main_care} />}
           {c?.recommended_practice && <Field label="Prática recomendada" value={c.recommended_practice} />}
           {c?.attention_point && <Field label="Ponto de atenção" value={c.attention_point} />}
           {c?.small_commitment && <Field label="Pequeno compromisso possível" value={c.small_commitment} />}
           {c?.checkin_suggestion && <Field label="Sugestão de check-in" value={c.checkin_suggestion} />}
+
+          {rhythm.length > 0 && (
+            <div className="rounded-2xl border border-forest-100 bg-mint/25 p-4">
+              <p className="text-xs font-medium text-forest-800 mb-3">Um ritmo possível para o mês</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {rhythm.map((tip, i) => (
+                  <div key={tip} className="bg-white/80 rounded-xl px-3 py-2.5 text-sm text-forest-800 leading-relaxed">
+                    <span className="block text-[10px] uppercase tracking-wide text-forest-500 mb-0.5">Semana {i + 1}</span>
+                    {tip}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {(c?.practical_tips?.length ?? 0) > 0 && (
             <div>
