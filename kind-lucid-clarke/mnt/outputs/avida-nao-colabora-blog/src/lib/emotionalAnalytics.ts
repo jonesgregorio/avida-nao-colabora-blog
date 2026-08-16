@@ -318,7 +318,8 @@ export interface DeepReport {
   patterns: string[]
   predominantEmotions: string
   energyAnxietySleep: string
-  triggersText: string
+  /** Síntese de `emotional_tags`: são marcadores, nunca gatilhos reais. */
+  emotionalMarkersText: string
   attentionDays: { day: number; reason: string }[]
   improvementMoments: string
   monthlyComparison: string[]
@@ -359,10 +360,11 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
   if (a.avg.sleep > 0) parts.push(`A qualidade do sono ficou em torno de ${a.avg.sleep}/5 no período.`)
   const energyAnxietySleep = parts.join(' ')
 
-  // 8.5 Gatilhos
-  const triggersText = a.emotionalMarkers.length > 0
+  // 8.5 Marcadores emocionais (`emotional_tags`). Gatilhos reais usam
+  // exclusivamente `trigger_tags` e são expostos pelo relatório mensal Plus.
+  const emotionalMarkersText = a.emotionalMarkers.length > 0
     ? `Os marcadores mais citados foram ${a.emotionalMarkers.slice(0, 3).map(t => t.tag).join(', ')}. Eles aparecem ligados a registros de ${(negativeTop ?? 'tensão emocional').toLowerCase()}.`
-    : 'Ainda não há gatilhos registrados. Anotar o que aconteceu antes de um registro difícil ajuda a percebê-los.'
+    : 'Ainda não há marcadores emocionais suficientes para uma leitura de recorrência.'
 
   // 8.6 Dias de atenção (pior humor / maior ansiedade)
   const anxByDay = new Map(a.anxietyByDay.map(d => [d.day, d.value]))
@@ -420,7 +422,7 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
   ])]
 
   return {
-    hasEnoughData, summary, patterns, predominantEmotions, energyAnxietySleep, triggersText,
+    hasEnoughData, summary, patterns, predominantEmotions, energyAnxietySleep, emotionalMarkersText,
     attentionDays, improvementMoments, monthlyComparison, reflectionQuestions, guidanceSynthesis, selfCarePlan, recommendTags,
   }
 }

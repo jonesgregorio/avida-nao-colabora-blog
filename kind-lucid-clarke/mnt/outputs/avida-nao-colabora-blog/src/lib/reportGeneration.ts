@@ -66,9 +66,13 @@ export interface MonthlyContent extends Omit<DeepReport, 'selfCarePlan' | 'guida
   topEmotionalMarkers: { tag: string; count: number }[]
   /** Compatibilidade com relatórios fechados antes da versão 7. */
   topTriggers?: { tag: string; count: number }[]
+  /** Compatibilidade com relatórios fechados antes do rótulo de marcadores. */
+  triggersText?: string
   // §14.2: contextos e necessidades mais recorrentes do mês.
   topContexts: { tag: string; count: number }[]
   topNeeds: { tag: string; count: number }[]
+  /** Gatilhos reais vêm somente de `trigger_tags` e existem apenas no Plus. */
+  realTriggers: { tag: string; count: number }[]
   // Gráficos de síntese (§7.10)
   energyByDay: DayPoint[]
   anxietyByDay: DayPoint[]
@@ -138,6 +142,7 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     avgEnergy: analysis.avg.energy, avgAnxiety: analysis.avg.anxiety, avgSleep: analysis.avg.sleep,
     topEmotions: analysis.topEmotions.slice(0, 6), topEmotionalMarkers: analysis.emotionalMarkers.slice(0, 6),
     topContexts: analysis.contexts.slice(0, 6), topNeeds: analysis.needs.slice(0, 6),
+    realTriggers: analysis.realTriggers.slice(0, 6),
     energyByDay: analysis.energyByDay, anxietyByDay: analysis.anxietyByDay,
     checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,
     bridgeToSelfCarePlan: 'Com base nesta leitura, seu plano de autocuidado pode transformar um ponto de atenção em uma ação leve para o próximo ciclo.',

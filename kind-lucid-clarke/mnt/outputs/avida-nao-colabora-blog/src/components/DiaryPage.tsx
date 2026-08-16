@@ -410,7 +410,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     if (plan !== 'free') { setMonthDiaryCount(0); return }
     const monthStart = ymd(new Date()).slice(0, 7) + '-01'
     const { count } = await supabase.from('diary_entries').select('id', { count: 'exact', head: true })
-      .eq('user_id', user!.id).eq('entry_type', 'diary').gte('date', monthStart)
+      .eq('user_id', user!.id).eq('entry_type', 'diary').eq('diary_kind', 'basic').gte('date', monthStart)
     setMonthDiaryCount(count ?? 0)
   }, [user, plan])
 
@@ -629,6 +629,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       if (fieldOn('habits')) payload.habits = habits || undefined
     }
 
+    const isEditingExisting = Boolean(editingEntryId)
     const { data, error: err } = editingEntryId
       ? await supabase.from('diary_entries').update(payload).eq('id', editingEntryId).select().single()
       : await supabase.from('diary_entries').insert(payload).select().single()
@@ -652,7 +653,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status.
       // Usa monthDiaryCount (COUNT dedicado, §11.5) como fonte de verdade —
       // não dá pra contar pela lista paginada.
-      if (!isCheckin && plan === 'free') {
+      if (!isCheckin && plan === 'free' && !isEditingExisting) {
         const newCount = monthDiaryCount + 1
         setMonthDiaryCount(newCount)
         if (entryLimit != null) {

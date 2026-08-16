@@ -390,6 +390,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
   const totalRecords = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
   const mEmotions = c.topEmotions ?? []
   const mEmotionalMarkers = c.topEmotionalMarkers ?? c.topTriggers ?? []
+  const mRealTriggers = c.realTriggers ?? []
   const dominantEmotion = mEmotions[0]?.label ?? null
   const topEmotionalMarker = mEmotionalMarkers[0]?.tag ?? null
 
@@ -476,6 +477,10 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
               <TriggerRanking triggers={c.topContexts ?? []} title="Contextos mais recorrentes" emptyText="Ainda não há contextos marcados neste mês." />
               <TriggerRanking triggers={c.topNeeds ?? []} title="Necessidades emocionais mais presentes" emptyText="Ainda não há necessidades marcadas neste mês." />
             </div>
+          )}
+
+          {mRealTriggers.length > 0 && (
+            <TriggerRanking triggers={mRealTriggers} title="Gatilhos reais mais citados" emptyText="Ainda não há gatilhos reais registrados neste mês." />
           )}
 
           {/* Dias de maior atenção */}

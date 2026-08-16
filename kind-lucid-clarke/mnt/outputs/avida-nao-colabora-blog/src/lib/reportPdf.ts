@@ -243,7 +243,8 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     heading('Energia, ansiedade e descanso'); para(c.energyAnxietySleep)
     if (c.relations?.length) { heading('Relações percebidas'); bullets(c.relations) }
     heading('Gráficos de síntese'); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
-    heading('Marcadores emocionais mais recorrentes'); para(c.triggersText); chartBars('Marcadores emocionais mais citados', (c.topEmotionalMarkers ?? c.topTriggers ?? []).map(t => ({ label: t.tag, count: t.count })))
+    heading('Marcadores emocionais mais recorrentes'); para(c.emotionalMarkersText ?? c.triggersText ?? 'Ainda não há marcadores emocionais suficientes para uma leitura de recorrência.'); chartBars('Marcadores emocionais mais citados', (c.topEmotionalMarkers ?? c.topTriggers ?? []).map(t => ({ label: t.tag, count: t.count })))
+    if (c.realTriggers?.length) { heading('Gatilhos reais mais citados'); chartBars('Gatilhos reais mais citados', c.realTriggers.map(t => ({ label: t.tag, count: t.count }))) }
     heading('Dias de maior atenção'); if (c.attentionDays.length) bullets(c.attentionDays.map(d => `Dia ${d.day} — ${d.reason}`)); else para('Ainda não há dados suficientes para esta leitura.')
     heading('Momentos de melhora'); para(c.improvementMoments)
     heading('Comparação com o mês anterior'); bullets(c.monthlyComparison)

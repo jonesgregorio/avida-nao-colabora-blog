@@ -582,11 +582,17 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   function closeDrawer() { setSelectedUser(null) }
 
   async function setAdmin(userId: string, isAdmin: boolean) {
+    if (!isAdmin && !window.confirm('Remover o acesso administrativo desta pessoa? Ela perderá imediatamente o acesso ao painel.')) return
     const { error } = await supabase.from('profiles').update({ role: isAdmin ? 'admin' : null }).eq('user_id', userId)
-    if (!error) {
-      setUsers(u => u.map(r => r.user_id === userId ? { ...r, role: isAdmin ? 'admin' : null } : r))
-      if (selectedUser?.user_id === userId) setSelectedUser(s => s ? { ...s, role: isAdmin ? 'admin' : null } : s)
+    if (error) {
+      window.alert(error.message.includes('último administrador')
+        ? 'Não é possível remover o último administrador da plataforma.'
+        : 'Não foi possível alterar a permissão administrativa. Tente novamente.')
+      return
     }
+    void logAdminAction(isAdmin ? 'promote_admin' : 'revoke_admin', 'profile', userId, { role: isAdmin ? 'admin' : 'user' })
+    setUsers(u => u.map(r => r.user_id === userId ? { ...r, role: isAdmin ? 'admin' : null } : r))
+    if (selectedUser?.user_id === userId) setSelectedUser(s => s ? { ...s, role: isAdmin ? 'admin' : null } : s)
   }
 
   async function handlePlanChange() {
