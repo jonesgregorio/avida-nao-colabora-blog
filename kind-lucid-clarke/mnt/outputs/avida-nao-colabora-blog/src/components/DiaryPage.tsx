@@ -799,7 +799,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {/* Nota — grande e livre no diário completo; curta e opcional no check-in (§3) */}
             <div className="relative">
               {entryMode === 'quick' && (
-                <label className="text-xs text-ink-soft font-medium block mb-1">Nota rápida (opcional)</label>
+                <label className="text-sm text-forest-900 font-semibold block mb-1">Nota rápida (opcional)</label>
               )}
               <textarea
                 value={whatHappened}
@@ -835,8 +835,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 (Essencial+, mais abaixo). */}
             {entryMode === 'full' && !isEssential && fieldOn('emotional_tags') && (
               <div className="mt-4">
-                <label className="text-xs text-ink-soft font-medium block mb-1">Quais sentimentos você reconhece agora?</label>
-                <p className="text-[11px] text-ink-soft/80 mb-2">Marque quantos quiser.</p>
+                <label className="text-sm text-forest-900 font-semibold block mb-1">Quais sentimentos você reconhece agora?</label>
+                <p className="text-xs text-ink-soft mb-2">Marque quantos quiser.</p>
                 <div className="flex flex-wrap gap-2">
                   {FREE_EMOTIONAL_TAGS.map(tag => (
                     <DiaryTagChip key={tag} label={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
@@ -864,8 +864,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
                 {fieldOn('emotional_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-1">Quais sentimentos você reconhece agora?</label>
-                    <p className="text-[11px] text-ink-soft/80 mb-2">Marque quantos quiser. Isso ajuda a sugerir conteúdos que combinam com o seu momento.</p>
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">Quais sentimentos você reconhece agora?</label>
+                    <p className="text-xs text-ink-soft mb-2">Marque quantos quiser. Isso ajuda a sugerir conteúdos que combinam com o seu momento.</p>
                     <div className="flex flex-wrap gap-2">
                       {emotionalTags.map(tag => (
                         <DiaryTagChip key={tag} label={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
@@ -906,8 +906,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 {/* Onde isso apareceu? (§7) — Essencial+ */}
                 {fieldOn('context_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-1">Onde isso apareceu?</label>
-                    <p className="text-[11px] text-ink-soft/80 mb-2">Marque os contextos que mais tiveram relação com o seu dia.</p>
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">Onde isso apareceu?</label>
+                    <p className="text-xs text-ink-soft mb-2">Marque os contextos que mais tiveram relação com o seu dia.</p>
                     <div className="flex flex-wrap gap-2">
                       {contextTagOptions.map(tag => (
                         <DiaryTagChip key={tag} label={tag} category="context" selected={contextTags.includes(tag)} onClick={() => toggleInArray(contextTags, setContextTags, tag)} />
@@ -919,8 +919,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 {/* O que eu preciso agora? (§8) — Essencial+ */}
                 {fieldOn('need_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-1">O que você sente que precisa agora?</label>
-                    <p className="text-[11px] text-ink-soft/80 mb-2">Escolha uma ou mais necessidades que combinam com este momento.</p>
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">O que você sente que precisa agora?</label>
+                    <p className="text-xs text-ink-soft mb-2">Escolha uma ou mais necessidades que combinam com este momento.</p>
                     <div className="flex flex-wrap gap-2">
                       {needTagOptions.map(tag => (
                         <DiaryTagChip key={tag} label={tag} category="need" selected={needTags.includes(tag)} onClick={() => toggleInArray(needTags, setNeedTags, tag)} />
@@ -932,8 +932,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 {/* O que pode me ajudar? (§9) — Essencial+ */}
                 {fieldOn('care_action_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-1">O que pode te ajudar um pouco?</label>
-                    <p className="text-[11px] text-ink-soft/80 mb-2">Escolha pequenas possibilidades de cuidado. Não precisa virar obrigação.</p>
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">O que pode te ajudar um pouco?</label>
+                    <p className="text-xs text-ink-soft mb-2">Escolha pequenas possibilidades de cuidado. Não precisa virar obrigação.</p>
                     <div className="flex flex-wrap gap-2">
                       {careActionTagOptions.map(tag => (
                         <DiaryTagChip key={tag} label={tag} category="care_action" selected={careActionTags.includes(tag)} onClick={() => toggleInArray(careActionTags, setCareActionTags, tag)} />
@@ -949,8 +949,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 {/* Gatilhos reais (§13.1) — separados dos sentimentos (emotional_tags). */}
                 {isPlus && fieldOn('trigger_tags') && (
                   <div className="mt-4">
-                    <label className="text-xs text-ink-soft font-medium block mb-1">O que costuma disparar isso?</label>
-                    <p className="text-[11px] text-ink-soft/80 mb-2">Situações que costumam vir antes desse tipo de dia — não é a mesma coisa que o sentimento em si.</p>
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">O que costuma disparar isso?</label>
+                    <p className="text-xs text-ink-soft mb-2">Situações que costumam vir antes desse tipo de dia — não é a mesma coisa que o sentimento em si.</p>
                     <div className="flex flex-wrap gap-2">
                       {triggerTagOptions.map(tag => (
                         <DiaryTagChip key={tag} label={tag} category="advanced" selected={triggerTags.includes(tag)} onClick={() => toggleInArray(triggerTags, setTriggerTags, tag)} />
