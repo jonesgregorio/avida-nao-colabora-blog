@@ -20,6 +20,24 @@ export interface TrackOpts {
   user_id?: string | null
   metadata?: Record<string, unknown>
 }
+export type AnalyticsEvent =
+  | 'page_view' | 'route_change' | 'error_404' | 'article_view' | 'article_click'
+  | 'article_scroll_50' | 'article_scroll_75' | 'article_scroll_100' | 'cta_click'
+  | 'blog_search' | 'questionnaire_start' | 'questionnaire_complete' | 'trail_start' | 'trail_complete'
+  | 'daily_content_view' | 'daily_content_expand' | 'pdf_export' | 'diary_entry' | 'plan_upgrade_click'
+  | 'auth_signup' | 'auth_login' | 'web_vital' | 'visit_source' | 'diary_open' | 'checkin_start'
+  | 'checkin_complete' | 'emotional_map_view' | 'weekly_report_view' | 'monthly_report_view'
+  | 'self_care_plan_view' | 'professional_guidance_request' | 'professional_guidance_view'
+const BLOCKED_KEYS = new Set(['password', 'token', 'access_token', 'refresh_token', 'diary_text', 'message_body', 'personal_note', 'health_description', 'email'])
+const seenEvents = new Set<string>()
+function sanitize(value: unknown, depth = 0): unknown {
+  if (depth > 3 || value === undefined || typeof value === 'function') return undefined
+  if (typeof value === 'string') return value.slice(0, 500)
+  if (value === null || typeof value === 'number' || typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value.slice(0, 20).map(v => sanitize(v, depth + 1)).filter(v => v !== undefined)
+  if (typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([k]) => !BLOCKED_KEYS.has(k.toLowerCase())).map(([k, v]) => [k, sanitize(v, depth + 1)]).filter(([, v]) => v !== undefined))
+  return undefined
+}
 
 // ─── Configurações de rastreamento (controladas no admin → Analytics) ────────
 interface TrackConfig { track_pageviews: boolean; track_scroll: boolean; track_cta: boolean; track_errors: boolean; track_web_vitals: boolean; anonymize: boolean }
@@ -53,24 +71,28 @@ function coarseUA(ua: string): string {
   return `${device}|${browser}`
 }
 
-export function trackEvent(event: string, opts: TrackOpts = {}): void {
+export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
     loadConfig()
     if (!allowedByConfig(event)) return
     const rawUA = navigator.userAgent
     let referrer: string | null = document.referrer || null
     if (cfg.anonymize && referrer) { try { referrer = new URL(referrer).hostname } catch { /* mantém */ } }
+    const normalized = event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event
+    const key = ['page_view', 'article_view', 'article_scroll_50', 'article_scroll_75', 'article_scroll_100'].includes(normalized) ? `${getSessionId()}:${normalized}:${opts.entity_id ?? location.pathname}` : ''
+    if (key && seenEvents.has(key)) return
+    if (key) seenEvents.add(key)
     supabase.from('analytics_events').insert({
       user_id: opts.user_id ?? null,
-      event,
+      event: normalized,
       entity_id: opts.entity_id ?? null,
       entity_title: opts.entity_title ?? null,
-      metadata: opts.metadata ?? null,
+      metadata: sanitize(opts.metadata) ?? null,
       session_id: getSessionId(),
       referrer,
       user_agent: cfg.anonymize ? coarseUA(rawUA) : rawUA,
-    }).then(() => { /* ok */ }, () => { /* silencioso */ })
-  } catch { /* noop */ }
+    }).then(({ error }) => { if (error && import.meta.env.DEV) console.warn('[analytics] evento não salvo', normalized, error.message) })
+  } catch (error) { if (import.meta.env.DEV) console.warn('[analytics] evento inválido', error) }
 }
 
 // ─── Aquisição: de onde o visitante veio (Instagram, Google, YouTube, campanhas) ─
@@ -128,6 +150,28 @@ export function initAcquisition(): void {
   } catch { /* noop */ }
 }
 
+let customInit = false
+let customUserId: string | null = null
+/** Aplica definições ativas do Admin com um único listener delegado e tolerante a seletor inválido. */
+export function initCustomEvents(userId?: string | null): void {
+  customUserId = userId ?? null
+  if (customInit) return
+  customInit = true
+  supabase.from('analytics_custom_events').select('name,selector,url_pattern').eq('is_active', true)
+    .then(({ data, error }) => {
+      if (error) { if (import.meta.env.DEV) console.warn('[analytics] eventos personalizados indisponíveis', error.message); return }
+      const events = (data ?? []).filter(row => {
+        if (!row.selector) return false
+        try { document.querySelector(row.selector) } catch { if (import.meta.env.DEV) console.warn('[analytics] seletor inválido', row.selector); return false }
+        return !row.url_pattern || location.pathname.includes(row.url_pattern)
+      })
+      document.addEventListener('click', (e) => {
+        const target = e.target as Element | null
+        events.forEach(row => { if (target?.closest(row.selector!)) trackEvent(row.name, { user_id: customUserId, entity_id: row.selector!, metadata: { custom_event: true, path: location.pathname } }) })
+      })
+    })
+}
+
 // ─── Core Web Vitals (nativo, sem dependência externa) ───────────────────────
 const VITAL_THRESHOLDS: Record<string, [number, number]> = {
   LCP: [2500, 4000], FCP: [1800, 3000], TTFB: [800, 1800], CLS: [100, 250], INP: [200, 500],
@@ -138,7 +182,7 @@ function ratingFor(metric: string, v: number): 'bom' | 'atenção' | 'ruim' {
 }
 function sendVital(metric: string, value: number) {
   const rating = ratingFor(metric, value)
-  trackEvent('web_vital', { entity_id: metric, entity_title: rating, metadata: { value: Math.round(value), rating } })
+  trackEvent('web_vital', { entity_id: metric, entity_title: rating, metadata: { metric_name: metric, value: Math.round(value), rating, path: location.pathname } })
 }
 
 let vitalsInit = false

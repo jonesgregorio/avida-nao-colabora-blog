@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
 import { confirmDialog } from './lib/confirmDialog'
-import { trackEvent, initWebVitals, initAcquisition } from './lib/analytics'
+import { trackEvent, initWebVitals, initAcquisition, initCustomEvents } from './lib/analytics'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -233,6 +233,7 @@ export default function App() {
   useEffect(() => {
     initWebVitals()
     initAcquisition()
+    initCustomEvents(user?.id)
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement | null)?.closest?.('[data-cta]') as HTMLElement | null
       if (el) trackEvent('cta_click', { entity_id: el.getAttribute('data-cta') || undefined, entity_title: (el.textContent || '').trim().slice(0, 60), user_id: user?.id ?? null })

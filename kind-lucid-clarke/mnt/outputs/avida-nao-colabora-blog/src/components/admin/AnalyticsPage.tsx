@@ -29,7 +29,7 @@ const TABS = [
   { id: 'seo', label: 'SEO', icon: Search },
   { id: 'errors', label: 'Erros', icon: AlertTriangle },
   { id: 'performance', label: 'Performance', icon: Gauge },
-  { id: 'heatmap', label: 'Mapa de calor', icon: Flame },
+  { id: 'heatmap', label: 'Cliques e interações', icon: Flame },
   { id: 'devices', label: 'Dispositivos', icon: Monitor },
   { id: 'ai', label: 'Relatórios IA', icon: Sparkles },
   { id: 'settings', label: 'Configurações', icon: Settings2 },
@@ -658,7 +658,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             <h2 className="font-serif text-xl text-forest-900 mb-3">Core Web Vitals</h2>
             {(() => {
               const vitals = events.filter(e => e.event === 'web_vital')
-              if (vitals.length === 0) return <Empty text="Métricas de performance (LCP, CLS, INP, FCP, TTFB) — o site coleta e envia como web_vital após o deploy. Aparecem aqui assim que houver amostras." />
+              if (vitals.length === 0) return <Empty text="Métricas de performance (LCP, CLS, FCP e TTFB) são exibidas aqui após haver amostras reais. INP não é mostrado enquanto não houver coleta compatível." />
               const metrics = topCount(vitals, e => (e.entity_id || 'métrica'))
               return (
                 <div className="space-y-4">{metrics.map(([mt, n]) => {
