@@ -30,11 +30,28 @@ export default function AdminDiaryConfig() {
 
   const cfg = configs.find(c => c.plan === activeTab)!
 
+  // O painel pode personalizar a experiência, mas nunca contradizer o catálogo oficial.
+  const lockedFields: Record<PlanKey, string[]> = {
+    free: ['context_tags', 'need_tags', 'care_action_tags', 'trigger_tags', 'energy', 'anxiety_level', 'stress_level', 'sleep_quality', 'self_esteem', 'irritability', 'overload', 'emotional_triggers', 'recurring_thoughts', 'emotional_need', 'relationships', 'habits'],
+    essential: ['trigger_tags', 'stress_level', 'self_esteem', 'irritability', 'overload', 'emotional_triggers', 'recurring_thoughts', 'emotional_need', 'relationships', 'habits'],
+    plus: [],
+  }
+  const isLockedField = (key: string) => lockedFields[activeTab].includes(key)
+  const enforcePlanRules = (config: DiaryPlanConfig): DiaryPlanConfig => {
+    const fields = { ...config.fields }
+    for (const key of lockedFields[config.plan]) fields[key] = false
+    if (config.plan === 'free') return { ...config, entriesPerMonth: 5, exportPDF: false, fields, reports: [], graphs: [] }
+    if (config.plan === 'essential') return { ...config, entriesPerMonth: null, fields, reports: ['Relatório semanal automático'] }
+    return { ...config, entriesPerMonth: null, fields }
+  }
+
   function updateCfg(field: keyof DiaryPlanConfig, value: DiaryPlanConfig[keyof DiaryPlanConfig]) {
+    if (activeTab === 'free' && (field === 'entriesPerMonth' || field === 'exportPDF')) return
     setConfigs(cs => cs.map(c => c.plan === activeTab ? { ...c, [field]: value } : c))
   }
 
   function toggleField(key: string) {
+    if (isLockedField(key)) return
     updateCfg('fields', { ...cfg.fields, [key]: !cfg.fields[key] })
   }
 
@@ -51,12 +68,14 @@ export default function AdminDiaryConfig() {
   async function save() {
     setSaving(true)
     try {
-      for (const c of configs) {
+      const protectedConfigs = configs.map(enforcePlanRules)
+      for (const c of protectedConfigs) {
         await supabase.from('diary_plan_configs').upsert(
           { plan_key: c.plan, config: c, updated_at: new Date().toISOString() },
           { onConflict: 'plan_key' }
         )
       }
+      setConfigs(protectedConfigs)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch {
@@ -104,6 +123,7 @@ export default function AdminDiaryConfig() {
                 placeholder="Ilimitado"
                 className={inputCls}
                 min={1}
+                disabled={activeTab === 'free'}
               />
               <p className="text-[11px] text-stone-400 mt-1">
                 Vale só para registros de diário completo. Check-ins rápidos são sempre ilimitados e nunca entram nessa conta, em nenhum plano.
@@ -120,7 +140,7 @@ export default function AdminDiaryConfig() {
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-            <input type="checkbox" checked={cfg.exportPDF} onChange={e => updateCfg('exportPDF', e.target.checked)} className="accent-forest-700" />
+            <input type="checkbox" checked={cfg.exportPDF} disabled={activeTab === 'free'} onChange={e => updateCfg('exportPDF', e.target.checked)} className="accent-forest-700 disabled:opacity-40" />
             Permitir exportação em PDF
           </label>
         </div>
@@ -130,12 +150,18 @@ export default function AdminDiaryConfig() {
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide mb-4">Campos disponíveis</h2>
           <div className="grid grid-cols-2 gap-2">
             {FIELDS.map(f => (
-              <label key={f.key} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
-                <input type="checkbox" checked={!!cfg.fields[f.key]} onChange={() => toggleField(f.key)} className="accent-forest-700" />
+              <label key={f.key} className={`flex items-center gap-2 text-sm py-0.5 ${isLockedField(f.key) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                <input type="checkbox" checked={!!cfg.fields[f.key]} disabled={isLockedField(f.key)} onChange={() => toggleField(f.key)} className="accent-forest-700" />
                 <span className={cfg.fields[f.key] ? 'text-forest-900' : 'text-stone-400'}>{f.label}</span>
               </label>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-xl border border-forest-100 bg-forest-50/50 px-4 py-3 text-sm text-forest-800 leading-relaxed">
+          {activeTab === 'free' && 'No Gratuito, o diário completo é limitado a 5 registros por mês. Check-ins continuam ilimitados.'}
+          {activeTab === 'essential' && 'O Essencial possui relatório semanal, mas não possui relatório mensal nem campos avançados do Plus.'}
+          {activeTab === 'plus' && 'O Plus permite aprofundar padrões e transformar registros em ações de cuidado.'}
         </div>
 
         {/* Guided questions */}
