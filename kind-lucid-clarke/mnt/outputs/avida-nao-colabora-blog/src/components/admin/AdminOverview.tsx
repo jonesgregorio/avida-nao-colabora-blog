@@ -58,7 +58,9 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       safeCount(() => supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       safeCount(() => supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       safeCount(() => supabase.from('reports').select('*', { count: 'exact', head: true }).eq('report_type', 'monthly').in('status', ['draft', 'generated'])),
-      safeCount(() => supabase.from('monthly_care_plans').select('*', { count: 'exact', head: true }).in('status', ['pending_generation', 'generated'])),
+      // A automação salva novos roteiros como pending_review; os estados
+      // anteriores continuam na consulta para não perder itens já existentes.
+      safeCount(() => supabase.from('monthly_care_plans').select('*', { count: 'exact', head: true }).in('status', ['pending_generation', 'generated', 'pending_review'])),
       safeCount(() => supabase.from('email_logs').select('*', { count: 'exact', head: true }).eq('status', 'failed')),
       safeCount(() => supabase.from('ai_generation_logs').select('*', { count: 'exact', head: true }).eq('status', 'error')),
       safeCount(() => supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted')),
