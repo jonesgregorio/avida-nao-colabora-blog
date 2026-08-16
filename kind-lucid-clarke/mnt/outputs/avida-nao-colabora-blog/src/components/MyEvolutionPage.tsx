@@ -633,7 +633,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
         <div className="rounded-3xl border border-dashed border-line bg-mint/20 p-8 text-center space-y-3">
           <BarChart2 className="w-10 h-10 mx-auto text-forest-300" />
           <p className="text-sm font-medium text-forest-900">Ainda não há registros em {monthLabel(selectedMonth)}.</p>
-          <p className="text-xs text-ink-soft max-w-sm mx-auto">Quanto mais check-ins e diários você registrar, mais claros ficam seus padrões — humor, energia, ansiedade, gatilhos e horários.</p>
+          <p className="text-xs text-ink-soft max-w-sm mx-auto">Quanto mais check-ins e diários você registrar, mais claros ficam seus padrões — humor, energia, ansiedade, marcadores emocionais e horários.</p>
         </div>
       ) : (
         <>

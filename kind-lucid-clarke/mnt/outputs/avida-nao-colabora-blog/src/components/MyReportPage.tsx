@@ -701,7 +701,7 @@ function BuildingPreview({ type, period, content, onRefresh }: {
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-forest-800">
         {emotions.length > 0 && <span><span className="text-ink-soft">Emoção mais frequente:</span> {MOOD_EMOJI[emotions[0].label] ?? ''} {emotions[0].label}</span>}
-        {topTrig && <span><span className="text-ink-soft">Gatilho:</span> {topTrig}</span>}
+        {topTrig && <span><span className="text-ink-soft">Marcador emocional:</span> {topTrig}</span>}
       </div>
 
       <p className="text-xs text-ink-soft leading-relaxed bg-white/60 rounded-lg px-3 py-2 mt-4">
