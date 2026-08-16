@@ -16,7 +16,9 @@ import { fetchGuidedCatalog, signalFromTags, scoreCatalog } from './contentRecom
 export interface CareSummary {
   general_overview: string
   main_emotions: string[]
-  recurring_triggers: string[]
+  recurring_emotional_markers: string[]
+  /** Compatibilidade com planos já salvos. */
+  recurring_triggers?: string[]
   energy_anxiety_relation: string
   attention_days: string[]
   improvement_moments: string[]
@@ -51,7 +53,7 @@ export interface RecordsSummary {
   avgAnxiety: number
   avgSleep: number
   topEmotions: { label: string; count: number }[]
-  triggers: { tag: string; count: number }[]
+  emotionalMarkers: { tag: string; count: number }[]
   // §16: contexto/necessidade/cuidado/gatilhos reais marcados no diário —
   // dão ao plano uma base concreta em vez de só resumo genérico do mês.
   contexts: { tag: string; count: number }[]
@@ -83,7 +85,7 @@ export function buildRecordsSummary(a: EmotionalAnalysis, monthLabel: string, pe
     avgAnxiety: a.avg.anxiety,
     avgSleep: a.avg.sleep,
     topEmotions: a.topEmotions.map(e => ({ label: e.label, count: e.count })),
-    triggers: a.triggers.map(t => ({ tag: t.tag, count: t.count })),
+    emotionalMarkers: a.emotionalMarkers.map(t => ({ tag: t.tag, count: t.count })),
     contexts: a.contexts.map(t => ({ tag: t.tag, count: t.count })),
     needs: a.needs.map(t => ({ tag: t.tag, count: t.count })),
     careActions: a.careActions.map(t => ({ tag: t.tag, count: t.count })),
@@ -108,7 +110,7 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     ansiedade_media: rs.avgAnxiety,
     sono_medio: rs.avgSleep,
     emocoes_frequentes: rs.topEmotions.slice(0, 6),
-    marcadores_emocionais: rs.triggers.slice(0, 8),
+    marcadores_emocionais: rs.emotionalMarkers.slice(0, 8),
     contextos_frequentes: rs.contexts.slice(0, 6),
     necessidades_frequentes: rs.needs.slice(0, 6),
     acoes_de_cuidado_escolhidas: rs.careActions.slice(0, 6),
@@ -137,7 +139,7 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
   "summary": {
     "general_overview": "texto acolhedor de 2-4 frases sobre o mês",
     "main_emotions": ["..."],
-    "recurring_triggers": ["..."],
+    "recurring_emotional_markers": ["..."],
     "energy_anxiety_relation": "1-2 frases",
     "attention_days": ["ex: dias 08, 14 e 22 concentraram registros mais pesados"],
     "improvement_moments": ["..."],
@@ -213,7 +215,7 @@ function validate(parsed: unknown): CarePlanResult | null {
     summary: {
       general_overview: asString(s.general_overview),
       main_emotions: asStringArray(s.main_emotions),
-      recurring_triggers: asStringArray(s.recurring_triggers),
+      recurring_emotional_markers: asStringArray(s.recurring_emotional_markers ?? s.recurring_triggers),
       energy_anxiety_relation: asString(s.energy_anxiety_relation),
       attention_days: asStringArray(s.attention_days),
       improvement_moments: asStringArray(s.improvement_moments),
@@ -234,7 +236,7 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
     summary: {
       general_overview: dr.summary,
       main_emotions: a.topEmotions.map(e => e.label),
-      recurring_triggers: a.triggers.map(t => t.tag),
+      recurring_emotional_markers: a.emotionalMarkers.map(t => t.tag),
       energy_anxiety_relation: dr.energyAnxietySleep,
       attention_days: dr.attentionDays.map(d => `Dia ${d.day}: ${d.reason}`),
       improvement_moments: [dr.improvementMoments],

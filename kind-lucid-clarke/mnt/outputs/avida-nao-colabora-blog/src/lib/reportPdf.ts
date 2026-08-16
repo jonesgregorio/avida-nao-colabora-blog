@@ -210,7 +210,8 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
   if (report.content.kind === 'weekly') {
     const c = report.content as WeeklyContent
     const total = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
-    const atencao = c.avgAnxiety >= 4 ? 'Ansiedade percebida elevada' : (c.topTrigger ? `Gatilho recorrente: ${c.topTrigger}` : 'Sem ponto de atenção destacado')
+    const topMarker = c.topEmotionalMarker ?? c.topTrigger
+    const atencao = c.avgAnxiety >= 4 ? 'Ansiedade percebida elevada' : (topMarker ? `Marcador emocional recorrente: ${topMarker}` : 'Sem ponto de atenção destacado')
 
     heading('Leitura rápida da semana', 10)
     cards([
@@ -221,14 +222,14 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
       { label: 'Ansiedade percebida', value: c.avgAnxiety ? `${c.avgAnxiety}/5` : '—/5', sub: status(c.avgAnxiety) },
       { label: 'Emoção predominante', value: c.dominantEmotion ?? '—' },
     ])
-    if (c.topTrigger) noteBox('Principal gatilho', c.topTrigger)
+    if (topMarker) noteBox('Marcador emocional principal', topMarker)
     noteBox('Ponto de atenção', atencao)
     if (!c.hasEnoughData) noteBox('Sobre a precisão deste relatório', 'Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Para relatórios mais completos, registre check-ins e diários ao longo da semana.', 'amber')
 
     heading('Resumo da semana'); para(c.summary)
     heading('Emoções frequentes'); chartBars('Emoções mais frequentes', c.topEmotions.map(e => ({ label: e.label, count: e.count })))
     heading('Energia e ansiedade'); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
-    heading('Gatilhos'); chartBars('Gatilhos mais citados', c.triggers.map(t => ({ label: t.tag, count: t.count })))
+    heading('Marcadores emocionais'); chartBars('Marcadores emocionais mais citados', (c.emotionalMarkers ?? c.triggers ?? []).map(t => ({ label: t.tag, count: t.count })))
     heading('O que mudou em relação à semana anterior'); if (c.comparison.length) bullets(c.comparison); else para('Ainda não há uma semana anterior suficiente para comparação.')
     heading('O que seus registros parecem indicar'); para(c.interpretation)
     if (c.patterns?.length) { heading('Principais padrões da semana'); bullets(c.patterns) }
@@ -261,7 +262,7 @@ export async function exportReportPdf(report: StoredReport, plan: string, filena
     heading('Energia, ansiedade e descanso'); para(c.energyAnxietySleep)
     if (c.relations?.length) { heading('Relações percebidas'); bullets(c.relations) }
     heading('Gráficos de síntese'); chartLine('Energia por dia', c.energyByDay, GREEN); chartLine('Ansiedade por dia', c.anxietyByDay, ORANGE)
-    heading('Gatilhos mais recorrentes'); para(c.triggersText); chartBars('Gatilhos mais citados', c.topTriggers.map(t => ({ label: t.tag, count: t.count })))
+    heading('Marcadores emocionais mais recorrentes'); para(c.triggersText); chartBars('Marcadores emocionais mais citados', (c.topEmotionalMarkers ?? c.topTriggers ?? []).map(t => ({ label: t.tag, count: t.count })))
     heading('Dias de maior atenção'); if (c.attentionDays.length) bullets(c.attentionDays.map(d => `Dia ${d.day} — ${d.reason}`)); else para('Ainda não há dados suficientes para esta leitura.')
     heading('Momentos de melhora'); para(c.improvementMoments)
     heading('Comparação com o mês anterior'); bullets(c.monthlyComparison)

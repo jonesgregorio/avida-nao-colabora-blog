@@ -617,7 +617,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const insights = buildEssentialInsights(a)
   const maxEmo = Math.max(...a.topEmotions.map(e => e.count), 1)
   const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
-  const maxTrig = Math.max(...a.triggers.map(t => t.count), 1)
+  const maxTrig = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
 
   return (
@@ -714,9 +714,9 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
               tristeza etc. não são gatilhos, são emoções). */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Marcadores emocionais mais frequentes</h3>
-            {a.triggers.length > 0 ? (
+            {a.emotionalMarkers.length > 0 ? (
               <div className="space-y-2">
-                {a.triggers.map(t => (
+                {a.emotionalMarkers.map(t => (
                   <div key={t.tag} className="flex items-center gap-2">
                     <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span>
                     <div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxTrig) * 100}%` }} /></div>

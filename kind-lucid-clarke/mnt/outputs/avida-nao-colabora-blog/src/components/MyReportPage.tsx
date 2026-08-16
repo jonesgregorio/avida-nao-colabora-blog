@@ -236,7 +236,7 @@ function EmotionDonut({ emotions }: { emotions: { label: string; count: number }
   )
 }
 
-function TriggerRanking({ triggers, title = 'Gatilhos principais', emptyText = 'Ainda não há check-ins com gatilhos neste período.' }: {
+function TriggerRanking({ triggers, title = 'Marcadores emocionais mais frequentes', emptyText = 'Ainda não há marcadores emocionais neste período.' }: {
   triggers: { tag: string; count: number }[]; title?: string; emptyText?: string
 }) {
   const total = triggers.reduce((n, t) => n + t.count, 0)
@@ -329,16 +329,16 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade média" value={c.avgAnxiety || '—'} unit={c.avgAnxiety ? '/5' : ''} accent="coral" />
           <MetricTile icon={<Calendar className="w-4 h-4" />} label="Check-ins" value={c.checkinCount ?? 0} sub="registros" />
           <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários" value={c.diaryCount ?? 0} sub="registros" />
-          <MetricTile icon={<Target className="w-4 h-4" />} label="Gatilho principal" value={c.topTrigger ?? '—'} accent="coral" />
+          <MetricTile icon={<Target className="w-4 h-4" />} label="Marcador emocional" value={c.topEmotionalMarker ?? c.topTrigger ?? '—'} accent="coral" />
         </div>
 
         {/* Energia e ansiedade ao longo da semana */}
         <EnergyAnxietyPanel data={chartData} bestEnergy={bestEnergy} lowAnx={lowAnx} labels={dayLabels} />
 
-        {/* Emoções + gatilhos */}
+        {/* Emoções + marcadores emocionais */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <EmotionDonut emotions={c.topEmotions} />
-          <TriggerRanking triggers={c.triggers} />
+          <TriggerRanking triggers={c.emotionalMarkers ?? c.triggers ?? []} />
         </div>
 
         {/* Contextos (§14.1) */}
@@ -389,9 +389,9 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
   const c = report.content as MonthlyContent
   const totalRecords = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
   const mEmotions = c.topEmotions ?? []
-  const mTriggers = c.topTriggers ?? []
+  const mEmotionalMarkers = c.topEmotionalMarkers ?? c.topTriggers ?? []
   const dominantEmotion = mEmotions[0]?.label ?? null
-  const topTrigger = mTriggers[0]?.tag ?? null
+  const topEmotionalMarker = mEmotionalMarkers[0]?.tag ?? null
 
   const eByDay = c.energyByDay ?? []
   const aByDay = c.anxietyByDay ?? []
@@ -438,7 +438,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade percebida" value={c.avgAnxiety ? `${c.avgAnxiety}` : '—'} unit={c.avgAnxiety ? '/5' : ''} sub="Média do mês" accent="coral" />
         <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção predominante" value={dominantEmotion ?? '—'} sub="Mais frequente" />
-        <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Ponto de atenção" value={topTrigger ?? '—'} sub="Principal sinal" accent="coral" />
+        <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Marcador emocional" value={topEmotionalMarker ?? '—'} sub="Principal sinal" accent="coral" />
         <MetricTile icon={<Target className="w-4 h-4" />} label="Prioridade sugerida" value={c.selfCarePlan?.priority ?? '—'} sub="Foco do mês" />
       </div>
 
@@ -464,10 +464,10 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           {/* Gráfico energia × ansiedade */}
           <EnergyAnxietyPanel data={chartDataM} bestEnergy={bestEnergyM} lowAnx={lowAnxM} labels={dayLabelsM} title="Energia e ansiedade ao longo do mês" />
 
-          {/* Emoções + gatilhos */}
+          {/* Emoções + marcadores emocionais */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <EmotionDonut emotions={mEmotions} />
-            <TriggerRanking triggers={mTriggers} />
+            <TriggerRanking triggers={mEmotionalMarkers} />
           </div>
 
           {/* Contextos e necessidades mais recorrentes (§14.2) */}
@@ -710,7 +710,9 @@ function BuildingPreview({ type, period, content, onRefresh }: {
   type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent; onRefresh: () => void
 }) {
   const emotions = content.topEmotions
-  const topTrig = 'topTriggers' in content ? content.topTriggers[0]?.tag : content.triggers[0]?.tag
+  const topTrig = type === 'monthly'
+    ? ((content as MonthlyContent).topEmotionalMarkers?.[0]?.tag ?? (content as MonthlyContent).topTriggers?.[0]?.tag)
+    : ((content as WeeklyContent).emotionalMarkers?.[0]?.tag ?? (content as WeeklyContent).triggers?.[0]?.tag)
   const unlockWhen = formatDateBR(period.availableAt)
   return (
     <div className="rounded-2xl border border-forest-200 bg-mint/20 p-5">
@@ -869,7 +871,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl whitespace-nowrap">Conhecer o Essencial</button>
         </div>
         <div className="space-y-4">
-          <LockedSection title="Relatório semanal automático" description="Resumo da semana com emoções, energia, ansiedade, gatilhos e conteúdos recomendados. Disponível no plano Essencial." onUpgrade={onNavigatePricing} />
+          <LockedSection title="Relatório semanal automático" description="Resumo da semana com emoções, marcadores emocionais, energia, ansiedade e conteúdos recomendados. Disponível no plano Essencial." onUpgrade={onNavigatePricing} />
           <LockedSection title="Relatório mensal aprofundado" description="Leitura completa do mês — padrões, plano de autocuidado e síntese para orientação. Disponível no plano Plus." onUpgrade={onNavigatePricing} />
         </div>
         <button onClick={onNavigateDiary} className="mt-6 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium hover:text-forest-900"><BookOpen className="w-4 h-4" /> Abrir meu diário</button>

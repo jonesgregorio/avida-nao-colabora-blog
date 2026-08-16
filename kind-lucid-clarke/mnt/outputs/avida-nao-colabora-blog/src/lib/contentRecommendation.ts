@@ -271,7 +271,7 @@ export function signalFromAnalysis(a: EmotionalAnalysis, source: 'mapa' | 'relat
     if (th) addTheme(sig, th, em.count)
     for (const h of themeHits(em.label)) { addTheme(sig, h.theme, h.hits); for (const w of h.words) sig.keywords.add(w) }
   }
-  for (const trg of a.triggers ?? []) {
+  for (const trg of a.emotionalMarkers ?? []) {
     for (const h of themeHits(trg.tag)) { addTheme(sig, h.theme, h.hits); for (const w of h.words) sig.keywords.add(w) }
     const d = deburr(trg.tag).trim(); if (d) sig.keywords.add(d)
   }
