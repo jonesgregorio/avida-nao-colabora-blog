@@ -142,6 +142,26 @@ function SliderField({ label, value, onChange, touched = true, onClear, min = 1,
   )
 }
 
+/** Mantém a tela leve sem esconder aquilo que a pessoa já escolheu. */
+function ProgressiveTagList({ options, selected, onToggle, category }: {
+  options: string[]; selected: string[]; onToggle: (tag: string) => void; category?: TagCategory
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? options : [...new Set([...options.slice(0, 8), ...selected])]
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {visible.map(tag => <DiaryTagChip key={tag} label={tag} category={category} selected={selected.includes(tag)} onClick={() => onToggle(tag)} />)}
+      </div>
+      {options.length > 8 && (
+        <button type="button" onClick={() => setExpanded(v => !v)} className="mt-2 text-xs font-medium text-forest-700 hover:text-forest-900 underline underline-offset-2">
+          {expanded ? 'Mostrar menos' : 'Ver todas'}
+        </button>
+      )}
+    </>
+  )
+}
+
 // Sequência de dias consecutivos de escrita, terminando hoje ou ontem.
 // Usa data LOCAL (ymd) — toISOString() é UTC e, à noite no Brasil (UTC-3),
 // já conta como o dia seguinte, quebrando a sequência incorretamente.
@@ -261,7 +281,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [mood, setMood] = useState('outro')
   const [checkinChip, setCheckinChip] = useState<string | null>(null)
   const [mainEmotion, setMainEmotion] = useState('')
-  const [whatHappened, setWhatHappened] = useState('')
+  // Check-in e diário têm textos independentes: alternar de modo nunca mistura o que foi escrito.
+  const [quickNote, setQuickNote] = useState('')
+  const [diaryText, setDiaryText] = useState('')
   const [whatINeed, setWhatINeed] = useState('')
   const [smallThing, setSmallThing] = useState('')
 
@@ -283,6 +305,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [needTags, setNeedTags] = useState<string[]>([])
   const [careActionTags, setCareActionTags] = useState<string[]>([])
   const [triggerTags, setTriggerTags] = useState<string[]>([])
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   // §6: sliders opcionais só contam como resposta real depois que o usuário
   // interage — evita salvar "3/5" (valor visual inicial) como se fosse dado.
@@ -332,31 +355,43 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const streak = calcStreak(writeDays)
 
   const fetchEntries = useCallback(async () => {
-    const { data } = await supabase
+    let query = supabase
       .from('diary_entries')
       .select(ENTRIES_SELECT)
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .range(0, ENTRIES_PAGE_SIZE - 1)
+    if (filter !== 'all') query = query.eq('entry_type', filter)
+    const todayYmd = ymd(new Date())
+    if (periodFilter === '7d') query = query.gte('date', ymd(new Date(Date.now() - 7 * 864e5)))
+    if (periodFilter === '30d') query = query.gte('date', ymd(new Date(Date.now() - 30 * 864e5)))
+    if (periodFilter === 'month') query = query.gte('date', `${todayYmd.slice(0, 7)}-01`).lte('date', todayYmd)
+    const { data } = await query
     setEntries(data || [])
     setHasMoreEntries((data?.length ?? 0) === ENTRIES_PAGE_SIZE)
     setLoading(false)
-  }, [user])
+  }, [user, filter, periodFilter])
 
   const loadMoreEntries = useCallback(async () => {
     setLoadingMore(true)
-    const { data } = await supabase
+    let query = supabase
       .from('diary_entries')
       .select(ENTRIES_SELECT)
       .eq('user_id', user!.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .range(entries.length, entries.length + ENTRIES_PAGE_SIZE - 1)
+    if (filter !== 'all') query = query.eq('entry_type', filter)
+    const todayYmd = ymd(new Date())
+    if (periodFilter === '7d') query = query.gte('date', ymd(new Date(Date.now() - 7 * 864e5)))
+    if (periodFilter === '30d') query = query.gte('date', ymd(new Date(Date.now() - 30 * 864e5)))
+    if (periodFilter === 'month') query = query.gte('date', `${todayYmd.slice(0, 7)}-01`).lte('date', todayYmd)
+    const { data } = await query
     setEntries(prev => [...prev, ...(data ?? [])])
     setHasMoreEntries((data?.length ?? 0) === ENTRIES_PAGE_SIZE)
     setLoadingMore(false)
-  }, [user, entries.length])
+  }, [user, entries.length, filter, periodFilter])
 
   // Contagem do mês (Gratuito) — separada da lista paginada de propósito (§11.5/§8.3).
   const fetchMonthCount = useCallback(async () => {
@@ -396,7 +431,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   // When arriving from article with a prompt context, pre-fill
   useEffect(() => {
     if (promptContext && !atLimit) {
-      setWhatHappened(promptContext.prompt)
+      setDiaryText(promptContext.prompt)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptContext])
@@ -438,7 +473,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   }
 
   const resetForm = () => {
-    setMood('outro'); setCheckinChip(null); setMainEmotion(''); setWhatHappened(''); setWhatINeed(''); setSmallThing('')
+    setMood('outro'); setCheckinChip(null); setMainEmotion(''); setQuickNote(''); setDiaryText(''); setWhatINeed(''); setSmallThing('')
     setMoodScore(3); setEnergy(3); setAnxietyLevel(3); setStressLevel(3)
     setGratitude(''); setSmallPride(''); setFreeNote(''); setSelectedTags([])
     setShowOtherTag(false); setOtherTagInput('')
@@ -447,6 +482,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setContextTags([]); setNeedTags([]); setCareActionTags([]); setTriggerTags([])
     setTouchedFields(new Set())
     setShowMainEmotion(false)
+    setAdvancedOpen(false)
     setError('')
   }
 
@@ -458,7 +494,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
         setError('Escolha um estado emocional para registrar seu check-in.')
         return
       }
-    } else if (!whatHappened.trim() && !mainEmotion.trim() && !freeNote.trim()) {
+    } else if (!diaryText.trim() && !mainEmotion.trim() && !freeNote.trim()) {
       setError('Escreva algo antes de salvar seu diário.')
       return
     }
@@ -471,7 +507,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
     const isCheckin = entryMode === 'quick'
     const moodObj = moodOptions.find(m => m.value === mood) || moodOptions.find(m => m.value === 'outro') || moodOptions[0]
-    const entryText = [mainEmotion, whatHappened, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
+    const entryText = isCheckin ? quickNote : [mainEmotion, diaryText, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
     const payload: Partial<DiaryEntry> & { user_id: string } = {
       user_id: user!.id,
@@ -500,9 +536,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       if (isEssential) {
         if (fieldOn('energy') && touchedFields.has('energy')) payload.energy = normalizeScale(energy, 3)
         if (fieldOn('anxiety_level') && touchedFields.has('anxiety_level')) payload.anxiety_level = normalizeScale(anxietyLevel, 3)
-        if (fieldOn('stress_level') && touchedFields.has('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
         if (fieldOn('sleep_quality') && touchedFields.has('sleep_quality')) payload.sleep_quality = normalizeScale(sleepQuality, 3)
-        if (fieldOn('self_esteem') && touchedFields.has('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
         if (fieldOn('gratitude')) payload.gratitude = gratitude || undefined
         if (fieldOn('small_pride')) payload.small_pride = smallPride || undefined
         if (fieldOn('free_note')) payload.free_note = freeNote || undefined
@@ -513,6 +547,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     }
 
     if (!isCheckin && isPlus) {
+      if (fieldOn('stress_level') && touchedFields.has('stress_level')) payload.stress_level = normalizeScale(stressLevel, 3)
+      if (fieldOn('self_esteem') && touchedFields.has('self_esteem')) payload.self_esteem = normalizeScale(selfEsteem, 3)
       if (fieldOn('irritability') && touchedFields.has('irritability')) payload.irritability = normalizeScale(irritability, 3)
       if (fieldOn('overload') && touchedFields.has('overload')) payload.overload = normalizeScale(overload, 3)
       if (fieldOn('emotional_triggers')) payload.emotional_triggers = emotionalTriggers || undefined
@@ -636,7 +672,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             <Plus className="w-4 h-4" /> {isCheckinConfirm ? 'Fazer outro check-in' : 'Novo registro'}
           </button>
           <button
-            onClick={() => { setSavedConfirm(null); setTimeout(() => entriesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
+            onClick={() => { setSavedConfirm(null); setPageTab('historico'); setTimeout(() => entriesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
             className="inline-flex items-center gap-2 border border-line text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/40 transition-colors"
           >
             Ver meus registros
@@ -760,16 +796,18 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               </button>
             </div>
 
-            {/* Check-in emocional */}
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900">Check-in emocional</h2>
+            {/* Cada modo tem uma intenção e uma linguagem própria. */}
+            <h2 className="font-serif text-lg sm:text-xl text-forest-900">
+              {entryMode === 'quick' ? 'Como você está agora?' : 'Registrar meu dia'}
+            </h2>
             <p className="text-sm text-ink-soft mt-1 mb-3">
               {entryMode === 'quick'
-                ? 'Registre como você está agora. Você pode fazer quantos check-ins quiser ao longo do dia.'
-                : 'Como você está se sentindo agora? Escolha o que mais faz sentido para você.'}
+                ? 'Escolha o que mais combina com este momento. É rápido e não conta no limite do diário.'
+                : 'Escreva sobre o que aconteceu, marque o que sentiu e organize seu cuidado no seu tempo.'}
             </p>
-            {entryMode === 'quick' && plan === 'free' && (
+            {entryMode === 'quick' && (
               <p className="text-xs text-forest-600 mb-3 flex items-center gap-1.5">
-                <Sprout className="w-3.5 h-3.5 flex-shrink-0" /> Check-ins são ilimitados e não consomem seus registros mensais de diário.
+                <Sprout className="w-3.5 h-3.5 flex-shrink-0" /> Check-ins são ilimitados e não contam no limite do diário.
               </p>
             )}
             <div className="flex flex-wrap gap-2 mb-6">
@@ -779,10 +817,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             </div>
 
             {/* Check-in rápido: energia + ansiedade percebida (§8.1) — nota opcional abaixo */}
-            {entryMode === 'quick' && (
+            {entryMode === 'quick' && isEssential && (
               <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                <SliderField label="Energia" {...sliderProps('energy', energy, setEnergy)} />
-                <SliderField label="Ansiedade percebida" {...sliderProps('anxiety_level', anxietyLevel, setAnxietyLevel)} />
+                {fieldOn('energy') && <SliderField label="Energia" {...sliderProps('energy', energy, setEnergy)} />}
+                {fieldOn('anxiety_level') && <SliderField label="Ansiedade percebida" {...sliderProps('anxiety_level', anxietyLevel, setAnxietyLevel)} />}
               </div>
             )}
 
@@ -797,19 +835,25 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             )}
 
             {/* Nota — grande e livre no diário completo; curta e opcional no check-in (§3) */}
-            <div className="relative">
+            <div className={`relative ${entryMode === 'full' ? 'bg-paper-soft border border-line rounded-3xl p-5 sm:p-6' : ''}`}>
               {entryMode === 'quick' && (
                 <label className="text-sm text-forest-900 font-semibold block mb-1">Nota rápida (opcional)</label>
               )}
+              {entryMode === 'full' && (
+                <>
+                  <h3 className="font-serif text-lg text-forest-900">Meu registro</h3>
+                  <p className="text-sm text-ink-soft mt-1 mb-4">Escreva do seu jeito. Não precisa estar bonito, organizado ou completo.</p>
+                </>
+              )}
               <textarea
-                value={whatHappened}
-                onChange={e => setWhatHappened(e.target.value)}
-                placeholder={entryMode === 'quick' ? 'Quer deixar uma nota curta? Não é obrigatório.' : 'Escreva aqui o que está sentindo…'}
+                value={entryMode === 'quick' ? quickNote : diaryText}
+                onChange={e => entryMode === 'quick' ? setQuickNote(e.target.value) : setDiaryText(e.target.value)}
+                placeholder={entryMode === 'quick' ? 'Quer registrar algo rápido sobre este momento?' : 'Escreva aqui o que aconteceu, o que você sentiu ou o que precisa tirar da cabeça…'}
                 rows={entryMode === 'quick' ? 3 : 6}
                 disabled={saveBlockedByLimit}
                 className="w-full border border-line rounded-2xl px-4 py-3 text-sm resize-none bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 disabled:opacity-60"
               />
-              <span className="absolute bottom-3 right-4 text-[11px] text-ink-soft/70">{whatHappened.length} caracteres</span>
+              <span className="absolute bottom-3 right-4 text-[11px] text-ink-soft/70">{(entryMode === 'quick' ? quickNote : diaryText).length} caracteres</span>
             </div>
 
             {/* Campos livres complementares — só no diário completo (§8.2) */}
@@ -848,28 +892,22 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {/* Indicadores — Essencial+ (só no diário completo) */}
             {entryMode === 'full' && isEssential && (
               <div className="border-t border-line pt-5 mt-5">
-                <h3 className="font-serif text-base text-forest-900 mb-1">Como está o seu corpo e sua mente agora?</h3>
-                <p className="text-sm text-ink-soft mb-4">Atualize seus indicadores do momento.</p>
+                <h3 className="font-serif text-base text-forest-900 mb-1">Detalhar meu momento</h3>
+                <p className="text-sm text-ink-soft mb-4">Esses detalhes ajudam seu mapa emocional e o relatório semanal.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SliderField label="Humor" {...sliderProps('mood_score', moodScore, setMoodScore)} />
                   {fieldOn('energy') && <SliderField label="Energia" {...sliderProps('energy', energy, setEnergy)} />}
                   {fieldOn('anxiety_level') && <SliderField label="Ansiedade" {...sliderProps('anxiety_level', anxietyLevel, setAnxietyLevel)} />}
-                  {isPlus && fieldOn('stress_level') && <SliderField label="Estresse" {...sliderProps('stress_level', stressLevel, setStressLevel)} />}
                   {/* Sono é Essencial+: o Mapa Emocional mostra essa métrica desde o plano Essencial. */}
                   {fieldOn('sleep_quality') && <SliderField label="Sono" {...sliderProps('sleep_quality', sleepQuality, setSleepQuality)} />}
-                  {isPlus && fieldOn('self_esteem') && <SliderField label="Autoestima" {...sliderProps('self_esteem', selfEsteem, setSelfEsteem)} />}
-                  {isPlus && fieldOn('irritability') && <SliderField label="Irritabilidade" {...sliderProps('irritability', irritability, setIrritability)} />}
-                  {isPlus && fieldOn('overload') && <SliderField label="Sobrecarga" {...sliderProps('overload', overload, setOverload)} />}
                 </div>
 
                 {fieldOn('emotional_tags') && (
-                  <div className="mt-4">
-                    <label className="text-sm text-forest-900 font-semibold block mb-1">Quais sentimentos você reconhece agora?</label>
+                  <div className="mt-4 rounded-2xl border border-line bg-paper-soft/70 p-4">
+                    <label className="text-sm text-forest-900 font-semibold block mb-1">Quais sentimentos apareceram?</label>
                     <p className="text-xs text-ink-soft mb-2">Marque quantos quiser. Isso ajuda a sugerir conteúdos que combinam com o seu momento.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {emotionalTags.map(tag => (
-                        <DiaryTagChip key={tag} label={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
-                      ))}
+                    <div>
+                      <ProgressiveTagList options={emotionalTags} selected={selectedTags} onToggle={toggleTag} />
                       {selectedTags.filter(t => !emotionalTags.includes(t)).map(tag => (
                         <DiaryTagChip key={tag} label={tag} selected onClick={() => toggleTag(tag)} />
                       ))}
@@ -905,40 +943,28 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
                 {/* Onde isso apareceu? (§7) — Essencial+ */}
                 {fieldOn('context_tags') && (
-                  <div className="mt-4">
+                  <div className="mt-4 rounded-2xl border border-line bg-paper-soft/70 p-4">
                     <label className="text-sm text-forest-900 font-semibold block mb-1">Onde isso apareceu?</label>
                     <p className="text-xs text-ink-soft mb-2">Marque os contextos que mais tiveram relação com o seu dia.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {contextTagOptions.map(tag => (
-                        <DiaryTagChip key={tag} label={tag} category="context" selected={contextTags.includes(tag)} onClick={() => toggleInArray(contextTags, setContextTags, tag)} />
-                      ))}
-                    </div>
+                    <ProgressiveTagList options={contextTagOptions} selected={contextTags} onToggle={tag => toggleInArray(contextTags, setContextTags, tag)} category="context" />
                   </div>
                 )}
 
                 {/* O que eu preciso agora? (§8) — Essencial+ */}
                 {fieldOn('need_tags') && (
-                  <div className="mt-4">
+                  <div className="mt-4 rounded-2xl border border-line bg-paper-soft/70 p-4">
                     <label className="text-sm text-forest-900 font-semibold block mb-1">O que você sente que precisa agora?</label>
                     <p className="text-xs text-ink-soft mb-2">Escolha uma ou mais necessidades que combinam com este momento.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {needTagOptions.map(tag => (
-                        <DiaryTagChip key={tag} label={tag} category="need" selected={needTags.includes(tag)} onClick={() => toggleInArray(needTags, setNeedTags, tag)} />
-                      ))}
-                    </div>
+                    <ProgressiveTagList options={needTagOptions} selected={needTags} onToggle={tag => toggleInArray(needTags, setNeedTags, tag)} category="need" />
                   </div>
                 )}
 
                 {/* O que pode me ajudar? (§9) — Essencial+ */}
                 {fieldOn('care_action_tags') && (
-                  <div className="mt-4">
+                  <div className="mt-4 rounded-2xl border border-line bg-paper-soft/70 p-4">
                     <label className="text-sm text-forest-900 font-semibold block mb-1">O que pode te ajudar um pouco?</label>
                     <p className="text-xs text-ink-soft mb-2">Escolha pequenas possibilidades de cuidado. Não precisa virar obrigação.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {careActionTagOptions.map(tag => (
-                        <DiaryTagChip key={tag} label={tag} category="care_action" selected={careActionTags.includes(tag)} onClick={() => toggleInArray(careActionTags, setCareActionTags, tag)} />
-                      ))}
-                    </div>
+                    <ProgressiveTagList options={careActionTagOptions} selected={careActionTags} onToggle={tag => toggleInArray(careActionTags, setCareActionTags, tag)} category="care_action" />
                   </div>
                 )}
 
@@ -946,25 +972,29 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                   {fieldOn('gratitude') && <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Pelo que você sente gratidão hoje?" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                   {fieldOn('small_pride') && <input type="text" value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Um pequeno orgulho do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
                 </div>
-                {/* Gatilhos reais (§13.1) — separados dos sentimentos (emotional_tags). */}
-                {isPlus && fieldOn('trigger_tags') && (
-                  <div className="mt-4">
-                    <label className="text-sm text-forest-900 font-semibold block mb-1">O que costuma disparar isso?</label>
-                    <p className="text-xs text-ink-soft mb-2">Situações que costumam vir antes desse tipo de dia — não é a mesma coisa que o sentimento em si.</p>
-                    <div className="flex flex-wrap gap-2">
-                      {triggerTagOptions.map(tag => (
-                        <DiaryTagChip key={tag} label={tag} category="advanced" selected={triggerTags.includes(tag)} onClick={() => toggleInArray(triggerTags, setTriggerTags, tag)} />
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {isPlus && (
-                  <div className="grid gap-3 mt-3">
-                    {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje… (texto livre)" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
-                    {fieldOn('recurring_thoughts') && <input type="text" value={recurringThoughts} onChange={e => setRecurringThoughts(e.target.value)} placeholder="Pensamentos recorrentes…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
-                    {fieldOn('emotional_need') && <input type="text" value={emotionalNeed} onChange={e => setEmotionalNeed(e.target.value)} placeholder="Necessidade emocional principal…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
-                    {fieldOn('relationships') && <input type="text" value={relationships} onChange={e => setRelationships(e.target.value)} placeholder="Relações e limites hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
-                    {fieldOn('habits') && <input type="text" value={habits} onChange={e => setHabits(e.target.value)} placeholder="Hábitos do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                  <div className="mt-5 border border-forest-100 bg-linen/40 rounded-2xl p-4">
+                    <button type="button" onClick={() => setAdvancedOpen(v => !v)} className="w-full text-left flex items-center justify-between gap-3">
+                      <span><span className="block text-sm font-semibold text-forest-900">Aprofundar meu registro</span><span className="block text-xs text-ink-soft mt-1">Use estes campos se quiser entender melhor o que está por trás deste dia. Você não precisa preencher tudo.</span></span>
+                      {advancedOpen ? <ChevronUp className="w-4 h-4 text-forest-700" /> : <ChevronDown className="w-4 h-4 text-forest-700" />}
+                    </button>
+                    {!advancedOpen && <button type="button" onClick={() => setAdvancedOpen(true)} className="mt-3 text-xs font-medium text-forest-700 underline underline-offset-2">Mostrar campos avançados</button>}
+                    {advancedOpen && <div className="mt-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {fieldOn('stress_level') && <SliderField label="Estresse" {...sliderProps('stress_level', stressLevel, setStressLevel)} />}
+                        {fieldOn('self_esteem') && <SliderField label="Autoestima" {...sliderProps('self_esteem', selfEsteem, setSelfEsteem)} />}
+                        {fieldOn('irritability') && <SliderField label="Irritabilidade" {...sliderProps('irritability', irritability, setIrritability)} />}
+                        {fieldOn('overload') && <SliderField label="Sobrecarga" {...sliderProps('overload', overload, setOverload)} />}
+                      </div>
+                      {fieldOn('trigger_tags') && <div><label className="text-sm text-forest-900 font-semibold block mb-1">Gatilhos reais</label><p className="text-xs text-ink-soft mb-2">Situações que vieram antes desse tipo de dia — não são os sentimentos em si.</p><ProgressiveTagList options={triggerTagOptions} selected={triggerTags} onToggle={tag => toggleInArray(triggerTags, setTriggerTags, tag)} category="advanced" /></div>}
+                      <div className="grid gap-3">
+                        {fieldOn('emotional_triggers') && <input type="text" value={emotionalTriggers} onChange={e => setEmotionalTriggers(e.target.value)} placeholder="Gatilhos emocionais de hoje… (texto livre)" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                        {fieldOn('recurring_thoughts') && <input type="text" value={recurringThoughts} onChange={e => setRecurringThoughts(e.target.value)} placeholder="Pensamentos recorrentes…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                        {fieldOn('emotional_need') && <input type="text" value={emotionalNeed} onChange={e => setEmotionalNeed(e.target.value)} placeholder="Necessidade emocional principal…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                        {fieldOn('relationships') && <input type="text" value={relationships} onChange={e => setRelationships(e.target.value)} placeholder="Relações e limites hoje…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                        {fieldOn('habits') && <input type="text" value={habits} onChange={e => setHabits(e.target.value)} placeholder="Hábitos do dia…" className="border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />}
+                      </div>
+                    </div>}
                   </div>
                 )}
               </div>
@@ -1009,7 +1039,10 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           {pageTab === 'historico' && (
           <section ref={entriesRef} className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="font-serif text-lg sm:text-xl text-forest-900">Suas entradas</h2>
+              <div>
+                <h2 className="font-serif text-lg sm:text-xl text-forest-900">Histórico emocional</h2>
+                <p className="text-xs text-ink-soft mt-1">Veja seus registros organizados por dia, sem perder o contexto do que você sentiu.</p>
+              </div>
               <div className="flex items-center gap-2">
                 {(['all', 'checkin', 'diary', 'questionnaire'] as const).map(f => (
                   <button
@@ -1020,7 +1053,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                     {f === 'all' ? 'Tudo' : f === 'checkin' ? 'Check-ins' : f === 'diary' ? 'Diário' : 'Avaliações'}
                   </button>
                 ))}
-                {/* §11.4: período — sobre o que já foi carregado. */}
+                {/* O período altera a consulta no Supabase, não só a primeira página local. */}
                 <select
                   value={periodFilter}
                   onChange={e => setPeriodFilter(e.target.value as typeof periodFilter)}
