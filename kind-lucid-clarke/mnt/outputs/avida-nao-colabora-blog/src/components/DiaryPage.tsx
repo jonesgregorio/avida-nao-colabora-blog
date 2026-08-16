@@ -249,7 +249,7 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
 // §11.5: nunca buscar o histórico inteiro de uma vez — pesado pra quem tem
 // centenas/milhares de registros. Paginação simples por range.
 const ENTRIES_PAGE_SIZE = 30
-const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,diary_kind,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,small_pride,context_tags,need_tags,care_action_tags,trigger_tags'
+const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,diary_kind,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,irritability,overload,small_pride,free_note,emotional_triggers,recurring_thoughts,emotional_need,relationships,habits,context_tags,need_tags,care_action_tags,trigger_tags'
 
 export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
@@ -275,6 +275,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
   const [entryMode, setEntryMode] = useState<'quick' | 'full' | 'addon' | 'main-saved'>('quick')
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [todayMainEntryDirect, setTodayMainEntryDirect] = useState<DiaryEntry | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -355,9 +356,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const atLimit = entryLimit != null && freeEntryCount >= entryLimit
   // O limite bloqueia SÓ o diário completo. Check-in rápido é ilimitado (§8):
   // não conta e nunca é bloqueado, mesmo com os 5 registros do mês já usados.
-  const saveBlockedByLimit = atLimit && entryMode !== 'quick'
+  // O limite impede apenas a criação de um NOVO registro básico. Quem já
+  // registrou pode sempre editar o próprio diário do dia.
+  const saveBlockedByLimit = atLimit && entryMode !== 'quick' && !editingEntryId
   const todayKey = ymd(new Date())
-  const todayMainEntry = entries.find(e => String(e.date ?? '').slice(0, 10) === todayKey && (e.entry_type ?? 'diary') === 'diary' && ['basic', 'main'].includes(e.diary_kind ?? 'main'))
+  const todayMainEntry = todayMainEntryDirect ?? entries.find(e => String(e.date ?? '').slice(0, 10) === todayKey && (e.entry_type ?? 'diary') === 'diary' && ['basic', 'main'].includes(e.diary_kind ?? 'main'))
   const isDiaryForm = entryMode === 'full' || entryMode === 'addon'
 
   const writeDays = new Set(entries.filter(e => e.entry_type === 'diary').map(e => String(e.date ?? '').slice(0, 10)))
@@ -411,6 +414,20 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setMonthDiaryCount(count ?? 0)
   }, [user, plan])
 
+  // A presença do diário principal de hoje não depende do histórico paginado.
+  // Isso evita tentar inserir um segundo main quando a entrada ficou fora da
+  // primeira página ou quando o usuário filtrou o histórico.
+  const fetchTodayMainEntry = useCallback(async (): Promise<DiaryEntry | null> => {
+    if (!user) return null
+    const { data } = await supabase.from('diary_entries').select(ENTRIES_SELECT)
+      .eq('user_id', user.id).eq('entry_type', 'diary').eq('date', ymd(new Date()))
+      .or('diary_kind.in.(basic,main),diary_kind.is.null')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const entry = (data as DiaryEntry | null) ?? null
+    setTodayMainEntryDirect(entry)
+    return entry
+  }, [user])
+
   const fetchPrompt = useCallback(async () => {
     const day = new Date().getDay()
     const planFilter = isPlus
@@ -435,7 +452,8 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     fetchEntries()
     fetchPrompt()
     fetchMonthCount()
-  }, [fetchEntries, fetchPrompt, fetchMonthCount])
+    fetchTodayMainEntry()
+  }, [fetchEntries, fetchPrompt, fetchMonthCount, fetchTodayMainEntry])
 
   // When arriving from article with a prompt context, pre-fill
   useEffect(() => {
@@ -493,6 +511,47 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setShowMainEmotion(false)
     setAdvancedOpen(false)
     setError('')
+  }
+
+  /** Carrega integralmente os campos persistidos antes de editar o diário. */
+  const hydrateFormFromEntry = (entry: DiaryEntry) => {
+    const normalizedMood = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)?.value ?? 'outro'
+    setMood(normalizedMood)
+    setCheckinChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === normalizedMood)?.key ?? null)
+    // Campos livres antigos eram salvos juntos no texto; preservamos o conteúdo
+    // integral no editor em vez de tentar adivinhar como ele foi dividido.
+    setDiaryText(entry.text ?? '')
+    setQuickNote(entry.entry_type === 'checkin' ? (entry.text ?? '') : '')
+    setMainEmotion(''); setWhatINeed(''); setSmallThing('')
+    setMoodScore(entry.mood_score ?? 3); setEnergy(entry.energy ?? 3); setAnxietyLevel(entry.anxiety_level ?? 3)
+    setSleepQuality(entry.sleep_quality ?? 3); setStressLevel(entry.stress_level ?? 3); setSelfEsteem(entry.self_esteem ?? 3)
+    setIrritability(entry.irritability ?? 3); setOverload(entry.overload ?? 3)
+    setGratitude(entry.gratitude ?? ''); setSmallPride(entry.small_pride ?? ''); setFreeNote(entry.free_note ?? '')
+    setSelectedTags(entry.emotional_tags ?? []); setContextTags(entry.context_tags ?? []); setNeedTags(entry.need_tags ?? [])
+    setCareActionTags(entry.care_action_tags ?? []); setTriggerTags(entry.trigger_tags ?? [])
+    setEmotionalTriggers(entry.emotional_triggers ?? ''); setRecurringThoughts(entry.recurring_thoughts ?? '')
+    setEmotionalNeed(entry.emotional_need ?? ''); setRelationships(entry.relationships ?? ''); setHabits(entry.habits ?? '')
+    const touched = new Set<string>()
+    if (entry.mood_score != null) touched.add('mood_score')
+    if (entry.energy != null) touched.add('energy')
+    if (entry.anxiety_level != null) touched.add('anxiety_level')
+    if (entry.sleep_quality != null) touched.add('sleep_quality')
+    if (entry.stress_level != null) touched.add('stress_level')
+    if (entry.self_esteem != null) touched.add('self_esteem')
+    if (entry.irritability != null) touched.add('irritability')
+    if (entry.overload != null) touched.add('overload')
+    setTouchedFields(touched)
+    setEditingEntryId(entry.id)
+    setError('')
+  }
+
+  const startEditingTodayMainEntry = async ({ openAdvanced = false }: { openAdvanced?: boolean } = {}) => {
+    const entry = await fetchTodayMainEntry()
+    if (!entry) { setError('Não encontramos o diário principal de hoje. Tente atualizar a página.'); return }
+    hydrateFormFromEntry(entry)
+    setPageTab('registrar')
+    setEntryMode('full')
+    setAdvancedOpen(openAdvanced)
   }
 
   const handleSave = async () => {
@@ -589,6 +648,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     }
     if (data) {
       setEntries(prev => editingEntryId ? prev.map(e => e.id === data.id ? data : e) : [data, ...prev])
+      if (!isCheckin && ['basic', 'main'].includes(data.diary_kind ?? 'main')) setTodayMainEntryDirect(data)
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status.
       // Usa monthDiaryCount (COUNT dedicado, §11.5) como fonte de verdade —
       // não dá pra contar pela lista paginada.
@@ -829,9 +889,9 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 <h3 className="font-semibold text-forest-900">Você já escreveu seu {isFree ? 'registro básico' : 'diário principal'} de hoje.</h3>
                 <p className="text-sm text-ink-soft mt-1">Você pode editar esse registro, acrescentar algo novo ou fazer um check-in rápido.</p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <button type="button" onClick={() => { if (!todayMainEntry) return; setEditingEntryId(todayMainEntry.id); setDiaryText(todayMainEntry.text ?? ''); setMood(String(todayMainEntry.mood)); setSelectedTags(todayMainEntry.emotional_tags ?? []); setEntryMode('full') }} className="text-sm px-3 py-2 rounded-xl bg-forest-900 text-white">Editar {isFree ? 'registro de hoje' : 'diário de hoje'}</button>
+                  <button type="button" onClick={() => void startEditingTodayMainEntry()} className="text-sm px-3 py-2 rounded-xl bg-forest-900 text-white">Editar {isFree ? 'registro de hoje' : 'diário de hoje'}</button>
                   {!isFree && <button type="button" onClick={() => { setEditingEntryId(null); setEntryMode('addon') }} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Adicionar complemento</button>}
-                  {isPlus && <button type="button" onClick={() => { setEditingEntryId(null); setEntryMode('full'); setAdvancedOpen(true) }} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Aprofundar meu registro</button>}
+                  {isPlus && <button type="button" onClick={() => void startEditingTodayMainEntry({ openAdvanced: true })} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Aprofundar meu registro</button>}
                   <button type="button" onClick={() => setEntryMode('quick')} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Fazer check-in rápido</button>
                 </div>
               </div>

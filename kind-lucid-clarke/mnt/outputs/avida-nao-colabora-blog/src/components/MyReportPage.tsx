@@ -439,7 +439,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         <MetricTile icon={<Activity className="w-4 h-4" />} label="Ansiedade percebida" value={c.avgAnxiety ? `${c.avgAnxiety}` : '—'} unit={c.avgAnxiety ? '/5' : ''} sub="Média do mês" accent="coral" />
         <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção predominante" value={dominantEmotion ?? '—'} sub="Mais frequente" />
         <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Marcador emocional" value={topEmotionalMarker ?? '—'} sub="Principal sinal" accent="coral" />
-        <MetricTile icon={<Target className="w-4 h-4" />} label="Prioridade sugerida" value={c.selfCarePlan?.priority ?? '—'} sub="Foco do mês" />
+        <MetricTile icon={<TrendingUp className="w-4 h-4" />} label="Dias observados" value={c.energyByDay?.length ?? 0} sub="Com indicadores" />
       </div>
 
       {/* ── Aviso de poucos dados ── */}
@@ -573,33 +573,14 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       )}
 
-      {/* ── 5. Seção "Plano de ação e autocuidado" ── */}
+      {/* ── 5. Reflexões do período ── */}
       <div>
         <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
-          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><Target className="w-4 h-4" /></span>
-          Plano de ação e autocuidado
+          <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><BookOpen className="w-4 h-4" /></span>
+          Perguntas para refletir
         </h3>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Plano de autocuidado sugerido */}
-          <div className="bg-paper-soft border border-line rounded-2xl p-5">
-            <h4 className="text-sm font-semibold text-forest-900 mb-1">Plano de autocuidado sugerido</h4>
-            <p className="text-xs text-ink-soft mb-4">Pequenas escolhas diárias geram grandes transformações.</p>
-            <div className="space-y-3">
-              <MonthlySelfCareRow icon={<Target className="w-3.5 h-3.5" />} label="Prioridade do mês" value={c.selfCarePlan.priority} />
-              <MonthlySelfCareRow icon={<Heart className="w-3.5 h-3.5" />} label="Cuidado principal" value={c.selfCarePlan.mainCare} />
-              <MonthlySelfCareRow icon={<Sprout className="w-3.5 h-3.5" />} label="Prática recomendada" value={c.selfCarePlan.practice} />
-              <MonthlySelfCareRow icon={<AlertCircle className="w-3.5 h-3.5" />} label="Ponto de atenção" value={c.selfCarePlan.attention} />
-              <MonthlySelfCareRow icon={<Check className="w-3.5 h-3.5" />} label="Pequeno compromisso" value={c.selfCarePlan.commitment} />
-            </div>
-            {!forPdf && onNavigateSelfCare && (
-              <button onClick={onNavigateSelfCare} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><Sprout className="w-4 h-4" /> Abrir plano de autocuidado</button>
-            )}
-          </div>
-
-          {/* Perguntas para reflexão */}
-          <div className="bg-paper-soft border border-line rounded-2xl p-5">
-            <h4 className="text-sm font-semibold text-forest-900 mb-4">Perguntas para reflexão</h4>
+        <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h4 className="text-sm font-semibold text-forest-900 mb-4">Leve estas perguntas no seu tempo</h4>
             {c.reflectionQuestions.length > 0 ? (
               <ul className="space-y-3">{c.reflectionQuestions.map((q, i) => (
                 <li key={i} className="text-sm text-stone-700 flex gap-2.5 leading-relaxed">
@@ -612,7 +593,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             {!forPdf && (
               <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>
             )}
-          </div>
         </div>
       </div>
 
@@ -624,18 +604,19 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       )}
 
-      {/* ── 6. Síntese para orientação ── */}
+      {/* Pontes curtas: o plano e a orientação vivem em seus próprios recursos. */}
       <div className="bg-paper-soft border border-line rounded-2xl p-5">
         <div className="flex items-center gap-2.5 mb-3">
           <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center text-white"><MessageCircle className="w-4 h-4" /></span>
-          <h3 className="font-serif text-lg text-forest-900">Síntese para orientação</h3>
+          <h3 className="font-serif text-lg text-forest-900">Continue a partir daqui</h3>
         </div>
         <div className="bg-mint/40 border border-forest-100 rounded-xl p-4">
-          <p className="text-sm text-forest-800 leading-relaxed">{c.guidanceSynthesis || 'Continue registrando com constância para aprofundar ainda mais seu autoconhecimento. Cada registro é um ato de cuidado e presença com você mesma(o).'}</p>
+          <p className="text-sm text-forest-800 leading-relaxed">Este relatório olha para o mês que passou. O Plano de Autocuidado transforma essa leitura em pequenos passos para o próximo ciclo; a Orientação Mensal acolhe uma pergunta específica que você queira explorar.</p>
         </div>
-        {!forPdf && (
-          <button onClick={onNavigateGuidance} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2 rounded-xl"><MessageCircle className="w-4 h-4" /> Enviar para orientação por mensagem</button>
-        )}
+        {!forPdf && <div className="mt-3 flex flex-wrap gap-2">
+          {onNavigateSelfCare && <button onClick={onNavigateSelfCare} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-2 rounded-xl hover:bg-mint/50"><Sprout className="w-4 h-4" /> Abrir plano de autocuidado</button>}
+          <button onClick={onNavigateGuidance} className="inline-flex items-center gap-1.5 text-sm font-medium bg-forest-900 hover:bg-forest-800 text-white px-4 py-2 rounded-xl"><MessageCircle className="w-4 h-4" /> Pedir orientação mensal</button>
+        </div>}
       </div>
 
       {/* ── 7. Disclaimer ── */}
@@ -657,18 +638,6 @@ function MonthlyHeroDecoration() {
       <path d="M210 155 C202 135 208 118 220 110 C225 125 223 145 210 155 Z" fill="#5c8a72" />
       <path d="M235 158 C230 145 232 132 240 126 C243 136 242 150 235 158 Z" fill="#5c8a72" opacity="0.6" />
     </svg>
-  )
-}
-
-function MonthlySelfCareRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="w-7 h-7 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0 mt-0.5">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide">{label}</p>
-        <p className="text-sm text-stone-700 leading-snug">{value}</p>
-      </div>
-    </div>
   )
 }
 
