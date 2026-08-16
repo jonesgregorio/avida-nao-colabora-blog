@@ -15,8 +15,9 @@ import { formatPeriodShort, monthTitle, type ReportType, type Period } from './r
 
 const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 'Desânimo', 'Cansaço', 'Sem energia'])
 
-// Versão do formato do conteúdo. Ao subir (novos blocos/gráficos), relatórios
-// fechados antigos são REGERADOS no próximo acesso para refletir a melhoria.
+// Versão do formato do conteúdo. Ela serve para consumidores e futuras
+// regenerações administrativas. Um relatório pronto é um registro histórico e
+// jamais é sobrescrito automaticamente ao abrir a página.
 const CONTENT_VERSION = 7
 
 export interface DayPoint { day: number; value: number }
@@ -178,18 +179,10 @@ export async function ensureClosedReport(
 
   if (existing) {
     const stored = existing as unknown as StoredReport
-    const storedV = (stored.content as { v?: number })?.v ?? 1
-    // Conteúdo atualizado → devolve como está.
-    if (storedV >= CONTENT_VERSION) return stored
-    // Conteúdo antigo (sem gráficos/interpretação) → REGERA e atualiza a linha,
-    // mantendo a data de geração original.
-    const fresh = buildReport(type, plan, period, entries, prevEntries)
-    const { data: upd } = await supabase.from('reports')
-      .update({ title: fresh.title, summary: fresh.summary, content: fresh.content, updated_at: new Date().toISOString() })
-      .eq('id', stored.id!)
-      .select('*')
-      .maybeSingle()
-    return (upd as unknown as StoredReport) ?? { ...stored, title: fresh.title, summary: fresh.summary, content: fresh.content }
+    // Fonte única de verdade: depois de persistido, o mesmo conteúdo alimenta
+    // tela, PDF, e-mail e notificações. Qualquer regeneração exige uma ação
+    // administrativa explícita, com confirmação e trilha de auditoria.
+    return stored
   }
 
   // 2) Gera e salva. onConflict ignora corrida (dois acessos simultâneos).
