@@ -91,5 +91,5 @@ ${JSON.stringify({ mensagem: request.message, contexto: request.context || null,
 ANOTAÇÕES DA EQUIPE (opcionais):
 ${adminNotes?.trim() || 'nenhuma'}
 FORMATO EXATO:
-{"draft":"3 a 6 parágrafos curtos, acolhedores e revisáveis","key_points":["até 4 pontos usados"],"suggested_next_steps":["até 3 sugestões opcionais"],"review_notes":["itens para a revisão humana"],"data_quality_message":"mensagem curta"}`
+{"title":"Sua orientação mensal","user_request_summary":"o que a pessoa trouxe","emotional_context_summary":"o que os registros ajudam a observar","gentle_guidance":"leitura cuidadosa, sem diagnóstico","practical_next_steps":["até 3 próximos passos opcionais"],"connection_with_self_care_plan":"conexão breve","suggested_reflection_question":"uma pergunta aberta","final_message_draft":"mensagem final acolhedora","professional_review_notes":["itens para revisão humana"],"safety_flags":["sinais que exigem atenção, se houver"],"data_quality_notice":"mensagem curta"}`
 }

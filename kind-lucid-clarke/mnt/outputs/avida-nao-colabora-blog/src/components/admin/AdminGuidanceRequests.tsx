@@ -10,6 +10,11 @@ import { detectRisk } from '../../lib/contentRecommendation'
 import { buildProfessionalGuidancePrompt } from '../../lib/aiPrompts/emotionalPrompts'
 import type { EmotionalSummary } from '../../lib/emotionalAnalytics'
 
+interface GuidanceLetter {
+  title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
+  practical_next_steps?: string[]; connection_with_self_care_plan?: string; suggested_reflection_question?: string
+  final_message_draft?: string; professional_review_notes?: string[]; safety_flags?: string[]; data_quality_notice?: string
+}
 interface GuidanceRequest {
   id: string
   user_id: string
@@ -21,7 +26,7 @@ interface GuidanceRequest {
   status: string
   responded_at: string | null
   created_at: string
-  ai_draft_json?: { draft?: string; generated_at?: string; prompt_type?: string } | null
+  ai_draft_json?: { draft?: string; generated_at?: string; prompt_type?: string; final_response?: GuidanceLetter } | null
   user?: { full_name?: string; email?: string; plan?: string }
 }
 
@@ -143,6 +148,18 @@ function extractDraft(raw: string): string {
   } catch { /* fallback: resposta não estruturada do provedor */ }
   return raw.trim()
 }
+function text(value: unknown): string { return typeof value === 'string' ? value.trim() : '' }
+function strings(value: unknown): string[] { return Array.isArray(value) ? value.map(text).filter(Boolean).slice(0, 3) : [] }
+function letterFromText(value: string): GuidanceLetter { return { title: 'Sua orientação mensal', gentle_guidance: value, final_message_draft: 'Vá no seu tempo; você não precisa resolver tudo agora.' } }
+function extractLetter(raw: string): GuidanceLetter {
+  try {
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '') as Record<string, unknown>
+    const letter: GuidanceLetter = {
+      title: text(parsed.title) || 'Sua orientação mensal', user_request_summary: text(parsed.user_request_summary), emotional_context_summary: text(parsed.emotional_context_summary), gentle_guidance: text(parsed.gentle_guidance), practical_next_steps: strings(parsed.practical_next_steps), connection_with_self_care_plan: text(parsed.connection_with_self_care_plan), suggested_reflection_question: text(parsed.suggested_reflection_question), final_message_draft: text(parsed.final_message_draft), professional_review_notes: strings(parsed.professional_review_notes), safety_flags: strings(parsed.safety_flags), data_quality_notice: text(parsed.data_quality_notice),
+    }
+    return letter.gentle_guidance || letter.final_message_draft ? letter : letterFromText(extractDraft(raw))
+  } catch { return letterFromText(extractDraft(raw)) }
+}
 
 export default function AdminGuidanceRequests() {
   const [requests, setRequests] = useState<GuidanceRequest[]>([])
@@ -236,7 +253,7 @@ export default function AdminGuidanceRequests() {
     setSelected(r)
     let draft = ''
     try { draft = localStorage.getItem(draftKey(r.id)) ?? '' } catch { /* noop */ }
-    setResponse(r.response ?? r.ai_draft_json?.draft ?? draft)
+    setResponse(r.response ?? r.ai_draft_json?.final_response?.gentle_guidance ?? r.ai_draft_json?.draft ?? draft)
     setSuggestion('')
     setAdminNotes('')
   }
@@ -281,9 +298,10 @@ export default function AdminGuidanceRequests() {
         combined,
       )
       const raw = await generateWithFailover(buildProfessionalGuidancePrompt(summary, selected, adminNotes))
-      const text = extractDraft(raw)
+      const letter = extractLetter(raw)
+      const text = letter.gentle_guidance || letter.final_message_draft || extractDraft(raw)
       const generatedAt = new Date().toISOString()
-      const draft = { draft: text, generated_at: generatedAt, prompt_type: 'professional_guidance' }
+      const draft = { draft: text, final_response: letter, generated_at: generatedAt, prompt_type: 'professional_guidance' }
       const { error: draftError } = await supabase.from('monthly_guidance_requests')
         .update({ ai_draft_json: draft, updated_at: generatedAt })
         .eq('id', selected.id)
@@ -302,7 +320,7 @@ export default function AdminGuidanceRequests() {
   async function saveDraft() {
     if (!selected) return
     const savedAt = new Date().toISOString()
-    const draft = response.trim() ? { draft: response.trim(), generated_at: savedAt, prompt_type: 'professional_guidance' } : {}
+    const draft = response.trim() ? { draft: response.trim(), final_response: letterFromText(response.trim()), generated_at: savedAt, prompt_type: 'professional_guidance' } : {}
     const { error } = await supabase.from('monthly_guidance_requests')
       .update({ ai_draft_json: draft, updated_at: savedAt })
       .eq('id', selected.id)
@@ -320,7 +338,7 @@ export default function AdminGuidanceRequests() {
     const respondedAt = new Date().toISOString()
     const { error } = await supabase
       .from('monthly_guidance_requests')
-      .update({ response: response.trim(), status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
+      .update({ response: response.trim(), ai_draft_json: { draft: response.trim(), final_response: letterFromText(response.trim()), generated_at: respondedAt, prompt_type: 'professional_guidance' }, status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
       .eq('id', selected.id)
     if (error) { showToast('Erro: ' + error.message, true); setSaving(false); return }
     // Notificação in-app é criada pelo gatilho notify_guidance_answered (destino 'monthly-guidance').

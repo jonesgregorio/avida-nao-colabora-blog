@@ -19,7 +19,7 @@ import {
 } from '../lib/emotionalAnalytics'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
-import type { TagCategory } from '../lib/tagCategories'
+import { getTagCategory, type TagCategory } from '../lib/tagCategories'
 
 // ─── Constantes e helpers ──────────────────────────────────────────────────────
 
@@ -521,6 +521,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 // Carrega os registros brutos do mês (e do anterior) para a análise emocional.
 function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
   const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
+  const [entries, setEntries] = useState<DiaryRowLite[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -534,11 +535,28 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', start).lt('date', end),
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', prevStart).lt('date', start),
     ]).then(([cur, prev]) => {
-      setAnalysis(computeEmotionalAnalysis((cur.data ?? []) as DiaryRowLite[], (prev.data ?? []) as DiaryRowLite[]))
+      const current = (cur.data ?? []) as DiaryRowLite[]
+      setEntries(current)
+      setAnalysis(computeEmotionalAnalysis(current, (prev.data ?? []) as DiaryRowLite[]))
       setLoading(false)
     })
   }, [userId, selectedMonth])
-  return { analysis, loading }
+  return { analysis, entries, loading }
+}
+
+type MonthlyConnection = { context: string; marker: string; need: string; careAction: string; count: number }
+function monthlyConnections(entries: DiaryRowLite[]): MonthlyConnection[] {
+  const counts = new Map<string, MonthlyConnection>()
+  for (const entry of entries) {
+    const contexts = entry.context_tags ?? [], markers = entry.emotional_tags ?? []
+    const needs = entry.need_tags ?? [], actions = entry.care_action_tags ?? []
+    for (const context of contexts) for (const marker of markers) for (const need of needs) for (const careAction of actions) {
+      const key = `${context}\u0000${marker}\u0000${need}\u0000${careAction}`
+      const current = counts.get(key)
+      counts.set(key, current ? { ...current, count: current.count + 1 } : { context, marker, need, careAction, count: 1 })
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5)
 }
 
 // Gráfico de linha compacto (recharts) para energia/ansiedade por dia.
@@ -604,7 +622,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
-  const { analysis, loading } = useMonthAnalysis(user?.id, selectedMonth)
+  const { analysis, entries, loading } = useMonthAnalysis(user?.id, selectedMonth)
 
   if (!hasPlan(plan, 'essential')) {
     return (
@@ -624,6 +642,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
   const maxMarker = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
+  const connections = monthlyConnections(entries)
 
   return (
     <div className="space-y-5">
@@ -744,6 +763,28 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
               emocionais" acima, que é sentimento, não gatilho. */}
           {hasPlan(plan, 'plus') && (
             <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
+          )}
+
+          {hasPlan(plan, 'plus') && (
+            <section className="bg-white border border-forest-100 rounded-2xl p-5 sm:p-6">
+              <h3 className="font-serif text-lg text-forest-900">Conexões do mês</h3>
+              <p className="text-xs text-ink-soft mt-1 mb-4">Algumas relações que apareceram nos seus registros. Elas não são conclusões, apenas pistas para observar com cuidado.</p>
+              {connections.length ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {connections.map(connection => (
+                    <div key={`${connection.context}-${connection.marker}-${connection.need}-${connection.careAction}`} className="rounded-xl bg-paper-soft border border-line p-4 text-sm">
+                      <div className="flex flex-wrap items-center gap-1.5 text-forest-900">
+                        <DiaryTagChip label={connection.context} category="context" /><span>↓</span>
+                        <DiaryTagChip label={connection.marker} category={getTagCategory(connection.marker)} /><span>↓</span>
+                        <DiaryTagChip label={connection.need} category="need" /><span>↓</span>
+                        <DiaryTagChip label={connection.careAction} category="care_action" />
+                      </div>
+                      <p className="text-xs text-ink-soft mt-3">Apareceu em {connection.count} {connection.count === 1 ? 'registro' : 'registros'}.</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-ink-soft rounded-xl bg-paper-soft p-4">Com mais registros, o mapa poderá mostrar conexões entre contextos, sentimentos, necessidades e ações de cuidado.</p>}
+            </section>
           )}
 
           {/* Mapa por período do dia */}

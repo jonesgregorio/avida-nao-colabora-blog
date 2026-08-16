@@ -15,7 +15,7 @@ interface ScheduledContent {
   created_at: string
 }
 
-const TYPES = ['Artigo', 'Campanha', 'Lembrete', 'Relatório mensal']
+const TYPES = ['Artigo', 'Campanha', 'Lembrete', 'Reflexão mensal guiada']
 const PLANS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', therapeutic: 'Plus', 'therapeutic-plus': 'Plus', plus: 'Plus',
 }

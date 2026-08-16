@@ -54,7 +54,7 @@ export interface WeeklyContent {
   topTrigger?: string | null
 }
 
-export interface MonthlyContent extends Omit<DeepReport, 'selfCarePlan' | 'guidanceSynthesis'> {
+export interface MonthlyContent extends Omit<DeepReport, 'bridgeToSelfCarePlan' | 'bridgeToProfessionalGuidance'> {
   kind: 'monthly'
   v?: number
   narrative: { phase: string; text: string }[]
@@ -133,8 +133,6 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
 export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string): MonthlyContent {
   const deep = buildDeepReport(analysis, periodLabel)
   const retrospective = { ...deep }
-  delete (retrospective as Partial<DeepReport>).selfCarePlan
-  delete (retrospective as Partial<DeepReport>).guidanceSynthesis
   return {
     ...retrospective, kind: 'monthly', v: CONTENT_VERSION,
     narrative: deriveNarrative(analysis),

@@ -311,7 +311,6 @@ export function buildEssentialInsights(a: EmotionalAnalysis): string[] {
 }
 
 // ── Relatório Mensal Aprofundado do Plus (§8) ─────────────────────────────────
-export interface SelfCarePlan { priority: string; mainCare: string; practice: string; attention: string; commitment: string; checkin: string }
 export interface DeepReport {
   hasEnoughData: boolean
   summary: string
@@ -324,8 +323,9 @@ export interface DeepReport {
   improvementMoments: string
   monthlyComparison: string[]
   reflectionQuestions: string[]
-  guidanceSynthesis: string
-  selfCarePlan: SelfCarePlan
+  /** Pontes curtas; o conteúdo completo pertence às áreas próprias. */
+  bridgeToSelfCarePlan: string
+  bridgeToProfessionalGuidance: string
   recommendTags: string[]
 }
 
@@ -400,20 +400,8 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
     'O que você gostaria de repetir no próximo mês?',
   ]
 
-  // 8.10 Plano de autocuidado sugerido
-  const selfCarePlan: SelfCarePlan = {
-    priority: negativeTop === 'Sobrecarga' ? 'Reduzir a sobrecarga e criar pequenas pausas.' : negativeTop === 'Ansiedade' ? 'Criar momentos de regulação antes do acúmulo de ansiedade.' : 'Fortalecer os momentos de descanso e leveza.',
-    mainCare: 'Inserir micro-pausas de 3 minutos nos dias de maior cobrança.',
-    practice: 'Fazer um check-in no meio do dia para perceber energia e ansiedade antes do acúmulo.',
-    attention: a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'Observar quando a ansiedade aparece junto de baixa energia.' : 'Observar os horários em que os registros ficam mais pesados.',
-    commitment: 'Escolher um momento fixo da semana para revisar seus registros.',
-    checkin: 'Registrar como você está antes e depois das pausas.',
-  }
-
-  // 8.12 Síntese para orientação
-  const guidanceSynthesis = hasEnoughData
-    ? `Neste mês, os registros indicam ${(negativeTop ?? top ?? 'oscilações emocionais').toLowerCase()} com frequência${a.emotionalMarkers[0] ? `, principalmente associada a "${a.emotionalMarkers[0].tag}"` : ''}${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? ' e baixa energia' : ''}. Também aparecem sinais de melhora quando houve pausas e menor sobrecarga. O ponto principal para orientação parece ser como criar pequenas pausas antes do acúmulo emocional.`
-    : `Ainda há poucos registros neste mês. Uma primeira leitura sugere começar observando ${(negativeTop ?? 'como você tem se sentido').toLowerCase()} e registrar com mais frequência para uma orientação mais precisa.`
+  const bridgeToSelfCarePlan = 'Este relatório pode ajudar seu plano de autocuidado a escolher um ponto de atenção e uma ação leve para o próximo ciclo.'
+  const bridgeToProfessionalGuidance = 'Se fizer sentido, você pode levar um ponto deste relatório para sua orientação mensal.'
 
   // Tags para recomendação de conteúdo (gatilhos + emoções negativas)
   const recommendTags = [...new Set([
@@ -423,7 +411,7 @@ export function buildDeepReport(a: EmotionalAnalysis, monthLabel: string): DeepR
 
   return {
     hasEnoughData, summary, patterns, predominantEmotions, energyAnxietySleep, emotionalMarkersText,
-    attentionDays, improvementMoments, monthlyComparison, reflectionQuestions, guidanceSynthesis, selfCarePlan, recommendTags,
+    attentionDays, improvementMoments, monthlyComparison, reflectionQuestions, bridgeToSelfCarePlan, bridgeToProfessionalGuidance, recommendTags,
   }
 }
 

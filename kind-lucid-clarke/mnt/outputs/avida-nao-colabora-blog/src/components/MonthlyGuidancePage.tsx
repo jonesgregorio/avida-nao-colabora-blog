@@ -24,6 +24,12 @@ interface GuidanceRequest {
   status: string
   responded_at: string | null
   created_at: string
+  ai_draft_json?: { final_response?: GuidanceLetter } | null
+}
+interface GuidanceLetter {
+  title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
+  practical_next_steps?: string[]; connection_with_self_care_plan?: string; suggested_reflection_question?: string
+  final_message_draft?: string; data_quality_notice?: string
 }
 
 interface Cycle {
@@ -100,7 +106,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     //    atual controla o formulário; os demais aparecem em "Orientações anteriores".
     const { data } = await supabase
       .from('monthly_guidance_requests')
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
     const all = (data ?? []) as GuidanceRequest[]
@@ -123,7 +129,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         expected_help: expectedHelp.trim() || null,
         status: 'open',
       })
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json')
       .single()
     if (err || !data) {
       setError('Erro ao enviar. Tente novamente.')
@@ -379,7 +385,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
                 <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
               </div>
-              <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{req.response}</p>
+              <GuidanceLetterView letter={req.ai_draft_json?.final_response} fallback={req.response ?? ''} />
               {req.responded_at && (
                 <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
               )}
@@ -394,4 +400,17 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
       )}
     </div>
   )
+}
+
+function GuidanceLetterView({ letter, fallback }: { letter?: GuidanceLetter; fallback: string }) {
+  const sections = [
+    ['O que você trouxe', letter?.user_request_summary], ['O que seus registros ajudam a observar', letter?.emotional_context_summary],
+    ['Uma leitura cuidadosa', letter?.gentle_guidance || fallback], ['Conexão com seu plano de autocuidado', letter?.connection_with_self_care_plan],
+    ['Pergunta para continuar no diário', letter?.suggested_reflection_question], ['Mensagem final', letter?.final_message_draft],
+  ] as const
+  return <div className="space-y-4 text-sm text-stone-700 leading-relaxed">
+    {sections.filter(([, value]) => value).map(([title, value]) => <section key={title}><p className="text-[11px] font-semibold text-forest-700 mb-1">{title}</p><p className="whitespace-pre-wrap">{value}</p></section>)}
+    {(letter?.practical_next_steps?.length ?? 0) > 0 && <section><p className="text-[11px] font-semibold text-forest-700 mb-1">Próximos passos possíveis</p><ul className="list-disc pl-5 space-y-1">{letter!.practical_next_steps!.map(step => <li key={step}>{step}</li>)}</ul></section>}
+    {letter?.data_quality_notice && <p className="text-xs text-stone-500 border-t border-stone-100 pt-3">{letter.data_quality_notice}</p>}
+  </div>
 }
