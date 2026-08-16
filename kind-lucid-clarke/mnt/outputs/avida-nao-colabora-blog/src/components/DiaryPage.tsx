@@ -149,6 +149,75 @@ function calcStreak(days: Set<string>): number {
   return s
 }
 
+// §11.1: agrupa a lista (já ordenada desc) por dia — cada grupo vira um card
+// fechado por padrão no Histórico.
+interface DayGroup { date: string; entries: DiaryEntry[] }
+function groupEntriesByDay(entries: DiaryEntry[]): DayGroup[] {
+  const map = new Map<string, DiaryEntry[]>()
+  for (const e of entries) {
+    const d = String(e.date ?? '').slice(0, 10)
+    const arr = map.get(d) ?? []
+    arr.push(e)
+    map.set(d, arr)
+  }
+  return [...map.entries()].map(([date, es]) => ({ date, entries: es }))
+}
+
+function dayGroupLabel(dateYmd: string): string {
+  const today = ymd(new Date())
+  const yest = ymd(new Date(Date.now() - 864e5))
+  const label = new Date(dateYmd + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+  if (dateYmd === today) return `Hoje · ${label}`
+  if (dateYmd === yest) return `Ontem · ${label}`
+  return new Date(dateYmd + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+}
+
+// §11.2/§11.3: uma linha por registro dentro do dia — check-in compacto (~50-70px),
+// diário mais alto por ter texto/tags. Reaproveita entryTags/moodOptions do topo do arquivo.
+function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: boolean; onToggle: () => void }) {
+  const moodObj = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)
+  const time = entry.created_at ? new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
+  const isCheckinRow = entry.entry_type === 'checkin'
+  const tags = entryTags(entry)
+  return (
+    <div>
+      <button onClick={onToggle} className={`w-full flex items-center gap-2.5 px-4 text-left hover:bg-mint/20 transition-colors ${isCheckinRow ? 'py-2' : 'py-2.5'}`}>
+        <span className="text-base flex-shrink-0">{moodObj?.emoji || '📝'}</span>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+          {time && <span className="text-[11px] text-ink-soft flex-shrink-0">{time}</span>}
+          <span className="text-xs font-medium text-forest-700 flex-shrink-0">{entry.mood}</span>
+          {entry.entry_type === 'checkin' && <span className="text-[10px] bg-sky text-[#3d6ea5] px-1.5 py-0.5 rounded-full flex-shrink-0">Check-in</span>}
+          {entry.entry_type === 'questionnaire' && <span className="text-[10px] bg-mint text-forest-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Avaliação</span>}
+          {(entry.entry_type ?? 'diary') === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-1.5 py-0.5 rounded-full flex-shrink-0">Diário</span>}
+          {isCheckinRow && !!entry.energy && <span className="text-[11px] text-ink-soft flex-shrink-0">Energia {entry.energy}/5</span>}
+          {isCheckinRow && !!entry.anxiety_level && <span className="text-[11px] text-ink-soft flex-shrink-0">Ansiedade {entry.anxiety_level}/5</span>}
+          {!isCheckinRow && tags.slice(0, 3).map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
+          {!isCheckinRow && tags.length > 3 && <span className="text-[10px] text-ink-soft">+{tags.length - 3}</span>}
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-ink-soft/60 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-3 pl-11 space-y-2">
+          {!isCheckinRow && (!!entry.energy || !!entry.anxiety_level) && (
+            <div className="flex flex-wrap gap-2">
+              {!!entry.energy && <span className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">Energia: {entry.energy}/5</span>}
+              {!!entry.anxiety_level && <span className="text-xs bg-coral/40 text-[#8a3b23] px-2.5 py-1 rounded-full">Ansiedade: {entry.anxiety_level}/5</span>}
+            </div>
+          )}
+          {entry.text && <p className="text-sm text-ink leading-relaxed whitespace-pre-line">{entry.text}</p>}
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
+            </div>
+          )}
+          {entry.gratitude && <p className="text-xs text-ink-soft">🙏 Gratidão: {entry.gratitude}</p>}
+          {entry.small_pride && <p className="text-xs text-ink-soft">✨ Pequeno orgulho: {entry.small_pride}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // §11.5: nunca buscar o histórico inteiro de uma vez — pesado pra quem tem
 // centenas/milhares de registros. Paginação simples por range.
 const ENTRIES_PAGE_SIZE = 30
@@ -165,6 +234,15 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'checkin' | 'diary' | 'questionnaire'>('all')
+  // §3/§11: a página vira 2 abas — Registrar (formulário) e Histórico (lista,
+  // agora agrupada por dia). Evita mostrar tudo de uma vez na mesma tela.
+  const [pageTab, setPageTab] = useState<'registrar' | 'historico'>('registrar')
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
+  const toggleDay = (date: string) => setExpandedDays(prev => {
+    const n = new Set(prev)
+    if (n.has(date)) n.delete(date); else n.add(date)
+    return n
+  })
   // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
   const [entryMode, setEntryMode] = useState<'quick' | 'full'>('quick')
   const [saving, setSaving] = useState(false)
@@ -484,9 +562,6 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
   const filteredEntries = entries.filter(e => filter === 'all' ? true : e.entry_type === filter)
 
-  const formatDate = (d: string) =>
-    new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-
   const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 
   async function handleExportSummary() {
@@ -589,9 +664,29 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
         <p className="mt-2 text-ink-soft">Escreva, acolha e organize o que sente. Aqui é o seu espaço seguro.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6">
+      {/* Abas principais (§3/§11): Registrar × Histórico. */}
+      <div className="inline-flex rounded-full border border-line bg-white p-1 mb-6">
+        <button
+          onClick={() => setPageTab('registrar')}
+          aria-pressed={pageTab === 'registrar'}
+          className={`text-sm px-4 py-1.5 rounded-full transition-colors ${pageTab === 'registrar' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
+        >
+          Registrar
+        </button>
+        <button
+          onClick={() => setPageTab('historico')}
+          aria-pressed={pageTab === 'historico'}
+          className={`text-sm px-4 py-1.5 rounded-full transition-colors ${pageTab === 'historico' ? 'bg-forest-900 text-white' : 'text-ink-soft hover:text-forest-900'}`}
+        >
+          Histórico
+        </button>
+      </div>
+
+      <div className={pageTab === 'registrar' ? 'grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6' : ''}>
         {/* ─── Coluna principal ─── */}
         <div className="space-y-5 min-w-0">
+          {pageTab === 'registrar' && (
+          <>
           {/* Intro */}
           <div className="grid sm:grid-cols-[1.4fr_1fr] bg-paper-soft border border-line rounded-3xl overflow-hidden">
             <div className="p-6 flex flex-col justify-center">
@@ -877,8 +972,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               )}
             </div>
           </section>
+          </>
+          )}
 
-          {/* Lista de entradas */}
+          {/* Lista de entradas — aba Histórico (§11), agrupada por dia */}
+          {pageTab === 'historico' && (
           <section ref={entriesRef} className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="font-serif text-lg sm:text-xl text-forest-900">Suas entradas</h2>
@@ -902,52 +1000,41 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               <p className="text-center py-10 text-ink-soft text-sm">Nenhum registro ainda. Comece escrevendo acima. 🌿</p>
             ) : (
               <div className="space-y-2">
-                {filteredEntries.map(entry => {
-                  const moodObj = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)
-                  const isOpen = expanded === entry.id
+                {groupEntriesByDay(filteredEntries).map(group => {
+                  const dayOpen = expandedDays.has(group.date)
+                  const checkins = group.entries.filter(e => e.entry_type === 'checkin').length
+                  const diaries = group.entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
+                  const evals = group.entries.filter(e => e.entry_type === 'questionnaire').length
+                  const dayTags = group.entries.flatMap(entryTags)
+                  const shownDayTags = dayTags.slice(0, 5)
+                  const extraDayTags = dayTags.length - shownDayTags.length
+                  const dayMoods = [...new Set(group.entries.map(e => moodOptions.find(m => m.label === e.mood || m.value === e.mood)?.emoji).filter(Boolean))].slice(0, 3)
                   return (
-                    <div key={entry.id} className="bg-white border border-line rounded-2xl overflow-hidden">
-                      <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-mint/30 transition-colors" onClick={() => setExpanded(isOpen ? null : entry.id)}>
-                        <span className="text-xl">{moodObj?.emoji || '📝'}</span>
+                    <div key={group.date} className="bg-white border border-line rounded-2xl overflow-hidden">
+                      <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-mint/30 transition-colors" onClick={() => toggleDay(group.date)}>
+                        <div className="flex items-center gap-1 text-lg flex-shrink-0">{dayMoods.map((e, i) => <span key={i}>{e}</span>)}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-forest-700">{entry.mood}</span>
-                            {entry.entry_type === 'checkin' && <span className="text-[10px] bg-sky text-[#3d6ea5] px-2 py-0.5 rounded-full">Check-in</span>}
-                            {entry.entry_type === 'questionnaire' && <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full">Avaliação</span>}
-                            {entry.entry_type === 'diary' && <span className="text-[10px] bg-coral/40 text-[#8a3b23] px-2 py-0.5 rounded-full">Diário</span>}
-                          </div>
-                          <p className="text-xs text-ink-soft mt-0.5 capitalize">{formatDate(entry.date ?? '')}</p>
-                          {(() => {
-                            const tags = entryTags(entry)
-                            if (tags.length === 0) return null
-                            const shown = tags.slice(0, 5)
-                            const extra = tags.length - shown.length
-                            return (
-                              <div className="mt-1.5 flex flex-wrap gap-1">
-                                {shown.map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
-                                {extra > 0 && <span className="text-[10px] text-ink-soft px-1">+{extra}</span>}
-                              </div>
-                            )
-                          })()}
+                          <p className="text-sm font-medium text-forest-900 capitalize">{dayGroupLabel(group.date)}</p>
+                          <p className="text-xs text-ink-soft mt-0.5">
+                            {group.entries.length} {group.entries.length === 1 ? 'registro' : 'registros'}
+                            {checkins > 0 && ` · ${checkins} check-in${checkins > 1 ? 's' : ''}`}
+                            {diaries > 0 && ` · ${diaries} diário${diaries > 1 ? 's' : ''}`}
+                            {evals > 0 && ` · ${evals} avaliaç${evals > 1 ? 'ões' : 'ão'}`}
+                          </p>
+                          {shownDayTags.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {shownDayTags.map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
+                              {extraDayTags > 0 && <span className="text-[10px] text-ink-soft px-1">+{extraDayTags}</span>}
+                            </div>
+                          )}
                         </div>
-                        {isOpen ? <ChevronUp className="w-4 h-4 text-ink-soft flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-ink-soft flex-shrink-0" />}
+                        {dayOpen ? <ChevronUp className="w-4 h-4 text-ink-soft flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-ink-soft flex-shrink-0" />}
                       </button>
-                      {isOpen && (
-                        <div className="px-4 pb-4 border-t border-line">
-                          {(!!entry.energy || !!entry.anxiety_level) && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {!!entry.energy && <span className="text-xs bg-mint text-forest-700 px-2.5 py-1 rounded-full">Energia: {entry.energy}/5</span>}
-                              {!!entry.anxiety_level && <span className="text-xs bg-coral/40 text-[#8a3b23] px-2.5 py-1 rounded-full">Ansiedade: {entry.anxiety_level}/5</span>}
-                            </div>
-                          )}
-                          {entry.text && <p className="text-sm text-ink leading-relaxed whitespace-pre-line mt-3">{entry.text}</p>}
-                          {entryTags(entry).length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {entryTags(entry).map((t, i) => <DiaryTagChip key={i} label={t.tag} category={t.category} size="sm" />)}
-                            </div>
-                          )}
-                          {entry.gratitude && <p className="text-xs text-ink-soft mt-2">🙏 Gratidão: {entry.gratitude}</p>}
-                          {entry.small_pride && <p className="text-xs text-ink-soft mt-1">✨ Pequeno orgulho: {entry.small_pride}</p>}
+                      {dayOpen && (
+                        <div className="border-t border-line divide-y divide-line/60">
+                          {group.entries.map(entry => (
+                            <EntryRow key={entry.id} entry={entry} isOpen={expanded === entry.id} onToggle={() => setExpanded(expanded === entry.id ? null : entry.id)} />
+                          ))}
                         </div>
                       )}
                     </div>
@@ -968,9 +1055,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
               </div>
             )}
           </section>
+          )}
         </div>
 
-        {/* ─── Coluna lateral ─── */}
+        {/* ─── Coluna lateral — só na aba Registrar ─── */}
+        {pageTab === 'registrar' && (
         <aside className="space-y-5">
           {/* (§12) "Seus registros recentes" foi removido daqui — duplicava "Suas
               entradas" na coluna principal, com o mesmo conteúdo. */}
@@ -1016,6 +1105,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             </div>
           )}
         </aside>
+        )}
       </div>
     </div>
   )
