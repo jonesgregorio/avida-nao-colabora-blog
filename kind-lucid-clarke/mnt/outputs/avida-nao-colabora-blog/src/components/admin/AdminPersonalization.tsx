@@ -1056,12 +1056,26 @@ export default function AdminPersonalization() {
   }
 
   const loadData = useCallback(async () => {
-    const [tasks, { data: profiles }, { data: delivs }] = await Promise.all([
-      loadAllTasksForAdmin(),
-      supabase.from('profiles').select('user_id, full_name, email, plan, created_at').limit(500),
-      // Busca todos os deliveries (draft + sent) para montar o deliveryMap
-      supabase.from('personalized_content_deliveries').select('*').in('status', ['draft', 'sent']).order('created_at', { ascending: false }).limit(1000),
+    const tasks = await loadAllTasksForAdmin()
+
+    // A fila precisa apenas dos perfis e das entregas que as tarefas atuais
+    // referenciam. Antes a tela trazia 500 perfis e 1.000 entregas arbitrárias,
+    // mesmo que não aparecessem em nenhuma linha da fila.
+    const userIds = [...new Set(tasks.map(task => task.user_id).filter(Boolean))]
+    const deliveryIds = [...new Set(tasks.map(task => task.delivery_id).filter((id): id is string => Boolean(id)))]
+    const chunks = <T,>(items: T[], size = 200): T[][] =>
+      Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size))
+
+    const [profileResults, deliveryResults] = await Promise.all([
+      Promise.all(chunks(userIds).map(ids =>
+        supabase.from('profiles').select('user_id, full_name, email, plan, created_at').in('user_id', ids),
+      )),
+      Promise.all(chunks(deliveryIds).map(ids =>
+        supabase.from('personalized_content_deliveries').select('*').in('id', ids),
+      )),
     ])
+    const profiles = profileResults.flatMap(result => result.data ?? [])
+    const delivs = deliveryResults.flatMap(result => result.data ?? [])
     const pMap: Record<string, UserRow> = {}
     for (const p of (profiles ?? []) as UserRow[]) pMap[p.user_id] = p
 
@@ -1087,7 +1101,7 @@ export default function AdminPersonalization() {
 
   useEffect(() => {
     setLoading(true)
-    loadData().then(() => doRefreshTasks())
+    void doRefreshTasks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
