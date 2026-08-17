@@ -18,20 +18,24 @@ interface Automation {
 }
 
 const TYPES: [string, string][] = [
-  // O rótulo NÃO carrega a cadência (essa é o campo "frequência", ao lado) —
-  // "Gerar artigo diário" com frequência Semanal confundia.
+  // Somente tipos que possuem executor REAL em run-automations. Publicação de
+  // agendados tem fluxo próprio; tipos antigos sem backend não podem mais ser
+  // criados/ativados pela UI.
   ['generate_daily', 'Gerar artigo com IA'],
   ['generate_weekly_package', 'Gerar pacote de artigos'],
   ['generate_pauta', 'Gerar pauta'],
   ['monthly_pauta', 'Pauta mensal'],
-  ['update_old', 'Atualizar artigo antigo'],
-  ['publish_scheduled', 'Publicar agendados'],
-  ['notify_after_publish', 'Notificar após publicar'],
-  ['email_after_publish', 'E-mail após publicar'],
-  ['social_caption', 'Legenda social após publicar'],
-  ['review_low_perf', 'Revisar baixo desempenho'],
 ]
-const TYPE_TXT = Object.fromEntries(TYPES)
+const SUPPORTED_TYPES = new Set(TYPES.map(([type]) => type))
+const TYPE_TXT: Record<string, string> = {
+  ...Object.fromEntries(TYPES),
+  update_old: 'Legada — sem executor',
+  publish_scheduled: 'Legada — use Publicar agendados',
+  notify_after_publish: 'Legada — sem executor',
+  email_after_publish: 'Legada — sem executor',
+  social_caption: 'Legada — sem executor',
+  review_low_perf: 'Legada — sem executor',
+}
 const FREQS: [string, string][] = [['daily', 'Diário'], ['weekly', 'Semanal'], ['biweekly', 'Quinzenal'], ['monthly', 'Mensal']]
 const FREQ_TXT = Object.fromEntries(FREQS)
 
@@ -80,6 +84,7 @@ export default function AdminAutomacoesBlog() {
   }
 
   async function toggle(a: Automation) {
+    if (!SUPPORTED_TYPES.has(a.type)) { flash('Esta automação é legada e não possui executor. Exclua-a ou recrie usando um tipo suportado.', true); return }
     const status = a.status === 'active' ? 'paused' : 'active'
     setItems(prev => prev.map(x => x.id === a.id ? { ...x, status } : x))
     await supabase.from('content_automations').update({ status }).eq('id', a.id)
@@ -88,6 +93,7 @@ export default function AdminAutomacoesBlog() {
   // "Gerar agora": dispara a geração desta regra na hora, sem esperar o cron nem
   // depender do vault. A função run-automations aceita o JWT do admin (force).
   async function gerarAgora(a: Automation) {
+    if (!SUPPORTED_TYPES.has(a.type)) { flash('Esta automação é legada e não possui executor.', true); return }
     setGenId(a.id)
     try {
       const { data, error } = await supabase.functions.invoke('run-automations', {
@@ -96,7 +102,7 @@ export default function AdminAutomacoesBlog() {
       const res = data as { ok?: boolean; message?: string; error?: string } | null
       const msg = error?.message ?? res?.error
       if (msg || !res?.ok) throw new Error(msg ?? 'Falha ao gerar.')
-      flash(`Rascunho gerado: “${res.message}”. Revise em Conteúdo & IA → Artigos.`)
+      flash(`Conteúdo gerado: “${res.message}”. Confira em Conteúdo & IA → Artigos.`)
       load()
     } catch (e) {
       flash('Erro ao gerar: ' + (e instanceof Error ? e.message : 'desconhecido'), true)
@@ -197,17 +203,17 @@ export default function AdminAutomacoesBlog() {
                 </p>
                 {a.last_error && <p className="text-[11px] text-red-600 mt-0.5">Erro: {a.last_error}</p>}
               </div>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${a.status === 'active' ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-500'}`}>{a.status === 'active' ? 'Ativa' : 'Pausada'}</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${a.status === 'active' ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-500'}`}>{SUPPORTED_TYPES.has(a.type) ? (a.status === 'active' ? 'Ativa' : 'Pausada') : 'Legada'}</span>
               <button
                 onClick={() => gerarAgora(a)}
-                disabled={genId === a.id || a.status !== 'active'}
-                title={a.status !== 'active' ? 'Ative a regra para gerar' : 'Gerar um rascunho agora'}
+                disabled={genId === a.id || a.status !== 'active' || !SUPPORTED_TYPES.has(a.type)}
+                title={!SUPPORTED_TYPES.has(a.type) ? 'Automação legada sem executor' : a.status !== 'active' ? 'Ative a regra para gerar' : 'Gerar conteúdo agora'}
                 className="inline-flex items-center gap-1.5 border border-forest-700 text-forest-700 hover:bg-mint/40 text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {genId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 {genId === a.id ? 'Gerando…' : 'Gerar agora'}
               </button>
-              <button onClick={() => toggle(a)} className="p-2 text-stone-400 hover:text-forest-700 hover:bg-stone-100 rounded-lg" title={a.status === 'active' ? 'Pausar' : 'Ativar'}>
+              <button onClick={() => toggle(a)} disabled={!SUPPORTED_TYPES.has(a.type)} className="p-2 text-stone-400 hover:text-forest-700 hover:bg-stone-100 rounded-lg" title={a.status === 'active' ? 'Pausar' : 'Ativar'}>
                 {a.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               </button>
               <button onClick={() => remove(a)} className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Excluir"><Trash2 className="w-4 h-4" /></button>

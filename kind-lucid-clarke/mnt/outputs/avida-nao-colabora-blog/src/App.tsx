@@ -4,6 +4,7 @@ import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
 import { confirmDialog } from './lib/confirmDialog'
 import { trackEvent, initWebVitals, initAcquisition, initCustomEvents, trackCustomViews } from './lib/analytics'
+import { getEffectivePlan } from './lib/officialPlans'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -95,7 +96,7 @@ const URL_TO_VIEW: Record<string, View> = {
 }
 
 // Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
-// Práticas/pausas emocionais/desafios/trilhas viram Conteúdos Guiados; o resto volta ao Início.
+// Rotas antigas de conteúdos guiados continuam apenas como aliases de compatibilidade; o resto volta ao Início.
 const LEGACY_PATH_REDIRECT: Record<string, View> = {
   '/meditacoes': 'articles',
   '/desafios':   'articles',
@@ -202,6 +203,8 @@ function restoreNav() {
 
 export default function App() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth()
+  const effectivePlan = getEffectivePlan(profile)
+  const accessProfile = profile ? { ...profile, plan: effectivePlan } : profile
 
   // Blog e admin compartilham UMA sessão do Supabase (um único cliente, uma única
   // chave no navegador). Sair aqui derruba as duas áreas — não há como separar
@@ -419,12 +422,12 @@ export default function App() {
   const appShell = (content: ReactNode) => {
     const page = <Suspense fallback={<PageLoading />}>{content}</Suspense>
     return user ? (
-      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
+      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
         {page}
       </UserLayout>
     ) : (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">{page}</main>
         <Footer onNavigate={navigate} />
       </>
@@ -479,7 +482,7 @@ export default function App() {
         slug={selectedArticleSlug}
         onBack={() => navigate('articles')}
         user={user}
-        profile={profile}
+        profile={accessProfile}
         navigate={navigate}
         onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
         onSavePromptToDiary={handleSavePromptToDiary}
@@ -492,7 +495,7 @@ export default function App() {
     return appShell(
       <DiaryPage
         user={user}
-        plan={profile?.plan || 'free'}
+        plan={effectivePlan}
         onBack={() => setView('home')}
         onNavigatePricing={() => navigate('pricing')}
         onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
@@ -519,9 +522,9 @@ export default function App() {
   if (view === 'contact') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
-          <ContactPage user={user} profile={profile} onBack={() => setView('home')} navigate={navigate} />
+          <ContactPage user={user} profile={accessProfile} onBack={() => setView('home')} navigate={navigate} />
         </main>
         <Footer onNavigate={navigate} />
       </>
@@ -531,7 +534,7 @@ export default function App() {
   if (view === 'about') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <AboutPage onNavigate={navigate} />
         </main>
@@ -543,7 +546,7 @@ export default function App() {
   if (view === 'privacy') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <PrivacyPage onNavigate={navigate} />
         </main>
@@ -555,7 +558,7 @@ export default function App() {
   if (view === 'terms') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <TermsPage onNavigate={navigate} />
         </main>
@@ -567,7 +570,7 @@ export default function App() {
   if (view === 'responsibility') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen bg-stone-50">
           <ResponsibilityPage />
         </main>
@@ -579,7 +582,7 @@ export default function App() {
   if (view === 'faq') {
     return (
       <>
-        <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
         <main className="min-h-screen">
           <FAQPage onNavigate={navigate} />
         </main>
@@ -592,7 +595,7 @@ export default function App() {
     return appShell(
       <QuestionnairesPage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onStart={(id) => {
           setActiveQuestionnaireId(id)
           navigate('questionnaire')
@@ -614,7 +617,7 @@ export default function App() {
       <QuestionnairePlayer
         questionnaireId={activeQuestionnaireId}
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onBack={() => { setActiveQuestionnaireId(null); navigate('questionarios') }}
         onNavigateDiary={() => navigate('diary')}
         onNavigatePricing={() => navigate('pricing')}
@@ -629,7 +632,7 @@ export default function App() {
     return appShell(
       <Articles
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onNavigateDiary={() => navigate('diary')}
         onNavigatePricing={() => navigate('pricing')}
         onSelectArticle={(articleOrSlug) => {
@@ -670,7 +673,7 @@ export default function App() {
     return appShell(
       <SupportPage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         navigate={navigate}
         onBack={() => navigate('home')}
         onOpenTicket={(id) => { setActiveSupportTicketId(id); setView('support-ticket') }}
@@ -705,7 +708,7 @@ export default function App() {
     return appShell(
       <MonthlyGuidancePage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
       />
@@ -718,7 +721,7 @@ export default function App() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         <ProfessionalCommentsSection
           user={user}
-          profile={profile}
+          profile={accessProfile}
           onNavigateDiary={() => navigate('diary')}
           onNavigatePricing={() => navigate('pricing')}
         />
@@ -731,7 +734,7 @@ export default function App() {
     return appShell(
       <MyEvolutionPage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
@@ -747,7 +750,7 @@ export default function App() {
     return appShell(
       <SelfCarePlanPage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onNavigatePricing={() => navigate('pricing')}
         onNavigate={navigate}
         onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
@@ -760,7 +763,7 @@ export default function App() {
     return appShell(
       <MyReportPage
         user={user}
-        profile={profile}
+        profile={accessProfile}
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
@@ -798,8 +801,8 @@ export default function App() {
   // Home logado → nova experiência com sidebar (UserLayout)
   if (user) {
     return (
-      <UserLayout user={user} profile={profile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
-        <LoggedHome user={user} profile={profile} onNavigate={navigate} />
+      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
+        <LoggedHome user={user} profile={accessProfile} onNavigate={navigate} />
       </UserLayout>
     )
   }
@@ -807,7 +810,7 @@ export default function App() {
   // Home pública (visitante)
   return (
     <>
-      <Header onNavigate={navigate} user={user} profile={profile} onSignOut={handleSignOut} currentView={view} />
+      <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
       <main className="min-h-screen bg-paper">
         <Hero onNavigate={navigate} />
         <HomeContent onNavigate={navigate} />

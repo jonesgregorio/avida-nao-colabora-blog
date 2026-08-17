@@ -11,6 +11,26 @@ export function normalizePlan(raw: string | null | undefined): PlanKey {
   return 'free'
 }
 
+
+export interface AccessProfileLike {
+  plan?: string | null
+  unlimited_access?: boolean | null
+  unlimited_access_until?: string | null
+}
+
+/** Acesso administrativo temporário/permanente equivale ao Plus sem alterar o plano comercial. */
+export function hasActiveUnlimitedAccess(profile: AccessProfileLike | null | undefined, now = new Date()): boolean {
+  if (!profile?.unlimited_access) return false
+  if (!profile.unlimited_access_until) return true
+  const until = new Date(profile.unlimited_access_until)
+  return !Number.isNaN(until.getTime()) && until.getTime() > now.getTime()
+}
+
+/** Plano efetivo para autorização de recursos; preserva `profile.plan` para cobrança/exibição comercial. */
+export function getEffectivePlan(profile: AccessProfileLike | null | undefined, now = new Date()): PlanKey {
+  return hasActiveUnlimitedAccess(profile, now) ? 'plus' : normalizePlan(profile?.plan)
+}
+
 export interface OfficialFeature {
   key: string
   name: string

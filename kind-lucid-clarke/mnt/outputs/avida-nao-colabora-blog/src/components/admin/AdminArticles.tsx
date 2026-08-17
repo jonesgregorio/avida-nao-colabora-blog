@@ -47,7 +47,7 @@ interface Props {
 const TYPE_COPY: Record<ContentType, { title: string; novo: string; vazio: string }> = {
   article: { title: 'Artigos', novo: 'Novo artigo', vazio: 'Nenhum artigo ainda.' },
   practice: { title: 'Práticas', novo: 'Nova prática', vazio: 'Nenhuma prática ainda. Crie um conteúdo e escolha o tipo "Prática".' },
-  meditation: { title: 'Meditações', novo: 'Nova meditação', vazio: 'Nenhuma meditação ainda. Crie um conteúdo e escolha o tipo "Meditação".' },
+  meditation: { title: 'Pausas emocionais', novo: 'Nova pausa emocional', vazio: 'Nenhuma pausa emocional ainda. Crie um conteúdo e escolha o tipo "Pausa emocional".' },
 }
 
 const STATUS_LABELS: Record<string, string> = {

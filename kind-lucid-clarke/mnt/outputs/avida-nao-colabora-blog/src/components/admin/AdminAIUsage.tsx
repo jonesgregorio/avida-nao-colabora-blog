@@ -19,7 +19,7 @@ interface Log {
 const TYPE_LABELS: Record<string, string> = {
   article: 'Artigo', article_cta: 'CTA de artigo', article_title: 'Título',
   article_summary: 'Resumo', article_seo: 'SEO', article_diary_question: 'Pergunta diário',
-  questionnaire: 'Questionário', trail: 'Trilha', notification: 'Notificação',
+  questionnaire: 'Questionário', trail: 'Conteúdo legado', notification: 'Notificação',
   support_template: 'Suporte', social_proof: 'Prova social', meditation: 'Pausa emocional',
   emotional_exercise: 'Exercício', self_care_plan: 'Autocuidado',
   professional_comment: 'Comentário prof.', monthly_guidance: 'Orientação',

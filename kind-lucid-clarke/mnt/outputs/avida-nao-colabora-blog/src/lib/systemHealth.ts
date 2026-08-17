@@ -106,9 +106,6 @@ export async function checkArticles(): Promise<HealthCheckResult> {
   return checkSupabaseTable('db_articles', 'Artigos', 'content', 'articles')
 }
 
-export async function checkTrails(): Promise<HealthCheckResult> {
-  return checkSupabaseTable('db_trails', 'Trilhas', 'content', 'trails')
-}
 
 export async function checkPersonalizationTasks(): Promise<HealthCheckResult> {
   return checkSupabaseTable('db_pers_tasks', 'Fila de Pendências', 'personalization', 'user_personalization_tasks')
@@ -131,7 +128,7 @@ export async function checkSupportTickets(): Promise<HealthCheckResult> {
 }
 
 export async function checkSavedItems(): Promise<HealthCheckResult> {
-  return checkSupabaseTable('db_saved', 'Caixa de Cuidado', 'content', 'saved_items')
+  return checkSupabaseTable('db_saved', 'Itens salvos', 'content', 'saved_items')
 }
 
 export async function checkAdminSession(): Promise<HealthCheckResult> {
@@ -329,7 +326,6 @@ export async function runQuickHealthCheck(): Promise<HealthCheckResult[]> {
 export async function runIntermediateHealthCheck(): Promise<HealthCheckResult[]> {
   const results = await Promise.all([
     checkQuestionnaires(),
-    checkTrails(),
     checkGuidanceRequests(),
     checkMonthlyReports(),
     checkSupportTickets(),
@@ -362,7 +358,6 @@ export async function runSingleCheck(checkKey: string): Promise<HealthCheckResul
     db_diary: checkDiary,
     db_questionnaires: checkQuestionnaires,
     db_articles: checkArticles,
-    db_trails: checkTrails,
     db_pers_tasks: checkPersonalizationTasks,
     db_pers_deliveries: checkPersonalizationDeliveries,
     db_guidance: checkGuidanceRequests,

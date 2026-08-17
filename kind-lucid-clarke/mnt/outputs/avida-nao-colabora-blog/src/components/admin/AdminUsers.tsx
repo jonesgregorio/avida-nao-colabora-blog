@@ -27,6 +27,8 @@ interface UserRow {
   created_at: string
   account_status: string | null
   unlimited_access: boolean | null
+  unlimited_access_until: string | null
+  unlimited_access_reason: string | null
   discount_percent: number | null
   discount_fixed: number | null
   admin_tags: string[] | null
@@ -257,7 +259,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setLoading(true)
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, discount_percent, discount_fixed, admin_tags, last_seen_at')
+      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, unlimited_access_until, unlimited_access_reason, discount_percent, discount_fixed, admin_tags, last_seen_at')
       .order('created_at', { ascending: false })
 
     if (!profileData) { setLoading(false); return }
@@ -552,7 +554,11 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setChangingPlan(false)
     setNewPlan(u.plan)
     setPlanReason('')
-    setUnlimitedAccessForm({ enabled: u.unlimited_access ?? false, until: '', reason: '' })
+    setUnlimitedAccessForm({
+      enabled: u.unlimited_access ?? false,
+      until: u.unlimited_access_until ? u.unlimited_access_until.slice(0, 10) : '',
+      reason: u.unlimited_access_reason ?? '',
+    })
     setDiscountMsg(null) // resultado é por usuário: não pode vazar para o próximo
     setDiscountForm({
       discount_percent: u.discount_percent ?? 0,
@@ -619,13 +625,23 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setSavingUnlimited(true)
     const updates: Record<string, unknown> = {
       unlimited_access: unlimitedAccessForm.enabled,
-      unlimited_access_until: unlimitedAccessForm.until || null,
-      unlimited_access_reason: unlimitedAccessForm.reason || null,
+      unlimited_access_until: unlimitedAccessForm.enabled && unlimitedAccessForm.until
+        ? `${unlimitedAccessForm.until}T23:59:59.999-03:00`
+        : null,
+      unlimited_access_reason: unlimitedAccessForm.enabled ? (unlimitedAccessForm.reason || null) : null,
     }
     const { error } = await supabase.from('profiles').update(updates).eq('user_id', selectedUser.user_id)
     if (!error) {
-      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, unlimited_access: unlimitedAccessForm.enabled } : r))
-      setSelectedUser(s => s ? { ...s, unlimited_access: unlimitedAccessForm.enabled } : s)
+      const normalizedUntil = unlimitedAccessForm.enabled && unlimitedAccessForm.until
+        ? `${unlimitedAccessForm.until}T23:59:59.999-03:00`
+        : null
+      const accessPatch = {
+        unlimited_access: unlimitedAccessForm.enabled,
+        unlimited_access_until: normalizedUntil,
+        unlimited_access_reason: unlimitedAccessForm.enabled ? (unlimitedAccessForm.reason || null) : null,
+      }
+      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, ...accessPatch } : r))
+      setSelectedUser(s => s ? { ...s, ...accessPatch } : s)
     }
     setSavingUnlimited(false)
   }

@@ -13,6 +13,9 @@ export interface Profile {
   avatar_url: string | null
   status_phrase?: string
   plan: Plan
+  unlimited_access?: boolean | null
+  unlimited_access_until?: string | null
+  unlimited_access_reason?: string | null
   stripe_customer_id?: string | null
   role?: string | null
   communication_preference?: string

@@ -275,6 +275,13 @@ export default function AdminGuidanceRequests() {
   function finalLetterFor(text: string): GuidanceLetter {
     return letter ? { ...letter, gentle_guidance: text } : letterFromText(text)
   }
+  function updateLetterField<K extends keyof GuidanceLetter>(field: K, value: GuidanceLetter[K]) {
+    setLetter(current => ({ ...(current ?? letterFromText(response)), [field]: value }))
+    if (field === 'gentle_guidance') setResponse(String(value ?? ''))
+  }
+  function updateLetterList(field: 'practical_next_steps' | 'professional_review_notes', value: string) {
+    updateLetterField(field, value.split('\n').map(v => v.trim()).filter(Boolean))
+  }
 
   // IA: mesma geração de antes (generateWithFailover + buildGuidancePrompt).
   // Preenche a "Sugestão da IA"; se a resposta final ainda estiver vazia, também
@@ -587,7 +594,7 @@ export default function AdminGuidanceRequests() {
                         <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{suggestion}</p>
                         <button
                           type="button"
-                          onClick={() => setResponse(suggestion)}
+                          onClick={() => { setResponse(suggestion); if (letter) updateLetterField('gentle_guidance', suggestion) }}
                           className="mt-3 text-xs text-forest-700 hover:text-forest-900 font-medium underline"
                         >
                           Usar esta sugestão na resposta
@@ -602,14 +609,34 @@ export default function AdminGuidanceRequests() {
 
                   {/* Resposta final */}
                   <section>
-                    <h3 className="font-serif text-lg text-forest-900 mb-1.5">Resposta final</h3>
-                    <textarea
-                      value={response}
-                      onChange={e => setResponse(e.target.value)}
-                      rows={8}
-                      placeholder="Digite sua resposta aqui…"
-                      className={inputCls}
-                    />
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-serif text-lg text-forest-900">Resposta final estruturada</h3>
+                        <p className="text-xs text-stone-500 mt-0.5">Revise cada seção da carta. O usuário recebe essa estrutura, não um ticket de suporte.</p>
+                      </div>
+                      {letter && <span className="text-[11px] px-2 py-1 rounded-full bg-mint text-forest-700">Carta estruturada</span>}
+                    </div>
+
+                    {letter ? (
+                      <div className="space-y-3">
+                        <GuidanceField label="O que você trouxe" value={letter.user_request_summary ?? ''} onChange={v => updateLetterField('user_request_summary', v)} rows={3} />
+                        <GuidanceField label="O que seus registros ajudam a observar" value={letter.emotional_context_summary ?? ''} onChange={v => updateLetterField('emotional_context_summary', v)} rows={4} />
+                        <GuidanceField label="Uma leitura cuidadosa" value={letter.gentle_guidance ?? response} onChange={v => updateLetterField('gentle_guidance', v)} rows={6} />
+                        <GuidanceField label="Próximos passos possíveis" hint="Um por linha" value={(letter.practical_next_steps ?? []).join('\n')} onChange={v => updateLetterList('practical_next_steps', v)} rows={4} />
+                        <GuidanceField label="Conexão com o plano de autocuidado" value={letter.connection_with_self_care_plan ?? ''} onChange={v => updateLetterField('connection_with_self_care_plan', v)} rows={3} />
+                        <GuidanceField label="Pergunta para continuar no diário" value={letter.suggested_reflection_question ?? ''} onChange={v => updateLetterField('suggested_reflection_question', v)} rows={2} />
+                        <GuidanceField label="Mensagem final" value={letter.final_message_draft ?? ''} onChange={v => updateLetterField('final_message_draft', v)} rows={3} />
+                        {letter.data_quality_notice && <GuidanceField label="Nota sobre os dados" value={letter.data_quality_notice} onChange={v => updateLetterField('data_quality_notice', v)} rows={2} />}
+                      </div>
+                    ) : (
+                      <textarea
+                        value={response}
+                        onChange={e => setResponse(e.target.value)}
+                        rows={8}
+                        placeholder="Digite sua resposta aqui…"
+                        className={inputCls}
+                      />
+                    )}
 
                     <div className="flex items-center gap-2 flex-wrap mt-3">
                       <button
@@ -648,6 +675,18 @@ export default function AdminGuidanceRequests() {
         </div>
       </div>
     </div>
+  )
+}
+
+
+function GuidanceField({ label, value, onChange, rows = 3, hint }: { label: string; value: string; onChange: (value: string) => void; rows?: number; hint?: string }) {
+  return (
+    <label className="block">
+      <span className="flex items-center justify-between gap-2 text-xs font-semibold text-forest-800 mb-1">
+        <span>{label}</span>{hint && <span className="font-normal text-stone-400">{hint}</span>}
+      </span>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} className={inputCls} />
+    </label>
   )
 }
 

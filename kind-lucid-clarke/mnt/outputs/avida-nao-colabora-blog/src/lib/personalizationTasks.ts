@@ -5,6 +5,7 @@
 import { supabase } from './supabase'
 import { monthKey } from './dateUtils'
 import { getContentTypeLabel } from './personalizedContentLabels'
+import { getEffectivePlan } from './officialPlans'
 import { generateWithFailover } from './aiContent'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -197,7 +198,7 @@ export const TASK_DEFS: TaskDef[] = [
     title: 'Resumo mensal simples',
     description: 'Resumo mensal do uso e percepções da plataforma.',
     contentType: 'monthly_summary',
-    targetArea: 'reports',
+    targetArea: 'resumo',
     notificationTitle: 'Resumo do mês disponível',
     notificationBody: 'Seu resumo mensal simples está disponível.',
     frequency: 'monthly',
@@ -501,6 +502,8 @@ interface ProfileRow {
   full_name: string | null
   email: string | null
   plan: string
+  unlimited_access?: boolean | null
+  unlimited_access_until?: string | null
   created_at: string | null
 }
 
@@ -521,7 +524,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
   // ── 1. Carregar perfis ──
   const { data: profiles, error: profErr } = await supabase
     .from('profiles')
-    .select('user_id, full_name, email, plan, created_at')
+    .select('user_id, full_name, email, plan, unlimited_access, unlimited_access_until, created_at')
     .not('plan', 'is', null)
     .limit(500)
   if (profErr) { errors.push('profiles: ' + profErr.message); return { created, updated, errors } }
@@ -577,7 +580,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
 
   for (const profile of (profiles ?? []) as ProfileRow[]) {
     const uid = profile.user_id
-    const plan = profile.plan ?? 'free'
+    const plan = getEffectivePlan(profile)
     const defs = getTaskDefsForPlan(plan)
 
     for (const def of defs) {
