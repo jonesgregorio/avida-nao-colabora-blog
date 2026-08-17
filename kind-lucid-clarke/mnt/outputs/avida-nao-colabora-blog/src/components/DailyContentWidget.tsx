@@ -29,29 +29,42 @@ const FREQ_LABEL: Record<string, string> = {
   Mensal: 'Conteúdo do mês',
 }
 
-const TYPE_EMOJI: Record<string, string> = {
-  'Sugestão de artigo': '📖',
-  'Pausa emocional guiada': '🧘',
-  'Meditação guiada em texto': '🧘',
-  'Meditação guiada': '🧘',
-  'Exercício emocional': '💪',
-  'Pequena prática guiada': '🎯',
-  'Mini-desafio': '🎯',
-  'Avaliação semanal': '📊',
-  'Autocuidado prático': '🌱',
-  'Plano semanal de autocuidado': '🌱',
-  'Lembrete de diário': '📔',
-  'Reflexão guiada': '💭',
-  'Conteúdo educativo': '🔬',
-  'Técnica terapêutica': '🔬',
+// §10.1 do audit: única fonte de verdade pra exibir o tipo de um conteúdo
+// guiado. Aceita termos legados salvos em registros antigos (automated_contents
+// gravou o `type` como texto livre por anos), mas NUNCA devolve o termo legado
+// pra UI — sempre o rótulo canônico atual. Não normaliza os dados no banco
+// (não é migration), só a leitura/exibição.
+const LEGACY_TYPE_MAP: Record<string, { canonicalType: string; label: string; emoji: string }> = {
+  'Meditação guiada em texto': { canonicalType: 'pausa_emocional', label: 'Pausa emocional guiada', emoji: '🧘' },
+  'Meditação guiada': { canonicalType: 'pausa_emocional', label: 'Pausa emocional guiada', emoji: '🧘' },
+  'Mini-desafio': { canonicalType: 'pequena_pratica_guiada', label: 'Pequena prática guiada', emoji: '🎯' },
+  'Plano semanal de autocuidado': { canonicalType: 'sequencia_de_cuidado', label: 'Sequência de cuidado', emoji: '🌱' },
+  'Técnica terapêutica': { canonicalType: 'recurso_de_apoio_emocional', label: 'Recurso de apoio emocional', emoji: '🔬' },
+  'Relatório mensal': { canonicalType: 'reflexao_mensal_guiada', label: 'Reflexão mensal guiada', emoji: '📊' },
 }
-
-const TYPE_LABEL: Record<string, string> = {
-  'Meditação guiada em texto': 'Pausa emocional guiada',
-  'Meditação guiada': 'Pausa emocional guiada',
-  'Mini-desafio': 'Pequena prática guiada',
-  'Plano semanal de autocuidado': 'Autocuidado prático',
-  'Técnica terapêutica': 'Conteúdo educativo',
+const CANONICAL_TYPE_STYLE: Record<string, { label: string; emoji: string }> = {
+  'Sugestão de artigo': { label: 'Sugestão de artigo', emoji: '📖' },
+  'Pausa emocional guiada': { label: 'Pausa emocional guiada', emoji: '🧘' },
+  'Exercício emocional': { label: 'Exercício emocional', emoji: '💪' },
+  'Pequena prática guiada': { label: 'Pequena prática guiada', emoji: '🎯' },
+  'Avaliação semanal': { label: 'Avaliação semanal', emoji: '📊' },
+  'Autocuidado prático': { label: 'Autocuidado prático', emoji: '🌱' },
+  'Sequência de cuidado': { label: 'Sequência de cuidado', emoji: '🌱' },
+  'Lembrete de diário': { label: 'Lembrete de diário', emoji: '📔' },
+  'Reflexão guiada': { label: 'Reflexão guiada', emoji: '💭' },
+  'Conteúdo educativo': { label: 'Conteúdo educativo', emoji: '🔬' },
+  'Recurso de apoio emocional': { label: 'Recurso de apoio emocional', emoji: '🔬' },
+  'Reflexão mensal guiada': { label: 'Reflexão mensal guiada', emoji: '📊' },
+  'Exercício de escrita': { label: 'Exercício de escrita', emoji: '✍️' },
+  'Organização emocional': { label: 'Organização emocional', emoji: '🗂️' },
+  'Limites e rotina': { label: 'Limites e rotina', emoji: '🧭' },
+}
+function normalizeGuidedContentType(type: string): { label: string; emoji: string; canonicalType: string } {
+  const legacy = LEGACY_TYPE_MAP[type]
+  if (legacy) return legacy
+  const known = CANONICAL_TYPE_STYLE[type]
+  if (known) return { ...known, canonicalType: type }
+  return { label: type, emoji: '✨', canonicalType: type }
 }
 
 // Escolhe conteúdo determinístico pelo dia (mesmo conteúdo o dia todo)
@@ -99,8 +112,7 @@ export default function DailyContentWidget({ user, profile }: Props) {
 
   if (!user || loading || !content) return null
 
-  const emoji = TYPE_EMOJI[content.type] || '✨'
-  const typeLabel = TYPE_LABEL[content.type] || content.type
+  const { label: typeLabel, emoji } = normalizeGuidedContentType(content.type)
   const label = FREQ_LABEL[content.frequency] || 'Para você'
 
   return (

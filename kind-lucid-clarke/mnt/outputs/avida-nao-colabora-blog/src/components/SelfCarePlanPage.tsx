@@ -270,6 +270,7 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
           {c?.what_not_to_force && <Field label="O que não forçar agora" value={c.what_not_to_force} />}
           {c?.light_emotional_goal && <Field label="Meta emocional leve" value={c.light_emotional_goal} />}
           {c?.checkin_suggestion && <Field label="Sugestão de check-in" value={c.checkin_suggestion} />}
+          {c?.when_to_seek_more_support && <Field label="Quando buscar mais apoio" value={c.when_to_seek_more_support} />}
 
           {rhythm.length > 0 && (
             <div className="rounded-2xl border border-forest-100 bg-mint/25 p-4">

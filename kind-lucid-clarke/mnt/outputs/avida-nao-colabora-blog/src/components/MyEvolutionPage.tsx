@@ -63,6 +63,51 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
 }
 
 
+// §8 do audit: "Conexões do mês" extraído em componente reutilizável pra viver
+// como card premium na aba Resumo (visível de cara) em vez de só nos Gráficos.
+// context_tags/emotional_tags/need_tags/care_action_tags — nunca trigger_tags
+// (gatilhos reais ficam numa seção própria, só com dados de trigger_tags).
+function MonthlyConnectionsCard({ connections }: { connections: MonthlyConnection[] }) {
+  return (
+    <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
+        <h3 className="font-serif text-lg text-forest-900">Conexões do mês</h3>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-900 text-mint font-medium">Plus</span>
+      </div>
+      <p className="text-xs text-ink-soft mt-1 mb-4">Algumas relações que apareceram nos seus registros. Elas não são conclusões, apenas pistas para observar com cuidado.</p>
+      {connections.length ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {connections.map(connection => (
+            <div key={`${connection.context}-${connection.marker}-${connection.need}-${connection.careAction}`} className="rounded-xl bg-paper-soft border border-line p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-1.5 text-forest-900">
+                <DiaryTagChip label={connection.context} category="context" /><span>↓</span>
+                <DiaryTagChip label={connection.marker} category={getTagCategory(connection.marker)} /><span>↓</span>
+                <DiaryTagChip label={connection.need} category="need" /><span>↓</span>
+                <DiaryTagChip label={connection.careAction} category="care_action" />
+              </div>
+              <p className="text-xs text-ink-soft mt-3">Apareceu em {connection.count} {connection.count === 1 ? 'registro' : 'registros'}.</p>
+            </div>
+          ))}
+        </div>
+      ) : <p className="text-sm text-ink-soft rounded-xl bg-paper-soft p-4">Com mais registros, o mapa poderá mostrar conexões entre contextos, sentimentos, necessidades e ações de cuidado.</p>}
+    </section>
+  )
+}
+
+function MonthlyConnectionsTeaser({ onNavigatePricing }: { onNavigatePricing: () => void }) {
+  return (
+    <section className="rounded-2xl border border-dashed border-forest-200 bg-mint/20 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-3">
+      <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0"><Lock className="w-4 h-4 text-forest-500" /></span>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-forest-900">Conexões do mês estão disponíveis no Plus.</p>
+        <p className="text-xs text-ink-soft mt-0.5">Relações entre contextos, sentimentos, necessidades e ações de cuidado que aparecem nos seus registros.</p>
+      </div>
+      <button onClick={onNavigatePricing} className="text-xs font-medium text-forest-700 underline whitespace-nowrap">Conhecer o Plus</button>
+    </section>
+  )
+}
+
 // ─── Props principal ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -375,11 +420,14 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 }) {
   const current = monthKey()
   const { stats, loading } = useDiaryStats(user?.id, current)
+  const isPlus = hasPlan(plan, 'plus')
+  // Só busca entries pra Conexões do mês quando o plano realmente usa o card
+  // (Plus renderiza completo; useMonthAnalysis já tem seu próprio loading interno).
+  const { entries: connectionEntries } = useMonthAnalysis(isPlus ? user?.id : undefined, current)
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
 
   const isEssential = hasPlan(plan, 'essential')
-  const isPlus = hasPlan(plan, 'plus')
   const chartData = [...stats.dailyMoods].sort((a, b) => a.day - b.day).map(d => ({ day: d.day, humor: d.mood }))
   const positiveDays = stats.dailyMoods.filter(d => d.mood >= 4).length
   const positivePct = stats.dailyMoods.length ? Math.round((positiveDays / stats.dailyMoods.length) * 100) : 0
@@ -478,6 +526,12 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
           </div>
         </div>
       )}
+
+      {/* Conexões do mês — card premium Plus, visível já na aba Resumo (§8 do
+          audit). Essencial vê teaser bloqueado; Gratuito não vê (sem Mapa completo). */}
+      {isPlus
+        ? <MonthlyConnectionsCard connections={monthlyConnections(connectionEntries)} />
+        : isEssential && <MonthlyConnectionsTeaser onNavigatePricing={onNavigatePricing} />}
 
       {/* Resumo da jornada */}
       <div className="rounded-3xl border border-line bg-mint/40 p-5 sm:p-6">
@@ -622,7 +676,7 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
-  const { analysis, entries, loading } = useMonthAnalysis(user?.id, selectedMonth)
+  const { analysis, loading } = useMonthAnalysis(user?.id, selectedMonth)
 
   if (!hasPlan(plan, 'essential')) {
     return (
@@ -642,7 +696,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
   const maxMarker = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
-  const connections = monthlyConnections(entries)
 
   return (
     <div className="space-y-5">
@@ -751,34 +804,9 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}
           </div>
 
-          {/* Conexões do mês — recurso premium Plus. Fica logo após os marcadores
-              emocionais, com destaque visual, para não ficar perdido entre os
-              painéis de frequência mais simples abaixo. */}
-          {hasPlan(plan, 'plus') && (
-            <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
-                <h3 className="font-serif text-lg text-forest-900">Conexões do mês</h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-900 text-mint font-medium">Plus</span>
-              </div>
-              <p className="text-xs text-ink-soft mt-1 mb-4">Algumas relações que apareceram nos seus registros. Elas não são conclusões, apenas pistas para observar com cuidado.</p>
-              {connections.length ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {connections.map(connection => (
-                    <div key={`${connection.context}-${connection.marker}-${connection.need}-${connection.careAction}`} className="rounded-xl bg-paper-soft border border-line p-4 text-sm">
-                      <div className="flex flex-wrap items-center gap-1.5 text-forest-900">
-                        <DiaryTagChip label={connection.context} category="context" /><span>↓</span>
-                        <DiaryTagChip label={connection.marker} category={getTagCategory(connection.marker)} /><span>↓</span>
-                        <DiaryTagChip label={connection.need} category="need" /><span>↓</span>
-                        <DiaryTagChip label={connection.careAction} category="care_action" />
-                      </div>
-                      <p className="text-xs text-ink-soft mt-3">Apareceu em {connection.count} {connection.count === 1 ? 'registro' : 'registros'}.</p>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-sm text-ink-soft rounded-xl bg-paper-soft p-4">Com mais registros, o mapa poderá mostrar conexões entre contextos, sentimentos, necessidades e ações de cuidado.</p>}
-            </section>
-          )}
+          {/* Conexões do mês agora vive na aba Resumo (MonthlyConnectionsCard),
+              logo após "Seu período em cores" — visível de cara, sem duplicar
+              o mesmo card aqui nos Gráficos (§8 do audit). */}
 
           {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
               completo (§14), pra não ficarem ignoradas no Mapa. */}

@@ -46,6 +46,8 @@ export interface CarePlanContent {
   attention_point: string
   small_commitment: string
   checkin_suggestion: string
+  /** §6.4: quando buscar mais apoio — leve, sem alarmismo. Opcional: ausente em planos salvos antes deste campo existir. */
+  when_to_seek_more_support?: string
   practical_tips: string[]
   reflection_questions: string[]
   final_message: string

@@ -25,11 +25,13 @@ interface GuidanceRequest {
   responded_at: string | null
   created_at: string
   ai_draft_json?: { final_response?: GuidanceLetter } | null
+  // Coluna própria (migration 20260816210000): prioridade sobre ai_draft_json.final_response.
+  final_response_json?: GuidanceLetter | null
 }
 interface GuidanceLetter {
   title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
   practical_next_steps?: string[]; connection_with_self_care_plan?: string; suggested_reflection_question?: string
-  final_message_draft?: string; data_quality_notice?: string
+  final_message_draft?: string; data_quality_notice?: string; review_badge?: string
 }
 
 interface Cycle {
@@ -106,7 +108,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     //    atual controla o formulário; os demais aparecem em "Orientações anteriores".
     const { data } = await supabase
       .from('monthly_guidance_requests')
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
     const all = (data ?? []) as GuidanceRequest[]
@@ -129,7 +131,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         expected_help: expectedHelp.trim() || null,
         status: 'open',
       })
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json')
       .single()
     if (err || !data) {
       setError('Erro ao enviar. Tente novamente.')
@@ -385,7 +387,9 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
                 <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
               </div>
-              <GuidanceLetterView letter={req.ai_draft_json?.final_response} fallback={req.response ?? ''} />
+              {/* §9.4: final_response_json é a fonte de verdade; ai_draft_json.final_response
+                  e response (texto simples) seguem como fallback pra registros antigos. */}
+              <GuidanceLetterView letter={req.final_response_json ?? req.ai_draft_json?.final_response} fallback={req.response ?? ''} />
               {req.responded_at && (
                 <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
               )}

@@ -14,6 +14,7 @@ interface GuidanceLetter {
   title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
   practical_next_steps?: string[]; connection_with_self_care_plan?: string; suggested_reflection_question?: string
   final_message_draft?: string; professional_review_notes?: string[]; safety_flags?: string[]; data_quality_notice?: string
+  review_badge?: string
 }
 interface GuidanceRequest {
   id: string
@@ -27,6 +28,9 @@ interface GuidanceRequest {
   responded_at: string | null
   created_at: string
   ai_draft_json?: { draft?: string; generated_at?: string; prompt_type?: string; final_response?: GuidanceLetter } | null
+  // Coluna própria (migration 20260816210000): fonte de verdade quando presente.
+  // ai_draft_json.final_response e response continuam como fallback.
+  final_response_json?: GuidanceLetter | null
   user?: { full_name?: string; email?: string; plan?: string }
 }
 
@@ -257,10 +261,10 @@ export default function AdminGuidanceRequests() {
     setSelected(r)
     let draft = ''
     try { draft = localStorage.getItem(draftKey(r.id)) ?? '' } catch { /* noop */ }
-    setResponse(r.response ?? r.ai_draft_json?.final_response?.gentle_guidance ?? r.ai_draft_json?.draft ?? draft)
+    setResponse(r.response ?? r.final_response_json?.gentle_guidance ?? r.ai_draft_json?.final_response?.gentle_guidance ?? r.ai_draft_json?.draft ?? draft)
     setSuggestion('')
     setAdminNotes('')
-    setLetter(r.ai_draft_json?.final_response ?? null)
+    setLetter(r.final_response_json ?? r.ai_draft_json?.final_response ?? null)
   }
   function backToList() {
     setSelected(null); setResponse(''); setSuggestion(''); setAdminNotes(''); setLetter(null)
@@ -348,9 +352,13 @@ export default function AdminGuidanceRequests() {
     if (!selected || !response.trim()) return
     setSaving(true)
     const respondedAt = new Date().toISOString()
+    // §9.1: final_response_json é a fonte de verdade da carta a partir daqui.
+    // ai_draft_json e response seguem gravados como fallback (registros antigos
+    // e qualquer leitor que ainda não migrou para a coluna nova continuam ok).
+    const finalLetter: GuidanceLetter = { ...finalLetterFor(response.trim()), review_badge: 'Orientação revisada' }
     const { error } = await supabase
       .from('monthly_guidance_requests')
-      .update({ response: response.trim(), ai_draft_json: { draft: response.trim(), final_response: finalLetterFor(response.trim()), generated_at: respondedAt, prompt_type: 'professional_guidance' }, status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
+      .update({ response: response.trim(), ai_draft_json: { draft: response.trim(), final_response: finalLetter, generated_at: respondedAt, prompt_type: 'professional_guidance' }, final_response_json: finalLetter, status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
       .eq('id', selected.id)
     if (error) { showToast('Erro: ' + error.message, true); setSaving(false); return }
     // Notificação in-app é criada pelo gatilho notify_guidance_answered (destino 'monthly-guidance').
