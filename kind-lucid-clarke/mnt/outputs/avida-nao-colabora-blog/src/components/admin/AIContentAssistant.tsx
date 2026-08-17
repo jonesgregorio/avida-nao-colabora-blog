@@ -13,7 +13,6 @@ export type AIContentType =
   | 'article_diary_question'
   | 'article_cta'
   | 'questionnaire'
-  | 'trail'
   | 'scheduled_content'
   | 'automated_content'
   | 'support_template'
@@ -72,7 +71,6 @@ const TYPE_LABELS: Record<AIContentType, string> = {
   article_diary_question: 'Gerar pergunta para diário',
   article_cta: 'Gerar CTA',
   questionnaire: 'Gerar questionário',
-  trail: 'Gerar trilha',
   scheduled_content: 'Gerar conteúdo programado',
   automated_content: 'Gerar conteúdo automático',
   support_template: 'Gerar template de suporte',
@@ -144,7 +142,7 @@ PÚBLICO-ALVO: [descrição curta do público, ex.: adultos com rotina intensa]`
       return `Gere 3 perguntas reflexivas para o diário do usuário, relacionadas ao tema: "${theme}"${ctx}. Convide à reflexão pessoal, sem julgamento. Liste numeradas.`
 
     case 'article_cta':
-      return `Escreva 3 opções de CTA para o final de um artigo sobre: "${theme}"${ctx}. Convide ao diário ou caixa de cuidado. Sem pressão. Liste numeradas.`
+      return `Escreva 3 opções de CTA para o final de um artigo sobre: "${theme}"${ctx}. Convide ao diário ou a explorar conteúdos guiados. Sem pressão. Liste numeradas.`
 
     case 'questionnaire':
       return `Crie um questionário de autoconhecimento emocional em português brasileiro.
@@ -175,22 +173,6 @@ IMPORTANTE: Retorne SOMENTE o JSON abaixo, sem texto antes nem depois, sem bloco
 }
 Gere exatamente 5 perguntas com 3 opções cada. Não use linguagem clínica nem diagnóstica. Responda APENAS com o JSON.`
 
-    case 'trail':
-      return `Crie uma trilha de bem-estar emocional.
-Tema: "${theme}"
-Retorne:
-NOME: [nome]
-DESCRIÇÃO: [2 frases]
-OBJETIVO: [o que o usuário aprende]
-DURAÇÃO: [ex: 2 semanas]
-ETAPAS:
-1. [nome] — [descrição]
-2. [nome] — [descrição]
-3. [nome] — [descrição]
-4. [nome] — [descrição]
-5. [nome] — [descrição]
-EXERCÍCIO FINAL: [prática]
-PERGUNTA PARA DIÁRIO: [1 pergunta]`
 
     case 'notification':
       return `Escreva uma notificação in-app.

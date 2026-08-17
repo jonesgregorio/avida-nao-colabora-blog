@@ -588,9 +588,10 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     if (!userId) { setLoading(false); return }
     setLoading(true)
     const [y, m] = selectedMonth.split('-').map(Number)
-    const start = new Date(y, m - 1, 1).toISOString()
-    const end = new Date(y, m, 1).toISOString()
-    const prevStart = new Date(y, m - 2, 1).toISOString()
+    const monthKeyFromDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const start = `${selectedMonth}-01`
+    const end = `${monthKeyFromDate(new Date(y, m, 1))}-01`
+    const prevStart = `${monthKeyFromDate(new Date(y, m - 2, 1))}-01`
     const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags,entry_type,created_at,date'
     Promise.all([
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', start).lt('date', end),

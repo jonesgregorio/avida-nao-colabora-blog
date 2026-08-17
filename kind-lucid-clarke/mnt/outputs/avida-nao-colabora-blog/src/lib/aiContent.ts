@@ -208,7 +208,7 @@ Estrutura obrigatória:
 4. Reflexão guiada
 5. Exercício prático simples
 6. Pergunta para o diário (1 pergunta)
-7. CTA para o diário ou caixa de cuidado
+7. CTA para o diário ou conteúdos guiados
 8. Aviso de responsabilidade (1 linha ao final)
 
 Escreva um artigo APROFUNDADO e bem desenvolvido: várias seções, cada uma com
@@ -295,7 +295,7 @@ Formate como lista numerada simples.`,
 export async function generateCTA(title: string, opts: AICallOptions = {}): Promise<string> {
   return callAI(
     `Escreva 3 opções de CTA (chamada para ação) para o final de um artigo sobre: "${title}".
-O CTA deve convidar o usuário a escrever no diário, acessar a caixa de cuidado ou explorar mais conteúdo.
+O CTA deve convidar o usuário a escrever no diário ou explorar conteúdos guiados, sem pressão.
 Seja gentil, nunca pressione. Formate como lista numerada.`,
     { size: 'curto', ...opts }
   )
@@ -359,26 +359,6 @@ RETORNE APENAS O JSON ABAIXO. SEM texto antes, SEM texto depois, SEM blocos de c
 Gere exatamente 5 perguntas com 3 opções cada, pontuação de 1 a 3. Não use linguagem clínica. Responda SOMENTE com JSON válido.`
 
   return generateWithFailover(prompt)
-}
-
-export async function generateTrailDraft(title: string, opts: AICallOptions = {}): Promise<string> {
-  return callAI(
-    `Crie uma trilha de autoconhecimento e bem-estar emocional com o tema: "${title}".
-Retorne no formato:
-NOME DA TRILHA: [nome]
-DESCRIÇÃO: [2 a 3 frases descrevendo o que o usuário vai explorar]
-OBJETIVO: [o que o usuário vai ganhar ao completar]
-DURAÇÃO SUGERIDA: [ex: 2 semanas]
-ETAPAS:
-1. [nome da etapa] — [descrição curta]
-2. [nome da etapa] — [descrição curta]
-3. [nome da etapa] — [descrição curta]
-4. [nome da etapa] — [descrição curta]
-5. [nome da etapa] — [descrição curta]
-EXERCÍCIO FINAL: [sugestão de prática ao concluir]
-PERGUNTA PARA DIÁRIO: [1 pergunta reflexiva]`,
-    { size: 'médio', ...opts }
-  )
 }
 
 export async function generateNotification(
@@ -530,7 +510,7 @@ DADOS DO USUÁRIO (agregados, sem identificação pessoal):
 - Membro desde: ${data.memberSince}
 - Registros no diário: ${data.diaryCount}
 - Questionários respondidos: ${data.questionnaireCount}
-- Itens salvos na Caixa de Cuidado: ${data.savedCount}
+- Itens salvos pelo usuário: ${data.savedCount}
 - Tickets de suporte: ${data.ticketCount}
 - Orientações enviadas: ${data.guidanceCount} (${data.guidancePending} aguardando resposta)
 - Comentários profissionais recebidos: ${data.commentsCount}

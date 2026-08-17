@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-// Histórico de leitura / progresso de trilhas.
+// Histórico e progresso de leitura.
 // Uma linha por (user, artigo). Idempotente: relê não duplica nem altera a
 // data do primeiro acesso. Nunca interrompe a navegação (fire-and-forget).
 export async function markArticleRead(userId?: string | null, articleSlug?: string | null): Promise<void> {

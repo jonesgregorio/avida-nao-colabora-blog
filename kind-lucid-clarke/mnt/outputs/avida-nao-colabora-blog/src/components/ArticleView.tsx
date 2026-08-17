@@ -137,7 +137,7 @@ export default function ArticleView({
       })
   }, [user, article])
 
-  // ---- Marca o artigo como lido (progresso de trilhas + histórico) ----
+  // ---- Marca o artigo como lido (histórico e progresso de leitura) ----
   useEffect(() => {
     if (user && article?.slug) void markArticleRead(user.id, article.slug)
   }, [user, article?.slug])

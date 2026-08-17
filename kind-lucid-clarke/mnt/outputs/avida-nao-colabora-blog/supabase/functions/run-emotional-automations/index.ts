@@ -11,6 +11,27 @@ const PROMPT_VERSION: Record<'weekly_report' | 'monthly_deep_report' | 'self_car
 const cors = { 'Access-Control-Allow-Origin': 'https://www.avidanaocolabora.com', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+const calendarYmd = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d)
+  const get = (type: string) => parts.find(p => p.type === type)?.value
+  const y = get('year'), m = get('month'), day = get('day')
+  return y && m && day ? `${y}-${m}-${day}` : d.toISOString().slice(0, 10)
+}
+const clampStartToActivation = (fullStart: string, end: string, activation: string | null | undefined): string | null => {
+  const act = calendarYmd(activation)
+  if (!act) return fullStart
+  if (act > end) return null
+  return act > fullStart ? act : fullStart
+}
+function hasActiveUnlimitedAccess(profile: { unlimited_access?: boolean; unlimited_access_until?: string | null }, now: Date): boolean {
+  if (!profile.unlimited_access) return false
+  if (!profile.unlimited_access_until) return true
+  const until = new Date(profile.unlimited_access_until)
+  return !Number.isNaN(until.getTime()) && until.getTime() > now.getTime()
+}
 const list = (v: unknown): string[] => Array.isArray(v) ? v.map(String).map(x => x.trim()).filter(Boolean) : []
 const average = (values: unknown[]) => { const n = values.map(Number).filter(v => Number.isFinite(v) && v > 0); return n.length ? Math.round((n.reduce((a, b) => a + b, 0) / n.length) * 10) / 10 : 0 }
 // §7 do audit: indicadores avançados (stress/self_esteem/irritability/overload)
@@ -102,11 +123,18 @@ function compareSummaries(curr: Summary, prev: Summary | null): { available: boo
 }
 
 type Summary = ReturnType<typeof summaryOf>
-function summaryOf(rows: Record<string, unknown>[], start: string, end: string, plan: 'essential' | 'plus') {
+function summaryOf(rows: Record<string, unknown>[], start: string, end: string, plan: 'essential' | 'plus', periodKind: 'weekly' | 'monthly' = 'weekly') {
   const days = new Set(rows.map(r => String(r.date || r.created_at || '').slice(0, 10)).filter(Boolean))
   const type = (t: string) => rows.filter(r => r.entry_type === t).length
   const diaries = rows.filter(r => r.entry_type === 'diary')
-  const quality = days.size >= (end.slice(0, 7) === start.slice(0, 7) ? 3 : 3) && rows.length >= 5 ? 'medium' : 'low'
+  // O mensal aprofundado precisa de mais evidência do que a leitura semanal.
+  // Com poucos dados ele ainda pode existir, mas assume explicitamente baixa confiança.
+  const minActiveDays = periodKind === 'monthly' ? 8 : 3
+  const minEntries = periodKind === 'monthly' ? 12 : 5
+  const quality = days.size >= minActiveDays && rows.length >= minEntries ? 'medium' : 'low'
+  const lowMessage = periodKind === 'monthly'
+    ? 'Este mês teve poucos registros para uma leitura aprofundada. O que aparece abaixo é um ponto de partida, não uma conclusão sobre seus padrões.'
+    : 'Seus registros desta semana ainda são poucos, então esta leitura deve ser vista como um ponto de partida, não como conclusão.'
   return {
     period_start: start, period_end: end, plan, total_entries: rows.length,
     total_checkins: type('checkin'), total_main_diaries: diaries.filter(r => r.diary_kind !== 'addon').length,
@@ -116,7 +144,7 @@ function summaryOf(rows: Record<string, unknown>[], start: string, end: string, 
     needs: top(rows.flatMap(r => list(r.need_tags))), care_actions: top(rows.flatMap(r => list(r.care_action_tags))),
     real_triggers: plan === 'plus' ? top(rows.flatMap(r => list(r.trigger_tags))) : [],
     averages: { mood: average(rows.map(r => r.mood_score)), energy: average(rows.map(r => r.energy)), anxiety: average(rows.map(r => r.anxiety_level)), sleep: average(rows.map(r => r.sleep_quality)), stress: plan === 'plus' ? averageOrNull(valuesOf(rows, ['stress_level', 'stress'])) : null, selfEsteem: plan === 'plus' ? averageOrNull(valuesOf(rows, ['self_esteem', 'self_esteem_level'])) : null, irritability: plan === 'plus' ? averageOrNull(valuesOf(rows, ['irritability', 'irritability_level'])) : null, overload: plan === 'plus' ? averageOrNull(valuesOf(rows, ['overload', 'overload_level'])) : null },
-    data_quality: { has_enough_data: quality !== 'low', total_entries: rows.length, active_days: days.size, confidence_level: quality, message: quality === 'low' ? 'Seus registros deste período ainda são poucos, então esta leitura deve ser vista como um ponto de partida, não como conclusão.' : 'Há registros suficientes para uma leitura cuidadosa do período.' },
+    data_quality: { has_enough_data: quality !== 'low', total_entries: rows.length, active_days: days.size, confidence_level: quality, required_active_days: minActiveDays, required_entries: minEntries, message: quality === 'low' ? lowMessage : 'Há registros suficientes para uma leitura cuidadosa do período.' },
   }
 }
 
@@ -245,25 +273,44 @@ Deno.serve(async (req) => {
   const prevMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1))
   const prevMonthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 0))
   const DIARY_COLUMNS = 'entry_type,diary_kind,date,created_at,mood,mood_score,energy,anxiety_level,sleep_quality,stress_level,self_esteem,irritability,overload,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags'
-  let profileQuery = admin.from('profiles').select('user_id, plan, subscription_status, unlimited_access')
-    .in('plan', ['essential', 'plus', 'therapeutic', 'therapeutic-plus'])
+  let profileQuery = admin.from('profiles').select('user_id, plan, subscription_status, unlimited_access, unlimited_access_until, plan_activated_at')
   if (body.userId) profileQuery = profileQuery.eq('user_id', body.userId)
   const { data: candidates, error } = await profileQuery
   if (error) return json({ error: error.message }, 500)
   const results: string[] = []
-  for (const profile of candidates as { user_id: string; plan: string; subscription_status?: string; unlimited_access?: boolean }[]) {
-    if (!profile.unlimited_access && profile.subscription_status && !['active', 'trialing'].includes(profile.subscription_status)) continue
-    const plan = ['plus', 'therapeutic', 'therapeutic-plus'].includes(profile.plan) ? 'plus' : 'essential'
-    for (const job of [{ kind: 'weekly' as const, start: isoDay(weekStart), end: isoDay(weekEnd), allowed: true }, { kind: 'monthly' as const, start: isoDay(monthStart), end: isoDay(monthEnd), allowed: plan === 'plus' }]) {
-      if (!job.allowed || (body.mode && body.mode !== 'all' && body.mode !== job.kind)) continue
+  for (const profile of candidates as { user_id: string; plan: string; subscription_status?: string; unlimited_access?: boolean; unlimited_access_until?: string | null; plan_activated_at?: string | null }[]) {
+    const unlimited = hasActiveUnlimitedAccess(profile, now)
+    const normalizedBasePlan = ['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(profile.plan) ? 'plus' : profile.plan === 'essential' ? 'essential' : 'free'
+    if (!unlimited && normalizedBasePlan === 'free') continue
+    if (!unlimited && profile.subscription_status && !['active', 'trialing'].includes(profile.subscription_status)) continue
+    // Acesso ilimitado equivale a Plus em TODA a automação emocional, mesmo se o
+    // plano comercial salvo continuar Gratuito/Essencial para fins de cobrança.
+    const plan: 'essential' | 'plus' = unlimited ? 'plus' : normalizedBasePlan as 'essential' | 'plus'
+    const weekFullStart = isoDay(weekStart), weekFullEnd = isoDay(weekEnd)
+    const monthFullStart = isoDay(monthStart), monthFullEnd = isoDay(monthEnd)
+    const weeklyStart = clampStartToActivation(weekFullStart, weekFullEnd, profile.plan_activated_at)
+    const monthlyStart = clampStartToActivation(monthFullStart, monthFullEnd, profile.plan_activated_at)
+    const jobs = [
+      { kind: 'weekly' as const, start: weeklyStart, end: weekFullEnd, allowed: !!weeklyStart },
+      { kind: 'monthly' as const, start: monthlyStart, end: monthFullEnd, allowed: plan === 'plus' && !!monthlyStart },
+    ]
+    for (const job of jobs) {
+      if (!job.allowed || !job.start || (body.mode && body.mode !== 'all' && body.mode !== job.kind)) continue
       const { data: exists } = await admin.from('reports').select('id,status').eq('user_id', profile.user_id).eq('report_type', job.kind).eq('period_start', job.start).eq('period_end', job.end).maybeSingle()
       if (exists) { results.push(`${profile.user_id}:${job.kind}:já existe`); continue }
       const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', job.start).lte('date', job.end)
-      const summary = summaryOf((rows || []) as Record<string, unknown>[], job.start, job.end, plan)
+      const summary = summaryOf((rows || []) as Record<string, unknown>[], job.start, job.end, plan, job.kind === 'monthly' ? 'monthly' : 'weekly')
       let prevSummary: Summary | null = null
       if (job.kind === 'monthly') {
-        const { data: prevRows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', isoDay(prevMonthStart)).lte('date', isoDay(prevMonthEnd))
-        prevSummary = summaryOf((prevRows || []) as Record<string, unknown>[], isoDay(prevMonthStart), isoDay(prevMonthEnd), plan)
+        const prevStart = isoDay(prevMonthStart), prevEnd = isoDay(prevMonthEnd)
+        const activationDay = calendarYmd(profile.plan_activated_at)
+        // Não compara com um mês que terminou antes do usuário ter ativado o plano:
+        // isso evitaria tratar registros gratuitos anteriores como um ciclo premium.
+        if (!activationDay || activationDay <= prevEnd) {
+          const effectivePrevStart = activationDay && activationDay > prevStart ? activationDay : prevStart
+          const { data: prevRows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', effectivePrevStart).lte('date', prevEnd)
+          prevSummary = summaryOf((prevRows || []) as Record<string, unknown>[], effectivePrevStart, prevEnd, plan, 'monthly')
+        }
       }
       let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
       try { const generated = await generate(prompt(job.kind === 'weekly' ? 'weekly_report' : 'monthly_deep_report', summary)); parsed = parse(generated.text); if (!parsed) throw new Error('JSON inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
@@ -275,15 +322,18 @@ Deno.serve(async (req) => {
       results.push(`${profile.user_id}:${job.kind}:ok`)
     }
     if (plan === 'plus' && (!body.mode || body.mode === 'all' || body.mode === 'monthly')) {
-      const { data: existingPlan } = await admin.from('monthly_care_plans').select('id,status').eq('user_id', profile.user_id).eq('period_start', isoDay(monthStart)).eq('period_end', isoDay(monthEnd)).maybeSingle()
+      const careStart = clampStartToActivation(isoDay(monthStart), isoDay(monthEnd), profile.plan_activated_at)
+      if (!careStart) { results.push(`${profile.user_id}:plano:sem ciclo fechado`); continue }
+      const careEnd = isoDay(monthEnd)
+      const { data: existingPlan } = await admin.from('monthly_care_plans').select('id,status').eq('user_id', profile.user_id).eq('period_start', careStart).eq('period_end', careEnd).maybeSingle()
       if (!existingPlan) {
-        const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', isoDay(monthStart)).lte('date', isoDay(monthEnd))
-        const s = summaryOf((rows || []) as Record<string, unknown>[], isoDay(monthStart), isoDay(monthEnd), 'plus')
+        const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', careStart).lte('date', careEnd)
+        const s = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly')
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
         try { const generated = await generate(prompt('self_care_plan', s)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
         const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
-        const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${isoDay(monthStart)} a ${isoDay(monthEnd)}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
-        await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: isoDay(monthStart), period_end: isoDay(monthEnd), available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: s, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
+        const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${careStart} a ${careEnd}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
+        await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: s, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
         await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
         results.push(`${profile.user_id}:plano:ok`)
       }
