@@ -1,0 +1,37 @@
+name: Apply AVNC final fixes
+
+on:
+  push:
+    branches:
+      - avnc-final-auto-fix
+    paths:
+      - .github/scripts/apply_avnc_final_fixes.py
+      - .github/workflows/apply-avnc-final-fixes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply audited final fixes
+        run: python3 .github/scripts/apply_avnc_final_fixes.py
+
+      - name: Commit fixes
+        run: |
+          git config user.name "jonesgregorio"
+          git config user.email "jonesgregory.jg@gmail.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix: finalize AVNC AI and emotional experience"
+          git push origin HEAD:avnc-final-auto-fix
