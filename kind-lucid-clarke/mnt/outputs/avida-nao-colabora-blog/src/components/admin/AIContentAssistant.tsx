@@ -79,9 +79,9 @@ const TYPE_LABELS: Record<AIContentType, string> = {
   notification: 'Gerar notificação',
   seo: 'Gerar metadados SEO',
   social_proof: 'Gerar texto de prova social',
-  meditation: 'Gerar meditação em texto',
+  meditation: 'Gerar pausa emocional guiada',
   emotional_exercise: 'Gerar exercício emocional',
-  self_care_plan: 'Gerar plano de autocuidado',
+  self_care_plan: 'Gerar sequência de cuidado da semana',
   professional_comment: 'Gerar rascunho de comentário',
   monthly_guidance: 'Gerar orientação mensal',
   plan_description: 'Gerar descrição do plano',
@@ -216,13 +216,13 @@ KEYWORDS: [5 palavras-chave]`
 Tipo: "${theme}". Seja honesto, sem números falsos. Máximo 3 frases.`
 
     case 'meditation':
-      return `Escreva uma meditação guiada em texto sobre: "${theme}". Conduza o leitor por respiração, atenção ao corpo e reflexão. Sem prometer cura.`
+      return `Escreva uma pausa emocional guiada em texto sobre: "${theme}". Conduza o leitor por respiração, atenção ao corpo e reflexão. Sem prometer cura.`
 
     case 'emotional_exercise':
       return `Descreva um exercício emocional prático sobre: "${theme}". Passos simples, sem linguagem clínica. Inclua objetivo, passo a passo e reflexão final.`
 
     case 'self_care_plan':
-      return `Crie um plano semanal de autocuidado sobre: "${theme}". Sugira 5 dias com uma prática simples cada. Sem promessas de resultado. Inclua uma pergunta de reflexão.`
+      return `Crie uma sequência de cuidado para a semana sobre: "${theme}". Sugira 5 dias com uma prática simples cada. Sem promessas de resultado. Inclua uma pergunta de reflexão.`
 
     case 'professional_comment':
       return `Crie um rascunho de comentário profissional mensal.

@@ -751,23 +751,16 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}
           </div>
 
-          {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
-              completo (§14), pra não ficarem ignoradas no Mapa. */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" />
-            <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
-          </div>
-          <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
-
-          {/* Gatilhos reais (§13.1) — Plus. Diferente do bloco "Marcadores
-              emocionais" acima, que é sentimento, não gatilho. */}
+          {/* Conexões do mês — recurso premium Plus. Fica logo após os marcadores
+              emocionais, com destaque visual, para não ficar perdido entre os
+              painéis de frequência mais simples abaixo. */}
           {hasPlan(plan, 'plus') && (
-            <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
-          )}
-
-          {hasPlan(plan, 'plus') && (
-            <section className="bg-white border border-forest-100 rounded-2xl p-5 sm:p-6">
-              <h3 className="font-serif text-lg text-forest-900">Conexões do mês</h3>
+            <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
+                <h3 className="font-serif text-lg text-forest-900">Conexões do mês</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-900 text-mint font-medium">Plus</span>
+              </div>
               <p className="text-xs text-ink-soft mt-1 mb-4">Algumas relações que apareceram nos seus registros. Elas não são conclusões, apenas pistas para observar com cuidado.</p>
               {connections.length ? (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -785,6 +778,20 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
                 </div>
               ) : <p className="text-sm text-ink-soft rounded-xl bg-paper-soft p-4">Com mais registros, o mapa poderá mostrar conexões entre contextos, sentimentos, necessidades e ações de cuidado.</p>}
             </section>
+          )}
+
+          {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
+              completo (§14), pra não ficarem ignoradas no Mapa. */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" />
+            <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
+          </div>
+          <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
+
+          {/* Gatilhos reais (§13.1) — Plus. Diferente do bloco "Marcadores
+              emocionais" acima, que é sentimento, não gatilho. */}
+          {hasPlan(plan, 'plus') && (
+            <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
           )}
 
           {/* Mapa por período do dia */}

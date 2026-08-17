@@ -173,6 +173,10 @@ export default function AdminGuidanceRequests() {
   const [response, setResponse] = useState('')
   const [suggestion, setSuggestion] = useState('')
   const [adminNotes, setAdminNotes] = useState('')
+  // Carta estruturada em edição (de generateDraft ou já salva no pedido). Preservada
+  // ao salvar/enviar — só o campo gentle_guidance é atualizado com o texto editado,
+  // pra não perder user_request_summary/practical_next_steps/etc ao usar letterFromText.
+  const [letter, setLetter] = useState<GuidanceLetter | null>(null)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
@@ -256,9 +260,16 @@ export default function AdminGuidanceRequests() {
     setResponse(r.response ?? r.ai_draft_json?.final_response?.gentle_guidance ?? r.ai_draft_json?.draft ?? draft)
     setSuggestion('')
     setAdminNotes('')
+    setLetter(r.ai_draft_json?.final_response ?? null)
   }
   function backToList() {
-    setSelected(null); setResponse(''); setSuggestion(''); setAdminNotes('')
+    setSelected(null); setResponse(''); setSuggestion(''); setAdminNotes(''); setLetter(null)
+  }
+  // Preserva a carta estruturada (title/user_request_summary/practical_next_steps/etc.)
+  // quando existir: só gentle_guidance é substituído pelo texto editado no textarea.
+  // Sem carta gerada ainda, cai no comportamento antigo (texto livre → letterFromText).
+  function finalLetterFor(text: string): GuidanceLetter {
+    return letter ? { ...letter, gentle_guidance: text } : letterFromText(text)
   }
 
   // IA: mesma geração de antes (generateWithFailover + buildGuidancePrompt).
@@ -307,6 +318,7 @@ export default function AdminGuidanceRequests() {
         .eq('id', selected.id)
       if (draftError) throw draftError
       setSelected(current => current ? { ...current, ai_draft_json: draft } : current)
+      setLetter(letter)
       setSuggestion(text)
       setResponse(prev => prev.trim() ? prev : text)
       showToast('Sugestão gerada. Revise e ajuste antes de enviar.')
@@ -320,7 +332,7 @@ export default function AdminGuidanceRequests() {
   async function saveDraft() {
     if (!selected) return
     const savedAt = new Date().toISOString()
-    const draft = response.trim() ? { draft: response.trim(), final_response: letterFromText(response.trim()), generated_at: savedAt, prompt_type: 'professional_guidance' } : {}
+    const draft = response.trim() ? { draft: response.trim(), final_response: finalLetterFor(response.trim()), generated_at: savedAt, prompt_type: 'professional_guidance' } : {}
     const { error } = await supabase.from('monthly_guidance_requests')
       .update({ ai_draft_json: draft, updated_at: savedAt })
       .eq('id', selected.id)
@@ -338,7 +350,7 @@ export default function AdminGuidanceRequests() {
     const respondedAt = new Date().toISOString()
     const { error } = await supabase
       .from('monthly_guidance_requests')
-      .update({ response: response.trim(), ai_draft_json: { draft: response.trim(), final_response: letterFromText(response.trim()), generated_at: respondedAt, prompt_type: 'professional_guidance' }, status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
+      .update({ response: response.trim(), ai_draft_json: { draft: response.trim(), final_response: finalLetterFor(response.trim()), generated_at: respondedAt, prompt_type: 'professional_guidance' }, status: 'answered', responded_at: respondedAt, updated_at: respondedAt })
       .eq('id', selected.id)
     if (error) { showToast('Erro: ' + error.message, true); setSaving(false); return }
     // Notificação in-app é criada pelo gatilho notify_guidance_answered (destino 'monthly-guidance').

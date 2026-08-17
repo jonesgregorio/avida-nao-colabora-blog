@@ -6,13 +6,17 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 // Deno não importa o bundle React; manter tipo+versão explícitos evita prompts
 // paralelos e torna cada geração auditável.
 const PROMPT_VERSION: Record<'weekly_report' | 'monthly_deep_report' | 'self_care_plan', string> = {
-  weekly_report: 'weekly_report_v1', monthly_deep_report: 'monthly_deep_report_v1', self_care_plan: 'self_care_plan_v2',
+  weekly_report: 'weekly_report_v2', monthly_deep_report: 'monthly_deep_report_v2', self_care_plan: 'self_care_plan_v2',
 }
 const cors = { 'Access-Control-Allow-Origin': 'https://www.avidanaocolabora.com', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const list = (v: unknown): string[] => Array.isArray(v) ? v.map(String).map(x => x.trim()).filter(Boolean) : []
 const average = (values: unknown[]) => { const n = values.map(Number).filter(v => Number.isFinite(v) && v > 0); return n.length ? Math.round((n.reduce((a, b) => a + b, 0) / n.length) * 10) / 10 : 0 }
+// §7 do audit: indicadores avançados (stress/self_esteem/irritability/overload)
+// não podem gravar 0 quando o dado simplesmente não foi informado — 0 pareceria
+// um valor real na escala 1-5. Só esses 4 campos usam essa versão nullable.
+const averageOrNull = (values: unknown[]) => { const n = values.map(Number).filter(v => Number.isFinite(v) && v > 0); return n.length ? Math.round((n.reduce((a, b) => a + b, 0) / n.length) * 10) / 10 : null }
 const top = (items: string[]) => Object.entries(items.reduce<Record<string, number>>((a, x) => { a[x] = (a[x] || 0) + 1; return a }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count }))
 const dayOf = (row: Record<string, unknown>) => String(row.date || row.created_at || '').slice(0, 10)
 const metricByDay = (rows: Record<string, unknown>[], field: string) => Object.entries(rows.reduce<Record<string, number[]>>((out, row) => {
@@ -102,18 +106,31 @@ function summaryOf(rows: Record<string, unknown>[], start: string, end: string, 
     emotional_markers: top(rows.flatMap(r => list(r.emotional_tags))), contexts: top(rows.flatMap(r => list(r.context_tags))),
     needs: top(rows.flatMap(r => list(r.need_tags))), care_actions: top(rows.flatMap(r => list(r.care_action_tags))),
     real_triggers: plan === 'plus' ? top(rows.flatMap(r => list(r.trigger_tags))) : [],
-    averages: { mood: average(rows.map(r => r.mood_score)), energy: average(rows.map(r => r.energy)), anxiety: average(rows.map(r => r.anxiety_level)), sleep: average(rows.map(r => r.sleep_quality)), stress: plan === 'plus' ? average(rows.map(r => r.stress_level)) : 0, selfEsteem: plan === 'plus' ? average(rows.map(r => r.self_esteem)) : 0, irritability: plan === 'plus' ? average(rows.map(r => r.irritability)) : 0, overload: plan === 'plus' ? average(rows.map(r => r.overload)) : 0 },
+    averages: { mood: average(rows.map(r => r.mood_score)), energy: average(rows.map(r => r.energy)), anxiety: average(rows.map(r => r.anxiety_level)), sleep: average(rows.map(r => r.sleep_quality)), stress: plan === 'plus' ? averageOrNull(rows.map(r => r.stress_level)) : null, selfEsteem: plan === 'plus' ? averageOrNull(rows.map(r => r.self_esteem)) : null, irritability: plan === 'plus' ? averageOrNull(rows.map(r => r.irritability)) : null, overload: plan === 'plus' ? averageOrNull(rows.map(r => r.overload)) : null },
     data_quality: { has_enough_data: quality !== 'low', total_entries: rows.length, active_days: days.size, confidence_level: quality, message: quality === 'low' ? 'Seus registros deste período ainda são poucos, então esta leitura deve ser vista como um ponto de partida, não como conclusão.' : 'Há registros suficientes para uma leitura cuidadosa do período.' },
   }
 }
 
+// §6 do audit: a IA só produz o texto narrativo (summary/patterns/attention_points/
+// next_steps/relations/improvement_moments/reflection_questions). Os campos
+// estruturados e numéricos do relatório (week_in_numbers, energy_by_day,
+// month_timeline, attention_days, comparison_with_previous_month,
+// advanced_indicators etc.) são sempre calculados em código a partir dos
+// registros reais — pedir pra IA "inventar" esses números violaria a própria
+// regra de segurança de não inventar fatos/padrões. Isso é deliberado, não uma
+// simplificação: números vêm de cálculo determinístico, nunca de geração de texto.
 function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan', summary: Summary) {
+  const task = kind === 'weekly_report'
+    ? 'Esta leitura responde "como foi minha semana?": curta, leve, prática, focada nos últimos 7 dias, com 2 ou 3 próximos passos leves. Não gere relatório mensal, plano de autocuidado ou orientação profissional.'
+    : kind === 'monthly_deep_report'
+      ? 'Esta leitura responde "o que o mês mostrou sobre meus padrões emocionais?": retrospectiva, mais profunda, organizada e não clínica. Não vire plano de autocuidado (sem rotina para o próximo mês) nem orientação profissional.'
+      : 'Este roteiro responde "o que posso fazer agora com base no que meus registros mostraram?": prospectivo, leve e realista para o próximo ciclo. Não repita a retrospectiva do relatório mensal.'
   const shape = kind === 'weekly_report'
     ? '{"summary":"2 a 4 frases","patterns":["até 3"],"attention_points":["até 2"],"next_steps":["até 3"],"data_quality_message":"texto"}'
     : kind === 'monthly_deep_report'
       ? '{"summary":"3 a 5 frases","patterns":["até 4"],"relations":["até 3"],"improvement_moments":["até 3"],"reflection_questions":["3 perguntas"],"data_quality_message":"texto"}'
       : '{"title":"texto","month_label":"texto","based_on_period":"texto","main_focus":"texto","why_this_focus":"texto","three_care_priorities":[{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]}],"weekly_rhythm":{"week_1":"texto","week_2":"texto","week_3":"texto","week_4":"texto"},"suggested_micro_actions":["3 a 5"],"recommended_guided_contents":["até 3 temas"],"gentle_reminders":["2"],"what_not_to_force":"texto","light_emotional_goal":"texto","checkin_suggestion":"texto","reflection_questions":["3"],"final_message":"texto","data_quality_message":"texto"}'
-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. O relatório semanal responde como foi a semana; o mensal é retrospectivo e não contém plano completo nem orientação; self_care_plan é prospectivo, leve e não repete o relatório. Retorne exclusivamente JSON válido e sem markdown.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
