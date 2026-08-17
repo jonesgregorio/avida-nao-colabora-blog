@@ -10,6 +10,7 @@
 - RPC administrativa `get_emotional_automation_health()` para consultar cron real, agenda, trigger de notificação e última execução sem expor segredos.
 - A própria migration falha explicitamente se `run-emotional-automations` ou `reports_notify_after_persist` não estiverem ativos no Supabase.
 - `monthly_summary` do Essencial corrigido no servidor para `target_area = resumo`, inclusive tarefas já existentes.
+- O primeiro CI encontrou apenas um resíduo de lint (`const tipo` sem uso) na automação editorial; ele foi removido antes da publicação.
 
 ## Regra de colaboração
 
