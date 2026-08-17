@@ -223,7 +223,6 @@ Deno.serve(async (req) => {
       const themes = Array.isArray(cfg.themes) && cfg.themes.length ? cfg.themes : [a.category || 'saúde emocional']
       const tema = themes[Math.floor(Math.random() * themes.length)]
       const tone = cfg.tone || 'acolhedor'
-      const tipo = 'article'
 
       // 1) título próprio (não usa o tema cru como título)
       let title = tema
