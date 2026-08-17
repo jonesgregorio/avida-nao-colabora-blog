@@ -10,7 +10,7 @@ const PLAN_ORDER: Record<string, number> = {
 }
 
 // Pisos por recurso — SOMENTE os recursos dos 3 planos oficiais (§17).
-// Nada de meditações/pdf/suporte isolados, diário avançado, marcadores extras,
+// Nada de pausas emocionais/pdf/suporte isolados, diário avançado, marcadores extras,
 // recomendações, acesso antecipado, avaliações semanais, anúncios etc.
 const FEATURE_PLAN_FLOOR: Record<string, Plan> = {
   // Gratuito

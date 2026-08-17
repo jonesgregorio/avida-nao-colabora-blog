@@ -23,7 +23,7 @@ export default function DiaryCard({ onOpenDiary, onNewEntry, user }: DiaryCardPr
             <p className="text-forest-200 text-sm uppercase tracking-widest mb-2">Seu espaço</p>
             <h2 className="font-serif text-3xl md:text-4xl text-white mb-2">Diário de Bem-Estar</h2>
             <p className="text-forest-200 text-sm max-w-md">
-              Registre como você está, acompanhe sua evolução e acesse meditações e avaliações.
+              Registre como você está, acompanhe sua evolução e acesse pausas emocionais e avaliações.
             </p>
             <div className="flex items-center gap-2 mt-4 text-white text-sm font-medium">
               <BookOpen className="w-4 h-4" /> Abrir diário →
