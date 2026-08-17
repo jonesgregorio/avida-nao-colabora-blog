@@ -34,7 +34,7 @@ export interface OfficialPlan {
 //  produto; permanecem no catálogo apenas como referência, sem plano que os conceda.)
 
 // Catálogo oficial ENXUTO — somente os recursos dos 3 planos (§3). Nada de
-// histórico limitado, anúncios, avaliações semanais, meditações/relatórios/suporte
+// histórico limitado, anúncios, avaliações semanais, pausas emocionais/relatórios/suporte
 // como benefícios isolados, diário avançado, marcadores extras, acesso antecipado etc.
 export const OFFICIAL_FEATURES: OfficialFeature[] = [
   // Gratuito

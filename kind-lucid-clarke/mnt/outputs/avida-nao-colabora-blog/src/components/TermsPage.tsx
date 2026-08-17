@@ -123,7 +123,7 @@ export default function TermsPage({ onNavigate }: TermsPageProps) {
         <section className="bg-white border border-line rounded-2xl p-6">
           <h2 className="font-serif text-xl text-forest-900 mb-4">6. Propriedade intelectual</h2>
           <p className="text-sm text-ink-soft leading-relaxed">
-            Todo o conteúdo da plataforma (artigos, exercícios, meditações, design) é propriedade do A Vida Não Colabora. O conteúdo pessoal que você registra no diário é seu e pode ser exportado ou excluído a qualquer momento.
+            Todo o conteúdo da plataforma (artigos, exercícios, pausas emocionais, design) é propriedade do A Vida Não Colabora. O conteúdo pessoal que você registra no diário é seu e pode ser exportado ou excluído a qualquer momento.
           </p>
         </section>
 

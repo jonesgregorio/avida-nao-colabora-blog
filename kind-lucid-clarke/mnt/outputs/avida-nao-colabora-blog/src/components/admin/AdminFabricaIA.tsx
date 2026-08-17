@@ -6,7 +6,7 @@ import { Sparkles, Loader2, Save, Layers, FileText } from 'lucide-react'
 interface Template { id: string; template_key: string; name: string; content_type: string; prompt: string }
 
 const PLANS = [['free', 'Gratuito'], ['essential', 'Essencial'], ['plus', 'Plus']] as const
-const TYPES = [['article', 'Artigo'], ['practice', 'Prática'], ['meditation', 'Meditação']] as const
+const TYPES = [['article', 'Artigo'], ['practice', 'Prática'], ['meditation', 'Pausa emocional']] as const
 const TONES: AITone[] = ['acolhedor', 'simples', 'leve', 'educativo', 'motivacional', 'direto']
 const SIZES: AISize[] = ['curto', 'médio', 'longo']
 const EXTRA_KEYS = ['content_type', 'keyword', 'origin']
@@ -91,7 +91,7 @@ export default function AdminFabricaIA() {
     })
     setSalvando(false)
     if (error) { flash('Erro ao salvar: ' + error.message, true); return }
-    flash('Rascunho criado! Encontre em Conteúdos → ' + (tipo === 'practice' ? 'Práticas' : tipo === 'meditation' ? 'Meditações' : 'Artigos') + '.')
+    flash('Rascunho criado! Encontre em Conteúdos → ' + (tipo === 'practice' ? 'Práticas' : tipo === 'meditation' ? 'Pausas emocionais' : 'Artigos') + '.')
     setResultado(''); setTitulo(''); setTema('')
   }
 

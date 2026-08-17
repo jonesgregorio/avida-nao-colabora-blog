@@ -291,7 +291,7 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
       <div className="p-5 flex flex-col flex-1">
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-forest-600">
-            <BookOpen size={12} /> {item.content_type === 'practice' ? 'Prática' : item.content_type === 'meditation' ? 'Meditação' : 'Conteúdo'}
+            <BookOpen size={12} /> {item.content_type === 'practice' ? 'Prática' : item.content_type === 'meditation' ? 'Pausa emocional' : 'Conteúdo'}
           </span>
           {badge
             ? <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>

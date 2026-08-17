@@ -643,7 +643,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <select value={data.content_type} onChange={e => set('content_type', e.target.value)} className={inputCls}>
                 <option value="article">Artigo</option>
                 <option value="practice">Prática</option>
-                <option value="meditation">Meditação</option>
+                <option value="meditation">Pausa emocional</option>
               </select>
             </Field>
             <Field label="Categoria">

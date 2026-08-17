@@ -418,12 +418,13 @@ function MetricTile({ icon, label, value, sub, trend, goodDown = false }: {
 function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   plan: string; user: User | null; onNavigatePricing: () => void; onNavigateDiary: () => void
 }) {
-  const current = monthKey()
-  const { stats, loading } = useDiaryStats(user?.id, current)
+  const [selectedMonth, setSelectedMonth] = useState(monthKey())
+  const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
+  const { stats, loading } = useDiaryStats(user?.id, selectedMonth)
   const isPlus = hasPlan(plan, 'plus')
   // Só busca entries pra Conexões do mês quando o plano realmente usa o card
   // (Plus renderiza completo; useMonthAnalysis já tem seu próprio loading interno).
-  const { entries: connectionEntries } = useMonthAnalysis(isPlus ? user?.id : undefined, current)
+  const { entries: connectionEntries } = useMonthAnalysis(isPlus ? user?.id : undefined, selectedMonth)
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
 
@@ -435,10 +436,16 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <label className="text-sm text-ink-soft">Mês do resumo:</label>
+        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+          {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+        </select>
+      </div>
       {/* Visão geral: anel + gráfico */}
       <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
         <h3 className="font-serif text-lg sm:text-xl text-forest-900">Visão geral da sua evolução emocional</h3>
-        <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(current)}.</p>
+        <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(selectedMonth)}.</p>
         <div className="grid md:grid-cols-[auto_1fr] gap-6 items-center">
           <div className="flex flex-col items-center">
             <BigRing pct={positivePct} />
@@ -538,8 +545,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         <h3 className="font-serif text-base sm:text-lg text-forest-900 flex items-center gap-2"><Leaf className="w-4 h-4 text-forest-500" /> Resumo da sua jornada</h3>
         <p className="text-sm text-forest-800 mt-2 leading-relaxed">
           {stats.totalEntries > 0
-            ? `Você fez ${stats.totalEntries} ${stats.totalEntries === 1 ? 'registro' : 'registros'} em ${monthLabel(current)}. Olhar para o que sente, um dia de cada vez, já é uma forma de cuidado. Continue assim.`
-            : 'Ainda não há registros neste mês. Um pequeno registro por dia já ajuda a entender seus padrões. Comece quando quiser.'}
+            ? `Você fez ${stats.totalEntries} ${stats.totalEntries === 1 ? 'registro' : 'registros'} em ${monthLabel(selectedMonth)}. Olhar para o que sente, um dia de cada vez, já é uma forma de cuidado. Continue assim.`
+            : `Ainda não há registros em ${monthLabel(selectedMonth)}. Um pequeno registro por dia já ajuda a entender seus padrões. Comece quando quiser.`}
         </p>
         <button onClick={onNavigateDiary} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:gap-2 transition-all">
           <BookOpen className="w-4 h-4" /> Ir para o diário

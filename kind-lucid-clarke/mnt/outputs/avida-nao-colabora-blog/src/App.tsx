@@ -95,7 +95,7 @@ const URL_TO_VIEW: Record<string, View> = {
 }
 
 // Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
-// Práticas/meditações/desafios/trilhas viram Conteúdos Guiados; o resto volta ao Início.
+// Práticas/pausas emocionais/desafios/trilhas viram Conteúdos Guiados; o resto volta ao Início.
 const LEGACY_PATH_REDIRECT: Record<string, View> = {
   '/meditacoes': 'articles',
   '/desafios':   'articles',

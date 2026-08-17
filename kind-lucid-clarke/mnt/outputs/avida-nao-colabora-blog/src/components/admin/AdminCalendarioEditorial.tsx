@@ -28,7 +28,7 @@ const STATUSES = [
 ] as const
 const PIPELINE = ['ideia', 'gerado_ia', 'em_revisao', 'aprovado', 'agendado', 'publicado']
 const PLAN_TXT: Record<string, string> = { free: 'Gratuito', essential: 'Essencial', plus: 'Plus' }
-const TYPE_TXT: Record<string, string> = { article: 'Artigo', practice: 'Prática', meditation: 'Meditação' }
+const TYPE_TXT: Record<string, string> = { article: 'Artigo', practice: 'Prática', meditation: 'Pausa emocional' }
 const label = (k: string) => STATUSES.find(s => s.key === k)?.label ?? k
 const color = (k: string) => STATUSES.find(s => s.key === k)?.color ?? 'bg-stone-100 text-stone-600'
 
@@ -116,7 +116,7 @@ export default function AdminCalendarioEditorial({ onEditArticle }: { onEditArti
       {showNew && (
         <div className="bg-white border border-line rounded-2xl p-4 mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
           <div className="lg:col-span-2"><label className="block text-xs text-stone-500 mb-1">Título</label><input value={nTitle} onChange={e => setNTitle(e.target.value)} className={inputCls} /></div>
-          <div><label className="block text-xs text-stone-500 mb-1">Tipo</label><select value={nType} onChange={e => setNType(e.target.value)} className={inputCls}><option value="article">Artigo</option><option value="practice">Prática</option><option value="meditation">Meditação</option></select></div>
+          <div><label className="block text-xs text-stone-500 mb-1">Tipo</label><select value={nType} onChange={e => setNType(e.target.value)} className={inputCls}><option value="article">Artigo</option><option value="practice">Prática</option><option value="meditation">Pausa emocional</option></select></div>
           <div><label className="block text-xs text-stone-500 mb-1">Plano</label><select value={nPlan} onChange={e => setNPlan(e.target.value)} className={inputCls}><option value="free">Gratuito</option><option value="essential">Essencial</option><option value="plus">Plus</option></select></div>
           <div><label className="block text-xs text-stone-500 mb-1">Data</label><input type="date" value={nDate} onChange={e => setNDate(e.target.value)} className={inputCls} /></div>
           <div className="lg:col-span-4"><label className="block text-xs text-stone-500 mb-1">Notas</label><input value={nNotes} onChange={e => setNNotes(e.target.value)} className={inputCls} /></div>
@@ -125,7 +125,7 @@ export default function AdminCalendarioEditorial({ onEditArticle }: { onEditArti
       )}
 
       <div className="flex gap-2 mb-4 flex-wrap">
-        <select value={fType} onChange={e => setFType(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm"><option value="all">Todos os tipos</option><option value="article">Artigo</option><option value="practice">Prática</option><option value="meditation">Meditação</option></select>
+        <select value={fType} onChange={e => setFType(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm"><option value="all">Todos os tipos</option><option value="article">Artigo</option><option value="practice">Prática</option><option value="meditation">Pausa emocional</option></select>
         <select value={fPlan} onChange={e => setFPlan(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm"><option value="all">Todos os planos</option><option value="free">Gratuito</option><option value="essential">Essencial</option><option value="plus">Plus</option></select>
       </div>
 

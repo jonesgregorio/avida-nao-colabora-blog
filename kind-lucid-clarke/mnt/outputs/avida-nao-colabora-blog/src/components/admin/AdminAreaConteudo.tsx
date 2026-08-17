@@ -14,7 +14,7 @@ import AdminScheduled from './AdminScheduled'
 import AdminAIUsage from './AdminAIUsage'
 
 // Conteúdo & IA — área única que reúne TUDO de conteúdo:
-//   • tipos de conteúdo (artigos, práticas, meditações)
+//   • tipos de conteúdo (artigos, práticas, pausas emocionais)
 //   • geração com IA + templates de prompt
 //   • automações (cron), conteúdo diário, calendário editorial e agendamentos
 //   • apoio (categorias, mídia, SEO, home/depoimentos)
