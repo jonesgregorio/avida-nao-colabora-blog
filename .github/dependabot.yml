@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    versioning-strategy: "increase-if-necessary"
+    commit-message:
+      prefix: "deps"
+    groups:
+      development-tooling:
+        dependency-type: "development"
+      runtime-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"

@@ -16,7 +16,7 @@ export const PLAN_COMPARE_ROWS: PlanCompareRow[] = [
   { label: 'Relatório semanal automático',   values: { free: false,              essential: true,             plus: true } },
   { label: 'Plano de autocuidado mensal',    values: { free: false,              essential: false,            plus: true } },
   { label: 'Relatório mensal aprofundado',   values: { free: false,              essential: false,            plus: true } },
-  { label: 'Comentário profissional mensal', values: { free: false,              essential: false,            plus: true } },
+  { label: 'Comentário profissional sobre o relatório', values: { free: false,              essential: false,            plus: true } },
   { label: 'Orientação mensal por mensagem', values: { free: false,              essential: false,            plus: true } },
 ]
 
@@ -41,7 +41,7 @@ export const PLAN_BENEFITS: Record<'free' | 'essential' | 'plus', string[]> = {
     'Questionários avançados',
     'Plano de autocuidado mensal',
     'Relatório mensal aprofundado',
-    'Comentário profissional mensal',
+    'Comentário profissional sobre o relatório',
     'Orientação mensal por mensagem',
   ],
 }

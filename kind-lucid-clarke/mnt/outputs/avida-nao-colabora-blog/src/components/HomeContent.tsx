@@ -34,7 +34,7 @@ const PLANS = [
   {
     key: 'plus', name: 'Plus', promise: 'Receba orientação para agir', price: 'R$ 39,90', per: true,
     Icon: Heart, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
+    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem'],
     cta: 'Assinar Plus', variant: 'coral' as const,
   },
 ]

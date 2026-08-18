@@ -1,10 +1,19 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import {
+  SUPPORTED_EDITORIAL_AUTOMATION_TYPES,
+  clampAutomationQuantity,
+  isEditorialAutomationType,
+  plannedDateForIdea,
+  type EditorialAutomationConfig,
+  type EditorialAutomationType,
+} from '../_shared/editorialAutomationContracts.ts'
 
 // ─── Executor de automações de conteúdo (chamado por pg_cron via pg_net) ─────
 // Autenticado pelo SERVICE ROLE (só o banco/vault tem). Para cada automação de
-// geração ATIVA e vencida (pela frequência), gera 1 rascunho com IA e registra
-// no calendário editorial. Se o modo for 'auto_publish', só publica após a
-// validação editorial determinística (tamanho, SEO e imagem); caso contrário fica rascunho.
+// geração ATIVA e vencida (pela frequência), executa o comportamento do tipo:
+// artigo, pacote de artigos, pauta quinzenal ou pauta mensal. Artigos são
+// registrados no calendário editorial e, em auto_publish, só publicam após a
+// validação determinística de tamanho, SEO e imagem.
 // Nada aqui usa JWT de usuário — é um job de servidor.
 
 // Chamada só por pg_cron/pg_net (server-to-server) — nunca por navegador.
@@ -23,7 +32,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 }
 const FREQ_DAYS: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 }
-const GEN_TYPES = ['generate_daily', 'generate_weekly_package', 'generate_pauta', 'monthly_pauta']
+
+function nextRunAt(frequency: string, from = new Date()): string {
+  const next = new Date(from)
+  if (frequency === 'monthly') {
+    next.setUTCMonth(next.getUTCMonth() + 1)
+  } else {
+    next.setUTCDate(next.getUTCDate() + (FREQ_DAYS[frequency] ?? 7))
+  }
+  return next.toISOString()
+}
+const GEN_TYPES = SUPPORTED_EDITORIAL_AUTOMATION_TYPES
 
 function json(b: unknown, status = 200) {
   return new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -166,6 +185,227 @@ async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: str
   }
 }
 
+
+type AdminClient = ReturnType<typeof createClient>
+type AutomationRow = {
+  id: string
+  name?: string | null
+  type: string
+  frequency: string
+  category?: string | null
+  plan_required?: string | null
+  mode?: string | null
+  config?: EditorialAutomationConfig | null
+  last_run_at?: string | null
+  next_run_at?: string | null
+}
+
+type GeneratedArticlePackage = {
+  title?: unknown
+  content?: unknown
+  excerpt?: unknown
+  seo_title?: unknown
+  seo_description?: unknown
+  keyword?: unknown
+  secondary_keywords?: unknown
+  tags?: unknown
+  emotional_themes?: unknown
+  image_query?: unknown
+  image_alt?: unknown
+  diary_question?: unknown
+  cta_text?: unknown
+  category?: unknown
+}
+
+function articleItems(raw: Record<string, unknown>): GeneratedArticlePackage[] {
+  const items = Array.isArray(raw.articles) ? raw.articles : []
+  return items.filter(v => v && typeof v === 'object' && !Array.isArray(v)) as GeneratedArticlePackage[]
+}
+
+function ideaItems(raw: Record<string, unknown>): Record<string, unknown>[] {
+  const items = Array.isArray(raw.ideas) ? raw.ideas : []
+  return items.filter(v => v && typeof v === 'object' && !Array.isArray(v)) as Record<string, unknown>[]
+}
+
+function uniqueThemes(config: EditorialAutomationConfig, fallback: string): string[] {
+  const themes = Array.isArray(config.themes) ? config.themes.map(v => String(v || '').trim()).filter(Boolean) : []
+  return [...new Set(themes.length ? themes : [fallback])].slice(0, 12)
+}
+
+function normalizedPlan(value: unknown, fallback = 'free'): string {
+  const raw = String(value || fallback).trim().toLowerCase()
+  if (raw === 'essential') return 'essential'
+  if (['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(raw)) return 'plus'
+  return 'free'
+}
+
+async function persistArticle(
+  admin: AdminClient,
+  automation: AutomationRow,
+  pkg: GeneratedArticlePackage,
+  fallbackTheme: string,
+  prompt: string,
+  allowExpansion: boolean,
+): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
+  const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
+  let content = cleanText(pkg.content, 50000)
+  if (allowExpansion && content && wordCount(content) < MIN_AUTO_PUBLISH_WORDS) {
+    try {
+      content = await genAI(`Amplie o artigo abaixo para pelo menos 1100 palavras, preservando o título, o tom acolhedor, a estrutura e a segurança. Não invente dados clínicos. Responda somente com o corpo final do artigo.\n\n${content}`)
+    } catch { /* a validação determinística mantém como rascunho */ }
+  }
+  if (!content) throw new Error(`Artigo “${title}” retornou sem conteúdo.`)
+
+  const excerpt = cleanText(pkg.excerpt, 200) || excerptFrom(content)
+  const seoTitle = cleanText(pkg.seo_title, 60) || title.slice(0, 60)
+  const seoDescription = cleanText(pkg.seo_description, 155) || excerpt.slice(0, 155)
+  const keyword = cleanText(pkg.keyword, 120) || fallbackTheme.slice(0, 120)
+  const secondaryKeywords = stringList(pkg.secondary_keywords, 6)
+  const tags = stringList(pkg.tags, 6)
+  const emotionalThemes = stringList(pkg.emotional_themes, 4)
+  const imageQuery = cleanText(pkg.image_query, 120) || `${fallbackTheme} wellbeing lifestyle`
+  const cover = await searchPexelsCover(imageQuery)
+  const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
+  const diaryQuestion = cleanText(pkg.diary_question, 260)
+  const ctaText = cleanText(pkg.cta_text, 180)
+
+  const validationErrors: string[] = []
+  if (wordCount(content) < MIN_AUTO_PUBLISH_WORDS) validationErrors.push(`menos de ${MIN_AUTO_PUBLISH_WORDS} palavras`)
+  if (excerpt.length < 80) validationErrors.push('resumo curto/ausente')
+  if (seoTitle.length < 25) validationErrors.push('SEO title ausente/curto')
+  if (seoDescription.length < 90) validationErrors.push('meta description ausente/curta')
+  if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
+  if (!cover?.url) validationErrors.push('imagem de capa ausente')
+  if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
+
+  const wantsAutoPublish = automation.mode === 'auto_publish'
+  const publish = wantsAutoPublish && validationErrors.length === 0
+  const nowIso = new Date().toISOString()
+  const readTime = Math.max(1, Math.ceil(wordCount(content) / 200))
+  const internalNotes = wantsAutoPublish && !publish
+    ? `Auto-publicação bloqueada pela validação: ${validationErrors.join('; ')}.`
+    : null
+  const category = cleanText(pkg.category, 120) || automation.category || 'Geral'
+
+  const { data: art, error: insErr } = await admin.from('articles').insert({
+    title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-5)}-${Math.random().toString(36).slice(2, 5)}`,
+    content, summary: excerpt, excerpt, category,
+    plan_required: normalizedPlan(automation.plan_required), content_type: 'article', origin: 'ia',
+    status: publish ? 'published' : 'draft', published_at: publish ? nowIso : null, updated_at: nowIso,
+    seo_title: seoTitle, seo_description: seoDescription, keyword,
+    secondary_keywords: secondaryKeywords.join(', '), keywords: [keyword, ...secondaryKeywords].filter(Boolean),
+    tags, emotional_themes: emotionalThemes, image_url: cover?.url || null, cover_image: cover?.url || null,
+    cover_image_url: cover?.url || null, image_alt: imageAlt || null, og_image: cover?.url || null,
+    diary_question: diaryQuestion || null, cta_text: ctaText || null, read_time: readTime,
+    is_guided_content: false, is_recommendable: true, internal_notes: internalNotes, ai_prompt: prompt,
+  }).select('id').single()
+  if (insErr) throw insErr
+
+  const { error: calendarErr } = await admin.from('editorial_calendar').insert({
+    article_id: (art as { id?: string } | null)?.id ?? null,
+    title, content_type: 'article', category,
+    plan_required: normalizedPlan(automation.plan_required),
+    status: publish ? 'publicado' : 'gerado_ia', origin: 'ia', scheduled_date: nowIso.slice(0, 10),
+    notes: automation.type === 'generate_weekly_package' ? `Gerado automaticamente pelo pacote “${automation.name || 'semanal'}”.` : null,
+  })
+  if (calendarErr) console.warn('Falha ao registrar artigo no calendário editorial:', calendarErr.message)
+
+  return { title, published: publish, validationErrors }
+}
+
+async function executeArticleAutomation(
+  admin: AdminClient,
+  automation: AutomationRow,
+  type: EditorialAutomationType,
+  config: EditorialAutomationConfig,
+): Promise<string> {
+  const quantity = clampAutomationQuantity(type, config.quantity)
+  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
+  const tone = config.tone || 'acolhedor'
+  const prompt = `Você escreve para o blog A Vida Não Colabora. Gere exatamente ${quantity} ${quantity === 1 ? 'artigo' : 'artigos distintos'} em português brasileiro.
+Temas disponíveis: ${themes.join(' | ')}. Tom: ${tone}.
+Cada corpo precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso de que o conteúdo não substitui acompanhamento profissional.
+Para pacote, varie os temas e ângulos; não gere títulos quase iguais.
+Não diagnostique, não prescreva, não prometa cura e não invente pesquisas.
+Retorne SOMENTE JSON válido:
+{"articles":[{"title":"máx. 10 palavras","content":"corpo completo","excerpt":"120 a 190 caracteres","seo_title":"35 a 60 caracteres","seo_description":"120 a 155 caracteres","keyword":"principal","secondary_keywords":["3 a 6"],"tags":["3 a 6"],"emotional_themes":["até 4"],"image_query":"busca curta para foto real","image_alt":"alt em português","diary_question":"pergunta curta","cta_text":"CTA gentil","category":"categoria"}]}
+${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
+  const raw = await genAI(prompt)
+  const parsed = parseJsonObject(raw)
+  if (!parsed) throw new Error('IA não retornou JSON válido para artigos.')
+  const packages = articleItems(parsed).slice(0, quantity)
+  if (packages.length === 0) throw new Error('IA não retornou nenhum artigo no pacote.')
+
+  // Pexels e persistência podem rodar em paralelo. A geração textual já ocorreu em
+  // uma única chamada, evitando multiplicar a latência do cron semanal.
+  const results = await Promise.all(packages.map((pkg, index) =>
+    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, quantity === 1),
+  ))
+  const published = results.filter(r => r.published).length
+  const drafts = results.length - published
+  if (quantity === 1) {
+    const first = results[0]
+    return first.published
+      ? `Publicado: ${first.title}`
+      : `Rascunho: ${first.title}${first.validationErrors.length ? ` (auto-publicação bloqueada: ${first.validationErrors.join(', ')})` : ''}`
+  }
+  return `Pacote: ${results.length} artigos gerados (${published} publicado(s), ${drafts} rascunho(s)).`
+}
+
+async function executePautaAutomation(
+  admin: AdminClient,
+  automation: AutomationRow,
+  type: EditorialAutomationType,
+  config: EditorialAutomationConfig,
+): Promise<string> {
+  const quantity = clampAutomationQuantity(type, config.quantity)
+  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
+  const { data: existing } = await admin.from('editorial_calendar')
+    .select('title').gte('scheduled_date', new Date().toISOString().slice(0, 10)).limit(120)
+  const existingTitles = (existing ?? []).map((row: { title?: string | null }) => row.title).filter(Boolean).slice(0, 80)
+  const periodInstruction = type === 'monthly_pauta'
+    ? 'Planeje o PRÓXIMO mês inteiro, equilibrando temas ao longo das semanas.'
+    : 'Planeje as próximas duas semanas.'
+  const prompt = `Atue como estrategista editorial do A Vida Não Colabora. ${periodInstruction}
+Crie exatamente ${quantity} ideias de conteúdo úteis, humanas, não clínicas e não repetitivas.
+Temas prioritários: ${themes.join(' | ')}. Categoria-base: ${automation.category || 'saúde emocional'}.
+Plano-alvo da regra: ${normalizedPlan(automation.plan_required)}.
+Evite títulos já planejados: ${existingTitles.join(' | ') || 'nenhum'}.
+Não diagnostique, não prometa cura e não use linguagem terapêutica como se fosse atendimento clínico.
+Retorne SOMENTE JSON válido:
+{"ideas":[{"title":"título curto","category":"categoria","content_type":"article","angle":"ângulo específico","notes":"2 a 3 frases de briefing"}]}
+${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
+  const raw = await genAI(prompt)
+  const parsed = parseJsonObject(raw)
+  if (!parsed) throw new Error('IA não retornou JSON válido para a pauta.')
+  const ideas = ideaItems(parsed).slice(0, quantity)
+  if (!ideas.length) throw new Error('IA não retornou ideias de pauta.')
+
+  const normalizedExisting = new Set(existingTitles.map(v => slugify(String(v))))
+  const rows: Record<string, unknown>[] = []
+  for (const idea of ideas) {
+    const title = cleanText(idea.title, 140)
+    if (!title || normalizedExisting.has(slugify(title)) || rows.some(r => slugify(String(r.title)) === slugify(title))) continue
+    const angle = cleanText(idea.angle, 300)
+    const notes = cleanText(idea.notes, 1000)
+    rows.push({
+      title,
+      content_type: cleanText(idea.content_type, 40) || 'article',
+      category: cleanText(idea.category, 120) || automation.category || 'Geral',
+      plan_required: normalizedPlan(automation.plan_required),
+      status: 'ideia', origin: 'ia',
+      scheduled_date: plannedDateForIdea(type, rows.length, quantity),
+      notes: [angle ? `Ângulo: ${angle}` : '', notes].filter(Boolean).join('\n'),
+    })
+  }
+  if (!rows.length) throw new Error('Todas as ideias retornadas já estavam planejadas ou eram inválidas.')
+  const { error } = await admin.from('editorial_calendar').insert(rows)
+  if (error) throw error
+  return type === 'monthly_pauta'
+    ? `Pauta mensal: ${rows.length} ideias adicionadas ao Calendário Editorial.`
+    : `Pauta: ${rows.length} ideias adicionadas ao Calendário Editorial.`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
@@ -212,125 +452,36 @@ Deno.serve(async (req) => {
   const now = Date.now()
   const results: { id: string; result: string }[] = []
 
-  for (const a of autos ?? []) {
+  for (const rawAutomation of autos ?? []) {
+    const a = rawAutomation as AutomationRow
     const days = FREQ_DAYS[a.frequency] ?? 7
     const last = a.last_run_at ? new Date(a.last_run_at).getTime() : 0
-    // "Gerar agora" (forceOne) ignora o intervalo; o cron respeita a frequência.
-    if (!forceOne && last && now - last < days * 86400000) continue // ainda não venceu
+    const next = a.next_run_at ? new Date(a.next_run_at).getTime() : 0
+    if (!forceOne && next && now < next) continue
+    if (!forceOne && !next && last && now - last < days * 86400000) continue
 
     try {
-      const cfg = (a.config ?? {}) as { themes?: string[]; tone?: string; extra?: string }
-      const themes = Array.isArray(cfg.themes) && cfg.themes.length ? cfg.themes : [a.category || 'saúde emocional']
-      const tema = themes[Math.floor(Math.random() * themes.length)]
-      const tone = cfg.tone || 'acolhedor'
-
-      // 1) título próprio (não usa o tema cru como título)
-      let title = tema
-      try {
-        const rawTitle = await genAI(`Crie UM título curto, humano e acolhedor (máx 8 palavras, sem aspas, sem markdown) para um artigo de blog sobre "${tema}". Responda apenas com o título.`)
-        const clean = rawTitle.split('\n')[0].replace(/^["'#\s\-*]+|["'\s]+$/g, '').trim()
-        if (clean) title = clean.slice(0, 120)
-      } catch { /* mantém o tema como título */ }
-
-      // 2) pacote editorial completo. A IA produz texto + metadados; números e
-      // validação de publicação continuam determinísticos no servidor.
-      const articlePrompt = `Você escreve para o blog A Vida Não Colabora. Produza um artigo original em português brasileiro, acolhedor, humano, não clínico e útil.
-Título: "${title}". Tema: "${tema}". Tom: ${tone}.
-O CORPO precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso final de que o conteúdo não substitui acompanhamento profissional.
-Não diagnostique, não prescreva, não prometa cura, não invente pesquisas nem use markdown pesado.
-Retorne SOMENTE JSON válido neste formato:
-{
-  "content":"corpo completo do artigo",
-  "excerpt":"resumo entre 120 e 190 caracteres",
-  "seo_title":"título SEO entre 35 e 60 caracteres",
-  "seo_description":"descrição SEO entre 120 e 155 caracteres",
-  "keyword":"palavra-chave principal",
-  "secondary_keywords":["3 a 6 palavras-chave"],
-  "tags":["3 a 6 tags"],
-  "emotional_themes":["até 4 temas emocionais"],
-  "image_query":"busca curta em inglês ou português para uma foto real, sem texto",
-  "image_alt":"texto alternativo descritivo em português",
-  "diary_question":"uma pergunta curta para o diário",
-  "cta_text":"CTA curto e gentil"
-}
-${cfg.extra ? `Instrução adicional: ${cfg.extra}` : ''}`
-      const rawPackage = await genAI(articlePrompt)
-      const pkg = parseJsonObject(rawPackage) ?? {}
-      let content = cleanText(pkg.content, 50000)
-
-      // Se o modelo respondeu curto, tenta uma única expansão antes de decidir que
-      // o artigo não está apto a publicação automática.
-      if (content && wordCount(content) < MIN_AUTO_PUBLISH_WORDS) {
-        try {
-          content = await genAI(`Amplie o artigo abaixo para pelo menos 1100 palavras, preservando título, tom acolhedor, estrutura e segurança. Não invente dados clínicos. Responda somente com o corpo final do artigo.\n\n${content}`)
-        } catch { /* validação abaixo impedirá auto-publicação */ }
-      }
-      if (!content) content = rawPackage
-
-      const excerpt = cleanText(pkg.excerpt, 200) || excerptFrom(content)
-      const seoTitle = cleanText(pkg.seo_title, 60) || title.slice(0, 60)
-      const seoDescription = cleanText(pkg.seo_description, 155) || excerpt.slice(0, 155)
-      const keyword = cleanText(pkg.keyword, 120) || tema.slice(0, 120)
-      const secondaryKeywords = stringList(pkg.secondary_keywords, 6)
-      const tags = stringList(pkg.tags, 6)
-      const emotionalThemes = stringList(pkg.emotional_themes, 4)
-      const imageQuery = cleanText(pkg.image_query, 120) || `${tema} wellbeing lifestyle`
-      const cover = await searchPexelsCover(imageQuery)
-      const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
-      const diaryQuestion = cleanText(pkg.diary_question, 260)
-      const ctaText = cleanText(pkg.cta_text, 180)
-
-      const validationErrors: string[] = []
-      if (wordCount(content) < MIN_AUTO_PUBLISH_WORDS) validationErrors.push(`menos de ${MIN_AUTO_PUBLISH_WORDS} palavras`)
-      if (excerpt.length < 80) validationErrors.push('resumo curto/ausente')
-      if (seoTitle.length < 25) validationErrors.push('SEO title ausente/curto')
-      if (seoDescription.length < 90) validationErrors.push('meta description ausente/curta')
-      if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
-      if (!cover?.url) validationErrors.push('imagem de capa ausente')
-      if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
-
-      const wantsAutoPublish = a.mode === 'auto_publish'
-      const publish = wantsAutoPublish && validationErrors.length === 0
+      if (!isEditorialAutomationType(a.type)) throw new Error(`Tipo de automação sem executor: ${a.type}`)
+      const cfg = (a.config ?? {}) as EditorialAutomationConfig
+      const resultLabel = a.type === 'generate_daily' || a.type === 'generate_weekly_package'
+        ? await executeArticleAutomation(admin, a, a.type, cfg)
+        : await executePautaAutomation(admin, a, a.type, cfg)
       const nowIso = new Date().toISOString()
-      const readTime = Math.max(1, Math.ceil(wordCount(content) / 200))
-      const internalNotes = wantsAutoPublish && !publish
-        ? `Auto-publicação bloqueada pela validação: ${validationErrors.join('; ')}.`
-        : null
-
-      const { data: art, error: insErr } = await admin.from('articles').insert({
-        title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-4)}`,
-        content, summary: excerpt, excerpt, category: a.category || 'Geral',
-        plan_required: a.plan_required || 'free', content_type: 'article', origin: 'ia',
-        status: publish ? 'published' : 'draft', published_at: publish ? nowIso : null, updated_at: nowIso,
-        seo_title: seoTitle, seo_description: seoDescription, keyword,
-        secondary_keywords: secondaryKeywords.join(', '), keywords: [keyword, ...secondaryKeywords].filter(Boolean),
-        tags, emotional_themes: emotionalThemes, image_url: cover?.url || null, cover_image: cover?.url || null,
-        cover_image_url: cover?.url || null, image_alt: imageAlt || null, og_image: cover?.url || null,
-        diary_question: diaryQuestion || null, cta_text: ctaText || null, read_time: readTime,
-        is_guided_content: false, is_recommendable: true, internal_notes: internalNotes, ai_prompt: articlePrompt,
-      }).select('id').single()
-      if (insErr) throw insErr
-
-      admin.from('editorial_calendar').insert({
-        article_id: (art as { id?: string } | null)?.id ?? null, title,
-        content_type: 'article', plan_required: a.plan_required || 'free',
-        status: publish ? 'publicado' : 'gerado_ia', origin: 'ia',
-        scheduled_date: nowIso.slice(0, 10),
-      }).then(() => {}, () => {})
-
-      const resultLabel = publish
-        ? `Publicado: ${title}`
-        : wantsAutoPublish && validationErrors.length
-          ? `Rascunho: ${title} (auto-publicação bloqueada: ${validationErrors.join(', ')})`
-          : `Rascunho: ${title}`
       await admin.from('content_automations').update({
-        last_run_at: nowIso, next_run_at: new Date(now + days * 86400000).toISOString(),
-        last_result: resultLabel, last_error: null,
+        last_run_at: nowIso,
+        next_run_at: nextRunAt(a.frequency, new Date(now)),
+        last_result: resultLabel,
+        last_error: null,
       }).eq('id', a.id)
       results.push({ id: a.id, result: `ok: ${resultLabel}` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      await admin.from('content_automations').update({ last_run_at: new Date().toISOString(), last_error: msg }).eq('id', a.id)
+      // Falhas não contam como execução concluída: preserva last_run_at e agenda
+      // uma nova tentativa para o próximo ciclo horário do cron.
+      await admin.from('content_automations').update({
+        last_error: msg,
+        next_run_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      }).eq('id', a.id)
       results.push({ id: a.id, result: 'erro: ' + msg })
     }
   }

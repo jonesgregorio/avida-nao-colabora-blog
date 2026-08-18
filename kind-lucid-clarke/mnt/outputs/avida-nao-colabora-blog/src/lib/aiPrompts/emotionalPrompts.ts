@@ -1,4 +1,5 @@
 import type { EmotionalSummary } from '../emotionalAnalytics'
+import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS, type EmotionalPromptKind } from '../../../supabase/functions/_shared/emotionalPromptContracts'
 
 /**
  * Fonte conceitual dos contratos de IA emocional do A Vida Não Colabora.
@@ -14,31 +15,8 @@ import type { EmotionalSummary } from '../emotionalAnalytics'
  * diário. Isso protege a intimidade dos registros e reduz risco de diagnóstico.
  */
 
-export type EmotionalPromptKind =
-  | 'weekly_report'
-  | 'monthly_deep_report'
-  | 'self_care_plan'
-  | 'professional_guidance_draft'
-
-export const EMOTIONAL_PROMPT_VERSIONS: Record<EmotionalPromptKind, string> = {
-  weekly_report: 'weekly_report_v2',
-  monthly_deep_report: 'monthly_deep_report_v2',
-  self_care_plan: 'self_care_plan_v2',
-  professional_guidance_draft: 'professional_guidance_v1',
-}
-
-export const EMOTIONAL_AI_SAFETY_RULES = [
-  'Escreva em português brasileiro, com tom acolhedor, claro, humano e não julgador.',
-  'Use apenas os dados agregados informados. Não invente fatos, datas, causas, números ou padrões.',
-  'Não diagnostique, não prescreva, não prometa cura e não afirme condição clínica.',
-  'Não se apresente como psicólogo, psiquiatra, médico, terapeuta ou profissional de saúde.',
-  'Prefira expressões cautelosas: "seus registros sugerem", "vale observar", "pode ser interessante" e "talvez faça sentido".',
-  'Evite expressões impositivas como "você precisa", "obrigatório", "controle suas emoções" ou "garantido".',
-  'Não trate marcadores emocionais como gatilhos. `emotional_tags` são marcadores; gatilhos reais só podem vir de `real_triggers`/`trigger_tags`.',
-  'Não transforme correlação em causa. Relações entre energia, ansiedade, sono e contexto são pistas, não conclusões.',
-  'Se a qualidade dos dados for baixa, seja breve, reconheça a limitação e convide a pessoa a registrar mais, sem concluir além do possível.',
-  'Retorne exclusivamente JSON válido, sem markdown, sem comentários e sem campos adicionais.',
-].join('\n- ')
+export { EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS }
+export const EMOTIONAL_AI_SAFETY_RULES = EMOTIONAL_AI_SAFETY_TEXT
 
 function compactSummary(summary: EmotionalSummary) {
   return {
@@ -69,7 +47,7 @@ function base(kind: EmotionalPromptKind, summary: EmotionalSummary): string {
     'A pessoa não deve ser identificada; estes são dados agregados e sem textos íntimos.',
     '',
     'REGRAS OBRIGATÓRIAS:',
-    `- ${EMOTIONAL_AI_SAFETY_RULES}`,
+    `- ${EMOTIONAL_AI_SAFETY_TEXT}`,
     '',
     'DADOS AGREGADOS (JSON):',
     JSON.stringify(compactSummary(summary)),

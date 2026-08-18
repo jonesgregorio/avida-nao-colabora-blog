@@ -17,32 +17,41 @@ export interface Period {
   clampedToActivation: boolean // true se o início foi cortado pela data de ativação
 }
 
-// ── Helpers de data (local, meio-dia p/ evitar borda de DST) ──────────────────
-function atNoon(y: number, m: number, d: number): Date { return new Date(y, m, d, 12, 0, 0, 0) }
+// ── Helpers de calendário — sempre America/Sao_Paulo ─────────────────────────
+export const REPORT_TIME_ZONE = 'America/Sao_Paulo'
+function atNoon(y: number, m: number, d: number): Date { return new Date(Date.UTC(y, m, d, 12, 0, 0, 0)) }
+function saoPauloParts(date: Date): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: REPORT_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value || 0)
+  return { year: get('year'), month: get('month'), day: get('day') }
+}
 export function ymd(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const { year, month, day } = saoPauloParts(date)
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 export function parseYmd(s: string): Date {
   const [y, m, d] = s.split('-').map(Number)
   return atNoon(y, m - 1, d)
 }
 function addDays(s: string, n: number): string {
-  const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d)
+  const d = parseYmd(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d)
 }
 function cmp(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0 }
 
 // ── Períodos "cheios" (sem ativação) ──────────────────────────────────────────
 // Semana que contém `date` (domingo → sábado).
 function weekBounds(date: Date): { start: string; end: string } {
-  const dow = date.getDay() // 0=domingo
-  const sunday = atNoon(date.getFullYear(), date.getMonth(), date.getDate() - dow)
-  const saturday = atNoon(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6)
+  const calendarDate = parseYmd(ymd(date))
+  const dow = calendarDate.getUTCDay() // 0=domingo
+  const sunday = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), calendarDate.getUTCDate() - dow)
+  const saturday = atNoon(sunday.getUTCFullYear(), sunday.getUTCMonth(), sunday.getUTCDate() + 6)
   return { start: ymd(sunday), end: ymd(saturday) }
 }
 // Mês que contém `date`.
 function monthBounds(date: Date): { start: string; end: string } {
-  const start = atNoon(date.getFullYear(), date.getMonth(), 1)
-  const end = atNoon(date.getFullYear(), date.getMonth() + 1, 0) // dia 0 do mês seguinte = último dia
+  const calendarDate = parseYmd(ymd(date))
+  const start = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), 1)
+  const end = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth() + 1, 0) // dia 0 do mês seguinte = último dia
   return { start: ymd(start), end: ymd(end) }
 }
 function boundsFor(type: ReportType, date: Date) {
@@ -106,15 +115,15 @@ export const getPreviousMonthlyPeriod = (act: string | null, now = new Date()) =
 // ── Rótulos para a interface ──────────────────────────────────────────────────
 export function formatPeriodShort(p: { start: string; end: string }): string {
   const s = parseYmd(p.start), e = parseYmd(p.end)
-  const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
   return `${f(s)} a ${f(e)}`
 }
 export function formatDateBR(s: string): string {
   const d = parseYmd(s)
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
 }
 export function monthTitle(s: string): string {
-  return parseYmd(s).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+  return parseYmd(s).toLocaleString('pt-BR', { timeZone: REPORT_TIME_ZONE, month: 'long', year: 'numeric' })
 }
 export function periodKey(type: ReportType, p: { start: string; end: string }): string {
   return `${type}:${p.start}:${p.end}`
