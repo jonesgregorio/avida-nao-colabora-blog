@@ -1,0 +1,27 @@
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
+index 429c80e..c3c23a0 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
+@@ -1,10 +1,19 @@
+ import { createClient } from 'npm:@supabase/supabase-js@2'
++import {
++  SUPPORTED_EDITORIAL_AUTOMATION_TYPES,
++  clampAutomationQuantity,
++  isEditorialAutomationType,
++  plannedDateForIdea,
++  type EditorialAutomationConfig,
++  type EditorialAutomationType,
++} from '../_shared/editorialAutomationContracts.ts'
+ 
+ // ─── Executor de automações de conteúdo (chamado por pg_cron via pg_net) ─────
+ // Autenticado pelo SERVICE ROLE (só o banco/vault tem). Para cada automação de
+-// geração ATIVA e vencida (pela frequência), gera 1 rascunho com IA e registra
+-// no calendário editorial. Se o modo for 'auto_publish', só publica após a
+-// validação editorial determinística (tamanho, SEO e imagem); caso contrário fica rascunho.
++// geração ATIVA e vencida (pela frequência), executa o comportamento do tipo:
++// artigo, pacote de artigos, pauta quinzenal ou pauta mensal. Artigos são
++// registrados no calendário editorial e, em auto_publish, só publicam após a
++// validação determinística de tamanho, SEO e imagem.
+ // Nada aqui usa JWT de usuário — é um job de servidor.
+ 
+ // Chamada só por pg_cron/pg_net (server-to-server) — nunca por navegador.
