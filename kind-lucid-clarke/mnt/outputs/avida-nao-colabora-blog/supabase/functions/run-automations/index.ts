@@ -137,7 +137,7 @@ async function genAI(prompt: string): Promise<string> {
 }
 
 // Snapshot agregado do usuário (mesmos dados da tela de Recomendações IA).
-async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: string, plan: string, taskKey: string) {
+async function buildSnapshot(admin: AdminClient, userId: string, plan: string, taskKey: string) {
   const [dc, dd, qc, sc, ar, profileRes] = await Promise.all([
     admin.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     admin.from('diary_entries').select('mood,mood_score,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
@@ -186,7 +186,9 @@ async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: str
 }
 
 
-type AdminClient = ReturnType<typeof createClient>
+// Banco sem Database types gerados: mantém o client administrativo flexível nesta Edge Function.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AdminClient = any
 type AutomationRow = {
   id: string
   name?: string | null

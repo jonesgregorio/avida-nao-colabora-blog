@@ -274,7 +274,11 @@ function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string
   }
 }
 
-async function log(admin: ReturnType<typeof createClient>, row: Record<string, unknown>) {
+// Banco sem Database types gerados: mantém o client administrativo flexível nesta Edge Function.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AdminClient = any
+
+async function log(admin: AdminClient, row: Record<string, unknown>) {
   // Auditoria não pode impedir que um relatório já salvo chegue à pessoa.
   try { await admin.from('ai_generation_logs').insert(row) } catch { /* best effort */ }
 }

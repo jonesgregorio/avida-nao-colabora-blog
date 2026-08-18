@@ -27,7 +27,7 @@ Esta rodada continua o trabalho conjunto Claude + Codex + ChatGPT sobre a base a
 
 ## P2 — robustez técnica
 
-- CI agora prepara Deno e executa `deno check` em todas as Edge Functions.
+- CI prepara Deno e executa `deno check` nas Edge Functions ativamente alteradas nesta rodada; funções legadas são tratadas em manutenção própria para não misturar risco de Stripe/pagamentos.
 - Helpers `has_active_unlimited_access` e `effective_plan_for_user` foram endurecidos para impedir que usuário autenticado consulte UUID de terceiro, preservando service_role/admin.
 - Períodos de relatórios usam explicitamente `America/Sao_Paulo`, inclusive perto da virada UTC.
 - IA emocional ganhou failover: Gemini → Groq → OpenAI → fallback determinístico.

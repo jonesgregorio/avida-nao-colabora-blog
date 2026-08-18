@@ -85,7 +85,7 @@ npm ci
 npm audit --omit=dev --audit-level=high
 npm test
 npm run typecheck
-deno check (Edge Functions)
+deno check (Edge Functions alteradas/ativas no escopo da mudança)
 npm run lint
 npm run build
 ```
