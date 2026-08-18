@@ -1,42 +1,71 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/**'
       - '.github/workflows/ci.yml'
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  fix-final-deno-type:
-    if: github.head_ref == 'publish-zip68-p0-p3-v2'
+  validate:
+    name: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: America/Sao_Paulo
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: publish-zip68-p0-p3-v2
-          fetch-depth: 0
-      - name: Fix implicit any in editorial title normalization
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Automated tests
+        run: npm test
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Critical Edge Functions typecheck (Deno)
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts')
-          s = p.read_text()
-          s = s.replace(
-              'existingTitles.map(v => slugify(String(v)))',
-              'existingTitles.map((v: unknown) => slugify(String(v)))',
-          )
-          p.write_text(s)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
-          if git diff --cached --quiet; then
-            echo 'No change required.'
-            exit 0
-          fi
-          git commit -m "fix: type editorial title normalization"
-          git push origin publish-zip68-p0-p3-v2
+          deno check --node-modules-dir=auto \
+            supabase/functions/run-automations/index.ts \
+            supabase/functions/run-emotional-automations/index.ts
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
