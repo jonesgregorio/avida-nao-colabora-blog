@@ -89,8 +89,14 @@ async function searchPexelsCover(query: string): Promise<{ url: string; alt: str
   } catch { return null }
 }
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
+const GEMINI_MODELS = ['gemini-3.6-flash']
 const AI_TIMEOUT_MS = 45_000
+const GROQ_TPM_SAFE_BUDGET = 7600
+
+function groqOutputBudget(prompt: string): number {
+  const estimatedInputTokens = Math.ceil(prompt.length / 3)
+  return Math.min(6000, Math.max(512, GROQ_TPM_SAFE_BUDGET - estimatedInputTokens))
+}
 
 async function withTimeout(url: string, init: RequestInit): Promise<Response> {
   const c = new AbortController()
@@ -118,7 +124,7 @@ async function genAI(prompt: string): Promise<string> {
     try {
       const r = await withTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${qk}` },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: [{ role: 'user', content: prompt }], max_completion_tokens: groqOutputBudget(prompt) }),
       })
       if (r.ok) { const d = await r.json(); const t = d?.choices?.[0]?.message?.content; if (t?.trim()) return String(t).trim() }
     } catch { /* próximo provedor */ }

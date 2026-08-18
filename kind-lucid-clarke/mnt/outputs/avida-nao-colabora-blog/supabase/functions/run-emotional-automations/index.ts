@@ -172,7 +172,10 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
-  const geminiModels = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-2.0-flash').split(',').map(v => v.trim()).filter(Boolean)
+  const legacyGeminiModels = new Set(['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash'])
+  const configuredGeminiModels = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)
+  const geminiModels = configuredGeminiModels.filter(model => !legacyGeminiModels.has(model))
+  if (!geminiModels.length) geminiModels.push('gemini-3.6-flash')
   if (geminiKey) {
     for (const model of geminiModels) {
       try {
@@ -193,11 +196,11 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),
+        body: JSON.stringify({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 1800 }),
       })
       if (res.ok) {
         const data = await res.json(); const text = data?.choices?.[0]?.message?.content
-        if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:llama-3.3-70b-versatile' }
+        if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:openai/gpt-oss-120b' }
       }
     } catch { /* tenta OpenAI */ }
   }
