@@ -131,6 +131,77 @@ export async function checkSavedItems(): Promise<HealthCheckResult> {
   return checkSupabaseTable('db_saved', 'Itens salvos', 'content', 'saved_items')
 }
 
+export async function checkEmotionalAutomationHealth(): Promise<HealthCheckResult> {
+  const t0 = Date.now()
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_emotional_automation_health')), TIMEOUT_LIGHT)
+    const ms = Date.now() - t0
+    if (error) return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
+    const h = (data ?? {}) as Record<string, unknown>
+    const cronActive = h.cron_active === true
+    const notifyActive = h.notification_trigger_active === true
+    const lastStatus = String(h.last_run_status ?? '')
+    const lastStartedAt = typeof h.last_run_started_at === 'string' ? Date.parse(h.last_run_started_at) : NaN
+    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 30 * 60 * 60 * 1000
+    const failedLast = !!lastStatus && !['succeeded', 'success'].includes(lastStatus.toLowerCase())
+    const status: CheckStatus = !cronActive || !notifyActive ? 'error' : failedLast || stale ? 'warning' : 'ok'
+    return {
+      checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status,
+      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
+      errorMessage: !cronActive ? 'Cron emocional inativo.' : !notifyActive ? 'Trigger de notificação pós-relatório inativo.' : failedLast ? `Última execução do cron: ${lastStatus}.` : stale ? 'Cron emocional sem execução recente (mais de 30h ou ainda sem histórico).' : undefined,
+      details: { ...h, stale },
+    }
+  } catch (e) {
+    return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
+  }
+}
+
+export async function checkEditorialAutomationHealth(): Promise<HealthCheckResult> {
+  const t0 = Date.now()
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_editorial_automation_health')), TIMEOUT_LIGHT)
+    const ms = Date.now() - t0
+    if (error) return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
+    const h = (data ?? {}) as Record<string, unknown>
+    const cronActive = h.cron_active === true
+    const errors = Number(h.rules_with_error ?? 0)
+    const lastCronStatus = String(h.last_cron_status ?? '')
+    const lastStartedAt = typeof h.last_cron_started_at === 'string' ? Date.parse(h.last_cron_started_at) : NaN
+    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 2 * 60 * 60 * 1000
+    const cronFailed = !!lastCronStatus && !['succeeded', 'success'].includes(lastCronStatus.toLowerCase())
+    const status: CheckStatus = !cronActive ? 'error' : errors > 0 || cronFailed || stale ? 'warning' : 'ok'
+    return {
+      checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status,
+      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
+      errorMessage: !cronActive ? 'Cron editorial inativo.' : errors > 0 ? `${errors} regra(s) ativa(s) com último erro registrado.` : cronFailed ? `Última execução do cron: ${lastCronStatus}.` : stale ? 'Cron editorial sem execução recente (mais de 2h ou ainda sem histórico).' : undefined,
+      details: { ...h, stale },
+    }
+  } catch (e) {
+    return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
+  }
+}
+
+export async function checkOperationalMetrics(): Promise<HealthCheckResult> {
+  const t0 = Date.now()
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_operational_metrics')), TIMEOUT_LIGHT)
+    const ms = Date.now() - t0
+    if (error) return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'medium' }
+    const h = (data ?? {}) as Record<string, unknown>
+    const aiErrors = Number(h.ai_generation_errors_30d ?? 0)
+    const ruleErrors = Number(h.editorial_rules_with_error ?? 0)
+    const status: CheckStatus = aiErrors > 0 || ruleErrors > 0 ? 'warning' : 'ok'
+    return {
+      checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status,
+      responseTimeMs: ms, severity: status === 'warning' ? 'medium' : 'info',
+      errorMessage: ruleErrors > 0 ? `${ruleErrors} automação(ões) editorial(is) ativa(s) com erro.` : aiErrors > 0 ? `${aiErrors} erro(s) de geração de IA nos últimos 30 dias.` : undefined,
+      details: h,
+    }
+  } catch (e) {
+    return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'medium' }
+  }
+}
+
 export async function checkAdminSession(): Promise<HealthCheckResult> {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -317,6 +388,9 @@ export async function runQuickHealthCheck(): Promise<HealthCheckResult[]> {
     checkPersonalizationDeliveries(),
     checkDiary(),
     checkArticles(),
+    checkEmotionalAutomationHealth(),
+    checkEditorialAutomationHealth(),
+    checkOperationalMetrics(),
     checkPayments(),
   ])
   return results
@@ -369,6 +443,9 @@ export async function runSingleCheck(checkKey: string): Promise<HealthCheckResul
     payments: checkPayments,
     rls_personalization: checkRLSPersonalization,
     drafts_dryrun: checkDraftsDryRun,
+    automation_emotional: checkEmotionalAutomationHealth,
+    automation_editorial: checkEditorialAutomationHealth,
+    operational_metrics: checkOperationalMetrics,
   }
   const fn = map[checkKey]
   if (!fn) return null

@@ -50,7 +50,7 @@ const HERO_MOOD_TO_CHIP: Record<string, string> = {
 
 const PLUS_ITEMS = [
   { Icon: CalendarCheck, bg: 'bg-mint', color: 'text-forest-600', title: 'Plano de autocuidado', desc: 'Crie um plano personalizado de ações práticas para sua rotina, sono, limites e ansiedade.' },
-  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário profissional', desc: 'Receba um olhar profissional sobre seus registros uma vez por mês.' },
+  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário sobre o relatório', desc: 'No Plus, receba uma devolutiva breve ligada ao seu relatório mensal.' },
   { Icon: BarChart3, bg: 'bg-lilac', color: 'text-[#7c5cbf]', title: 'Relatório mensal', desc: 'Veja padrões, percepções e insights sobre o seu bem-estar emocional.' },
   { Icon: Mail, bg: 'bg-coral', color: 'text-[#c05f3c]', title: 'Orientação por mensagem', desc: 'Tire dúvidas e receba orientação por mensagem durante o mês.' },
 ]

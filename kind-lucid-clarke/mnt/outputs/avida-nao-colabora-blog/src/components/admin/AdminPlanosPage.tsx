@@ -14,7 +14,7 @@ const PLANS = [
   },
   {
     name: 'Plus', tagline: 'Receba orientação para agir', price: 'R$ 39,90/mês', highlight: false,
-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
+    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem'],
   },
 ]
 

@@ -3,7 +3,7 @@ import {
   Activity, CheckCircle, RefreshCw,
   Loader2, Play, Zap, Database, Sparkles, CreditCard, Bell,
   Shield, ChevronDown, ChevronUp, FileText,
-  AlertCircle, Wrench,
+  AlertCircle, Wrench, Clock,
 } from 'lucide-react'
 import {
   HealthCheckResult, SystemIncident, HealthReport, CheckStatus,
@@ -90,6 +90,7 @@ const CATEGORY_ICON: Record<string, typeof Database> = {
   clinical:        Activity,
   support:         AlertCircle,
   security:        Shield,
+  automations:     Clock,
 }
 
 // Orientações para checks que NÃO se corrigem por schema (externos/config).
@@ -104,6 +105,9 @@ const REMEDIATION_HINTS: Record<string, string> = {
   admin_session: 'Sessão expirada. Saia e entre novamente para renovar o token.',
   auth: 'Sessão expirada — refaça login.',
   rls_personalization: 'RLS de personalização bloqueando. Rode o auto-reparo das tabelas de personalização ou revise as policies.',
+  automation_emotional: 'Verifique o cron run-emotional-automations, a Edge Function e o trigger reports_notify_after_persist.',
+  automation_editorial: 'Verifique o cron run-content-automations, a Edge Function run-automations e os últimos erros das regras.',
+  operational_metrics: 'Revise os detalhes para localizar falhas recentes de IA, automações editoriais e filas pendentes.',
 }
 
 function StatusBadge({ status }: { status: CheckStatus }) {
@@ -520,6 +524,16 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
   const payResult = results.find(r => r.checkKey === 'payments')
   const dbResult = results.find(r => r.checkKey === 'supabase_conn')
   const notifResult = results.find(r => r.checkKey === 'db_notifications')
+  const operationalResult = results.find(r => r.checkKey === 'operational_metrics')
+  const operational = (operationalResult?.details ?? {}) as Record<string, unknown>
+  const operationalCards = [
+    { label: 'Relatórios (30d)', value: Number(operational.reports_generated_30d ?? 0) },
+    { label: 'Fallbacks (30d)', value: Number(operational.reports_fallback_30d ?? 0) },
+    { label: 'Planos p/ revisar', value: Number(operational.care_plans_pending_review ?? 0) },
+    { label: 'Orientações pendentes', value: Number(operational.guidance_pending_review ?? 0) },
+    { label: 'Artigos bloqueados', value: Number(operational.articles_auto_publish_blocked_30d ?? 0) },
+    { label: 'Erros IA (30d)', value: Number(operational.ai_generation_errors_30d ?? 0) },
+  ]
 
   const summaryCards = [
     { label: 'Status geral', value: STATUS_LABEL[overall], color: STATUS_DOT[overall], bg: overall === 'ok' ? 'bg-mint' : overall === 'error' ? 'bg-red-50' : 'bg-amber-50' },
@@ -557,6 +571,26 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
           </div>
         ))}
       </div>
+
+      {operationalResult && (
+        <div className="bg-white rounded-xl border border-line p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <h2 className="font-semibold text-forest-900 text-sm">Indicadores operacionais</h2>
+              <p className="text-xs text-stone-400">Filas e qualidade operacional sem expor conteúdo sensível dos usuários.</p>
+            </div>
+            <StatusBadge status={operationalResult.status} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {operationalCards.map(card => (
+              <div key={card.label} className="rounded-xl bg-stone-50 border border-line px-3 py-2.5">
+                <p className="text-lg font-bold text-forest-900">{card.value}</p>
+                <p className="text-[10px] text-stone-500 leading-tight">{card.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabela de funcionalidades */}
       <div className="bg-white rounded-xl border border-line overflow-hidden">
@@ -648,9 +682,9 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
   onQuickCheck: () => void
   lastAt: string | null
 }) {
-  const quickKeys = ['site_public', 'admin_session', 'supabase_conn', 'db_notifications', 'db_pers_tasks', 'db_pers_deliveries', 'db_diary', 'db_articles', 'payments']
+  const quickKeys = ['site_public', 'admin_session', 'supabase_conn', 'db_notifications', 'db_pers_tasks', 'db_pers_deliveries', 'db_diary', 'db_articles', 'automation_emotional', 'automation_editorial', 'operational_metrics', 'payments']
   const quickResults = results.filter(r => quickKeys.includes(r.checkKey))
-  const interKeys = ['db_questionnaires', 'db_trails', 'db_guidance', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
+  const interKeys = ['db_questionnaires', 'db_guidance', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
   const interResults = results.filter(r => interKeys.includes(r.checkKey))
 
   return (

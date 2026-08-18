@@ -49,8 +49,64 @@ test('automações editoriais sem executor não podem voltar como ativas', () =>
   for (const legacy of ['update_old', 'notify_after_publish', 'email_after_publish', 'social_caption', 'review_low_perf']) {
     assert.ok(!admin.includes(`value: '${legacy}'`) || admin.includes('LEGACY'))
   }
-  assert.match(edge, /generate_daily/)
-  assert.match(edge, /generate_weekly_package/)
-  assert.match(edge, /generate_pauta/)
-  assert.match(edge, /monthly_pauta/)
+  assert.match(edge, /executeArticleAutomation/)
+  assert.match(edge, /executePautaAutomation/)
+  assert.match(edge, /a\.type === 'generate_daily' \|\| a\.type === 'generate_weekly_package'/)
+  assert.match(edge, /type === 'monthly_pauta'/)
+  assert.match(edge, /editorial_calendar/)
+})
+
+test('healthchecks de automações emocional e editorial estão ligados ao Admin', () => {
+  const health = read('src/lib/systemHealth.ts')
+  const migration = read('supabase/migrations/20260817234000_editorial_automation_health_and_timeout.sql')
+  assert.match(health, /get_emotional_automation_health/)
+  assert.match(health, /get_editorial_automation_health/)
+  assert.match(health, /automation_emotional/)
+  assert.match(health, /automation_editorial/)
+  assert.match(migration, /run-content-automations/)
+  assert.match(migration, /timeout_milliseconds := 120000/)
+})
+
+test('helpers de plano efetivo não expõem entitlement de outros usuários autenticados', () => {
+  const sql = read('supabase/migrations/20260817235000_harden_effective_plan_helpers.sql')
+  assert.match(sql, /auth\.uid\(\) IS DISTINCT FROM p_user_id/)
+  assert.match(sql, /NOT public\.is_admin\(\)/)
+  assert.match(sql, /not allowed to inspect another user plan/)
+})
+
+test('IA emocional possui failover de provedor antes do fallback determinístico', () => {
+  const edge = read('supabase/functions/run-emotional-automations/index.ts')
+  assert.match(edge, /GEMINI_API_KEY/)
+  assert.match(edge, /GROQ_API_KEY/)
+  assert.match(edge, /OPENAI_API_KEY/)
+  assert.match(edge, /fallback determinístico aplicado/)
+})
+
+test('versões e regras de segurança dos prompts emocionais são compartilhadas', () => {
+  const frontend = read('src/lib/aiPrompts/emotionalPrompts.ts')
+  const edge = read('supabase/functions/run-emotional-automations/index.ts')
+  assert.match(frontend, /emotionalPromptContracts/)
+  assert.match(edge, /emotionalPromptContracts/)
+  assert.match(edge, /EMOTIONAL_PROMPT_VERSIONS/)
+  assert.match(edge, /EMOTIONAL_AI_SAFETY_TEXT/)
+})
+
+test('falha editorial é reagendada sem fingir execução concluída', () => {
+  const source = read('supabase/functions/run-automations/index.ts')
+  const start = source.indexOf('Falhas não contam como execução concluída')
+  assert.ok(start >= 0)
+  const retryBlock = source.slice(start, source.indexOf("results.push({ id: a.id, result: 'erro:", start))
+  assert.match(retryBlock, /next_run_at/)
+  assert.doesNotMatch(retryBlock, /last_run_at\s*:/)
+})
+
+test('indicadores operacionais são admin-only e integrados à Saúde do Sistema', () => {
+  const migration = read('supabase/migrations/20260817235500_operational_metrics.sql')
+  const health = read('src/lib/systemHealth.ts')
+  assert.match(migration, /get_operational_metrics/)
+  assert.match(migration, /IF NOT public\.is_admin\(\)/)
+  assert.match(migration, /reports_generated_30d/)
+  assert.match(migration, /articles_auto_publish_blocked_30d/)
+  assert.match(health, /get_operational_metrics/)
+  assert.match(health, /operational_metrics/)
 })

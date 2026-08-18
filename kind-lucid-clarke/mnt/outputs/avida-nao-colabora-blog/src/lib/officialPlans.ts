@@ -71,7 +71,7 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
   // Plus
   { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
   { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },
-  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional mensal',  category: 'Orientação profissional', order: 12 },
+  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional sobre o relatório',  category: 'Orientação profissional', order: 12 },
   { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 13 },
 ]
 
@@ -212,7 +212,7 @@ export const PUBLIC_PLAN_FEATURES: Record<PlanKey, string[]> = {
   ],
   plus: [
     'Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado',
-    'Comentário profissional mensal', 'Orientação mensal por mensagem',
+    'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem',
   ],
 }
 

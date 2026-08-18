@@ -44,3 +44,11 @@ test('disponibilidade começa no dia seguinte ao fim do período', () => {
   assert.equal(shouldGenerateReport('2026-08-22', new Date(2026, 7, 22, 12)), false)
   assert.equal(shouldGenerateReport('2026-08-22', new Date(2026, 7, 23, 12)), true)
 })
+
+test('períodos usam explicitamente America/Sao_Paulo perto da virada UTC', () => {
+  // 02:30 UTC ainda é 23:30 do dia anterior em São Paulo.
+  const now = new Date('2026-08-18T02:30:00Z')
+  const current = getCurrentWeeklyPeriod(null, now)
+  assert.equal(current.start, '2026-08-16')
+  assert.equal(current.end, '2026-08-22')
+})
