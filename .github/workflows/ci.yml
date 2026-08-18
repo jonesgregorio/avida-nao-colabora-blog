@@ -40,11 +40,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Automated tests
         run: npm test
 
       - name: TypeScript
         run: npm run typecheck
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Edge Functions typecheck (Deno)
+        run: |
+          find supabase/functions -mindepth 2 -maxdepth 2 -name index.ts -print0 | xargs -0 deno check --node-modules-dir=auto
 
       - name: ESLint
         run: npm run lint
