@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - publish-zip68-p0-p3
-    paths:
-      - '.github/workflows/apply-zip68.yml'
 
 permissions:
   contents: write
@@ -44,5 +42,3 @@ jobs:
           git config user.email 'jonesgregory.jg@gmail.com'
           git commit -m 'feat: complete P0-P3 improvements'
           git push origin HEAD:publish-zip68-p0-p3
-
-# Trigger de publicação validada do ZIP 68.
