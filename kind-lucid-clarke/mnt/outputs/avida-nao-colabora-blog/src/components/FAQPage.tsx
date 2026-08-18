@@ -89,7 +89,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Saúde e segurança',
     question: 'O Plano Plus substitui o acompanhamento com psicólogo?',
-    answer: 'Não. A orientação mensal por mensagem e o comentário profissional do Plano Plus são recursos complementares de suporte — não substituem psicoterapia ou acompanhamento clínico continuado.',
+    answer: 'Não. São recursos diferentes e complementares do Plus: o comentário profissional fica ligado ao relatório mensal e oferece uma devolutiva breve sobre aquela leitura; a orientação mensal por mensagem parte de uma pergunta específica enviada por você. Nenhum dos dois substitui psicoterapia ou acompanhamento clínico continuado.',
   },
 ]
 

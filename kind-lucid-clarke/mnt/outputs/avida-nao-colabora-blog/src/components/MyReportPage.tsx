@@ -946,7 +946,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           </div>
         </section>
 
-        {/* Comentário profissional mensal (Plus) */}
+        {/* Comentário profissional sobre o relatório (Plus) */}
         <div className="mb-8">
           <ProfessionalComment userId={user!.id} selectedMonth={lastMonthly?.period_start?.slice(0, 7) ?? ymd(now).slice(0, 7)} onNavigateDiary={onNavigateDiary} />
         </div>
@@ -1384,7 +1384,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
   )
 }
 
-// Comentário profissional mensal (Plus) — recurso existente no sistema.
+// Comentário profissional sobre o relatório (Plus) — recurso existente no sistema.
 function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userId: string; selectedMonth: string; onNavigateDiary: () => void }) {
   const [comment, setComment] = useState<{ comment_text: string; professional_name: string | null; report_month: string } | null>(null)
   useEffect(() => {
@@ -1402,7 +1402,7 @@ function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userI
           <button onClick={onNavigateDiary} className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium mt-1"><BookOpen className="w-3.5 h-3.5" /> Responder no diário</button>
         </div>
       ) : (
-        <p className="text-sm text-stone-500">Seu comentário profissional mensal ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
+        <p className="text-sm text-stone-500">Seu comentário profissional sobre o relatório ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
       )}
     </Section>
   )
