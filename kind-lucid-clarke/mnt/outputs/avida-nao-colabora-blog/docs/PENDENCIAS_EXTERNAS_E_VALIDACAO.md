@@ -15,7 +15,7 @@ A proteção real da `main` é uma configuração do GitHub e deve exigir o chec
 
 ## 2. Auditoria npm
 
-O CI executa `npm audit --omit=dev --audit-level=high` e o Dependabot foi configurado para abrir PRs controlados. No ambiente local desta rodada, o registry npm ficou indisponível (`EAI_AGAIN`), portanto não há alegação de que todos os advisories atuais foram zerados localmente.
+O CI executa `npm audit --omit=dev --audit-level=high` e o Dependabot foi configurado para abrir PRs controlados. Durante a publicação do ZIP 68, o lockfile foi atualizado sem `--force` e a auditoria de dependências de produção retornou **0 vulnerabilidades**.
 
 Nunca usar `npm audit fix --force` sem revisar as mudanças e passar o CI completo.
 
