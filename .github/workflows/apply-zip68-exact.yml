@@ -1,12 +1,12 @@
 name: Apply ZIP68 exact
 on:
-  push:
-    branches: [publish-zip68-p0-p3-v2]
-    paths: ['.github/workflows/apply-zip68-exact.yml']
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
   apply:
+    if: github.head_ref == 'publish-zip68-p0-p3-v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +31,3 @@ jobs:
           git add -A
           git commit -m "feat: apply ZIP68 P0-P3 hardening"
           git push origin publish-zip68-p0-p3-v2
-# retrigger 2026-08-17T22:16-03:00
