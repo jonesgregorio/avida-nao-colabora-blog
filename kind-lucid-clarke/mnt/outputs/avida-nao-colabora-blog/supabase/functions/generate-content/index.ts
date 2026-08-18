@@ -11,13 +11,17 @@ const corsHeaders = {
 
 const TIMEOUT_MS = 60_000
 const MAX_OUTPUT_TOKENS = 8000
+// O tier atual do Groq neste projeto expõe 8K TPM. Reservamos margem para
+// overhead/tokenização e reduzimos dinamicamente a saída conforme o prompt.
+const GROQ_TPM_SAFE_BUDGET = 7600
+const GROQ_MAX_OUTPUT_TOKENS = 7000
 
 type Provider = 'gemini' | 'groq' | 'openai'
 type ResponseFormat = 'text' | 'json'
 type ProviderFailureKind = 'auth' | 'permission' | 'model' | 'quota' | 'transient' | 'invalid_response' | 'configuration' | 'unknown'
 
 const PROVIDERS: Provider[] = ['gemini', 'groq', 'openai']
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
+const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash'
 const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
@@ -26,13 +30,14 @@ const DEPRECATED_GROQ_MODELS = new Set([
   'llama-3.1-8b-instant',
 ])
 
-// Aliases/linhas antigas que já causaram instabilidade ou aposentadoria neste projeto.
-// Se um secret antigo ainda apontar para um deles, usamos a versão estável atual.
+// Modelos/aliases antigos que já foram aposentados ou são inadequados como
+// default estável para este projeto. Secrets antigos não podem reativá-los.
 const LEGACY_GEMINI_MODELS = new Set([
   'gemini-flash-latest',
   'gemini-1.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-001',
+  'gemini-2.5-flash',
 ])
 
 const GEMINI_MODEL = (() => {
@@ -142,15 +147,34 @@ async function failureFromResponse(provider: Provider, model: string, response: 
 
   const safeProviderMessage = providerMessage.slice(0, 240)
   const suffix = safeProviderMessage ? ` — ${safeProviderMessage}` : ''
+  const providerSaysRateLimited = providerCode === 'rate_limit_exceeded'
+    || /tokens per minute|rate.?limit|quota/i.test(providerMessage)
   return new ProviderFailure({
     provider,
     model,
     status: response.status,
-    kind: classifyStatus(response.status),
+    kind: providerSaysRateLimited ? 'quota' : classifyStatus(response.status),
     code: providerCode,
     retryAfter: response.headers.get('retry-after'),
     message: `${provider} HTTP ${response.status} (${model})${suffix}`,
   })
+}
+
+function groqCompletionBudget(prompt: string): number {
+  // Estimativa conservadora para pt-BR: ~3 caracteres/token. O objetivo aqui
+  // não é contar tokens com precisão, mas impedir que max_completion_tokens +
+  // prompt ultrapassem o TPM de 8K antes mesmo da geração começar.
+  const estimatedInputTokens = Math.ceil(prompt.length / 3)
+  const available = GROQ_TPM_SAFE_BUDGET - estimatedInputTokens
+  if (available < 256) {
+    throw new ProviderFailure({
+      provider: 'groq',
+      model: GROQ_MODEL,
+      kind: 'quota',
+      message: 'Groq: prompt grande demais para o orçamento TPM disponível nesta chamada',
+    })
+  }
+  return Math.min(GROQ_MAX_OUTPUT_TOKENS, available)
 }
 
 const QUESTIONNAIRE_SCHEMA = {
@@ -351,14 +375,11 @@ async function callGroq(prompt: string, format: ResponseFormat, questionnaire: b
   const requestBody: Record<string, unknown> = {
     model: GROQ_MODEL,
     messages: [{ role: 'user', content: prompt }],
-    max_completion_tokens: MAX_OUTPUT_TOKENS,
+    max_completion_tokens: groqCompletionBudget(prompt),
     reasoning_effort: 'low',
     reasoning_format: 'hidden',
   }
   if (format === 'json') {
-    // GPT-OSS suporta JSON Schema, mas usamos JSON Object Mode aqui e validamos
-    // o schema localmente. Assim o fallback continua compatível mesmo se o
-    // provedor mudar detalhes do dialeto de JSON Schema.
     requestBody.response_format = { type: 'json_object' }
   }
 
@@ -617,8 +638,6 @@ Deno.serve(async (req) => {
         .filter((p, index, all) => all.indexOf(p) === index)
         .filter(providerHasKey)
 
-  // Em modo normal, se o provider pedido não tem chave mas outro tem, segue para
-  // o próximo. Em health-check/teste, a ausência da chave é devolvida como diagnóstico.
   if (!body.test && !chain.length) {
     const fallback = order.filter(providerHasKey)
     chain.push(...fallback)
@@ -665,8 +684,7 @@ Deno.serve(async (req) => {
           })
       failures.push(failure)
       tried.push(serializeFailure(failure))
-      // Deliberadamente sem retry aqui: uma chamada por provedor. 401/403/404
-      // não são repetidos; 429/5xx/503 passam imediatamente ao próximo provedor.
+      // Uma tentativa por provedor: sem loops internos de retry.
     }
   }
 
@@ -707,8 +725,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Mantém HTTP 200 para compatibilidade com supabase-js, mas nunca envia detalhe
-  // técnico ao usuário normal. O detalhe só é exposto no health-check do admin.
   return json({
     error: friendly.message,
     error_code: friendly.code,
