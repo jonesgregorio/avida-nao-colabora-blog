@@ -1,0 +1,105 @@
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
+index 5fe8735..877fc38 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
+@@ -1,13 +1,10 @@
+ import { createClient } from 'npm:@supabase/supabase-js@2'
++import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS } from '../_shared/emotionalPromptContracts.ts'
+ 
+ // Automação emocional (relatórios + plano). Não mistura conteúdo editorial e
+ // nunca recebe texto livre do diário: somente colunas analíticas agregadas.
+-// Espelho versionado dos contratos em src/lib/aiPrompts/emotionalPrompts.ts.
+-// Deno não importa o bundle React; manter tipo+versão explícitos evita prompts
+-// paralelos e torna cada geração auditável.
+-const PROMPT_VERSION: Record<'weekly_report' | 'monthly_deep_report' | 'self_care_plan', string> = {
+-  weekly_report: 'weekly_report_v2', monthly_deep_report: 'monthly_deep_report_v2', self_care_plan: 'self_care_plan_v2',
+-}
++// Versões e regras de segurança vêm do módulo compartilhado com os prompts do frontend.
++const PROMPT_VERSION = EMOTIONAL_PROMPT_VERSIONS
+ const cors = { 'Access-Control-Allow-Origin': 'https://www.avidanaocolabora.com', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
+ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+ const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+@@ -169,23 +166,57 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
+   // do que já foi calculado — não números novos, então não violam a regra de
+   // não inventar fatos. Campos condicionais (ex.: real_triggers_reading) só
+   // devem vir preenchidos quando os dados correspondentes existirem no resumo.
+-  const shape = kind === 'weekly_report'
+-    ? '{"summary":"2 a 4 frases","what_most_appeared":"texto curto sobre a emoção/marcador que mais apareceu","emotional_markers_reading":"texto curto","contexts_reading":"texto curto, só se houver contexts","needs_reading":"texto curto, só se houver needs","care_actions_reading":"texto curto, só se houver care_actions","patterns":["até 3"],"attention_points":["até 2"],"next_steps":["até 3"],"closing_message":"mensagem curta e acolhedora","data_quality_message":"texto"}'
+-    : kind === 'monthly_deep_report'
+-      ? '{"summary":"3 a 5 frases","main_emotional_markers_reading":"texto","contexts_and_needs_reading":"texto, só se houver contexts/needs","care_actions_observed_reading":"texto, só se houver care_actions","real_triggers_reading":"texto, somente se houver trigger_tags","advanced_indicators_reading":"texto, somente se houver stress/self_esteem/irritability/overload informados","attention_days_reading":"texto, só se houver dias de atenção","comparison_with_previous_month_reading":"texto, só se houver mês anterior comparável","patterns":["até 4"],"relations":["até 3"],"improvement_moments":["até 3"],"reflection_questions":["3 perguntas"],"closing_message":"mensagem final curta e acolhedora","data_quality_message":"texto"}'
+-      : '{"title":"texto","month_label":"texto","based_on_period":"texto","main_focus":"texto","why_this_focus":"texto","three_care_priorities":[{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]}],"weekly_rhythm":{"week_1":"texto","week_2":"texto","week_3":"texto","week_4":"texto"},"suggested_micro_actions":["3 a 5"],"recommended_guided_contents":["até 3 temas"],"gentle_reminders":["2"],"what_not_to_force":"texto","light_emotional_goal":"texto","checkin_suggestion":"texto","when_to_seek_more_support":"texto, leve, sem alarmismo","reflection_questions":["3"],"final_message":"texto","data_quality_message":"texto"}'
+-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
++  const shape = EMOTIONAL_NARRATIVE_SHAPES[kind]
++  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+ }
+ 
+ async function generate(promptText: string): Promise<{ text: string; model: string }> {
+-  const key = Deno.env.get('GEMINI_API_KEY')
+-  if (!key) throw new Error('GEMINI_API_KEY não configurada')
+-  const model = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash').split(',')[0].trim()
+-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1800 } }) })
+-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
+-  const data = await res.json(); const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+-  if (!text || !String(text).trim()) throw new Error('Resposta de IA vazia')
+-  return { text: String(text).trim(), model }
++  const geminiKey = Deno.env.get('GEMINI_API_KEY')
++  const geminiModels = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-2.0-flash').split(',').map(v => v.trim()).filter(Boolean)
++  if (geminiKey) {
++    for (const model of geminiModels) {
++      try {
++        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
++          method: 'POST', headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1800 } }),
++        })
++        if (res.ok) {
++          const data = await res.json(); const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
++          if (text && String(text).trim()) return { text: String(text).trim(), model }
++        }
++      } catch { /* tenta próximo modelo/provedor */ }
++    }
++  }
++
++  const groqKey = Deno.env.get('GROQ_API_KEY')
++  if (groqKey) {
++    try {
++      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
++        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
++        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),
++      })
++      if (res.ok) {
++        const data = await res.json(); const text = data?.choices?.[0]?.message?.content
++        if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:llama-3.3-70b-versatile' }
++      }
++    } catch { /* tenta OpenAI */ }
++  }
++
++  const openaiKey = Deno.env.get('OPENAI_API_KEY')
++  if (openaiKey) {
++    try {
++      const res = await fetch('https://api.openai.com/v1/chat/completions', {
++        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
++        body: JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),
++      })
++      if (res.ok) {
++        const data = await res.json(); const text = data?.choices?.[0]?.message?.content
++        if (text && String(text).trim()) return { text: String(text).trim(), model: 'openai:gpt-4o-mini' }
++      }
++    } catch { /* fallback determinístico será usado pelo chamador */ }
++  }
++
++  throw new Error('Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado')
+ }
+ 
+ function parse(raw: string): Record<string, unknown> | null { try { const match = raw.match(/\{[\s\S]*\}/); const obj = JSON.parse(match?.[0] || ''); return obj && typeof obj === 'object' ? obj as Record<string, unknown> : null } catch { return null } }
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
+index 80c338b..e3f0d87 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
+@@ -106,7 +106,6 @@ $$;
+ REVOKE ALL ON FUNCTION public.get_emotional_automation_health() FROM PUBLIC, anon;
+ GRANT EXECUTE ON FUNCTION public.get_emotional_automation_health() TO authenticated, service_role;
+ 
+--- Validação de implantação: não esconde falha de cron/trigger em produção.
+ DO $$
+ DECLARE
+   v_cron_ok boolean;
