@@ -16,7 +16,7 @@ jobs:
       - name: Apply exact patches
         run: |
           set -euo pipefail
-          for p in .tmp/zip68-01.patch .tmp/z02.patch .tmp/z03.patch .tmp/z04.patch .tmp/z05.patch .tmp/exact-z06.patch .tmp/exact-z07.patch .tmp/exact-z08.patch .tmp/exact-z10h2.patch .tmp/exact-z10h3.patch .tmp/exact-z10h4.patch .tmp/exact-z10h5.patch .tmp/exact-z11.patch; do
+          for p in .tmp/zip68-01.patch .tmp/z03.patch .tmp/z04.patch .tmp/z05.patch .tmp/exact-z06.patch .tmp/exact-z07.patch .tmp/exact-z08.patch .tmp/exact-z10h2.patch .tmp/exact-z10h3.patch .tmp/exact-z10h4.patch .tmp/exact-z10h5.patch .tmp/exact-z11.patch; do
             echo "Checking $p"
             git apply --check "$p"
             git apply "$p"
