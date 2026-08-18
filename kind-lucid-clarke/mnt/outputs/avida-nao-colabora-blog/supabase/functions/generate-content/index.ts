@@ -487,7 +487,7 @@ async function searchYouTube(query: string): Promise<{ id: string; title: string
     if (!items.length) return null
     const item = items[0]
     const id = item.id.videoId
-    const title = String(item?.snippet?.title ?? query).replace(/[\[\]]/g, '').trim()
+    const title = String(item?.snippet?.title ?? query).replace(/\[|\]/g, '').trim()
     return { id, title: title || query }
   } catch {
     return null
