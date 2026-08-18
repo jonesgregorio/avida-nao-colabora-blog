@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://avida-nao-colabora-blog.vercel.app/sitemap.xml
+Sitemap: https://www.avidanaocolabora.com/sitemap.xml
