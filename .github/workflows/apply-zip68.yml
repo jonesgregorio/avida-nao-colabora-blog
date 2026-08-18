@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - publish-zip68-p0-p3
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
