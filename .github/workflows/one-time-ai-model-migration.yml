@@ -1,0 +1,94 @@
+name: One-time AI model migration
+
+on:
+  push:
+    branches: [agent/fix-remaining-ai-models]
+    paths:
+      - '.github/workflows/one-time-ai-model-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/fix-remaining-ai-models
+
+      - name: Apply exact provider migrations
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog')
+
+          editorial = app / 'supabase/functions/run-automations/index.ts'
+          text = editorial.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  "const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']",
+                  "const GEMINI_MODELS = ['gemini-3.6-flash']",
+              ),
+              (
+                  "const AI_TIMEOUT_MS = 45_000",
+                  "const AI_TIMEOUT_MS = 45_000\nconst GROQ_TPM_SAFE_BUDGET = 7600\n\nfunction groqOutputBudget(prompt: string): number {\n  const estimatedInputTokens = Math.ceil(prompt.length / 3)\n  return Math.min(6000, Math.max(512, GROQ_TPM_SAFE_BUDGET - estimatedInputTokens))\n}",
+              ),
+              (
+                  "body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] }),",
+                  "body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: [{ role: 'user', content: prompt }], max_completion_tokens: groqOutputBudget(prompt) }),",
+              ),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'run-automations: expected exactly one match, got {count}: {old[:80]}')
+              text = text.replace(old, new, 1)
+          editorial.write_text(text, encoding='utf-8')
+
+          emotional = app / 'supabase/functions/run-emotional-automations/index.ts'
+          text = emotional.read_text(encoding='utf-8')
+
+          old_models = "  const geminiModels = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-2.0-flash').split(',').map(v => v.trim()).filter(Boolean)"
+          new_models = "  const legacyGeminiModels = new Set(['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash'])\n  const configuredGeminiModels = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)\n  const geminiModels = configuredGeminiModels.filter(model => !legacyGeminiModels.has(model))\n  if (!geminiModels.length) geminiModels.push('gemini-3.6-flash')"
+          if text.count(old_models) != 1:
+              raise SystemExit(f'run-emotional-automations: Gemini selector match count={text.count(old_models)}')
+          text = text.replace(old_models, new_models, 1)
+
+          old_groq = "body: JSON.stringify({ model: 'llama-3.3-70b-versatile', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),"
+          new_groq = "body: JSON.stringify({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 1800 }),"
+          if text.count(old_groq) != 1:
+              raise SystemExit(f'run-emotional-automations: Groq request match count={text.count(old_groq)}')
+          text = text.replace(old_groq, new_groq, 1)
+
+          old_label = "return { text: String(text).trim(), model: 'groq:llama-3.3-70b-versatile' }"
+          new_label = "return { text: String(text).trim(), model: 'groq:openai/gpt-oss-120b' }"
+          if text.count(old_label) != 1:
+              raise SystemExit(f'run-emotional-automations: Groq label match count={text.count(old_label)}')
+          text = text.replace(old_label, new_label, 1)
+          emotional.write_text(text, encoding='utf-8')
+
+          # Assert obsolete active references are gone from both executors.
+          for path in (editorial, emotional):
+              source = path.read_text(encoding='utf-8')
+              if "model: 'llama-3.3-70b-versatile'" in source:
+                  raise SystemExit(f'obsolete Groq model remains in {path}')
+          PY
+
+          git diff --check
+
+      - name: Remove one-time helper and commit only source changes
+        shell: bash
+        run: |
+          git rm .github/workflows/one-time-ai-model-migration.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
+          git commit -m "fix: migrate remaining AI executors to current models"
+          git push origin HEAD:agent/fix-remaining-ai-models
