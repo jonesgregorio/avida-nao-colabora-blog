@@ -383,7 +383,7 @@ ${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
   const ideas = ideaItems(parsed).slice(0, quantity)
   if (!ideas.length) throw new Error('IA não retornou ideias de pauta.')
 
-  const normalizedExisting = new Set(existingTitles.map(v => slugify(String(v))))
+  const normalizedExisting = new Set(existingTitles.map((v: unknown) => slugify(String(v))))
   const rows: Record<string, unknown>[] = []
   for (const idea of ideas) {
     const title = cleanText(idea.title, 140)
