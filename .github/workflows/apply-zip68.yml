@@ -1,0 +1,46 @@
+name: Apply ZIP 68 changes
+
+on:
+  push:
+    branches:
+      - publish-zip68-p0-p3
+    paths:
+      - '.github/workflows/apply-zip68.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout publication branch
+        uses: actions/checkout@v4
+        with:
+          ref: publish-zip68-p0-p3
+          fetch-depth: 0
+
+      - name: Apply validated ZIP 68 changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .publish_zip68/prep.sh
+          cat .publish_zip68/changes.part* > /tmp/zip68.patch
+          git apply --whitespace=nowarn /tmp/zip68.patch
+
+          rm -rf .publish_zip68
+          rm -f .github/workflows/apply-zip68.yml
+
+          git add -A
+          echo 'Changed files:'
+          git status --short
+
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'jonesgregorio'
+          git config user.email 'jonesgregory.jg@gmail.com'
+          git commit -m 'feat: complete P0-P3 improvements'
+          git push origin HEAD:publish-zip68-p0-p3
