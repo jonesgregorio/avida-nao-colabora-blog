@@ -1,0 +1,220 @@
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
+index 234dcd4..526af09 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
+@@ -71,7 +71,7 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
+   // Plus
+   { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
+   { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },
+-  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional mensal',  category: 'Orientação profissional', order: 12 },
++  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional sobre o relatório',  category: 'Orientação profissional', order: 12 },
+   { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 13 },
+ ]
+ 
+@@ -212,7 +212,7 @@ export const PUBLIC_PLAN_FEATURES: Record<PlanKey, string[]> = {
+   ],
+   plus: [
+     'Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado',
+-    'Comentário profissional mensal', 'Orientação mensal por mensagem',
++    'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem',
+   ],
+ }
+ 
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
+index b6807bb..4e3608b 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
+@@ -16,7 +16,7 @@ export const PLAN_COMPARE_ROWS: PlanCompareRow[] = [
+   { label: 'Relatório semanal automático',   values: { free: false,              essential: true,             plus: true } },
+   { label: 'Plano de autocuidado mensal',    values: { free: false,              essential: false,            plus: true } },
+   { label: 'Relatório mensal aprofundado',   values: { free: false,              essential: false,            plus: true } },
+-  { label: 'Comentário profissional mensal', values: { free: false,              essential: false,            plus: true } },
++  { label: 'Comentário profissional sobre o relatório', values: { free: false,              essential: false,            plus: true } },
+   { label: 'Orientação mensal por mensagem', values: { free: false,              essential: false,            plus: true } },
+ ]
+ 
+@@ -41,7 +41,7 @@ export const PLAN_BENEFITS: Record<'free' | 'essential' | 'plus', string[]> = {
+     'Questionários avançados',
+     'Plano de autocuidado mensal',
+     'Relatório mensal aprofundado',
+-    'Comentário profissional mensal',
++    'Comentário profissional sobre o relatório',
+     'Orientação mensal por mensagem',
+   ],
+ }
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
+index efdd041..ce8518d 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
+@@ -17,32 +17,41 @@ export interface Period {
+   clampedToActivation: boolean // true se o início foi cortado pela data de ativação
+ }
+ 
+-// ── Helpers de data (local, meio-dia p/ evitar borda de DST) ──────────────────
+-function atNoon(y: number, m: number, d: number): Date { return new Date(y, m, d, 12, 0, 0, 0) }
++// ── Helpers de calendário — sempre America/Sao_Paulo ─────────────────────────
++export const REPORT_TIME_ZONE = 'America/Sao_Paulo'
++function atNoon(y: number, m: number, d: number): Date { return new Date(Date.UTC(y, m, d, 12, 0, 0, 0)) }
++function saoPauloParts(date: Date): { year: number; month: number; day: number } {
++  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: REPORT_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
++  const get = (type: string) => Number(parts.find(p => p.type === type)?.value || 0)
++  return { year: get('year'), month: get('month'), day: get('day') }
++}
+ export function ymd(date: Date): string {
+-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
++  const { year, month, day } = saoPauloParts(date)
++  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+ }
+ export function parseYmd(s: string): Date {
+   const [y, m, d] = s.split('-').map(Number)
+   return atNoon(y, m - 1, d)
+ }
+ function addDays(s: string, n: number): string {
+-  const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d)
++  const d = parseYmd(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d)
+ }
+ function cmp(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0 }
+ 
+ // ── Períodos "cheios" (sem ativação) ──────────────────────────────────────────
+ // Semana que contém `date` (domingo → sábado).
+ function weekBounds(date: Date): { start: string; end: string } {
+-  const dow = date.getDay() // 0=domingo
+-  const sunday = atNoon(date.getFullYear(), date.getMonth(), date.getDate() - dow)
+-  const saturday = atNoon(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6)
++  const calendarDate = parseYmd(ymd(date))
++  const dow = calendarDate.getUTCDay() // 0=domingo
++  const sunday = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), calendarDate.getUTCDate() - dow)
++  const saturday = atNoon(sunday.getUTCFullYear(), sunday.getUTCMonth(), sunday.getUTCDate() + 6)
+   return { start: ymd(sunday), end: ymd(saturday) }
+ }
+ // Mês que contém `date`.
+ function monthBounds(date: Date): { start: string; end: string } {
+-  const start = atNoon(date.getFullYear(), date.getMonth(), 1)
+-  const end = atNoon(date.getFullYear(), date.getMonth() + 1, 0) // dia 0 do mês seguinte = último dia
++  const calendarDate = parseYmd(ymd(date))
++  const start = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), 1)
++  const end = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth() + 1, 0) // dia 0 do mês seguinte = último dia
+   return { start: ymd(start), end: ymd(end) }
+ }
+ function boundsFor(type: ReportType, date: Date) {
+@@ -106,15 +115,15 @@ export const getPreviousMonthlyPeriod = (act: string | null, now = new Date()) =
+ // ── Rótulos para a interface ──────────────────────────────────────────────────
+ export function formatPeriodShort(p: { start: string; end: string }): string {
+   const s = parseYmd(p.start), e = parseYmd(p.end)
+-  const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
++  const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+   return `${f(s)} a ${f(e)}`
+ }
+ export function formatDateBR(s: string): string {
+   const d = parseYmd(s)
+-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
++  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+ }
+ export function monthTitle(s: string): string {
+-  return parseYmd(s).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
++  return parseYmd(s).toLocaleString('pt-BR', { timeZone: REPORT_TIME_ZONE, month: 'long', year: 'numeric' })
+ }
+ export function periodKey(type: ReportType, p: { start: string; end: string }): string {
+   return `${type}:${p.start}:${p.end}`
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
+index 3ebf8e9..e2d588c 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
+@@ -131,6 +131,77 @@ export async function checkSavedItems(): Promise<HealthCheckResult> {
+   return checkSupabaseTable('db_saved', 'Itens salvos', 'content', 'saved_items')
+ }
+ 
++export async function checkEmotionalAutomationHealth(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_emotional_automation_health')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const cronActive = h.cron_active === true
++    const notifyActive = h.notification_trigger_active === true
++    const lastStatus = String(h.last_run_status ?? '')
++    const lastStartedAt = typeof h.last_run_started_at === 'string' ? Date.parse(h.last_run_started_at) : NaN
++    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 30 * 60 * 60 * 1000
++    const failedLast = !!lastStatus && !['succeeded', 'success'].includes(lastStatus.toLowerCase())
++    const status: CheckStatus = !cronActive || !notifyActive ? 'error' : failedLast || stale ? 'warning' : 'ok'
++    return {
++      checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
++      errorMessage: !cronActive ? 'Cron emocional inativo.' : !notifyActive ? 'Trigger de notificação pós-relatório inativo.' : failedLast ? `Última execução do cron: ${lastStatus}.` : stale ? 'Cron emocional sem execução recente (mais de 30h ou ainda sem histórico).' : undefined,
++      details: { ...h, stale },
++    }
++  } catch (e) {
++    return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
++  }
++}
++
++export async function checkEditorialAutomationHealth(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_editorial_automation_health')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const cronActive = h.cron_active === true
++    const errors = Number(h.rules_with_error ?? 0)
++    const lastCronStatus = String(h.last_cron_status ?? '')
++    const lastStartedAt = typeof h.last_cron_started_at === 'string' ? Date.parse(h.last_cron_started_at) : NaN
++    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 2 * 60 * 60 * 1000
++    const cronFailed = !!lastCronStatus && !['succeeded', 'success'].includes(lastCronStatus.toLowerCase())
++    const status: CheckStatus = !cronActive ? 'error' : errors > 0 || cronFailed || stale ? 'warning' : 'ok'
++    return {
++      checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
++      errorMessage: !cronActive ? 'Cron editorial inativo.' : errors > 0 ? `${errors} regra(s) ativa(s) com último erro registrado.` : cronFailed ? `Última execução do cron: ${lastCronStatus}.` : stale ? 'Cron editorial sem execução recente (mais de 2h ou ainda sem histórico).' : undefined,
++      details: { ...h, stale },
++    }
++  } catch (e) {
++    return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
++  }
++}
++
++export async function checkOperationalMetrics(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_operational_metrics')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'medium' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const aiErrors = Number(h.ai_generation_errors_30d ?? 0)
++    const ruleErrors = Number(h.editorial_rules_with_error ?? 0)
++    const status: CheckStatus = aiErrors > 0 || ruleErrors > 0 ? 'warning' : 'ok'
++    return {
++      checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'warning' ? 'medium' : 'info',
++      errorMessage: ruleErrors > 0 ? `${ruleErrors} automação(ões) editorial(is) ativa(s) com erro.` : aiErrors > 0 ? `${aiErrors} erro(s) de geração de IA nos últimos 30 dias.` : undefined,
++      details: h,
++    }
++  } catch (e) {
++    return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'medium' }
++  }
++}
++
+ export async function checkAdminSession(): Promise<HealthCheckResult> {
+   try {
+     const { data: { session } } = await supabase.auth.getSession()
+@@ -317,6 +388,9 @@ export async function runQuickHealthCheck(): Promise<HealthCheckResult[]> {
+     checkPersonalizationDeliveries(),
+     checkDiary(),
+     checkArticles(),
++    checkEmotionalAutomationHealth(),
++    checkEditorialAutomationHealth(),
++    checkOperationalMetrics(),
+     checkPayments(),
+   ])
+   return results
+@@ -369,6 +443,9 @@ export async function runSingleCheck(checkKey: string): Promise<HealthCheckResul
+     payments: checkPayments,
+     rls_personalization: checkRLSPersonalization,
+     drafts_dryrun: checkDraftsDryRun,
++    automation_emotional: checkEmotionalAutomationHealth,
++    automation_editorial: checkEditorialAutomationHealth,
++    operational_metrics: checkOperationalMetrics,
+   }
+   const fn = map[checkKey]
+   if (!fn) return null
