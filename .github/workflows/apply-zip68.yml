@@ -21,14 +21,29 @@ jobs:
           ref: publish-zip68-p0-p3
           fetch-depth: 0
 
-      - name: Apply validated ZIP 68 changes
+      - name: Apply exact ZIP 68 files
         shell: bash
         run: |
           set -euo pipefail
-          bash .publish_zip68/prep.sh
-          cat .publish_zip68/changes.part* > /tmp/zip68.patch
-          git apply --whitespace=nowarn /tmp/zip68.patch
 
+          # Move historical documents and remove obsolete repository artifacts.
+          bash .publish_zip68/prep.sh
+
+          # The staging bundle contains the exact final versions of every new/modified
+          # file from ZIP 68. Overlaying them avoids depending on an older patch base.
+          cat .publish_zip68/bundle.b64.part* | base64 --decode > /tmp/zip68-changes.tar.gz
+          mkdir -p /tmp/zip68-changes
+          tar -xzf /tmp/zip68-changes.tar.gz -C /tmp/zip68-changes
+          cp -a /tmp/zip68-changes/files/. ./
+
+          # Deletions are intentionally idempotent; prep.sh already handles these on
+          # the first run, and this keeps the bundle contract self-contained.
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            rm -f -- "$path"
+          done < /tmp/zip68-changes/deletions.txt
+
+          # Never leave publication staging/workflows in the final branch.
           rm -rf .publish_zip68
           rm -f .github/workflows/apply-zip68.yml
 
