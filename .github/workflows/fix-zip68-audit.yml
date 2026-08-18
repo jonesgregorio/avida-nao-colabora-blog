@@ -1,0 +1,38 @@
+name: Fix ZIP68 dependency audit
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.head_ref == 'publish-zip68-p0-p3-v2'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: publish-zip68-p0-p3-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+      - name: Update only compatible lockfile resolutions
+        run: npm audit fix --package-lock-only
+      - name: Verify production audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Commit lockfile when changed
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'Lockfile already secure; nothing to commit.'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix(deps): resolve production security advisories"
+          git push origin publish-zip68-p0-p3-v2
