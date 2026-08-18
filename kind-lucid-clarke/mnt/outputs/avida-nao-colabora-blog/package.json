@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --check api/article.js && node --check api/sitemap.js && node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
