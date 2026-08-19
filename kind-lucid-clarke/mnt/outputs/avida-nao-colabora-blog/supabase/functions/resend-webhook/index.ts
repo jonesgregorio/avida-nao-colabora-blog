@@ -3,8 +3,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 // ─── Webhook do Resend → status REAL de entrega em email_logs ────────────────
 // Eventos: email.delivered / opened / clicked / bounced / complained / sent.
 // Casa por data.email_id == email_logs.provider_message_id.
-// Assinatura Svix verificada quando RESEND_WEBHOOK_SECRET está setada (whsec_...);
-// se ainda não estiver, processa mesmo assim (só ATUALIZA linhas já existentes).
+// Segurança P0: assinatura Svix é obrigatória; sem secret configurado o endpoint
+// falha fechado e não aceita eventos forjados.
 
 function b64decode(s: string): Uint8Array {
   const bin = atob(s)
@@ -25,14 +25,19 @@ function safeEqual(a: string, b: string): boolean {
   return r === 0
 }
 
-// Verificação de assinatura Svix (padrão do Resend). true = válida ou sem secret.
+// Verificação de assinatura Svix (padrão do Resend). Fail-closed sempre.
 async function verifySignature(req: Request, body: string): Promise<boolean> {
   const secret = Deno.env.get('RESEND_WEBHOOK_SECRET')
-  if (!secret) return true // ainda não configurado — não bloqueia (só atualiza linhas existentes)
+  if (!secret) return false
   const id = req.headers.get('svix-id') || req.headers.get('webhook-id')
   const ts = req.headers.get('svix-timestamp') || req.headers.get('webhook-timestamp')
   const sigHeader = req.headers.get('svix-signature') || req.headers.get('webhook-signature')
   if (!id || !ts || !sigHeader) return false
+
+  // Bloqueia replay de uma assinatura válida fora de uma janela curta.
+  const tsSeconds = Number(ts)
+  if (!Number.isFinite(tsSeconds) || Math.abs(Math.floor(Date.now() / 1000) - tsSeconds) > 300) return false
+
   try {
     const keyBytes = b64decode(secret.replace(/^whsec_/, ''))
     const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
@@ -42,8 +47,7 @@ async function verifySignature(req: Request, body: string): Promise<boolean> {
   } catch { return false }
 }
 
-// Webhook do Resend — chamado server-to-server (nunca por navegador). CORS
-// aqui é só defensivo, para o caso de o Resend ou algum proxy fazer preflight.
+// Webhook server-to-server. CORS é apenas defensivo.
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, svix-id, svix-timestamp, svix-signature' }
 
 Deno.serve(async (req) => {
