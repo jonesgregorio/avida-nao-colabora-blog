@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { isEmailConfirmed } from '../lib/authVerification'
@@ -9,7 +9,7 @@ export function useAuth() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = async (userId: string, email?: string | null) => {
+  const fetchProfile = useCallback(async (userId: string, email?: string | null) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -32,9 +32,9 @@ export function useAuth() {
     } else {
       setProfile(data)
     }
-  }
+  }, [])
 
-  const acceptConfirmedUser = async (candidate: User | null) => {
+  const acceptConfirmedUser = useCallback(async (candidate: User | null) => {
     if (!candidate || !isEmailConfirmed(candidate)) {
       setUser(null)
       setProfile(null)
@@ -45,7 +45,7 @@ export function useAuth() {
     setUser(candidate)
     await fetchProfile(candidate.id, candidate.email)
     return true
-  }
+  }, [fetchProfile])
 
   useEffect(() => {
     supabase.auth.getSession()
@@ -66,7 +66,7 @@ export function useAuth() {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [acceptConfirmedUser])
 
   const signOut = async () => {
     await supabase.auth.signOut()
