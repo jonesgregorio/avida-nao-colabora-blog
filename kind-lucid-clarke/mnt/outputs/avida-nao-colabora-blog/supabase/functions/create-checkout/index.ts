@@ -16,9 +16,15 @@ const PLUS_PRICE_ID =
   Deno.env.get('STRIPE_PRICE_PLUS_3990')      // preferencial no go-live (R$ 39,90)
   || Deno.env.get('STRIPE_PRICE_THERAPEUTIC') // transição: já é o price de 39,90
 
-const PRICE_IDS: Record<string, string | undefined> = {
+type PaidPlan = 'essential' | 'plus'
+
+const PRICE_IDS: Record<PaidPlan, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
   plus:      PLUS_PRICE_ID,
+}
+
+function isPaidPlan(value: unknown): value is PaidPlan {
+  return value === 'essential' || value === 'plus'
 }
 
 // Origens permitidas para CORS e para o retorno pós-checkout (evita open-redirect).
@@ -68,8 +74,9 @@ Deno.serve(async (req) => {
     if (authError || !user) throw new UserFacingError('Não autorizado')
 
     const { plan, origin } = await req.json()
+    if (!isPaidPlan(plan)) throw new UserFacingError('Plano inválido. Escolha Essencial ou Plus.')
     const priceId = PRICE_IDS[plan]
-    if (!priceId) throw new UserFacingError(`Plano inválido ou Price ID não configurado: ${plan}`)
+    if (!priceId) throw new UserFacingError(`Price ID não configurado para o plano ${plan}.`)
 
     // Retorno na MESMA origem do navegador (validada) — evita logout apex vs www.
     const siteUrl = resolveSiteUrl(origin)
@@ -106,6 +113,7 @@ Deno.serve(async (req) => {
       })
     }
 
+    const metadata = { supabase_user_id: user.id, plan }
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -113,7 +121,11 @@ Deno.serve(async (req) => {
       success_url: `${siteUrl}/?view=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/?view=pricing`,
       allow_promotion_codes: true,
-      metadata: { supabase_user_id: user.id, plan },
+      // A Session e a Subscription são objetos distintos no Stripe. Mantemos a
+      // metadata nos dois para o webhook conseguir validar usuário/plano pela
+      // assinatura real — sem depender apenas do navegador ou da Session.
+      metadata,
+      subscription_data: { metadata },
     })
 
     return new Response(JSON.stringify({ url: session.url }), {
