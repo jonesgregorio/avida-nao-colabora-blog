@@ -5,6 +5,16 @@
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/blog/:slug", "destination": "/api/article?slug=:slug" },
+    { "source": "/blog", "destination": "/api/page?route=blog" },
+    { "source": "/conteudos", "destination": "/api/page?route=blog" },
+    { "source": "/planos", "destination": "/api/page?route=pricing" },
+    { "source": "/faq", "destination": "/api/page?route=faq" },
+    { "source": "/perguntas-frequentes", "destination": "/api/page?route=faq" },
+    { "source": "/sobre", "destination": "/api/page?route=about" },
+    { "source": "/contato", "destination": "/api/page?route=contact" },
+    { "source": "/privacidade", "destination": "/api/page?route=privacy" },
+    { "source": "/termos", "destination": "/api/page?route=terms" },
+    { "source": "/aviso-de-responsabilidade", "destination": "/api/page?route=responsibility" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

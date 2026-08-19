@@ -45,8 +45,12 @@ jobs:
       - name: Install Playwright and axe for this job only
         run: npm install --no-save --package-lock=false @playwright/test@1.62.1 @axe-core/playwright@4.13.0
 
+      # O runner hospedado já traz as bibliotecas de sistema usadas pelo Chromium.
+      # Evitamos --with-deps aqui porque ele força apt update/install e pode ficar
+      # preso no mirror Ubuntu/Azure antes mesmo de o build ou os testes iniciarem.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
 
       - name: Build application
         run: npm run build
