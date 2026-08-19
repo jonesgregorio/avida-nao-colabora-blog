@@ -5,18 +5,17 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20',
 })
 
-// Mapeia Price ID → nome do plano interno
-// Configure obrigatoriamente no Supabase Dashboard → Edge Functions → Secrets:
-//   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_THERAPEUTIC, STRIPE_PRICE_PLUS
-function buildPlanByPrice(): Record<string, string> {
-  const map: Record<string, string> = {}
+type PaidPlan = 'essential' | 'plus'
+
+// Mapeia Price ID → plano oficial. Prices legados do antigo Terapêutico continuam
+// mapeados para Plus para não quebrar renovação de assinantes existentes.
+function buildPlanByPrice(): Record<string, PaidPlan> {
+  const map: Record<string, PaidPlan> = {}
   const essential = Deno.env.get('STRIPE_PRICE_ESSENTIAL')
-  const plusNew = Deno.env.get('STRIPE_PRICE_PLUS_3990') // novo price de R$ 39,90 (go-live)
-  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC') // price de 39,90 hoje
-  const plusLegacy = Deno.env.get('STRIPE_PRICE_PLUS') // pode ser o antigo R$ 79,90
+  const plusNew = Deno.env.get('STRIPE_PRICE_PLUS_3990')
+  const therapeutic = Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
+  const plusLegacy = Deno.env.get('STRIPE_PRICE_PLUS')
   if (essential) map[essential] = 'essential'
-  // Todos os prices pagos de Plus (novo 39,90, transição 39,90, e legado 79,90 de
-  // assinantes grandfathered) mapeiam para 'plus' — garante renovação correta.
   if (plusNew) map[plusNew] = 'plus'
   if (therapeutic) map[therapeutic] = 'plus'
   if (plusLegacy) map[plusLegacy] = 'plus'
@@ -24,10 +23,18 @@ function buildPlanByPrice(): Record<string, string> {
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
 
+function planFromPrice(priceId: string | null | undefined): PaidPlan | null {
+  if (!priceId) return null
+  return PLAN_BY_PRICE[priceId] ?? null
+}
+
+function stripeId(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null
+  return typeof value === 'string' ? value : value.id
+}
+
 const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
 
-// Resumo curto de benefícios por plano (para o e-mail plan_activated).
-// Apenas EXIBE os benefícios oficiais — não altera plano/preço/hierarquia.
 const PLAN_BENEFITS: Record<string, string> = {
   essential:
     '- Diário ilimitado\n- Mapa emocional completo com histórico e gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático',
@@ -35,7 +42,6 @@ const PLAN_BENEFITS: Record<string, string> = {
     '- Tudo do Essencial\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Comentário profissional mensal\n- Orientação mensal por mensagem',
 }
 
-// Rótulos amigáveis dos planos (apenas EXIBIÇÃO — não altera plano/preço/hierarquia).
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito',
   essential: 'Essencial',
@@ -45,13 +51,9 @@ const PLAN_LABELS: Record<string, string> = {
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
 
-// Hierarquia dos planos — para distinguir upgrade (subiu) de downgrade (desceu).
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
 const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
 
-// Data para o usuário no fuso de São Paulo. Meia-noite UTC exata = data de
-// calendário (lê em UTC); timestamp real do Stripe = converte para -03. Mesma
-// regra de src/lib/billingCycle.ts — os dois precisam mostrar o mesmo dia.
 const BILLING_TZ = 'America/Sao_Paulo'
 const fmtBR = (iso: string): string => {
   const d = new Date(iso)
@@ -60,12 +62,8 @@ const fmtBR = (iso: string): string => {
   return d.toLocaleDateString('pt-BR', { timeZone: dataDeCalendario ? 'UTC' : BILLING_TZ })
 }
 
-// ID da assinatura de uma invoice — tolerante à versão da API.
-// O payload do webhook usa a versão de API da CONTA, não a do SDK. Nas versões
-// novas o campo `invoice.subscription` deixou de existir e a referência passou a
-// viver em `invoice.parent.subscription_details.subscription`. Ler só o formato
-// antigo fazia o handler achar que a invoice não era de assinatura e sair calado
-// — nenhum payment_events era gravado. Lemos os dois formatos.
+// O payload do webhook usa a versão da API da conta. Aceita o formato antigo e o
+// atual para localizar a assinatura vinculada à invoice.
 function invoiceSubId(invoice: Stripe.Invoice): string | null {
   const legacy = (invoice as unknown as { subscription?: string | { id: string } }).subscription
   if (legacy) return typeof legacy === 'string' ? legacy : legacy.id
@@ -77,10 +75,6 @@ function invoiceSubId(invoice: Stripe.Invoice): string | null {
   return null
 }
 
-// Linha do tempo financeira (094). O Stripe é a fonte de verdade: quem grava é
-// aqui, com a data/hora REAL do evento (nunca do navegador).
-// Best-effort de propósito: um erro no histórico não pode derrubar o
-// processamento de um pagamento que o Stripe já confirmou.
 async function registrarEvento(
   supabase: ReturnType<typeof createClient>,
   event: Stripe.Event,
@@ -91,25 +85,18 @@ async function registrarEvento(
     stripe_event_id: event.id,
     event_type: eventType,
     currency: 'BRL',
-    // occurred_at = quando ACONTECEU no Stripe, não quando processamos.
     occurred_at: new Date(event.created * 1000).toISOString(),
     ...dados,
   })
-  // 23505 = o índice único já barrou uma reentrega. Isso é a idempotência
-  // funcionando, não um problema.
   if (error && String(error.code) !== '23505') {
     console.error(`subscription_events (${eventType}):`, error.message)
   }
 }
 
-// Gravações CRÍTICAS (acesso ao plano e dinheiro) não podem falhar em silêncio:
-// lançam, o catch do handler devolve a reserva de idempotência e o Stripe
-// reentrega. Trilha de auditoria, e-mail e notificação seguem best-effort (só log).
 function must(err: { message: string } | null, contexto: string): void {
   if (err) throw new Error(`${contexto}: ${err.message}`)
 }
 
-// Campos extras de rastreabilidade (092) extraídos de uma subscription do Stripe.
 function subFields(s: Stripe.Subscription): Record<string, unknown> {
   const price = s.items.data[0]?.price
   return {
@@ -121,8 +108,15 @@ function subFields(s: Stripe.Subscription): Record<string, unknown> {
   }
 }
 
-// Dispara e-mail transacional via Edge Function (service role).
-// NUNCA quebra o fluxo de pagamento: qualquer erro é apenas logado.
+function stripeSubscriptionFields(s: Stripe.Subscription, customerId: string): Record<string, unknown> {
+  return {
+    provider: 'stripe',
+    provider_customer_id: customerId,
+    provider_subscription_id: s.id,
+    ...subFields(s),
+  }
+}
+
 async function sendTxEmail(
   templateKey: string,
   toEmail: string | null | undefined,
@@ -173,65 +167,88 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // ── Idempotência: RESERVA → processa → desfaz a reserva se falhar ──
-  // O Stripe reentrega em timeout/erro. Reservamos o event.id ANTES de processar
-  // para que entregas concorrentes não dupliquem plano/pagamento/notificação.
-  // O ponto crítico é o catch lá embaixo: se o processamento falhar depois da
-  // reserva, ela é DESFEITA. Sem isso, a reentrega do Stripe bateria no
-  // "já processado" e a falha viraria permanente e silenciosa.
+  // Reserva idempotente antes do processamento. Em falha crítica, a reserva é
+  // removida para permitir que o Stripe reentregue o mesmo evento.
   const dedup = await supabase
     .from('stripe_webhook_events')
     .insert({ stripe_event_id: event.id, event_type: event.type })
   let claimed = true
   if (dedup.error) {
     if (String(dedup.error.code) === '23505' || /duplicate|unique/i.test(dedup.error.message)) {
-      console.log(`webhook: evento ${event.id} já processado — ignorado`)
+      console.log(`webhook: evento ${event.id} já reservado/processado — ignorado`)
       return new Response(JSON.stringify({ received: true, duplicate: true }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    // Falha ao registrar (ex.: tabela ausente) não deve travar o pagamento — apenas loga.
     console.error('stripe_webhook_events: falha ao registrar (segue processando):', dedup.error.message)
     claimed = false
   }
 
   try {
-    return await handleEvent(event, supabase)
+    const response = await handleEvent(event, supabase)
+
+    // A tabela já possui status/processed_at; antes esta transição nunca era feita,
+    // deixando eventos processados presos em "processing" no diagnóstico.
+    if (claimed) {
+      const { error: doneErr } = await supabase
+        .from('stripe_webhook_events')
+        .update({ status: 'processed', processed_at: new Date().toISOString(), error_message: null })
+        .eq('stripe_event_id', event.id)
+      if (doneErr) console.error('stripe_webhook_events: falha ao marcar processed:', doneErr.message)
+    }
+
+    return response
   } catch (err) {
     console.error(`webhook: falha ao processar ${event.type} (${event.id}):`, (err as Error).message)
     if (claimed) {
-      // Devolve a reserva para que a reentrega do Stripe consiga processar de novo.
       const { error: relErr } = await supabase
         .from('stripe_webhook_events').delete().eq('stripe_event_id', event.id)
       if (relErr) console.error('webhook: falha ao liberar reserva:', relErr.message)
     }
-    // 5xx faz o Stripe reentregar com backoff. Um 2xx aqui esconderia a falha.
     return new Response(JSON.stringify({ error: 'processing_failed' }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
 })
 
-// Processa o evento. Qualquer throw aqui devolve a reserva de idempotência e faz
-// o Stripe reentregar — em vez de engolir a falha.
 async function handleEvent(
   event: Stripe.Event,
   supabase: ReturnType<typeof createClient>,
 ): Promise<Response> {
-  // ────────────────────────────────────────────────────────────
-  // Pagamento confirmado via checkout → ativa o plano
-  // ────────────────────────────────────────────────────────────
+  // Pagamento confirmado via Checkout: o Price da Subscription é a fonte da
+  // verdade do plano. A metadata identifica o usuário e serve de cross-check.
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    const userId = session.metadata?.supabase_user_id
-    const plan = session.metadata?.plan
+    const sessionUserId = session.metadata?.supabase_user_id
+    const requestedPlan = session.metadata?.plan
+    const subscriptionId = stripeId(session.subscription)
 
-    if (!userId || !plan) {
-      console.error('checkout.session.completed: metadata supabase_user_id ou plan ausente')
+    if (!sessionUserId || !subscriptionId) {
+      console.error('checkout.session.completed: user_id ou subscription ausente; acesso não liberado')
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // Busca plano anterior ANTES de atualizar
+    // Falha de leitura do Stripe é transitória: lança para o endpoint devolver 5xx
+    // e receber retry, em vez de liberar acesso com dados incompletos.
+    const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
+    const priceId = stripeSub.items.data[0]?.price.id
+    const plan = planFromPrice(priceId)
+    const customerId = stripeId(session.customer) || stripeId(stripeSub.customer)
+    const subscriptionUserId = stripeSub.metadata?.supabase_user_id
+
+    if (!plan || !customerId) {
+      console.error(`checkout.session.completed: Price ID "${priceId}" não mapeado ou customer ausente; acesso não liberado`)
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+    if (subscriptionUserId && subscriptionUserId !== sessionUserId) {
+      console.error('checkout.session.completed: user_id da Session diverge da Subscription; acesso não liberado')
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+    if (requestedPlan && requestedPlan !== plan) {
+      console.error(`checkout.session.completed: metadata plan="${requestedPlan}" diverge do Price; usando plano verificado "${plan}"`)
+    }
+
+    const userId = sessionUserId
     const { data: prevProfile } = await supabase
       .from('profiles')
       .select('plan')
@@ -239,34 +256,16 @@ async function handleEvent(
       .single()
     const oldPlan = prevProfile?.plan ?? 'free'
 
-    // Atualiza plano em profiles + registra a data de ATIVAÇÃO do plano.
-    // plan_activated_at ancora os ciclos mensais (relatório/autocuidado) a partir
-    // da ativação; é definido no checkout (nova assinatura) e no upgrade (abaixo),
-    // e NÃO é tocado nas renovações — o 1º ciclo vai da ativação até o fim do mês.
+    const activatedAt = new Date(event.created * 1000).toISOString()
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ plan, plan_activated_at: new Date().toISOString() })
+      .update({ plan, plan_activated_at: activatedAt })
       .eq('user_id', userId)
     must(profileErr, 'profiles.plan (checkout)')
 
-    // Busca dados da assinatura Stripe se disponível
-    let stripeSub: Stripe.Subscription | null = null
-    if (session.subscription) {
-      try {
-        stripeSub = await stripe.subscriptions.retrieve(session.subscription as string)
-      } catch (e) {
-        console.error('Erro ao buscar subscription Stripe (checkout):', (e as Error).message)
-      }
-    }
+    const periodStart = new Date(stripeSub.current_period_start * 1000).toISOString()
+    const periodEnd = new Date(stripeSub.current_period_end * 1000).toISOString()
 
-    const periodStart = stripeSub
-      ? new Date(stripeSub.current_period_start * 1000).toISOString()
-      : new Date().toISOString()
-    const periodEnd = stripeSub
-      ? new Date(stripeSub.current_period_end * 1000).toISOString()
-      : new Date(Date.now() + 30 * 86400000).toISOString()
-
-    // Upsert user_subscriptions
     const { error: subErr } = await supabase.from('user_subscriptions').upsert({
       user_id: userId,
       plan_key: plan,
@@ -276,12 +275,11 @@ async function handleEvent(
       cancel_at_period_end: false,
       pending_plan: null,
       pending_plan_starts_at: null,
-      provider_subscription_id: stripeSub?.id ?? null,
-      ...(stripeSub ? subFields(stripeSub) : {}),
+      subscription_created_at: new Date(stripeSub.created * 1000).toISOString(),
+      ...stripeSubscriptionFields(stripeSub, customerId),
     }, { onConflict: 'user_id' })
     must(subErr, 'user_subscriptions (checkout)')
 
-    // Registra no histórico de mudanças
     const { error: histErr } = await supabase.from('plan_change_history').insert({
       user_id: userId,
       old_plan: oldPlan,
@@ -296,35 +294,39 @@ async function handleEvent(
 
     await registrarEvento(supabase, event, 'checkout_completed', {
       user_id: userId,
-      stripe_customer_id: (session.customer as string) ?? null,
-      stripe_subscription_id: stripeSub?.id ?? null,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: stripeSub.id,
       previous_plan: oldPlan,
       new_plan: plan,
       amount: (session.amount_total ?? 0) / 100,
       status: 'confirmed',
-      metadata: { session_id: session.id, period_start: periodStart, period_end: periodEnd },
+      metadata: {
+        session_id: session.id,
+        price_id: priceId,
+        requested_plan: requestedPlan ?? null,
+        period_start: periodStart,
+        period_end: periodEnd,
+      },
     })
 
-    // Cria notificação para o usuário
     const { error: notifErr } = await supabase.from('notifications').insert({
       user_id: userId,
       title: 'Assinatura ativada com sucesso!',
-      body: `Seu plano foi ativado. Aproveite todos os recursos do seu novo plano.`,
+      body: 'Seu plano foi ativado. Aproveite todos os recursos do seu novo plano.',
       type: 'info',
       action_url: 'my-plan', destination_path: 'my-plan',
     })
     if (notifErr) console.error('Erro ao criar notificação (checkout):', notifErr)
 
-    console.log(`checkout.session.completed: plano "${plan}" ativado para usuário ${userId}`)
+    console.log(`checkout.session.completed: plano "${plan}" verificado pelo Price e ativado para usuário ${userId}`)
 
-    // ── E-mails transacionais (não bloqueiam o pagamento) ──
     const { email, nome } = await getRecipient(supabase, userId)
     const valor = ((session.amount_total ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     await sendTxEmail('payment_confirmed', email, {
       nome, plano: planLabel(plan), valor,
-      data_pagamento: new Date().toLocaleDateString('pt-BR'),
-      inicio_ciclo: new Date(periodStart).toLocaleDateString('pt-BR'),
-      fim_ciclo: new Date(periodEnd).toLocaleDateString('pt-BR'),
+      data_pagamento: fmtBR(activatedAt),
+      inicio_ciclo: fmtBR(periodStart),
+      fim_ciclo: fmtBR(periodEnd),
       link_meu_plano: `${SITE}/meu-plano`,
     }, `payment_confirmed:${session.id}`, userId)
     if (oldPlan === 'free') {
@@ -334,28 +336,24 @@ async function handleEvent(
     }
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Assinatura renovada → garante que o plano continua ativo
-  // ────────────────────────────────────────────────────────────
+  // Pagamento de invoice: renova acesso e registra a trilha financeira completa.
   if (event.type === 'invoice.payment_succeeded') {
     const invoice = event.data.object as Stripe.Invoice
     const invSubId = invoiceSubId(invoice)
     if (!invSubId) {
-      // Invoice avulsa (não é de assinatura) — nada a sincronizar.
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
     const subscription = await stripe.subscriptions.retrieve(invSubId)
     const priceId = subscription.items.data[0]?.price.id
-    const plan = PLAN_BY_PRICE[priceId]
-    const customerId = subscription.customer as string
+    const plan = planFromPrice(priceId)
+    const customerId = stripeId(subscription.customer)
 
-    if (!plan) {
-      console.error(`invoice.payment_succeeded: Price ID "${priceId}" não mapeado — nenhuma env var correspondente configurada. Plano NÃO atualizado.`)
+    if (!plan || !customerId) {
+      console.error(`invoice.payment_succeeded: Price ID "${priceId}" não mapeado ou customer ausente. Plano NÃO atualizado.`)
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // Busca user_id pelo stripe_customer_id
     const { data: profileData, error: profileLookupErr } = await supabase
       .from('profiles')
       .select('user_id, plan')
@@ -370,7 +368,6 @@ async function handleEvent(
     const userId = profileData.user_id
     const oldPlan = profileData.plan
 
-    // Atualiza profiles.plan
     const { error: profileErr } = await supabase
       .from('profiles')
       .update({ plan })
@@ -379,29 +376,23 @@ async function handleEvent(
 
     const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
     const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
-
-    // Data/hora REAL da confirmação: o Stripe carimba no evento. Nunca usar
-    // new Date() aqui — seria a hora do processamento, não do pagamento (§4).
     const pagoEm = new Date(event.created * 1000).toISOString()
     const valorPago = (invoice.amount_paid ?? 0) / 100
 
-    // Upsert user_subscriptions com datas do ciclo
-    const { error: subErr } = await supabase.from('user_subscriptions').upsert({
+    const { data: savedSub, error: subErr } = await supabase.from('user_subscriptions').upsert({
       user_id: userId,
       plan_key: plan,
       status: 'active',
       current_period_start: periodStart,
       current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
-      provider_subscription_id: subscription.id,
       last_payment_confirmed_at: pagoEm,
       last_payment_amount: valorPago,
       subscription_created_at: new Date(subscription.created * 1000).toISOString(),
-      ...subFields(subscription),
-    }, { onConflict: 'user_id' })
+      ...stripeSubscriptionFields(subscription, customerId),
+    }, { onConflict: 'user_id' }).select('id').single()
     must(subErr, 'user_subscriptions (invoice)')
 
-    // Renovação vs. primeiro pagamento: billing_reason distingue os dois.
     const renovacao = invoice.billing_reason === 'subscription_cycle'
     await registrarEvento(supabase, event, renovacao ? 'subscription_renewed' : 'payment_confirmed', {
       user_id: userId,
@@ -412,27 +403,32 @@ async function handleEvent(
       new_plan: plan,
       amount: valorPago,
       status: 'confirmed',
-      metadata: { billing_reason: invoice.billing_reason, period_end: periodEnd },
+      metadata: { billing_reason: invoice.billing_reason, price_id: priceId, period_end: periodEnd },
     })
 
-    // Registra pagamento em payment_events
+    const currency = String(invoice.currency || 'brl').toUpperCase()
     const { error: payErr } = await supabase.from('payment_events').insert({
       user_id: userId,
+      subscription_id: savedSub?.id ?? null,
+      plan_key: plan,
       type: 'monthly_payment',
-      amount: (invoice.amount_paid ?? 0) / 100,
+      amount: valorPago,
+      currency,
+      status: 'succeeded',
+      provider: 'stripe',
       provider_payment_id: invoice.id,
-      description: `Renovação ${plan} — ${new Date(periodStart).toLocaleDateString('pt-BR')}`,
+      description: `${renovacao ? 'Renovação' : 'Pagamento'} ${plan} — ${fmtBR(periodStart)}`,
+      created_at: pagoEm,
     })
     must(payErr, 'payment_events (invoice)')
 
-    // Só registra no histórico de plano se houve mudança de plano
     if (oldPlan !== plan) {
       const { error: histErr } = await supabase.from('plan_change_history').insert({
         user_id: userId,
         old_plan: oldPlan,
         new_plan: plan,
         change_type: 'upgrade',
-        amount_charged: (invoice.amount_paid ?? 0) / 100,
+        amount_charged: valorPago,
         effective_at: periodStart,
         source: 'stripe_webhook',
         notes: `Mudança de plano via renovação de assinatura. Invoice: ${invoice.id}`,
@@ -440,11 +436,10 @@ async function handleEvent(
       if (histErr) console.error('Erro ao inserir plan_change_history (invoice):', histErr)
     }
 
-    // Notificação de pagamento confirmado
     const { error: notifErr } = await supabase.from('notifications').insert({
       user_id: userId,
       title: 'Pagamento confirmado',
-      body: `Sua assinatura foi renovada com sucesso.`,
+      body: 'Sua assinatura foi renovada com sucesso.',
       type: 'info',
       action_url: 'my-plan', destination_path: 'my-plan',
     })
@@ -452,13 +447,10 @@ async function handleEvent(
 
     console.log(`invoice.payment_succeeded: plano "${plan}" renovado para customer ${customerId} (user ${userId})`)
 
-    // ── E-mail de renovação (não bloqueia) ──
     const { email: rEmail, nome: rNome } = await getRecipient(supabase, userId)
-    const rValor = ((invoice.amount_paid ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    const rValor = valorPago.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     await sendTxEmail('payment_confirmed', rEmail, {
       nome: rNome, plano: planLabel(plan), valor: rValor,
-      // Data REAL do pagamento (carimbo do evento Stripe) — não a hora em que
-      // este código rodou, que é o que new Date() daria.
       data_pagamento: fmtBR(pagoEm),
       inicio_ciclo: fmtBR(periodStart),
       fim_ciclo: fmtBR(periodEnd),
@@ -466,29 +458,29 @@ async function handleEvent(
     }, `payment_confirmed:${invoice.id}`, userId)
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Assinatura criada → apenas sincroniza user_subscriptions.
-  // A ATIVAÇÃO + e-mail de plano ativado vêm de checkout.session.completed
-  // (não duplicar aqui).
-  // ────────────────────────────────────────────────────────────
+  // Assinatura criada: sincroniza a referência do Stripe. A ativação vem do
+  // checkout.session.completed para evitar e-mails/benefícios duplicados.
   if (event.type === 'customer.subscription.created') {
     const subscription = event.data.object as Stripe.Subscription
-    const customerId = subscription.customer as string
-    const plan = PLAN_BY_PRICE[subscription.items.data[0]?.price.id]
+    const customerId = stripeId(subscription.customer)
+    const plan = planFromPrice(subscription.items.data[0]?.price.id)
+    if (!customerId || !plan) {
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
     const { data: prof } = await supabase.from('profiles').select('user_id').eq('stripe_customer_id', customerId).maybeSingle()
     const userId = (prof as { user_id?: string } | null)?.user_id ?? null
-    if (userId && plan) {
-      await supabase.from('user_subscriptions').upsert({
+    if (userId) {
+      const { error: subErr } = await supabase.from('user_subscriptions').upsert({
         user_id: userId,
         plan_key: plan,
         status: subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : subscription.status,
         current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
-        provider_subscription_id: subscription.id,
         subscription_created_at: new Date(subscription.created * 1000).toISOString(),
-        ...subFields(subscription),
+        ...stripeSubscriptionFields(subscription, customerId),
       }, { onConflict: 'user_id' })
+      if (subErr) console.error('Erro user_subscriptions (sub.created):', subErr)
 
       await registrarEvento(supabase, event, 'subscription_created', {
         user_id: userId,
@@ -502,24 +494,26 @@ async function handleEvent(
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Assinatura atualizada → SINCRONIZA Stripe → Supabase (fonte da verdade).
-  // Cobre: upgrade aplicado, downgrade aplicado no fim do ciclo,
-  // cancel_at_period_end (liga/desliga), reativação e renovação de período.
-  // ────────────────────────────────────────────────────────────
+  // Subscription.updated é a confirmação do Stripe para upgrade/downgrade e
+  // também sincroniza alterações de status/ciclo sem confiar no front-end.
   if (event.type === 'customer.subscription.updated') {
     const subscription = event.data.object as Stripe.Subscription
-    const customerId = subscription.customer as string
+    const customerId = stripeId(subscription.customer)
     const priceId = subscription.items.data[0]?.price.id
-    const newPlan = PLAN_BY_PRICE[priceId]
+    const newPlan = planFromPrice(priceId)
+
+    if (!customerId || !newPlan) {
+      console.error(`subscription.updated: customer ou price não mapeado (price ${priceId})`)
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
 
     const { data: prof } = await supabase
       .from('profiles').select('user_id, plan').eq('stripe_customer_id', customerId).maybeSingle()
     const profRow = prof as { user_id?: string; plan?: string } | null
     const userId = profRow?.user_id ?? null
 
-    if (!userId || !newPlan) {
-      console.error(`subscription.updated: ${!userId ? 'usuário' : 'price'} não encontrado (customer ${customerId}, price ${priceId})`)
+    if (!userId) {
+      console.error(`subscription.updated: usuário não encontrado para customer ${customerId}`)
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
@@ -528,7 +522,6 @@ async function handleEvent(
     const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
     const active = subscription.status === 'active' || subscription.status === 'trialing'
 
-    // Sincroniza user_subscriptions com o estado do Stripe.
     const { error: subErr } = await supabase.from('user_subscriptions').upsert({
       user_id: userId,
       plan_key: newPlan,
@@ -536,34 +529,27 @@ async function handleEvent(
       current_period_start: periodStart,
       current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
-      provider_subscription_id: subscription.id,
-      ...subFields(subscription),
+      ...stripeSubscriptionFields(subscription, customerId),
     }, { onConflict: 'user_id' })
     if (subErr) console.error('Erro user_subscriptions (sub.updated):', subErr)
 
-    // profiles.plan segue o plano ATIVO no Stripe (só quando a assinatura está ativa).
     if (active) {
       const { error: pErr } = await supabase.from('profiles').update({ plan: newPlan }).eq('user_id', userId)
       if (pErr) console.error('Erro profiles.plan (sub.updated):', pErr)
     }
 
-    // Mudança de plano (upgrade aplicado agora, ou downgrade aplicado no fim do ciclo).
     if (newPlan !== oldPlan && active) {
       const isUpgrade = rankOf(newPlan) > rankOf(oldPlan)
-      // No UPGRADE, a data de ativação passa a ser a do upgrade — assim o 1º ciclo
-      // mensal do novo plano (ex.: Plus) conta da ativação até o fim do mês (§16).
       if (isUpgrade) {
-        await supabase.from('profiles').update({ plan_activated_at: new Date().toISOString() }).eq('user_id', userId)
+        await supabase.from('profiles').update({ plan_activated_at: new Date(event.created * 1000).toISOString() }).eq('user_id', userId)
       }
       await supabase.from('plan_change_history').insert({
         user_id: userId, old_plan: oldPlan, new_plan: newPlan,
         change_type: isUpgrade ? 'upgrade' : 'downgrade',
-        amount_charged: 0, effective_at: new Date().toISOString(),
+        amount_charged: 0, effective_at: new Date(event.created * 1000).toISOString(),
         source: 'stripe_webhook', notes: `subscription.updated — sub ${subscription.id}`,
       }).then(({ error }) => { if (error) console.error('hist (sub.updated):', error) })
 
-      // Efetivação: o downgrade agendado entrou em vigor agora (fim do ciclo), ou
-      // o upgrade foi confirmado pelo Stripe.
       await registrarEvento(supabase, event, isUpgrade ? 'upgrade_confirmed' : 'downgrade_completed', {
         user_id: userId,
         stripe_customer_id: customerId,
@@ -574,7 +560,6 @@ async function handleEvent(
         metadata: { price_id: priceId, period_end: periodEnd },
       })
 
-      // Fecha o feedback do downgrade que estava agendado.
       if (!isUpgrade) {
         await supabase.from('subscription_change_feedback')
           .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -599,14 +584,13 @@ async function handleEvent(
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Assinatura cancelada → volta para plano gratuito
-  // ────────────────────────────────────────────────────────────
   if (event.type === 'customer.subscription.deleted') {
     const subscription = event.data.object as Stripe.Subscription
-    const customerId = subscription.customer as string
+    const customerId = stripeId(subscription.customer)
+    if (!customerId) {
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
 
-    // Busca user_id e pending_plan pelo stripe_customer_id
     const { data: subData } = await supabase
       .from('user_subscriptions')
       .select('user_id, pending_plan, plan_key')
@@ -614,8 +598,6 @@ async function handleEvent(
       .maybeSingle()
 
     let userId: string | null = subData?.user_id ?? null
-
-    // Fallback: busca pelo stripe_customer_id em profiles
     if (!userId) {
       const { data: profileData } = await supabase
         .from('profiles')
@@ -630,26 +612,25 @@ async function handleEvent(
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // Downgrades agora usam Subscription Schedule (NÃO deletam a assinatura). Portanto
-    // uma deleção = cancelamento total → sempre volta para o Gratuito.
     const finalPlan = 'free'
     const oldPlan = subData?.plan_key ?? 'unknown'
 
-    // Atualiza profiles.plan
     const { error: profileErr } = await supabase
       .from('profiles')
       .update({ plan: finalPlan })
       .eq('user_id', userId)
     must(profileErr, 'profiles.plan (deleted)')
 
-    // Atualiza user_subscriptions
     const { error: subErr } = await supabase.from('user_subscriptions').update({
       plan_key: finalPlan,
-      status: finalPlan === 'free' ? 'cancelled' : 'active',
+      status: 'cancelled',
       cancel_at_period_end: false,
       pending_plan: null,
       pending_plan_starts_at: null,
-      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : new Date().toISOString(),
+      provider: 'stripe',
+      provider_customer_id: customerId,
+      provider_subscription_id: subscription.id,
+      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : new Date(event.created * 1000).toISOString(),
       payment_status: 'canceled',
     }).eq('user_id', userId)
 
@@ -663,38 +644,28 @@ async function handleEvent(
       metadata: { canceled_at: subscription.canceled_at, ended_at: subscription.ended_at },
     })
 
-    // Fecha o feedback do cancelamento que estava agendado — vira churn efetivo.
     await supabase.from('subscription_change_feedback')
       .update({ status: 'completed', updated_at: new Date().toISOString() })
       .eq('user_id', userId).eq('change_type', 'cancellation').eq('status', 'scheduled')
       .then(({ error }) => { if (error) console.error('feedback cancel completed:', error) })
     must(subErr, 'user_subscriptions (deleted)')
 
-    // Registra no histórico
-    const changeType = finalPlan === 'free' ? 'cancel' : 'downgrade'
     const { error: histErr } = await supabase.from('plan_change_history').insert({
       user_id: userId,
       old_plan: oldPlan,
       new_plan: finalPlan,
-      change_type: changeType,
+      change_type: 'cancel',
       amount_charged: 0,
-      effective_at: new Date().toISOString(),
+      effective_at: new Date(event.created * 1000).toISOString(),
       source: 'stripe_webhook',
       notes: `Assinatura Stripe encerrada. Sub: ${subscription.id}`,
     })
     if (histErr) console.error('Erro ao inserir plan_change_history (deleted):', histErr)
 
-    // Notificação
-    const notifTitle = finalPlan === 'free'
-      ? 'Assinatura encerrada'
-      : `Plano alterado para ${finalPlan}`
-    const notifBody = finalPlan === 'free'
-      ? 'Sua assinatura foi encerrada. Você continua com acesso ao plano Gratuito.'
-      : `Seu plano foi alterado conforme agendado.`
     const { error: notifErr } = await supabase.from('notifications').insert({
       user_id: userId,
-      title: notifTitle,
-      body: notifBody,
+      title: 'Assinatura encerrada',
+      body: 'Sua assinatura foi encerrada. Você continua com acesso ao plano Gratuito.',
       type: 'info',
       action_url: 'my-plan', destination_path: 'my-plan',
     })
@@ -702,21 +673,19 @@ async function handleEvent(
 
     console.log(`customer.subscription.deleted: plano revertido para "${finalPlan}" — customer ${customerId} (user ${userId})`)
 
-    // ── E-mail de retorno ao Gratuito (não bloqueia) ──
-    if (finalPlan === 'free') {
-      const { email: dEmail, nome: dNome } = await getRecipient(supabase, userId)
-      await sendTxEmail('plan_returned_to_free', dEmail, {
-        nome: dNome, plano_anterior: oldPlan, link_meu_plano: `${SITE}/meu-plano`,
-      }, `plan_returned_to_free:${subscription.id}`, userId)
-    }
+    const { email: dEmail, nome: dNome } = await getRecipient(supabase, userId)
+    await sendTxEmail('plan_returned_to_free', dEmail, {
+      nome: dNome, plano_anterior: oldPlan, link_meu_plano: `${SITE}/meu-plano`,
+    }, `plan_returned_to_free:${subscription.id}`, userId)
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Pagamento recusado → avisa o usuário
-  // ────────────────────────────────────────────────────────────
   if (event.type === 'invoice.payment_failed') {
     const invoice = event.data.object as Stripe.Invoice
-    const customerId = invoice.customer as string
+    const customerId = stripeId(invoice.customer)
+    if (!customerId) {
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+
     const { data: prof } = await supabase
       .from('profiles')
       .select('user_id, plan, email, full_name')
@@ -724,12 +693,10 @@ async function handleEvent(
       .maybeSingle()
     const p = prof as { user_id?: string; plan?: string; email?: string; full_name?: string } | null
 
-    // Registra a recusa: alimenta "pagamentos negados" no Analytics e a data da
-    // última tentativa negada no perfil (§6). Data real vinda do evento.
     if (p?.user_id) {
       const falhouEm = new Date(event.created * 1000).toISOString()
       await supabase.from('user_subscriptions')
-        .update({ last_payment_failed_at: falhouEm })
+        .update({ last_payment_failed_at: falhouEm, provider: 'stripe', provider_customer_id: customerId })
         .eq('user_id', p.user_id)
         .then(({ error }) => { if (error) console.error('last_payment_failed_at:', error.message) })
 
