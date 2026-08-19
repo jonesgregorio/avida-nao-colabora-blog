@@ -11,7 +11,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Conta e acesso',
     question: 'Como crio minha conta?',
-    answer: 'Clique em "Começar gratuitamente" em qualquer página. Basta informar seu nome, e-mail e criar uma senha. O acesso é imediato — sem necessidade de confirmar e-mail.',
+    answer: 'Clique em "Começar gratuitamente" em qualquer página, informe seu nome, e-mail e crie uma senha. Depois do cadastro, enviamos um link de confirmação para o endereço informado. O acesso à área logada é liberado somente após confirmar o e-mail. Se o link não chegar, verifique a caixa de spam ou use a opção de reenviar na tela de confirmação.',
   },
   {
     category: 'Conta e acesso',

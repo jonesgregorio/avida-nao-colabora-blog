@@ -33,6 +33,11 @@ additional_redirect_urls = ["https://www.avidanaocolabora.com", "https://avida-n
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 
+# Paridade para desenvolvimento/self-hosted. Em produção hosted, a mesma regra é
+# aplicada pelo auth-config.json via Management API (mailer_autoconfirm=false).
+[auth.email]
+enable_confirmations = true
+
 # ── Edge Functions ────────────────────────────────────────────────────────────
 # stripe-webhook é chamado pelo Stripe SEM JWT do Supabase (autentica via
 # assinatura Stripe), então precisa de verify_jwt = false — senão o gateway

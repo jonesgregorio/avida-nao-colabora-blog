@@ -1,0 +1,35 @@
+name: Apply Supabase Auth Config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/auth-config.json'
+      - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/apply-auth-config.sh'
+      - '.github/workflows/apply-supabase-auth-config.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: supabase-auth-config-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: apply-auth-config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply and verify Supabase Auth config
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: lejvvhzluggyxlfwfoxl
+        run: |
+          SCRIPT="kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/apply-auth-config.sh"
+          chmod +x "$SCRIPT"
+          "$SCRIPT"
