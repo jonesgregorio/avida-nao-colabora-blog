@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = new Set([
@@ -132,7 +133,7 @@ Deno.serve(async (req: Request) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY)
 
-  // ── Autenticação: service role (server) | admin | self-service ──────────────
+  // ── Autenticação: service role (server) | admin AAL2 | self-service ─────────
   const authHeader = req.headers.get('Authorization') || ''
   const token = authHeader.replace('Bearer ', '').trim()
 
@@ -148,7 +149,7 @@ Deno.serve(async (req: Request) => {
 
   const isService = token && token === SERVICE_KEY
   if (!isService) {
-    // Precisa ser um JWT de usuário válido
+    // Precisa ser um JWT de usuário válido.
     const { data: { user }, error: authErr } = await admin.auth.getUser(token)
     if (authErr || !user) return json({ error: 'Não autorizado' }, 401)
 
@@ -158,9 +159,17 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    const isAdmin = profile?.role === 'admin'
     const isSelf = SELF_SERVICE.has(payload.template_key) &&
       payload.to_email.toLowerCase() === (user.email ?? '').toLowerCase()
+
+    // Admin pode usar os mesmos templates self-service para o próprio e-mail com
+    // AAL1, como qualquer usuário. Qualquer envio PRIVILEGIADO exige MFA/AAL2.
+    let isAdmin = false
+    if (profile?.role === 'admin' && !isSelf) {
+      const privileged = await requireAdminAal2(req)
+      if (!privileged.ok) return json({ error: privileged.error }, privileged.status)
+      isAdmin = true
+    }
 
     if (!isAdmin && !isSelf) return json({ error: 'Sem permissão para este envio' }, 403)
   }
