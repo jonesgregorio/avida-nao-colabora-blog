@@ -33,6 +33,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Restore draft if user just logged in
   useEffect(() => {
     if (user) {
       const draft = localStorage.getItem(DRAFT_KEY)
@@ -114,6 +115,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
 
   return (
     <div className="min-h-screen bg-stone-50">
+      {/* Header */}
       <div className="bg-white border-b border-stone-100">
         <div className="max-w-2xl mx-auto px-4 py-8">
           <button
@@ -136,6 +138,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
 
       <div className="max-w-2xl mx-auto px-4 py-8">
         {!user ? (
+          /* Not logged in: show prompt */
           <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center space-y-5">
             <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
               <LogIn className="w-7 h-7 text-blue-500" />
@@ -147,6 +150,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
               </p>
             </div>
 
+            {/* Show form fields so user can fill before logging in */}
             <div className="text-left space-y-4 border-t border-stone-100 pt-5">
               <div>
                 <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
@@ -176,7 +180,9 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             </div>
           </div>
         ) : (
+          /* Logged in: show full form */
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
+            {/* Subject */}
             <div>
               <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
               <select id="contact-subject" value={subject} onChange={e => { setSubject(e.target.value); setCategory(e.target.value) }} className={inputCls}>
@@ -184,6 +190,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
               </select>
             </div>
 
+            {/* Priority */}
             <fieldset>
               <legend className="block text-sm font-medium text-stone-700 mb-1.5">Urgência</legend>
               <div className="flex gap-3">
@@ -205,6 +212,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
               </div>
             </fieldset>
 
+            {/* Description */}
             <div>
               <label htmlFor="contact-message" className="block text-sm font-medium text-stone-700 mb-1.5">Mensagem *</label>
               <textarea

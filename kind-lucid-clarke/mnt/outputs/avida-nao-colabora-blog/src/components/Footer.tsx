@@ -62,6 +62,7 @@ export default function Footer({ onNavigate }: FooterProps) {
               Um lugar para se organizar por dentro nos dias difíceis.
             </p>
             <div className="flex items-center gap-3 mt-4">
+              {/* Instagram — abre em nova aba */}
               <a
                 href="https://www.instagram.com/avidanaocolabora?igsh=NzV5cGN1OGZmNDJv&utm_source=qr"
                 target="_blank"
@@ -71,6 +72,7 @@ export default function Footer({ onNavigate }: FooterProps) {
               >
                 <InstagramIcon className="w-4 h-4" />
               </a>
+              {/* E-mail — abre formulário de contato */}
               <button
                 onClick={() => onNavigate('contact')}
                 aria-label="Contato por e-mail"
@@ -81,6 +83,7 @@ export default function Footer({ onNavigate }: FooterProps) {
             </div>
           </div>
 
+          {/* Colunas de links */}
           {COLS.map(col => (
             <div key={col.title}>
               <h4 className="text-sm font-semibold text-forest-900 mb-3">{col.title}</h4>
@@ -100,6 +103,7 @@ export default function Footer({ onNavigate }: FooterProps) {
           ))}
         </div>
 
+        {/* Newsletter */}
         <div className="mt-12 pt-8 border-t border-line grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div>
             <h4 className="font-serif text-xl text-forest-900">Receba conteúdos que acolhem</h4>
@@ -134,6 +138,7 @@ export default function Footer({ onNavigate }: FooterProps) {
           </form>
         </div>
 
+        {/* Rodapé inferior */}
         <div className="mt-10 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-ink-soft">
             © {new Date().getFullYear()} A Vida Não Colabora. Todos os direitos reservados.
