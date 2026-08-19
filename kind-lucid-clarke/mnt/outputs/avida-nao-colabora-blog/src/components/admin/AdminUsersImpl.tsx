@@ -6,10 +6,8 @@ import { logAdminAction } from '../../lib/adminAudit'
 import { createUserNotification } from '../../lib/notifications'
 import { generateUserProfileSummary, type UserProfileData } from '../../lib/aiContent'
 import {
-  Search, X, Users, Crown, Bell, FileText, Star, XCircle,
-  MessageCircle, Plus, ChevronRight, Ticket, Shield, Tag,
-  LayoutList, Columns, Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle, Download,
-  Mail, ChevronDown,
+  X, Crown, Bell, FileText, MessageCircle, Plus, Ticket, Shield, Tag,
+  Brain, Loader2, Copy, Save, RefreshCw, AlertTriangle, Mail, ChevronDown,
 } from 'lucide-react'
 import { normalizePlan, OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { PLAN_LABELS } from '../../lib/planConstants'
@@ -20,7 +18,6 @@ import AdminUsersOverview from './AdminUsersOverview'
 import {
   ACCOUNT_STATUS_COLORS,
   DRAWER_TABS,
-  KANBAN_COLUMNS,
   NOTE_PRIORITY_COLORS,
   PLAN_COLORS,
   PREDEFINED_TAGS,
