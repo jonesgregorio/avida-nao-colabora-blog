@@ -74,6 +74,8 @@ function setPageHead(shell, page) {
   html = replaceOrAppendHead(html, /<meta\s+name=["']description["'][^>]*>/i, `<meta name="description" content="${escapeHtml(page.description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, '<meta name="robots" content="index, follow, max-image-preview:large" />')
   html = replaceOrAppendHead(html, /<link\s+rel=["']canonical["'][^>]*>/i, `<link rel="canonical" href="${escapeHtml(canonical)}" />`)
+  html = replaceOrAppendHead(html, /<link\s+rel=["']alternate["'][^>]*hreflang=["']pt-BR["'][^>]*>/i, `<link rel="alternate" hreflang="pt-BR" href="${escapeHtml(canonical)}" />`)
+  html = replaceOrAppendHead(html, /<link\s+rel=["']alternate["'][^>]*hreflang=["']x-default["'][^>]*>/i, `<link rel="alternate" hreflang="x-default" href="${escapeHtml(canonical)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:title["'][^>]*>/i, `<meta property="og:title" content="${escapeHtml(page.title)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:description["'][^>]*>/i, `<meta property="og:description" content="${escapeHtml(page.description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:type["'][^>]*>/i, '<meta property="og:type" content="website" />')
@@ -84,10 +86,6 @@ function setPageHead(shell, page) {
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:title["'][^>]*>/i, `<meta name="twitter:title" content="${escapeHtml(page.title)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:description["'][^>]*>/i, `<meta name="twitter:description" content="${escapeHtml(page.description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:image["'][^>]*>/i, `<meta name="twitter:image" content="${DEFAULT_IMAGE}" />`)
-
-  const alternatePtBr = `<link rel="alternate" hreflang="pt-BR" href="${escapeHtml(canonical)}" />`
-  const alternateDefault = `<link rel="alternate" hreflang="x-default" href="${escapeHtml(canonical)}" />`
-  html = html.replace('</head>', `    ${alternatePtBr}\n    ${alternateDefault}\n  </head>`)
 
   const structuredData = JSON.stringify({
     '@context': 'https://schema.org',
