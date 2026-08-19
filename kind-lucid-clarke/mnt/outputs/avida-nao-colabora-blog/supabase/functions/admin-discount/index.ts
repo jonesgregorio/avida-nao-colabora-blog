@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe@14'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' })
 
@@ -43,13 +44,13 @@ function monthsUntil(until: string): number {
 // no próximo checkout). Antes disso, as colunas discount_* eram só decorativas.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
+
+  const auth = await requireAdminAal2(req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+  const user = auth.user
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '').trim()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-  if (authErr || !user) return json({ error: 'Não autorizado' }, 401)
-  const { data: prof } = await supabase.from('profiles').select('role').eq('user_id', user.id).maybeSingle()
-  if ((prof as { role?: string } | null)?.role !== 'admin') return json({ error: 'Apenas admin' }, 403)
 
   let body: Body
   try { body = await req.json() } catch { return json({ error: 'Body inválido' }, 400) }

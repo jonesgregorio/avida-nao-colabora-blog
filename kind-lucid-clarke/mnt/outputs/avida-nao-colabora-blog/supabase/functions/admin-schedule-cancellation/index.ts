@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe@14'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 
 // ============================================================================
 // admin-schedule-cancellation — aba Admin > Cancelamentos
@@ -8,7 +9,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 // (NUNCA cancelamento imediato). O usuário mantém acesso ao plano pago até
 // current_period_end; após o fim do ciclo o webhook (customer.subscription.deleted)
 // reverte para o Gratuito. Aqui só GARANTIMOS o agendamento no Stripe e
-// sincronizamos o banco — de forma idempotente e segura (apenas admin).
+// sincronizamos o banco — de forma idempotente e segura (apenas admin AAL2).
 //
 // Entrada: { feedback_id }  — o ID da assinatura NUNCA vem do client; é buscado
 // no banco a partir do usuário do registro de cancelamento.
@@ -29,8 +30,6 @@ const PLAN_LABELS: Record<string, string> = {
 }
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || 'Gratuito'
 
-// Data em pt-BR / São Paulo. Meia-noite UTC = data de calendário → lê em UTC
-// (senão o fuso -03 joga p/ o dia anterior). Igual ao front (lib/billingCycle.ts).
 const BILLING_TZ = 'America/Sao_Paulo'
 const fmtBR = (iso: string): string => {
   const d = new Date(iso)
@@ -38,9 +37,6 @@ const fmtBR = (iso: string): string => {
   return d.toLocaleDateString('pt-BR', { timeZone: cal ? 'UTC' : BILLING_TZ })
 }
 
-// Projeta um fim de ciclo VENCIDO para a próxima fronteira futura (mesma regra do
-// front). Um current_period_end no passado é dado estragado e não pode virar a
-// data mostrada ao usuário. Para assinatura real (data futura) é no-op.
 const MS_PER_CYCLE = 30 * 86_400_000
 const rollForwardIso = (iso: string, now: Date = new Date()): string => {
   const b = new Date(iso)
@@ -59,37 +55,24 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
 
+  const auth = await requireAdminAal2(req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+  const user = auth.user
+
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const admin = createClient(SUPABASE_URL, SERVICE_KEY)
 
-  // ── Autenticação + autorização: SOMENTE admin ───────────────────────────────
-  const authHeader = req.headers.get('Authorization') || ''
-  const token = authHeader.replace('Bearer ', '').trim()
-  if (!token) return json({ error: 'Você não tem permissão para executar esta ação.' }, 401)
-
-  const { data: { user }, error: authErr } = await admin.auth.getUser(token)
-  if (authErr || !user) return json({ error: 'Você não tem permissão para executar esta ação.' }, 401)
-
-  const { data: caller } = await admin.from('profiles').select('role').eq('user_id', user.id).maybeSingle()
-  if ((caller as { role?: string } | null)?.role !== 'admin') {
-    return json({ error: 'Você não tem permissão para executar esta ação.' }, 403)
-  }
-
-  // ── Entrada ─────────────────────────────────────────────────────────────────
   let body: { feedback_id?: string }
   try { body = await req.json() } catch { return json({ error: 'Body inválido' }, 400) }
   const feedbackId = body.feedback_id
   if (!feedbackId) return json({ error: 'feedback_id é obrigatório' }, 400)
 
-  // ── Carrega o registro de cancelamento e a assinatura do banco ──────────────
   const { data: fb } = await admin.from('subscription_change_feedback')
     .select('id, user_id, change_type, current_plan, reasons, comment, effective_at, subscription_id, status')
     .eq('id', feedbackId).maybeSingle()
   if (!fb) return json({ error: 'Registro de cancelamento não encontrado.' }, 404)
   if (fb.change_type !== 'cancellation') return json({ error: 'Este registro não é um cancelamento.' }, 400)
-  // Aprovação (110): não agendar um pedido que o usuário já retirou. 'reverted'
-  // significa que a pessoa desistiu antes da aprovação — aprovar seria um erro.
   if ((fb as { status?: string }).status === 'reverted') {
     return json({ error: 'Este pedido foi retirado pelo usuário e não pode ser aprovado.', code: 'reverted' })
   }
@@ -100,7 +83,6 @@ Deno.serve(async (req: Request) => {
     .select('id, provider_subscription_id, current_period_end, status, cancel_at_period_end, plan_key')
     .eq('user_id', targetUserId).maybeSingle()
 
-  // O ID da assinatura vem SEMPRE do banco (nunca do client).
   const stripeSubId = (sub as { provider_subscription_id?: string } | null)?.provider_subscription_id ?? null
   if (!stripeSubId) {
     return json({ error: 'Não foi encontrada uma assinatura Stripe vinculada a este usuário.', code: 'no_subscription' })
@@ -110,7 +92,6 @@ Deno.serve(async (req: Request) => {
     .select('email, full_name, plan, plan_activated_at').eq('user_id', targetUserId).maybeSingle()
   const prof = profile as { email?: string; full_name?: string; plan?: string; plan_activated_at?: string } | null
 
-  // Fim de ciclo — prioridade: Stripe → banco → feedback → ativação+30d (fallback).
   const computeEnd = (stripeEnd: string | null): string | null => {
     const raw = stripeEnd
       || (sub as { current_period_end?: string } | null)?.current_period_end
@@ -121,7 +102,6 @@ Deno.serve(async (req: Request) => {
     return null
   }
 
-  // ── Consulta a assinatura no Stripe ─────────────────────────────────────────
   let s: Stripe.Subscription
   try {
     s = await stripe.subscriptions.retrieve(stripeSubId)
@@ -143,9 +123,6 @@ Deno.serve(async (req: Request) => {
 
   const effectiveEnd = computeEnd(s.current_period_end ? new Date(s.current_period_end * 1000).toISOString() : null)
 
-  // Sincroniza banco (assinatura + feedback) — usado tanto no caminho idempotente
-  // quanto após aplicar. NÃO altera o plano/acesso do usuário (isso é no fim do
-  // ciclo, via webhook). Mantém a convenção do manage-subscription.
   async function syncDb(endDate: string | null): Promise<void> {
     await admin.from('user_subscriptions').update({
       cancel_at_period_end: true,
@@ -165,13 +142,11 @@ Deno.serve(async (req: Request) => {
     }).eq('id', feedbackId)
   }
 
-  // ── Idempotência: já agendado no Stripe? Só sincroniza e retorna ────────────
   if (s.cancel_at_period_end === true) {
     await syncDb(effectiveEnd)
     return json({ ok: true, already: true, effectiveAt: effectiveEnd, message: 'Este cancelamento já estava agendado no Stripe.' })
   }
 
-  // ── Aplica cancel_at_period_end=true ────────────────────────────────────────
   let updated: Stripe.Subscription
   try {
     updated = await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true })
@@ -194,8 +169,6 @@ Deno.serve(async (req: Request) => {
 
   await syncDb(confirmedEnd)
 
-  // Linha do tempo financeira (idempotente por natureza: 1 clique = 1 evento; um
-  // 2º clique cai no caminho "já agendado" acima e não chega aqui).
   await admin.from('subscription_events').insert({
     user_id: targetUserId,
     subscription_id: (sub as { id?: string } | null)?.id ?? null,
@@ -216,7 +189,6 @@ Deno.serve(async (req: Request) => {
     },
   }).then(({ error }) => { if (error) console.error('subscription_events:', error.message) })
 
-  // Notificação in-app ao usuário (o acesso continua até o fim do ciclo).
   if (confirmedEnd) {
     await admin.from('notifications').insert({
       user_id: targetUserId,
@@ -226,9 +198,6 @@ Deno.serve(async (req: Request) => {
     }).then(({ error }) => { if (error) console.error('notification:', error.message) })
   }
 
-  // E-mail de confirmação — reutiliza o template plan_cancel_requested com a MESMA
-  // idempotency_key do manage-subscription: se o usuário já recebeu no momento do
-  // pedido, o índice único de email_logs faz o 2º envio ser ignorado (sem duplicar).
   if (prof?.email && confirmedEnd) {
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/send-transactional-email`, {
