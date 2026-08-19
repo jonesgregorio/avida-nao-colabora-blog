@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
       headers: { ...headers, 'Content-Type': 'application/json' },
     })
   }
+  const userId = user.id
 
   const admin = createClient(url, serviceKey)
 
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
       const { data, error } = await admin
         .from(table)
         .select(select)
-        .eq(filterColumn, user.id)
+        .eq(filterColumn, userId)
         .range(from, from + PAGE_SIZE - 1)
       if (error) throw new Error(`${table}: ${error.message}`)
       const page = (data ?? []) as unknown[]
@@ -97,7 +98,7 @@ Deno.serve(async (req) => {
     const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('user_id,full_name,display_name,preferred_name,avatar_url,plan,created_at,updated_at,status_phrase,communication_preference,notification_frequency,email_notifications,account_status,last_seen_at,email,subscription_status,payment_status,trial_end,plan_activated_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle()
     if (profileError) throw profileError
 
@@ -179,7 +180,7 @@ Deno.serve(async (req) => {
       exported_at: new Date().toISOString(),
       service: 'A Vida Não Colabora',
       account: {
-        id: user.id,
+        id: userId,
         email: user.email ?? null,
         created_at: user.created_at,
         last_sign_in_at: user.last_sign_in_at ?? null,
