@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 const SENTRY_CDN_PATTERN = /https:\/\/js\.sentry-cdn\.com\//
 
 test('monitoramento externo permanece desativado sem configuração do Sentry', async ({ page }) => {
-  const sentryRequests: string[] = []
+  const sentryRequests = []
   page.on('request', (request) => {
     if (SENTRY_CDN_PATTERN.test(request.url()) || request.url().includes('.ingest.sentry.io')) {
       sentryRequests.push(request.url())
