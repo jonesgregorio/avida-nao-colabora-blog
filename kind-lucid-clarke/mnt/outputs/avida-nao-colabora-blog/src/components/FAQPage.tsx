@@ -26,7 +26,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Conta e acesso',
     question: 'Posso excluir minha conta?',
-    answer: 'Sim. Nas configurações do seu perfil, há a opção de excluir a conta. Todos os seus dados pessoais e registros do diário são apagados em até 30 dias após a solicitação.',
+    answer: 'Sim. Em Meu perfil > Privacidade e seus dados, você pode excluir a conta por autoatendimento. Para sua segurança, é necessário informar a senha atual e digitar EXCLUIR. A conta e os dados pessoais vinculados ao aplicativo são removidos ao concluir o processo; se houver cadastro de cobrança no Stripe, ele é encerrado antes da exclusão para impedir novas cobranças. Registros que prestadores precisem conservar por obrigação legal, segurança ou auditoria seguem os prazos aplicáveis desses prestadores.',
   },
   // Planos e pagamento
   {
@@ -58,12 +58,12 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Diário e funcionalidades',
     question: 'Meus registros do diário são privados?',
-    answer: 'Sim, absolutamente. Os registros do diário são visíveis apenas para você. Nossa equipe não acessa seus registros pessoais. Os dados são usados apenas de forma automática para gerar seus relatórios — sem revisão humana.',
+    answer: 'Sim. Seus registros ficam protegidos por controles de acesso e não são disponibilizados publicamente. O conteúdo pode ser processado automaticamente para gerar mapas, relatórios, planos e recomendações. Em recursos do Plus que preveem revisão profissional, o profissional recebe o relatório ou o contexto necessário para a devolutiva, conforme o fluxo apresentado a você; isso não transforma o diário em uma área de leitura livre pela equipe.',
   },
   {
     category: 'Diário e funcionalidades',
     question: 'Posso exportar meus dados?',
-    answer: 'Sim. Você pode solicitar a exportação dos seus dados a qualquer momento pelo perfil ou entrando em contato. Disponibilizamos os dados em formato legível conforme exige a LGPD.',
+    answer: 'Sim. Em Meu perfil > Privacidade e seus dados, clique em "Baixar meus dados". A plataforma prepara um arquivo JSON legível com os dados vinculados à sua conta, incluindo perfil, diário, check-ins, questionários, relatórios, planos, preferências, suporte, histórico de uso e informações de assinatura/cobrança aplicáveis.',
   },
   {
     category: 'Diário e funcionalidades',
