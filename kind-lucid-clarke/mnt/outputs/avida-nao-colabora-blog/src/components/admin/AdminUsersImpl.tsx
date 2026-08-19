@@ -16,145 +16,31 @@ import { PLAN_LABELS } from '../../lib/planConstants'
 import { ADMIN_INPUT_CLASS as inputCls } from '../../lib/styleConstants'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 import AdminSendUserEmail from './AdminSendUserEmail'
-
-interface UserRow {
-  id: string
-  user_id: string
-  full_name: string | null
-  email: string | null
-  plan: string
-  role: string | null
-  created_at: string
-  account_status: string | null
-  unlimited_access: boolean | null
-  unlimited_access_until: string | null
-  unlimited_access_reason: string | null
-  discount_percent: number | null
-  discount_fixed: number | null
-  admin_tags: string[] | null
-  last_seen_at?: string | null
-  open_tickets?: number
-  unread_notifs?: number
-  last_activity?: string | null
-}
-
-interface AdminSubscription {
-  id: string
-  plan_key: string
-  status: string
-  current_period_start: string | null
-  current_period_end: string | null
-  cancel_at_period_end: boolean
-  pending_plan: string | null
-  pending_plan_starts_at: string | null
-}
-
-interface TicketRow {
-  id: string
-  ticket_number: number
-  subject: string
-  status: string
-  priority: string
-  updated_at: string
-}
-
-interface NotifRow {
-  id: string
-  title: string
-  type: string
-  is_read: boolean
-  created_at: string
-}
-
-interface NoteRow {
-  id: string
-  note: string
-  admin_id: string | null
-  is_pinned: boolean
-  priority: string
-  created_at: string
-}
-
-interface PlanHistoryRow {
-  id: string
-  old_plan: string | null
-  new_plan: string | null
-  reason: string | null
-  created_at: string
-}
-
-const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-mint text-forest-700',
-  essential: 'bg-sky text-[#3d6ea5]',
-  plus: 'bg-coral text-[#c05f3c]',
-  therapeutic: 'bg-coral text-[#c05f3c]',
-  'therapeutic-plus': 'bg-coral text-[#c05f3c]',
-}
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Aberto', in_progress: 'Em andamento',
-  awaiting_admin: 'Aguard. suporte', awaiting_user: 'Aguard. cliente',
-  resolved: 'Resolvido', closed: 'Fechado',
-}
-const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-blue-100 text-blue-700', in_progress: 'bg-orange-100 text-orange-700',
-  awaiting_admin: 'bg-yellow-100 text-yellow-700', awaiting_user: 'bg-purple-100 text-purple-700',
-  resolved: 'bg-green-100 text-green-700', closed: 'bg-stone-100 text-stone-500',
-}
-const ACCOUNT_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-700',
-  blocked: 'bg-red-100 text-red-700',
-  suspended: 'bg-orange-100 text-orange-700',
-  cancelled: 'bg-stone-100 text-stone-500',
-  trial: 'bg-blue-100 text-blue-700',
-}
-const TYPE_LABELS: Record<string, string> = {
-  info: 'Info', content: 'Conteúdo', promo: 'Promo', reminder: 'Lembrete',
-  alert: 'Alerta', support_reply: 'Suporte', admin_message: 'Admin', system: 'Sistema',
-}
-const PREDEFINED_TAGS = [
-  'VIP', 'Problema técnico', 'Cancelamento', 'Pagamento pendente',
-  'Usuário ativo', 'Inativo', 'Beta tester', 'Parceiro',
-]
-
-function timeSince(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
-  if (d < 30) return `há ${d} dia${d !== 1 ? 's' : ''}`
-  const m = Math.floor(d / 30)
-  if (m < 12) return `há ${m} ${m === 1 ? 'mês' : 'meses'}`
-  const y = Math.floor(m / 12), rm = m % 12
-  return rm > 0
-    ? `há ${y} ano${y !== 1 ? 's' : ''} e ${rm} ${rm === 1 ? 'mês' : 'meses'}`
-    : `há ${y} ano${y !== 1 ? 's' : ''}`
-}
-
-
-type DrawerTab = 'resumo' | 'plano' | 'mapa' | 'orientacoes' | 'assinatura' | 'acesso' | 'suporte' | 'notificacoes' | 'comunicacao' | 'uso' | 'descontos' | 'notas' | 'seguranca' | 'resumo-inteligente'
-
-// Log de e-mail administrativo enviado ao usuário (template_key = admin_custom_message).
-interface EmailLogRow {
-  id: string
-  created_at: string
-  sent_at: string | null
-  subject: string | null
-  status: string | null
-  error_message: string | null
-  metadata: { variables?: { assunto?: string; corpo?: string }; template_title?: string | null; sent_by_admin_email?: string | null } | null
-}
-
-interface AISummaryRow {
-  id: string
-  summary: string
-  data_snapshot: Record<string, unknown>
-  provider: string | null
-  created_at: string
-}
-type ViewMode = 'list' | 'kanban'
-
-const KANBAN_COLUMNS = [
-  { key: 'free', label: 'Gratuito', color: 'border-stone-300 bg-stone-50', badge: 'bg-stone-100 text-stone-600' },
-  { key: 'essential', label: 'Essencial', color: 'border-blue-300 bg-blue-50', badge: 'bg-blue-100 text-blue-700' },
-  { key: 'plus', label: 'Plus', color: 'border-[#f0c3b4] bg-coral/30', badge: 'bg-coral text-[#c05f3c]' },
-]
+import {
+  ACCOUNT_STATUS_COLORS,
+  DRAWER_TABS,
+  KANBAN_COLUMNS,
+  NOTE_PRIORITY_COLORS,
+  PLAN_COLORS,
+  PREDEFINED_TAGS,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+  buildAdminUsersCsv,
+  filterAdminUsers,
+  resolveTabFilter,
+  timeSince,
+  type AdminSubscription,
+  type AISummaryRow,
+  type DrawerTab,
+  type EmailLogRow,
+  type NoteRow,
+  type NotifRow,
+  type PlanHistoryRow,
+  type TicketRow,
+  type UserRow,
+  type ViewMode,
+} from './adminUsersModel'
 
 export default function AdminUsers({ initialUserId }: { initialUserId?: string | null }) {
   const { user: adminUser } = useAuth()
@@ -860,56 +746,19 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     }
   }
 
-  const filtered = users.filter(u => {
-    const q = search.toLowerCase()
-    const matchBusca = !q ||
-      (u.full_name ?? '').toLowerCase().includes(q) ||
-      (u.email ?? '').toLowerCase().includes(q) ||
-      u.user_id?.toLowerCase().includes(q)
-    // Plano normalizado: agrupa os legados (therapeutic) em 'plus'.
-    const matchPlano = filterPlan === 'all' || normalizePlan(u.plan) === filterPlan
-    const matchStatus = filterStatus === 'all' || (u.account_status ?? 'active') === filterStatus
-    const temDesconto = (u.discount_percent ?? 0) > 0 || (u.discount_fixed ?? 0) > 0
-    const matchAcesso =
-      filterAccess === 'all' ? true
-      : filterAccess === 'discount' ? temDesconto
-      : filterAccess === 'unlimited' ? u.unlimited_access === true
-      : filterAccess === 'tickets' ? (u.open_tickets ?? 0) > 0
-      : filterAccess === 'admin' ? u.role === 'admin'
-      : true
-    return matchBusca && matchPlano && matchStatus && matchAcesso
+  const filtered = filterAdminUsers(users, {
+    search,
+    plan: filterPlan,
+    status: filterStatus,
+    access: filterAccess,
   })
 
-  // Exporta os usuários FILTRADOS para CSV (abre no Excel). Mesmo padrão do
-  // Analytics: Blob com BOM () para os acentos não quebrarem.
+  // Exporta os usuários FILTRADOS para CSV (abre no Excel).
   function exportarCSV() {
     setExporting(true)
     try {
-      const cols: { header: string; get: (u: UserRow) => string }[] = [
-        { header: 'Nome', get: u => u.full_name ?? '' },
-        { header: 'E-mail', get: u => u.email ?? '' },
-        { header: 'ID', get: u => u.user_id },
-        { header: 'Plano', get: u => PLAN_LABELS[u.plan] ?? u.plan },
-        { header: 'Plano (chave)', get: u => u.plan },
-        { header: 'Status', get: u => u.account_status ?? 'active' },
-        { header: 'Papel', get: u => u.role ?? 'user' },
-        { header: 'Acesso ilimitado', get: u => u.unlimited_access ? 'Sim' : 'Não' },
-        { header: 'Desconto %', get: u => String(u.discount_percent ?? 0) },
-        { header: 'Desconto fixo (R$)', get: u => String(u.discount_fixed ?? 0) },
-        { header: 'Tickets abertos', get: u => String(u.open_tickets ?? 0) },
-        { header: 'Notif. não lidas', get: u => String(u.unread_notifs ?? 0) },
-        { header: 'Tags', get: u => (u.admin_tags ?? []).join('; ') },
-        { header: 'Cadastro', get: u => new Date(u.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) },
-      ]
-      // Escapa aspas e envolve todo campo — nome/e-mail podem ter vírgula.
-      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
-      const linhas = [
-        cols.map(c => esc(c.header)).join(','),
-        ...filtered.map(u => cols.map(c => esc(c.get(u))).join(',')),
-      ]
-      const csv = linhas.join('\r\n')
-      const bomChar = String.fromCharCode(0xFEFF) // Excel precisa do BOM p/ acentos
-      const url = URL.createObjectURL(new Blob([bomChar + csv], { type: 'text/csv;charset=utf-8' }))
+      const csv = buildAdminUsersCsv(filtered)
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
       a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.csv`
@@ -921,33 +770,10 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   }
 
   function setTabFilter(tab: string) {
-    setActiveTab(tab)
-    if (tab === 'all') { setFilterPlan('all'); setFilterStatus('all') }
-    else if (tab === 'cancelled') { setFilterPlan('all'); setFilterStatus('cancelled') }
-    else { setFilterPlan(tab); setFilterStatus('all') }
-  }
-
-  const DRAWER_TABS: { key: DrawerTab; label: string }[] = [
-    { key: 'resumo', label: 'Resumo' },
-    { key: 'plano', label: 'Plano' },
-    { key: 'mapa', label: 'Mapa emocional' },
-    { key: 'orientacoes', label: 'Orientações' },
-    { key: 'assinatura', label: 'Assinatura e Pagamentos' },
-    { key: 'acesso', label: 'Acesso' },
-    { key: 'suporte', label: 'Suporte' },
-    { key: 'notificacoes', label: 'Notificações' },
-    { key: 'comunicacao', label: 'Comunicação' },
-    { key: 'uso', label: 'Uso' },
-    { key: 'descontos', label: 'Descontos' },
-    { key: 'notas', label: 'Notas' },
-    { key: 'seguranca', label: 'Segurança' },
-    { key: 'resumo-inteligente', label: '✦ Resumo IA' },
-  ]
-
-  const notePriorityColors: Record<string, string> = {
-    normal: 'bg-stone-100 text-stone-500',
-    alta: 'bg-orange-100 text-orange-700',
-    urgente: 'bg-red-100 text-red-700',
+    const next = resolveTabFilter(tab)
+    setActiveTab(next.activeTab)
+    setFilterPlan(next.filterPlan)
+    setFilterStatus(next.filterStatus)
   }
 
   return (
@@ -1893,7 +1719,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {n.priority !== 'normal' && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${notePriorityColors[n.priority] ?? 'bg-stone-100'}`}>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${NOTE_PRIORITY_COLORS[n.priority] ?? 'bg-stone-100'}`}>
                                   {n.priority}
                                 </span>
                               )}
