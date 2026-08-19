@@ -43,12 +43,12 @@ test('páginas públicas principais passam pelo renderer SEO específico', () =>
 })
 
 test('renderer aplica canonical, hreflang e dados estruturados por página', () => {
-  assert.match(pageRenderer, /rel=\\"canonical\\"/)
-  assert.match(pageRenderer, /hreflang=\\"pt-BR\\"/)
-  assert.match(pageRenderer, /hreflang=\\"x-default\\"/)
-  assert.match(pageRenderer, /'@type': 'BreadcrumbList'/)
-  assert.match(pageRenderer, /isPartOf: \{ '@id': `\$\{SITE_ORIGIN\}\/\#website` \}/)
-  assert.match(pageRenderer, /about: \{ '@id': `\$\{SITE_ORIGIN\}\/\#organization` \}/)
+  assert.ok(pageRenderer.includes('rel="canonical"'))
+  assert.ok(pageRenderer.includes('hreflang="pt-BR"'))
+  assert.ok(pageRenderer.includes('hreflang="x-default"'))
+  assert.ok(pageRenderer.includes("'@type': 'BreadcrumbList'"))
+  assert.ok(pageRenderer.includes("isPartOf: { '@id': `${SITE_ORIGIN}/#website` }"))
+  assert.ok(pageRenderer.includes("about: { '@id': `${SITE_ORIGIN}/#organization` }"))
 })
 
 test('aliases públicos apontam canonical para a rota oficial', () => {
