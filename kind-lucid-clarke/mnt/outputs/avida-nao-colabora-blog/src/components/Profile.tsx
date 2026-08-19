@@ -8,6 +8,7 @@ import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
 import { SupportCard } from './user/ui'
 import EmailPreferences from './EmailPreferences'
+import AccountPrivacyControls from './AccountPrivacyControls'
 import { ymd } from '../lib/reportPeriods'
 
 interface ProfileProps {
@@ -256,6 +257,8 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
               </div>
             )}
           </section>
+
+          <AccountPrivacyControls user={user} profile={profile} />
 
           {/* Sair */}
           <button

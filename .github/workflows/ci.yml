@@ -59,7 +59,9 @@ jobs:
         run: |
           deno check --node-modules-dir=auto \
             supabase/functions/run-automations/index.ts \
-            supabase/functions/run-emotional-automations/index.ts
+            supabase/functions/run-emotional-automations/index.ts \
+            supabase/functions/export-user-data/index.ts \
+            supabase/functions/delete-account/index.ts
 
       - name: ESLint
         run: npm run lint
