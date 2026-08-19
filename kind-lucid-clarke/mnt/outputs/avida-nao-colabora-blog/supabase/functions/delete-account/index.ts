@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
   }
 
   if (stripeSecret) {
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' })
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16' })
     try {
       if (stripeCustomerId) {
         await stripe.customers.del(stripeCustomerId)
