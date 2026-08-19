@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { isEmailConfirmed } from '../lib/authVerification'
 import { Profile } from '../types'
 
 export function useAuth() {
@@ -33,12 +34,24 @@ export function useAuth() {
     }
   }
 
+  const acceptConfirmedUser = async (candidate: User | null) => {
+    if (!candidate || !isEmailConfirmed(candidate)) {
+      setUser(null)
+      setProfile(null)
+      if (candidate) void supabase.auth.signOut().catch(() => undefined)
+      return false
+    }
+
+    setUser(candidate)
+    await fetchProfile(candidate.id, candidate.email)
+    return true
+  }
+
   useEffect(() => {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id, session.user.email)
+        const accepted = await acceptConfirmedUser(session?.user ?? null)
+        if (accepted) {
           // Registra o acesso (096). A RPC ignora se foi tocado há < 1h e nunca
           // quebra o boot — o motor de lembretes usa isso para não e-mailar quem
           // está no site, mesmo sem registrar check-in/diário.
@@ -49,12 +62,7 @@ export function useAuth() {
       .finally(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id, session.user.email)
-      } else {
-        setProfile(null)
-      }
+      void acceptConfirmedUser(session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
@@ -67,7 +75,7 @@ export function useAuth() {
   }
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id, user.email)
+    if (user && isEmailConfirmed(user)) await fetchProfile(user.id, user.email)
   }
 
   return { user, profile, loading, signOut, refreshProfile }
