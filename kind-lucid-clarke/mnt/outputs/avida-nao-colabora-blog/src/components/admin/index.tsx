@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { logAdminAction } from '../../lib/adminAudit'
 import AdminLayout from './AdminLayout'
 import AdminLogin from './AdminLogin'
+import AdminMfaGate from './AdminMfaGate'
 
 // Cada área do painel é independente. Carregá-las sob demanda evita baixar
 // editores, gráficos e integrações que o administrador não abriu nesta sessão.
@@ -98,6 +99,7 @@ function resolveView(raw: string): AdminView {
 
 export default function AdminPanel() {
   const { user, profile, loading, signOut } = useAuth()
+  const [mfaVerified, setMfaVerified] = useState(false)
   // Restaura a última área ao atualizar a página (fica onde o admin estava).
   const [view, setView] = useState<AdminView>(() => {
     try {
@@ -114,14 +116,19 @@ export default function AdminPanel() {
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Uma nova sessão (inclusive logout → login da mesma conta) precisa provar AAL2 de novo.
+    setMfaVerified(false)
+  }, [user?.id])
+
+  useEffect(() => {
     // Persiste a área atual; ignora o editor (efêmero) pra não restaurar nele.
     if (view === 'article-editor') return
     try { localStorage.setItem(ADMIN_KEY, view) } catch { /* noop */ }
   }, [view])
 
   useEffect(() => {
-    if (profile?.role === 'admin') logAdminAction('login', 'admin')
-  }, [profile?.role])
+    if (profile?.role === 'admin' && mfaVerified) logAdminAction('login', 'admin')
+  }, [profile?.role, mfaVerified])
 
   if (loading) {
     return (
@@ -163,6 +170,13 @@ export default function AdminPanel() {
         </div>
       </div>
     )
+  }
+
+  // Segurança P0: o próprio banco também exige AAL2 dentro de is_admin().
+  // Este gate é a única forma de chegar ao painel: cadastra TOTP na 1ª vez e,
+  // nas seguintes, exige o código do autenticador após a senha.
+  if (!mfaVerified) {
+    return <AdminMfaGate onVerified={() => setMfaVerified(true)} onSignOut={() => { void signOut() }} />
   }
 
   function navigate(v: string) {
