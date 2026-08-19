@@ -1,5 +1,5 @@
-import { normalizePlan } from '../../lib/officialPlans'
-import { PLAN_LABELS } from '../../lib/planConstants'
+import { normalizePlan } from '../../lib/officialPlans.ts'
+import { PLAN_LABELS } from '../../lib/planConstants.ts'
 
 export interface UserRow {
   id: string
