@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { isEmailConfirmed } from '../lib/authVerification'
+import { clearSensitiveDrafts } from '../lib/sensitiveDraftStorage'
 import { Profile } from '../types'
 
 export function useAuth() {
@@ -61,7 +62,8 @@ export function useAuth() {
       .catch(() => { /* falha silenciosa — mantém user=null */ })
       .finally(() => setLoading(false))
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') clearSensitiveDrafts()
       void acceptConfirmedUser(session?.user ?? null)
     })
 
@@ -69,9 +71,13 @@ export function useAuth() {
   }, [acceptConfirmedUser])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      clearSensitiveDrafts()
+      setUser(null)
+      setProfile(null)
+    }
   }
 
   const refreshProfile = async () => {
