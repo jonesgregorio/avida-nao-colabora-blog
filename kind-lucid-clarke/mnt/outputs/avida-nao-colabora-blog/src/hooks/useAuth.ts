@@ -48,6 +48,19 @@ export function useAuth() {
     return true
   }, [fetchProfile])
 
+  const handleAuthCandidate = useCallback(async (event: string, candidate: User | null) => {
+    // Fluxo oficial Supabase: resetPasswordForEmail cria uma sessão e emite
+    // PASSWORD_RECOVERY. Marcamos o perfil ANTES de recarregá-lo para que o gate
+    // já existente em App.tsx mostre ForceChangePassword e conclua updateUser.
+    if (event === 'PASSWORD_RECOVERY' && candidate && isEmailConfirmed(candidate)) {
+      const { error } = await supabase.rpc('mark_password_recovery_required')
+      if (error) {
+        console.error('Não foi possível iniciar a troca obrigatória de senha:', error.message)
+      }
+    }
+    return acceptConfirmedUser(candidate)
+  }, [acceptConfirmedUser])
+
   useEffect(() => {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
@@ -64,11 +77,11 @@ export function useAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') clearSensitiveDrafts()
-      void acceptConfirmedUser(session?.user ?? null)
+      void handleAuthCandidate(event, session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
-  }, [acceptConfirmedUser])
+  }, [acceptConfirmedUser, handleAuthCandidate])
 
   const signOut = async () => {
     try {
