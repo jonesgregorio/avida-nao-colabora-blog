@@ -5,6 +5,14 @@ import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pe
 import { confirmDialog } from './lib/confirmDialog'
 import { trackEvent, initWebVitals, initAcquisition, initCustomEvents, trackCustomViews } from './lib/analytics'
 import { getEffectivePlan } from './lib/officialPlans'
+import {
+  canonicalPathForLocation,
+  normalizeLegacyView,
+  parseURLNav,
+  PERSIST_KEY,
+  restoreNav,
+  urlForView,
+} from './lib/navigation'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -54,151 +62,6 @@ function PageLoading() {
       </div>
     </div>
   )
-}
-
-const PERSIST_KEY = 'avida_nav'
-// Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
-const VALID_VIEWS: View[] = [
-  'home','auth','diary','profile',
-  'about','privacy','terms','questionnaire','questionarios','pricing',
-  'articles','article','responsibility','admin','contact','success','faq',
-  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','self-care',
-  'notifications',
-]
-
-// Mapeamento bidirecional URL ↔ view
-const URL_TO_VIEW: Record<string, View> = {
-  '/':                           'home',
-  '/blog':                       'articles',
-  '/conteudos':                  'articles',
-  '/planos':                     'pricing',
-  '/faq':                        'faq',
-  '/perguntas-frequentes':       'faq',
-  '/sobre':                      'about',
-  '/contato':                    'contact',
-  '/privacidade':                'privacy',
-  '/termos':                     'terms',
-  '/aviso-de-responsabilidade':  'responsibility',
-  '/admin':                      'admin',
-  '/login':                      'auth',
-  '/diario':                     'diary',
-  '/perfil':                     'profile',
-  '/questionarios':              'questionarios',
-  '/sucesso':                    'success',
-  '/suporte':                    'support',
-  '/notificacoes':               'notifications',
-  '/guia-mensal':                'monthly-guidance',
-  '/comentarios-profissional':   'professional-comments',
-  '/mapa-emocional':             'my-evolution',
-  '/meu-relatorio':              'my-report',
-  '/plano-de-autocuidado':       'self-care',
-  '/meu-plano':                  'my-plan',
-}
-
-// Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
-// Rotas antigas de conteúdos guiados continuam apenas como aliases de compatibilidade; o resto volta ao Início.
-const LEGACY_PATH_REDIRECT: Record<string, View> = {
-  '/meditacoes': 'articles',
-  '/desafios':   'articles',
-  '/trilhas':    'articles',
-  '/conquistas': 'home',
-  '/lembretes':  'home',
-  '/itens-salvos': 'home',
-  '/favoritos':  'home',
-  '/sessoes':    'home',
-  '/sessao':     'home',
-}
-
-// Views antigas ainda referenciadas por chamadas navigate() em telas legadas.
-const LEGACY_VIEW_REDIRECT: Record<string, View> = {
-  meditations: 'articles',
-  challenges:  'articles',
-  trails:      'articles',
-  content:     'articles',
-  'therapeutic-q': 'questionarios',
-  saved:         'home',
-  conquistas:    'home',
-  lembretes:     'home',
-}
-
-// Aliases amigáveis: URLs alternativas que resolvem para uma view, mas cuja URL
-// canônica (usada ao navegar) continua sendo a de URL_TO_VIEW. Ex.: "Orientação"
-// é o rótulo do menu, então /orientacao aponta para a rota real /guia-mensal.
-// Ficam FORA de URL_TO_VIEW para não sobrescrever o VIEW_TO_URL canônico.
-const URL_ALIASES: Record<string, View> = {
-  '/orientacao':  'monthly-guidance',
-  '/orientacoes': 'monthly-guidance',
-  // Rota antiga da área — resolve e é redirecionada para /mapa-emocional (canônica).
-  '/minha-evolucao': 'my-evolution',
-}
-
-const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
-  Object.entries(URL_TO_VIEW).map(([url, view]) => [view, url])
-)
-
-function parseURLNav(): { view: View; articleSlug: string | null; ticketId: string | null } | null {
-  try {
-    const path = window.location.pathname
-
-    // /blog/:slug → article
-    if (path.startsWith('/blog/') && path.length > 6) {
-      const slug = path.slice(6)
-      return { view: 'article', articleSlug: slug, ticketId: null }
-    }
-
-    // /suporte/:ticketId → support-ticket
-    if (path.startsWith('/suporte/') && path.length > 9) {
-      const ticketId = path.slice(9)
-      return { view: 'support-ticket', articleSlug: null, ticketId }
-    }
-
-
-    // Redireciona a rota antiga do questionário terapêutico para a área de Questionários.
-    if (path === '/questionario-terapeutico') {
-      return { view: 'questionarios', articleSlug: null, ticketId: null }
-    }
-
-    // Rotas de módulos removidos do MVP → destino válido nos novos planos.
-    if (LEGACY_PATH_REDIRECT[path]) {
-      return { view: LEGACY_PATH_REDIRECT[path], articleSlug: null, ticketId: null }
-    }
-
-    // URL param ?view=X (compatibilidade com links antigos e redirecionamentos Stripe)
-    const params = new URLSearchParams(window.location.search)
-    const urlView = params.get('view') as View
-    if (urlView && VALID_VIEWS.includes(urlView)) {
-      return { view: urlView, articleSlug: null, ticketId: null }
-    }
-
-    const mapped = URL_TO_VIEW[path] ?? URL_ALIASES[path]
-    if (mapped) return { view: mapped, articleSlug: null, ticketId: null }
-
-    return null
-  } catch {
-    return null
-  }
-}
-
-function restoreNav() {
-  // URL tem prioridade máxima (permite deep-link e compartilhamento)
-  const fromURL = parseURLNav()
-  if (fromURL) return fromURL
-
-  // Só retomamos a sessão salva na RAIZ do site. Um path específico que não casa
-  // com nenhuma rota (ex.: /orientacao digitado à mão) deve ir ao Início — não
-  // "cair" na última tela visitada, que era um comportamento confuso.
-  if (window.location.pathname !== '/') return null
-
-  try {
-    const raw = localStorage.getItem(PERSIST_KEY)
-    if (!raw) return null
-    const saved = JSON.parse(raw)
-    if (saved.view === 'auth') return null
-    if (!VALID_VIEWS.includes(saved.view)) return null
-    return saved
-  } catch {
-    return null
-  }
 }
 
 export default function App() {
@@ -279,14 +142,7 @@ export default function App() {
 
   // Sincroniza URL com o estado de navegação
   function pushURL(targetView: string, slug?: string | null, ticketId?: string | null) {
-    let url: string
-    if (targetView === 'article' && slug) {
-      url = `/blog/${slug}`
-    } else if (targetView === 'support-ticket' && ticketId) {
-      url = `/suporte/${ticketId}`
-    } else {
-      url = VIEW_TO_URL[targetView] ?? '/'
-    }
+    const url = urlForView(targetView, slug, ticketId)
     if (window.location.pathname !== url) {
       window.history.pushState({ view: targetView, slug, ticketId }, '', url)
     }
@@ -294,7 +150,7 @@ export default function App() {
 
   const navigate = useCallback((section: string, articleSlug?: string) => {
     // Redireciona views de módulos removidos do MVP para destinos válidos.
-    if (LEGACY_VIEW_REDIRECT[section]) section = LEGACY_VIEW_REDIRECT[section]
+    section = normalizeLegacyView(section)
 
     // Autocuidado virou área PRÓPRIA (§12); as demais abas ficam no Mapa Emocional.
     if (section.startsWith('my-evolution?tab=')) {
@@ -366,15 +222,10 @@ export default function App() {
 
   // Canonicaliza a URL inicial: rota legada ou alias → rota canônica da view de
   // destino; path desconhecido (que não casa com nenhuma rota) → "/" (Início).
-  // Ex.: /conquistas e /orientacao passam a mostrar "/" e "/guia-mensal".
   useEffect(() => {
-    const path = window.location.pathname
-    const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
-    if (target) {
-      window.history.replaceState({}, '', VIEW_TO_URL[target] ?? '/')
-    } else if (path !== '/' && !parseURLNav()) {
-      // Path fora da raiz que não resolve para nenhuma view → Início.
-      window.history.replaceState({}, '', '/')
+    const canonical = canonicalPathForLocation(window.location.pathname, window.location.search)
+    if (canonical && window.location.pathname !== canonical) {
+      window.history.replaceState({}, '', canonical)
     }
   }, [])
 
