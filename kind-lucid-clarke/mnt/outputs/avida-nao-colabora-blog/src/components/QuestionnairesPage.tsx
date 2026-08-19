@@ -17,7 +17,6 @@ interface QItem {
   status: string
   show_on_questionnaires_page: boolean
   question_count?: number
-  questions?: unknown[]      // JSONB do admin
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -68,22 +67,11 @@ export default function QuestionnairesPage({
 
   useEffect(() => {
     async function load() {
-      const now = new Date().toISOString()
-      const { data } = await supabase
-        .from('questionnaires')
-        .select('id,title,slug,description,category,plan_required,estimated_time,status,show_on_questionnaires_page,scheduled_at,questions,created_at')
-        .eq('show_on_questionnaires_page', true)
-        .or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`)
-        .order('created_at', { ascending: false })
-
-      if (!data) { setLoading(false); return }
-
-      // Conta perguntas a partir do JSONB inline (sem precisar de tabela separada)
-      const withCounts = data.map((q: Record<string, unknown>) => ({
-        ...q,
-        question_count: Array.isArray(q.questions) ? q.questions.length : 0,
-      }))
-      setItems(withCounts as unknown as QItem[])
+      // O catálogo é público, mas o RPC devolve SOMENTE metadados dos cards.
+      // Perguntas/resultados ficam na tabela protegida por RLS de plano.
+      const { data, error } = await supabase.rpc('get_questionnaire_catalog')
+      if (error || !data) { setLoading(false); return }
+      setItems(data as unknown as QItem[])
       setLoading(false)
     }
     load()
