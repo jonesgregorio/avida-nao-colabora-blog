@@ -2,8 +2,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 // Mapeia frequência → dias da semana/mês para disparar
@@ -70,22 +71,41 @@ function buildEmailHtml(title: string, tipo: string, content: string): string {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método não permitido' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    // Remetente VERIFICADO no Resend (mesmo do send-transactional-email). O antigo
-    // noreply@...com.br não era verificado e fazia todo envio desta função falhar.
+    // Remetente VERIFICADO no Resend (mesmo do send-transactional-email).
     const EMAIL_FROM = Deno.env.get('EMAIL_FROM') || 'contato@avidanaocolabora.com'
     const EMAIL_FROM_NAME = Deno.env.get('EMAIL_FROM_NAME') || 'A Vida Não Colabora'
 
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY não configurada')
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Segurança P0: esta função usa service role, consulta e-mails de usuários e
+    // pode disparar envio em massa. Nunca pode executar a partir de POST anônimo.
+    // Aceita somente o token interno do cron ou a própria service role.
+    const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+    let internal: string | null = null
+    try {
+      const { data } = await supabase.rpc('get_automation_token')
+      if (typeof data === 'string') internal = data
+    } catch { /* sem token interno = fail closed */ }
+    if (![internal, SUPABASE_SERVICE_KEY].filter(Boolean).includes(token)) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Buscar conteúdos ativos
     const { data: contents, error: contentsError } = await supabase
@@ -176,7 +196,7 @@ serve(async (req) => {
     )
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
