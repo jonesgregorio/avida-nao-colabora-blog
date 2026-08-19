@@ -22,6 +22,13 @@ function replaceOrAppendHead(html, pattern, replacement) {
   return html.replace('</head>', `    ${replacement}\n  </head>`)
 }
 
+function applyCanonicalLinks(html, canonical) {
+  let next = replaceOrAppendHead(html, /<link\s+rel=["']canonical["'][^>]*>/i, `<link rel="canonical" href="${escapeHtml(canonical)}" />`)
+  next = replaceOrAppendHead(next, /<link\s+rel=["']alternate["'][^>]*hreflang=["']pt-BR["'][^>]*>/i, `<link rel="alternate" hreflang="pt-BR" href="${escapeHtml(canonical)}" />`)
+  next = replaceOrAppendHead(next, /<link\s+rel=["']alternate["'][^>]*hreflang=["']x-default["'][^>]*>/i, `<link rel="alternate" hreflang="x-default" href="${escapeHtml(canonical)}" />`)
+  return next
+}
+
 function setArticleHead(shell, article, slug) {
   const canonical = `${SITE_ORIGIN}/blog/${encodeURIComponent(slug)}`
   const title = String(article.seo_title || article.title || 'Artigo').trim()
@@ -37,7 +44,7 @@ function setArticleHead(shell, article, slug) {
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']description["'][^>]*>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, '<meta name="robots" content="index, follow, max-image-preview:large" />')
-  html = replaceOrAppendHead(html, /<link\s+rel=["']canonical["'][^>]*>/i, `<link rel="canonical" href="${escapeHtml(canonical)}" />`)
+  html = applyCanonicalLinks(html, canonical)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:title["'][^>]*>/i, `<meta property="og:title" content="${escapeHtml(title)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:description["'][^>]*>/i, `<meta property="og:description" content="${escapeHtml(description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:type["'][^>]*>/i, '<meta property="og:type" content="article" />')
@@ -78,9 +85,19 @@ function setArticleHead(shell, article, slug) {
   return html
 }
 
+function setArticleFallbackHead(shell, slug) {
+  const canonical = `${SITE_ORIGIN}/blog/${encodeURIComponent(slug)}`
+  let html = applyCanonicalLinks(shell, canonical)
+  html = replaceOrAppendHead(html, /<meta\s+property=["']og:url["'][^>]*>/i, `<meta property="og:url" content="${escapeHtml(canonical)}" />`)
+  return html
+}
+
 function setNotFoundHead(shell) {
   let html = shell.replace(/<title>[\s\S]*?<\/title>/i, '<title>Artigo não encontrado — A Vida Não Colabora</title>')
   html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, '<meta name="robots" content="noindex, follow" />')
+  html = html.replace(/\s*<link\s+rel=["']canonical["'][^>]*>/i, '')
+  html = html.replace(/\s*<link\s+rel=["']alternate["'][^>]*hreflang=["']pt-BR["'][^>]*>/i, '')
+  html = html.replace(/\s*<link\s+rel=["']alternate["'][^>]*hreflang=["']x-default["'][^>]*>/i, '')
   return html
 }
 
@@ -149,12 +166,12 @@ export default async function handler(req, res) {
     return req.method === 'HEAD' ? res.end() : res.end(setArticleHead(shell, article, slug))
   } catch (error) {
     // Falha aberta: nunca derruba o artigo por causa da camada de SEO.
-    // O React continua carregando com o HTML genérico e o incidente fica nos logs.
+    // Preserva a URL canônica do artigo mesmo quando os metadados dinâmicos oscilam.
     console.error('[seo/article] metadata fallback', error)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('X-SEO-Fallback', '1')
     res.status(200)
-    return req.method === 'HEAD' ? res.end() : res.end(shell)
+    return req.method === 'HEAD' ? res.end() : res.end(setArticleFallbackHead(shell, slug))
   }
 }
