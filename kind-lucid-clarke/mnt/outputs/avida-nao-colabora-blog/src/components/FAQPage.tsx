@@ -224,8 +224,9 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
             <form onSubmit={handleSubmit} className="bg-white border border-line rounded-2xl p-6 md:p-8 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-forest-700 mb-1.5">Nome</label>
+                  <label htmlFor="faq-name" className="block text-xs font-medium text-forest-700 mb-1.5">Nome</label>
                   <input
+                    id="faq-name"
                     type="text"
                     required
                     value={form.name}
@@ -235,8 +236,9 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-forest-700 mb-1.5">E-mail</label>
+                  <label htmlFor="faq-email" className="block text-xs font-medium text-forest-700 mb-1.5">E-mail</label>
                   <input
+                    id="faq-email"
                     type="email"
                     required
                     value={form.email}
@@ -247,8 +249,9 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-forest-700 mb-1.5">Assunto</label>
+                <label htmlFor="faq-subject" className="block text-xs font-medium text-forest-700 mb-1.5">Assunto</label>
                 <input
+                  id="faq-subject"
                   type="text"
                   value={form.subject}
                   onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
@@ -257,8 +260,9 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-forest-700 mb-1.5">Mensagem</label>
+                <label htmlFor="faq-message" className="block text-xs font-medium text-forest-700 mb-1.5">Mensagem</label>
                 <textarea
+                  id="faq-message"
                   required
                   rows={5}
                   value={form.message}
@@ -267,7 +271,7 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
                   className="w-full px-4 py-2.5 border border-line rounded-xl text-sm text-forest-900 placeholder-ink-soft focus:outline-none focus:border-forest-400 bg-paper-soft resize-none"
                 />
               </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
               <div className="flex justify-end">
                 <button
                   type="submit"

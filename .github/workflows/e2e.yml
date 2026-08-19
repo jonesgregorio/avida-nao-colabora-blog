@@ -42,8 +42,8 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
-      - name: Install Playwright for this job only
-        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+      - name: Install Playwright and axe for this job only
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1 @axe-core/playwright@4.13.0
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -51,5 +51,5 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Run browser smoke tests
+      - name: Run browser smoke and accessibility tests
         run: npx playwright test --config=playwright.e2e.config.mjs

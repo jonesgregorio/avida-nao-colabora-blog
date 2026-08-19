@@ -117,7 +117,9 @@ export default function Footer({ onNavigate }: FooterProps) {
               <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades.</p>
             ) : (
               <>
+                <label htmlFor="footer-newsletter-email" className="sr-only">Seu e-mail para receber conteúdos</label>
                 <input
+                  id="footer-newsletter-email"
                   type="email"
                   required
                   value={email}

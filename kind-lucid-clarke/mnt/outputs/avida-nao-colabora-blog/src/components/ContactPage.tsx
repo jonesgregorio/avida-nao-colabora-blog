@@ -120,7 +120,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
         <div className="max-w-2xl mx-auto px-4 py-8">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-stone-400 hover:text-stone-700 text-sm mb-4"
+            className="flex items-center gap-2 text-stone-500 hover:text-stone-700 text-sm mb-4"
           >
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
@@ -153,14 +153,15 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             {/* Show form fields so user can fill before logging in */}
             <div className="text-left space-y-4 border-t border-stone-100 pt-5">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
-                <select value={subject} onChange={e => setSubject(e.target.value)} className={inputCls}>
+                <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
+                <select id="contact-subject" value={subject} onChange={e => setSubject(e.target.value)} className={inputCls}>
                   {CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1.5">Mensagem *</label>
+                <label htmlFor="contact-message" className="block text-sm font-medium text-stone-700 mb-1.5">Mensagem *</label>
                 <textarea
+                  id="contact-message"
                   rows={4}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -175,7 +176,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
                 <LogIn className="w-4 h-4" />
                 Entrar e enviar mensagem
               </button>
-              <p className="text-xs text-stone-400 text-center">Seu rascunho será preservado durante o login</p>
+              <p className="text-xs text-stone-500 text-center">Seu rascunho será preservado durante o login</p>
             </div>
           </div>
         ) : (
@@ -183,15 +184,15 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
             {/* Subject */}
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
-              <select value={subject} onChange={e => { setSubject(e.target.value); setCategory(e.target.value) }} className={inputCls}>
+              <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
+              <select id="contact-subject" value={subject} onChange={e => { setSubject(e.target.value); setCategory(e.target.value) }} className={inputCls}>
                 {CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
             {/* Priority */}
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Urgência</label>
+            <fieldset>
+              <legend className="block text-sm font-medium text-stone-700 mb-1.5">Urgência</legend>
               <div className="flex gap-3">
                 {(['low', 'medium', 'high'] as const).map(p => (
                   <label key={p} className="flex items-center gap-2 cursor-pointer">
@@ -209,24 +210,26 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Mensagem *</label>
+              <label htmlFor="contact-message" className="block text-sm font-medium text-stone-700 mb-1.5">Mensagem *</label>
               <textarea
+                id="contact-message"
                 required
                 rows={5}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Descreva sua dúvida ou problema com o máximo de detalhes possível..."
                 className={inputCls}
+                aria-describedby="contact-message-count"
               />
-              <p className="text-xs text-stone-400 mt-1">{description.length} caracteres</p>
+              <p id="contact-message-count" className="text-xs text-stone-500 mt-1">{description.length} caracteres</p>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+              <div role="alert" className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -242,7 +245,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
           </form>
         )}
 
-        <p className="text-xs text-stone-400 text-center mt-4">
+        <p className="text-xs text-stone-500 text-center mt-4">
           Sua mensagem fica armazenada de forma segura e só é acessível pela nossa equipe de suporte.
         </p>
       </div>
