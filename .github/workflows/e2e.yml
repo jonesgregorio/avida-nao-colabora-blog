@@ -1,0 +1,55 @@
+name: Browser E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/**'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: chromium-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: America/Sao_Paulo
+      VITE_SUPABASE_URL: https://e2e.supabase.co
+      VITE_SUPABASE_ANON_KEY: e2e-anon-key-not-secret
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright for this job only
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run browser smoke tests
+        run: npx playwright test --config=playwright.e2e.config.mjs
