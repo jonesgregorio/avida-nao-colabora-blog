@@ -44,3 +44,9 @@ test('CSP preserva embeds e integrações já aprovadas', () => {
   assert.ok(csp.includes('https://www.youtube-nocookie.com'))
   assert.ok(csp.includes('https://*.supabase.co'))
 })
+
+test('CSP permite somente os endpoints necessários para o monitoramento Sentry', () => {
+  const csp = contentSecurityPolicy()
+  assert.ok(csp.includes('https://js.sentry-cdn.com'))
+  assert.ok(csp.includes('https://*.ingest.sentry.io'))
+})
