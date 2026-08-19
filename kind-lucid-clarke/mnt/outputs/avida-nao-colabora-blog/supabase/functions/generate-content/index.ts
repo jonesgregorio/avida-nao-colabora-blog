@@ -628,9 +628,31 @@ Deno.serve(async (req) => {
   prompt = prompt.trim()
 
   const order = providerOrder()
-  const requested = body.provider && PROVIDERS.includes(body.provider)
-    ? body.provider
-    : (order[0] ?? 'gemini')
+  let requested: Provider
+
+  if (body.test) {
+    // Health check testa exatamente o provider pedido e nunca altera a seleção ativa.
+    requested = body.provider && PROVIDERS.includes(body.provider)
+      ? body.provider
+      : (order[0] ?? 'gemini')
+  } else {
+    // Em geração real, ai_settings é a fonte de verdade. Isso faz a seleção do
+    // Admin valer de fato e impede o cliente de forçar silenciosamente Gemini.
+    const { data: aiSetting } = await admin
+      .from('ai_settings')
+      .select('active_provider')
+      .eq('id', 1)
+      .maybeSingle()
+
+    const configured = aiSetting?.active_provider
+    const active = configured && PROVIDERS.includes(configured as Provider)
+      ? configured as Provider
+      : null
+
+    requested = active && providerHasKey(active)
+      ? active
+      : (order.find(providerHasKey) ?? order[0] ?? 'gemini')
+  }
 
   const chain: Provider[] = body.test
     ? [requested]
