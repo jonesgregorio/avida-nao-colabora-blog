@@ -102,12 +102,16 @@ function setNotFoundHead(shell) {
 }
 
 async function getAppShell(req) {
-  const host = process.env.VERCEL_URL || req.headers.host
+  // Usa o host real recebido pela requisição. Em produção, VERCEL_URL aponta
+  // para a URL técnica *.vercel.app do deployment, protegida pelo Standard
+  // Protection, e não deve ser usada para o self-fetch do domínio público.
+  const host = req.headers.host || process.env.VERCEL_URL
   if (!host) throw new Error('deployment_host_missing')
   const protocol = host.includes('localhost') ? 'http' : 'https'
-  const response = await fetch(`${protocol}://${host}/index.html`, {
-    headers: { 'user-agent': 'AVNC-SEO-Renderer/1.0' },
-  })
+  const headers = { 'user-agent': 'AVNC-SEO-Renderer/1.0' }
+  if (req.headers.cookie) headers.cookie = req.headers.cookie
+
+  const response = await fetch(`${protocol}://${host}/index.html`, { headers })
   if (!response.ok) throw new Error(`shell_http_${response.status}`)
   return response.text()
 }
