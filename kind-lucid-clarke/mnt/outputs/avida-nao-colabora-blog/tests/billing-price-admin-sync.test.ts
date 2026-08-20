@@ -1,0 +1,61 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+const read = (rel: string) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8')
+const migration = read('supabase/migrations/20260820023000_billing_prices_admin_sync.sql')
+const adminPricing = read('supabase/functions/admin-plan-pricing/index.ts')
+const checkout = read('supabase/functions/create-checkout/index.ts')
+const manage = read('supabase/functions/manage-subscription/index.ts')
+const webhook = read('supabase/functions/stripe-webhook/index.ts')
+const billingEditor = read('src/components/admin/AdminBillingPriceEditor.tsx')
+const pricing = read('src/components/Pricing.tsx')
+const adminOverview = read('src/components/admin/AdminPlanosPage.tsx')
+const discount = read('supabase/functions/admin-discount/index.ts')
+
+test('schema mantém preço Stripe canônico e histórico sem expor escrita ao cliente', () => {
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS stripe_price_id TEXT/i)
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS (?:public\.)?stripe_plan_prices/i)
+  assert.match(migration, /active_for_new boolean NOT NULL DEFAULT false/i)
+  assert.match(migration, /UNIQUE INDEX[\s\S]*WHERE active_for_new/i)
+  assert.match(migration, /ENABLE ROW LEVEL SECURITY/i)
+  assert.match(migration, /REVOKE ALL ON (?:TABLE )?public\.stripe_plan_prices FROM anon, authenticated/i)
+  assert.match(migration, /get_public_plan_pricing/i)
+})
+test('alteração de preço exige AAL2, cria novo Price e preserva assinaturas existentes', () => {
+  assert.match(adminPricing, /requireAdminAal2\(req\)/)
+  assert.match(adminPricing, /stripe\.prices\.create\(/)
+  assert.match(adminPricing, /recurring:\s*\{ interval: 'month' \}/)
+  assert.match(adminPricing, /existing_subscriptions_unchanged:\s*true/)
+  assert.doesNotMatch(adminPricing, /subscriptions\.list[\s\S]*subscriptions\.update/)
+  const retireAt = adminPricing.indexOf("update({ active_for_new: false, retired_at: now })")
+  const activateAt = adminPricing.indexOf("active_for_new: true")
+  assert.ok(retireAt >= 0 && activateAt >= 0 && retireAt < activateAt)
+})
+test('checkout e mudanças de plano consultam preço canônico antes do fallback legado', () => {
+  assert.match(checkout, /from\('plan_configs'\)[\s\S]*select\('stripe_price_id'\)/)
+  assert.match(checkout, /stripe_price_id[^\n]*\|\| FALLBACK_PRICE_IDS\[plan\]/)
+  assert.match(manage, /async function resolvePriceId/)
+  assert.match(manage, /from\('plan_configs'\)[\s\S]*stripe_price_id/)
+  assert.match(manage, /await resolvePriceId\(targetPlan\)/)
+})
+test('webhook reconhece Price atual e histórico para não quebrar renovações antigas', () => {
+  assert.match(webhook, /from\('stripe_plan_prices'\)/)
+  assert.match(webhook, /eq\('stripe_price_id', priceId\)/)
+  assert.match(webhook, /from\('plan_configs'\)/)
+  assert.match(webhook, /return PLAN_BY_PRICE\[priceId\] \?\? null/)
+})
+test('Admin distingue preço exibido de cobrança real e páginas leem preço público canônico', () => {
+  assert.match(billingEditor, /Cobrança no Stripe/)
+  assert.match(billingEditor, /admin-plan-pricing/)
+  assert.match(billingEditor, /Atualizar/)
+  assert.match(billingEditor, /Assinaturas existentes|Assinaturas já existentes/i)
+  assert.match(pricing, /get_public_plan_pricing/)
+  assert.match(adminOverview, /get_public_plan_pricing/)
+})
+
+test('desconto individual continua sendo Coupon Stripe real protegido por AAL2', () => {
+  assert.match(discount, /requireAdminAal2\(req\)/)
+  assert.match(discount, /stripe\.coupons\.create\(/)
+  assert.match(discount, /stripe\.subscriptions\.update\(subId, \{ coupon: coupon\.id \}\)/)
+  assert.match(discount, /discount_stripe_coupon_id: coupon\.id/)
+})

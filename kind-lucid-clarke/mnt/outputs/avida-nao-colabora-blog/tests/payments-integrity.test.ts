@@ -14,7 +14,7 @@ test('checkout aceita somente planos pagos oficiais e replica metadata na Subscr
 })
 
 test('checkout concluído usa Price da assinatura como fonte da verdade do plano', () => {
-  assert.match(webhook, /const plan = planFromPrice\(priceId\)/)
+  assert.match(webhook, /const plan = await planFromPrice\(priceId, supabase\)/)
   assert.match(webhook, /requestedPlan = session\.metadata\?\.plan/)
   assert.match(webhook, /metadata plan=.*diverge do Price/)
   assert.match(webhook, /subscriptionUserId && subscriptionUserId !== sessionUserId/)
