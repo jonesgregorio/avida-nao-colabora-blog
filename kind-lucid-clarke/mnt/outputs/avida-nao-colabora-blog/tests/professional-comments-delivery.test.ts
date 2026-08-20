@@ -7,19 +7,21 @@ const service = readFileSync(
   'utf8',
 )
 const professionalBlock = service.match(/async function reflectInProfessionalComments\([\s\S]*$/)?.[0] ?? ''
+const insertPayload = professionalBlock.match(/\.from\('professional_comments'\)\.insert\(\{([\s\S]*?)\}\)/)?.[1] ?? ''
 
 test('comentário profissional usa somente campos do schema oficial', () => {
   assert.ok(professionalBlock)
+  assert.ok(insertPayload, 'payload do insert profissional deve existir')
   assert.match(professionalBlock, /\.eq\('report_month', reportMonth\)/)
-  assert.match(professionalBlock, /report_month: reportMonth/)
-  assert.match(professionalBlock, /comment_text: body/)
-  assert.match(professionalBlock, /visibility: 'user'/)
-  assert.match(professionalBlock, /is_read: false/)
+  assert.match(insertPayload, /report_month: reportMonth/)
+  assert.match(insertPayload, /comment_text: body/)
+  assert.match(insertPayload, /visibility: 'user'/)
+  assert.match(insertPayload, /is_read: false/)
   assert.doesNotMatch(professionalBlock, /\.eq\('month_key'/)
-  assert.doesNotMatch(professionalBlock, /\bmonth_key:/)
-  assert.doesNotMatch(professionalBlock, /\bplan_key:/)
-  assert.doesNotMatch(professionalBlock, /\bstatus:/)
-  assert.doesNotMatch(professionalBlock, /\bupdated_at:/)
+  assert.doesNotMatch(insertPayload, /\bmonth_key:/)
+  assert.doesNotMatch(insertPayload, /\bplan_key:/)
+  assert.doesNotMatch(insertPayload, /\bstatus:/)
+  assert.doesNotMatch(insertPayload, /\bupdated_at:/)
 })
 
 test('falhas de leitura ou gravação não são tratadas como sucesso', () => {
