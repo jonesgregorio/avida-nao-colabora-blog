@@ -32,26 +32,25 @@ const COMMENT_TYPES = new Set([
  * Reflete o conteúdo enviado nos módulos oficiais corretos
  * (monthly_guidance_requests, professional_comments).
  *
- * Esta função é chamada APÓS o envio principal já ter sido registrado
- * em personalized_content_deliveries e user_personalization_tasks.
- * Se falhar, o envio principal não é desfeito.
+ * O caller continua responsável pelo envio principal em
+ * personalized_content_deliveries/user_personalization_tasks. Este serviço nunca
+ * deve fingir sucesso quando o reflexo no módulo oficial falhar: o retorno `ok`
+ * permite registrar/avisar a inconsistência de forma explícita.
  */
 export async function sendPersonalizedDelivery(params: SendPersonalizedDeliveryParams): Promise<SendResult> {
-  const { userId, adminId, contentType, targetArea, title, body, planKey, relatedGuidanceId } = params
+  const { userId, adminId, contentType, targetArea, title, body, relatedGuidanceId } = params
 
   if (!body?.trim()) return { ok: false, error: 'Conteúdo vazio' }
   if (!userId) return { ok: false, error: 'Usuário não identificado' }
 
   const now = new Date().toISOString()
 
-  // Reflexo em monthly_guidance_requests
   if (GUIDANCE_TYPES.has(contentType) || targetArea === 'guidance') {
-    await reflectInGuidance({ userId, adminId, body, relatedGuidanceId, now })
+    return reflectInGuidance({ userId, adminId, body, relatedGuidanceId, now })
   }
 
-  // Reflexo em professional_comments
   if (COMMENT_TYPES.has(contentType) || targetArea === 'professional_comments') {
-    await reflectInProfessionalComments({ userId, adminId, title, body, planKey, now })
+    return reflectInProfessionalComments({ userId, adminId, title, body, now })
   }
 
   return { ok: true }
@@ -62,20 +61,19 @@ async function reflectInGuidance({
 }: {
   userId: string; adminId: string; body: string
   relatedGuidanceId?: string | null; now: string
-}) {
+}): Promise<SendResult> {
   if (relatedGuidanceId) {
-    await supabase.from('monthly_guidance_requests').update({
+    const { error } = await supabase.from('monthly_guidance_requests').update({
       response: body,
       status: 'answered',
       responded_at: now,
       responded_by: adminId,
     }).eq('id', relatedGuidanceId)
-    return
+    return error ? { ok: false, error: `Falha ao atualizar orientação mensal: ${error.message}` } : { ok: true }
   }
 
-  // Tenta localizar orientação aberta do usuário no mês atual
   const monthKey = now.slice(0, 7)
-  const { data: open } = await supabase
+  const { data: open, error: lookupError } = await supabase
     .from('monthly_guidance_requests')
     .select('id')
     .eq('user_id', userId)
@@ -85,47 +83,57 @@ async function reflectInGuidance({
     .limit(1)
     .maybeSingle()
 
-  if (open?.id) {
-    await supabase.from('monthly_guidance_requests').update({
-      response: body,
-      status: 'answered',
-      responded_at: now,
-      responded_by: adminId,
-    }).eq('id', open.id)
-  }
+  if (lookupError) return { ok: false, error: `Falha ao localizar orientação mensal: ${lookupError.message}` }
+  if (!open?.id) return { ok: false, error: 'Nenhuma orientação mensal aberta foi encontrada para este usuário no mês atual.' }
+
+  const { error: updateError } = await supabase.from('monthly_guidance_requests').update({
+    response: body,
+    status: 'answered',
+    responded_at: now,
+    responded_by: adminId,
+  }).eq('id', open.id)
+
+  return updateError
+    ? { ok: false, error: `Falha ao refletir orientação mensal: ${updateError.message}` }
+    : { ok: true }
 }
 
 async function reflectInProfessionalComments({
-  userId, adminId, title, body, planKey, now,
+  userId, adminId, title, body, now,
 }: {
-  userId: string; adminId: string; title: string; body: string
-  planKey?: string | null; now: string
-}) {
-  const monthKey = now.slice(0, 7)
+  userId: string; adminId: string; title: string; body: string; now: string
+}): Promise<SendResult> {
+  const reportMonth = now.slice(0, 7)
 
-  // Verifica se já existe um registro para este mês/usuário (evita duplicata)
-  const { data: existing } = await supabase
+  // professional_comments possui report_month como chave temporal. Não use
+  // month_key/plan_key/status/updated_at: esses campos não fazem parte do schema
+  // oficial desta tabela.
+  const { data: existing, error: selectError } = await supabase
     .from('professional_comments')
     .select('id')
     .eq('user_id', userId)
-    .eq('month_key', monthKey)
+    .eq('report_month', reportMonth)
     .eq('comment_text', body)
     .limit(1)
     .maybeSingle()
 
-  if (existing?.id) return // já refletido
+  if (selectError) return { ok: false, error: `Falha ao verificar comentário profissional: ${selectError.message}` }
+  if (existing?.id) return { ok: true }
 
-  await supabase.from('professional_comments').insert({
+  const { error: insertError } = await supabase.from('professional_comments').insert({
     user_id: userId,
-    professional_id: adminId,
-    month_key: monthKey,
-    report_month: monthKey,
+    professional_id: adminId || null,
+    created_by: adminId || null,
+    report_month: reportMonth,
     title,
     comment: body,
     comment_text: body,
-    plan_key: planKey ?? null,
-    status: 'sent',
+    visibility: 'user',
+    is_read: false,
     created_at: now,
-    updated_at: now,
   })
+
+  return insertError
+    ? { ok: false, error: `Falha ao gravar comentário profissional: ${insertError.message}` }
+    : { ok: true }
 }
