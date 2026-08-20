@@ -321,8 +321,10 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   const isCancelRequested = !isCancelPending
     && feedback?.change_type === 'cancellation' && feedback?.status === 'pending_approval'
   const hasPendingDowngrade = !!sub?.pending_plan && sub.pending_plan !== currentPlan && !isCancelPending
-  // Enquanto há saída em curso (agendada ou em análise), travamos trocas de plano.
-  const blockPlanChanges = isCancelPending || isCancelRequested
+  // Enquanto há saída em curso (agendada ou em análise), travamos NOVAS trocas de plano.
+  // Downgrade pendente também entra aqui: o usuário precisa desfazer o schedule atual
+  // antes de escolher outro plano, evitando schedules concorrentes no Stripe.
+  const blockPlanChanges = isCancelPending || isCancelRequested || hasPendingDowngrade
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -401,7 +403,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
 
         {hasPendingDowngrade && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800">
-            <strong>Alteração de plano agendada:</strong> você continua no plano {PLAN_LABELS[currentPlan]} até {formatDate(downgradeEffectiveAt)}. Após essa data, o plano {PLAN_LABELS[sub!.pending_plan!]} entrará em vigor. Até lá, você mantém acesso completo ao plano {PLAN_LABELS[currentPlan]}.
+            <strong>Alteração de plano agendada:</strong> você continua no plano {PLAN_LABELS[currentPlan]} até {formatDate(downgradeEffectiveAt)}. Após essa data, o plano {PLAN_LABELS[sub!.pending_plan!]} entrará em vigor. Até lá, você mantém acesso completo ao plano {PLAN_LABELS[currentPlan]}. Para escolher outro plano, desfaça primeiro este downgrade agendado.
             {feedback?.change_type === 'downgrade' && feedback.reasons?.length > 0 && (
               <p className="mt-1.5 text-blue-700">
                 <strong>Motivos que você informou:</strong> {reasonsLabel(feedback.reasons)}
@@ -413,7 +415,14 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
 
         {/* Ações */}
         <div className="flex flex-wrap gap-2">
-          {isCancelPending ? (
+          {hasPendingDowngrade ? (
+            <button
+              onClick={() => openModal({ type: 'reactivate' })}
+              className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+            >
+              Desfazer downgrade / Manter meu plano atual
+            </button>
+          ) : isCancelPending ? (
             <button
               onClick={() => openModal({ type: 'reactivate' })}
               className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
@@ -767,13 +776,15 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-forest-800">{isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
+              <h3 className="font-semibold text-forest-800">{hasPendingDowngrade ? 'Desfazer downgrade' : isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-sm text-stone-600 mb-5">
-              {isCancelRequested
-                ? `Deseja retirar seu pedido de cancelamento e continuar com o plano ${PLAN_LABELS[currentPlan]} normalmente?`
-                : `Deseja remover o cancelamento agendado e manter o plano ${PLAN_LABELS[currentPlan]} ativo?`}
+              {hasPendingDowngrade
+                ? `Deseja desfazer a mudança agendada para ${PLAN_LABELS[sub!.pending_plan!]} e manter o plano ${PLAN_LABELS[currentPlan]} normalmente? A alteração programada no Stripe será removida.`
+                : isCancelRequested
+                  ? `Deseja retirar seu pedido de cancelamento e continuar com o plano ${PLAN_LABELS[currentPlan]} normalmente?`
+                  : `Deseja remover o cancelamento agendado e manter o plano ${PLAN_LABELS[currentPlan]} ativo?`}
             </p>
             <div className="flex gap-2">
               <button
@@ -782,7 +793,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {isCancelRequested ? 'Retirar pedido' : 'Manter meu plano'}
+                {hasPendingDowngrade ? 'Manter meu plano atual' : isCancelRequested ? 'Retirar pedido' : 'Manter meu plano'}
               </button>
               <button onClick={() => setModal(null)} className="px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50">Voltar</button>
             </div>
