@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { MessageSquare, Send, ChevronLeft, ChevronDown, Loader2, CheckCircle, Clock, CalendarClock, Sparkles, FileText } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
-import { normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan } from '../lib/officialPlans'
 import { detectRisk } from '../lib/contentRecommendation'
 import RiskHelpBanner from './RiskHelpBanner'
 
@@ -90,7 +90,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     return n
   })
 
-  const allowed = normalizePlan(profile?.plan) === 'plus'
+  const allowed = getEffectivePlan(profile) === 'plus'
 
   useEffect(() => {
     if (!user || !allowed) { setLoading(false); return }
