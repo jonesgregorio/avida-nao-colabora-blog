@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { createUserNotification } from '../../lib/notifications'
-import { emailPersonalizedContentForUser, emailProfessionalCommentForUser } from '../../lib/emailTriggers'
+import { emailGuidanceAnsweredForUser, emailPersonalizedContentForUser, emailProfessionalCommentForUser } from '../../lib/emailTriggers'
 import {
   Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
   CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
@@ -307,9 +307,48 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
     const { data: meData } = await supabase.auth.getUser()
     const adminId = meData.user?.id ?? ''
     const now = new Date().toISOString()
+    const isGuidance = ['guidance', 'monthly_guidance', 'guidance_response', 'monthly_guidance_draft'].includes(task.content_type ?? '')
+      || task.target_area === 'guidance'
+    const isProfComment = ['professional_comment', 'report_comment', 'monthly_report_comment'].includes(task.content_type ?? '')
+      || task.target_area === 'professional_comments'
 
-    // 1. Atualizar delivery para enviado
-    await supabase
+    // Orientação tem fluxo oficial próprio. Reflete primeiro no módulo canônico;
+    // só depois marca o delivery como enviado e dispara o e-mail específico.
+    if (isGuidance) {
+      if (!task.related_guidance_id) {
+        showToast('Não foi possível enviar: a orientação não está vinculada à solicitação mensal oficial.', true)
+        setSending(false)
+        return
+      }
+      try {
+        const reflected = await sendPersonalizedDelivery({
+          taskId: task.id,
+          deliveryId: delivery.id,
+          userId: task.user_id,
+          adminId,
+          contentType: task.content_type ?? '',
+          targetArea: task.target_area ?? null,
+          title: editTitle,
+          body: editBody,
+          planKey: task.plan_key ?? null,
+          relatedGuidanceId: task.related_guidance_id,
+        })
+        if (!reflected.ok) {
+          showToast(reflected.error ?? 'Não foi possível registrar a resposta na Orientação Mensal.', true)
+          setSending(false)
+          return
+        }
+      } catch (e) {
+        console.warn('[send] Falha ao refletir orientação oficial:', e)
+        showToast('Não foi possível registrar a resposta na Orientação Mensal.', true)
+        setSending(false)
+        return
+      }
+    }
+
+    // 1. Atualizar delivery para enviado. No Comentário Profissional, o trigger
+    // do banco cria o registro oficial e sua notificação neste momento.
+    const { error: deliveryError } = await supabase
       .from('personalized_content_deliveries')
       .update({
         title: editTitle, body: editBody,
@@ -317,17 +356,20 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
         updated_at: now,
       })
       .eq('id', delivery.id)
+    if (deliveryError) {
+      showToast('Não foi possível marcar o conteúdo como enviado.', true)
+      setSending(false)
+      return
+    }
 
-    // E-mail de nova recomendação (assunto neutro; conteúdo fica na conta).
-    // Comentário profissional tem e-mail PRÓPRIO (professional_comment_available);
-    // os demais tipos usam o genérico de conteúdo personalizado.
-    const isProfComment = ['professional_comment', 'report_comment', 'monthly_report_comment'].includes(task.content_type ?? '')
-      || task.target_area === 'professional_comments'
-    if (isProfComment) void emailProfessionalCommentForUser(task.user_id, delivery.id)
+    // E-mail: fluxos oficiais usam templates próprios; somente os demais tipos
+    // usam o aviso genérico de conteúdo personalizado.
+    if (isGuidance) void emailGuidanceAnsweredForUser(task.user_id, task.related_guidance_id!, now)
+    else if (isProfComment) void emailProfessionalCommentForUser(task.user_id, delivery.id)
     else void emailPersonalizedContentForUser(task.user_id, delivery.id)
 
     // 2. Atualizar task para enviada
-    await supabase
+    const { error: taskError } = await supabase
       .from('user_personalization_tasks')
       .update({
         status: 'sent',
@@ -337,9 +379,19 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
         updated_at: now,
       })
       .eq('id', task.id)
+    if (taskError) {
+      console.warn('[send] Delivery enviado, mas task não foi atualizada:', taskError)
+      showToast('Conteúdo enviado, mas a fila não conseguiu atualizar o status. Recarregue antes de tentar novamente.', true)
+      setSending(false)
+      onDone(true)
+      onClose()
+      return
+    }
 
-    // 3. Notificação ao usuário (função central — destino correto por área).
-    if (def) {
+    // 3. Só conteúdos sem módulo oficial recebem a notificação genérica.
+    // Orientação e Comentário Profissional já são notificados pelos triggers
+    // de seus próprios módulos, evitando duplicidade para o usuário.
+    if (def && !isGuidance && !isProfComment) {
       await createUserNotification({
         userId: task.user_id,
         type: 'personalized_content',
@@ -349,22 +401,26 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
       })
     }
 
-    // 4. Reflexo nos módulos oficiais (não bloqueia o envio se falhar)
-    try {
-      await sendPersonalizedDelivery({
-        taskId: task.id,
-        deliveryId: delivery.id,
-        userId: task.user_id,
-        adminId,
-        contentType: task.content_type ?? '',
-        targetArea: task.target_area ?? null,
-        title: editTitle,
-        body: editBody,
-        planKey: task.plan_key ?? null,
-        relatedGuidanceId: task.related_guidance_id ?? null,
-      })
-    } catch (e) {
-      console.warn('[send] Reflexo em módulos oficiais falhou (não crítico):', e)
+    // 4. Comentário Profissional ainda passa pelo serviço de consistência após
+    // o trigger do banco. Para Orientação não repetimos o reflexo já concluído.
+    if (!isGuidance) {
+      try {
+        const reflected = await sendPersonalizedDelivery({
+          taskId: task.id,
+          deliveryId: delivery.id,
+          userId: task.user_id,
+          adminId,
+          contentType: task.content_type ?? '',
+          targetArea: task.target_area ?? null,
+          title: editTitle,
+          body: editBody,
+          planKey: task.plan_key ?? null,
+          relatedGuidanceId: task.related_guidance_id ?? null,
+        })
+        if (!reflected.ok) console.warn('[send] Reflexo em módulo oficial não confirmado:', reflected.error)
+      } catch (e) {
+        console.warn('[send] Reflexo em módulos oficiais falhou:', e)
+      }
     }
 
     showToast('Conteúdo enviado e usuário notificado!')
