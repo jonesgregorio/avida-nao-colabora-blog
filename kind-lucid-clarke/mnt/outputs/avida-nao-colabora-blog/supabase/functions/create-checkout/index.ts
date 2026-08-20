@@ -18,7 +18,7 @@ const PLUS_PRICE_ID =
 
 type PaidPlan = 'essential' | 'plus'
 
-const PRICE_IDS: Record<PaidPlan, string | undefined> = {
+const FALLBACK_PRICE_IDS: Record<PaidPlan, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
   plus:      PLUS_PRICE_ID,
 }
@@ -75,7 +75,8 @@ Deno.serve(async (req) => {
 
     const { plan, origin } = await req.json()
     if (!isPaidPlan(plan)) throw new UserFacingError('Plano inválido. Escolha Essencial ou Plus.')
-    const priceId = PRICE_IDS[plan]
+    const { data: priceCfg } = await supabase.from('plan_configs').select('stripe_price_id').eq('plan_key', plan).maybeSingle()
+    const priceId = (priceCfg as { stripe_price_id?: string } | null)?.stripe_price_id || FALLBACK_PRICE_IDS[plan]
     if (!priceId) throw new UserFacingError(`Price ID não configurado para o plano ${plan}.`)
 
     // Retorno na MESMA origem do navegador (validada) — evita logout apex vs www.

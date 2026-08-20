@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RefreshCw, ArrowLeft } from 'lucide-react'
 import AdminPlans from './AdminPlans'
+import AdminBillingPriceEditor from './AdminBillingPriceEditor'
+import { supabase } from '../../lib/supabase'
 
 // Planos e assinaturas — fiel ao mockup (#planos): 3 price-cards + Regras de acesso.
 const PLANS = [
@@ -28,6 +30,23 @@ const RULES: [string, string, string, string][] = [
 
 export default function AdminPlanosPage() {
   const [config, setConfig] = useState(false)
+  const [dynamicPrices, setDynamicPrices] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (config) return
+    void supabase.rpc('get_public_plan_pricing').then(({ data }) => {
+      if (!Array.isArray(data)) return
+      const next: Record<string, string> = {}
+      for (const row of data as { plan_key: string; display_price: string }[]) next[row.plan_key] = row.display_price
+      setDynamicPrices(next)
+    })
+  }, [config])
+
+  const displayPlans = PLANS.map((p, index) => {
+    const key = index === 0 ? 'free' : index === 1 ? 'essential' : 'plus'
+    const base = dynamicPrices[key] || p.price.replace('/mês', '')
+    return { ...p, price: key === 'free' ? base : `${base}/mês` }
+  })
 
   if (config) {
     return (
@@ -52,8 +71,10 @@ export default function AdminPlanosPage() {
         </button>
       </div>
 
+      <AdminBillingPriceEditor />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {PLANS.map(p => (
+        {displayPlans.map(p => (
           <div key={p.name} className={`bg-white rounded-2xl p-6 flex flex-col ${p.highlight ? 'border-2 border-forest-900 shadow-md' : 'border border-line'}`}>
             {p.highlight && <span className="self-start text-[11px] font-semibold px-2.5 py-1 rounded-full bg-mint text-forest-700 mb-2">Mais escolhido</span>}
             <h2 className="font-serif text-2xl text-forest-900">{p.name}</h2>

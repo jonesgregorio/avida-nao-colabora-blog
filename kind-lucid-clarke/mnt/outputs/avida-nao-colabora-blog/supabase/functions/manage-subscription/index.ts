@@ -54,7 +54,7 @@ const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avi
 // no STRIPE_PRICE_THERAPEUTIC (que hoje guarda o price de 39,90). Mesmo padrão do
 // create-checkout — não renomeie STRIPE_PRICE_THERAPEUTIC (quebra a cobrança atual).
 const PLUS_PRICE = Deno.env.get('STRIPE_PRICE_PLUS_3990') || Deno.env.get('STRIPE_PRICE_THERAPEUTIC')
-const PRICE_IDS: Record<string, string | undefined> = {
+const FALLBACK_PRICE_IDS: Record<string, string | undefined> = {
   essential: Deno.env.get('STRIPE_PRICE_ESSENTIAL'),
   plus: PLUS_PRICE,
   // Compat de planos legados no banco → mesmo price do Plus atual.
@@ -207,6 +207,13 @@ Deno.serve(async (req) => {
   const currentPlan = profile?.plan ?? 'free'
   const stripeSubId = sub?.provider_subscription_id ?? null
 
+  async function resolvePriceId(plan: string): Promise<string | undefined> {
+    const canonicalPlan = plan === 'therapeutic' || plan === 'therapeutic-plus' ? 'plus' : plan
+    const { data } = await supabase.from('plan_configs')
+      .select('stripe_price_id').eq('plan_key', canonicalPlan).maybeSingle()
+    return (data as { stripe_price_id?: string } | null)?.stripe_price_id || FALLBACK_PRICE_IDS[plan] || FALLBACK_PRICE_IDS[canonicalPlan]
+  }
+
   // Linha do tempo financeira (094). Nunca quebra o fluxo: um erro aqui não pode
   // impedir um cancelamento que o Stripe já aceitou — só é logado.
   async function registrarEvento(
@@ -272,7 +279,7 @@ Deno.serve(async (req) => {
     //    webhook (subscription.updated) confirmar — nunca aqui.
     if (action === 'upgrade') {
       if (!targetPlan) return jsonResponse({ error: 'targetPlan obrigatório para upgrade' }, 400)
-      const newPrice = PRICE_IDS[targetPlan]
+      const newPrice = await resolvePriceId(targetPlan)
       if (!newPrice) return jsonResponse({ error: `Plano inválido ou Price ID ausente: ${targetPlan}` }, 400)
       if (rankOf(targetPlan) <= rankOf(currentPlan)) {
         return jsonResponse({ error: 'Upgrade deve ser para um plano superior.' }, 400)
@@ -381,7 +388,7 @@ Deno.serve(async (req) => {
       // Motivo obrigatório também no downgrade (§9), validado no servidor.
       const erroMotivo = validarMotivos(reasons, comment)
       if (erroMotivo) return jsonResponse({ error: erroMotivo }, 400)
-      const newPrice = PRICE_IDS[targetPlan]
+      const newPrice = await resolvePriceId(targetPlan)
       if (!newPrice) return jsonResponse({ error: `Plano inválido ou Price ID ausente: ${targetPlan}` }, 400)
       if (targetPlan === 'free' || rankOf(targetPlan) >= rankOf(currentPlan)) {
         return jsonResponse({ error: 'Downgrade é para um plano pago inferior. Para virar Gratuito, use cancelar.' }, 400)

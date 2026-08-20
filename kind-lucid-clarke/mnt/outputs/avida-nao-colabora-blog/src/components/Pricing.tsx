@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
 import { trackEvent } from '../lib/analytics'
@@ -56,27 +56,29 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
   const [error, setError] = useState<string | null>(null)
   const current = normalize(currentPlan)
   const isPaidSubscriber = !!user && current !== 'free'
+  const [dynamicPrices, setDynamicPrices] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    void supabase.rpc('get_public_plan_pricing').then(({ data }) => {
+      if (!Array.isArray(data)) return
+      const next: Record<string, string> = {}
+      for (const row of data as { plan_key: string; display_price: string }[]) next[row.plan_key] = row.display_price
+      setDynamicPrices(next)
+    })
+  }, [])
+
+  const displayPlans = PLANS.map(p => ({ ...p, price: dynamicPrices[p.key] || p.price }))
 
   const handlePlanAction = async (planKey: PlanKey) => {
     trackEvent('plan_click', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
     const action = resolvePricingPlanAction(!!user, current, planKey)
-
     if (action === 'auth') {
       trackEvent('signup_click', { entity_id: planKey, metadata: { location: 'pricing', plan: planKey } })
       onNavigateAuth()
       return
     }
-
     if (action === 'current') return
-
-    // Quem já tem assinatura paga NÃO abre um novo Checkout. A troca continua em
-    // Meu Plano, onde o fluxo existente decide entre upgrade imediato e downgrade
-    // agendado, preservando a mesma assinatura Stripe.
-    if (action === 'manage') {
-      window.location.assign('/meu-plano')
-      return
-    }
-
+    if (action === 'manage') { window.location.assign('/meu-plano'); return }
     setLoadingPlan(planKey)
     setError(null)
     try {
@@ -102,7 +104,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-          {PLANS.map(plan => {
+          {displayPlans.map(plan => {
             const action = resolvePricingPlanAction(!!user, current, plan.key)
             const isCurrent = action === 'current'
             const featured = 'featured' in plan && plan.featured

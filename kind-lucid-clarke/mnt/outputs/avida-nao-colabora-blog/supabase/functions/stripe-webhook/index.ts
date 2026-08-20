@@ -23,8 +23,22 @@ function buildPlanByPrice(): Record<string, PaidPlan> {
 }
 const PLAN_BY_PRICE = buildPlanByPrice()
 
-function planFromPrice(priceId: string | null | undefined): PaidPlan | null {
+async function planFromPrice(
+  priceId: string | null | undefined,
+  supabase: ReturnType<typeof createClient>,
+): Promise<PaidPlan | null> {
   if (!priceId) return null
+
+  const { data: historical } = await supabase.from('stripe_plan_prices')
+    .select('plan_key').eq('stripe_price_id', priceId).maybeSingle()
+  const historicalPlan = (historical as { plan_key?: string } | null)?.plan_key
+  if (historicalPlan === 'essential' || historicalPlan === 'plus') return historicalPlan
+
+  const { data: current } = await supabase.from('plan_configs')
+    .select('plan_key').eq('stripe_price_id', priceId).maybeSingle()
+  const currentPlan = (current as { plan_key?: string } | null)?.plan_key
+  if (currentPlan === 'essential' || currentPlan === 'plus') return currentPlan
+
   return PLAN_BY_PRICE[priceId] ?? null
 }
 
@@ -232,7 +246,7 @@ async function handleEvent(
     // e receber retry, em vez de liberar acesso com dados incompletos.
     const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
     const priceId = stripeSub.items.data[0]?.price.id
-    const plan = planFromPrice(priceId)
+    const plan = await planFromPrice(priceId, supabase)
     const customerId = stripeId(session.customer) || stripeId(stripeSub.customer)
     const subscriptionUserId = stripeSub.metadata?.supabase_user_id
 
@@ -346,14 +360,13 @@ async function handleEvent(
 
     const subscription = await stripe.subscriptions.retrieve(invSubId)
     const priceId = subscription.items.data[0]?.price.id
-    const plan = planFromPrice(priceId)
+    const plan = await planFromPrice(priceId, supabase)
     const customerId = stripeId(subscription.customer)
 
     if (!plan || !customerId) {
       console.error(`invoice.payment_succeeded: Price ID "${priceId}" não mapeado ou customer ausente. Plano NÃO atualizado.`)
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
-
     const { data: profileData, error: profileLookupErr } = await supabase
       .from('profiles')
       .select('user_id, plan')
@@ -463,7 +476,7 @@ async function handleEvent(
   if (event.type === 'customer.subscription.created') {
     const subscription = event.data.object as Stripe.Subscription
     const customerId = stripeId(subscription.customer)
-    const plan = planFromPrice(subscription.items.data[0]?.price.id)
+    const plan = await planFromPrice(subscription.items.data[0]?.price.id, supabase)
     if (!customerId || !plan) {
       return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
     }
@@ -500,7 +513,7 @@ async function handleEvent(
     const subscription = event.data.object as Stripe.Subscription
     const customerId = stripeId(subscription.customer)
     const priceId = subscription.items.data[0]?.price.id
-    const newPlan = planFromPrice(priceId)
+    const newPlan = await planFromPrice(priceId, supabase)
 
     if (!customerId || !newPlan) {
       console.error(`subscription.updated: customer ou price não mapeado (price ${priceId})`)
