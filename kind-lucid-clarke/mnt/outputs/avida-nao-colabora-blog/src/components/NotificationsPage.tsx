@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { resolveNotifDestination } from '../lib/notifications'
+import { NOTIF_DESTINATION, resolveNotifDestination } from '../lib/notifications'
 import {
   Bell, MessageCircle, BarChart3, Sprout, BookOpen, Crown, CheckCheck, Sparkles,
 } from 'lucide-react'
@@ -175,7 +175,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
             const meta = TYPE_META[n.type] ?? DEFAULT_META
             const unread = !n.is_read && !!n.user_id
             const text = n.message || n.body || ''
-            const clickable = !!n.action_url
+            const clickable = !!n.action_url || !!NOTIF_DESTINATION[n.type]
             return (
               <li key={n.id}>
                 <button
