@@ -67,27 +67,50 @@ const TAB_CONFIG: { id: AdminTab; label: string; statuses: string[] }[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function buildSnapshot(userId: string, plan: string, taskKey: string): Promise<TaskSnapshot> {
+async function buildSnapshot(userId: string, plan: string, taskKey: string): Promise<TaskSnapshot & {
+  topContexts: string[]
+  topNeeds: string[]
+  topCareActions: string[]
+  topTriggers: string[]
+}> {
   const [
     { count: diaryCount }, { data: diaryData },
     { count: qCount }, { count: savedCount }, { count: articlesRead },
   ] = await Promise.all([
     supabase.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-    supabase.from('diary_entries').select('mood, tags').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
+    supabase.from('diary_entries')
+      .select('mood,mood_score,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags')
+      .eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     supabase.from('questionnaire_responses').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('saved_items').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('event', 'article_view'),
   ])
-  const tagFreq: Record<string, number> = {}
-  let moodSum = 0; let moodCount = 0
-  for (const d of (diaryData ?? []) as { tags?: unknown[]; mood?: number }[]) {
-    if (d.tags && Array.isArray(d.tags)) for (const t of d.tags) tagFreq[t as string] = (tagFreq[t as string] ?? 0) + 1
-    if (d.mood) { moodSum += d.mood; moodCount++ }
+  const rows = (diaryData ?? []) as Record<string, unknown>[]
+  const freq = (field: string, limit = 5): string[] => {
+    const counts: Record<string, number> = {}
+    for (const row of rows) {
+      const values = Array.isArray(row[field]) ? row[field] as unknown[] : []
+      for (const raw of values) {
+        const value = String(raw ?? '').trim()
+        if (value) counts[value] = (counts[value] ?? 0) + 1
+      }
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([value]) => value)
   }
-  const topMarkers = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
+  let moodSum = 0; let moodCount = 0
+  for (const row of rows) {
+    const mood = Number(row.mood_score ?? row.mood)
+    if (Number.isFinite(mood) && mood > 0) { moodSum += mood; moodCount++ }
+  }
+  const normalizedPlan = ['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(plan) ? 'plus' : plan
   return {
-    plan, task: taskKey, period: monthKey(),
-    diaryCount: diaryCount ?? 0, topMarkers,
+    plan: normalizedPlan, task: taskKey, period: monthKey(),
+    diaryCount: diaryCount ?? 0,
+    topMarkers: freq('emotional_tags'),
+    topContexts: freq('context_tags'),
+    topNeeds: freq('need_tags'),
+    topCareActions: freq('care_action_tags'),
+    topTriggers: normalizedPlan === 'plus' ? freq('trigger_tags') : [],
     avgMood: moodCount > 0 ? Math.round((moodSum / moodCount) * 10) / 10 : null,
     questionnaireCount: qCount ?? 0, articlesRead: articlesRead ?? 0, savedCount: savedCount ?? 0,
   }
