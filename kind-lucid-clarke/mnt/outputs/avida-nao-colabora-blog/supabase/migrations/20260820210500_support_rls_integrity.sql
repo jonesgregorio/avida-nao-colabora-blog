@@ -13,8 +13,8 @@
 -- - usuário não edita/exclui mensagens nem tickets;
 -- - resposta do usuário atualiza estado/unread/timestamps por trigger;
 -- - policies administrativas existentes permanecem intactas;
--- - formulário público do FAQ continua podendo criar ticket, com campos
---   administrativos fixados no estado inicial seguro.
+-- - formulário público do FAQ continua podendo criar ticket, esteja o
+--   visitante deslogado ou já com sessão autenticada.
 
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_messages ENABLE ROW LEVEL SECURITY;
@@ -116,23 +116,16 @@ CREATE POLICY "users_insert_own_tickets"
     AND support_tickets.last_admin_message_at IS NULL
     AND support_tickets.last_message_at IS NULL
     AND support_tickets.last_user_message_at IS NULL
-    AND (
-      support_tickets.plan_at_creation IS NULL
-      OR support_tickets.plan_at_creation = (
-        SELECT p.plan
-        FROM public.profiles p
-        WHERE p.user_id = auth.uid()
-      )
-    )
   );
 
--- Visitante deslogado: mantém somente a criação do contato do FAQ e impede
--- injeção de estado/atribuição/resolução ou metadados administrativos.
+-- Contato do FAQ: user_id permanece nulo e os campos administrativos ficam no
+-- estado inicial seguro. TO anon, authenticated preserva o formulário também
+-- quando uma sessão do usuário já está ativa.
 DROP POLICY IF EXISTS "public_insert_contact_ticket" ON public.support_tickets;
 CREATE POLICY "public_insert_contact_ticket"
   ON public.support_tickets
   FOR INSERT
-  TO anon
+  TO anon, authenticated
   WITH CHECK (
     support_tickets.user_id IS NULL
     AND support_tickets.contact_email IS NOT NULL
