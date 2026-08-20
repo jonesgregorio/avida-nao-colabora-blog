@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { trackEvent } from '../lib/analytics'
 import { Check, Loader2, Sprout, Star, LineChart, ShieldCheck } from 'lucide-react'
 import { PLAN_COMPARE_ROWS, PLAN_BENEFITS, type PlanCompareValue } from '../lib/planComparison'
+import { resolvePricingPlanAction } from '../lib/pricingPlanAction'
 
 interface PricingProps {
   user: unknown
@@ -54,10 +55,28 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const current = normalize(currentPlan)
+  const isPaidSubscriber = !!user && current !== 'free'
 
-  const handleSubscribe = async (planKey: PlanKey) => {
+  const handlePlanAction = async (planKey: PlanKey) => {
     trackEvent('plan_click', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
-    if (!user) { trackEvent('signup_click', { entity_id: planKey, metadata: { location: 'pricing', plan: planKey } }); onNavigateAuth(); return }
+    const action = resolvePricingPlanAction(!!user, current, planKey)
+
+    if (action === 'auth') {
+      trackEvent('signup_click', { entity_id: planKey, metadata: { location: 'pricing', plan: planKey } })
+      onNavigateAuth()
+      return
+    }
+
+    if (action === 'current') return
+
+    // Quem já tem assinatura paga NÃO abre um novo Checkout. A troca continua em
+    // Meu Plano, onde o fluxo existente decide entre upgrade imediato e downgrade
+    // agendado, preservando a mesma assinatura Stripe.
+    if (action === 'manage') {
+      window.location.assign('/meu-plano')
+      return
+    }
+
     setLoadingPlan(planKey)
     setError(null)
     try {
@@ -84,9 +103,11 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
           {PLANS.map(plan => {
-            const isCurrent = !!user && current === plan.key
+            const action = resolvePricingPlanAction(!!user, current, plan.key)
+            const isCurrent = action === 'current'
             const featured = 'featured' in plan && plan.featured
             const coral = 'coral' in plan && plan.coral
+            const isCheckoutLoading = action === 'checkout' && loadingPlan === plan.key
             return (
               <div
                 key={plan.key}
@@ -126,32 +147,41 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                   </button>
                 ) : plan.key === 'free' ? (
                   <button
-                    onClick={() => !user && onNavigateAuth()}
-                    disabled={!!user}
-                    className="w-full py-3 rounded-2xl text-sm font-medium border border-forest-800 text-forest-900 hover:bg-forest-900 hover:text-white transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-forest-900"
+                    onClick={() => handlePlanAction(plan.key)}
+                    className="w-full py-3 rounded-2xl text-sm font-medium border border-forest-800 text-forest-900 hover:bg-forest-900 hover:text-white transition-colors"
                   >
-                    {plan.cta}
+                    {action === 'manage' ? 'Gerenciar mudança' : plan.cta}
                   </button>
                 ) : (
                   <button
                     data-cta={`assinar-${plan.key}`}
                     data-cta-location="pricing"
                     data-cta-plan={plan.key}
-                    onClick={() => handleSubscribe(plan.key)}
-                    disabled={loadingPlan === plan.key}
+                    onClick={() => handlePlanAction(plan.key)}
+                    disabled={isCheckoutLoading}
                     className={`w-full py-3 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 ${
                       coral ? 'border border-[#e8664d] text-[#c8502f] hover:bg-[#fbeae4]' : 'bg-forest-900 hover:bg-forest-800 text-white'
                     }`}
                   >
-                    {loadingPlan === plan.key
+                    {isCheckoutLoading
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecionando...</>
-                      : (user ? plan.cta : 'Criar conta para assinar')}
+                      : action === 'manage'
+                        ? 'Gerenciar mudança'
+                        : (user ? plan.cta : 'Criar conta para assinar')}
                   </button>
                 )}
               </div>
             )
           })}
         </div>
+
+        {isPaidSubscriber && (
+          <div className="mt-6 bg-mint/40 border border-line rounded-2xl p-4 max-w-2xl mx-auto text-center">
+            <p className="text-forest-800 text-sm">
+              Você já possui uma assinatura. Ao escolher outro plano, a mudança será concluída em Meu Plano sem criar uma segunda assinatura no Stripe.
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="mt-6 bg-red-50 border border-red-200 rounded-2xl p-4 max-w-2xl mx-auto text-center">
