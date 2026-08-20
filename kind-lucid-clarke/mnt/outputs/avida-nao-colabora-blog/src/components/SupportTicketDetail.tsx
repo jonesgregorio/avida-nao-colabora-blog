@@ -208,21 +208,9 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
       m.id === optimisticId ? { ...newMsg, sender_name: null } : m
     ))
 
-    // Update ticket status and unread flags
-    const now = new Date().toISOString()
-    const updates: Record<string, unknown> = {
-      unread_for_admin: true,
-      unread_for_user: false,
-      last_message_at: now,
-      last_user_message_at: now,
-    }
-    if (ticket?.status === 'open' || ticket?.status === 'in_progress' || ticket?.status === 'awaiting_user') {
-      updates.status = 'awaiting_admin'
-    }
-    await supabase.from('support_tickets').update(updates).eq('id', ticketId)
-    if (updates.status) {
-      setTicket(t => t ? { ...t, status: updates.status as string, updated_at: now } : t)
-    }
+    // O trigger do banco é a fonte de verdade para status/unread/timestamps.
+    // Recarrega o ticket após o INSERT em vez de tentar UPDATE direto pelo usuário.
+    await fetchData(true)
 
     setSending(false)
   }
@@ -244,7 +232,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
     </div>
   )
 
-  const isClosed = ticket.status === 'closed'
+  const isClosed = ticket.status === 'closed' || ticket.status === 'resolved'
 
   return (
     <div className="max-w-2xl mx-auto px-4 flex flex-col" style={{ height: 'calc(100vh - 5rem)' }}>
@@ -314,7 +302,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
         {isClosed ? (
           <div className="flex items-center gap-2 text-sm text-stone-400 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
             <Lock className="w-4 h-4 flex-shrink-0" />
-            Ticket fechado — abra um novo ticket se precisar de mais ajuda.
+            Ticket encerrado — abra um novo ticket se precisar de mais ajuda.
           </div>
         ) : (
           <div className="flex gap-2 items-end">
