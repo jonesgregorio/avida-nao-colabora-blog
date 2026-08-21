@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -51,6 +51,60 @@ test('script de validação classifica adição, modificação, remoção e reno
   for (const status of ['A)', 'M)', 'D)', 'R*)']) {
     assert.ok(validateScript.includes(status), `script deve tratar o status ${status}`)
   }
+})
+
+test('script exige o padrão de nome e bloqueia identificador repetido', () => {
+  assert.match(validateScript, /\[0-9\]\{14\}_\[a-z0-9_\]\+\\\.sql/)
+  assert.match(validateScript, /fora do padrão obrigatório/)
+  assert.match(validateScript, /identificador de migration já usado/)
+  assert.match(validateScript, /git ls-tree/)
+})
+
+test('migrations em disco respeitam os padrões conhecidos', () => {
+  const dir = new URL('../supabase/migrations/', import.meta.url)
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql'))
+  assert.ok(files.length > 0, 'diretório de migrations não pode estar vazio')
+
+  const legacy = /^[0-9]{3}_[a-z0-9_]+\.sql$/
+  const current = /^[0-9]{14}_[a-z0-9_]+\.sql$/
+  const invalid = files.filter((f) => !legacy.test(f) && !current.test(f))
+  assert.deepEqual(invalid, [], 'nome de migration fora dos dois padrões conhecidos')
+})
+
+test('duplicidades históricas de identificador estão congeladas e documentadas', () => {
+  const dir = new URL('../supabase/migrations/', import.meta.url)
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql'))
+
+  const byPrefix = new Map<string, string[]>()
+  for (const file of files) {
+    const prefix = file.split('_')[0]
+    byPrefix.set(prefix, [...(byPrefix.get(prefix) ?? []), file])
+  }
+  const duplicated = [...byPrefix.entries()]
+    .filter(([, group]) => group.length > 1)
+    .map(([prefix]) => prefix)
+    .sort()
+
+  // Lista fechada: o histórico não se corrige, mas não pode crescer.
+  assert.deepEqual(
+    duplicated,
+    ['003', '060', '061', '062', '067', '068', '069', '070', '096'],
+    'nova duplicidade de identificador — gere um timestamp novo em vez de reusar',
+  )
+
+  const doc = readFileSync(new URL('../docs/MIGRATIONS.md', import.meta.url), 'utf8')
+  for (const prefix of duplicated) {
+    assert.ok(doc.includes(`\`${prefix}\``), `docs/MIGRATIONS.md deve registrar o prefixo ${prefix}`)
+  }
+})
+
+test('documentação de migrations cobre padrão, imutabilidade e recuperação', () => {
+  const doc = readFileSync(new URL('../docs/MIGRATIONS.md', import.meta.url), 'utf8')
+  assert.match(doc, /YYYYMMDDHHMMSS_descricao\.sql/)
+  assert.match(doc, /Rollback/i)
+  assert.match(doc, /Recupera/i)
+  assert.match(doc, /grava nem lê/i)
+  assert.match(doc, /schema_migrations/)
 })
 
 function hasGitBash() {
@@ -115,6 +169,26 @@ test(
       const deleted = runGuard()
       assert.equal(deleted.status, 1, 'remoção de migration histórica deve reprovar')
       assert.match(deleted.stdout, /REMOVIDA/)
+
+      // Cenário nome legado — migration nova no padrão NNN_: bloqueado.
+      sh('git revert --no-edit -n HEAD && git commit -qm restaura2')
+      writeFileSync(join(workdir, MIGRATIONS_DIR, '900_padrao_antigo.sql'), 'select 3;\n')
+      sh('git add -A && git commit -qm legado')
+      const legacyName = runGuard()
+      assert.equal(legacyName.status, 1, 'migration nova no padrão NNN_ deve reprovar')
+      assert.match(legacyName.stdout, /fora do padrão obrigatório/)
+
+      // Cenário duplicidade — timestamp já usado por outro arquivo: bloqueado.
+      sh('git revert --no-edit -n HEAD && git commit -qm restaura3')
+      writeFileSync(
+        join(workdir, MIGRATIONS_DIR, '20260101000000_colide.sql'),
+        'select 4;\n',
+      )
+      sh('git add -A && git commit -qm colisao')
+      const collision = runGuard()
+      assert.equal(collision.status, 1, 'identificador repetido deve reprovar')
+      assert.match(collision.stdout, /identificador de migration já usado/)
+      assert.match(collision.stdout, /20260101000000_nova\.sql/)
     } finally {
       rmSync(workdir, { recursive: true, force: true })
     }

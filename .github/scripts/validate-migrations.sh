@@ -111,6 +111,56 @@ for path in ${added[@]+"${added[@]}"}; do
   esac
 done
 
+# Nome obrigatório para migrations NOVAS: YYYYMMDDHHMMSS_descricao.sql.
+# O legado NNN_descricao.sql continua válido em disco, mas está encerrado:
+# nomes históricos nunca são corrigidos retroativamente (ver docs/MIGRATIONS.md).
+for path in ${added[@]+"${added[@]}"}; do
+  case "$path" in *.sql) ;; *) continue ;; esac
+  name="${path##*/}"
+  if ! printf '%s' "$name" | grep -Eq '^[0-9]{14}_[a-z0-9_]+\.sql$'; then
+    violations=1
+    echo "ERRO: nome de migration fora do padrão obrigatório."
+    echo "  - $name"
+    echo
+    echo "  Migrations novas devem usar YYYYMMDDHHMMSS_descricao.sql,"
+    echo "  com descrição em minúsculas, dígitos e underscore."
+    echo "  Exemplo: 20260821143000_add_article_locale.sql"
+    echo "  O padrão antigo NNN_descricao.sql está encerrado para arquivos novos."
+    echo
+  fi
+done
+
+# Duplicidade de identificador. O histórico já carrega prefixos repetidos porque
+# sessões paralelas escolheram o mesmo número; isso não se corrige no passado,
+# mas não pode continuar crescendo.
+tree_files=$(git ls-tree -r --name-only "$HEAD_REF" -- "$MIGRATIONS_DIR" || true)
+for path in ${added[@]+"${added[@]}"}; do
+  case "$path" in *.sql) ;; *) continue ;; esac
+  name="${path##*/}"
+  prefix="${name%%_*}"
+  case "$prefix" in ''|*[!0-9]*) continue ;; esac
+  collisions=$(printf '%s\n' "$tree_files" \
+    | while IFS= read -r other_path; do
+        [ -z "$other_path" ] && continue
+        other_name="${other_path##*/}"
+        [ "$other_name" = "$name" ] && continue
+        case "$other_name" in
+          "${prefix}_"*) echo "$other_name" ;;
+        esac
+      done)
+  if [ -n "$collisions" ]; then
+    violations=1
+    echo "ERRO: identificador de migration já usado."
+    echo "  - $name"
+    echo "    colide com:"
+    printf '%s\n' "$collisions" | sed 's/^/      /'
+    echo
+    echo "  Dois arquivos com o mesmo identificador tornam a ordem de aplicação"
+    echo "  ambígua. Gere um novo timestamp (UTC) e renomeie o arquivo NOVO."
+    echo
+  fi
+done
+
 if [ "$violations" -ne 0 ]; then
   echo "Validação de migrations REPROVADA."
   exit 1
