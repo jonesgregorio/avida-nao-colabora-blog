@@ -5,23 +5,71 @@ on:
     paths:
       - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/*.sql'
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+
 jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Histórico completo: a validação compara o push inteiro, não apenas
+          # o último commit, e precisa alcançar a revisão anterior da main.
+          fetch-depth: 0
+
+      - name: Resolver intervalo do push
+        id: range
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          HEAD_REF="$(git rev-parse HEAD)"
+          BASE_REF=""
+          if [ -n "${EVENT_BEFORE:-}" ] \
+            && [ "$EVENT_BEFORE" != "0000000000000000000000000000000000000000" ] \
+            && git rev-parse --verify --quiet "$EVENT_BEFORE^{commit}" > /dev/null; then
+            BASE_REF="$EVENT_BEFORE"
+          elif git rev-parse --verify --quiet "HEAD^{commit}" > /dev/null \
+            && git rev-parse --verify --quiet "HEAD^^{commit}" > /dev/null; then
+            BASE_REF="$(git rev-parse HEAD^)"
+          fi
+          if [ -z "$BASE_REF" ]; then
+            echo "Não foi possível determinar a revisão base; nada será aplicado."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Intervalo: $BASE_REF..$HEAD_REF"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Validar diff de migrations
+        if: steps.range.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          chmod +x .github/scripts/validate-migrations.sh
+          .github/scripts/validate-migrations.sh \
+            "${{ steps.range.outputs.base }}" \
+            "${{ steps.range.outputs.head }}" \
+            "$RUNNER_TEMP/migrations-novas.txt"
+
       - name: Aplicar migrations novas (Management API)
+        if: steps.range.outputs.skip != 'true'
         env:
           TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           REF: lejvvhzluggyxlfwfoxl
         run: |
           set -euo pipefail
-          DIR="kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations"
-          FILES=$(git diff --name-only HEAD^ HEAD -- "$DIR/*.sql" || true)
-          if [ -z "$FILES" ]; then echo "Nenhuma migration nova."; exit 0; fi
-          for f in $FILES; do
+          LIST="$RUNNER_TEMP/migrations-novas.txt"
+          if [ ! -s "$LIST" ]; then
+            echo "Nenhuma migration nova para aplicar."
+            exit 0
+          fi
+          # Ordem determinística: o prefixo do nome define a sequência.
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
             echo "== $f =="
             payload=$(jq -n --rawfile q "$f" '{query:$q}')
             http=$(curl -sS -o resp.json -w '%{http_code}' -X POST \
@@ -29,5 +77,8 @@ jobs:
               -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
               --data "$payload")
             echo "HTTP $http"; cat resp.json; echo
-            [ "$http" -ge 300 ] && { echo "FALHOU: $f"; exit 1; } || true
-          done
+            if [ "$http" -ge 300 ]; then
+              echo "FALHOU: $f"
+              exit 1
+            fi
+          done < <(sort "$LIST")

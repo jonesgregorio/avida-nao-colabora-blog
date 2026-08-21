@@ -17,6 +17,30 @@ permissions:
   contents: read
 
 jobs:
+  migrations-guard:
+    name: migrations-guard
+    # Barreira anterior ao merge: migration histórica não pode ser editada,
+    # renomeada ou removida. O workflow de aplicação é a segunda barreira.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar diff de migrations
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # merge-base evita acusar como "alteração do PR" o que já entrou na main.
+          MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          chmod +x .github/scripts/validate-migrations.sh
+          .github/scripts/validate-migrations.sh "$MERGE_BASE" "$HEAD_SHA"
+
   validate:
     name: validate
     runs-on: ubuntu-latest
