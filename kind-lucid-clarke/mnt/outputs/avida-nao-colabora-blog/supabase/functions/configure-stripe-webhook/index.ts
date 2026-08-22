@@ -1,7 +1,7 @@
 import Stripe from 'npm:stripe@14'
 import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' })
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' as Stripe.LatestApiVersion })
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -10,7 +10,7 @@ const cors = {
 }
 
 // Eventos que o webhook (stripe-webhook) trata.
-const WEBHOOK_EVENTS = [
+const WEBHOOK_EVENTS: Stripe.WebhookEndpointUpdateParams.EnabledEvent[] = [
   'checkout.session.completed',
   'invoice.payment_succeeded',
   'invoice.payment_failed',

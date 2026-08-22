@@ -2,7 +2,7 @@ import Stripe from 'npm:stripe@14'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-  apiVersion: '2024-06-20',
+  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
 })
 
 // Modelo NOVO: apenas dois planos pagos — Essencial (R$ 19,90) e Plus (R$ 39,90).

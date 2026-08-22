@@ -97,11 +97,6 @@ jobs:
           # misturar correção de Stripe num PR de CI. Qualquer função NOVA ou
           # já saudável precisa continuar passando de verdade.
           known_broken=(
-            "supabase/functions/admin-discount/index.ts"
-            "supabase/functions/admin-plan-pricing/index.ts"
-            "supabase/functions/admin-schedule-cancellation/index.ts"
-            "supabase/functions/configure-stripe-webhook/index.ts"
-            "supabase/functions/create-checkout/index.ts"
             "supabase/functions/manage-subscription/index.ts"
             "supabase/functions/resend-webhook/index.ts"
             "supabase/functions/stripe-audit/index.ts"
