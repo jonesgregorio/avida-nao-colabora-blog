@@ -52,6 +52,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'admin-discount',
     'admin-plan-pricing',
     'admin-schedule-cancellation',
+    'checkout-session-status',
     'configure-stripe-webhook',
     'create-checkout',
     'delete-account',
@@ -79,6 +80,7 @@ test('funções críticas de pagamento e dados sensíveis existem e serão checa
   const found = new Set(realEdgeFunctions())
   for (const critical of [
     'create-checkout',
+    'checkout-session-status',
     'stripe-webhook',
     'manage-subscription',
     'send-transactional-email',
