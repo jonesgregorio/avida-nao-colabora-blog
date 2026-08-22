@@ -15,7 +15,7 @@ import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 // no banco a partir do usuário do registro de cancelamento.
 // ============================================================================
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' })
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' as Stripe.LatestApiVersion })
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

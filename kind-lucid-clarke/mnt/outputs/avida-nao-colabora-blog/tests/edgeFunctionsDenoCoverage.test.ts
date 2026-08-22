@@ -93,18 +93,16 @@ test('funções críticas de pagamento e dados sensíveis existem e serão checa
   }
 })
 
-const KNOWN_TYPE_DEBT = [
+const KNOWN_TYPE_DEBT = ['manage-subscription', 'resend-webhook', 'stripe-audit', 'stripe-selftest'].sort()
+
+const FIXED_APIVERSION_FUNCTIONS = [
   'admin-discount',
   'admin-plan-pricing',
   'admin-schedule-cancellation',
   'configure-stripe-webhook',
   'create-checkout',
-  'manage-subscription',
-  'resend-webhook',
-  'stripe-audit',
-  'stripe-selftest',
   'stripe-webhook',
-].sort()
+]
 
 test('CI trata a dívida de tipo conhecida como aviso, não bloqueio, e continua exigindo as demais', () => {
   assert.match(ciWorkflow, /known_broken=\(/)
@@ -143,15 +141,51 @@ test('lista de dívida no workflow bate exatamente com docs/EDGE_FUNCTIONS_TYPE_
   assert.match(doc, /2024-06-20/)
 })
 
-test('nenhuma das 11 funções saudáveis está na lista de dívida conhecida', () => {
+test('nenhuma das funções saudáveis está na lista de dívida conhecida', () => {
   const found = realEdgeFunctions()
   const healthy = found.filter((f) => !KNOWN_TYPE_DEBT.includes(f))
-  assert.equal(healthy.length, 11, `esperava 11 funções saudáveis, achou ${healthy.length}`)
+  assert.equal(healthy.length, 17, `esperava 17 funções saudáveis, achou ${healthy.length}`)
   for (const fn of healthy) {
     assert.equal(
       ciWorkflow.includes(`"supabase/functions/${fn}/index.ts"`),
       false,
       `${fn} está saudável e não deve entrar na lista de dívida conhecida`,
+    )
+  }
+})
+
+test('funções com apiVersion corrigido usam o cast já validado pelo projeto, sem mudar a versão enviada', () => {
+  for (const fn of FIXED_APIVERSION_FUNCTIONS) {
+    const src = readFileSync(new URL(`${fn}/index.ts`, functionsDir), 'utf8')
+    assert.match(
+      src,
+      /apiVersion:\s*'2024-06-20'\s*as Stripe\.LatestApiVersion/,
+      `${fn} deve manter '2024-06-20' e usar o cast de tipo, não trocar a versão real enviada à Stripe`,
+    )
+  }
+})
+
+test('configure-stripe-webhook tipa a lista de eventos sem alterar os nomes de evento', () => {
+  const src = readFileSync(new URL('configure-stripe-webhook/index.ts', functionsDir), 'utf8')
+  assert.match(src, /WEBHOOK_EVENTS: Stripe\.WebhookEndpointUpdateParams\.EnabledEvent\[\]/)
+  for (const evt of [
+    'checkout.session.completed',
+    'invoice.payment_succeeded',
+    'invoice.payment_failed',
+    'customer.subscription.created',
+    'customer.subscription.updated',
+    'customer.subscription.deleted',
+  ]) {
+    assert.ok(src.includes(`'${evt}'`), `evento ${evt} não pode desaparecer da lista ao corrigir o tipo`)
+  }
+})
+
+test('funções corrigidas não fazem mais parte da lista de dívida conhecida', () => {
+  for (const fn of FIXED_APIVERSION_FUNCTIONS) {
+    assert.equal(
+      ciWorkflow.includes(`"supabase/functions/${fn}/index.ts"`),
+      false,
+      `${fn} foi corrigida e não deve mais estar em known_broken`,
     )
   }
 })

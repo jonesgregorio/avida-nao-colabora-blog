@@ -1,95 +1,102 @@
-# Dívida de tipo conhecida — Edge Functions Stripe
+# Dívida de tipo conhecida — Edge Functions
 
 Registrado em 21/08/2026, quando o CI passou a rodar `deno check` em todas as
-21 Edge Functions (antes cobria só 4). Essas 10 falharam na primeira vez que
-foram verificadas. **Nenhuma delas é regressão** desta mudança — o erro já
-existia no código, só nunca tinha sido detectado porque nada rodava `deno check`
-nelas.
+21 Edge Functions (antes cobria só 4). 10 falharam na primeira vez que foram
+verificadas. **Nenhuma delas era regressão** dessa mudança — o erro já existia
+no código, só nunca tinha sido detectado porque nada rodava `deno check` nelas.
 
-## Por que isso não bloqueia o CI agora
+Em 21/08/2026, 6 das 10 foram corrigidas (ver seção "Corrigidas" abaixo). As 4
+restantes continuam como dívida conhecida.
 
-`.github/workflows/ci.yml` trata essas 10 funções como dívida conhecida: o
-`deno check` roda nelas e o resultado aparece no log, mas uma falha aqui não
-derruba o job. Qualquer outra função — as 11 saudáveis ou uma nova — continua
-tendo que passar de verdade.
+## Por que a dívida restante não bloqueia o CI
 
-Isso existe porque corrigir requer editar arquivos Stripe, e o projeto proíbe
-mexer em pagamentos como efeito colateral de uma tarefa que não pediu isso
-explicitamente. A correção precisa ser uma tarefa própria, autorizada
-explicitamente para tocar em Stripe.
+`.github/workflows/ci.yml` trata as 4 funções da lista `known_broken` como
+dívida conhecida: o `deno check` roda nelas e o resultado aparece no log, mas
+uma falha ali não derruba o job. Qualquer outra função — as agora 17
+saudáveis, ou uma nova — continua tendo que passar de verdade. O próprio CI
+avisa sozinho se uma função da lista voltar a passar (mensagem "agora
+PASSAM").
 
-## Causa raiz predominante
+## Corrigidas em 21/08/2026
 
-A maioria dos erros é a mesma linha em arquivos diferentes:
-
-```ts
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' })
-```
+`admin-discount`, `admin-plan-pricing`, `admin-schedule-cancellation`,
+`create-checkout`, `stripe-webhook` e `configure-stripe-webhook` tinham o
+mesmo erro:
 
 ```
 TS2322 [ERROR]: Type '"2024-06-20"' is not assignable to type '"2023-10-16"'.
 ```
 
 O pacote instalado é `stripe@14.25.0`. O tipo TypeScript dessa versão do SDK
-só aceita `'2023-10-16'` como valor literal de `apiVersion`. Em algum momento
-o código passou a usar `'2024-06-20'` sem atualizar o SDK (ou o SDK foi fixado
-numa versão mais antiga depois do código já usar a versão nova).
+só aceita `'2023-10-16'` como valor literal de `apiVersion`, mas o código
+passa `'2024-06-20'`.
 
-**Isso é uma incompatibilidade de tipos, não necessariamente um erro em
-runtime** — a Stripe aceita a string de versão de API diretamente na
-requisição HTTP, independente do que o SDK declara como tipo. Mas não dá para
-assumir que é inofensivo sem confirmar qual comportamento da API
-`2024-06-20` o código depende e se `2023-10-16` teria diferença relevante.
-**Isso precisa ser investigado por quem for corrigir**, não assumido.
+A correção usa um padrão que já existia no próprio projeto, em
+`run-lifecycle-emails/index.ts` (função que já passava no `deno check`):
 
-## Funções afetadas e erros específicos
+```ts
+apiVersion: '2024-06-20' as Stripe.LatestApiVersion
+```
 
-| Função | Erros |
-|---|---|
-| `admin-discount` | `apiVersion` incompatível |
-| `admin-plan-pricing` | `apiVersion` incompatível |
-| `admin-schedule-cancellation` | `apiVersion` incompatível |
-| `configure-stripe-webhook` | `apiVersion` incompatível **+** `Type 'string[]' is not assignable to type 'EnabledEvent[]'` |
-| `create-checkout` | `apiVersion` incompatível |
-| `manage-subscription` | `apiVersion` incompatível **+** `Type 'number \| ""' is not assignable to type 'number'` |
-| `resend-webhook` | `TS2769: No overload matches this call` (não é o mesmo padrão de `apiVersion`) |
-| `stripe-audit` | `apiVersion` incompatível **+** `TS2345: Argument of type ... is not assignable` (mais de um erro, log truncado durante o levantamento) |
-| `stripe-selftest` | falha confirmada, detalhe não coletado no levantamento inicial — reconferir ao corrigir |
-| `stripe-webhook` | `apiVersion` incompatível |
+Isso é **só uma anotação de tipo** — não muda a string que é enviada para a
+Stripe em tempo de execução, que continua sendo `'2024-06-20'` exatamente
+como antes. Zero mudança de comportamento.
 
-**Não é um bug único.** `configure-stripe-webhook`, `manage-subscription` e
-`stripe-audit` têm pelo menos um erro adicional, diferente entre si, além do
-`apiVersion`. `resend-webhook` parece ter um problema totalmente diferente,
-apesar do nome sugerir relação com Stripe.
+`configure-stripe-webhook` tinha um segundo erro:
 
-## Procedimento para corrigir
+```
+TS2322 [ERROR]: Type 'string[]' is not assignable to type 'EnabledEvent[]'.
+```
 
-Isso não deve ser feito dentro de uma tarefa de CI, UI, diário, IA ou
-relatórios. Precisa ser uma tarefa própria com autorização explícita para
-mexer em Stripe, seguindo o fluxo normal:
+A lista `WEBHOOK_EVENTS` (`checkout.session.completed`,
+`invoice.payment_succeeded`, `invoice.payment_failed`,
+`customer.subscription.created/updated/deleted`) tem nomes de evento reais e
+válidos da Stripe — não havia erro de digitação. O problema era só a
+inferência de tipo: `const WEBHOOK_EVENTS = [...]` sem anotação vira
+`string[]` genérico. A correção anota o tipo explícito
+`Stripe.WebhookEndpointUpdateParams.EnabledEvent[]`, sem alterar nenhum valor
+da lista.
 
-1. Confirmar com o time/produto por que `apiVersion: '2024-06-20'` foi
-   escolhido e se ele está realmente em uso nas chamadas à API da Stripe, ou
-   se é resquício de uma atualização parcial.
-2. Decidir entre atualizar o pacote `stripe` para uma versão cujo tipo aceite
-   `2024-06-20`, ou alinhar o código para `2023-10-16` — **não escolher
-   mecanicamente**, isso pode mudar comportamento de webhooks e checkout.
-3. Corrigir os demais erros de tipo função por função, cada um pode ter causa
-   diferente.
-4. Rodar `deno check` em cada função corrigida e confirmar localmente.
-5. Remover a função de `known_broken` em `.github/workflows/ci.yml` e da
-   tabela acima **assim que ela passar de verdade** — o próprio CI avisa
-   quando isso acontece (mensagem "função(ões) da lista de dívida agora
-   PASSAM").
-6. Testar os fluxos Stripe afetados (checkout, webhook, portal de assinatura,
-   desconto, agendamento de cancelamento) antes de mergear, seguindo a
-   validação normal de Stripe do projeto.
-7. Nunca remover uma função desta lista sem o CI confirmar que ela passa.
+## Dívida restante
+
+| Função | Erro | Relacionado a Stripe? |
+|---|---|---|
+| `manage-subscription` | `Type 'number \| ""' is not assignable to type 'number'` (além do `apiVersion`, já não mais aplicável a esta se corrigida — reconferir) | Sim |
+| `stripe-audit` | `Type '"2024-06-20"' is not assignable...` **+** `Argument of type 'SupabaseClient<any, "public", "public", any, any>' is not assignable to parameter of type 'SupabaseClient<unknown, {...` (mais de um erro deste tipo) | Parcialmente — o segundo erro é sobre tipagem do cliente Supabase, não Stripe |
+| `stripe-selftest` | falha confirmada, detalhe não coletado — a ferramenta de captura de log falhou durante o levantamento | A confirmar |
+| `resend-webhook` | `TS2769: No overload matches this call` | **Não.** Esta função é o webhook do Resend (e-mail), não tem nenhum import ou uso de Stripe. Está nesta lista só porque falhou no mesmo lote. O erro provavelmente está em `crypto.subtle.importKey`/`sign` ou no cliente Supabase — precisa de investigação própria, separada da dívida Stripe |
+
+**Nenhuma delas foi corrigida ainda.** `manage-subscription` tem um valor que
+pode ser `number` ou string vazia `""` onde a Stripe espera só `number` —
+suspeita é um campo de data/timestamp (`start_date`/`end_date` de
+`subscriptionSchedules`), mas não foi confirmado com certeza qual variável
+carrega esse tipo nem se há caminho de execução real que produza a string
+vazia. **Não corrigir por suposição** — precisa achar a linha exata primeiro.
+
+## Procedimento para corrigir o que resta
+
+1. Rodar `deno check` localmente ou reabrir o log do CI para pegar
+   linha/coluna exata de cada erro (o levantamento de 21/08 não conseguiu
+   isolar todas as linhas por limitação da ferramenta usada, não por falta do
+   dado no log).
+2. Para `manage-subscription`: identificar a variável exata que é
+   `number | ""` e decidir se o `""` é um estado real possível (nesse caso,
+   tratar antes de repassar pra Stripe) ou só uma tipagem solta que pode
+   virar `number | undefined` sem mudar comportamento.
+3. Para `stripe-audit`: o erro de `SupabaseClient` sugere incompatibilidade
+   entre a versão do client usada aqui e a esperada por uma função
+   compartilhada — investigar separadamente do `apiVersion`.
+4. Para `resend-webhook`: tratar como um ticket próprio, não relacionado a
+   Stripe.
+5. Corrigir uma função por vez, confirmar com `deno check` isolado antes de
+   seguir para a próxima.
+6. Remover cada função de `known_broken` em `.github/workflows/ci.yml` e
+   desta tabela assim que ela passar de verdade.
+7. Testar os fluxos Stripe afetados antes de mergear qualquer correção que
+   toque `manage-subscription` ou `stripe-audit`.
 
 ## Risco de manter a dívida
 
-Enquanto essas 10 funções não forem corrigidas, um erro de tipo **novo**
+Enquanto essas 4 funções não forem corrigidas, um erro de tipo **novo**
 introduzido nelas por engano também não vai bloquear o CI, porque a função já
-está na lista de dívida conhecida. É uma cobertura pior do que as 11 funções
-saudáveis, mas ainda é melhor do que a situação anterior, em que nenhuma das
-21 era verificada.
+está na lista de dívida conhecida.
