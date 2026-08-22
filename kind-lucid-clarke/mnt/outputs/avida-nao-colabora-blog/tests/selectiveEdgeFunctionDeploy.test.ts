@@ -51,3 +51,12 @@ test('workflow usa o seletor e não contém mais deploy global', () => {
   assert.match(workflow, /GITHUB_EVENT_NAME.*workflow_dispatch/)
   assert.doesNotMatch(workflow, /supabase functions deploy --project-ref/)
 })
+
+test('workflow serializa deploys de produção sem cancelar execução em andamento', () => {
+  const workflow = readFileSync(
+    new URL('../../../../../.github/workflows/deploy-supabase-functions.yml', import.meta.url),
+    'utf8',
+  )
+  assert.match(workflow, /concurrency:\s*\n\s*#.*\n\s*#.*\n\s*group:\s*supabase-edge-functions-production/s)
+  assert.match(workflow, /cancel-in-progress:\s*false/)
+})
