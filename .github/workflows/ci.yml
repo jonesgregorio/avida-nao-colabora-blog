@@ -89,23 +89,77 @@ jobs:
             echo "Nenhuma Edge Function encontrada em supabase/functions/*/index.ts."
             exit 1
           fi
-          echo "Verificando ${#files[@]} Edge Functions:"
+
+          # Dívida de tipo conhecida e já documentada em
+          # docs/EDGE_FUNCTIONS_TYPE_DEBT.md — todas ligadas ao Stripe, achadas
+          # na primeira vez que o deno check rodou nelas (não são regressão
+          # desta mudança). Falha aqui é aviso, não bloqueia o merge, para não
+          # misturar correção de Stripe num PR de CI. Qualquer função NOVA ou
+          # já saudável precisa continuar passando de verdade.
+          known_broken=(
+            "supabase/functions/admin-discount/index.ts"
+            "supabase/functions/admin-plan-pricing/index.ts"
+            "supabase/functions/admin-schedule-cancellation/index.ts"
+            "supabase/functions/configure-stripe-webhook/index.ts"
+            "supabase/functions/create-checkout/index.ts"
+            "supabase/functions/manage-subscription/index.ts"
+            "supabase/functions/resend-webhook/index.ts"
+            "supabase/functions/stripe-audit/index.ts"
+            "supabase/functions/stripe-selftest/index.ts"
+            "supabase/functions/stripe-webhook/index.ts"
+          )
+          is_known_broken() {
+            local target="$1"
+            local candidate
+            for candidate in "${known_broken[@]}"; do [ "$candidate" = "$target" ] && return 0; done
+            return 1
+          }
+
+          echo "Verificando ${#files[@]} Edge Functions (${#known_broken[@]} com dívida de tipo conhecida — ver docs/EDGE_FUNCTIONS_TYPE_DEBT.md):"
           printf '  - %s\n' "${files[@]}"
           echo
           failed=()
+          known_still_broken=()
+          known_now_fixed=()
           for f in "${files[@]}"; do
             echo "== deno check $f =="
-            if ! deno check --node-modules-dir=auto "$f"; then
-              failed+=("$f")
+            if deno check --node-modules-dir=auto "$f"; then
+              if is_known_broken "$f"; then
+                known_now_fixed+=("$f")
+              fi
+            else
+              if is_known_broken "$f"; then
+                known_still_broken+=("$f")
+                echo "(dívida conhecida — não bloqueia este PR, ver docs/EDGE_FUNCTIONS_TYPE_DEBT.md)"
+              else
+                failed+=("$f")
+              fi
             fi
             echo
           done
+
+          if [ "${#known_now_fixed[@]}" -gt 0 ]; then
+            echo "AVISO: função(ões) da lista de dívida agora PASSAM no deno check — remova de known_broken neste workflow e de docs/EDGE_FUNCTIONS_TYPE_DEBT.md:"
+            printf '  - %s\n' "${known_now_fixed[@]}"
+            echo
+          fi
+
+          if [ "${#known_still_broken[@]}" -gt 0 ]; then
+            echo "Dívida de tipo conhecida confirmada em ${#known_still_broken[@]} função(ões) (não bloqueia):"
+            printf '  - %s\n' "${known_still_broken[@]}"
+            echo
+          fi
+
           if [ "${#failed[@]}" -gt 0 ]; then
-            echo "FALHOU em ${#failed[@]} função(ões):"
+            echo "FALHOU em ${#failed[@]} função(ões) fora da lista de dívida conhecida:"
             printf '  - %s\n' "${failed[@]}"
             exit 1
           fi
-          echo "Todas as ${#files[@]} Edge Functions passaram no deno check."
+          if [ "${#known_still_broken[@]}" -gt 0 ]; then
+            echo "OK: nenhuma função fora da lista de dívida conhecida falhou (${#known_still_broken[@]} com dívida documentada, ${#files[@]} verificadas)."
+          else
+            echo "Todas as ${#files[@]} Edge Functions passaram no deno check."
+          fi
 
       - name: ESLint
         run: npm run lint

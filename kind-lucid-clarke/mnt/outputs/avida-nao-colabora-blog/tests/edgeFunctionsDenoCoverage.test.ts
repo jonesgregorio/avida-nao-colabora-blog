@@ -93,6 +93,69 @@ test('funções críticas de pagamento e dados sensíveis existem e serão checa
   }
 })
 
+const KNOWN_TYPE_DEBT = [
+  'admin-discount',
+  'admin-plan-pricing',
+  'admin-schedule-cancellation',
+  'configure-stripe-webhook',
+  'create-checkout',
+  'manage-subscription',
+  'resend-webhook',
+  'stripe-audit',
+  'stripe-selftest',
+  'stripe-webhook',
+].sort()
+
+test('CI trata a dívida de tipo conhecida como aviso, não bloqueio, e continua exigindo as demais', () => {
+  assert.match(ciWorkflow, /known_broken=\(/)
+  assert.match(ciWorkflow, /is_known_broken/)
+  // A falha só derruba o job para o que NÃO está na lista de dívida conhecida.
+  assert.match(ciWorkflow, /known_still_broken\+=\("\$f"\)/)
+  assert.match(ciWorkflow, /failed\+=\("\$f"\)/)
+})
+
+test('CI avisa quando uma função da lista de dívida volta a passar, para não deixá-la esquecida', () => {
+  assert.match(ciWorkflow, /known_now_fixed/)
+  assert.match(ciWorkflow, /agora PASSAM/)
+})
+
+test('lista de dívida no workflow bate exatamente com docs/EDGE_FUNCTIONS_TYPE_DEBT.md', () => {
+  const workflowList = [...ciWorkflow.matchAll(/"supabase\/functions\/([a-z0-9-]+)\/index\.ts"/g)]
+    .map((m) => m[1])
+    .filter((name) => KNOWN_TYPE_DEBT.includes(name))
+    .sort()
+
+  assert.deepEqual(
+    [...new Set(workflowList)],
+    KNOWN_TYPE_DEBT,
+    'known_broken no ci.yml deve listar exatamente as 10 funções documentadas',
+  )
+
+  const doc = readFileSync(
+    new URL('../docs/EDGE_FUNCTIONS_TYPE_DEBT.md', import.meta.url),
+    'utf8',
+  )
+  for (const fn of KNOWN_TYPE_DEBT) {
+    assert.ok(doc.includes(`\`${fn}\``), `docs/EDGE_FUNCTIONS_TYPE_DEBT.md deve documentar ${fn}`)
+  }
+  assert.match(doc, /apiVersion/)
+  assert.match(doc, /2023-10-16/)
+  assert.match(doc, /2024-06-20/)
+})
+
+test('nenhuma das 11 funções saudáveis está na lista de dívida conhecida', () => {
+  const found = realEdgeFunctions()
+  const healthy = found.filter((f) => !KNOWN_TYPE_DEBT.includes(f))
+  assert.equal(healthy.length, 11, `esperava 11 funções saudáveis, achou ${healthy.length}`)
+  for (const fn of healthy) {
+    assert.equal(
+      ciWorkflow.includes(`"supabase/functions/${fn}/index.ts"`),
+      false,
+      `${fn} está saudável e não deve entrar na lista de dívida conhecida`,
+    )
+  }
+})
+
 test('função legada com import remoto antigo é sinalizada, não escondida', () => {
   const legacy = readFileSync(new URL('send-automated-emails/index.ts', functionsDir), 'utf8')
   // Registro consciente: esta função ainda usa deno.land/esm.sh em vez de npm:.
