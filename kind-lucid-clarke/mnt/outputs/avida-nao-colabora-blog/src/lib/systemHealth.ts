@@ -622,14 +622,9 @@ export async function loadLatestChecks(): Promise<HealthCheckResult[]> {
 
 // ── Auto-reparo (correção com 1 clique) ─────────────────────────────────────────
 
-// Checks que a RPC admin_autofix_health_check consegue corrigir (garantia de schema).
-// Checks fora desta lista (site, IA, sessão, pagamentos, RLS, performance) não são
-// corrigíveis por schema e não exibem o botão de auto-reparo.
-export const AUTOFIXABLE_KEYS = new Set<string>([
-  'supabase_conn', 'db_profiles', 'db_notifications', 'db_diary', 'db_questionnaires',
-  'db_articles', 'db_trails', 'db_pers_tasks', 'db_pers_deliveries', 'db_guidance',
-  'db_reports', 'db_support', 'db_saved',
-])
+// Saúde do Sistema é diagnóstico: migrations revisadas são o único caminho para
+// schema e RLS. Nenhum check deve disparar DDL pelo navegador.
+export const AUTOFIXABLE_KEYS = new Set<string>()
 
 export interface AutofixResult {
   success: boolean
