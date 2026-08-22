@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 interface SuccessPageProps {
   onNavigateDiary: () => void
@@ -11,65 +12,80 @@ interface SuccessPageProps {
 const MAX_ATTEMPTS = 15
 const INTERVAL_MS = 2000
 
-export default function SuccessPage({ onNavigateDiary, onNavigateHome, onRefreshProfile, userPlan }: SuccessPageProps) {
-  const [status, setStatus] = useState<'polling' | 'activated' | 'timeout'>('polling')
-  const initialPlan = useRef(userPlan)
+export default function SuccessPage({ onNavigateDiary, onNavigateHome, onRefreshProfile }: SuccessPageProps) {
+  const [status, setStatus] = useState<'processing' | 'confirmed' | 'error' | 'timeout'>('processing')
   const attempts = useRef(0)
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      attempts.current += 1
-      await onRefreshProfile()
+    const sessionId = new URLSearchParams(window.location.search).get('session_id')
+    if (!sessionId) {
+      setStatus('error')
+      return
+    }
 
-      // Detecta mudança de plano (o pai vai re-renderizar com novo userPlan)
-      // Ou aceita como ativado após MAX_ATTEMPTS tentativas
-      if (attempts.current >= MAX_ATTEMPTS) {
+    let cancelled = false
+    const checkConfirmation = async () => {
+      attempts.current += 1
+      const { data, error } = await supabase.functions.invoke('checkout-session-status', {
+        body: { session_id: sessionId },
+      })
+      if (cancelled) return
+
+      if (error || data?.error) {
+        setStatus('error')
         clearInterval(interval)
-        setStatus('timeout')
         return
       }
-    }, INTERVAL_MS)
+      if (data?.status === 'confirmed') {
+        await onRefreshProfile()
+        if (!cancelled) setStatus('confirmed')
+        clearInterval(interval)
+        return
+      }
 
-    return () => clearInterval(interval)
+      if (attempts.current >= MAX_ATTEMPTS) {
+        setStatus('timeout')
+        clearInterval(interval)
+      }
+    }
+
+    void checkConfirmation()
+    const interval = setInterval(() => { void checkConfirmation() }, INTERVAL_MS)
+
+    return () => { cancelled = true; clearInterval(interval) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (status === 'polling' && userPlan && userPlan !== 'free' && userPlan !== initialPlan.current) {
-      setStatus('activated')
-    }
-  }, [userPlan, status])
 
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-sm border border-line max-w-md w-full p-10 text-center">
         <div className="flex justify-center mb-5">
-          <CheckCircle className="w-16 h-16 text-forest-600" />
+          {status === 'confirmed' ? <CheckCircle className="w-16 h-16 text-forest-600" /> : <Loader2 className="w-16 h-16 text-forest-600 animate-spin" />}
         </div>
 
-        <h1 className="font-serif text-3xl text-forest-900 mb-3">Assinatura confirmada!</h1>
-        <p className="text-ink-soft text-sm leading-relaxed mb-2">
-          Que bom ter você com a gente! Seu plano já está ativo e você já pode acessar todos os recursos.
-        </p>
-
-        {status === 'polling' && (
+        {status === 'processing' && (
+          <>
+            <h1 className="font-serif text-3xl text-forest-900 mb-3">Estamos confirmando seu pagamento</h1>
+            <p className="text-ink-soft text-sm leading-relaxed mb-2">Pagamento recebido. Estamos ativando seu plano.</p>
           <div className="flex items-center justify-center gap-2 text-ink-soft text-xs mt-4 mb-6">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Ativando seu plano...
+            Aguardando a confirmação segura...
           </div>
+          </>
         )}
 
-        {status === 'activated' && (
-          <p className="text-forest-600 text-xs font-medium mt-4 mb-6">
-            ✓ Plano ativado com sucesso
-          </p>
+        {status === 'confirmed' && (
+          <>
+            <h1 className="font-serif text-3xl text-forest-900 mb-3">Assinatura confirmada.</h1>
+            <p className="text-ink-soft text-sm leading-relaxed mb-6">Seu plano está ativo e os recursos correspondentes já estão disponíveis.</p>
+          </>
         )}
 
-        {status === 'timeout' && (
+        {(status === 'error' || status === 'timeout') && (
           <div className="flex items-start gap-2 bg-paper-soft border border-line rounded-xl px-4 py-3 mt-4 mb-6 text-left">
             <AlertCircle className="w-4 h-4 text-ink-soft mt-0.5 shrink-0" />
             <p className="text-ink-soft text-xs leading-relaxed">
-              A ativação pode levar alguns minutos. Se o plano não atualizar em breve, recarregue a página ou entre em contato com o suporte.
+              Não conseguimos confirmar automaticamente. Seu pagamento não será ativado por esta página; o Stripe e o webhook continuam verificando a assinatura. Se o plano não atualizar em alguns minutos, entre em contato com o suporte.
             </p>
           </div>
         )}
