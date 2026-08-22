@@ -79,13 +79,33 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Critical Edge Functions typecheck (Deno)
+      - name: Edge Functions typecheck (Deno)
         run: |
-          deno check --node-modules-dir=auto \
-            supabase/functions/run-automations/index.ts \
-            supabase/functions/run-emotional-automations/index.ts \
-            supabase/functions/export-user-data/index.ts \
-            supabase/functions/delete-account/index.ts
+          set -uo pipefail
+          # Descobre TODAS as Edge Functions com index.ts em vez de manter uma
+          # lista manual — uma função nova entra na checagem automaticamente.
+          mapfile -t files < <(find supabase/functions -mindepth 2 -maxdepth 2 -name index.ts | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Nenhuma Edge Function encontrada em supabase/functions/*/index.ts."
+            exit 1
+          fi
+          echo "Verificando ${#files[@]} Edge Functions:"
+          printf '  - %s\n' "${files[@]}"
+          echo
+          failed=()
+          for f in "${files[@]}"; do
+            echo "== deno check $f =="
+            if ! deno check --node-modules-dir=auto "$f"; then
+              failed+=("$f")
+            fi
+            echo
+          done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "FALHOU em ${#failed[@]} função(ões):"
+            printf '  - %s\n' "${failed[@]}"
+            exit 1
+          fi
+          echo "Todas as ${#files[@]} Edge Functions passaram no deno check."
 
       - name: ESLint
         run: npm run lint
