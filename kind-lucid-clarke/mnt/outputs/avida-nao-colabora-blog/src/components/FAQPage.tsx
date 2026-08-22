@@ -102,6 +102,7 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [website, setWebsite] = useState('')
 
   const filtered = activeCategory === 'Todos' ? FAQS : FAQS.filter(f => f.category === activeCategory)
 
@@ -111,15 +112,14 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
     setSending(true)
     setError('')
     try {
-      const { error: err } = await supabase.from('support_tickets').insert({
+      const { data, error: err } = await supabase.functions.invoke('submit-contact-ticket', { body: {
         contact_email: form.email.trim(),
         contact_name: form.name.trim(),
         subject: form.subject.trim() || 'Contato via FAQ',
         description: form.message.trim(),
-        source: 'faq',
-        status: 'open',
-      })
-      if (err) throw err
+        website,
+      } })
+      if (err || data?.error) throw new Error(data?.error ?? 'submit_failed')
       setSent(true)
     } catch {
       setError('Não foi possível enviar. Tente novamente em instantes.')
@@ -222,6 +222,10 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="bg-white border border-line rounded-2xl p-6 md:p-8 space-y-4">
+              <div className="sr-only" aria-hidden="true">
+                <label htmlFor="faq-website">Não preencha este campo</label>
+                <input id="faq-website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="faq-name" className="block text-xs font-medium text-forest-700 mb-1.5">Nome</label>
