@@ -93,82 +93,26 @@ test('funções críticas de pagamento e dados sensíveis existem e serão checa
   }
 })
 
-const KNOWN_TYPE_DEBT = [
-  'manage-subscription',
-  'resend-webhook',
-  'stripe-audit',
-  'stripe-selftest',
-  'stripe-webhook',
-].sort()
-
-// Estas 5 tinham SÓ o erro de apiVersion e foram corrigidas com o cast de tipo.
-const FIXED_APIVERSION_FUNCTIONS = [
+const STRIPE_APIVERSION_CAST_FUNCTIONS = [
   'admin-discount',
   'admin-plan-pricing',
   'admin-schedule-cancellation',
   'configure-stripe-webhook',
   'create-checkout',
+  'manage-subscription',
+  'stripe-audit',
+  'stripe-selftest',
+  'stripe-webhook',
 ]
 
-// stripe-webhook também teve o apiVersion corrigido (mesmo cast, ver teste
-// abaixo), mas continua em KNOWN_TYPE_DEBT: tem outros erros pré-existentes
-// e não relacionados (SupabaseClient genérico incompatível causando cascata
-// de tipos `never` em várias propriedades). Corrigir só o apiVersion não
-// destrava o deno check dessa função.
-const STRIPE_WEBHOOK_APIVERSION_FIXED_BUT_STILL_BROKEN = 'stripe-webhook'
-
-test('CI trata a dívida de tipo conhecida como aviso, não bloqueio, e continua exigindo as demais', () => {
-  assert.match(ciWorkflow, /known_broken=\(/)
-  assert.match(ciWorkflow, /is_known_broken/)
-  // A falha só derruba o job para o que NÃO está na lista de dívida conhecida.
-  assert.match(ciWorkflow, /known_still_broken\+=\("\$f"\)/)
-  assert.match(ciWorkflow, /failed\+=\("\$f"\)/)
-})
-
-test('CI avisa quando uma função da lista de dívida volta a passar, para não deixá-la esquecida', () => {
-  assert.match(ciWorkflow, /known_now_fixed/)
-  assert.match(ciWorkflow, /agora PASSAM/)
-})
-
-test('lista de dívida no workflow bate exatamente com docs/EDGE_FUNCTIONS_TYPE_DEBT.md', () => {
-  const workflowList = [...ciWorkflow.matchAll(/"supabase\/functions\/([a-z0-9-]+)\/index\.ts"/g)]
-    .map((m) => m[1])
-    .filter((name) => KNOWN_TYPE_DEBT.includes(name))
-    .sort()
-
-  assert.deepEqual(
-    [...new Set(workflowList)],
-    KNOWN_TYPE_DEBT,
-    'known_broken no ci.yml deve listar exatamente as funções documentadas',
-  )
-
-  const doc = readFileSync(
-    new URL('../docs/EDGE_FUNCTIONS_TYPE_DEBT.md', import.meta.url),
-    'utf8',
-  )
-  for (const fn of KNOWN_TYPE_DEBT) {
-    assert.ok(doc.includes(`\`${fn}\``), `docs/EDGE_FUNCTIONS_TYPE_DEBT.md deve documentar ${fn}`)
-  }
-  assert.match(doc, /apiVersion/)
-  assert.match(doc, /2023-10-16/)
-  assert.match(doc, /2024-06-20/)
-})
-
-test('nenhuma das funções saudáveis está na lista de dívida conhecida', () => {
-  const found = realEdgeFunctions()
-  const healthy = found.filter((f) => !KNOWN_TYPE_DEBT.includes(f))
-  assert.equal(healthy.length, 16, `esperava 16 funções saudáveis, achou ${healthy.length}`)
-  for (const fn of healthy) {
-    assert.equal(
-      ciWorkflow.includes(`"supabase/functions/${fn}/index.ts"`),
-      false,
-      `${fn} está saudável e não deve entrar na lista de dívida conhecida`,
-    )
-  }
+test('CI bloqueia qualquer falha de Edge Function, sem lista de exceções', () => {
+  assert.doesNotMatch(ciWorkflow, /known_broken|is_known_broken|known_still_broken|known_now_fixed/)
+  assert.match(ciWorkflow, /deno check --node-modules-dir=auto "\$f" \|\| failed\+=\("\$f"\)/)
+  assert.match(ciWorkflow, /FALHOU em \$\{#failed\[@\]\} função\(ões\):/)
 })
 
 test('funções com apiVersion corrigido usam o cast já validado pelo projeto, sem mudar a versão enviada', () => {
-  for (const fn of [...FIXED_APIVERSION_FUNCTIONS, STRIPE_WEBHOOK_APIVERSION_FIXED_BUT_STILL_BROKEN]) {
+  for (const fn of STRIPE_APIVERSION_CAST_FUNCTIONS) {
     const src = readFileSync(new URL(`${fn}/index.ts`, functionsDir), 'utf8')
     assert.match(
       src,
@@ -176,15 +120,6 @@ test('funções com apiVersion corrigido usam o cast já validado pelo projeto, 
       `${fn} deve manter '2024-06-20' e usar o cast de tipo, não trocar a versão real enviada à Stripe`,
     )
   }
-})
-
-test('stripe-webhook: apiVersion corrigido, mas função continua em dívida por outros erros', () => {
-  assert.ok(
-    KNOWN_TYPE_DEBT.includes(STRIPE_WEBHOOK_APIVERSION_FIXED_BUT_STILL_BROKEN),
-    'stripe-webhook ainda falha no deno check por erros não relacionados ao apiVersion (SupabaseClient genérico incompatível) e deve continuar documentada como dívida',
-  )
-  const doc = readFileSync(new URL('../docs/EDGE_FUNCTIONS_TYPE_DEBT.md', import.meta.url), 'utf8')
-  assert.match(doc, /stripe-webhook[\s\S]{0,400}never/i)
 })
 
 test('configure-stripe-webhook tipa a lista de eventos sem alterar os nomes de evento', () => {
@@ -202,14 +137,10 @@ test('configure-stripe-webhook tipa a lista de eventos sem alterar os nomes de e
   }
 })
 
-test('funções corrigidas não fazem mais parte da lista de dívida conhecida', () => {
-  for (const fn of FIXED_APIVERSION_FUNCTIONS) {
-    assert.equal(
-      ciWorkflow.includes(`"supabase/functions/${fn}/index.ts"`),
-      false,
-      `${fn} foi corrigida e não deve mais estar em known_broken`,
-    )
-  }
+test('documentação registra que não há dívida de tipo liberada pelo CI', () => {
+  const doc = readFileSync(new URL('../docs/EDGE_FUNCTIONS_TYPE_DEBT.md', import.meta.url), 'utf8')
+  assert.match(doc, /nenhuma Edge Function tem exceção no CI/i)
+  assert.doesNotMatch(doc, /Dívida restante/)
 })
 
 test('função legada com import remoto antigo é sinalizada, não escondida', () => {
