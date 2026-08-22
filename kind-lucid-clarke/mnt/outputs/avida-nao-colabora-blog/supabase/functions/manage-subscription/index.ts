@@ -2,7 +2,7 @@ import Stripe from 'npm:stripe@14'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-  apiVersion: '2024-06-20',
+  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
 })
 
 const ALLOWED_ORIGINS = new Set([
@@ -97,7 +97,7 @@ const rollForwardIso = (iso: string, now: Date = new Date()): string => {
 
 // Hierarquia — distingue upgrade (subiu) de downgrade (desceu).
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
-const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
+const rankOf = (p: string | null | undefined): number => (p ? PLAN_RANK[p] : undefined) ?? 0
 
 // Rótulos dos motivos p/ o e-mail de alerta ao admin (Deno não importa cancelReasons).
 const REASON_LABELS_PT: Record<string, string> = {
@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
+  const userId = user.id
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -194,14 +195,14 @@ Deno.serve(async (req) => {
   const { data: sub } = await supabase
     .from('user_subscriptions')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle()
 
   // Busca plano atual
   const { data: profile } = await supabase
     .from('profiles')
     .select('plan, stripe_customer_id, email, full_name')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
 
   const currentPlan = profile?.plan ?? 'free'
@@ -221,7 +222,7 @@ Deno.serve(async (req) => {
     extra: Record<string, unknown> = {},
   ): Promise<void> {
     const { error } = await supabase.from('subscription_events').insert({
-      user_id: user.id,
+      user_id: userId,
       subscription_id: sub?.id ?? null,
       stripe_customer_id: profile?.stripe_customer_id ?? null,
       stripe_subscription_id: stripeSubId,
@@ -242,7 +243,7 @@ Deno.serve(async (req) => {
     statusFinal: 'pending_approval' | 'scheduled' = 'scheduled',
   ): Promise<void> {
     const { error } = await supabase.from('subscription_change_feedback').insert({
-      user_id: user.id,
+      user_id: userId,
       subscription_id: sub?.id ?? null,
       stripe_subscription_id: stripeSubId,
       change_type: changeType,

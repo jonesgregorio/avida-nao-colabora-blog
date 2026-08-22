@@ -1,7 +1,7 @@
 import Stripe from 'npm:stripe@14'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' })
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' as Stripe.LatestApiVersion })
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +26,7 @@ const WEBHOOK_EVENTS = [
   'customer.subscription.deleted',
 ]
 
-type SB = ReturnType<typeof createClient>
+type SB = SupabaseClient
 
 // Réplica exata do buildPlanByPrice() do stripe-webhook — para diagnosticar se um
 // price_id real cairia (ou não) no mapa que decide o plano.
@@ -48,7 +48,7 @@ async function tallyCol(sb: SB, table: string, col: string) {
   const { data, error } = await sb.from(table).select(col)
   if (error) return { error: error.message }
   const counts: Record<string, number> = {}
-  for (const row of (data as Record<string, unknown>[]) || []) {
+  for (const row of (data as unknown as Record<string, unknown>[]) || []) {
     const k = String(row[col] ?? '∅')
     counts[k] = (counts[k] || 0) + 1
   }

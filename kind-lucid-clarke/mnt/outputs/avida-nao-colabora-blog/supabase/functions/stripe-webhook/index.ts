@@ -1,11 +1,14 @@
 import Stripe from 'npm:stripe@14'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
 })
 
 type PaidPlan = 'essential' | 'plus'
+// O cliente é criado sem tipos de schema gerados. Não use ReturnType aqui:
+// ele perde o schema padrão do createClient e faz consultas virarem `never`.
+type ServiceSupabaseClient = SupabaseClient
 
 // Mapeia Price ID → plano oficial. Prices legados do antigo Terapêutico continuam
 // mapeados para Plus para não quebrar renovação de assinantes existentes.
@@ -25,7 +28,7 @@ const PLAN_BY_PRICE = buildPlanByPrice()
 
 async function planFromPrice(
   priceId: string | null | undefined,
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
 ): Promise<PaidPlan | null> {
   if (!priceId) return null
 
@@ -66,7 +69,7 @@ const PLAN_LABELS: Record<string, string> = {
 const planLabel = (p: string | null | undefined): string => (p && PLAN_LABELS[p]) || p || ''
 
 const PLAN_RANK: Record<string, number> = { free: 0, essential: 1, plus: 2, therapeutic: 2, 'therapeutic-plus': 2 }
-const rankOf = (p: string | null | undefined): number => (p && PLAN_RANK[p]) ?? 0
+const rankOf = (p: string | null | undefined): number => (p ? PLAN_RANK[p] : undefined) ?? 0
 
 const BILLING_TZ = 'America/Sao_Paulo'
 const fmtBR = (iso: string): string => {
@@ -90,7 +93,7 @@ function invoiceSubId(invoice: Stripe.Invoice): string | null {
 }
 
 async function registrarEvento(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
   event: Stripe.Event,
   eventType: string,
   dados: Record<string, unknown>,
@@ -152,7 +155,7 @@ async function sendTxEmail(
   }
 }
 
-async function getRecipient(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ email?: string; nome: string }> {
+async function getRecipient(supabase: ServiceSupabaseClient, userId: string): Promise<{ email?: string; nome: string }> {
   const { data } = await supabase.from('profiles').select('email, full_name').eq('user_id', userId).maybeSingle()
   const row = data as { email?: string; full_name?: string } | null
   return { email: row?.email ?? undefined, nome: row?.full_name || 'você' }
@@ -227,7 +230,7 @@ Deno.serve(async (req) => {
 
 async function handleEvent(
   event: Stripe.Event,
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceSupabaseClient,
 ): Promise<Response> {
   // Pagamento confirmado via Checkout: o Price da Subscription é a fonte da
   // verdade do plano. A metadata identifica o usuário e serve de cross-check.
