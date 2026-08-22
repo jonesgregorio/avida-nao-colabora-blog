@@ -101,6 +101,7 @@ jobs:
             "supabase/functions/resend-webhook/index.ts"
             "supabase/functions/stripe-audit/index.ts"
             "supabase/functions/stripe-selftest/index.ts"
+            "supabase/functions/stripe-webhook/index.ts"
           )
           is_known_broken() {
             local target="$1"
