@@ -6,6 +6,12 @@ on:
       - 'kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/*.sql'
   workflow_dispatch: {}
 
+# Aplicações no mesmo banco de produção são sequenciais: uma nova espera a
+# anterior concluir e nunca cancela uma migration já iniciada.
+concurrency:
+  group: supabase-migrations-production
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
