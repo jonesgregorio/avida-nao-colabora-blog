@@ -17,6 +17,22 @@ export interface Period {
   clampedToActivation: boolean // true se o início foi cortado pela data de ativação
 }
 
+/**
+ * Define o corte do primeiro ciclo sem depender da renovação atual.
+ * `current_period_start` muda a cada cobrança e não é ativação original.
+ */
+export function resolveReportActivation({
+  planActivatedAt,
+  subscriptionCreatedAt,
+  profileCreatedAt,
+}: {
+  planActivatedAt?: string | null
+  subscriptionCreatedAt?: string | null
+  profileCreatedAt?: string | null
+}): string | null {
+  return planActivatedAt ?? subscriptionCreatedAt ?? profileCreatedAt ?? null
+}
+
 // ── Helpers de calendário — sempre America/Sao_Paulo ─────────────────────────
 export const REPORT_TIME_ZONE = 'America/Sao_Paulo'
 function atNoon(y: number, m: number, d: number): Date { return new Date(Date.UTC(y, m, d, 12, 0, 0, 0)) }
