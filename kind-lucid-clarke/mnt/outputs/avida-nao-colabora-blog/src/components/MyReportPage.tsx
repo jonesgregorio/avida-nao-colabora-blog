@@ -17,7 +17,7 @@ import { recommendGuidedContent, type RecommendedContent } from '../lib/question
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
   getCurrentWeeklyPeriod, getPreviousWeeklyPeriod, getCurrentMonthlyPeriod, getPreviousMonthlyPeriod,
-  formatPeriodShort, formatDateBR, monthTitle, ymd, parseYmd, type Period,
+  formatPeriodShort, formatDateBR, monthTitle, ymd, parseYmd, resolveReportActivation, type Period,
 } from '../lib/reportPeriods'
 import {
   loadReportHistory, buildWeeklyContent, buildMonthlyContent,
@@ -764,16 +764,14 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     // 1) Ativação do plano (para cortar o 1º ciclo)
     const [{ data: prof }, { data: sub }] = await Promise.all([
       supabase.from('profiles').select('plan_activated_at, created_at').eq('user_id', user.id).maybeSingle(),
-      supabase.from('user_subscriptions').select('current_period_start').eq('user_id', user.id).maybeSingle(),
+      supabase.from('user_subscriptions').select('subscription_created_at').eq('user_id', user.id).maybeSingle(),
     ])
-    const act = (prof as { plan_activated_at?: string } | null)?.plan_activated_at
-      ?? (sub as { current_period_start?: string } | null)?.current_period_start
-      ?? (prof as { created_at?: string } | null)?.created_at ?? null
+    const act = resolveReportActivation({
+      planActivatedAt: (prof as { plan_activated_at?: string } | null)?.plan_activated_at,
+      subscriptionCreatedAt: (sub as { subscription_created_at?: string } | null)?.subscription_created_at,
+      profileCreatedAt: (prof as { created_at?: string } | null)?.created_at,
+    })
     setActivation(act)
-    // Persiste a ativação uma vez (estabiliza o corte do 1º ciclo)
-    if (act && !(prof as { plan_activated_at?: string } | null)?.plan_activated_at) {
-      void supabase.from('profiles').update({ plan_activated_at: act }).eq('user_id', user.id)
-    }
 
     // 2) Registros — janela ampla (cobre semana/mês atuais e anteriores + comparação)
     const since = new Date(); since.setDate(since.getDate() - 100)

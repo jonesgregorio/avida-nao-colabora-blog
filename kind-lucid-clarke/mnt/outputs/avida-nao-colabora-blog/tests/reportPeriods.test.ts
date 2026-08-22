@@ -1,11 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   getCurrentWeeklyPeriod,
   getCurrentMonthlyPeriod,
   getPreviousWeeklyPeriod,
   getPreviousMonthlyPeriod,
   getReportAvailabilityDate,
+  resolveReportActivation,
   shouldGenerateReport,
 } from '../src/lib/reportPeriods.ts'
 
@@ -51,4 +53,29 @@ test('períodos usam explicitamente America/Sao_Paulo perto da virada UTC', () =
   const current = getCurrentWeeklyPeriod(null, now)
   assert.equal(current.start, '2026-08-16')
   assert.equal(current.end, '2026-08-22')
+})
+
+test('ativação canônica e assinatura criada não são substituídas pela renovação atual', () => {
+  assert.equal(
+    resolveReportActivation({
+      planActivatedAt: '2026-01-10T12:00:00Z',
+      subscriptionCreatedAt: '2026-01-09T12:00:00Z',
+      profileCreatedAt: '2025-12-01T12:00:00Z',
+    }),
+    '2026-01-10T12:00:00Z',
+  )
+  assert.equal(
+    resolveReportActivation({
+      subscriptionCreatedAt: '2026-02-15T12:00:00Z',
+      profileCreatedAt: '2025-12-01T12:00:00Z',
+    }),
+    '2026-02-15T12:00:00Z',
+  )
+})
+
+test('tela de relatórios não grava perfil nem usa início do período renovável', () => {
+  const source = readFileSync(new URL('../src/components/MyReportPage.tsx', import.meta.url), 'utf8')
+  assert.match(source, /select\('subscription_created_at'\)/)
+  assert.equal(source.includes("select('current_period_start')"), false)
+  assert.equal(source.includes('update({ plan_activated_at:'), false)
 })
