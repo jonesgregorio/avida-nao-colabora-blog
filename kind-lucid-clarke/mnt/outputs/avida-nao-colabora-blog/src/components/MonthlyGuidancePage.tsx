@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { getEffectivePlan } from '../lib/officialPlans'
 import { detectRisk } from '../lib/contentRecommendation'
+import { isGuidanceAnswered, resolveGuidanceResponse, type GuidanceLetter } from '../lib/monthlyGuidanceResponse'
 import RiskHelpBanner from './RiskHelpBanner'
 
 interface Props {
@@ -28,12 +29,6 @@ interface GuidanceRequest {
   // Coluna própria (migration 20260816210000): prioridade sobre ai_draft_json.final_response.
   final_response_json?: GuidanceLetter | null
 }
-interface GuidanceLetter {
-  title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
-  practical_next_steps?: string[]; connection_with_self_care_plan?: string; suggested_reflection_question?: string
-  final_message_draft?: string; data_quality_notice?: string; review_badge?: string
-}
-
 interface Cycle {
   key: string           // YYYY-MM do mês-calendário atual (uma orientação por mês)
   deadline: Date        // dia 23 do mês atual (fim do dia) — prazo p/ solicitar
@@ -338,7 +333,16 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
 // ── Cartão sanfona de uma orientação (ciclo atual ou histórico) ───────────────
 function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: boolean; onToggle: () => void }) {
-  const answered = req.status === 'answered' && !!req.response
+  const resolvedResponse = resolveGuidanceResponse({
+    finalResponseJson: req.final_response_json,
+    aiDraftJson: req.ai_draft_json,
+    response: req.response,
+  })
+  const answered = isGuidanceAnswered(req.status, {
+    finalResponseJson: req.final_response_json,
+    aiDraftJson: req.ai_draft_json,
+    response: req.response,
+  })
   return (
     <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
       <button
@@ -387,9 +391,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
                 <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
               </div>
-              {/* §9.4: final_response_json é a fonte de verdade; ai_draft_json.final_response
-                  e response (texto simples) seguem como fallback pra registros antigos. */}
-              <GuidanceLetterView letter={req.final_response_json ?? req.ai_draft_json?.final_response} fallback={req.response ?? ''} />
+              <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
               {req.responded_at && (
                 <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
               )}
