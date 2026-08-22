@@ -31,6 +31,11 @@ test('workflow de aplicação busca histórico suficiente para comparar o push i
   assert.match(applyWorkflow, /github\.event\.before/)
 })
 
+test('workflow serializa migrations de produção sem cancelar aplicação em andamento', () => {
+  assert.match(applyWorkflow, /concurrency:\s*\r?\n\s*group:\s*supabase-migrations-production/)
+  assert.match(applyWorkflow, /cancel-in-progress:\s*false/)
+})
+
 test('workflow de aplicação executa somente a lista validada de migrations novas', () => {
   assert.match(applyWorkflow, /migrations-novas\.txt/)
   assert.equal(
