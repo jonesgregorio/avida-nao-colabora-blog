@@ -18,6 +18,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # O seletor compara github.event.before com github.sha. Sem o
+          # histórico, o runner não conhece o commit anterior e não pode
+          # calcular com segurança quais funções realmente mudaram.
+          fetch-depth: 0
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:

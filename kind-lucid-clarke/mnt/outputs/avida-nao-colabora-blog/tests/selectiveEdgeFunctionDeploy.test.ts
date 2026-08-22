@@ -46,6 +46,7 @@ test('workflow usa o seletor e não contém mais deploy global', () => {
     'utf8',
   )
   assert.match(workflow, /select-edge-functions-to-deploy\.mjs/)
+  assert.match(workflow, /fetch-depth:\s*0/)
   assert.match(workflow, /supabase functions deploy "\$function_name"/)
   assert.match(workflow, /GITHUB_EVENT_NAME.*workflow_dispatch/)
   assert.doesNotMatch(workflow, /supabase functions deploy --project-ref/)
