@@ -251,6 +251,8 @@ function EntryRow({ entry, isOpen, onToggle }: { entry: DiaryEntry; isOpen: bool
 const ENTRIES_PAGE_SIZE = 30
 const ENTRIES_SELECT = 'id,user_id,mood,date,entry_type,diary_kind,created_at,text,emotional_tags,gratitude,energy,anxiety_level,sleep_quality,mood_score,stress_level,self_esteem,irritability,overload,small_pride,free_note,emotional_triggers,recurring_thoughts,emotional_need,relationships,habits,context_tags,need_tags,care_action_tags,trigger_tags'
 
+type DiaryEntryWithDeepening = DiaryEntry & { deepened_at?: string | null }
+
 export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryPageProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -272,10 +274,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     if (n.has(date)) n.delete(date); else n.add(date)
     return n
   })
-  // Dois modos (brief §8.1/§8.2): check-in rápido (curto) e diário completo (detalhado).
-  const [entryMode, setEntryMode] = useState<'quick' | 'full' | 'addon' | 'main-saved'>('quick')
+  // Dois modos atuais: check-in rápido e diário principal. `main-saved` mostra
+  // a única ação de aprofundamento disponível depois que o diário já existe.
+  const [entryMode, setEntryMode] = useState<'quick' | 'full' | 'main-saved'>('quick')
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
-  const [todayMainEntryDirect, setTodayMainEntryDirect] = useState<DiaryEntry | null>(null)
+  const [todayMainEntryDirect, setTodayMainEntryDirect] = useState<DiaryEntryWithDeepening | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -357,11 +360,12 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   // O limite bloqueia SÓ o diário completo. Check-in rápido é ilimitado (§8):
   // não conta e nunca é bloqueado, mesmo com os 5 registros do mês já usados.
   // O limite impede apenas a criação de um NOVO registro básico. Quem já
-  // registrou pode sempre editar o próprio diário do dia.
+  // registrou pode usar a única oportunidade de aprofundamento do próprio diário do dia.
   const saveBlockedByLimit = atLimit && entryMode !== 'quick' && !editingEntryId
   const todayKey = ymd(new Date())
-  const todayMainEntry = todayMainEntryDirect ?? entries.find(e => String(e.date ?? '').slice(0, 10) === todayKey && (e.entry_type ?? 'diary') === 'diary' && ['basic', 'main'].includes(e.diary_kind ?? 'main'))
-  const isDiaryForm = entryMode === 'full' || entryMode === 'addon'
+  const todayMainEntry = todayMainEntryDirect ?? entries.find(e => String(e.date ?? '').slice(0, 10) === todayKey && (e.entry_type ?? 'diary') === 'diary' && ['basic', 'main'].includes(e.diary_kind ?? 'main')) as DiaryEntryWithDeepening | undefined
+  const todayWasDeepened = Boolean(todayMainEntry?.deepened_at)
+  const isDiaryForm = entryMode === 'full'
 
   const writeDays = new Set(entries.filter(e => e.entry_type === 'diary').map(e => String(e.date ?? '').slice(0, 10)))
   const streak = calcStreak(writeDays)
@@ -415,15 +419,15 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   }, [user, plan])
 
   // A presença do diário principal de hoje não depende do histórico paginado.
-  // Isso evita tentar inserir um segundo main quando a entrada ficou fora da
-  // primeira página ou quando o usuário filtrou o histórico.
-  const fetchTodayMainEntry = useCallback(async (): Promise<DiaryEntry | null> => {
+  // `select('*')` é intencional aqui: após a migration também traz deepened_at,
+  // sem obrigar a lista histórica inteira a depender da nova coluna durante deploy.
+  const fetchTodayMainEntry = useCallback(async (): Promise<DiaryEntryWithDeepening | null> => {
     if (!user) return null
-    const { data } = await supabase.from('diary_entries').select(ENTRIES_SELECT)
+    const { data } = await supabase.from('diary_entries').select('*')
       .eq('user_id', user.id).eq('entry_type', 'diary').eq('date', ymd(new Date()))
       .or('diary_kind.in.(basic,main),diary_kind.is.null')
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
-    const entry = (data as DiaryEntry | null) ?? null
+    const entry = (data as DiaryEntryWithDeepening | null) ?? null
     setTodayMainEntryDirect(entry)
     return entry
   }, [user])
@@ -513,7 +517,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setError('')
   }
 
-  /** Carrega integralmente os campos persistidos antes de editar o diário. */
+  /** Carrega integralmente os campos persistidos antes do único aprofundamento do dia. */
   const hydrateFormFromEntry = (entry: DiaryEntry) => {
     const normalizedMood = moodOptions.find(m => m.label === entry.mood || m.value === entry.mood)?.value ?? 'outro'
     setMood(normalizedMood)
@@ -548,6 +552,11 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
   const startEditingTodayMainEntry = async ({ openAdvanced = false }: { openAdvanced?: boolean } = {}) => {
     const entry = await fetchTodayMainEntry()
     if (!entry) { setError('Não encontramos o diário principal de hoje. Tente atualizar a página.'); return }
+    if (entry.deepened_at) {
+      setError('Você já aprofundou seu registro de hoje. Amanhã você poderá fazer um novo diário.')
+      setEntryMode('main-saved')
+      return
+    }
     hydrateFormFromEntry(entry)
     setPageTab('registrar')
     setEntryMode('full')
@@ -574,7 +583,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
     setError('')
 
     const isCheckin = entryMode === 'quick'
-    const diaryKind: NonNullable<DiaryEntry['diary_kind']> = isFree ? 'basic' : entryMode === 'addon' ? 'addon' : 'main'
+    const diaryKind: NonNullable<DiaryEntry['diary_kind']> = isFree ? 'basic' : 'main'
     const moodObj = moodOptions.find(m => m.value === mood) || moodOptions.find(m => m.value === 'outro') || moodOptions[0]
     const entryText = isCheckin ? quickNote : [mainEmotion, diaryText, whatINeed, smallThing, freeNote].filter(Boolean).join('\n\n')
 
@@ -638,18 +647,27 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
       console.error('[diary save] falhou', err, 'payload:', payload)
       const raw = `${err.message ?? ''} ${err.details ?? ''}`.toLowerCase()
       // Mensagem amigável — nunca expõe SQL/constraint/tabela ao usuário.
-      const friendly = raw.includes('energy') || raw.includes('anxiety') || raw.includes('mood')
-        ? 'Escolha um nível válido de energia e ansiedade antes de salvar.'
-        : raw.includes('limit') || raw.includes('limite')
-          ? 'Você atingiu o limite de registros de diário deste mês. Seus check-ins continuam liberados.'
-          : 'Não foi possível salvar sua entrada agora. Revise os campos e tente novamente.'
+      const friendly = raw.includes('aprofund')
+        ? 'Você já aprofundou seu registro de hoje. Amanhã você poderá fazer um novo diário.'
+        : raw.includes('energy') || raw.includes('anxiety') || raw.includes('mood')
+          ? 'Escolha um nível válido de energia e ansiedade antes de salvar.'
+          : raw.includes('limit') || raw.includes('limite')
+            ? 'Você atingiu o limite de registros de diário deste mês. Seus check-ins continuam liberados.'
+            : 'Não foi possível salvar sua entrada agora. Revise os campos e tente novamente.'
       setError(friendly)
       setSaving(false)
       return
     }
     if (data) {
       setEntries(prev => editingEntryId ? prev.map(e => e.id === data.id ? data : e) : [data, ...prev])
-      if (!isCheckin && ['basic', 'main'].includes(data.diary_kind ?? 'main')) setTodayMainEntryDirect(data)
+      if (!isCheckin && ['basic', 'main'].includes(data.diary_kind ?? 'main')) {
+        // A migration devolve deepened_at na primeira atualização. O fallback
+        // local cobre a curta janela entre frontend e migration durante deploy.
+        const main = isEditingExisting
+          ? ({ ...data, deepened_at: (data as DiaryEntryWithDeepening).deepened_at ?? new Date().toISOString() } as DiaryEntryWithDeepening)
+          : (data as DiaryEntryWithDeepening)
+        setTodayMainEntryDirect(main)
+      }
       // Aviso de limite do diário — apenas plano Gratuito, 1x/mês por status.
       // Usa monthDiaryCount (COUNT dedicado, §11.5) como fonte de verdade —
       // não dá pra contar pela lista paginada.
@@ -718,7 +736,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
         </h1>
         <p className="mt-3 text-ink-soft leading-relaxed">
           {isCheckinConfirm
-            ? 'Seu check-in foi salvo com segurança. Obrigado por reservar esse momento para você.'
+            ? 'Seu check-in foi salvo com segurança. Se quiser, você pode seguir agora para o diário e registrar este momento com mais detalhes.'
             : 'Seu registro foi salvo no diário. Obrigado por cuidar de você hoje.'}
         </p>
 
@@ -739,13 +757,30 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
-          <button
-            onClick={() => { setSavedConfirm(null); setEntryMode('quick') }}
-            className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
-          >
-            <Plus className="w-4 h-4" /> {isCheckinConfirm ? 'Fazer outro check-in' : 'Novo registro'}
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8 flex-wrap">
+          {isCheckinConfirm ? (
+            <>
+              <button
+                onClick={() => { setSavedConfirm(null); setPageTab('registrar'); setEntryMode(todayMainEntry ? 'main-saved' : 'full') }}
+                className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+              >
+                <Sprout className="w-4 h-4" /> Ir para o diário
+              </button>
+              <button
+                onClick={() => { setSavedConfirm(null); setEntryMode('quick') }}
+                className="inline-flex items-center gap-2 border border-line text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/40 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Fazer outro check-in
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => { setSavedConfirm(null); setEntryMode('quick') }}
+              className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Fazer check-in rápido
+            </button>
+          )}
           <button
             onClick={() => { setSavedConfirm(null); setPageTab('historico'); setTimeout(() => entriesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
             className="inline-flex items-center gap-2 border border-line text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-mint/40 transition-colors"
@@ -873,12 +908,14 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
 
             {/* Cada modo tem uma intenção e uma linguagem própria. */}
             <h2 className="font-serif text-lg sm:text-xl text-forest-900">
-              {entryMode === 'quick' ? 'Como você está agora?' : entryMode === 'addon' ? 'Adicionar complemento ao diário de hoje' : isFree ? 'Registro básico' : 'Diário completo'}
+              {entryMode === 'quick' ? 'Como você está agora?' : editingEntryId ? 'Aprofundar meu registro' : isFree ? 'Registro básico' : 'Diário completo'}
             </h2>
             <p className="text-sm text-ink-soft mt-1 mb-3">
               {entryMode === 'quick'
                 ? 'Escolha o que mais combina com este momento. É rápido e não conta no limite do diário.'
-                : entryMode === 'addon' ? 'Use este espaço se algo novo aconteceu ou se você quer acrescentar uma observação ao registro de hoje.' : isFree ? 'Um espaço simples para começar a observar como você está se sentindo.' : isPlus ? 'Registre seu dia, aprofunde seus padrões e transforme observações em cuidado.' : 'Registre seu dia com mais detalhes e acompanhe sua rotina emocional com clareza.'}
+                : editingEntryId
+                  ? 'Revise ou acrescente o que fizer sentido. Este aprofundamento pode ser salvo uma única vez hoje.'
+                  : isFree ? 'Um espaço simples para começar a observar como você está se sentindo.' : isPlus ? 'Registre seu dia, aprofunde seus padrões e transforme observações em cuidado.' : 'Registre seu dia com mais detalhes e acompanhe sua rotina emocional com clareza.'}
             </p>
             {entryMode === 'quick' && (
               <p className="text-xs text-forest-600 mb-3 flex items-center gap-1.5">
@@ -888,11 +925,15 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
             {entryMode === 'main-saved' ? (
               <div className="mb-6 rounded-2xl border border-forest-100 bg-mint/40 p-4">
                 <h3 className="font-semibold text-forest-900">Você já escreveu seu {isFree ? 'registro básico' : 'diário principal'} de hoje.</h3>
-                <p className="text-sm text-ink-soft mt-1">Você pode editar esse registro, acrescentar algo novo ou fazer um check-in rápido.</p>
+                <p className="text-sm text-ink-soft mt-1">
+                  {todayWasDeepened
+                    ? 'Você já aprofundou este registro hoje. Um novo diário fica disponível amanhã, mas seus check-ins rápidos continuam liberados.'
+                    : 'Você pode aprofundar este registro uma vez hoje ou continuar acompanhando o dia com check-ins rápidos.'}
+                </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <button type="button" onClick={() => void startEditingTodayMainEntry()} className="text-sm px-3 py-2 rounded-xl bg-forest-900 text-white">Editar {isFree ? 'registro de hoje' : 'diário de hoje'}</button>
-                  {!isFree && <button type="button" onClick={() => { setEditingEntryId(null); setEntryMode('addon') }} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Adicionar complemento</button>}
-                  {isPlus && <button type="button" onClick={() => void startEditingTodayMainEntry({ openAdvanced: true })} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Aprofundar meu registro</button>}
+                  {!todayWasDeepened && (
+                    <button type="button" onClick={() => void startEditingTodayMainEntry({ openAdvanced: isPlus })} className="text-sm px-3 py-2 rounded-xl bg-forest-900 text-white">Aprofundar meu registro</button>
+                  )}
                   <button type="button" onClick={() => setEntryMode('quick')} className="text-sm px-3 py-2 rounded-xl border border-line text-forest-800">Fazer check-in rápido</button>
                 </div>
               </div>
@@ -1106,7 +1147,7 @@ export default function DiaryPage({ user, plan, onBack, onNavigatePricing, initi
                 disabled={saving || saveBlockedByLimit}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : entryMode === 'quick' ? 'Salvar check-in' : editingEntryId ? 'Salvar alterações' : entryMode === 'addon' ? 'Salvar complemento' : isFree ? 'Salvar registro básico' : 'Salvar diário'}
+                <Save className="w-4 h-4" /> {saving ? 'Salvando…' : entryMode === 'quick' ? 'Salvar check-in' : editingEntryId ? 'Salvar aprofundamento' : isFree ? 'Salvar registro básico' : 'Salvar diário'}
               </button>
               {canExportPDF && (
                 <button
