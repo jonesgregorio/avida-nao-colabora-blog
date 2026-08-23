@@ -119,30 +119,29 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
     }
     setCreating(true)
 
-    const { data: ticket, error } = await supabase
-      .from('support_tickets')
-      .insert({
-        user_id: user!.id,
+    // Tickets passam pela Edge Function: ela valida o usuário no servidor,
+    // aplica limite anti-spam e grava usando privilégios internos. O cliente
+    // não recebe INSERT direto na tabela de suporte.
+    const { data, error } = await supabase.functions.invoke('submit-contact-ticket', {
+      body: {
         subject: form.subject.trim(),
         description: form.description.trim(),
         priority: form.priority,
-        plan_at_creation: profile?.plan ?? null,
-        unread_for_admin: true,
-        source: 'support_page',
-      })
-      .select()
-      .single()
+        category: 'Suporte',
+        website: '',
+      },
+    })
 
-    if (error) {
+    if (error || data?.error) {
       setCreateError('Erro ao enviar. Tente novamente.')
       setCreating(false)
       return
     }
 
-    setTickets(prev => [{ ...ticket, message_count: 0 }, ...prev])
     setForm({ subject: '', description: '', priority: 'medium' })
     setCreating(false)
     setSent(true)
+    void loadTickets()
   }
 
   if (!user) {
