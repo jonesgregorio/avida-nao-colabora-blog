@@ -4,9 +4,12 @@ import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 
 const required = ['E2E_SUPABASE_URL', 'E2E_SUPABASE_ANON_KEY', 'E2E_SUPABASE_SERVICE_ROLE_KEY', 'E2E_DOCKER_BIN']
-for (const name of required) if (!process.env[name]) throw new Error(`Missing ${name}`)
+const hasLocalE2E = required.every(name => Boolean(process.env[name]))
+test.skip(!hasLocalE2E, 'requer Supabase e Docker locais')
 
-const admin = createClient(process.env.E2E_SUPABASE_URL, process.env.E2E_SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+const admin = hasLocalE2E
+  ? createClient(process.env.E2E_SUPABASE_URL, process.env.E2E_SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  : null
 const password = `LocalBrowser-${randomUUID()}-Aa1!`
 const accounts = ['free', 'essential', 'plus'].map(plan => ({ plan, email: `browser-${plan}-${randomUUID().slice(0, 8)}@local.test` }))
 
