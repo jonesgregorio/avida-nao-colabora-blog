@@ -1,19 +1,18 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
 
 const wrapper = readFileSync(new URL('../src/components/MyReportPage.tsx', import.meta.url), 'utf8')
 const content = readFileSync(new URL('../src/components/MyReportPageContent.tsx', import.meta.url), 'utf8')
 
-describe('Relatórios — navegação do Ver todos', () => {
-  it('mantém os filtros de tipo dos dois botões', () => {
-    expect(content).toContain("onClick={() => setTypeFilter('weekly')}")
-    expect(content).toContain("onClick={() => setTypeFilter('monthly')}")
-  })
+test('Ver todos mantém os filtros de tipo dos dois blocos', () => {
+  assert.match(content, /onClick=\{\(\) => setTypeFilter\('weekly'\)\}/)
+  assert.match(content, /onClick=\{\(\) => setTypeFilter\('monthly'\)\}/)
+})
 
-  it('leva o usuário até o histórico após clicar em Ver todos', () => {
-    expect(wrapper).toContain("const HISTORY_HEADING = 'Histórico de relatórios'")
-    expect(wrapper).toContain("startsWith('Ver todos')")
-    expect(wrapper).toContain("history.id = 'report-history'")
-    expect(wrapper).toContain("history.scrollIntoView({ behavior: 'smooth', block: 'start' })")
-  })
+test('Ver todos leva o usuário até o histórico após aplicar o filtro', () => {
+  assert.match(wrapper, /HISTORY_HEADING = 'Histórico de relatórios'/)
+  assert.match(wrapper, /startsWith\('Ver todos'\)/)
+  assert.match(wrapper, /history\.id = 'report-history'/)
+  assert.match(wrapper, /history\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/)
 })

@@ -74,7 +74,7 @@ test('ativação canônica e assinatura criada não são substituídas pela reno
 })
 
 test('tela de relatórios não grava perfil nem usa início do período renovável', () => {
-  const source = readFileSync(new URL('../src/components/MyReportPage.tsx', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('../src/components/MyReportPageContent.tsx', import.meta.url), 'utf8')
   assert.match(source, /select\('subscription_created_at'\)/)
   assert.equal(source.includes("select('current_period_start')"), false)
   assert.equal(source.includes('update({ plan_activated_at:'), false)
