@@ -95,6 +95,11 @@ try {
   const ownResponseUpdate = await first.client.from('questionnaire_responses').update({ answers: { answer: 'atualizada' } }).eq('id', ownResponse.data.id).select('answers').single()
   assert(!ownResponseUpdate.error && ownResponseUpdate.data?.answers?.answer === 'atualizada', 'owner must update own questionnaire response')
 
+  const ownResponseDelete = await first.client.from('questionnaire_responses').delete().eq('id', ownResponse.data.id).select('id')
+  assert(!ownResponseDelete.error && ownResponseDelete.data?.length === 1, 'owner must delete own questionnaire response')
+  const ownDiaryDelete = await first.client.from('diary_entries').delete().eq('id', created.data.id).select('id')
+  assert(!ownDiaryDelete.error && ownDiaryDelete.data?.length === 1, 'owner must delete own diary entry')
+
   const forgedResponse = await second.client.from('questionnaire_responses').insert({
     user_id: first.id,
     questionnaire_id: questionnaireId,
