@@ -96,6 +96,24 @@ test('FAQ permite filtrar categorias e abrir respostas; formulário valida campo
   await expectHealthyPage(page)
 })
 
+test('cadastro e recuperação de senha validam os caminhos seguros antes de chamar o servidor', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Criar conta', exact: true }).first().click()
+  await page.locator('#auth-name').fill('Conta de teste')
+  await page.locator('#auth-email').fill('new-account@local.test')
+  await page.locator('#auth-password').fill('Senha-local-123')
+  await page.locator('#auth-confirm-password').fill('Senha-diferente-456')
+  await page.getByRole('button', { name: 'Começar grátis' }).click()
+  await expect(page.getByText('As senhas não coincidem.')).toBeVisible()
+  await page.locator('#auth-confirm-password').fill('Senha-local-123')
+  await page.getByRole('button', { name: 'Começar grátis' }).click()
+  await expect(page.getByText(/aceitar os Termos de Uso/i)).toBeVisible()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).last().click()
+  await page.getByRole('button', { name: /Esqueci minha senha/i }).click()
+  await expect(page.getByRole('heading', { name: 'Recuperar senha' })).toBeVisible()
+  await expectHealthyPage(page)
+})
+
 test('área administrativa bloqueia visitante e apresenta login administrativo', async ({ page }) => {
   await page.goto('/admin')
   await expect(page.getByRole('heading', { name: 'Painel Administrativo' })).toBeVisible()
@@ -167,3 +185,13 @@ for (const account of accounts) {
     await expectHealthyPage(page)
   })
 }
+
+test('sessão autenticada mantém as áreas privadas utilizáveis em largura de celular', async ({ page }) => {
+  await signIn(page, accounts[2])
+  await page.setViewportSize({ width: 390, height: 844 })
+  for (const route of ['/diario', '/questionarios', '/mapa-emocional', '/meu-relatorio', '/plano-de-autocuidado', '/meu-plano', '/suporte']) {
+    await page.goto(route)
+    await expect(page.locator('main')).toBeVisible()
+    await expectHealthyPage(page)
+  }
+})
