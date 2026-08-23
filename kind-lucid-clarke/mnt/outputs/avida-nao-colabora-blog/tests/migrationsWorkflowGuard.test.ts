@@ -113,6 +113,9 @@ test('documentação de migrations cobre padrão, imutabilidade e recuperação'
 })
 
 function hasGitBash() {
+  // A CI roda em Linux. No Windows, a combinação de Git for Windows e bash
+  // pode bloquear a sequência de revert/commit usada neste teste de integração.
+  if (process.platform === 'win32') return false
   const probe = spawnSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' })
   return probe.status === 0
 }
