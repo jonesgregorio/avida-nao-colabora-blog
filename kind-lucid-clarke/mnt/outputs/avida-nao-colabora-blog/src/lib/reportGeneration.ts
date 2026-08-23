@@ -11,6 +11,11 @@ import {
   derivePatterns, deriveAttentionPoints, deriveImprovement, deriveRelations, deriveNarrative,
   type DiaryRowLite, type EmotionalAnalysis, type DeepReport,
 } from './emotionalAnalytics'
+import {
+  deriveWeeklyInterpretationFallback,
+  deriveWeeklyPatternsFallback,
+  normalizeWeeklyNarrative,
+} from './weeklyReportNarrative'
 import { formatPeriodShort, monthTitle, type ReportType, type Period } from './reportPeriods'
 
 const NEGATIVE = new Set(['Ansiedade', 'Sobrecarga', 'Tristeza', 'Irritação', 'Desânimo', 'Cansaço', 'Sem energia'])
@@ -52,6 +57,13 @@ export interface WeeklyContent {
   topEmotionalMarker: string | null
   /** Compatibilidade com relatórios fechados antes da versão 7. */
   topTrigger?: string | null
+  /** Metadado existente nos relatórios v10 gerados pela automação. */
+  data_quality?: {
+    has_enough_data?: boolean
+    total_entries?: number
+    active_days?: number
+    message?: string
+  }
 }
 
 export interface MonthlyContent extends Omit<DeepReport, 'bridgeToSelfCarePlan' | 'bridgeToProfessionalGuidance'> {
@@ -99,10 +111,17 @@ export interface StoredReport {
   content: ReportContent
 }
 
+function normalizeStoredReport(report: StoredReport): StoredReport {
+  if (report.content?.kind !== 'weekly') return report
+  return { ...report, content: normalizeWeeklyNarrative(report.content as WeeklyContent) }
+}
+
 // ── Builders de conteúdo ──────────────────────────────────────────────────────
 export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
   const a = analysis
   const hasEnoughData = a.totalEntries >= 3
+  const hasInterpretationData = a.totalEntries >= 3 && a.activeDays >= 2
+  const hasPatternData = a.totalEntries >= 4 && a.activeDays >= 2
   const negativeTop = a.topEmotions.find(e => NEGATIVE.has(e.label))?.label
   const top = a.topEmotions[0]?.label
   const summary = hasEnoughData
@@ -110,13 +129,32 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     : (a.totalEntries === 0
       ? 'Não encontramos registros suficientes nesta semana. Continue usando check-ins e diário para que o próximo relatório tenha mais informações.'
       : 'Ainda há poucos registros nesta semana para uma leitura mais precisa. Mesmo assim, alguns sinais iniciais aparecem nos seus check-ins.')
-  // Interpretação da semana (§6.5) — autopercepção, sem diagnóstico.
-  const interpretation = hasEnoughData
+
+  const narrativeBase = {
+    topEmotions: a.topEmotions.slice(0, 5),
+    emotionalMarkers: a.emotionalMarkers.slice(0, 5),
+    topContexts: a.contexts.slice(0, 5),
+    avgEnergy: a.avg.energy,
+    avgAnxiety: a.avg.anxiety,
+    energyByDay: a.energyByDay,
+    anxietyByDay: a.anxietyByDay,
+    checkinCount: a.checkinCount,
+    diaryCount: a.diaryCount,
+    data_quality: { total_entries: a.totalEntries, active_days: a.activeDays },
+  }
+
+  // Cada bloco tem critério próprio. Ter dados suficientes para um resumo não
+  // significa automaticamente ter recorrência suficiente para chamar algo de padrão.
+  const interpretation = hasInterpretationData
     ? `Seus registros sugerem que os momentos de maior ${(negativeTop ?? 'tensão').toLowerCase()} apareceram ${a.energyAnxiety.hasData && a.energyAnxiety.text.includes('mais intensidade') ? 'junto de baixa energia e sensação de sobrecarga' : 'em alguns momentos da semana'}${a.emotionalMarkers[0] ? `, muitas vezes ligados a "${a.emotionalMarkers[0].tag}"` : ''}. Pode ser útil perceber esses sinais antes do acúmulo — pequenas pausas ao longo do dia ajudam.`
-    : 'Ainda há poucos registros para uma leitura mais precisa desta semana. Cada check-in ajuda a revelar seus padrões com mais clareza.'
-  return {
+    : deriveWeeklyInterpretationFallback(narrativeBase)
+  const patterns = hasPatternData
+    ? derivePatterns(a)
+    : deriveWeeklyPatternsFallback(narrativeBase)
+
+  return normalizeWeeklyNarrative({
     kind: 'weekly', v: CONTENT_VERSION, hasEnoughData, summary, interpretation,
-    patterns: hasEnoughData ? derivePatterns(a) : [],
+    patterns,
     attentionPoints: deriveAttentionPoints(a),
     improvementMoments: deriveImprovement(a),
     topEmotions: a.topEmotions.slice(0, 5),
@@ -127,7 +165,8 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     energyByDay: a.energyByDay, anxietyByDay: a.anxietyByDay,
     checkinCount: a.checkinCount, diaryCount: a.diaryCount,
     dominantEmotion: a.topEmotions[0]?.label ?? null, topEmotionalMarker: a.emotionalMarkers[0]?.tag ?? null,
-  }
+    data_quality: { total_entries: a.totalEntries, active_days: a.activeDays, has_enough_data: hasEnoughData },
+  })
 }
 
 export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string): MonthlyContent {
@@ -190,10 +229,9 @@ export async function ensureClosedReport(
 
   if (existing) {
     const stored = existing as unknown as StoredReport
-    // Fonte única de verdade: depois de persistido, o mesmo conteúdo alimenta
-    // tela, PDF, e-mail e notificações. Qualquer regeneração exige uma ação
-    // administrativa explícita, com confirmação e trilha de auditoria.
-    return stored
+    // O histórico permanece imutável no banco. A normalização abaixo é apenas
+    // de apresentação e corrige fallbacks genéricos de relatórios v10 antigos.
+    return normalizeStoredReport(stored)
   }
 
   // A geração foi movida para run-emotional-automations. Mantemos esta função
@@ -208,5 +246,5 @@ export async function loadReportHistory(userId: string, type?: ReportType): Prom
   let q = supabase.from('reports').select('*').eq('user_id', userId).order('period_end', { ascending: false }).limit(60)
   if (type) q = q.eq('report_type', type)
   const { data } = await q
-  return (data as unknown as StoredReport[]) ?? []
+  return ((data as unknown as StoredReport[]) ?? []).map(normalizeStoredReport)
 }
