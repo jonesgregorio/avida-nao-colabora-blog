@@ -32,6 +32,7 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [website, setWebsite] = useState('')
 
   // Restore draft if user just logged in
   useEffect(() => {
@@ -61,20 +62,18 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
     setSending(true)
     setError(null)
 
-    const { error: err } = await supabase.from('support_tickets').insert({
-      user_id: user.id,
+    const { data, error: err } = await supabase.functions.invoke('submit-contact-ticket', { body: {
+      contact_email: user.email ?? '',
+      contact_name: profile?.full_name ?? '',
       subject,
       description: description.trim(),
       priority,
-      status: 'open',
-      source: 'contact_page',
       category,
-      plan_at_creation: profile?.plan ?? 'free',
-      unread_for_admin: true,
-    })
+      website,
+    } })
 
-    if (err) {
-      setError('Não foi possível enviar sua mensagem. Tente novamente em instantes.')
+    if (err || data?.error) {
+      setError(data?.error ?? 'Não foi possível enviar sua mensagem. Tente novamente em instantes.')
     } else {
       setSent(true)
     }
@@ -182,6 +181,10 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
         ) : (
           /* Logged in: show full form */
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-stone-200 p-6 space-y-5">
+            <div className="sr-only" aria-hidden="true">
+              <label htmlFor="contact-website">Não preencha este campo</label>
+              <input id="contact-website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} />
+            </div>
             {/* Subject */}
             <div>
               <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>

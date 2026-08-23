@@ -69,6 +69,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'stripe-audit',
     'stripe-selftest',
     'stripe-webhook',
+    'submit-contact-ticket',
     'unsubscribe',
     'youtube-search',
   ].sort()
