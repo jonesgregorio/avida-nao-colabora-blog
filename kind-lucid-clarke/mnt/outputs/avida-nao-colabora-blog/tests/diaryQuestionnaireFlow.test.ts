@@ -2,20 +2,22 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const diary = readFileSync(new URL('../src/components/DiaryPage.tsx', import.meta.url), 'utf8')
+const diaryEntry = readFileSync(new URL('../src/components/DiaryPage.tsx', import.meta.url), 'utf8')
+const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
 const questionnaire = readFileSync(new URL('../src/lib/questionnaireResult.ts', import.meta.url), 'utf8')
 const player = readFileSync(new URL('../src/components/QuestionnairePlayer.tsx', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260823150500_diary_single_deepening_flow.sql', import.meta.url), 'utf8')
 
-test('check-in oferece continuação direta para o diário', () => {
+test('rota canônica usa a nova experiência e check-in continua levando ao diário', () => {
+  assert.match(diaryEntry, /DiaryExperience/)
   assert.match(diary, /Ir para o diário/)
-  assert.match(diary, /setEntryMode\(todayMainEntry \? 'main-saved' : 'full'\)/)
-  assert.match(diary, /Fazer outro check-in/)
+  assert.match(diary, /Check-in rápido/)
+  assert.match(diary, /setMode\(todayMain \? 'main-saved' : 'diary'\)/)
 })
 
 test('novo fluxo não cria complemento separado e mantém um único aprofundamento', () => {
-  assert.equal(diary.includes("setEntryMode('addon')"), false)
-  assert.equal(diary.includes("entryMode === 'addon'"), false)
+  assert.equal(diary.includes("setMode('addon')"), false)
+  assert.equal(diary.includes("mode === 'addon'"), false)
   assert.equal(diary.includes('Adicionar complemento'), false)
   assert.equal(diary.includes('Editar diário de hoje'), false)
   assert.equal(diary.includes('Editar registro de hoje'), false)
