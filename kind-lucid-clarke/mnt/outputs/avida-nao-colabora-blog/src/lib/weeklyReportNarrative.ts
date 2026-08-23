@@ -171,8 +171,7 @@ export function deriveWeeklyImprovementFallback(content: WeeklyNarrativeContent)
 export function normalizeWeeklyNarrative<T extends WeeklyNarrativeContent>(content: T): T {
   const currentPatterns = Array.isArray(content.patterns) ? content.patterns.filter(Boolean) : []
   const patternsAreGeneric = currentPatterns.length === 0 || currentPatterns.every(isGenericWeeklyQualityText)
-
-  return {
+  const next = {
     ...content,
     interpretation: isGenericWeeklyQualityText(content.interpretation)
       ? deriveWeeklyInterpretationFallback(content)
@@ -182,4 +181,5 @@ export function normalizeWeeklyNarrative<T extends WeeklyNarrativeContent>(conte
       ? deriveWeeklyImprovementFallback(content)
       : content.improvementMoments,
   }
+  return next as T
 }
