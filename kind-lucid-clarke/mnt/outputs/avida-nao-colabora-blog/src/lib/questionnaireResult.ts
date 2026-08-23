@@ -2,7 +2,7 @@
 // Motor de RESULTADO de questionário — devolutiva de AUTOPERCEPÇÃO (nunca
 // diagnóstico) + recomendação de conteúdos guiados existentes por tags/plano.
 //
-// Regras: linguagem de autopercepção ("suas respostas parecem indicar…"),
+// Regras: linguagem de autopercepção ("nas suas respostas apareceu…"),
 // nunca afirmar transtorno/diagnóstico. Recomenda apenas conteúdo publicado e
 // compatível com o plano do usuário (nada de conteúdo pago para quem não tem).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,8 +17,8 @@ export type ResultTheme =
 
 interface ThemeConfig {
   title: string
-  indication: string          // "o que suas respostas parecem indicar"
-  attentionPoints: string[]   // pontos que merecem atenção
+  indication: string          // "o que ficou perceptível"
+  attentionPoints: string[]   // pontos para observar com calma
   keywords: string[]          // p/ casar com conteúdos (sem acento, minúsculo)
   categories: string[]        // categorias de artigos relacionadas
 }
@@ -29,8 +29,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'ansiedade',
     match: ['ansiedad', 'ansios', 'pensament', 'acelerad', 'tens', 'preocupa', 'nervos', 'panico', 'medo'],
     cfg: {
-      title: 'Sinais de ansiedade e sobrecarga emocional',
-      indication: 'Você marcou respostas associadas a ansiedade percebida e pensamentos acelerados.',
+      title: 'Ansiedade percebida e sobrecarga apareceram nas respostas',
+      indication: 'Ansiedade percebida e pensamentos acelerados apareceram em parte das suas respostas.',
       attentionPoints: ['Pensamentos acelerados', 'Dificuldade de descanso ou pausa', 'Tensão emocional ao longo do dia', 'Necessidade de momentos de regulação'],
       keywords: ['ansiedade', 'respiracao', 'pensamentos', 'regulacao', 'calma', 'sobrecarga'],
       categories: ['Ansiedade', 'Pensamentos difíceis'],
@@ -40,8 +40,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'sobrecarga',
     match: ['sobrecarg', 'excesso', 'demanda', 'esgota', 'nao dou conta', 'limite'],
     cfg: {
-      title: 'Sinais de sobrecarga emocional',
-      indication: 'As respostas trazem sinais de sobrecarga e de excesso de demandas no seu dia.',
+      title: 'Sobrecarga apareceu com destaque',
+      indication: 'Sobrecarga e excesso de demandas apareceram com frequência nas suas respostas.',
       attentionPoints: ['Excesso de demandas', 'Dificuldade de dizer não', 'Sensação de não dar conta', 'Pouco tempo para você'],
       keywords: ['sobrecarga', 'limites', 'descanso', 'pausa', 'rotina'],
       categories: ['Cansaço emocional', 'Relações e limites', 'Rotina e hábitos'],
@@ -51,8 +51,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'cansaco',
     match: ['cansa', 'energia', 'exaust', 'fadiga', 'disposicao', 'desanimo fisico'],
     cfg: {
-      title: 'Rotina e energia pedem atenção',
-      indication: 'As respostas mostram maior presença de cansaço, baixa energia e dificuldade de recuperação.',
+      title: 'Energia e recuperação chamaram atenção',
+      indication: 'Cansaço, baixa energia e dificuldade de recuperação apareceram nas suas respostas.',
       attentionPoints: ['Energia baixa em períodos recorrentes', 'Dificuldade de descanso', 'Sensação de rotina pesada', 'Pouco espaço para pausas'],
       keywords: ['descanso', 'rotina', 'pausa', 'energia', 'autocuidado', 'sono'],
       categories: ['Cansaço emocional', 'Autocuidado possível', 'Rotina e hábitos', 'Sono e descanso'],
@@ -62,9 +62,9 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'alimentacao',
     match: ['fome', 'comida', 'aliment', 'compuls', 'culpa'],
     cfg: {
-      title: 'Relação com a comida marcada por gatilhos emocionais',
-      indication: 'Há sinais de que emoções podem estar influenciando escolhas alimentares em alguns momentos.',
-      attentionPoints: ['Gatilhos emocionais ligados à comida', 'Sentimentos de culpa', 'Comer para aliviar emoções', 'Relação com a comida em momentos difíceis'],
+      title: 'Emoções e alimentação apareceram relacionadas',
+      indication: 'Em alguns itens, emoções e escolhas alimentares apareceram relacionadas.',
+      attentionPoints: ['Emoções ligadas à comida', 'Sentimentos de culpa', 'Comer buscando alívio emocional', 'Relação com a comida em momentos difíceis'],
       keywords: ['fome', 'emocional', 'gatilhos', 'comida', 'alimentacao', 'culpa', 'autocuidado'],
       categories: ['Autocuidado possível', 'Autoconhecimento'],
     },
@@ -73,8 +73,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'autoestima',
     match: ['autoestim', 'autocobr', 'cobranc', 'compara', 'critic', 'perfeccion'],
     cfg: {
-      title: 'Autocobrança elevada',
-      indication: 'A autocobrança parece ter peso importante na forma como você avalia o seu dia.',
+      title: 'Autocobrança apareceu com destaque',
+      indication: 'Autocobrança e comparação apareceram como temas relevantes nas suas respostas.',
       attentionPoints: ['Tendência a se cobrar demais', 'Comparação com outras pessoas', 'Dificuldade de reconhecer conquistas', 'Autocrítica frequente'],
       keywords: ['autocobranca', 'autoestima', 'comparacao', 'autocompaixao', 'limites'],
       categories: ['Autoestima', 'Relações e limites', 'Autoconhecimento'],
@@ -84,8 +84,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'sono',
     match: ['sono', 'dormir', 'insonia', 'noite', 'descans'],
     cfg: {
-      title: 'Sono e rotina pedem cuidado',
-      indication: 'Suas respostas indicam que o sono e a organização da rotina podem estar pesando.',
+      title: 'Sono e rotina apareceram como pontos de atenção',
+      indication: 'Sono e organização da rotina apareceram como pontos que merecem observação.',
       attentionPoints: ['Dificuldade para desacelerar à noite', 'Sono irregular', 'Rotina sem pausas', 'Cansaço ao acordar'],
       keywords: ['sono', 'rotina', 'noturna', 'desaceleracao', 'habitos', 'energia'],
       categories: ['Sono e descanso', 'Rotina e hábitos'],
@@ -95,8 +95,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
     key: 'tristeza',
     match: ['triste', 'desanim', 'choro', 'vazio', 'solidao', 'sozinh'],
     cfg: {
-      title: 'Momentos de desânimo pedem acolhimento',
-      indication: 'As respostas trazem sinais de tristeza ou desânimo em alguns momentos.',
+      title: 'Desânimo apareceu em parte das respostas',
+      indication: 'Tristeza ou desânimo apareceram em alguns itens respondidos.',
       attentionPoints: ['Desânimo recorrente', 'Menos vontade nas atividades', 'Necessidade de acolhimento', 'Emoções difíceis presentes'],
       keywords: ['tristeza', 'acolhimento', 'emocoes', 'autocuidado'],
       categories: ['Pensamentos difíceis', 'Autocuidado possível', 'Autoconhecimento'],
@@ -105,8 +105,8 @@ const THEMES: { key: ResultTheme; match: string[]; cfg: ThemeConfig }[] = [
 ]
 
 const GERAL: ThemeConfig = {
-  title: 'Um retrato do seu momento',
-  indication: 'Suas respostas ajudam a perceber como você tem se sentido ultimamente.',
+  title: 'Um retrato do que apareceu nas suas respostas',
+  indication: 'As respostas formam um retrato de como você percebe seu momento atual.',
   attentionPoints: ['Como você tem se sentido no dia a dia', 'O que tem pedido mais atenção', 'Pequenos cuidados possíveis'],
   keywords: ['autoconhecimento', 'autocuidado', 'rotina', 'diario'],
   categories: ['Autoconhecimento', 'Diário emocional', 'Autocuidado possível', 'Vida real'],
@@ -164,23 +164,35 @@ interface BuildParams {
   adminResult?: { title?: string; message?: string; description?: string } | null
 }
 
+const DIAGNOSTIC_LANGUAGE = [
+  'diagnost', 'transtorn', 'doenca', 'sindrome', 'patolog',
+  'voce tem ', 'voce sofre de ', 'compativel com ', 'quadro clinico',
+  'bipolar', 'tdah', 'autismo', 'borderline',
+]
+
+function safeAdminPerceptionText(adminResult: BuildParams['adminResult']): string {
+  const text = [adminResult?.message, adminResult?.description].filter(Boolean).join(' ').trim()
+  if (!text) return ''
+  const normalized = deburr(text)
+  return DIAGNOSTIC_LANGUAGE.some(term => normalized.includes(term)) ? '' : text
+}
+
 /**
- * Monta a devolutiva completa. Usa o resultado do admin (por faixa) quando
- * existe e complementa com o tema derivado das tags. SEMPRE em linguagem de
- * autopercepção — nunca diagnóstica.
+ * Monta a devolutiva completa. A faixa configurada pelo admin pode acrescentar
+ * contexto apenas quando estiver em linguagem não diagnóstica. O título e o
+ * parecer principal são sempre derivados das respostas em linguagem observacional.
  */
 export function buildQuestionnaireResult({ tags, plan, adminResult }: BuildParams): QuestionnaireResult {
   const planKey = normalizePlan(plan)
   const { key, cfg } = themeFromTags(tags)
   const top = topTagsFrom(tags)
+  const adminText = safeAdminPerceptionText(adminResult)
 
-  const title = (adminResult?.title && adminResult.title.trim()) || cfg.title
-
-  // Resumo acolhedor: prioriza o texto do admin; complementa com o tema.
-  const adminText = [adminResult?.message, adminResult?.description].filter(Boolean).join(' ').trim()
-  const themed = `Pelas suas respostas, ${cfg.indication.replace(/^Você marcou|^As respostas|^Há sinais|^A autocobrança|^Suas respostas/i, m => m.toLowerCase())}`
-  const summary = (adminText ? `${adminText} ` : `${themed} `) +
-    'Isto não é um diagnóstico: é uma leitura de autopercepção que pode ajudar você a observar quando esses sinais aparecem e a criar pequenos momentos de cuidado ao longo do dia.'
+  const summary = [
+    `O que ficou perceptível nas suas respostas: ${cfg.indication}`,
+    adminText ? `A faixa de resultado configurada para este questionário também destaca: ${adminText}` : '',
+    'Este parecer descreve padrões percebidos nas respostas e serve para autopercepção; não é um diagnóstico e não substitui avaliação profissional.',
+  ].filter(Boolean).join(' ')
 
   const indications = [cfg.indication]
   if (top.length > 0) {
@@ -189,7 +201,7 @@ export function buildQuestionnaireResult({ tags, plan, adminResult }: BuildParam
 
   return {
     theme: key,
-    title,
+    title: cfg.title,
     summary,
     indications,
     attentionPoints: cfg.attentionPoints.slice(0, 4),
