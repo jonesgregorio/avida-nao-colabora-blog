@@ -10,6 +10,7 @@ const password = `Security-${randomUUID()}-Aa1!`
 const accounts = ['a', 'b'].map(label => ({ label, email: `security-${label}-${randomUUID().slice(0, 8)}@local.test` }))
 let questionnaireId
 let pendingConfirmationUserId
+let supportTicketId
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -43,6 +44,18 @@ try {
 
   const foreignProfile = await second.client.from('profiles').select('user_id').eq('user_id', first.id)
   assert(!foreignProfile.error && foreignProfile.data?.length === 0, 'another profile must not be readable')
+
+  supportTicketId = execFileSync(process.env.E2E_DOCKER_BIN, [
+    'exec', 'supabase_db_local-e2e', 'psql', '-U', 'postgres', '-d', 'postgres', '-t', '-A', '-v', 'ON_ERROR_STOP=1',
+    '-c', `INSERT INTO public.support_tickets (user_id, subject, description) VALUES ('${first.id}'::uuid, 'Ticket temporário', 'Dados temporários da auditoria local.') RETURNING id`,
+  ], { encoding: 'utf8' }).trim().split(/\r?\n/)[0]
+  assert(Boolean(supportTicketId), 'could not create local support ticket')
+  const ownTicket = await first.client.from('support_tickets').select('id,user_id').eq('id', supportTicketId).single()
+  assert(!ownTicket.error && ownTicket.data?.user_id === first.id, 'owner must read own support ticket')
+  const foreignTicket = await second.client.from('support_tickets').select('id').eq('id', supportTicketId)
+  assert(!foreignTicket.error && foreignTicket.data?.length === 0, 'another support ticket must not be readable')
+  const directTicketInsert = await first.client.from('support_tickets').insert({ user_id: first.id, subject: 'Tentativa direta', description: 'Deve passar somente pela função protegida.' })
+  assert(Boolean(directTicketInsert.error), 'support tickets must not be created directly through the Data API')
 
   const created = await first.client.from('diary_entries').insert({ user_id: first.id, text: 'Registro temporário da auditoria local.', mood: 'neutro', entry_type: 'diary' }).select('id,user_id').single()
   assert(!created.error && created.data?.user_id === first.id, `owner must create own diary entry: ${created.error?.message ?? 'no row returned'}`)
