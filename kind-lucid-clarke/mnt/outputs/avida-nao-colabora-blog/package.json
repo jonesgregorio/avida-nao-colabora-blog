@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "e2e:local:prepare": "node scripts/prepare-local-e2e-supabase.mjs",
+    "e2e:local:auth": "node scripts/e2e-local-auth.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "node --check api/article.js && node --check api/page.js && node --check api/sitemap.js && node --experimental-strip-types --test tests/*.test.ts"
@@ -29,6 +31,8 @@
     "vite": "^6.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.2",
