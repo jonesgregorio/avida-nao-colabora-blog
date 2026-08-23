@@ -50,6 +50,11 @@ try {
   const foreignDiary = await second.client.from('diary_entries').select('id').eq('id', created.data.id)
   assert(!foreignDiary.error && foreignDiary.data?.length === 0, 'another diary entry must not be readable')
 
+  const ownDiaryUpdate = await first.client.from('diary_entries').update({ text: 'Registro local atualizado.' }).eq('id', created.data.id).select('text').single()
+  assert(!ownDiaryUpdate.error && ownDiaryUpdate.data?.text === 'Registro local atualizado.', 'owner must update own diary entry')
+  const foreignDiaryUpdate = await second.client.from('diary_entries').update({ text: 'Tentativa bloqueada.' }).eq('id', created.data.id)
+  assert(Boolean(foreignDiaryUpdate.error) || foreignDiaryUpdate.data === null, 'another user must not update a diary entry')
+
   const forgedDiary = await second.client.from('diary_entries').insert({ user_id: first.id, text: 'Tentativa bloqueada.', mood: 'neutro', entry_type: 'diary' })
   assert(Boolean(forgedDiary.error), 'another user must not create diary entries for someone else')
 
@@ -73,6 +78,9 @@ try {
 
   const foreignResponse = await second.client.from('questionnaire_responses').select('id').eq('id', ownResponse.data.id)
   assert(!foreignResponse.error && foreignResponse.data?.length === 0, 'another questionnaire response must not be readable')
+
+  const ownResponseUpdate = await first.client.from('questionnaire_responses').update({ answers: { answer: 'atualizada' } }).eq('id', ownResponse.data.id).select('answers').single()
+  assert(!ownResponseUpdate.error && ownResponseUpdate.data?.answers?.answer === 'atualizada', 'owner must update own questionnaire response')
 
   const forgedResponse = await second.client.from('questionnaire_responses').insert({
     user_id: first.id,
