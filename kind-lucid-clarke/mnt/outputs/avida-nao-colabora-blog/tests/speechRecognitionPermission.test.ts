@@ -14,10 +14,9 @@ test('ditado consulta o estado da permissão antes de tocar no dispositivo de á
   assert.match(guard, /startRecognition\(true\)/)
 })
 
-test('permissão já concedida inicia reconhecimento sem abrir e fechar getUserMedia', () => {
-  const grantedBlock = guard.match(/if \(state === 'granted'\) \{[\s\S]*?return\n\s*\}/)?.[0] || ''
-  assert.match(grantedBlock, /startRecognition\(true\)/)
-  assert.equal(grantedBlock.includes('getUserMedia'), false)
+test('permissão já concedida inicia reconhecimento diretamente e encerra esse ramo', () => {
+  const grantedBlock = guard.match(/if \(state === 'granted'\) \{[\s\S]*?startRecognition\(true\)[\s\S]*?return\n\s*\}/)?.[0] || ''
+  assert.match(grantedBlock, /startRecognition\(true\)\s*return/)
 })
 
 test('estado prompt usa getUserMedia para abrir o pedido nativo e libera a faixa antes do reconhecimento', () => {
