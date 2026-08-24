@@ -57,7 +57,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
     plan: 'free', label: 'Gratuito', entriesPerMonth: 5, exportPDF: false,
     history: '30 dias', diaryExperience: 'basic', mainEntriesPerDay: 1, addonsEnabled: false,
     // emotional_tags explícito: Gratuito tem uma seleção BÁSICA e curada (6 tags,
-    // ver DiaryPage.tsx) — não o catálogo completo do Essencial/Plus. Contexto,
+    // ver DiaryExperience.tsx) — não o catálogo completo do Essencial/Plus. Contexto,
     // necessidade e ações de cuidado ficam explicitamente off (ausência de chave
     // é tratada como "ligado" por fieldOn(), então aqui precisa ser explícito).
     fields: { mood: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: false, need_tags: false, care_action_tags: false, trigger_tags: false },
@@ -66,9 +66,9 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   },
   {
     plan: 'essential', label: 'Essencial', entriesPerMonth: null, exportPDF: true,
-    history: 'Completo', diaryExperience: 'complete', mainEntriesPerDay: 1, addonsEnabled: true,
+    history: 'Completo', diaryExperience: 'complete', mainEntriesPerDay: 1, addonsEnabled: false,
     // stress_level/self_esteem ficam explicitamente false: são campos avançados
-    // do Plus (DiaryPage.tsx exige isPlus). Ausência de chave = fieldOn() trata
+    // do Plus (DiaryExperience.tsx exige isPlus). Ausência de chave = fieldOn() trata
     // como "ligado", então aqui precisa ser explícito para não vazar pro Essencial.
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, trigger_tags: false, energy: true, anxiety_level: true, stress_level: false, sleep_quality: true, self_esteem: false, gratitude: true, small_pride: true },
     guidedQuestions: ['Como você está se sentindo agora?', 'O que mais mexeu com você hoje?', 'O que parece ter contribuído para isso?', 'Que pequena coisa te trouxe algum alívio?'],
@@ -77,7 +77,7 @@ export const DEFAULT_DIARY_CONFIGS: DiaryPlanConfig[] = [
   },
   {
     plan: 'plus', label: 'Plus', entriesPerMonth: null, exportPDF: true,
-    history: 'Completo', diaryExperience: 'advanced', mainEntriesPerDay: 1, addonsEnabled: true,
+    history: 'Completo', diaryExperience: 'advanced', mainEntriesPerDay: 1, addonsEnabled: false,
     fields: { mood: true, mood_emoji: true, free_note: true, guided_question: true, emotional_tags: true, context_tags: true, need_tags: true, care_action_tags: true, trigger_tags: true, energy: true, anxiety_level: true, stress_level: true, sleep_quality: true, self_esteem: true, irritability: true, overload: true, emotional_triggers: true, recurring_thoughts: true, emotional_need: true, relationships: true, habits: true, gratitude: true, small_pride: true },
     // §10: perguntas do diário são sempre do DIA, nunca da semana/mês — essas
     // pertencem ao Relatório e ao Plano de Autocuidado, não aqui.
@@ -112,7 +112,7 @@ export async function fetchDiaryConfig(plan: string): Promise<DiaryPlanConfig> {
       .maybeSingle()
     const saved = (data as { config?: Partial<DiaryPlanConfig> } | null)?.config
     if (saved && typeof saved === 'object') {
-      return { ...base, ...saved, fields: { ...base.fields, ...(saved.fields ?? {}) } }
+      return { ...base, ...saved, fields: { ...base.fields, ...(saved.fields ?? {}) }, addonsEnabled: false }
     }
   } catch {
     /* usa o padrão */
