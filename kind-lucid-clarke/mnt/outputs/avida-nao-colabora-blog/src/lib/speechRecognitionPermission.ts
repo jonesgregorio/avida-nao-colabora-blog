@@ -18,8 +18,10 @@ type SpeechWindow = Window & {
   webkitSpeechRecognition?: RecognitionCtor
 }
 
+type MicrophonePermissionState = PermissionState | 'unknown'
+
 const pending = new WeakSet<object>()
-const verifiedMicrophone = new WeakSet<object>()
+const permissionConfirmed = new WeakSet<object>()
 const cancelled = new WeakSet<object>()
 
 function microphoneErrorCode(error: unknown) {
@@ -33,6 +35,16 @@ function microphoneErrorCode(error: unknown) {
     name === 'OverconstrainedError'
   ) return 'audio-capture'
   return 'audio-capture'
+}
+
+async function getMicrophonePermissionState(): Promise<MicrophonePermissionState> {
+  if (!navigator.permissions?.query) return 'unknown'
+  try {
+    const status = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+    return status.state
+  } catch {
+    return 'unknown'
+  }
 }
 
 function showMicrophonePermissionHelp() {
@@ -90,49 +102,98 @@ function patchRecognition(Ctor: RecognitionCtor) {
   proto.start = function permissionAwareStart(this: RecognitionLike) {
     const instance = this as object
     cancelled.delete(instance)
-    verifiedMicrophone.delete(instance)
+    permissionConfirmed.delete(instance)
 
     const appOnError = this.onerror
     this.onerror = event => {
       const code = String(event?.error || '').toLowerCase()
-      if (verifiedMicrophone.has(instance) && (code === 'not-allowed' || code === 'service-not-allowed')) {
+      if (permissionConfirmed.has(instance) && (code === 'not-allowed' || code === 'service-not-allowed')) {
         appOnError?.call(this, {
           error: 'recognition-service-unavailable',
-          message: 'O microfone está liberado, mas o serviço de reconhecimento de voz do navegador recusou o início.',
+          message: 'O site tem permissão para usar o microfone, mas o serviço de reconhecimento de voz do navegador recusou o início.',
         })
         return
       }
       appOnError?.call(this, event)
     }
 
-    const mediaDevices = navigator.mediaDevices
-    if (!mediaDevices?.getUserMedia) {
-      originalStart.call(this)
-      return
-    }
-
-    pending.add(instance)
-    void mediaDevices.getUserMedia({ audio: true }).then(stream => {
-      stream.getTracks().forEach(track => track.stop())
+    const startRecognition = (confirmed: boolean) => {
       pending.delete(instance)
-      verifiedMicrophone.add(instance)
+      if (confirmed) permissionConfirmed.add(instance)
       if (cancelled.has(instance)) return
       try {
         originalStart.call(this)
       } catch {
         appOnError?.call(this, {
           error: 'recognition-service-unavailable',
-          message: 'O microfone foi liberado, mas o reconhecimento de voz não conseguiu iniciar.',
+          message: 'O microfone está disponível, mas o reconhecimento de voz não conseguiu iniciar.',
         })
         this.onend?.call(this)
       }
-    }).catch(error => {
+    }
+
+    const rejectRecognition = (code: string, message?: string) => {
       pending.delete(instance)
       if (cancelled.has(instance)) return
-      const code = microphoneErrorCode(error)
       if (code === 'not-allowed') showMicrophonePermissionHelp()
-      appOnError?.call(this, { error: code, message: error instanceof Error ? error.message : undefined })
+      appOnError?.call(this, { error: code, message })
       this.onend?.call(this)
+    }
+
+    pending.add(instance)
+    void getMicrophonePermissionState().then(state => {
+      if (cancelled.has(instance)) {
+        pending.delete(instance)
+        return
+      }
+
+      if (state === 'granted') {
+        // Importante no desktop/Windows: se o navegador já concedeu permissão,
+        // não abra e feche um stream getUserMedia antes do SpeechRecognition.
+        // Essa troca pode disputar/reinicializar o dispositivo de entrada.
+        startRecognition(true)
+        return
+      }
+
+      if (state === 'denied') {
+        rejectRecognition('not-allowed', 'O navegador está com o microfone bloqueado para este site.')
+        return
+      }
+
+      const mediaDevices = navigator.mediaDevices
+      if (!mediaDevices?.getUserMedia) {
+        // Navegadores sem Permissions API/getUserMedia ainda podem implementar
+        // o prompt diretamente no SpeechRecognition.
+        startRecognition(false)
+        return
+      }
+
+      void mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        stream.getTracks().forEach(track => track.stop())
+        permissionConfirmed.add(instance)
+        if (cancelled.has(instance)) {
+          pending.delete(instance)
+          return
+        }
+        // Dá ao sistema operacional um instante para liberar o dispositivo após
+        // o prompt inicial antes de o serviço de reconhecimento assumir o áudio.
+        window.setTimeout(() => startRecognition(true), 180)
+      }).catch(error => {
+        const code = microphoneErrorCode(error)
+        rejectRecognition(code, error instanceof Error ? error.message : undefined)
+      })
+    }).catch(() => {
+      const mediaDevices = navigator.mediaDevices
+      if (!mediaDevices?.getUserMedia) {
+        startRecognition(false)
+        return
+      }
+      void mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        stream.getTracks().forEach(track => track.stop())
+        window.setTimeout(() => startRecognition(true), 180)
+      }).catch(error => {
+        rejectRecognition(microphoneErrorCode(error), error instanceof Error ? error.message : undefined)
+      })
     })
   }
 
