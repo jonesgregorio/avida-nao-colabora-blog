@@ -25,13 +25,14 @@ jobs:
           else
             echo "applied=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Apply and validate patch
+      - name: Apply and validate patch from repository root
         if: steps.state.outputs.applied != 'true'
         run: |
           cat .github/part2.patch.gz.b64.1 .github/part2.patch.gz.b64.2 | base64 -d | gzip -d > "$RUNNER_TEMP/part2.patch"
-          cd kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
           git apply --check "$RUNNER_TEMP/part2.patch"
           git apply "$RUNNER_TEMP/part2.patch"
+          git status --short
+          cd kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
           node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
       - name: Commit implementation
         if: steps.state.outputs.applied != 'true'
