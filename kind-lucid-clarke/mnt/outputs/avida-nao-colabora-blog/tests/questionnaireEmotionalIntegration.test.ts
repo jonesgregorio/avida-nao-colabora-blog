@@ -6,6 +6,7 @@ import { join } from 'node:path'
 const root = process.cwd()
 const runner = readFileSync(join(root, 'supabase/functions/run-emotional-automations/runner.ts'), 'utf8')
 const map = readFileSync(join(root, 'src/components/MyEvolutionPage.tsx'), 'utf8')
+const report = readFileSync(join(root, 'src/components/MyReportPageContent.tsx'), 'utf8')
 
 test('automação emocional usa apenas sinais estruturados dos questionários', () => {
   assert.match(runner, /from\('questionnaire_responses'\)/)
@@ -34,4 +35,12 @@ test('Mapa Emocional mostra questionários como contexto separado e não lê res
   assert.match(map, /select\('questionnaire_id,total_score,generated_tags,result_id,completed_at'\)/)
   const hook = map.slice(map.indexOf('function useQuestionnaireSignals'), map.indexOf('function QuestionnaireSignalsCard'))
   assert.doesNotMatch(hook, /\.select\([^)]*answers[^)]*\)/s)
+})
+
+test('relatório fechado informa com transparência quando questionários estruturados entraram no contexto', () => {
+  assert.match(report, /Questionários considerados neste relatório/)
+  assert.match(report, /apenas resultado, pontuação e tags estruturadas/)
+  assert.match(report, /Respostas abertas não foram lidas por esta análise/)
+  assert.match(report, /não contam como registros do Diário/)
+  assert.match(report, /<QuestionnaireReportContext content=\{viewer\.report\.content\}/)
 })
