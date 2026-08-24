@@ -295,6 +295,34 @@ function WeeklyNextSteps({ steps }: { steps: string[] }) {
   )
 }
 
+type QuestionnaireReportSignals = {
+  completed_count?: number
+  top_tags?: { tag?: string; count?: number }[]
+  latest_results?: { questionnaire_id?: string; title?: string; result_label?: string | null }[]
+}
+
+function QuestionnaireReportContext({ content }: { content: unknown }) {
+  const signals = (content as { questionnaire_signals?: QuestionnaireReportSignals } | null)?.questionnaire_signals
+  const count = Number(signals?.completed_count ?? 0)
+  if (!Number.isFinite(count) || count <= 0) return null
+  const tags = Array.isArray(signals?.top_tags) ? signals.top_tags.filter(item => item?.tag).slice(0, 6) : []
+  const latest = Array.isArray(signals?.latest_results) ? signals.latest_results.filter(item => item?.title).slice(0, 4) : []
+  return (
+    <section className="mb-4 rounded-2xl border border-line bg-mint/25 p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><Check className="w-4 h-4" /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-forest-900">Questionários considerados neste relatório</h3>
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">Este relatório usou apenas resultado, pontuação e tags estruturadas de {count} questionário{count === 1 ? '' : 's'} concluído{count === 1 ? '' : 's'} no período. Respostas abertas não foram lidas por esta análise.</p>
+        </div>
+      </div>
+      {tags.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{tags.map(item => <span key={String(item.tag)} className="rounded-full bg-white px-2.5 py-1 text-[11px] text-forest-700">{item.tag}{Number(item.count) > 1 ? ` · ${item.count}x` : ''}</span>)}</div>}
+      {latest.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{latest.map((item, index) => <div key={`${item.questionnaire_id || index}-${index}`} className="rounded-xl border border-line/70 bg-white/80 px-3 py-2"><p className="text-xs font-medium text-forest-900 truncate">{item.title}</p>{item.result_label && <p className="mt-0.5 text-[11px] text-ink-soft">Resultado: {item.result_label}</p>}</div>)}</div>}
+      <p className="mt-3 text-[11px] text-ink-soft">Esses sinais complementam o contexto; não contam como registros do Diário e, isoladamente, não são tratados como padrão, diagnóstico ou causa.</p>
+    </section>
+  )
+}
+
 // ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────
 function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance, forPdf }: {
   report: StoredReport; plan: string
@@ -1374,7 +1402,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
         </div>
         <div className="p-4 sm:p-5 overflow-y-auto">
           {isReport
-            ? <ReportBody report={viewer.report} plan={plan} {...nav} />
+            ? <><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>
             : <BuildingPreview type={viewer.type} period={viewer.period} content={viewer.content} onRefresh={onRefresh} />}
         </div>
       </div>

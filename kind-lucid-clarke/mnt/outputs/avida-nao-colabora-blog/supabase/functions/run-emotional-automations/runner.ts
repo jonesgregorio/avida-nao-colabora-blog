@@ -45,6 +45,46 @@ function valueOf(row: Record<string, unknown>, keys: string[]): number | null {
 }
 const valuesOf = (rows: Record<string, unknown>[], keys: string[]) => rows.map(r => valueOf(r, keys))
 const top = (items: string[]) => Object.entries(items.reduce<Record<string, number>>((a, x) => { a[x] = (a[x] || 0) + 1; return a }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count }))
+
+type QuestionnaireSignal = {
+  questionnaire_id: string
+  title: string
+  category: string
+  result_label: string | null
+  total_score: number | null
+  tags: string[]
+  completed_at: string
+}
+
+function questionnaireTags(value: unknown): string[] {
+  if (Array.isArray(value)) return [...new Set(value.map(String).map(v => v.trim()).filter(Boolean))].slice(0, 12)
+  if (typeof value !== 'string' || !value.trim()) return []
+  const raw = value.trim()
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return [...new Set(parsed.map(String).map(v => v.trim()).filter(Boolean))].slice(0, 12)
+    } catch { /* legado em CSV abaixo */ }
+  }
+  return [...new Set(raw.split(',').map(v => v.trim()).filter(Boolean))].slice(0, 12)
+}
+
+function questionnaireSummaryOf(signals: QuestionnaireSignal[]) {
+  const latest = [...signals].sort((a, b) => b.completed_at.localeCompare(a.completed_at)).slice(0, 6)
+  return {
+    completed_count: signals.length,
+    top_tags: top(signals.flatMap(signal => signal.tags)),
+    latest_results: latest.map(signal => ({
+      questionnaire_id: signal.questionnaire_id,
+      title: signal.title,
+      category: signal.category,
+      result_label: signal.result_label,
+      total_score: signal.total_score,
+      tags: signal.tags.slice(0, 8),
+      completed_at: signal.completed_at,
+    })),
+  }
+}
 const dayOf = (row: Record<string, unknown>) => String(row.date || row.created_at || '').slice(0, 10)
 const metricByDay = (rows: Record<string, unknown>[], field: string) => Object.entries(rows.reduce<Record<string, number[]>>((out, row) => {
   const day = dayOf(row); const value = Number(row[field])
@@ -120,7 +160,7 @@ function compareSummaries(curr: Summary, prev: Summary | null): { available: boo
 }
 
 type Summary = ReturnType<typeof summaryOf>
-function summaryOf(rows: Record<string, unknown>[], start: string, end: string, plan: 'essential' | 'plus', periodKind: 'weekly' | 'monthly' = 'weekly') {
+function summaryOf(rows: Record<string, unknown>[], start: string, end: string, plan: 'essential' | 'plus', periodKind: 'weekly' | 'monthly' = 'weekly', questionnaireSignals: QuestionnaireSignal[] = []) {
   const days = new Set(rows.map(r => String(r.date || r.created_at || '').slice(0, 10)).filter(Boolean))
   const type = (t: string) => rows.filter(r => r.entry_type === t).length
   const diaries = rows.filter(r => r.entry_type === 'diary')
@@ -140,6 +180,7 @@ function summaryOf(rows: Record<string, unknown>[], start: string, end: string, 
     emotional_markers: top(rows.flatMap(r => list(r.emotional_tags))), contexts: top(rows.flatMap(r => list(r.context_tags))),
     needs: top(rows.flatMap(r => list(r.need_tags))), care_actions: top(rows.flatMap(r => list(r.care_action_tags))),
     real_triggers: plan === 'plus' ? top(rows.flatMap(r => list(r.trigger_tags))) : [],
+    questionnaire_signals: questionnaireSummaryOf(questionnaireSignals),
     averages: { mood: average(rows.map(r => r.mood_score)), energy: average(rows.map(r => r.energy)), anxiety: average(rows.map(r => r.anxiety_level)), sleep: average(rows.map(r => r.sleep_quality)), stress: plan === 'plus' ? averageOrNull(valuesOf(rows, ['stress_level', 'stress'])) : null, selfEsteem: plan === 'plus' ? averageOrNull(valuesOf(rows, ['self_esteem', 'self_esteem_level'])) : null, irritability: plan === 'plus' ? averageOrNull(valuesOf(rows, ['irritability', 'irritability_level'])) : null, overload: plan === 'plus' ? averageOrNull(valuesOf(rows, ['overload', 'overload_level'])) : null },
     data_quality: { has_enough_data: quality !== 'low', total_entries: rows.length, active_days: days.size, confidence_level: quality, required_active_days: minActiveDays, required_entries: minEntries, message: quality === 'low' ? lowMessage : 'Há registros suficientes para uma leitura cuidadosa do período.' },
   }
@@ -167,7 +208,7 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
   // não inventar fatos. Campos condicionais (ex.: real_triggers_reading) só
   // devem vir preenchidos quando os dados correspondentes existirem no resumo.
   const shape = EMOTIONAL_NARRATIVE_SHAPES[kind]
-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Sinais de questionários, quando presentes, são contexto estruturado auxiliar: nunca trate um único resultado ou tag de questionário como recorrência, padrão, diagnóstico, causa ou prova. A pontuação só faz sentido dentro do respectivo questionário e não pode ser comparada entre questionários diferentes. Nenhuma resposta aberta de questionário é fornecida. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
@@ -254,7 +295,7 @@ function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string
     const careActionsReading = s.care_actions.length ? str(ai?.care_actions_reading, `As ações de cuidado mais escolhidas foram ${s.care_actions.map(x => x.tag).join(', ')}.`) : ''
     const closingMessage = str(ai?.closing_message, 'Você não precisa resolver tudo agora; um pequeno registro já pode ajudar a perceber o seu ritmo.')
     return {
-      kind, v: 10, title: 'Sua leitura semanal', report_type: 'weekly', period_start: s.period_start, period_end: s.period_end, period_label: `${s.period_start} a ${s.period_end}`, short_summary: str(ai?.summary, fallback), what_most_appeared: whatMostAppeared, emotional_markers_reading: emotionalMarkersReading, contexts_reading: contextsReading, needs_reading: needsReading, care_actions_reading: careActionsReading, week_in_numbers: { active_days: s.active_days, checkins_count: s.total_checkins, diaries_count: s.total_main_diaries, addons_count: s.total_addons, total_entries: s.total_entries }, dominant_emotions: s.dominant_emotions, emotional_markers: markers, main_contexts: s.contexts, main_needs: s.needs, care_actions_used: s.care_actions, energy_anxiety_sleep_summary: `Energia média ${s.averages.energy || '—'}, ansiedade média ${s.averages.anxiety || '—'} e sono médio ${s.averages.sleep || '—'}.`, energy_by_day: daily.energy, anxiety_by_day: daily.anxiety, sleep_by_day: daily.sleep, mood_by_day: daily.mood, markers_by_day: daily.markers, context_distribution: distributions.contexts, need_distribution: distributions.needs, care_action_distribution: distributions.care_actions, observed_patterns: patterns.length ? patterns : [fallback], attention_points: texts(ai?.attention_points, 260), gentle_next_steps: texts(ai?.next_steps, 260), recommended_contents: markers.map(x => x.tag), data_quality_notice: s.data_quality.message, data_quality: quality, fallback_used: !ai, closing_message: closingMessage, summary: str(ai?.summary, fallback), interpretation: str(ai?.summary, fallback), patterns: patterns.length ? patterns : [fallback], attentionPoints: texts(ai?.attention_points, 260), improvementMoments: texts(ai?.improvement_moments, 260).join(' ') || 'Continue observando os pequenos momentos que ajudaram.', topEmotions: s.dominant_emotions.map(x => ({ ...x, emoji: '•' })), avgEnergy: s.averages.energy, avgAnxiety: s.averages.anxiety, avgMood: s.averages.mood, emotionalMarkers: markers, topContexts: s.contexts, comparison: [], nextSteps: texts(ai?.next_steps, 260), recommendTags: markers.map(x => x.tag), energyByDay: daily.energy, anxietyByDay: daily.anxiety, checkinCount: s.total_checkins, diaryCount: s.total_main_diaries + s.total_addons, dominantEmotion: s.dominant_emotions[0]?.label || null, topEmotionalMarker: markers[0]?.tag || null,
+      kind, v: 10, title: 'Sua leitura semanal', report_type: 'weekly', period_start: s.period_start, period_end: s.period_end, period_label: `${s.period_start} a ${s.period_end}`, questionnaire_signals: s.questionnaire_signals, short_summary: str(ai?.summary, fallback), what_most_appeared: whatMostAppeared, emotional_markers_reading: emotionalMarkersReading, contexts_reading: contextsReading, needs_reading: needsReading, care_actions_reading: careActionsReading, week_in_numbers: { active_days: s.active_days, checkins_count: s.total_checkins, diaries_count: s.total_main_diaries, addons_count: s.total_addons, total_entries: s.total_entries }, dominant_emotions: s.dominant_emotions, emotional_markers: markers, main_contexts: s.contexts, main_needs: s.needs, care_actions_used: s.care_actions, energy_anxiety_sleep_summary: `Energia média ${s.averages.energy || '—'}, ansiedade média ${s.averages.anxiety || '—'} e sono médio ${s.averages.sleep || '—'}.`, energy_by_day: daily.energy, anxiety_by_day: daily.anxiety, sleep_by_day: daily.sleep, mood_by_day: daily.mood, markers_by_day: daily.markers, context_distribution: distributions.contexts, need_distribution: distributions.needs, care_action_distribution: distributions.care_actions, observed_patterns: patterns.length ? patterns : [fallback], attention_points: texts(ai?.attention_points, 260), gentle_next_steps: texts(ai?.next_steps, 260), recommended_contents: markers.map(x => x.tag), data_quality_notice: s.data_quality.message, data_quality: quality, fallback_used: !ai, closing_message: closingMessage, summary: str(ai?.summary, fallback), interpretation: str(ai?.summary, fallback), patterns: patterns.length ? patterns : [fallback], attentionPoints: texts(ai?.attention_points, 260), improvementMoments: texts(ai?.improvement_moments, 260).join(' ') || 'Continue observando os pequenos momentos que ajudaram.', topEmotions: s.dominant_emotions.map(x => ({ ...x, emoji: '•' })), avgEnergy: s.averages.energy, avgAnxiety: s.averages.anxiety, avgMood: s.averages.mood, emotionalMarkers: markers, topContexts: s.contexts, comparison: [], nextSteps: texts(ai?.next_steps, 260), recommendTags: markers.map(x => x.tag), energyByDay: daily.energy, anxietyByDay: daily.anxiety, checkinCount: s.total_checkins, diaryCount: s.total_main_diaries + s.total_addons, dominantEmotion: s.dominant_emotions[0]?.label || null, topEmotionalMarker: markers[0]?.tag || null,
     }
   }
   const comparison = compareSummaries(s, prevSummary)
@@ -273,13 +314,52 @@ function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string
   const comparisonReading = comparison.available ? str(ai?.comparison_with_previous_month_reading, comparison.message) : comparison.message
   const closingMessageMonthly = str(ai?.closing_message, 'Este é um retrato de autopercepção; vá no seu tempo.')
   return {
-    kind, v: 10, title: 'Seu relatório mensal aprofundado', report_type: 'monthly_deep', month_label: s.period_start.slice(0, 7), period_start: s.period_start, period_end: s.period_end, executive_summary: str(ai?.summary, fallback), main_emotional_markers_reading: mainMarkersReading, contexts_and_needs_reading: contextsAndNeedsReading, care_actions_observed_reading: careActionsObservedReading, real_triggers_reading: realTriggersReading, advanced_indicators_reading: advancedIndicatorsReading, attention_days_reading: attentionDaysReading, comparison_with_previous_month_reading: comparisonReading, month_timeline: monthTimelineOf(rows, s.period_start, s.period_end), emotional_patterns: patterns.length ? patterns : [fallback], main_emotional_markers: markers, dominant_emotions: s.dominant_emotions, recurring_contexts: s.contexts, recurring_needs: s.needs, care_actions_observed: s.care_actions, real_triggers: s.real_triggers, advanced_indicators: { stress: s.averages.stress, self_esteem: s.averages.selfEsteem, irritability: s.averages.irritability, overload: s.averages.overload }, energy_anxiety_sleep_relationship: energyAnxietySleepRelationship(rows), energy_by_week: weeksOf(rows, 'energy'), anxiety_by_week: weeksOf(rows, 'anxiety_level'), sleep_by_week: weeksOf(rows, 'sleep_quality'), mood_by_week: weeksOf(rows, 'mood_score'), marker_distribution: distributions.markers, context_distribution: distributions.contexts, need_distribution: distributions.needs, care_action_distribution: distributions.care_actions, trigger_distribution: distributions.triggers, attention_days: attentionDays, improvement_signals: texts(ai?.improvement_moments, 260), comparison_with_previous_month: comparisonLines, reflection_questions: texts(ai?.reflection_questions, 260), bridge_to_self_care_plan: 'Este relatório pode ajudar seu plano de autocuidado a escolher um ponto de atenção e uma ação leve para o próximo ciclo.', bridge_to_professional_guidance: 'Se fizer sentido, você pode levar um ponto deste relatório para sua orientação mensal.', data_quality_notice: s.data_quality.message, data_quality: quality, fallback_used: !ai, closing_message: closingMessageMonthly, hasEnoughData: s.data_quality.has_enough_data, summary: str(ai?.summary, fallback), patterns: patterns.length ? patterns : [fallback], narrative: [], relations: texts(ai?.relations, 320), avgEnergy: s.averages.energy, avgAnxiety: s.averages.anxiety, avgSleep: s.averages.sleep, topEmotions: s.dominant_emotions.map(x => ({ ...x, emoji: '•' })), topEmotionalMarkers: markers, topContexts: s.contexts, topNeeds: s.needs, energyByDay: daily.energy, anxietyByDay: daily.anxiety, checkinCount: s.total_checkins, diaryCount: s.total_main_diaries + s.total_addons, emotionalMarkers: markers, realTriggers: s.real_triggers, improvementMoments: texts(ai?.improvement_moments, 260).join(' '), reflectionQuestions: texts(ai?.reflection_questions, 260), attentionDays: attentionDays, monthlyComparison: comparisonLines, predominantEmotions: s.dominant_emotions.map(x => x.label).join(', ') || 'Ainda não há emoção predominante', energyAnxietySleep: energyAnxietySleepRelationship(rows), emotionalMarkersText: markersReadingFallback, bridgeToSelfCarePlan: 'Este relatório pode ajudar seu plano de autocuidado a escolher um ponto de atenção e uma ação leve para o próximo ciclo.', bridgeToProfessionalGuidance: 'Se fizer sentido, você pode levar um ponto deste relatório para sua orientação mensal.', recommendTags: markers.map(x => x.tag),
+    kind, v: 10, title: 'Seu relatório mensal aprofundado', report_type: 'monthly_deep', month_label: s.period_start.slice(0, 7), period_start: s.period_start, period_end: s.period_end, questionnaire_signals: s.questionnaire_signals, executive_summary: str(ai?.summary, fallback), main_emotional_markers_reading: mainMarkersReading, contexts_and_needs_reading: contextsAndNeedsReading, care_actions_observed_reading: careActionsObservedReading, real_triggers_reading: realTriggersReading, advanced_indicators_reading: advancedIndicatorsReading, attention_days_reading: attentionDaysReading, comparison_with_previous_month_reading: comparisonReading, month_timeline: monthTimelineOf(rows, s.period_start, s.period_end), emotional_patterns: patterns.length ? patterns : [fallback], main_emotional_markers: markers, dominant_emotions: s.dominant_emotions, recurring_contexts: s.contexts, recurring_needs: s.needs, care_actions_observed: s.care_actions, real_triggers: s.real_triggers, advanced_indicators: { stress: s.averages.stress, self_esteem: s.averages.selfEsteem, irritability: s.averages.irritability, overload: s.averages.overload }, energy_anxiety_sleep_relationship: energyAnxietySleepRelationship(rows), energy_by_week: weeksOf(rows, 'energy'), anxiety_by_week: weeksOf(rows, 'anxiety_level'), sleep_by_week: weeksOf(rows, 'sleep_quality'), mood_by_week: weeksOf(rows, 'mood_score'), marker_distribution: distributions.markers, context_distribution: distributions.contexts, need_distribution: distributions.needs, care_action_distribution: distributions.care_actions, trigger_distribution: distributions.triggers, attention_days: attentionDays, improvement_signals: texts(ai?.improvement_moments, 260), comparison_with_previous_month: comparisonLines, reflection_questions: texts(ai?.reflection_questions, 260), bridge_to_self_care_plan: 'Este relatório pode ajudar seu plano de autocuidado a escolher um ponto de atenção e uma ação leve para o próximo ciclo.', bridge_to_professional_guidance: 'Se fizer sentido, você pode levar um ponto deste relatório para sua orientação mensal.', data_quality_notice: s.data_quality.message, data_quality: quality, fallback_used: !ai, closing_message: closingMessageMonthly, hasEnoughData: s.data_quality.has_enough_data, summary: str(ai?.summary, fallback), patterns: patterns.length ? patterns : [fallback], narrative: [], relations: texts(ai?.relations, 320), avgEnergy: s.averages.energy, avgAnxiety: s.averages.anxiety, avgSleep: s.averages.sleep, topEmotions: s.dominant_emotions.map(x => ({ ...x, emoji: '•' })), topEmotionalMarkers: markers, topContexts: s.contexts, topNeeds: s.needs, energyByDay: daily.energy, anxietyByDay: daily.anxiety, checkinCount: s.total_checkins, diaryCount: s.total_main_diaries + s.total_addons, emotionalMarkers: markers, realTriggers: s.real_triggers, improvementMoments: texts(ai?.improvement_moments, 260).join(' '), reflectionQuestions: texts(ai?.reflection_questions, 260), attentionDays: attentionDays, monthlyComparison: comparisonLines, predominantEmotions: s.dominant_emotions.map(x => x.label).join(', ') || 'Ainda não há emoção predominante', energyAnxietySleep: energyAnxietySleepRelationship(rows), emotionalMarkersText: markersReadingFallback, bridgeToSelfCarePlan: 'Este relatório pode ajudar seu plano de autocuidado a escolher um ponto de atenção e uma ação leve para o próximo ciclo.', bridgeToProfessionalGuidance: 'Se fizer sentido, você pode levar um ponto deste relatório para sua orientação mensal.', recommendTags: markers.map(x => x.tag),
   }
 }
 
 // Banco sem Database types gerados: mantém o client administrativo flexível nesta Edge Function.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = any
+
+async function loadQuestionnaireSignals(admin: AdminClient, userId: string, start: string, end: string): Promise<QuestionnaireSignal[]> {
+  // PRIVACIDADE: nunca seleciona `answers`. O pipeline emocional recebe apenas
+  // resultado, pontuação, tags geradas e metadados do questionário.
+  const { data: responses, error } = await admin
+    .from('questionnaire_responses')
+    .select('questionnaire_id,total_score,generated_tags,result_id,completed_at')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('completed_at', `${start}T00:00:00-03:00`)
+    .lte('completed_at', `${end}T23:59:59.999-03:00`)
+    .not('questionnaire_id', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(20)
+  if (error || !responses?.length) return []
+
+  const ids = [...new Set(responses.map((row: Record<string, unknown>) => String(row.questionnaire_id || '')).filter(Boolean))]
+  const { data: questionnaires } = ids.length
+    ? await admin.from('questionnaires').select('id,title,category,results').in('id', ids)
+    : { data: [] }
+  const meta = new Map<string, Record<string, unknown>>((questionnaires || []).map((row: Record<string, unknown>) => [String(row.id), row]))
+
+  return responses.map((row: Record<string, unknown>) => {
+    const questionnaireId = String(row.questionnaire_id || '')
+    const q = meta.get(questionnaireId) || {}
+    const results = Array.isArray(q.results) ? q.results as Record<string, unknown>[] : []
+    const matched = results.find(result => String(result.id || '') === String(row.result_id || ''))
+    const score = Number(row.total_score)
+    return {
+      questionnaire_id: questionnaireId,
+      title: typeof q.title === 'string' && q.title.trim() ? q.title.trim().slice(0, 160) : 'Questionário concluído',
+      category: typeof q.category === 'string' ? q.category.trim().slice(0, 80) : '',
+      result_label: matched && typeof matched.label === 'string' ? matched.label.trim().slice(0, 160) : matched && typeof matched.title === 'string' ? matched.title.trim().slice(0, 160) : null,
+      total_score: Number.isFinite(score) ? score : null,
+      tags: questionnaireTags(row.generated_tags),
+      completed_at: String(row.completed_at || ''),
+    }
+  }).filter((signal: QuestionnaireSignal) => signal.questionnaire_id && signal.completed_at)
+}
 
 async function log(admin: AdminClient, row: Record<string, unknown>) {
   // Auditoria não pode impedir que um relatório já salvo chegue à pessoa.
@@ -337,7 +417,8 @@ Deno.serve(async (req) => {
       const { data: exists } = await admin.from('reports').select('id,status').eq('user_id', profile.user_id).eq('report_type', job.kind).eq('period_start', job.start).eq('period_end', job.end).maybeSingle()
       if (exists) { results.push(`${profile.user_id}:${job.kind}:já existe`); continue }
       const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', job.start).lte('date', job.end)
-      const summary = summaryOf((rows || []) as Record<string, unknown>[], job.start, job.end, plan, job.kind === 'monthly' ? 'monthly' : 'weekly')
+      const questionnaireSignals = await loadQuestionnaireSignals(admin, profile.user_id, job.start, job.end)
+      const summary = summaryOf((rows || []) as Record<string, unknown>[], job.start, job.end, plan, job.kind === 'monthly' ? 'monthly' : 'weekly', questionnaireSignals)
       let prevSummary: Summary | null = null
       if (job.kind === 'monthly') {
         const prevStart = isoDay(prevMonthStart), prevEnd = isoDay(prevMonthEnd)
@@ -366,7 +447,8 @@ Deno.serve(async (req) => {
       const { data: existingPlan } = await admin.from('monthly_care_plans').select('id,status').eq('user_id', profile.user_id).eq('period_start', careStart).eq('period_end', careEnd).maybeSingle()
       if (!existingPlan) {
         const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', careStart).lte('date', careEnd)
-        const s = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly')
+        const questionnaireSignals = await loadQuestionnaireSignals(admin, profile.user_id, careStart, careEnd)
+        const s = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly', questionnaireSignals)
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
         try { const generated = await generate(prompt('self_care_plan', s)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
         const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
