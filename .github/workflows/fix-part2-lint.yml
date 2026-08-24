@@ -1,0 +1,49 @@
+name: Fix Part 2 Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'feat/questionnaire-emotional-signals'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/questionnaire-emotional-signals
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+      - name: Apply exact lint fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx')
+          text = path.read_text()
+          old = "          const matched = (Array.isArray(q?.results) ? q?.results : []).find(result => String(result.id || '') === String(row.result_id || ''))"
+          new = "          const results = Array.isArray(q?.results) ? q.results : []\n          const matched = results.find(result => String(result.id || '') === String(row.result_id || ''))"
+          if old not in text:
+              raise SystemExit('âncora do lint não encontrada')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Validate lint fix
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+        run: |
+          npm ci
+          node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
+          npm run typecheck
+          npm run lint
+      - name: Commit validated fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx
+          git commit -m "fix: tornar leitura de resultados segura para lint"
+          git push origin HEAD:feat/questionnaire-emotional-signals
