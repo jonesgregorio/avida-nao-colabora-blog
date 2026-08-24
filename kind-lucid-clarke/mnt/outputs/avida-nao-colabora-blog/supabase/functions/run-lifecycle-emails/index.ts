@@ -225,13 +225,28 @@ Deno.serve(async (req) => {
 
   // ── Relatório semanal (só segundas, Essencial+, com registros recentes) ──
   if (isMonday) {
+    // O relatório precisa existir de verdade (status='generated') antes de
+    // avisar por e-mail — mesma checagem já aplicada em notify_weekly_reports
+    // (migration 20260824210000). Sem isso, uma falha pontual na geração
+    // ainda dispararia e-mail apontando para um relatório inexistente.
+    const dow = now.getUTCDay()
+    const sundayThisWeek = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow)
+    const weekStart = dayStamp(new Date(sundayThisWeek - 7 * DAY))
+    const weekEnd = dayStamp(new Date(sundayThisWeek - 1 * DAY))
+    const { data: weeklyReports } = await admin.from('reports')
+      .select('user_id')
+      .eq('report_type', 'weekly').eq('status', 'generated')
+      .eq('period_start', weekStart).eq('period_end', weekEnd)
+    const usersWithWeeklyReport = new Set((weeklyReports ?? []).map((r: { user_id: string }) => r.user_id))
+
     for (const u of users) {
       if (sent >= MAX_PER_RUN) break
       if ((PLAN_RANK[u.plan] ?? 0) < 1) continue
       if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
       // Só avisa "relatório pronto" se houve ≥1 registro nos últimos 7 dias
-      // (evita e-mail sobre um relatório vazio).
+      // (evita e-mail sobre um relatório vazio) E se o relatório já existe.
       if ((recent7.get(u.user_id) ?? 0) < 1) continue
+      if (!usersWithWeeklyReport.has(u.user_id)) continue
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
       if (await send(u.email, 'weekly_report_available', { nome, link_relatorio: `${SITE}/meu-plano` }, `weekly_report:${u.user_id}:${isoWeek(now)}`, u.user_id)) summary.weekly_report++
     }
@@ -242,10 +257,20 @@ Deno.serve(async (req) => {
   // Regra do usuário: enviar a todo Plus ativo no início do mês seguinte.
   if (diaDoMes === 1) {
     const prevMo = monthStamp(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)))
+    const prevMonthStart = dayStamp(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)))
+    const prevMonthEnd = dayStamp(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)))
+    // Mesma checagem de existência real do relatório antes de notificar (ver acima).
+    const { data: monthlyReports } = await admin.from('reports')
+      .select('user_id')
+      .eq('report_type', 'monthly').eq('status', 'generated')
+      .eq('period_start', prevMonthStart).eq('period_end', prevMonthEnd)
+    const usersWithMonthlyReport = new Set((monthlyReports ?? []).map((r: { user_id: string }) => r.user_id))
+
     for (const u of users) {
       if (sent >= MAX_PER_RUN) break
       if (tierOf(u.plan) !== 'plus') continue
       if (u.subscription_status && !['active', 'trialing'].includes(u.subscription_status)) continue
+      if (!usersWithMonthlyReport.has(u.user_id)) continue
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
       if (await send(u.email, 'monthly_report_available', { nome, link_relatorios: `${SITE}/meu-relatorio` }, `monthly_report:${u.user_id}:${prevMo}`, u.user_id)) summary.monthly_report++
     }
