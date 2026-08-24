@@ -39,6 +39,15 @@ test('IA é opcional, não clínica e devolve recompensa depois de escrever', ()
   assert.match(edge, /causa/)
 })
 
+test('opt-out impede envio do registro à IA em início, organização, espelho e continuidade', () => {
+  assert.match(diary, /if \(!aiAllowed\) \{\s*setHelperPrompt\(fallback\)/)
+  assert.match(diary, /if \(!aiAllowed\) \{ setOrganizedCandidate\(''\)/)
+  assert.match(diary, /isEssential && aiAllowed && draft\.trim\(\)\.length >= 10/)
+  assert.match(diary, /if \(!aiAllowed \|\| !String\(entry\.text \|\| ''\)\.trim\(\)\)/)
+  assert.match(diary, /if \(entry\.ai_disabled !== true\)/)
+  assert.match(diary, /Análise de IA desativada para este registro/)
+})
+
 test('IA não relê silenciosamente textos antigos para buscar padrões', () => {
   assert.match(edge, /select\('date,mood,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags,energy,anxiety_level'\)/)
   assert.equal(edge.includes("select('date,mood,text,"), false)
@@ -92,11 +101,12 @@ test('planos preservam Free, Essencial e Plus sem voltar a criar complementos', 
   assert.match(diary, /isPlus/)
 })
 
-test('ditado e organização não substituem silenciosamente o texto original', () => {
+test('ditado e organização preservam o texto original intacto', () => {
   assert.match(diary, /Prefiro falar/)
   assert.match(diary, /Organizar minha escrita/)
-  assert.match(diary, /Usar esta versão/)
-  assert.match(diary, /Manter meu texto/)
+  assert.match(diary, /Seu texto original permanece intacto no editor/)
+  assert.match(diary, /Esta versão não substitui nem altera o que você escreveu/)
+  assert.equal(diary.includes('setDraft(organizedCandidate)'), false)
   assert.match(edge, /mantendo a PRIMEIRA PESSOA/)
   assert.match(migration, /nunca é\n-- substituído automaticamente/)
 })
