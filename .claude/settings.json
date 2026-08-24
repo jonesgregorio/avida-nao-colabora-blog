@@ -1,0 +1,39 @@
+{
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: Supabase (project lejvvhzluggyxlfwfoxl.supabase.co); Stripe (payments)",
+      "**Repository visibility**: PUBLIC — github.com/jonesgregorio/avida-nao-colabora-blog",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: CI secret SUPABASE_ACCESS_TOKEN (deploy key exists; value not exposed); Stripe secret keys and Supabase service_role keys must never be exposed in frontend, logs, commits, or public docs (per CLAUDE.md)",
+      "**Default / protected branches**: main (default). Rulesets: none listed. Protected branches: none listed via gh — repo is public with no confirmed branch protection; CONTRIBUTING.md states PR + status checks should be required on GitHub but this is not confirmed by the gh check",
+      "**CI/CD deploy targets**: .github/workflows/ci.yml (test/typecheck/lint/build gate); Supabase Edge Functions (run-automations, run-emotional-automations, stripe-webhook, create-checkout, manage-subscription)",
+      "**Network posture**: None configured",
+      "**Source control**: The trusted repo (github.com/jonesgregorio/avida-nao-colabora-blog) and its origin remote only",
+      "**Trusted internal domains**: www.avidanaocolabora.com, avidanaocolabora.com (this project's production site, contacted in transcripts)",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: lejvvhzluggyxlfwfoxl.supabase.co (this project's Supabase backend, contacted in transcripts)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: emotional_tags, trigger_tags, context_tags, need_tags, care_action_tags (user emotional/diary data in the app's data model per CLAUDE.md) — treat as personal/sensitive data, share only with audiences cleared at the named+specifics bar; Stripe secrets, service_role keys, and AI API keys must never appear in frontend, logs, commits, or public docs",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries prod or production as a whole word or segment; Supabase production project (lejvvhzluggyxlfwfoxl.supabase.co) treated as the live backend — avoid direct production database/RLS/cron/RPC/Edge Function changes outside code+PR flow per CLAUDE.md",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic; Stripe flows (create-checkout, stripe-webhook, manage-subscription) are called out in CLAUDE.md as critical and not to be touched as a side effect of unrelated tasks",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries prod or production as a whole word or segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (this repo: 'A Vida Não Colabora' — Next.js/Supabase/Stripe blog-and-app project)",
+      "**Trusted repo**: github.com/jonesgregorio/avida-nao-colabora-blog (public) — working directory C:\\Users\\jones\\avida-nao-colabora-blog; app code lives under kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog per CLAUDE.md. Public repo: only this repo's own work belongs here — no porting content from other sessions/repos. Confidential material (Stripe/Supabase secrets, service_role keys, user emotional data) is never cleared into this repo regardless of visibility",
+      "**Org-specific CLIs**: supabase (CLI, used routinely), stripe (CLI, used for payment flows — treat as sensitive given Stripe critical-flow warning in CLAUDE.md)",
+      "No additional 'routine under <user>/ prefix' qualifiers found"
+    ],
+    "allow": [],
+    "soft_deny": [
+      "$defaults",
+      "Bash(stripe:trigger*)",
+      "Bash(supabase:db reset*)",
+      "Bash(supabase db push*)",
+      "Bash(supabase functions deploy*)"
+    ],
+    "hard_deny": []
+  }
+}
