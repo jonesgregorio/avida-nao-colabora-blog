@@ -1,0 +1,62 @@
+name: Apply Part 2 Transparency V2
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'feat/questionnaire-emotional-signals'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/questionnaire-emotional-signals
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+      - name: Apply exact source edits
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog')
+          evolution = root / 'src/components/MyEvolutionPage.tsx'
+          e = evolution.read_text()
+          old = "      })\n      .catch(() => setSummary(emptyQuestionnaireSignals))"
+          if old in e:
+              evolution.write_text(e.replace(old, "      }, () => setSummary(emptyQuestionnaireSignals))", 1))
+
+          report = root / 'src/components/MyReportPageContent.tsx'
+          r = report.read_text()
+          if 'Questionários considerados neste relatório' not in r:
+              marker = '// ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────'
+              block = '''type QuestionnaireReportSignals = {\n  completed_count?: number\n  top_tags?: { tag?: string; count?: number }[]\n  latest_results?: { questionnaire_id?: string; title?: string; result_label?: string | null }[]\n}\n\nfunction QuestionnaireReportContext({ content }: { content: unknown }) {\n  const signals = (content as { questionnaire_signals?: QuestionnaireReportSignals } | null)?.questionnaire_signals\n  const count = Number(signals?.completed_count ?? 0)\n  if (!Number.isFinite(count) || count <= 0) return null\n  const tags = Array.isArray(signals?.top_tags) ? signals.top_tags.filter(item => item?.tag).slice(0, 6) : []\n  const latest = Array.isArray(signals?.latest_results) ? signals.latest_results.filter(item => item?.title).slice(0, 4) : []\n  return (\n    <section className="mb-4 rounded-2xl border border-line bg-mint/25 p-4 sm:p-5">\n      <div className="flex items-start gap-3">\n        <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><Check className="w-4 h-4" /></span>\n        <div className="min-w-0 flex-1">\n          <h3 className="text-sm font-semibold text-forest-900">Questionários considerados neste relatório</h3>\n          <p className="mt-1 text-xs leading-relaxed text-ink-soft">Este relatório usou apenas resultado, pontuação e tags estruturadas de {count} questionário{count === 1 ? '' : 's'} concluído{count === 1 ? '' : 's'} no período. Respostas abertas não foram lidas por esta análise.</p>\n        </div>\n      </div>\n      {tags.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{tags.map(item => <span key={String(item.tag)} className="rounded-full bg-white px-2.5 py-1 text-[11px] text-forest-700">{item.tag}{Number(item.count) > 1 ? ` · ${item.count}x` : ''}</span>)}</div>}\n      {latest.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{latest.map((item, index) => <div key={`${item.questionnaire_id || index}-${index}`} className="rounded-xl border border-line/70 bg-white/80 px-3 py-2"><p className="text-xs font-medium text-forest-900 truncate">{item.title}</p>{item.result_label && <p className="mt-0.5 text-[11px] text-ink-soft">Resultado: {item.result_label}</p>}</div>)}</div>}\n      <p className="mt-3 text-[11px] text-ink-soft">Esses sinais complementam o contexto; não contam como registros do Diário e, isoladamente, não são tratados como padrão, diagnóstico ou causa.</p>\n    </section>\n  )\n}\n\n'''
+              if marker not in r:
+                  raise SystemExit('report marker ausente')
+              r = r.replace(marker, block + marker, 1)
+              target = '<ReportBody report={viewer.report} plan={plan} {...nav} />'
+              if r.count(target) != 1:
+                  raise SystemExit('ReportBody viewer não único')
+              r = r.replace(target, '<><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>', 1)
+              report.write_text(r)
+          PY
+      - name: Validate
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+        run: |
+          npm ci
+          node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
+          npm run typecheck
+      - name: Commit validated source
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyReportPageContent.tsx
+          git commit -m "fix: tipagem e transparência dos questionários"
+          git push origin HEAD:feat/questionnaire-emotional-signals
