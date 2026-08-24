@@ -25,13 +25,13 @@ jobs:
           else
             echo "applied=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Apply and validate patch with explicit app prefix
+      - name: Apply product patch and validate committed test
         if: steps.state.outputs.applied != 'true'
         run: |
           cat .github/part2.patch.gz.b64.1 .github/part2.patch.gz.b64.2 | base64 -d | gzip -d > "$RUNNER_TEMP/part2.patch"
           APP_DIR="kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog"
-          git apply --check --directory="$APP_DIR" "$RUNNER_TEMP/part2.patch"
-          git apply --directory="$APP_DIR" "$RUNNER_TEMP/part2.patch"
+          git apply --check --directory="$APP_DIR" --exclude='tests/questionnaireEmotionalIntegration.test.ts' "$RUNNER_TEMP/part2.patch"
+          git apply --directory="$APP_DIR" --exclude='tests/questionnaireEmotionalIntegration.test.ts' "$RUNNER_TEMP/part2.patch"
           git status --short
           cd "$APP_DIR"
           node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
