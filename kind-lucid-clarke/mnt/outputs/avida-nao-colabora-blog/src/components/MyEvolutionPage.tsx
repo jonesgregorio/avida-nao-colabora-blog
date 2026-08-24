@@ -419,7 +419,8 @@ function useQuestionnaireSignals(userId: string | undefined, selectedMonth: stri
         const signals: QuestionnaireSignalView[] = rows.map(row => {
           const questionnaireId = String(row.questionnaire_id || '')
           const q = meta.get(questionnaireId) as { title?: string; category?: string; results?: { id?: string; label?: string; title?: string }[] } | undefined
-          const matched = (Array.isArray(q?.results) ? q?.results : []).find(result => String(result.id || '') === String(row.result_id || ''))
+          const results = Array.isArray(q?.results) ? q.results : []
+          const matched = results.find(result => String(result.id || '') === String(row.result_id || ''))
           const score = Number(row.total_score)
           return {
             questionnaireId,
