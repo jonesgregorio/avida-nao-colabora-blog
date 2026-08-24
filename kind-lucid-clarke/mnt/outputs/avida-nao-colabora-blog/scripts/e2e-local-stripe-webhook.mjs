@@ -26,6 +26,18 @@
 //     -> replay do mesmo evento, assinatura inválida, price não mapeado,
 //        metadata de usuário divergente.
 //
+//   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs payment-failed <customerId> <userId> [subscriptionId]
+//     -> forja um invoice.payment_failed real o suficiente (mesmo esquema de
+//        assinatura HMAC) e confirma que o plano NÃO muda e que
+//        user_subscriptions.last_payment_failed_at é registrado.
+//
+//   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan>
+//     -> troca o price de uma assinatura REAL via API da Stripe
+//        (subscriptions.update), entrega o customer.subscription.updated
+//        resultante ao webhook e confirma profiles.plan/user_subscriptions.
+//        Serve tanto para upgrade quanto para downgrade — só muda o price e
+//        o expectedPlan passados.
+//
 //   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs cleanup <userId> [subscriptionId]
 //     -> cancela a assinatura de teste na Stripe e remove o usuário local.
 
@@ -169,12 +181,15 @@ async function cmdVerify(customerId, userId, plan) {
   }
   if (results.length === 0) throw new Error('Nenhum evento real encontrado — o checkout foi concluído no navegador?')
 
+  let subscriptionId = null
   for (const event of results) {
     const delivery = await deliverWebhook(event)
     console.log(`--- entregando ${event.type} (evt ${event.id}) ---`)
     console.log('HTTP', delivery.status, delivery.body.slice(0, 300))
     if (delivery.status >= 300) throw new Error(`Webhook rejeitou ${event.type}: HTTP ${delivery.status}`)
+    if (event.type === 'customer.subscription.created') subscriptionId = event.data.object.id
   }
+  if (subscriptionId) console.log('subscriptionId (para plan-change/cleanup):', subscriptionId)
 
   // Confirma estado no banco local.
   const profileRow = psql(`SELECT plan, stripe_customer_id FROM public.profiles WHERE user_id = '${userId}'::uuid`)
@@ -268,6 +283,79 @@ async function cmdEdgeCases(customerId, userId) {
   console.log('Casos extremos concluídos.')
 }
 
+async function cmdPaymentFailed(customerId, userId, subscriptionId) {
+  const planBefore = psql(`SELECT plan FROM public.profiles WHERE user_id = '${userId}'::uuid`)
+
+  const event = {
+    id: 'evt_e2e_paymentfailed_' + randomUUID().slice(0, 12),
+    object: 'event',
+    type: 'invoice.payment_failed',
+    created: Math.floor(Date.now() / 1000),
+    data: {
+      object: {
+        id: 'in_e2e_' + randomUUID().slice(0, 8),
+        object: 'invoice',
+        customer: customerId,
+        subscription: subscriptionId || null,
+        amount_due: 3990,
+        attempt_count: 1,
+        billing_reason: 'subscription_cycle',
+      },
+    },
+  }
+
+  const delivery = await deliverWebhook(event)
+  console.log('HTTP', delivery.status, delivery.body.slice(0, 200))
+  if (delivery.status >= 300) throw new Error(`Webhook rejeitou invoice.payment_failed: HTTP ${delivery.status}`)
+
+  const planAfter = psql(`SELECT plan FROM public.profiles WHERE user_id = '${userId}'::uuid`)
+  console.log('profiles.plan antes/depois (não deve mudar):', planBefore, '->', planAfter)
+  if (planBefore !== planAfter) throw new Error(`BUG: invoice.payment_failed alterou o plano (${planBefore} -> ${planAfter})`)
+
+  const subRow = psql(`SELECT last_payment_failed_at FROM public.user_subscriptions WHERE user_id = '${userId}'::uuid ORDER BY updated_at DESC LIMIT 1`)
+  console.log('user_subscriptions.last_payment_failed_at ->', subRow || '(vazio)')
+  if (!subRow) throw new Error('BUG: last_payment_failed_at não foi registrado')
+
+  console.log('OK: plano preservado e falha de pagamento registrada.')
+}
+
+async function cmdPlanChange(subscriptionId, newPriceId, userId, expectedPlan) {
+  const current = await stripeGet(`subscriptions/${subscriptionId}`)
+  const itemId = current.items.data[0]?.id
+  if (!itemId) throw new Error(`Item da assinatura ${subscriptionId} não encontrado`)
+
+  const planBefore = psql(`SELECT plan FROM public.profiles WHERE user_id = '${userId}'::uuid`)
+
+  const updated = await stripePost(`subscriptions/${subscriptionId}`, {
+    'items[0][id]': itemId,
+    'items[0][price]': newPriceId,
+    proration_behavior: 'none',
+  })
+
+  const event = {
+    id: 'evt_e2e_planchange_' + randomUUID().slice(0, 12),
+    object: 'event',
+    type: 'customer.subscription.updated',
+    created: Math.floor(Date.now() / 1000),
+    data: { object: updated },
+  }
+
+  const delivery = await deliverWebhook(event)
+  console.log('HTTP', delivery.status, delivery.body.slice(0, 200))
+  if (delivery.status >= 300) throw new Error(`Webhook rejeitou customer.subscription.updated: HTTP ${delivery.status}`)
+
+  const planAfter = psql(`SELECT plan FROM public.profiles WHERE user_id = '${userId}'::uuid`)
+  console.log('profiles.plan:', planBefore, '->', planAfter)
+  if (planAfter !== expectedPlan) throw new Error(`esperado plan=${expectedPlan} obtido=${planAfter}`)
+
+  const subRow = psql(`SELECT plan_key, status FROM public.user_subscriptions WHERE user_id = '${userId}'::uuid ORDER BY updated_at DESC LIMIT 1`)
+  console.log('user_subscriptions ->', subRow)
+  const [subPlan] = subRow.split('|').map((s) => s.trim())
+  if (subPlan !== expectedPlan) throw new Error(`user_subscriptions.plan_key esperado=${expectedPlan} obtido=${subPlan}`)
+
+  console.log(`OK: assinatura migrada para ${expectedPlan}.`)
+}
+
 async function cmdCleanup(userId, subscriptionId) {
   if (subscriptionId) {
     try {
@@ -290,9 +378,11 @@ try {
   if (command === 'checkout') await cmdCheckout(args[0])
   else if (command === 'verify') await cmdVerify(args[0], args[1], args[2])
   else if (command === 'edge-cases') await cmdEdgeCases(args[0], args[1])
+  else if (command === 'payment-failed') await cmdPaymentFailed(args[0], args[1], args[2])
+  else if (command === 'plan-change') await cmdPlanChange(args[0], args[1], args[2], args[3])
   else if (command === 'cleanup') await cmdCleanup(args[0], args[1])
   else {
-    console.error('Uso: checkout <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | cleanup <userId> [subscriptionId]')
+    console.error('Uso: checkout <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | payment-failed <customerId> <userId> [subscriptionId] | plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan> | cleanup <userId> [subscriptionId]')
     process.exit(1)
   }
 } catch (err) {
