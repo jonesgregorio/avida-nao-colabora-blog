@@ -6,6 +6,7 @@ import { join } from 'node:path'
 const root = process.cwd()
 const runner = readFileSync(join(root, 'supabase/functions/run-emotional-automations/runner.ts'), 'utf8')
 const map = readFileSync(join(root, 'src/components/MyEvolutionPage.tsx'), 'utf8')
+const report = readFileSync(join(root, 'src/components/MyReportPageContent.tsx'), 'utf8')
 
 test('automação emocional usa apenas sinais estruturados dos questionários', () => {
   assert.match(runner, /from\('questionnaire_responses'\)/)
@@ -35,3 +36,4 @@ test('Mapa Emocional mostra questionários como contexto separado e não lê res
   const hook = map.slice(map.indexOf('function useQuestionnaireSignals'), map.indexOf('function QuestionnaireSignalsCard'))
   assert.doesNotMatch(hook, /\.select\([^)]*answers[^)]*\)/s)
 })
+

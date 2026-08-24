@@ -362,6 +362,118 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
   return { stats, loading }
 }
 
+// ─── Sinais estruturados de questionários ────────────────────────────────────
+
+type QuestionnaireSignalView = {
+  questionnaireId: string
+  title: string
+  category: string
+  resultLabel: string | null
+  totalScore: number | null
+  tags: string[]
+  completedAt: string
+}
+type QuestionnaireSignalSummary = { completedCount: number; topTags: { tag: string; count: number }[]; latest: QuestionnaireSignalView[] }
+const emptyQuestionnaireSignals: QuestionnaireSignalSummary = { completedCount: 0, topTags: [], latest: [] }
+
+function parseQuestionnaireTags(value: unknown): string[] {
+  if (Array.isArray(value)) return [...new Set(value.map(String).map(v => v.trim()).filter(Boolean))].slice(0, 12)
+  if (typeof value !== 'string' || !value.trim()) return []
+  const raw = value.trim()
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return [...new Set(parsed.map(String).map(v => v.trim()).filter(Boolean))].slice(0, 12)
+    } catch { /* legado em CSV abaixo */ }
+  }
+  return [...new Set(raw.split(',').map(v => v.trim()).filter(Boolean))].slice(0, 12)
+}
+
+function useQuestionnaireSignals(userId: string | undefined, selectedMonth: string) {
+  const [summary, setSummary] = useState<QuestionnaireSignalSummary>(emptyQuestionnaireSignals)
+  useEffect(() => {
+    if (!userId) { setSummary(emptyQuestionnaireSignals); return }
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const next = new Date(Date.UTC(year, month, 1))
+    const nextMonth = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`
+    const start = `${selectedMonth}-01T00:00:00-03:00`
+    const end = `${nextMonth}-01T00:00:00-03:00`
+
+    // PRIVACIDADE: não seleciona `answers`; respostas abertas não entram no Mapa.
+    supabase.from('questionnaire_responses')
+      .select('questionnaire_id,total_score,generated_tags,result_id,completed_at')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .gte('completed_at', start)
+      .lt('completed_at', end)
+      .order('completed_at', { ascending: false })
+      .limit(20)
+      .then(async ({ data }) => {
+        const rows = data ?? []
+        if (!rows.length) { setSummary(emptyQuestionnaireSignals); return }
+        const ids = [...new Set(rows.map(row => String(row.questionnaire_id || '')).filter(Boolean))]
+        const { data: questionnaires } = ids.length
+          ? await supabase.from('questionnaires').select('id,title,category,results').in('id', ids)
+          : { data: [] }
+        const meta = new Map((questionnaires ?? []).map(row => [String(row.id), row]))
+        const signals: QuestionnaireSignalView[] = rows.map(row => {
+          const questionnaireId = String(row.questionnaire_id || '')
+          const q = meta.get(questionnaireId) as { title?: string; category?: string; results?: { id?: string; label?: string; title?: string }[] } | undefined
+          const matched = (Array.isArray(q?.results) ? q?.results : []).find(result => String(result.id || '') === String(row.result_id || ''))
+          const score = Number(row.total_score)
+          return {
+            questionnaireId,
+            title: q?.title?.trim() || 'Questionário concluído',
+            category: q?.category?.trim() || '',
+            resultLabel: matched?.label?.trim() || matched?.title?.trim() || null,
+            totalScore: Number.isFinite(score) ? score : null,
+            tags: parseQuestionnaireTags(row.generated_tags),
+            completedAt: String(row.completed_at || ''),
+          }
+        }).filter(signal => signal.questionnaireId && signal.completedAt)
+        const counts = new Map<string, number>()
+        signals.flatMap(signal => signal.tags).forEach(tag => counts.set(tag, (counts.get(tag) ?? 0) + 1))
+        setSummary({
+          completedCount: signals.length,
+          topTags: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count })),
+          latest: signals.slice(0, 4),
+        })
+      })
+      .catch(() => setSummary(emptyQuestionnaireSignals))
+  }, [userId, selectedMonth])
+  return summary
+}
+
+function QuestionnaireSignalsCard({ summary }: { summary: QuestionnaireSignalSummary }) {
+  if (!summary.completedCount) return null
+  return (
+    <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><CheckCircle2 className="w-4 h-4" /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-serif text-base sm:text-lg text-forest-900">Questionários que complementam este mês</h3>
+          <p className="text-xs text-ink-soft mt-1">Usamos apenas resultado, pontuação e tags estruturadas. Suas respostas abertas não são lidas nesta análise.</p>
+        </div>
+        <span className="text-xs font-medium bg-mint text-forest-700 rounded-full px-2.5 py-1 whitespace-nowrap">{summary.completedCount} concluído{summary.completedCount === 1 ? '' : 's'}</span>
+      </div>
+      {summary.topTags.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {summary.topTags.map(item => <span key={item.tag} className="bg-mint/70 text-forest-700 text-xs px-3 py-1 rounded-full">{item.tag}{item.count > 1 ? ` · ${item.count}x` : ''}</span>)}
+        </div>
+      )}
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {summary.latest.map(signal => (
+          <div key={`${signal.questionnaireId}-${signal.completedAt}`} className="rounded-xl border border-line bg-white/70 p-3">
+            <p className="text-sm font-medium text-forest-900 truncate">{signal.title}</p>
+            <p className="text-xs text-ink-soft mt-1">{signal.resultLabel ? `Resultado: ${signal.resultLabel}` : 'Resultado estruturado considerado como contexto complementar.'}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-ink-soft mt-3">Esses sinais não alteram suas médias de humor, energia ou ansiedade e, sozinhos, não são tratados como padrão recorrente.</p>
+    </section>
+  )
+}
+
 // ─── ABA: Resumo ─────────────────────────────────────────────────────────────
 
 const Y_LABELS: Record<number, string> = { 1: 'Muito difícil', 2: 'Difícil', 3: 'Neutro', 4: 'Bem', 5: 'Ótimo' }
@@ -421,6 +533,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
   const { stats, loading } = useDiaryStats(user?.id, selectedMonth)
+  const questionnaireSignals = useQuestionnaireSignals(user?.id, selectedMonth)
   const isPlus = hasPlan(plan, 'plus')
   // Só busca entries pra Conexões do mês quando o plano realmente usa o card
   // (Plus renderiza completo; useMonthAnalysis já tem seu próprio loading interno).
@@ -514,6 +627,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
+      <QuestionnaireSignalsCard summary={questionnaireSignals} />
+
       {/* Linha do tempo emocional */}
       {chartData.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
@@ -567,7 +682,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         <div className="rounded-3xl border border-line bg-paper-soft px-6 py-5 flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Leaf className="w-4 h-4" /></span>
           <p className="text-sm text-forest-800 leading-relaxed">
-            No plano Plus, o seu Mapa Emocional também alimenta o <strong>relatório mensal aprofundado</strong>, o <strong>plano de autocuidado</strong> e a <strong>orientação mensal</strong>. Quanto mais você registra no diário, mais personalizado fica esse acompanhamento.
+            No plano Plus, o seu Mapa Emocional também alimenta o <strong>relatório mensal aprofundado</strong>, o <strong>plano de autocuidado</strong> e a <strong>orientação mensal</strong>. Registros do diário continuam sendo a base principal, e resultados estruturados de questionários concluídos podem complementar o contexto sem usar respostas abertas.
           </p>
         </div>
       )}
