@@ -106,7 +106,9 @@ async function openDiary(page, plan, viewport) {
 
 async function openWritingMode(page) {
   await page.getByRole('button', { name: 'Meu diário' }).click()
-  await expect(page.getByRole('button', { name: 'Só quero escrever' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Preciso de ajuda para começar' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adicionar detalhes opcionais' })).toBeVisible()
 }
 
 async function installVoiceMocks(page, { permissionState = 'granted', denyMicrophone = false } = {}) {
@@ -195,38 +197,61 @@ test('Gratuito mantém check-in simples, limite visível e histórico sem PDF', 
   await expect(page.getByText('Plano Gratuito')).toBeVisible()
   await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
   await expect(page.getByLabel('Energia')).toHaveCount(0)
-  await expect(page.getByText('Detalhes avançados Plus')).toHaveCount(0)
+  await expect(page.getByText('Quero refletir mais sobre este registro')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Histórico' }).click()
   await expect(page.getByRole('heading', { name: /Sua história deste mês/i })).toBeVisible()
   await expect(page.getByRole('button', { name: /Exportar PDF/i })).toHaveCount(0)
 })
 
-test('Essencial respeita opt-out integral e preserva o texto original', async ({ page }) => {
+test('Diário completo abre minimalista e revela ajuda somente sob demanda', async ({ page }) => {
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openWritingMode(page)
+
+  await expect(page.getByRole('button', { name: 'Sugira uma pergunta' })).toHaveCount(0)
+  await expect(page.getByText('Quais sentimentos apareceram?')).toHaveCount(0)
+  await expect(page.getByText('Quero refletir mais sobre este registro')).toHaveCount(0)
+  await expect(page.getByText('Só quero escrever')).toHaveCount(0)
+  await expect(page.getByText('Me ajude a começar')).toHaveCount(0)
+  await expect(page.getByText('Não sei o que escrever')).toHaveCount(0)
+
+  await page.screenshot({ path: 'test-results/diary-visual/plus-desktop-minimal.png', fullPage: true })
+
+  await page.getByRole('button', { name: 'Preciso de ajuda para começar' }).click()
+  await expect(page.getByRole('button', { name: 'Sugira uma pergunta' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Minha cabeça está cheia' })).toBeVisible()
+})
+
+test('Essencial respeita opt-out integral, preserva o original e mantém organização recolhida', async ({ page }) => {
   await openDiary(page, 'essential', { width: 1440, height: 900 })
   await openWritingMode(page)
   await page.getByRole('button', { name: /Bem-estar/i }).click()
   const editor = page.getByRole('textbox', { name: 'Texto do diário' })
   const original = 'Hoje foi um dia cheio, mas consegui terminar uma tarefa importante e quero registrar isso.'
   await editor.fill(original)
-  await expect(page.getByRole('button', { name: /Organizar minha escrita/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Organizar o que já escrevi/i })).toHaveCount(0)
 
-  await page.getByLabel('Salvar este registro sem análise de IA').check()
-  await expect(page.getByRole('button', { name: /Organizar minha escrita/i })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Preciso de ajuda para começar' }).click()
+  await expect(page.getByRole('button', { name: /Organizar o que já escrevi/i })).toBeVisible()
+
+  await page.getByLabel('Salvar sem análise de IA').check()
+  await expect(page.getByRole('button', { name: /Organizar o que já escrevi/i })).toHaveCount(0)
   await expect(editor).toHaveValue(original)
-  await expect(page.getByText(/Privacidade ativada: o registro será salvo normalmente/i)).toBeVisible()
+  await expect(page.getByText(/Privacidade ativada: este texto não será enviado à IA/i)).toBeVisible()
 })
 
-test('Plus mostra aprofundamento progressivo sem transformar a tela em formulário inicial', async ({ page }) => {
+test('Plus mantém detalhes e reflexão avançada em dois níveis progressivos', async ({ page }) => {
   await openDiary(page, 'plus', { width: 1440, height: 900 })
   await openWritingMode(page)
-  await expect(page.getByText('Detalhes avançados Plus')).toHaveCount(0)
-  await page.getByRole('button', { name: /Quero detalhar um pouco/i }).click()
-  await expect(page.getByText('Detalhes avançados Plus')).toBeVisible()
-  await page.getByRole('button', { name: /Detalhes avançados Plus/i }).click()
-  await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
+  await expect(page.getByText('Quero refletir mais sobre este registro')).toHaveCount(0)
 
-  await page.screenshot({ path: 'test-results/diary-visual/plus-desktop.png', fullPage: true })
+  await page.getByRole('button', { name: /Adicionar detalhes opcionais/i }).click()
+  await expect(page.getByText('Quais sentimentos apareceram?')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Quero refletir mais sobre este registro/i })).toBeVisible()
+  await expect(page.getByText('Gatilhos que você reconhece')).toHaveCount(0)
+
+  await page.getByRole('button', { name: /Quero refletir mais sobre este registro/i }).click()
+  await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
 })
 
 test('microfone já concedido inicia SpeechRecognition sem reabrir getUserMedia', async ({ page }) => {
@@ -274,6 +299,7 @@ test('Diário autenticado funciona em viewport mobile, modo foco e sem violaçõ
   await page.getByRole('button', { name: 'Ativar modo foco' }).click()
   await expect(page.getByRole('button', { name: 'Sair do modo foco' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Preciso de ajuda para começar' })).toBeVisible()
 
   const results = await new AxeBuilder({ page }).analyze()
   const seriousOrCritical = results.violations.filter(v => ['serious', 'critical'].includes(v.impact || ''))
