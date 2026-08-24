@@ -68,6 +68,19 @@ async function installSession(page, plan) {
     if (url.pathname.includes('/rest/v1/diary_entries')) {
       if (method === 'HEAD') {
         await route.fulfill({ status: 200, headers: { ...headers, 'Content-Range': '*/0' }, body: '' })
+      } else if (method === 'POST') {
+        const submitted = request.postDataJSON() || {}
+        const payload = Array.isArray(submitted) ? submitted[0] : submitted
+        await route.fulfill({
+          status: 201,
+          headers,
+          body: JSON.stringify({
+            ...payload,
+            id: '00000000-0000-4000-8000-000000000123',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }),
+        })
       } else {
         await route.fulfill({ status: 200, headers: { ...headers, 'Content-Range': '0-0/0' }, body: JSON.stringify([]) })
       }
@@ -88,6 +101,11 @@ async function openDiary(page, plan, viewport) {
   await installSession(page, plan)
   await page.goto('/diario')
   await expect(page.getByRole('heading', { name: /Como você chegou até aqui hoje/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Salvar check-in' })).toBeVisible()
+}
+
+async function openWritingMode(page) {
+  await page.getByRole('button', { name: 'Meu diário' }).click()
   await expect(page.getByRole('button', { name: 'Só quero escrever' })).toBeVisible()
 }
 
@@ -138,10 +156,45 @@ async function installVoiceMocks(page, { permissionState = 'granted', denyMicrop
   }, { state: permissionState, deny: denyMicrophone })
 }
 
-test('Gratuito mantém escrita simples, limite visível e histórico sem PDF', async ({ page }) => {
+test('Check-in rápido abre primeiro e oferece sinais complementares sem duplicar emoções', async ({ page }) => {
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+
+  await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toHaveCount(0)
+  const checkinBox = await page.getByRole('button', { name: 'Check-in rápido' }).boundingBox()
+  const diaryBox = await page.getByRole('button', { name: 'Meu diário' }).boundingBox()
+  expect(checkinBox?.x ?? Infinity).toBeLessThan(diaryBox?.x ?? -Infinity)
+
+  await page.getByRole('button', { name: /Bem-estar/i }).click()
+  await expect(page.getByLabel('Energia')).toBeVisible()
+  await expect(page.getByLabel('Tensão/estresse')).toBeVisible()
+  await expect(page.getByLabel('Intensidade da ansiedade')).toHaveCount(0)
+
+  await page.getByRole('button', { name: /Ansiedade/i }).click()
+  await expect(page.getByLabel('Intensidade da ansiedade')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Quero contar um pouco mais' }).click()
+  await expect(page.getByText('O que mais está influenciando você agora?')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Trabalho' })).toBeVisible()
+})
+
+test('Check-in salvo oferece concluir ou continuar no diário', async ({ page }) => {
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await page.getByRole('button', { name: /Tranquilidade/i }).click()
+  await page.getByRole('textbox', { name: 'Nota rápida do check-in' }).fill('Uma pausa no fim da tarde me ajudou.')
+  await page.getByRole('button', { name: 'Salvar check-in' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Check-in registrado' })).toBeVisible()
+  await expect(page.getByText('Você registrou como está agora. Quer deixar assim ou escrever um pouco mais?')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Concluir' })).toBeVisible()
+  await page.getByRole('button', { name: 'Quero escrever sobre isso' }).click()
+  await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
+})
+
+test('Gratuito mantém check-in simples, limite visível e histórico sem PDF', async ({ page }) => {
   await openDiary(page, 'free', { width: 1440, height: 900 })
   await expect(page.getByText('Plano Gratuito')).toBeVisible()
   await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
+  await expect(page.getByLabel('Energia')).toHaveCount(0)
   await expect(page.getByText('Detalhes avançados Plus')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Histórico' }).click()
@@ -151,6 +204,7 @@ test('Gratuito mantém escrita simples, limite visível e histórico sem PDF', a
 
 test('Essencial respeita opt-out integral e preserva o texto original', async ({ page }) => {
   await openDiary(page, 'essential', { width: 1440, height: 900 })
+  await openWritingMode(page)
   await page.getByRole('button', { name: /Bem-estar/i }).click()
   const editor = page.getByRole('textbox', { name: 'Texto do diário' })
   const original = 'Hoje foi um dia cheio, mas consegui terminar uma tarefa importante e quero registrar isso.'
@@ -165,6 +219,7 @@ test('Essencial respeita opt-out integral e preserva o texto original', async ({
 
 test('Plus mostra aprofundamento progressivo sem transformar a tela em formulário inicial', async ({ page }) => {
   await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openWritingMode(page)
   await expect(page.getByText('Detalhes avançados Plus')).toHaveCount(0)
   await page.getByRole('button', { name: /Quero detalhar um pouco/i }).click()
   await expect(page.getByText('Detalhes avançados Plus')).toBeVisible()
@@ -177,6 +232,7 @@ test('Plus mostra aprofundamento progressivo sem transformar a tela em formulár
 test('microfone já concedido inicia SpeechRecognition sem reabrir getUserMedia', async ({ page }) => {
   await installVoiceMocks(page, { permissionState: 'granted' })
   await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openWritingMode(page)
 
   await page.getByRole('button', { name: 'Prefiro falar' }).click()
   await expect.poll(() => page.evaluate(() => window.__e2eSpeechStarts)).toBe(1)
@@ -188,6 +244,7 @@ test('microfone já concedido inicia SpeechRecognition sem reabrir getUserMedia'
 test('permissão em perguntar abre getUserMedia e depois inicia reconhecimento', async ({ page }) => {
   await installVoiceMocks(page, { permissionState: 'prompt' })
   await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openWritingMode(page)
 
   await page.getByRole('button', { name: 'Prefiro falar' }).click()
   await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(1)
@@ -199,6 +256,7 @@ test('permissão em perguntar abre getUserMedia e depois inicia reconhecimento',
 test('microfone bloqueado interrompe o reconhecimento e mostra orientação imediata', async ({ page }) => {
   await installVoiceMocks(page, { permissionState: 'denied', denyMicrophone: true })
   await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openWritingMode(page)
 
   await page.getByRole('button', { name: 'Prefiro falar' }).click()
   await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(0)
@@ -212,6 +270,7 @@ test('Diário autenticado funciona em viewport mobile, modo foco e sem violaçõ
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(1)
 
+  await openWritingMode(page)
   await page.getByRole('button', { name: 'Ativar modo foco' }).click()
   await expect(page.getByRole('button', { name: 'Sair do modo foco' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()

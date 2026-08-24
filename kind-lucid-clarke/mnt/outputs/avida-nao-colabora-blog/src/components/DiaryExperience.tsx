@@ -65,6 +65,7 @@ const CHIP_TO_MOOD: Record<string, string> = {
 const emotionalTags = ['ansiedade','medo','preocupação','insegurança','tristeza','desânimo','solidão','culpa','irritação','raiva','frustração','cansaço','sobrecarga','confusão','calma','esperança','alegria','gratidão']
 const freeEmotionalTags = ['ansiedade','tristeza','cansaço','sobrecarga','calma','gratidão']
 const contextTags = ['trabalho','família','relacionamento','amizades','dinheiro','saúde','corpo','casa','estudos','redes sociais','solidão','rotina','futuro','autoimagem','sono','alimentação','responsabilidades']
+const quickContextTags = ['trabalho','família','relacionamento','saúde','dinheiro','sono','rotina','estudos','outro']
 const needTags = ['descanso','acolhimento','clareza','silêncio','conversa','limite','organização','ajuda','pausa','leveza','segurança','coragem','paciência','presença','menos cobrança']
 const careTags = ['tomar banho','beber água','respirar','ouvir música','caminhar','dormir mais cedo','conversar com alguém','organizar uma tarefa','ficar em silêncio','escrever mais','ver um conteúdo guiado','reduzir redes sociais','fazer uma pausa','comer algo leve','pedir ajuda']
 const triggerTags = ['cobrança','conflito','excesso de tarefas','crítica','rejeição','comparação','incerteza','falta de descanso','mudança de planos','sensação de fracasso','dificuldade financeira','conversa difícil','pressão familiar','exposição em redes sociais']
@@ -133,6 +134,21 @@ function SliderField({ label, value, touched, onChange, onClear }: { label: stri
   )
 }
 
+function QuickScaleField({ label, value, touched, labels, onChange, onClear }: { label: string; value: number; touched: boolean; labels: string[]; onChange: (n: number) => void; onClear: () => void }) {
+  const currentLabel = labels[Math.max(0, Math.min(labels.length - 1, value - 1))] || `${value}/5`
+  return (
+    <div className="rounded-2xl border border-line bg-white px-4 py-3">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <span className="text-sm font-medium text-forest-900">{label}</span>
+        <span className="text-xs text-ink-soft text-right">{touched ? currentLabel : 'Opcional'}</span>
+      </div>
+      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} />
+      <div className="flex items-center justify-between gap-2 mt-1 text-[10px] text-ink-soft"><span>{labels[0]}</span><span>{labels[labels.length - 1]}</span></div>
+      {touched && <button type="button" onClick={onClear} className="mt-1 text-[11px] text-ink-soft underline underline-offset-2">Limpar</button>}
+    </div>
+  )
+}
+
 function TagGroup({ title, description, options, selected, onToggle, category }: { title: string; description?: string; options: string[]; selected: string[]; onToggle: (tag: string) => void; category?: TagCategory }) {
   const [open, setOpen] = useState(false)
   const visible = open ? options : unique([...options.slice(0, 7), ...selected])
@@ -173,7 +189,7 @@ function voiceErrorMessage(code?: string) {
 export default function DiaryExperience({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
   const [tab, setTab] = useState<PageTab>('write')
-  const [mode, setMode] = useState<EntryMode>('diary')
+  const [mode, setMode] = useState<EntryMode>('quick')
   const [entries, setEntries] = useState<DiaryEntryV2[]>([])
   const [monthRows, setMonthRows] = useState<DiaryEntryV2[]>([])
   const [todayMain, setTodayMain] = useState<DiaryEntryV2 | null>(null)
@@ -208,6 +224,8 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const [moodChip, setMoodChip] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [quickNote, setQuickNote] = useState('')
+  const [quickContextOpen, setQuickContextOpen] = useState(false)
+  const [quickContext, setQuickContext] = useState<string | null>(null)
   const [energy, setEnergy] = useState(3)
   const [anxiety, setAnxiety] = useState(3)
   const [sleep, setSleep] = useState(3)
@@ -269,8 +287,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     if (!user) return
     const { data } = await supabase.from('diary_entries').select('*').eq('user_id', user.id).eq('entry_type', 'diary').eq('date', today).or('diary_kind.in.(basic,main),diary_kind.is.null').order('created_at', { ascending: false }).limit(1).maybeSingle()
     setTodayMain((data as DiaryEntryV2 | null) || null)
-    if (data && !editingEntryId) setMode('main-saved')
-  }, [user, today, editingEntryId])
+  }, [user, today])
 
   const fetchFreeCount = useCallback(async () => {
     if (!user || !isFree) { setMonthDiaryCount(0); return }
@@ -298,7 +315,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const chooseMood = (key: string) => { setMoodChip(key); setMood(CHIP_TO_MOOD[key] || 'outro') }
 
   const resetComposer = () => {
-    setDraft(''); setQuickNote(''); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
+    setDraft(''); setQuickNote(''); setQuickContextOpen(false); setQuickContext(null); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
     setMood('outro'); setMoodChip(null); setEnergy(3); setAnxiety(3); setSleep(3); setMoodScore(3); setStress(3); setSelfEsteem(3); setIrritability(3); setOverload(3); setTouched(new Set())
     setEmotions([]); setContexts([]); setNeeds([]); setCareActions([]); setTriggers([]); setGratitude(''); setSmallPride(''); setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
     setAiAllowed(true); setError(''); setEditingEntryId(null)
@@ -436,7 +453,9 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     }
     if (isCheckin) {
       if (isEssential && touched.has('energy')) payload.energy = normalizeScale(energy)
-      if (isEssential && touched.has('anxiety')) payload.anxiety_level = normalizeScale(anxiety)
+      if (isEssential && touched.has('stress')) payload.stress_level = normalizeScale(stress)
+      if (isEssential && mood === 'ansiedade' && touched.has('anxiety')) payload.anxiety_level = normalizeScale(anxiety)
+      if (isEssential && quickContext) payload.context_tags = [quickContext]
     } else {
       if (fieldOn('emotional_tags') && emotions.length) payload.emotional_tags = emotions
       if (isEssential) {
@@ -520,6 +539,26 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     setSaved(null); await startDeepening(question)
   }
 
+  const continueFromCheckin = () => {
+    const entry = saved?.kind === 'checkin' ? saved.entry : null
+    if (!entry) return
+    setSaved(null)
+    if (todayMain) {
+      setMode('main-saved'); setTab('write'); setError('')
+      return
+    }
+    resetComposer()
+    const meta = moodMeta(entry.mood)
+    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null)
+    setEnergy(entry.energy || 3); setStress(entry.stress_level || 3); setAnxiety(entry.anxiety_level || 3)
+    const carried = new Set<string>(); if (entry.energy) carried.add('energy'); if (entry.stress_level) carried.add('stress'); if (entry.anxiety_level) carried.add('anxiety'); setTouched(carried)
+    setContexts(entry.context_tags || [])
+    const note = String(entry.text || '').trim()
+    setHelperPrompt(note ? `No seu check-in você anotou: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Se quiser, conte um pouco mais sobre isso.` : `Você marcou ${meta.label.toLowerCase()}. O que está por trás deste momento?`)
+    setMode('diary'); setTab('write'); setError('')
+    setTimeout(() => editorRef.current?.focus(), 80)
+  }
+
   const monthKey = today.slice(0, 7)
   const monthDiaryRows = monthRows.filter(e => e.entry_type === 'diary')
   const monthCheckins = monthRows.filter(e => e.entry_type === 'checkin').length
@@ -551,7 +590,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         <div className="text-center">
           <div className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto"><CheckCircle2 className="w-7 h-7 text-forest-700" /></div>
           <h1 className="font-serif text-3xl text-forest-900 mt-5">{saved.kind === 'checkin' ? 'Check-in registrado' : 'Seu registro ficou guardado'}</h1>
-          <p className="text-ink-soft mt-2">{saved.kind === 'checkin' ? 'Um registro rápido também conta como presença.' : 'Você não precisava resolver nada. Colocar em palavras já foi suficiente por hoje.'}</p>
+          <p className="text-ink-soft mt-2">{saved.kind === 'checkin' ? 'Você registrou como está agora. Quer deixar assim ou escrever um pouco mais?' : 'Você não precisava resolver nada. Colocar em palavras já foi suficiente por hoje.'}</p>
           <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm"><span>{meta.emoji}</span><span>{meta.label}</span></div>
         </div>
 
@@ -593,7 +632,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         {onOpenArticle && <div className="mt-6"><RecommendedContent user={user ? { id: user.id } : null} profile={{ plan }} signal={saved.signal} source={saved.kind === 'checkin' ? 'checkin' : 'diary'} limit={2} variant="compact" title="Conteúdos que podem fazer sentido agora" description="Sugestões relacionadas ao que você acabou de registrar." onOpen={onOpenArticle} /></div>}
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {saved.kind === 'checkin' && <button onClick={() => { setSaved(null); setMode(todayMain ? 'main-saved' : 'diary'); setTab('write') }} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><PenLine className="w-4 h-4" /> Ir para o diário</button>}
+          {saved.kind === 'checkin' && <><button onClick={() => { setSaved(null); setMode('quick'); setTab('write') }} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Concluir</button><button onClick={continueFromCheckin} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><PenLine className="w-4 h-4" /> Quero escrever sobre isso</button></>}
           {saved.kind === 'diary' && isEssential && !todayDeepened && <button onClick={() => void askFollowUp()} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> {saved.mirror ? 'Quero responder à pergunta' : 'Quero aprofundar meu registro'}</button>}
           <button onClick={() => { setSaved(null); setTab('history') }} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Ver meus registros</button>
           <button onClick={onBack} className="px-4 py-2.5 text-sm text-ink-soft inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button>
@@ -610,7 +649,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. Como você chegou até aqui hoje?</h1>
-            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">Você escreve primeiro. Os detalhes ficam opcionais — e, se quiser, a IA ajuda com o resto.</p>}
+            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">Comece com um check-in rápido. Se quiser, aprofunde escrevendo — os detalhes continuam opcionais.</p>}
           </div>
           <button onClick={() => setFocusMode(v => !v)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title={focusMode ? 'Sair do modo foco' : 'Modo foco'} aria-label={focusMode ? 'Sair do modo foco' : 'Ativar modo foco'}>{focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</button>
         </header>
@@ -630,8 +669,8 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
             <main className="min-w-0">
               {!focusMode && (
                 <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <button onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className={`rounded-full px-4 py-2 text-sm border ${mode !== 'quick' ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>Meu diário</button>
                   <button onClick={() => setMode('quick')} className={`rounded-full px-4 py-2 text-sm border ${mode === 'quick' ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>Check-in rápido</button>
+                  <button onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className={`rounded-full px-4 py-2 text-sm border ${mode !== 'quick' ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>Meu diário</button>
                 </div>
               )}
 
@@ -657,9 +696,11 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
 
                   {mode === 'quick' ? (
                     <>
-                      {isEssential && <div className="grid sm:grid-cols-2 gap-3 mb-4"><SliderField label="Energia" value={energy} touched={touched.has('energy')} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><SliderField label="Ansiedade percebida" value={anxiety} touched={touched.has('anxiety')} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} /></div>}
+                      <p className="text-sm text-ink-soft mb-4">Leva menos de um minuto. Escolha uma emoção e, se quiser, acrescente alguns sinais deste momento.</p>
+                      {isEssential && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"><QuickScaleField label="Energia" value={energy} touched={touched.has('energy')} labels={['Muito baixa','Baixa','Média','Boa','Alta']} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><QuickScaleField label="Tensão/estresse" value={stress} touched={touched.has('stress')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} />{mood === 'ansiedade' && <QuickScaleField label="Intensidade da ansiedade" value={anxiety} touched={touched.has('anxiety')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}</div>}
+                      {isEssential && <div className="mb-4"><button type="button" onClick={() => setQuickContextOpen(v => !v)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-800"><SlidersHorizontal className="w-4 h-4" /> Quero contar um pouco mais {quickContextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{quickContextOpen && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><p className="text-sm font-semibold text-forest-900">O que mais está influenciando você agora?</p><p className="text-xs text-ink-soft mt-1">Escolha só uma opção, se fizer sentido.</p><div className="flex flex-wrap gap-2 mt-3">{quickContextTags.map(tag => <button key={tag} type="button" onClick={() => setQuickContext(prev => prev === tag ? null : tag)} className={`rounded-full border px-3 py-1.5 text-xs ${quickContext === tag ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>)}</div></div>}</div>}
                       <label className="text-sm font-semibold text-forest-900">Quer deixar uma nota rápida? <span className="font-normal text-ink-soft">(opcional)</span></label>
-                      <textarea value={quickNote} onChange={e => setQuickNote(e.target.value)} rows={4} placeholder="Uma frase já basta…" aria-label="Nota rápida do check-in" className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-4 text-base resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                      <textarea value={quickNote} onChange={e => setQuickNote(e.target.value)} rows={3} placeholder="Uma frase já basta…" aria-label="Nota rápida do check-in" className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-4 text-base resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
                     </>
                   ) : (
                     <>
