@@ -18,6 +18,20 @@ test('diário v2 prioriza escrita, foco e detalhes progressivos', () => {
   assert.equal(diary.includes('Que bom ter você aqui.'), false)
 })
 
+test('check-in rápido é a entrada principal e coleta sinais complementares sem formulário longo', () => {
+  assert.match(diary, /useState<EntryMode>\('quick'\)/)
+  assert.match(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+  assert.match(diary, /Tensão\/estresse/)
+  assert.match(diary, /Intensidade da ansiedade/)
+  assert.match(diary, /mood === 'ansiedade'/)
+  assert.match(diary, /Quero contar um pouco mais/)
+  assert.match(diary, /O que mais está influenciando você agora\?/)
+  assert.match(diary, /payload\.stress_level = normalizeScale\(stress\)/)
+  assert.match(diary, /payload\.context_tags = \[quickContext\]/)
+  assert.match(diary, /Quero escrever sobre isso/)
+  assert.match(diary, /Você registrou como está agora\. Quer deixar assim ou escrever um pouco mais\?/)
+})
+
 test('jornada deixa de punir ausência com streak', () => {
   assert.match(diary, /Sua presença em/)
   assert.match(diary, /Não existe sequência para perder/)
