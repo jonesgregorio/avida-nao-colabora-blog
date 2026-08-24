@@ -680,11 +680,14 @@ Deno.serve(async (req) => {
         // vídeo é enriquecimento opcional; nunca deve derrubar a geração principal
       }
 
+      // Auditoria de IA guarda só metadados. prompt_preview/result_preview
+      // gravavam os primeiros 280 caracteres do prompt e do texto gerado --
+      // inofensivo para pauta editorial, mas este mesmo endpoint atende
+      // personalização por usuário, então o preview podia conter marcadores
+      // emocionais e humor médio de uma pessoa. Nenhuma tela lê essas colunas.
       admin.from('ai_generation_logs').insert({
         admin_id: user.id,
         content_type: body.contentType ?? 'generic',
-        prompt_preview: prompt.slice(0, 280),
-        result_preview: text.slice(0, 280),
         provider,
         status: 'success',
       }).then(() => {}, () => {})
@@ -711,10 +714,10 @@ Deno.serve(async (req) => {
   }
 
   const errorMsg = `Todas as IAs falharam. ${tried.join(' | ')}`.slice(0, 1200)
+  // Mesma regra do caminho de sucesso: só metadados e o motivo técnico da falha.
   admin.from('ai_generation_logs').insert({
     admin_id: user.id,
     content_type: body.contentType ?? 'generic',
-    prompt_preview: prompt.slice(0, 280),
     provider: requested,
     status: 'error',
     error_msg: errorMsg.slice(0, 500),
