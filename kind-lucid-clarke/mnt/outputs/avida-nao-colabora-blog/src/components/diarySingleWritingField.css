@@ -1,0 +1,22 @@
+/*
+ * Diário com um único campo aberto de escrita.
+ *
+ * Os campos abaixo pertencem ao formato legado/avançado do Diário. Eles
+ * permanecem no componente e no modelo de dados para que registros antigos
+ * continuem compatíveis, mas não são mais apresentados como caixas extras de
+ * digitação. O usuário registra texto somente no editor principal; detalhes
+ * adicionais ficam restritos a escalas e tags.
+ */
+.diary-single-writing-field input[aria-label="Algo pelo qual sinto gratidão"],
+.diary-single-writing-field input[aria-label="Uma pequena coisa que consegui"],
+.diary-single-writing-field textarea[aria-label="O que parece ter disparado isso?"],
+.diary-single-writing-field textarea[aria-label="Pensamentos que voltaram mais de uma vez"],
+.diary-single-writing-field textarea[aria-label="O que você sente que precisa emocionalmente"],
+.diary-single-writing-field textarea[aria-label="Algo sobre seus relacionamentos"],
+.diary-single-writing-field textarea[aria-label="Algo sobre seus hábitos"] {
+  display: none !important;
+}
+
+.diary-single-writing-field input[type="range"] {
+  cursor: pointer;
+}
