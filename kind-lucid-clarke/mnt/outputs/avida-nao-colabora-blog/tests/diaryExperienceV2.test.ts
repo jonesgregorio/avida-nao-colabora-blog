@@ -73,5 +73,5 @@ test('ditado e organização não substituem silenciosamente o texto original', 
   assert.match(diary, /Usar esta versão/)
   assert.match(diary, /Manter meu texto/)
   assert.match(edge, /mantendo a PRIMEIRA PESSOA/)
-  assert.match(migration, /não é\n-- substituído automaticamente/)
+  assert.match(migration, /nunca é\n-- substituído automaticamente/)
 })
