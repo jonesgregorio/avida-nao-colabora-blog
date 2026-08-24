@@ -16,6 +16,16 @@
 //     -> cria usuário confirmado, chama create-checkout, imprime a URL de
 //        checkout para pagamento manual no navegador com o cartão de teste.
 //
+//   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs checkout-auto essential
+//     -> igual ao "checkout", mas paga sozinho via Playwright (chromium
+//        headless, cartão de teste 4242) e já imprime customerId/userId
+//        prontos para "verify"/"plan-change"/"cleanup".
+//
+//   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs full-cycle essential
+//     -> ciclo completo num comando só: checkout-auto -> verify ->
+//        payment-failed -> plan-change (upgrade para plus e volta pro
+//        plano original) -> cleanup. Não precisa de navegador manual.
+//
 //   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs verify <customerId> <userId> essential
 //     -> busca os eventos reais gerados pelo pagamento na API da Stripe,
 //        assina-os localmente com STRIPE_WEBHOOK_SECRET e entrega ao
@@ -133,7 +143,7 @@ function psql(sql) {
 
 // ---- Comandos ----------------------------------------------------------
 
-async function cmdCheckout(plan) {
+async function createCheckoutSession(plan) {
   if (plan !== 'essential' && plan !== 'plus') throw new Error('plan deve ser essential ou plus')
   const email = `stripe-e2e-${randomUUID().slice(0, 8)}@local.test`
   const password = `Stripe-${randomUUID()}-Aa1!`
@@ -157,13 +167,71 @@ async function cmdCheckout(plan) {
   const json = await res.json()
   if (!res.ok || !json.url) throw new Error(`create-checkout falhou (HTTP ${res.status}): ${JSON.stringify(json)}`)
 
+  return { userId, email, password, url: json.url }
+}
+
+async function cmdCheckout(plan) {
+  const { userId, email, password, url } = await createCheckoutSession(plan)
   console.log('=== Conta E2E criada ===')
   console.log('userId:', userId)
   console.log('email:', email)
   console.log('password:', password)
   console.log()
   console.log('=== URL de checkout (abrir no navegador, pagar com 4242 4242 4242 4242) ===')
-  console.log(json.url)
+  console.log(url)
+}
+
+// Paga uma sessão de Checkout sozinho, via Playwright (chromium headless),
+// usando o cartão de teste da Stripe. Evita a etapa manual no navegador.
+// Não depende do redirect final (que exige um dev server em localhost:5173
+// rodando) — clica em "Assinar" e sai; quem confirma o pagamento é o polling
+// na API da Stripe em cmdCheckoutAuto.
+async function payCheckoutWithTestCard(url) {
+  const { chromium } = await import('@playwright/test')
+  const browser = await chromium.launch()
+  try {
+    const page = await browser.newPage()
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+
+    await page.fill('input[placeholder="1234 1234 1234 1234"]', '4242424242424242')
+    await page.fill('input[placeholder="MM / AA"]', '12/34')
+    await page.fill('input[placeholder="CVC"]', '123')
+    const nameField = page.locator('input[placeholder="Nome completo"]')
+    if (await nameField.count() > 0) await nameField.fill('Teste E2E Stripe')
+
+    await page.locator('button[type="submit"]').first().click()
+    // Não espera navegação: o redirect final aponta pro app real (origin),
+    // que pode não estar rodando neste ambiente. O clique já é suficiente
+    // pra Stripe processar o pagamento do lado dele.
+    await page.waitForTimeout(4000)
+  } finally {
+    await browser.close()
+  }
+}
+
+async function cmdCheckoutAuto(plan) {
+  const { userId, email, url } = await createCheckoutSession(plan)
+  console.log('=== Conta E2E criada ===')
+  console.log('userId:', userId, '| email:', email)
+
+  const sessionId = new URL(url).pathname.split('/').pop()
+  if (!sessionId?.startsWith('cs_')) throw new Error(`Não consegui extrair session_id da URL de checkout: ${url}`)
+
+  console.log('Pagando via Playwright (cartão de teste 4242)...')
+  await payCheckoutWithTestCard(url)
+
+  console.log('Confirmando pagamento na API da Stripe (polling)...')
+  let session = null
+  for (let i = 0; i < 15; i++) {
+    session = await stripeGet(`checkout/sessions/${sessionId}`)
+    if (session.payment_status === 'paid') break
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  if (session?.payment_status !== 'paid') throw new Error(`payment_status não confirmou 'paid' a tempo: ${session?.payment_status}`)
+  const customerId = session.customer
+  console.log('Pagamento confirmado. customerId:', customerId)
+
+  return { userId, customerId }
 }
 
 async function cmdVerify(customerId, userId, plan) {
@@ -206,6 +274,7 @@ async function cmdVerify(customerId, userId, plan) {
   if (subCustomer !== customerId) throw new Error(`user_subscriptions.provider_customer_id não bate: esperado=${customerId} obtido=${subCustomer}`)
 
   console.log('OK: profiles.plan e user_subscriptions refletem o pagamento real.')
+  return { subscriptionId }
 }
 
 function fakeSubscriptionEvent({ type, id, customer, priceId, metadata, status = 'active' }) {
@@ -356,6 +425,40 @@ async function cmdPlanChange(subscriptionId, newPriceId, userId, expectedPlan) {
   console.log(`OK: assinatura migrada para ${expectedPlan}.`)
 }
 
+const PRICE_BY_PLAN = {
+  essential: () => need('STRIPE_PRICE_ESSENTIAL'),
+  plus: () => need('STRIPE_PRICE_PLUS_3990'),
+}
+const OTHER_PLAN = { essential: 'plus', plus: 'essential' }
+
+async function cmdFullCycle(plan) {
+  if (plan !== 'essential' && plan !== 'plus') throw new Error('plan deve ser essential ou plus')
+  const otherPlan = OTHER_PLAN[plan]
+
+  console.log(`\n########## 1/6 checkout-auto (${plan}) ##########`)
+  const { userId, customerId } = await cmdCheckoutAuto(plan)
+
+  console.log('\n########## 2/6 verify ##########')
+  const { subscriptionId } = await cmdVerify(customerId, userId, plan)
+  if (!subscriptionId) throw new Error('subscriptionId não encontrado após verify — plan-change/cleanup ficam sem alvo')
+
+  console.log('\n########## 3/6 payment-failed ##########')
+  await cmdPaymentFailed(customerId, userId, subscriptionId)
+
+  console.log(`\n########## 4/6 plan-change: ${plan} -> ${otherPlan} ##########`)
+  await cmdPlanChange(subscriptionId, PRICE_BY_PLAN[otherPlan](), userId, otherPlan)
+
+  console.log(`\n########## 5/6 plan-change: ${otherPlan} -> ${plan} ##########`)
+  await cmdPlanChange(subscriptionId, PRICE_BY_PLAN[plan](), userId, plan)
+
+  console.log('\n########## 6/6 cleanup ##########')
+  await cmdCleanup(userId, subscriptionId)
+  await stripeDelete(`customers/${customerId}`).catch((err) => console.warn('Aviso ao remover customer:', err.message))
+  console.log('Customer Stripe removido:', customerId)
+
+  console.log('\nOK: ciclo completo (checkout, webhook, payment_failed, upgrade, downgrade, cleanup) passou sem erros.')
+}
+
 async function cmdCleanup(userId, subscriptionId) {
   if (subscriptionId) {
     try {
@@ -376,13 +479,15 @@ const [, , command, ...args] = process.argv
 
 try {
   if (command === 'checkout') await cmdCheckout(args[0])
+  else if (command === 'checkout-auto') await cmdCheckoutAuto(args[0])
+  else if (command === 'full-cycle') await cmdFullCycle(args[0])
   else if (command === 'verify') await cmdVerify(args[0], args[1], args[2])
   else if (command === 'edge-cases') await cmdEdgeCases(args[0], args[1])
   else if (command === 'payment-failed') await cmdPaymentFailed(args[0], args[1], args[2])
   else if (command === 'plan-change') await cmdPlanChange(args[0], args[1], args[2], args[3])
   else if (command === 'cleanup') await cmdCleanup(args[0], args[1])
   else {
-    console.error('Uso: checkout <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | payment-failed <customerId> <userId> [subscriptionId] | plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan> | cleanup <userId> [subscriptionId]')
+    console.error('Uso: checkout <plan> | checkout-auto <plan> | full-cycle <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | payment-failed <customerId> <userId> [subscriptionId] | plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan> | cleanup <userId> [subscriptionId]')
     process.exit(1)
   }
 } catch (err) {
