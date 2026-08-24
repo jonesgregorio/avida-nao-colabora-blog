@@ -10,6 +10,7 @@
     "e2e:local:prepare": "node scripts/prepare-local-e2e-supabase.mjs",
     "e2e:local:auth": "node scripts/e2e-local-auth.mjs",
     "e2e:local:security": "node scripts/e2e-local-security.mjs",
+    "e2e:local:security-extended": "node scripts/e2e-local-security-extended.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "node --check api/article.js && node --check api/page.js && node --check api/sitemap.js && node --experimental-strip-types --test tests/*.test.ts"
