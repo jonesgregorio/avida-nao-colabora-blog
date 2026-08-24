@@ -7,7 +7,7 @@ const migration = readFileSync(
   'utf8',
 )
 const runner = readFileSync(
-  new URL('../supabase/functions/run-emotional-automations/index.ts', import.meta.url),
+  new URL('../supabase/functions/run-emotional-automations/runner.ts', import.meta.url),
   'utf8',
 )
 
