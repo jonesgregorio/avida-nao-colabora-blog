@@ -91,11 +91,21 @@ async function openDiary(page, plan, viewport) {
   await expect(page.getByRole('button', { name: 'Só quero escrever' })).toBeVisible()
 }
 
-async function installVoiceMocks(page, { denyMicrophone = false } = {}) {
-  await page.addInitScript(({ deny }) => {
+async function installVoiceMocks(page, { permissionState = 'granted', denyMicrophone = false } = {}) {
+  await page.addInitScript(({ state, deny }) => {
     window.__e2eMicRequests = 0
     window.__e2eMicTrackStops = 0
     window.__e2eSpeechStarts = 0
+
+    Object.defineProperty(navigator, 'permissions', {
+      configurable: true,
+      value: {
+        query: async ({ name }) => {
+          if (name === 'microphone') return { state }
+          return { state: 'prompt' }
+        },
+      },
+    })
 
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
@@ -125,7 +135,7 @@ async function installVoiceMocks(page, { denyMicrophone = false } = {}) {
 
     Object.defineProperty(window, 'SpeechRecognition', { configurable: true, writable: true, value: FakeSpeechRecognition })
     Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, writable: true, value: FakeSpeechRecognition })
-  }, { deny: denyMicrophone })
+  }, { state: permissionState, deny: denyMicrophone })
 }
 
 test('Gratuito mantém escrita simples, limite visível e histórico sem PDF', async ({ page }) => {
@@ -164,8 +174,19 @@ test('Plus mostra aprofundamento progressivo sem transformar a tela em formulár
   await page.screenshot({ path: 'test-results/diary-visual/plus-desktop.png', fullPage: true })
 })
 
-test('Prefiro falar valida o microfone antes de iniciar SpeechRecognition no desktop', async ({ page }) => {
-  await installVoiceMocks(page)
+test('microfone já concedido inicia SpeechRecognition sem reabrir getUserMedia', async ({ page }) => {
+  await installVoiceMocks(page, { permissionState: 'granted' })
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+
+  await page.getByRole('button', { name: 'Prefiro falar' }).click()
+  await expect.poll(() => page.evaluate(() => window.__e2eSpeechStarts)).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(0)
+  await expect.poll(() => page.evaluate(() => window.__e2eMicTrackStops)).toBe(0)
+  await expect(page.getByRole('button', { name: 'Parar ditado' })).toBeVisible()
+})
+
+test('permissão em perguntar abre getUserMedia e depois inicia reconhecimento', async ({ page }) => {
+  await installVoiceMocks(page, { permissionState: 'prompt' })
   await openDiary(page, 'plus', { width: 1440, height: 900 })
 
   await page.getByRole('button', { name: 'Prefiro falar' }).click()
@@ -176,11 +197,11 @@ test('Prefiro falar valida o microfone antes de iniciar SpeechRecognition no des
 })
 
 test('microfone bloqueado interrompe o reconhecimento e mostra orientação imediata', async ({ page }) => {
-  await installVoiceMocks(page, { denyMicrophone: true })
+  await installVoiceMocks(page, { permissionState: 'denied', denyMicrophone: true })
   await openDiary(page, 'plus', { width: 1440, height: 900 })
 
   await page.getByRole('button', { name: 'Prefiro falar' }).click()
-  await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(0)
   await expect.poll(() => page.evaluate(() => window.__e2eSpeechStarts)).toBe(0)
   await expect(page.getByRole('dialog', { name: 'Permita o microfone para continuar' })).toBeVisible()
   await expect(page.getByText(/Microfone → Permitir/)).toBeVisible()
