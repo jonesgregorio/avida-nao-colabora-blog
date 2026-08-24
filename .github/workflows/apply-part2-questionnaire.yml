@@ -17,10 +17,10 @@ jobs:
         with:
           ref: feat/questionnaire-emotional-signals
           fetch-depth: 0
-      - name: Skip if already applied
+      - name: Skip if product code is already applied
         id: state
         run: |
-          if [ -f kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/questionnaireEmotionalIntegration.test.ts ]; then
+          if grep -q "Questionários que complementam este mês" kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx; then
             echo "applied=true" >> "$GITHUB_OUTPUT"
           else
             echo "applied=false" >> "$GITHUB_OUTPUT"
@@ -40,6 +40,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx
           git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/runner.ts
-          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/questionnaireEmotionalIntegration.test.ts
           git commit -m "feat: integrar questionarios a inteligencia emocional"
           git push origin HEAD:feat/questionnaire-emotional-signals
