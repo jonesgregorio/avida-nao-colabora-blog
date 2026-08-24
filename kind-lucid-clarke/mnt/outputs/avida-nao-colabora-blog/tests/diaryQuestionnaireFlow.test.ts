@@ -10,7 +10,7 @@ const migration = readFileSync(new URL('../supabase/migrations/20260823150500_di
 
 test('rota canônica usa a nova experiência e check-in continua levando ao diário', () => {
   assert.match(diaryEntry, /DiaryExperience/)
-  assert.match(diary, /Ir para o diário/)
+  assert.match(diary, /Quero escrever sobre isso/)
   assert.match(diary, /Check-in rápido/)
   assert.match(diary, /setMode\(todayMain \? 'main-saved' : 'diary'\)/)
 })
