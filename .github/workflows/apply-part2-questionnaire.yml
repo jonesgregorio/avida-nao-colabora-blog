@@ -1,13 +1,35 @@
 name: Apply Part 2 Questionnaire Integration
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [feat/questionnaire-emotional-signals]
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.event.head_commit.message == 'chore: run Part 2 patch'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Staged for Part 2"
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/questionnaire-emotional-signals
+          fetch-depth: 0
+      - name: Apply and validate patch
+        run: |
+          cat .github/part2.patch.gz.b64.1 .github/part2.patch.gz.b64.2 | base64 -d | gzip -d > "$RUNNER_TEMP/part2.patch"
+          cd kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+          git apply --check "$RUNNER_TEMP/part2.patch"
+          git apply "$RUNNER_TEMP/part2.patch"
+          node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyEvolutionPage.tsx
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/runner.ts
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/questionnaireEmotionalIntegration.test.ts
+          git commit -m "feat: integrar questionarios a inteligencia emocional"
+          git push origin HEAD:feat/questionnaire-emotional-signals
