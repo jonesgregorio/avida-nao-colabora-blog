@@ -10,12 +10,16 @@ const vercelConfig = JSON.parse(
   }>
 }
 
-function contentSecurityPolicy() {
+function headerValue(name: string) {
   for (const rule of vercelConfig.headers ?? []) {
-    const header = rule.headers?.find((item) => item.key?.toLowerCase() === 'content-security-policy')
+    const header = rule.headers?.find((item) => item.key?.toLowerCase() === name.toLowerCase())
     if (header?.value) return header.value
   }
   return ''
+}
+
+function contentSecurityPolicy() {
+  return headerValue('content-security-policy')
 }
 
 test('CSP não permite execução dinâmica via unsafe-eval', () => {
@@ -49,4 +53,17 @@ test('CSP permite somente os endpoints necessários para o monitoramento Sentry'
   const csp = contentSecurityPolicy()
   assert.ok(csp.includes('https://js.sentry-cdn.com'))
   assert.ok(csp.includes('https://*.ingest.sentry.io'))
+})
+
+test('Permissions-Policy libera microfone apenas para o próprio site', () => {
+  const policy = headerValue('permissions-policy')
+  assert.ok(policy, 'Permissions-Policy deve existir no vercel.json')
+  assert.ok(policy.includes('microphone=(self)'), 'Microfone deve ser permitido apenas para a própria origem')
+  assert.equal(policy.includes('microphone=()'), false, 'Microfone não pode ficar bloqueado globalmente')
+})
+
+test('Permissions-Policy mantém câmera e geolocalização bloqueadas', () => {
+  const policy = headerValue('permissions-policy')
+  assert.ok(policy.includes('camera=()'))
+  assert.ok(policy.includes('geolocation=()'))
 })
