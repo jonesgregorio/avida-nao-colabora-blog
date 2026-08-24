@@ -286,6 +286,15 @@ async function persistArticle(
   if (!cover?.url) validationErrors.push('imagem de capa ausente')
   if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
 
+  // Trava de duplicidade: "gerar agora" (forceOne) ignora o gating por
+  // next_run_at/last_run_at, então nada impedia rodar a mesma automação duas
+  // vezes seguidas e publicar dois artigos com o mesmo título. Bloqueia
+  // apenas a auto-publicação (o rascunho ainda é criado, nada se perde).
+  const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+  const { data: dupe } = await admin.from('articles')
+    .select('id').eq('origin', 'ia').ilike('title', title).gte('created_at', since24h).limit(1)
+  if (dupe && dupe.length > 0) validationErrors.push('título idêntico já publicado/gerado nas últimas 24h')
+
   const wantsAutoPublish = automation.mode === 'auto_publish'
   const publish = wantsAutoPublish && validationErrors.length === 0
   const nowIso = new Date().toISOString()
@@ -346,8 +355,12 @@ ${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
 
   // Pexels e persistência podem rodar em paralelo. A geração textual já ocorreu em
   // uma única chamada, evitando multiplicar a latência do cron semanal.
+  // allowExpansion sempre ativo: o pacote tem no máximo 4 artigos (ver
+  // EDITORIAL_AUTOMATION_SPECS), então o custo extra de expandir os que
+  // saírem curtos é limitado. Antes só rodava para quantity===1, deixando
+  // pacotes com >1 artigo curto caírem direto pra rascunho sem tentar expandir.
   const results = await Promise.all(packages.map((pkg, index) =>
-    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, quantity === 1),
+    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, true),
   ))
   const published = results.filter(r => r.published).length
   const drafts = results.length - published
@@ -507,9 +520,10 @@ Deno.serve(async (req) => {
   // NUNCA envia — só cria o rascunho (status 'draft') na fila de revisão do
   // admin (Conteúdos → Recomendações IA). O envio continua sendo manual.
   let persDrafts = 0
+  const MAX_PERSONALIZATION_ATTEMPTS = 5 // depois disso, para de tentar e vira 'cancelled' (não trava a fila)
   try {
     const { data: tasks } = await admin.from('user_personalization_tasks')
-      .select('id, user_id, task_key, task_title, plan_key, content_type, target_area')
+      .select('id, user_id, task_key, task_title, plan_key, content_type, target_area, attempts')
       .eq('status', 'pending').limit(10)
     for (const t of tasks ?? []) {
       try {
@@ -535,7 +549,18 @@ Fale em segunda pessoa (você), tom acolhedor, português brasileiro. Reconheça
           generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         }).eq('id', t.id)
         persDrafts++
-      } catch { /* pula esta tarefa e segue */ }
+      } catch (err) {
+        // Registra a falha (visível no Admin) em vez de só pular silenciosamente.
+        // Depois de MAX_PERSONALIZATION_ATTEMPTS, cancela a tarefa para não
+        // ocupar uma vaga por hora indefinidamente se o erro for determinístico.
+        const attempts = ((t as { attempts?: number }).attempts ?? 0) + 1
+        const last_error = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500)
+        await admin.from('user_personalization_tasks').update({
+          attempts, last_error, last_attempt_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ...(attempts >= MAX_PERSONALIZATION_ATTEMPTS ? { status: 'cancelled' } : {}),
+        }).eq('id', t.id)
+      }
     }
   } catch { /* tabela indisponível */ }
 
