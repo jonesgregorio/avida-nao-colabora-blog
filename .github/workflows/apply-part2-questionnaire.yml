@@ -1,0 +1,13 @@
+name: Apply Part 2 Questionnaire Integration
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Staged for Part 2"
