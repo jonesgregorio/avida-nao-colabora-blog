@@ -31,7 +31,6 @@ test('CI continua chamando deno check para cada Edge Function descoberta', () =>
 })
 
 test('CI falha explicitamente se nenhuma Edge Function for encontrada', () => {
-  // Protege contra um find quebrado silenciar a checagem inteira.
   assert.match(ciWorkflow, /Nenhuma Edge Function encontrada/)
 })
 
@@ -44,10 +43,6 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
   const found = realEdgeFunctions()
   assert.ok(found.length >= 21, `esperava pelo menos 21 Edge Functions, achou ${found.length}`)
 
-  // Lista fechada das funções conhecidas nesta rodada. Uma função nova deve
-  // aparecer aqui — o teste existe para forçar quem adicionar uma função a
-  // também documentá-la, não para travar o merge por si só (deno check no CI
-  // já cobre automaticamente qualquer index.ts novo independente desta lista).
   const known = [
     'admin-discount',
     'admin-plan-pricing',
@@ -56,6 +51,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'configure-stripe-webhook',
     'create-checkout',
     'delete-account',
+    'diary-companion',
     'export-user-data',
     'generate-content',
     'image-search',
@@ -91,6 +87,7 @@ test('funções críticas de pagamento e dados sensíveis existem e serão checa
     'delete-account',
     'run-automations',
     'run-emotional-automations',
+    'diary-companion',
   ]) {
     assert.ok(found.has(critical), `função crítica ausente do disco: ${critical}`)
   }
@@ -148,7 +145,5 @@ test('documentação registra que não há dívida de tipo liberada pelo CI', ()
 
 test('função legada com import remoto antigo é sinalizada, não escondida', () => {
   const legacy = readFileSync(new URL('send-automated-emails/index.ts', functionsDir), 'utf8')
-  // Registro consciente: esta função ainda usa deno.land/esm.sh em vez de npm:.
-  // Não é bloqueador de deno check, mas fica registrado para não surpreender.
   assert.match(legacy, /from 'https:\/\/(deno\.land|esm\.sh)\//)
 })
