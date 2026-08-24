@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe@14'
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2024-06-20' as Stripe.LatestApiVersion })
 
@@ -96,13 +97,12 @@ async function auditPrice(key: string, id: string | undefined, expectedCents?: n
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
-  // ── Gate: apenas admin autenticado ──
+  // ── Gate: admin autenticado com MFA (aal2) — mesmo padrão de admin-discount/
+  // admin-plan-pricing. Expõe configuração real da conta Stripe, então exige o
+  // mesmo nível de proteção das outras ferramentas administrativas financeiras.
+  const auth = await requireAdminAal2(req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '').trim()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-  if (authErr || !user) return json({ error: 'Não autorizado' }, 401)
-  const { data: prof } = await supabase.from('profiles').select('role').eq('user_id', user.id).maybeSingle()
-  if ((prof as { role?: string } | null)?.role !== 'admin') return json({ error: 'Apenas admin' }, 403)
 
   let body: { scope?: string } = {}
   try { body = await req.json() } catch { /* sem body */ }
