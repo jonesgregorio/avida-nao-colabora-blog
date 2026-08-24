@@ -10,12 +10,22 @@ const config = readFileSync(new URL('../src/lib/diaryConfig.ts', import.meta.url
 
 test('diário v2 prioriza escrita, foco e detalhes progressivos', () => {
   assert.match(diary, /Modo foco/)
-  assert.match(diary, /Só quero escrever/)
-  assert.match(diary, /Me ajude a começar/)
-  assert.match(diary, /Não sei o que escrever/)
-  assert.match(diary, /Quero detalhar um pouco/)
+  assert.match(diary, /Preciso de ajuda para começar/)
+  assert.match(diary, /Adicionar detalhes opcionais/)
+  assert.match(diary, /Quero refletir mais sobre este registro/)
   assert.match(diary, /Escreva do seu jeito/)
+  assert.equal(diary.includes('Só quero escrever'), false)
+  assert.equal(diary.includes('Me ajude a começar'), false)
+  assert.equal(diary.includes('Não sei o que escrever'), false)
   assert.equal(diary.includes('Que bom ter você aqui.'), false)
+})
+
+test('ajuda e organização ficam recolhidas para não competir com a escrita', () => {
+  assert.match(diary, /starterOpen && !editingEntryId/)
+  assert.match(diary, /Sugira uma pergunta/)
+  assert.match(diary, /Organizar o que já escrevi/)
+  assert.match(diary, /Seu espaço de escrita continua sendo o principal/)
+  assert.match(diary, /Ocultar detalhes opcionais/)
 })
 
 test('check-in rápido é a entrada principal e coleta sinais complementares sem formulário longo', () => {
@@ -41,7 +51,7 @@ test('jornada deixa de punir ausência com streak', () => {
 })
 
 test('IA é opcional, não clínica e devolve recompensa depois de escrever', () => {
-  assert.match(diary, /Salvar este registro sem análise de IA/)
+  assert.match(diary, /Salvar sem análise de IA/)
   assert.match(diary, /O que apareceu no seu registro/)
   assert.match(diary, /Uma pergunta para levar com você/)
   assert.match(diary, /Não é diagnóstico/)
@@ -60,7 +70,7 @@ test('opt-out impede envio do registro à IA em início, organização, espelho 
   assert.match(diary, /if \(!aiAllowed \|\| !String\(entry\.text \|\| ''\)\.trim\(\)\)/)
   assert.match(diary, /if \(entry\.ai_disabled !== true\)/)
   assert.match(diary, /Privacidade ativada/)
-  assert.match(diary, /o registro continua salvo normalmente/i)
+  assert.match(diary, /Seu registro continua salvo normalmente/i)
   assert.match(diary, /não será enviado à IA/i)
   assert.match(diary, /aria-describedby="diary-ai-privacy-help"/)
 })
@@ -133,7 +143,7 @@ test('planos preservam Free, Essencial e Plus sem voltar a criar complementos', 
 
 test('ditado e organização preservam o texto original intacto', () => {
   assert.match(diary, /Prefiro falar/)
-  assert.match(diary, /Organizar minha escrita/)
+  assert.match(diary, /Organizar o que já escrevi/)
   assert.match(diary, /Seu texto original permanece intacto no editor/)
   assert.match(diary, /Esta versão não substitui nem altera o que você escreveu/)
   assert.equal(diary.includes('setDraft(organizedCandidate)'), false)
