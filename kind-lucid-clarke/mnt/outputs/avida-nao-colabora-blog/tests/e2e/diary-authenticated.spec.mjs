@@ -110,10 +110,10 @@ test('Essencial respeita opt-out integral e preserva o texto original', async ({
   await editor.fill(original)
   await expect(page.getByRole('button', { name: /Organizar minha escrita/i })).toBeVisible()
 
-  await page.getByLabel('Não analisar este registro com IA').check()
+  await page.getByLabel('Salvar este registro sem análise de IA').check()
   await expect(page.getByRole('button', { name: /Organizar minha escrita/i })).toHaveCount(0)
   await expect(editor).toHaveValue(original)
-  await expect(page.getByText(/Análise de IA desativada para este registro/i)).toBeVisible()
+  await expect(page.getByText(/Privacidade ativada: o registro será salvo normalmente/i)).toBeVisible()
 })
 
 test('Plus mostra aprofundamento progressivo sem transformar a tela em formulário inicial', async ({ page }) => {
