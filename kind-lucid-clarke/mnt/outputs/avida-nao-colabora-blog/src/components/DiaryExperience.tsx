@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
-  ArrowRight, BookOpen, CheckCircle2, ChevronDown, ChevronUp, FileDown, Home,
-  Loader2, Maximize2, Mic, Minimize2, PenLine, Plus, RefreshCw, Save, Sparkles,
+  BookOpen, CheckCircle2, ChevronDown, ChevronUp, FileDown, Home,
+  Loader2, Maximize2, Mic, Minimize2, PenLine, RefreshCw, Save, Sparkles,
   SlidersHorizontal, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
