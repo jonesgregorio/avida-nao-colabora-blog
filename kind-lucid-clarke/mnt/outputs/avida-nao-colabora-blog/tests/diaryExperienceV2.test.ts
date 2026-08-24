@@ -27,7 +27,7 @@ test('jornada deixa de punir ausência com streak', () => {
 })
 
 test('IA é opcional, não clínica e devolve recompensa depois de escrever', () => {
-  assert.match(diary, /Não analisar este registro com IA/)
+  assert.match(diary, /Salvar este registro sem análise de IA/)
   assert.match(diary, /O que apareceu no seu registro/)
   assert.match(diary, /Uma pergunta para levar com você/)
   assert.match(diary, /Não é diagnóstico/)
@@ -45,7 +45,23 @@ test('opt-out impede envio do registro à IA em início, organização, espelho 
   assert.match(diary, /isEssential && aiAllowed && draft\.trim\(\)\.length >= 10/)
   assert.match(diary, /if \(!aiAllowed \|\| !String\(entry\.text \|\| ''\)\.trim\(\)\)/)
   assert.match(diary, /if \(entry\.ai_disabled !== true\)/)
-  assert.match(diary, /Análise de IA desativada para este registro/)
+  assert.match(diary, /Privacidade ativada/)
+  assert.match(diary, /o registro continua salvo normalmente/i)
+  assert.match(diary, /não será enviado à IA/i)
+  assert.match(diary, /aria-describedby="diary-ai-privacy-help"/)
+})
+
+test('ditado diferencia erros comuns de microfone e preserva o texto', () => {
+  assert.match(diary, /function voiceErrorMessage/)
+  assert.match(diary, /not-allowed/)
+  assert.match(diary, /service-not-allowed/)
+  assert.match(diary, /audio-capture/)
+  assert.match(diary, /no-speech/)
+  assert.match(diary, /network/)
+  assert.match(diary, /language-not-supported/)
+  assert.match(diary, /recognition\.onerror = event/)
+  assert.match(diary, /event\.error === 'aborted'/)
+  assert.match(diary, /Seu texto digitado continua salvo nesta tela/)
 })
 
 test('IA não relê silenciosamente textos antigos para buscar padrões', () => {
