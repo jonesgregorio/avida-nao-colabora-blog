@@ -90,11 +90,19 @@ function dayLabel(date: string) {
   if (date === yesterday) return `Ontem · ${basic}`
   return parsed.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
 }
+// Quando o humor é "Outro", o rótulo digitado pela pessoa (mood_other_label)
+// é mais informativo do que o rótulo genérico pra exibição e pra IA.
+function effectiveMoodLabel(mood: string | number | undefined, otherLabel: string | null | undefined): string {
+  const m = String(mood ?? '')
+  return m.toLowerCase() === 'outro' && otherLabel?.trim() ? otherLabel.trim() : m
+}
+
 function deriveTitle(entry: DiaryEntryV2) {
   if (entry.ai_title) return entry.ai_title
-  if (entry.entry_type === 'checkin') return `Check-in · ${String(entry.mood)}`
+  const mood = effectiveMoodLabel(entry.mood, entry.mood_other_label)
+  if (entry.entry_type === 'checkin') return `Check-in · ${mood}`
   const clean = String(entry.text || '').replace(/\s+/g, ' ').trim()
-  if (!clean) return `Registro · ${String(entry.mood)}`
+  if (!clean) return `Registro · ${mood}`
   const first = clean.split(/[.!?]/)[0] || clean
   return first.length > 68 ? `${first.slice(0, 68).trim()}…` : first
 }
@@ -231,6 +239,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
 
   const [mood, setMood] = useState('outro')
   const [moodChip, setMoodChip] = useState<string | null>(null)
+  const [moodOtherLabel, setMoodOtherLabel] = useState('')
   const [draft, setDraft] = useState('')
   const [quickNote, setQuickNote] = useState('')
   const [quickContextOpen, setQuickContextOpen] = useState(false)
@@ -265,6 +274,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const today = ymd(new Date())
   const todayDeepened = Boolean(todayMain?.deepened_at)
   const selectedMood = moodMeta(mood)
+  const moodForAi = effectiveMoodLabel(selectedMood.label, moodOtherLabel)
   const fieldOn = (key: string) => cfg.fields[key] !== false
 
   useEffect(() => { fetchDiaryConfig(plan).then(setCfg) }, [plan])
@@ -325,14 +335,14 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
 
   const resetComposer = () => {
     setDraft(''); setQuickNote(''); setQuickContextOpen(false); setQuickContext(null); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
-    setMood('outro'); setMoodChip(null); setEnergy(3); setAnxiety(3); setSleep(3); setMoodScore(3); setStress(3); setSelfEsteem(3); setIrritability(3); setOverload(3); setTouched(new Set())
+    setMood('outro'); setMoodChip(null); setMoodOtherLabel(''); setEnergy(3); setAnxiety(3); setSleep(3); setMoodScore(3); setStress(3); setSelfEsteem(3); setIrritability(3); setOverload(3); setTouched(new Set())
     setEmotions([]); setContexts([]); setNeeds([]); setCareActions([]); setTriggers([]); setGratitude(''); setSmallPride(''); setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
     setAiAllowed(true); setError(''); setEditingEntryId(null)
   }
 
   const hydrateForDeepening = (entry: DiaryEntryV2, question?: string) => {
     const meta = moodMeta(entry.mood)
-    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null)
+    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null); setMoodOtherLabel(entry.mood_other_label || '')
     setDraft(`${entry.text || ''}${question ? `\n\n${question}\n` : ''}`)
     setEnergy(entry.energy || 3); setAnxiety(entry.anxiety_level || 3); setSleep(entry.sleep_quality || 3); setMoodScore(entry.mood_score || 3); setStress(entry.stress_level || 3); setSelfEsteem(entry.self_esteem || 3); setIrritability(entry.irritability || 3); setOverload(entry.overload || 3)
     const nextTouched = new Set<string>(); if (entry.energy) nextTouched.add('energy'); if (entry.anxiety_level) nextTouched.add('anxiety'); if (entry.sleep_quality) nextTouched.add('sleep'); if (entry.mood_score) nextTouched.add('moodScore'); if (entry.stress_level) nextTouched.add('stress'); if (entry.self_esteem) nextTouched.add('selfEsteem'); if (entry.irritability) nextTouched.add('irritability'); if (entry.overload) nextTouched.add('overload'); setTouched(nextTouched)
@@ -351,13 +361,13 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
 
   const requestStartHelp = async () => {
     setHelperLoading(true); setStarterOpen(false); setError('')
-    const fallback = localStartPrompt(selectedMood.label)
+    const fallback = localStartPrompt(moodForAi)
     if (!aiAllowed) {
       setHelperPrompt(fallback); setHelperLoading(false); setMode('diary'); setTimeout(() => editorRef.current?.focus(), 60)
       return
     }
     try {
-      const response = await askDiaryCompanion({ action: 'start', mood: selectedMood.label, hour: new Date().getHours() })
+      const response = await askDiaryCompanion({ action: 'start', mood: moodForAi, hour: new Date().getHours() })
       setHelperPrompt(response.prompt || fallback)
     } catch { setHelperPrompt(fallback) }
     setHelperLoading(false); setMode('diary'); setTimeout(() => editorRef.current?.focus(), 60)
@@ -371,7 +381,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       good: 'O que aconteceu hoje que você gostaria de guardar?',
       unclear: 'Sem tentar explicar: qual palavra chega mais perto do que está acontecendo dentro de você?',
     }
-    setHelperPrompt(prompts[kind] || localStartPrompt(selectedMood.label)); setStarterOpen(false); setTimeout(() => editorRef.current?.focus(), 50)
+    setHelperPrompt(prompts[kind] || localStartPrompt(moodForAi)); setStarterOpen(false); setTimeout(() => editorRef.current?.focus(), 50)
   }
 
   const organizeWriting = async () => {
@@ -379,7 +389,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     if (!draft.trim() || organizing) return
     setOrganizing(true); setError('')
     try {
-      const response = await askDiaryCompanion({ action: 'organize', mood: selectedMood.label, text: draft })
+      const response = await askDiaryCompanion({ action: 'organize', mood: moodForAi, text: draft })
       setOrganizedCandidate(response.organized_text || '')
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível organizar a escrita agora.') }
     setOrganizing(false)
@@ -424,10 +434,11 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       setSaved(prev => prev ? { ...prev, mirror: null, processing: false } : prev)
       return
     }
-    const fallback = localMirror(String(entry.text || ''), String(entry.mood || 'seu momento'))
+    const moodText = effectiveMoodLabel(entry.mood, entry.mood_other_label) || 'seu momento'
+    const fallback = localMirror(String(entry.text || ''), moodText)
     let mirror = fallback
     try {
-      const response = await askDiaryCompanion({ action: 'mirror', mood: String(entry.mood || ''), text: String(entry.text || ''), entry_id: entry.id })
+      const response = await askDiaryCompanion({ action: 'mirror', mood: moodText, text: String(entry.text || ''), entry_id: entry.id })
       if (response.mirror) mirror = response.mirror
     } catch { /* fallback local mantém a recompensa pós-escrita */ }
     void persistAiMetadata(entry.id, mirror, false)
@@ -459,6 +470,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     const payload: Record<string, unknown> = {
       user_id: user.id, date: today, mood: meta.label, mood_score: normalizeScale(touched.has('moodScore') ? moodScore : meta.score), text: isCheckin ? quickNote.trim() : draft.trim(), entry_type: isCheckin ? 'checkin' : 'diary', ai_disabled: isCheckin ? true : !aiAllowed,
       ...(!isCheckin ? { diary_kind: isFree ? 'basic' : 'main' } : {}),
+      ...(moodChip === 'outro' && moodOtherLabel.trim() ? { mood_other_label: moodOtherLabel.trim().slice(0, 80) } : {}),
     }
     if (isCheckin) {
       if (isEssential && touched.has('energy')) payload.energy = normalizeScale(energy)
@@ -541,7 +553,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     let question = saved?.mirror?.question || 'O que neste registro você sente que ainda ficou sem palavras?'
     if (entry.ai_disabled !== true) {
       try {
-        const response = await askDiaryCompanion({ action: 'continue', mood: String(entry.mood), text: String(entry.text || '') })
+        const response = await askDiaryCompanion({ action: 'continue', mood: effectiveMoodLabel(entry.mood, entry.mood_other_label), text: String(entry.text || '') })
         if (response.prompt) question = response.prompt
       } catch { /* usa pergunta já gerada */ }
     }
@@ -558,12 +570,13 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     }
     resetComposer()
     const meta = moodMeta(entry.mood)
-    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null)
+    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null); setMoodOtherLabel(entry.mood_other_label || '')
     setEnergy(entry.energy || 3); setStress(entry.stress_level || 3); setAnxiety(entry.anxiety_level || 3)
     const carried = new Set<string>(); if (entry.energy) carried.add('energy'); if (entry.stress_level) carried.add('stress'); if (entry.anxiety_level) carried.add('anxiety'); setTouched(carried)
     setContexts(entry.context_tags || [])
     const note = String(entry.text || '').trim()
-    setHelperPrompt(note ? `No seu check-in você anotou: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Se quiser, conte um pouco mais sobre isso.` : `Você marcou ${meta.label.toLowerCase()}. O que está por trás deste momento?`)
+    const moodWord = effectiveMoodLabel(entry.mood, entry.mood_other_label).toLowerCase()
+    setHelperPrompt(note ? `No seu check-in você anotou: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Se quiser, conte um pouco mais sobre isso.` : `Você marcou ${moodWord}. O que está por trás deste momento?`)
     setMode('diary'); setTab('write'); setError('')
     setTimeout(() => editorRef.current?.focus(), 80)
   }
@@ -701,6 +714,16 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                   <div className="mb-5">
                     <p className="text-sm font-semibold text-forest-900 mb-3">Como você está agora?</p>
                     <div className="flex flex-wrap gap-2">{MOODS.map(m => <MoodChip key={m.key} mood={m} active={moodChip === m.key} onClick={() => chooseMood(m.key)} />)}</div>
+                    {moodChip === 'outro' && (
+                      <input
+                        value={moodOtherLabel}
+                        onChange={e => setMoodOtherLabel(e.target.value)}
+                        maxLength={80}
+                        placeholder="Como você chamaria o que está sentindo? (opcional)"
+                        aria-label="Como você chamaria o que está sentindo"
+                        className="mt-3 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm"
+                      />
+                    )}
                   </div>
 
                   {mode === 'quick' ? (

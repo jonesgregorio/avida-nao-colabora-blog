@@ -90,6 +90,7 @@ export interface DiaryEntry {
   user_id: string
   date?: string
   mood: string | number
+  mood_other_label?: string | null
   mood_emoji?: string
   mood_score?: number
   text?: string
