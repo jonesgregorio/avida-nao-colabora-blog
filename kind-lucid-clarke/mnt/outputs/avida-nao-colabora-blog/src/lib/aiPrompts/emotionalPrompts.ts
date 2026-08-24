@@ -155,10 +155,71 @@ FORMATO EXATO:
 }`
 }
 
+export interface ProfessionalGuidanceRelatedContext {
+  monthly_report_summary?: unknown
+  self_care_plan?: unknown
+}
+
+function compactGuidanceText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized ? normalized.slice(0, maxLength) : null
+}
+
+function compactGuidanceList(value: unknown, maxItems = 5): string[] {
+  return Array.isArray(value)
+    ? value
+      .map(item => compactGuidanceText(item, 500))
+      .filter((item): item is string => Boolean(item))
+      .slice(0, maxItems)
+    : []
+}
+
+function asGuidanceRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function compactSelfCarePlan(value: unknown) {
+  const plan = asGuidanceRecord(value)
+  if (!plan) return null
+
+  const priorities = Array.isArray(plan.three_care_priorities)
+    ? plan.three_care_priorities
+      .map(item => asGuidanceRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+      .slice(0, 3)
+      .map(item => ({
+        priority: compactGuidanceText(item.priority, 400),
+        why_it_matters: compactGuidanceText(item.why_it_matters, 700),
+        small_actions: compactGuidanceList(item.small_actions, 3),
+      }))
+    : []
+
+  return {
+    main_focus: compactGuidanceText(plan.main_focus ?? plan.monthly_priority, 800),
+    why_this_focus: compactGuidanceText(plan.why_this_focus ?? plan.main_care, 1200),
+    priorities,
+    suggested_micro_actions: compactGuidanceList(plan.suggested_micro_actions ?? plan.practical_tips, 5),
+    what_not_to_force: compactGuidanceText(plan.what_not_to_force, 800),
+    light_emotional_goal: compactGuidanceText(plan.light_emotional_goal, 800),
+    checkin_suggestion: compactGuidanceText(plan.checkin_suggestion, 800),
+  }
+}
+
+function compactProfessionalGuidanceContext(context?: ProfessionalGuidanceRelatedContext) {
+  return {
+    monthly_report_summary: compactGuidanceText(context?.monthly_report_summary, 2200),
+    self_care_plan: compactSelfCarePlan(context?.self_care_plan),
+  }
+}
+
 export function buildProfessionalGuidancePrompt(
   summary: EmotionalSummary,
   request: { message: string; context?: string | null; expected_help?: string | null },
   adminNotes?: string,
+  relatedContext?: ProfessionalGuidanceRelatedContext,
 ): string {
   return `${base('professional_guidance_draft', summary)}
 TAREFA: crie um RASCUNHO para revisão humana antes de uma orientação mensal. A pergunta central é: "Que leitura acolhedora e direcionamento posso receber a partir do meu momento?".
@@ -169,6 +230,10 @@ ${JSON.stringify({ mensagem: request.message, contexto: request.context || null,
 
 ANOTAÇÕES DA EQUIPE (opcionais):
 ${adminNotes?.trim() || 'nenhuma'}
+
+CONTEXTO JÁ PRODUZIDO NO PRODUTO (somente sínteses estruturadas/revisadas; nunca texto bruto do Diário):
+${JSON.stringify(compactProfessionalGuidanceContext(relatedContext))}
+Use este contexto apenas quando estiver presente. Não invente conteúdo ausente e não transforme relatório/plano em diagnóstico ou relação causal.
 
 FORMATO EXATO:
 {

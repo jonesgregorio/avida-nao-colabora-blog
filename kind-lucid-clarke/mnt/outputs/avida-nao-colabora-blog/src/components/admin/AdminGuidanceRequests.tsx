@@ -319,7 +319,15 @@ export default function AdminGuidanceRequests() {
         selected.month_key, selected.user?.plan,
         combined,
       )
-      const raw = await generateWithFailover(buildProfessionalGuidancePrompt(summary, selected, adminNotes))
+      const raw = await generateWithFailover(buildProfessionalGuidancePrompt(
+        summary,
+        selected,
+        adminNotes,
+        {
+          monthly_report_summary: combined.monthly_report_summary,
+          self_care_plan: combined.self_care_plan,
+        },
+      ))
       const letter = extractLetter(raw)
       const text = letter.gentle_guidance || letter.final_message_draft || extractDraft(raw)
       const generatedAt = new Date().toISOString()
