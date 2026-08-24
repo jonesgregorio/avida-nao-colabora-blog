@@ -91,6 +91,42 @@ async function openDiary(page, plan, viewport) {
   await expect(page.getByRole('button', { name: 'Só quero escrever' })).toBeVisible()
 }
 
+async function installVoiceMocks(page, { denyMicrophone = false } = {}) {
+  await page.addInitScript(({ deny }) => {
+    window.__e2eMicRequests = 0
+    window.__e2eMicTrackStops = 0
+    window.__e2eSpeechStarts = 0
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          window.__e2eMicRequests += 1
+          if (deny) throw new DOMException('Microfone bloqueado no teste', 'NotAllowedError')
+          return {
+            getTracks: () => [{ stop: () => { window.__e2eMicTrackStops += 1 } }],
+          }
+        },
+      },
+    })
+
+    class FakeSpeechRecognition {
+      constructor() {
+        this.lang = ''
+        this.continuous = false
+        this.interimResults = false
+        this.onresult = null
+        this.onend = null
+        this.onerror = null
+      }
+      start() { window.__e2eSpeechStarts += 1 }
+      stop() { this.onend?.() }
+    }
+
+    window.webkitSpeechRecognition = FakeSpeechRecognition
+  }, { deny: denyMicrophone })
+}
+
 test('Gratuito mantém escrita simples, limite visível e histórico sem PDF', async ({ page }) => {
   await openDiary(page, 'free', { width: 1440, height: 900 })
   await expect(page.getByText('Plano Gratuito')).toBeVisible()
@@ -125,6 +161,28 @@ test('Plus mostra aprofundamento progressivo sem transformar a tela em formulár
   await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
 
   await page.screenshot({ path: 'test-results/diary-visual/plus-desktop.png', fullPage: true })
+})
+
+test('Prefiro falar valida o microfone antes de iniciar SpeechRecognition no desktop', async ({ page }) => {
+  await installVoiceMocks(page)
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+
+  await page.getByRole('button', { name: 'Prefiro falar' }).click()
+  await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__e2eMicTrackStops)).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__e2eSpeechStarts)).toBe(1)
+  await expect(page.getByRole('button', { name: 'Parar ditado' })).toBeVisible()
+})
+
+test('microfone bloqueado interrompe o reconhecimento e mostra orientação imediata', async ({ page }) => {
+  await installVoiceMocks(page, { denyMicrophone: true })
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+
+  await page.getByRole('button', { name: 'Prefiro falar' }).click()
+  await expect.poll(() => page.evaluate(() => window.__e2eMicRequests)).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.__e2eSpeechStarts)).toBe(0)
+  await expect(page.getByRole('dialog', { name: 'Permita o microfone para continuar' })).toBeVisible()
+  await expect(page.getByText(/Microfone → Permitir/)).toBeVisible()
 })
 
 test('Diário autenticado funciona em viewport mobile, modo foco e sem violações críticas de axe', async ({ page }) => {
