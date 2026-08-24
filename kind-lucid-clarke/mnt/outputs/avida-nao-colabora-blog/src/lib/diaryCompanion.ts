@@ -41,9 +41,23 @@ interface CompanionInput {
   hour?: number
 }
 
+const DIARY_COMPANION_TIMEOUT_MS = 26_000
+
 export async function askDiaryCompanion(input: CompanionInput): Promise<DiaryCompanionResponse> {
-  const { data, error } = await supabase.functions.invoke<DiaryCompanionResponse>('diary-companion', { body: input })
-  if (error) throw new Error(error.message || 'Não foi possível usar a ajuda de IA agora.')
-  if (!data?.ok) throw new Error(data?.message || 'Não foi possível usar a ajuda de IA agora.')
-  return data
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('A ajuda de IA demorou mais que o esperado. Seu texto continua intacto e você pode seguir sem ela.')), DIARY_COMPANION_TIMEOUT_MS)
+  })
+
+  try {
+    const { data, error } = await Promise.race([
+      supabase.functions.invoke<DiaryCompanionResponse>('diary-companion', { body: input }),
+      timeout,
+    ])
+    if (error) throw new Error(error.message || 'Não foi possível usar a ajuda de IA agora.')
+    if (!data?.ok) throw new Error(data?.message || 'Não foi possível usar a ajuda de IA agora.')
+    return data
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
