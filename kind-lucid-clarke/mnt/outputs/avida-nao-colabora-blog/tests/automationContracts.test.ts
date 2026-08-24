@@ -29,7 +29,7 @@ test('acesso ilimitado usa entitlement Plus também na defesa do banco', () => {
 })
 
 test('relatório mensal exige qualidade maior que o semanal', () => {
-  const edge = read('supabase/functions/run-emotional-automations/index.ts')
+  const edge = read('supabase/functions/run-emotional-automations/index.ts') + read('supabase/functions/run-emotional-automations/runner.ts') + read('supabase/functions/run-emotional-automations/providerReliability.ts')
   assert.match(edge, /periodKind === 'monthly' \? 8 : 3/)
   assert.match(edge, /periodKind === 'monthly' \? 12 : 5/)
 })
@@ -74,17 +74,23 @@ test('helpers de plano efetivo não expõem entitlement de outros usuários aute
   assert.match(sql, /not allowed to inspect another user plan/)
 })
 
-test('IA emocional possui failover de provedor antes do fallback determinístico', () => {
-  const edge = read('supabase/functions/run-emotional-automations/index.ts')
+test('IA emocional possui failover, timeout, retry e validação antes do fallback determinístico', () => {
+  const edge = read('supabase/functions/run-emotional-automations/index.ts') + read('supabase/functions/run-emotional-automations/runner.ts') + read('supabase/functions/run-emotional-automations/providerReliability.ts')
   assert.match(edge, /GEMINI_API_KEY/)
   assert.match(edge, /GROQ_API_KEY/)
   assert.match(edge, /OPENAI_API_KEY/)
+  assert.match(edge, /EMOTIONAL_AI_TIMEOUT_MS/)
+  assert.match(edge, /EMOTIONAL_AI_ATTEMPTS/)
+  assert.match(edge, /AbortController/)
+  assert.match(edge, /retry-after/)
+  assert.match(edge, /JSON inválido/)
+  assert.match(edge, /formato incompleto/)
   assert.match(edge, /fallback determinístico aplicado/)
 })
 
 test('versões e regras de segurança dos prompts emocionais são compartilhadas', () => {
   const frontend = read('src/lib/aiPrompts/emotionalPrompts.ts')
-  const edge = read('supabase/functions/run-emotional-automations/index.ts')
+  const edge = read('supabase/functions/run-emotional-automations/index.ts') + read('supabase/functions/run-emotional-automations/runner.ts') + read('supabase/functions/run-emotional-automations/providerReliability.ts')
   assert.match(frontend, /emotionalPromptContracts/)
   assert.match(edge, /emotionalPromptContracts/)
   assert.match(edge, /EMOTIONAL_PROMPT_VERSIONS/)
