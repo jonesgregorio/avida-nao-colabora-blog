@@ -212,6 +212,17 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
+  // Diagnóstico por provedor. Antes, cada falha era engolida por um catch vazio e
+  // o chamador só recebia "nenhum provedor respondeu" — impossível saber, olhando
+  // ai_generation_logs, se foi 404 de modelo, 429 de cota, 5xx, timeout ou chave
+  // ausente. Guarda só o motivo técnico (nunca prompt, resposta ou chave).
+  const failures: string[] = []
+  const note = (provider: string, reason: unknown) => {
+    const text = String(reason instanceof Error ? reason.message : reason || 'falha desconhecida')
+      .replace(/\s+/g, ' ').trim().slice(0, 120)
+    failures.push(`${provider}: ${text}`)
+  }
+
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
   const legacyGeminiModels = new Set(['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash'])
   const configuredGeminiModels = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)
@@ -227,9 +238,14 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
         if (res.ok) {
           const data = await res.json(); const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
           if (text && String(text).trim()) return { text: String(text).trim(), model }
+          note(`gemini/${model}`, 'resposta vazia')
+        } else {
+          note(`gemini/${model}`, `HTTP ${res.status}`)
         }
-      } catch { /* tenta próximo modelo/provedor */ }
+      } catch (err) { note(`gemini/${model}`, err) }
     }
+  } else {
+    note('gemini', 'GEMINI_API_KEY ausente')
   }
 
   const groqKey = Deno.env.get('GROQ_API_KEY')
@@ -242,8 +258,13 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
       if (res.ok) {
         const data = await res.json(); const text = data?.choices?.[0]?.message?.content
         if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:openai/gpt-oss-120b' }
+        note('groq', 'resposta vazia')
+      } else {
+        note('groq', `HTTP ${res.status}`)
       }
-    } catch { /* tenta OpenAI */ }
+    } catch (err) { note('groq', err) }
+  } else {
+    note('groq', 'GROQ_API_KEY ausente')
   }
 
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
@@ -256,11 +277,21 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
       if (res.ok) {
         const data = await res.json(); const text = data?.choices?.[0]?.message?.content
         if (text && String(text).trim()) return { text: String(text).trim(), model: 'openai:gpt-4o-mini' }
+        note('openai', 'resposta vazia')
+      } else {
+        note('openai', `HTTP ${res.status}`)
       }
-    } catch { /* fallback determinístico será usado pelo chamador */ }
+    } catch (err) { note('openai', err) }
+  } else {
+    note('openai', 'OPENAI_API_KEY ausente')
   }
 
-  throw new Error('Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado')
+  // Inclui o motivo de CADA provedor para que ai_generation_logs.error_msg permita
+  // diagnosticar a causa real do fallback (404 de modelo, 429 de cota, 5xx, timeout,
+  // chave ausente) em vez de só informar que houve fallback.
+  throw new Error(
+    `Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado. Motivos — ${failures.join(' | ')}`.slice(0, 480),
+  )
 }
 
 function parse(raw: string): Record<string, unknown> | null { try { const match = raw.match(/\{[\s\S]*\}/); const obj = JSON.parse(match?.[0] || ''); return obj && typeof obj === 'object' ? obj as Record<string, unknown> : null } catch { return null } }
