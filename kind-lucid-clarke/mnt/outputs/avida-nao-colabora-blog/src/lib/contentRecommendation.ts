@@ -13,7 +13,7 @@
 //   5. Segurança emocional: detecção de linguagem de risco (§15)
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase } from './supabase'
-import { hasPlanAccess } from './officialPlans'
+import { isContentLocked } from './officialPlans'
 import type { EmotionalAnalysis } from './emotionalAnalytics'
 
 export type Theme =
@@ -379,6 +379,8 @@ interface ScoreOpts {
   accessibleOnly?: boolean
   /** Exigir score > 0 (recomendações) — padrão true. */
   requireMatch?: boolean
+  /** Usuário tem sessão ativa — necessário para avaliar conteúdo 'account'. Padrão false. */
+  isLoggedIn?: boolean
 }
 
 /**
@@ -392,14 +394,17 @@ export function scoreCatalog(
   plan: string | null | undefined,
   opts: ScoreOpts = {},
 ): ScoredContent[] {
-  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true } = opts
+  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true, isLoggedIn = false } = opts
   const themesRanked = topThemes(sig, 5)
   const kw = [...sig.keywords].filter(Boolean)
 
   const scored = catalog
     .filter(it => it.is_recommendable !== false)
     .map(it => {
-      const access = hasPlanAccess(plan, it.plan_required ?? 'free')
+      // Regra ÚNICA de bloqueio (officialPlans.isContentLocked) -- hasPlanAccess
+      // sozinho não sabe tratar plan_required='account' (exige login, não plano)
+      // e sempre liberava esse conteúdo, mesmo para visitante deslogado.
+      const access = !isContentLocked(it.plan_required, plan, isLoggedIn)
       const themesOf = itemThemes(it)
       const hay = itemHaystack(it)
       let score = 0

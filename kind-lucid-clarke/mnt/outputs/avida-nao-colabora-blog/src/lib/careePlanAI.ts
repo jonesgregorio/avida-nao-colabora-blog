@@ -382,7 +382,8 @@ export async function resolveRecommendedContent(tags: string[], plan = 'plus', l
   try {
     const [catalog] = await Promise.all([fetchGuidedCatalog()])
     const sig = signalFromTags(tags)
-    const scored = scoreCatalog(catalog, sig, plan, { limit })
+    // Sempre chamado para um usuário autenticado com plano ativo (plano de autocuidado).
+    const scored = scoreCatalog(catalog, sig, plan, { limit, isLoggedIn: true })
     return scored.map(s => ({
       id: s.item.id,
       title: s.item.title,

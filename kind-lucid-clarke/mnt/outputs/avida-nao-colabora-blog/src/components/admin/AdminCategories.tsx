@@ -33,11 +33,23 @@ export default function AdminCategories() {
 
   async function create() {
     if (!newName.trim()) { showToast('Nome obrigatório', true); return }
-    setSaving(true)
     const slug = newName.toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9\s-]/g, '')
       .trim().replace(/\s+/g, '-')
+
+    // "name" só tem UNIQUE case-sensitive no banco, mas "slug" não tem UNIQUE
+    // nenhum -- duas categorias com nomes quase iguais ("Ansiedade"/"ansiedade")
+    // passavam pela constraint e viravam dois chips com o MESMO slug, fragmentando
+    // o filtro do blog e o dropdown do editor (ver memória "categorias_controlam_blog").
+    const trimmedName = newName.trim().toLowerCase()
+    const dupe = cats.find(c => c.name.trim().toLowerCase() === trimmedName || c.slug === slug)
+    if (dupe) {
+      showToast(`Já existe uma categoria parecida: "${dupe.name}". Use-a em vez de criar outra quase igual.`, true)
+      return
+    }
+
+    setSaving(true)
 
     // Novo tema entra depois dos existentes na ordem dos chips do blog.
     const nextOrder = Math.max(0, ...cats.map(c => c.order_index ?? 0)) + 1

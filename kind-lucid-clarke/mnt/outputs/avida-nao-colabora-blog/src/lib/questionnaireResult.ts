@@ -241,7 +241,8 @@ export async function recommendGuidedContent(
     fetchGuidedCatalog(),
     Promise.resolve(signalFromTags(tags)),
   ])
-  const scored = scoreCatalog(catalog, sig, plan, { limit })
+  // Resultado de questionário só é exibido a um usuário autenticado.
+  const scored = scoreCatalog(catalog, sig, plan, { limit, isLoggedIn: true })
   return scored.map(({ item }) => ({
     id: item.id,
     title: item.title,

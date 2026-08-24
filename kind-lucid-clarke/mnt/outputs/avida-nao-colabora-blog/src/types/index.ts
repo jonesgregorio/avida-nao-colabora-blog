@@ -49,6 +49,7 @@ export interface Article {
   keywords?: string[]
   seo_title?: string
   seo_description?: string
+  og_image?: string
   diary_question?: string
   cta_text?: string
   cta_link?: string
