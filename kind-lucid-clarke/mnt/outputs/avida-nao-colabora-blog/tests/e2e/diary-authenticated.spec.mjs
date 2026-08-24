@@ -123,7 +123,8 @@ async function installVoiceMocks(page, { denyMicrophone = false } = {}) {
       stop() { this.onend?.() }
     }
 
-    window.webkitSpeechRecognition = FakeSpeechRecognition
+    Object.defineProperty(window, 'SpeechRecognition', { configurable: true, writable: true, value: FakeSpeechRecognition })
+    Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, writable: true, value: FakeSpeechRecognition })
   }, { deny: denyMicrophone })
 }
 
