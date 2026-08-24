@@ -438,8 +438,7 @@ function useQuestionnaireSignals(userId: string | undefined, selectedMonth: stri
           topTags: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([tag, count]) => ({ tag, count })),
           latest: signals.slice(0, 4),
         })
-      })
-      .catch(() => setSummary(emptyQuestionnaireSignals))
+      }, () => setSummary(emptyQuestionnaireSignals))
   }, [userId, selectedMonth])
   return summary
 }
