@@ -107,12 +107,21 @@ function localStartPrompt(mood: string) {
   if (m.includes('bem') || m.includes('tranq')) return 'O que aconteceu hoje que você gostaria de lembrar quando reler este dia?'
   return 'Complete sem pensar muito: “Se eu pudesse colocar uma coisa para fora agora, seria…”'
 }
+// "outro" é um rótulo genérico ("Other"), não um sentimento descritível —
+// "algo ligado a outro" não faz sentido em português. Os demais humores
+// (ansiedade, cansaço, bem-estar...) são substantivos e encaixam na frase.
+function moodWeightSentence(mood: string): string {
+  const m = mood.trim().toLowerCase()
+  if (!m || m === 'outro') return 'Seu registro colocou em palavras algo deste momento.'
+  return `Seu registro colocou em palavras algo ligado a ${m}.`
+}
+
 function localMirror(text: string, mood: string): DiaryMirror {
   const clean = text.replace(/\s+/g, ' ').trim()
   const first = clean.split(/[.!?]/)[0] || clean
   return {
     title: first ? (first.length > 70 ? `${first.slice(0, 70)}…` : first) : 'Meu registro de hoje',
-    weight: `Seu registro colocou em palavras algo ligado a ${mood.toLowerCase() || 'este momento'}.`,
+    weight: moodWeightSentence(mood),
     observation: clean ? `Uma parte que ganhou espaço foi: “${clean.slice(0, 180)}${clean.length > 180 ? '…' : ''}”` : 'Você reservou um momento para perceber como estava.',
     strength: 'O próprio ato de escrever já transforma uma sensação difusa em algo que pode ser observado com mais calma.',
     question: 'O que você gostaria de levar deste registro para amanhã?',
