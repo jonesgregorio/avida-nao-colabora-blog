@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sparkles, Clock, ArrowRight, BookOpen, PenLine } from 'lucide-react'
 import {
-  fetchGuidedCatalog, fetchReadSlugsForRec, fetchUserSignal, scoreCatalog,
+  fetchGuidedCatalog, fetchReadSlugsForRec, fetchRecentlyShownSlugs, fetchUserSignal, scoreCatalog,
   logRecommendationsShown,
   type Signal, type CatalogItem, type ScoredContent,
 } from '../lib/contentRecommendation'
@@ -45,16 +45,17 @@ export default function RecommendedContent({
   useEffect(() => {
     let active = true
     ;(async () => {
-      const [cat, sig, read] = await Promise.all([
+      const [cat, sig, read, recent] = await Promise.all([
         catalog && catalog.length ? Promise.resolve(catalog) : fetchGuidedCatalog(),
         signal ? Promise.resolve(signal) : fetchUserSignal(user?.id),
         fetchReadSlugsForRec(user?.id),
+        fetchRecentlyShownSlugs(user?.id),
       ])
       if (!active) return
       setHasData(sig.hasData)
       setRisk(sig.risk)
       if (sig.risk) { setScored([]); return }
-      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read, isLoggedIn: !!user?.id })
+      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read, isLoggedIn: !!user?.id, recentlyShown: recent })
       setScored(recs)
       if (recs.length) void logRecommendationsShown(user?.id, source, recs)
     })()

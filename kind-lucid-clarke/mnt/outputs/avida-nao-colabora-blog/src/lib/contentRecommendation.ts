@@ -381,6 +381,8 @@ interface ScoreOpts {
   requireMatch?: boolean
   /** Usuário tem sessão ativa — necessário para avaliar conteúdo 'account'. Padrão false. */
   isLoggedIn?: boolean
+  /** Slugs recomendados há pouco (fetchRecentlyShownSlugs) — desconta para variar. */
+  recentlyShown?: Set<string>
 }
 
 /**
@@ -394,7 +396,7 @@ export function scoreCatalog(
   plan: string | null | undefined,
   opts: ScoreOpts = {},
 ): ScoredContent[] {
-  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true, isLoggedIn = false } = opts
+  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true, isLoggedIn = false, recentlyShown = new Set() } = opts
   const themesRanked = topThemes(sig, 5)
   const kw = [...sig.keywords].filter(Boolean)
 
@@ -431,6 +433,8 @@ export function scoreCatalog(
           (['cansaco', 'sono', 'rotina', 'autocuidado'].some(t => themesOf.has(t)) || /descanso|energia|sono|pausa/.test(hay))) score += 3
       // -3: já lido recentemente.
       if (it.slug && readSlugs.has(it.slug)) score -= 3
+      // -4: já recomendado há pouco (evita repetir o mesmo item entre telas/recargas).
+      if (it.slug && recentlyShown.has(it.slug)) score -= 4
       // -100: fora do plano (some das recomendações).
       if (!access) score -= 100
 
@@ -507,6 +511,28 @@ export async function fetchUserSignal(userId: string | null | undefined, days = 
     return mergeSignals(entrySig, tagSig)
   } catch {
     return emptySignal()
+  }
+}
+
+/**
+ * Slugs recomendados recentemente (para não repetir o mesmo item toda hora).
+ * content_recommendations existe desde a 086 exatamente para isso, mas nunca
+ * era consultada de volta -- só recebia inserts de logRecommendationsShown.
+ * Janela curta (não é um bloqueio permanente): o mesmo conteúdo ainda pode
+ * voltar a aparecer depois, se continuar sendo o melhor match.
+ */
+export async function fetchRecentlyShownSlugs(
+  userId: string | null | undefined,
+  windowHours = 48,
+): Promise<Set<string>> {
+  if (!userId) return new Set()
+  try {
+    const since = new Date(Date.now() - windowHours * 3600 * 1000).toISOString()
+    const { data } = await supabase.from('content_recommendations')
+      .select('content_slug').eq('user_id', userId).gte('created_at', since)
+    return new Set((data ?? []).map((r: { content_slug: string | null }) => r.content_slug).filter((s): s is string => !!s))
+  } catch {
+    return new Set()
   }
 }
 
