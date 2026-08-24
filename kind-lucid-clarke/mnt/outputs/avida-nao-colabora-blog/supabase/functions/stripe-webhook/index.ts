@@ -92,6 +92,27 @@ function invoiceSubId(invoice: Stripe.Invoice): string | null {
   return null
 }
 
+// current_period_start/end migraram do nível da Subscription para
+// items.data[0] em versões mais novas da API da Stripe (confirmado em
+// evento real: customer.subscription.created chegou sem os campos no
+// nível raiz). Aceita os dois formatos, no mesmo espírito de invoiceSubId.
+function subPeriodStart(s: Stripe.Subscription): number {
+  const legacy = (s as unknown as { current_period_start?: number }).current_period_start
+  if (typeof legacy === 'number') return legacy
+  const item = (s.items.data[0] as unknown as { current_period_start?: number } | undefined)
+    ?.current_period_start
+  if (typeof item === 'number') return item
+  throw new Error('current_period_start ausente na Subscription (formato de API desconhecido)')
+}
+function subPeriodEnd(s: Stripe.Subscription): number {
+  const legacy = (s as unknown as { current_period_end?: number }).current_period_end
+  if (typeof legacy === 'number') return legacy
+  const item = (s.items.data[0] as unknown as { current_period_end?: number } | undefined)
+    ?.current_period_end
+  if (typeof item === 'number') return item
+  throw new Error('current_period_end ausente na Subscription (formato de API desconhecido)')
+}
+
 async function registrarEvento(
   supabase: ServiceSupabaseClient,
   event: Stripe.Event,
@@ -280,8 +301,8 @@ async function handleEvent(
       .eq('user_id', userId)
     must(profileErr, 'profiles.plan (checkout)')
 
-    const periodStart = new Date(stripeSub.current_period_start * 1000).toISOString()
-    const periodEnd = new Date(stripeSub.current_period_end * 1000).toISOString()
+    const periodStart = new Date(subPeriodStart(stripeSub) * 1000).toISOString()
+    const periodEnd = new Date(subPeriodEnd(stripeSub) * 1000).toISOString()
 
     const { error: subErr } = await supabase.from('user_subscriptions').upsert({
       user_id: userId,
@@ -390,8 +411,8 @@ async function handleEvent(
       .eq('stripe_customer_id', customerId)
     must(profileErr, 'profiles.plan (invoice)')
 
-    const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
-    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    const periodStart = new Date(subPeriodStart(subscription) * 1000).toISOString()
+    const periodEnd = new Date(subPeriodEnd(subscription) * 1000).toISOString()
     const pagoEm = new Date(event.created * 1000).toISOString()
     const valorPago = (invoice.amount_paid ?? 0) / 100
 
@@ -490,8 +511,8 @@ async function handleEvent(
         user_id: userId,
         plan_key: plan,
         status: subscription.status === 'active' || subscription.status === 'trialing' ? 'active' : subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_start: new Date(subPeriodStart(subscription) * 1000).toISOString(),
+        current_period_end: new Date(subPeriodEnd(subscription) * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
         subscription_created_at: new Date(subscription.created * 1000).toISOString(),
         ...stripeSubscriptionFields(subscription, customerId),
@@ -534,8 +555,8 @@ async function handleEvent(
     }
 
     const oldPlan = profRow?.plan ?? 'free'
-    const periodStart = new Date(subscription.current_period_start * 1000).toISOString()
-    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    const periodStart = new Date(subPeriodStart(subscription) * 1000).toISOString()
+    const periodEnd = new Date(subPeriodEnd(subscription) * 1000).toISOString()
     const active = subscription.status === 'active' || subscription.status === 'trialing'
 
     const { error: subErr } = await supabase.from('user_subscriptions').upsert({
