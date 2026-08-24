@@ -48,6 +48,15 @@
 //        Serve tanto para upgrade quanto para downgrade — só muda o price e
 //        o expectedPlan passados.
 //
+//   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs renewal-cycle essential
+//     -> cria assinatura direto pela API (Stripe Test Clock), avança o
+//        relógio de teste até depois do fim do 1º período — a Stripe cobra
+//        de verdade e gera um invoice.payment_succeeded real de renovação
+//        (billing_reason=subscription_cycle) — entrega ao webhook e
+//        confirma period avançado, payment_events/subscription_events/
+//        notifications/email_logs (inclusive o assunto do e-mail já
+//        renderizado com as variáveis).
+//
 //   node --env-file=.e2e-local/stripe-webhook-e2e.env scripts/e2e-local-stripe-webhook.mjs cleanup <userId> [subscriptionId]
 //     -> cancela a assinatura de teste na Stripe e remove o usuário local.
 
@@ -459,6 +468,148 @@ async function cmdFullCycle(plan) {
   console.log('\nOK: ciclo completo (checkout, webhook, payment_failed, upgrade, downgrade, cleanup) passou sem erros.')
 }
 
+// Testa uma renovação REAL de assinatura (segundo ciclo de cobrança) usando
+// Stripe Test Clocks — avança o relógio de teste da Stripe pra depois do fim
+// do período atual, o que faz a Stripe faturar e cobrar de verdade (com o
+// cartão de teste já salvo), gerando um invoice.payment_succeeded real com
+// billing_reason=subscription_cycle. Não usa Checkout Hospedado (que não
+// aceita test clock em customer já existente); cria o customer/assinatura
+// direto pela API, como create-checkout faria, e replica manualmente o que
+// checkout.session.completed normalmente grava (stripe_customer_id).
+async function cmdRenewalCycle(plan) {
+  const priceId = PRICE_BY_PLAN[plan]()
+  const email = `stripe-e2e-renewal-${randomUUID().slice(0, 8)}@local.test`
+  const password = `Stripe-${randomUUID()}-Aa1!`
+
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
+  if (createErr || !created.user) throw new Error(`Não foi possível criar usuário: ${createErr?.message}`)
+  const userId = created.user.id
+
+  console.log('=== Conta E2E criada ===')
+  console.log('userId:', userId, '| email:', email)
+
+  const clock = await stripePost('test_helpers/test_clocks', { frozen_time: Math.floor(Date.now() / 1000) })
+  console.log('Test clock criado:', clock.id)
+
+  const customer = await stripePost('customers', { email, test_clock: clock.id })
+  // O token "pm_card_visa" é de uso único: anexar devolve um PaymentMethod
+  // REAL com outro ID, que é o que precisa ser usado dali pra frente.
+  const paymentMethod = await stripePost(`payment_methods/pm_card_visa/attach`, { customer: customer.id })
+  await stripePost(`customers/${customer.id}`, { 'invoice_settings[default_payment_method]': paymentMethod.id })
+
+  // Replica o que checkout.session.completed grava normalmente, já que aqui
+  // pulamos o Checkout Hospedado (test clock só funciona em customer criado
+  // já vinculado a ele).
+  psql(`UPDATE public.profiles SET stripe_customer_id = '${customer.id}' WHERE user_id = '${userId}'::uuid`)
+
+  const subscription = await stripePost('subscriptions', {
+    customer: customer.id,
+    'items[0][price]': priceId,
+    default_payment_method: paymentMethod.id,
+  })
+  console.log('Assinatura criada (1º ciclo):', subscription.id, '| status:', subscription.status)
+
+  // Entrega o evento do 1º ciclo pra estabelecer o baseline (equivalente ao
+  // que verify faz depois de um Checkout real). Busca a fatura direto no
+  // customer (em vez de procurar na lista global de eventos — mais
+  // confiável, sem depender de ordenação/crowding de outros eventos da
+  // conta) e embrulha o objeto REAL num envelope de evento, como já é feito
+  // em plan-change.
+  const firstInvoice = await fetchLatestInvoice(customer.id, 'subscription_create')
+  const firstInvoiceEvent = wrapAsEvent('invoice.payment_succeeded', firstInvoice)
+  const firstDelivery = await deliverWebhook(firstInvoiceEvent)
+  if (firstDelivery.status >= 300) throw new Error(`Webhook rejeitou o 1º invoice.payment_succeeded: HTTP ${firstDelivery.status}`)
+  console.log('1º ciclo confirmado. billing_reason:', firstInvoice.billing_reason)
+
+  const beforePeriodEnd = psql(`SELECT current_period_end FROM public.user_subscriptions WHERE user_id = '${userId}'::uuid`)
+  const planEventsBefore = psql(`SELECT count(*) FROM public.subscription_events WHERE user_id = '${userId}'::uuid AND event_type = 'subscription_renewed'`)
+
+  // Avança o relógio pra depois do fim do período atual — a Stripe fatura e
+  // cobra de verdade nesse momento, gerando o 2º invoice.payment_succeeded.
+  const currentSub = await stripeGet(`subscriptions/${subscription.id}`)
+  const advanceTo = subPeriodEndOf(currentSub) + 3600
+  console.log('Avançando o test clock para depois do fim do período atual...')
+  await stripePost(`test_helpers/test_clocks/${clock.id}/advance`, { frozen_time: advanceTo })
+  await waitForClockReady(clock.id)
+
+  const renewalInvoice = await fetchLatestInvoice(customer.id, 'subscription_cycle')
+  if (renewalInvoice.id === firstInvoice.id) throw new Error('Ainda não há uma 2ª fatura — o test clock avançou o suficiente?')
+  const renewalEvent = wrapAsEvent('invoice.payment_succeeded', renewalInvoice)
+  console.log('Fatura de renovação real encontrada:', renewalInvoice.id, '| billing_reason:', renewalInvoice.billing_reason)
+
+  const renewalDelivery = await deliverWebhook(renewalEvent)
+  console.log('HTTP', renewalDelivery.status, renewalDelivery.body.slice(0, 200))
+  if (renewalDelivery.status >= 300) throw new Error(`Webhook rejeitou a renovação: HTTP ${renewalDelivery.status}`)
+
+  // ---- Verificações -------------------------------------------------------
+  const planAfter = psql(`SELECT plan FROM public.profiles WHERE user_id = '${userId}'::uuid`)
+  assertRenewal(planAfter === plan, `profiles.plan deveria continuar '${plan}' após a renovação, obtido '${planAfter}'`)
+
+  const afterPeriodEnd = psql(`SELECT current_period_end FROM public.user_subscriptions WHERE user_id = '${userId}'::uuid`)
+  assertRenewal(afterPeriodEnd !== beforePeriodEnd, `current_period_end deveria avançar após a renovação (antes=${beforePeriodEnd}, depois=${afterPeriodEnd})`)
+
+  const paymentEventRow = psql(`SELECT description FROM public.payment_events WHERE user_id = '${userId}'::uuid AND provider_payment_id = '${renewalEvent.data.object.id}'`)
+  assertRenewal(/^Renovação/.test(paymentEventRow ?? ''), `payment_events.description deveria começar com "Renovação", obtido: ${paymentEventRow}`)
+
+  const planEventsAfter = psql(`SELECT count(*) FROM public.subscription_events WHERE user_id = '${userId}'::uuid AND event_type = 'subscription_renewed'`)
+  assertRenewal(Number(planEventsAfter) === Number(planEventsBefore) + 1, `subscription_events deveria ganhar exatamente 1 linha 'subscription_renewed' (antes=${planEventsBefore}, depois=${planEventsAfter})`)
+
+  const notifRow = psql(`SELECT title FROM public.notifications WHERE user_id = '${userId}'::uuid AND title = 'Pagamento confirmado' ORDER BY created_at DESC LIMIT 1`)
+  assertRenewal(notifRow === 'Pagamento confirmado', 'notificação de renovação não foi criada')
+
+  // Conteúdo do e-mail: mesmo sem RESEND_API_KEY local, o assunto já é
+  // renderizado com as variáveis ANTES de falhar por falta de provedor —
+  // dá pra confirmar que o template foi preenchido de verdade, não deixado
+  // com {{placeholders}} crus.
+  const emailLogRow = psql(`SELECT subject FROM public.email_logs WHERE user_id = '${userId}'::uuid AND template_key = 'payment_confirmed' AND idempotency_key = 'payment_confirmed:${renewalEvent.data.object.id}'`)
+  assertRenewal(Boolean(emailLogRow), 'email_logs não registrou o e-mail de payment_confirmed da renovação')
+  assertRenewal(!/\{\{/.test(emailLogRow ?? ''), `assunto do e-mail ainda tem placeholders não substituídos: ${emailLogRow}`)
+  console.log('Assunto renderizado do e-mail de renovação:', emailLogRow)
+
+  console.log('\nOK: renovação real (test clock) confirmada — plano mantido, período avançado, payment_events/subscription_events/notifications/email_logs corretos.')
+
+  await stripeDelete(`subscriptions/${subscription.id}`).catch(() => {})
+  await stripeDelete(`test_helpers/test_clocks/${clock.id}`).catch((err) => console.warn('Aviso ao remover test clock:', err.message))
+  const { error: delErr } = await admin.auth.admin.deleteUser(userId)
+  if (delErr) console.warn('Aviso ao remover usuário:', delErr.message)
+  else console.log('Usuário E2E removido:', userId)
+}
+
+async function fetchLatestInvoice(customerId, billingReason) {
+  for (let i = 0; i < 10; i++) {
+    const list = await stripeGet('invoices', { customer: customerId, limit: '10' })
+    const match = list.data.find((inv) => inv.billing_reason === billingReason && inv.status === 'paid')
+    if (match) return match
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  throw new Error(`Nenhuma fatura paga com billing_reason=${billingReason} encontrada a tempo para customer ${customerId}`)
+}
+
+function wrapAsEvent(type, object) {
+  return { id: 'evt_e2e_' + randomUUID().slice(0, 16), object: 'event', type, created: Math.floor(Date.now() / 1000), data: { object } }
+}
+
+function assertRenewal(condition, message) {
+  if (!condition) throw new Error(message)
+}
+
+function subPeriodEndOf(subscription) {
+  const legacy = subscription.current_period_end
+  if (typeof legacy === 'number') return legacy
+  const item = subscription.items?.data?.[0]?.current_period_end
+  if (typeof item === 'number') return item
+  throw new Error('current_period_end ausente na Subscription retornada pela API')
+}
+
+async function waitForClockReady(clockId) {
+  for (let i = 0; i < 30; i++) {
+    const clock = await stripeGet(`test_helpers/test_clocks/${clockId}`)
+    if (clock.status === 'ready') return
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  throw new Error('Test clock não ficou "ready" a tempo')
+}
+
 async function cmdCleanup(userId, subscriptionId) {
   if (subscriptionId) {
     try {
@@ -485,9 +636,10 @@ try {
   else if (command === 'edge-cases') await cmdEdgeCases(args[0], args[1])
   else if (command === 'payment-failed') await cmdPaymentFailed(args[0], args[1], args[2])
   else if (command === 'plan-change') await cmdPlanChange(args[0], args[1], args[2], args[3])
+  else if (command === 'renewal-cycle') await cmdRenewalCycle(args[0])
   else if (command === 'cleanup') await cmdCleanup(args[0], args[1])
   else {
-    console.error('Uso: checkout <plan> | checkout-auto <plan> | full-cycle <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | payment-failed <customerId> <userId> [subscriptionId] | plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan> | cleanup <userId> [subscriptionId]')
+    console.error('Uso: checkout <plan> | checkout-auto <plan> | full-cycle <plan> | verify <customerId> <userId> <plan> | edge-cases <customerId> <userId> | payment-failed <customerId> <userId> [subscriptionId] | plan-change <subscriptionId> <newPriceId> <userId> <expectedPlan> | renewal-cycle <plan> | cleanup <userId> [subscriptionId]')
     process.exit(1)
   }
 } catch (err) {
