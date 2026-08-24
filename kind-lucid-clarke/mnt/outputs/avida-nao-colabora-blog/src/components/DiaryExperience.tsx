@@ -150,14 +150,25 @@ function TagGroup({ title, description, options, selected, onToggle, category }:
 
 interface RecognitionResultLike { 0: { transcript: string }; isFinal: boolean }
 interface RecognitionEventLike { results: ArrayLike<RecognitionResultLike> }
+interface RecognitionErrorEventLike { error?: string; message?: string }
 interface RecognitionLike {
   lang: string; continuous: boolean; interimResults: boolean
   onresult: ((event: RecognitionEventLike) => void) | null
   onend: (() => void) | null
-  onerror: (() => void) | null
+  onerror: ((event: RecognitionErrorEventLike) => void) | null
   start: () => void; stop: () => void
 }
 type RecognitionCtor = new () => RecognitionLike
+
+function voiceErrorMessage(code?: string) {
+  const normalized = String(code || '').toLowerCase()
+  if (normalized === 'not-allowed' || normalized === 'service-not-allowed') return 'O acesso ao microfone foi bloqueado. Autorize o microfone nas configurações do navegador e tente novamente.'
+  if (normalized === 'audio-capture') return 'Não foi possível acessar um microfone. Verifique se ele está conectado, selecionado e liberado para este navegador.'
+  if (normalized === 'no-speech') return 'Não detectei nenhuma fala. Tente novamente e fale um pouco mais perto do microfone.'
+  if (normalized === 'network') return 'O reconhecimento de voz perdeu a conexão. Verifique sua internet e tente novamente.'
+  if (normalized === 'language-not-supported') return 'O reconhecimento de voz em português não está disponível neste navegador.'
+  return 'O ditado foi interrompido. Verifique o microfone e tente novamente. Seu texto digitado continua salvo nesta tela.'
+}
 
 export default function DiaryExperience({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
@@ -359,8 +370,19 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       for (let i = 0; i < event.results.length; i++) if (event.results[i].isFinal) addition += `${event.results[i][0].transcript} `
       if (addition.trim()) setDraft(prev => `${prev}${prev && !prev.endsWith(' ') ? ' ' : ''}${addition.trim()}`)
     }
-    recognition.onend = () => setVoiceActive(false); recognition.onerror = () => { setVoiceActive(false); setError('O ditado foi interrompido. Seu texto digitado continua salvo nesta tela.') }
-    recognitionRef.current = recognition; recognition.start(); setVoiceActive(true); setError('')
+    recognition.onend = () => { setVoiceActive(false); recognitionRef.current = null }
+    recognition.onerror = event => {
+      setVoiceActive(false); recognitionRef.current = null
+      if (event.error === 'aborted') return
+      setError(voiceErrorMessage(event.error))
+    }
+    recognitionRef.current = recognition
+    try {
+      recognition.start(); setVoiceActive(true); setError('')
+    } catch {
+      recognitionRef.current = null; setVoiceActive(false)
+      setError('Não foi possível iniciar o ditado. Verifique a permissão do microfone e tente novamente.')
+    }
   }
 
   async function persistAiMetadata(entryId: string, mirror: DiaryMirror | null, disabled: boolean) {
@@ -664,9 +686,15 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
 
                       {organizedCandidate && <div className="mt-4 rounded-2xl border border-forest-100 bg-mint/35 p-4"><p className="text-xs font-semibold text-forest-700">Uma versão organizada para consultar</p><p className="text-xs text-ink-soft mt-1">Seu texto original permanece intacto no editor. Esta versão não substitui nem altera o que você escreveu.</p><p className="text-sm text-ink mt-3 whitespace-pre-line leading-relaxed">{organizedCandidate}</p><div className="flex gap-2 mt-3"><button onClick={() => setOrganizedCandidate('')} className="rounded-xl border border-line bg-white px-3 py-2 text-xs">Fechar versão organizada</button></div></div>}
 
-                      <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="mt-5 flex items-start justify-between gap-3 flex-wrap">
                         <button type="button" onClick={() => setDetailsOpen(v => !v)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> {detailsOpen ? 'Esconder detalhes' : 'Quero detalhar um pouco'} {detailsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>
-                        <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer"><input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) { setOrganizedCandidate(''); setError('Análise de IA desativada para este registro. A escrita e o salvamento continuam normalmente.') } else setError('') }} className="accent-forest-700" /> Não analisar este registro com IA</label>
+                        <div className="flex flex-col items-start sm:items-end gap-1 max-w-sm">
+                          <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer">
+                            <input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" />
+                            <span className="font-medium text-forest-800">Salvar este registro sem análise de IA</span>
+                          </label>
+                          <p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft sm:text-right">{aiAllowed ? 'Se marcar, o registro continua salvo normalmente, mas o texto não será enviado à IA para gerar reflexões ou sugestões.' : 'Privacidade ativada: o registro será salvo normalmente e este texto não será enviado à IA.'}</p>
+                        </div>
                       </div>
 
                       {detailsOpen && <div className="mt-5 space-y-3 border-t border-line pt-5">
