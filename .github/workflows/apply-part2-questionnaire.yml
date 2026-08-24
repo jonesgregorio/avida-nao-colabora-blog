@@ -1,15 +1,15 @@
 name: Apply Part 2 Questionnaire Integration
 
 on:
-  push:
-    branches: [feat/questionnaire-emotional-signals]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore: run Part 2 patch'
+    if: github.head_ref == 'feat/questionnaire-emotional-signals'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
@@ -17,7 +17,16 @@ jobs:
         with:
           ref: feat/questionnaire-emotional-signals
           fetch-depth: 0
+      - name: Skip if already applied
+        id: state
+        run: |
+          if [ -f kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/questionnaireEmotionalIntegration.test.ts ]; then
+            echo "applied=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "applied=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Apply and validate patch
+        if: steps.state.outputs.applied != 'true'
         run: |
           cat .github/part2.patch.gz.b64.1 .github/part2.patch.gz.b64.2 | base64 -d | gzip -d > "$RUNNER_TEMP/part2.patch"
           cd kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
@@ -25,6 +34,7 @@ jobs:
           git apply "$RUNNER_TEMP/part2.patch"
           node --experimental-strip-types --test tests/questionnaireEmotionalIntegration.test.ts
       - name: Commit implementation
+        if: steps.state.outputs.applied != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
