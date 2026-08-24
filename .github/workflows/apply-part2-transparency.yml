@@ -79,14 +79,10 @@ jobs:
           if marker not in text:
               raise SystemExit('anchor ReportBody não encontrado')
           text = text.replace(marker, component + marker, 1)
-          old_viewer = """          {isReport
-            ? <ReportBody report={viewer.report} plan={plan} {...nav} />
-            : <BuildingPreview type={viewer.type} period={viewer.period} content={viewer.content} onRefresh={onRefresh} />}"""
-          new_viewer = """          {isReport
-            ? <><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>
-            : <BuildingPreview type={viewer.type} period={viewer.period} content={viewer.content} onRefresh={onRefresh} />}"""
-          if old_viewer not in text:
-              raise SystemExit('anchor Viewer não encontrado')
+          old_viewer = '<ReportBody report={viewer.report} plan={plan} {...nav} />'
+          new_viewer = '<><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>'
+          if text.count(old_viewer) != 1:
+              raise SystemExit(f'anchor Viewer encontrado {text.count(old_viewer)} vezes')
           report.write_text(text.replace(old_viewer, new_viewer, 1))
           PY
       - name: Validate targeted integration
