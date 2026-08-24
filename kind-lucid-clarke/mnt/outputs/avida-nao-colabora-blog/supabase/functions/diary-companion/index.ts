@@ -55,12 +55,20 @@ function startFallback(mood: string) {
   return 'Complete sem pensar muito: “Se eu pudesse colocar uma coisa para fora agora, seria…”'
 }
 
+// "outro" é um rótulo genérico ("Other"), não um sentimento descritível —
+// "algo relacionado a outro" não faz sentido em português. Os demais humores
+// (ansiedade, cansaço, bem-estar...) são substantivos e encaixam na frase.
+function moodWeightSentence(mood: string): string {
+  const m = (mood || '').trim().toLowerCase()
+  if (!m || m === 'outro') return 'Seu registro colocou em palavras algo do que você estava sentindo.'
+  return `Seu registro colocou em palavras algo relacionado a ${m}.`
+}
+
 function mirrorFallback(body: { mood: string; content: string }) {
   const snippet = body.content.replace(/\s+/g, ' ').trim().slice(0, 170)
-  const mood = body.mood || 'seu momento'
   return {
     title: snippet ? (snippet.split(/[.!?]/)[0] || 'Meu registro de hoje').slice(0, 72) : 'Meu registro de hoje',
-    weight: `Seu registro colocou em palavras algo relacionado a ${mood.toLowerCase()}.`,
+    weight: moodWeightSentence(body.mood),
     observation: snippet ? `Uma parte que ganhou espaço no texto foi: “${snippet}${body.content.length > 170 ? '…' : ''}”` : 'Você reservou um momento para perceber como estava.',
     strength: 'O próprio ato de registrar já ajuda a deixar o momento mais visível, sem precisar resolvê-lo agora.',
     question: 'O que você gostaria de levar deste registro para amanhã?',

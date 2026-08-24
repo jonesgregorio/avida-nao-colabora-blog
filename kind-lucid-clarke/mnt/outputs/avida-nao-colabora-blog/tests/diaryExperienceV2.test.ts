@@ -150,3 +150,12 @@ test('ditado e organização preservam o texto original intacto', () => {
   assert.match(edge, /mantendo a PRIMEIRA PESSOA/)
   assert.match(migration, /nunca é\n-- substituído automaticamente/)
 })
+
+test('devolutiva de reflexão não quebra quando o humor é "Outro"', () => {
+  // "algo relacionado a outro" / "algo ligado a outro" não faz sentido em
+  // português — "outro" é um rótulo genérico, não um sentimento descritível.
+  assert.equal(diary.includes('algo ligado a ${mood.toLowerCase()'), false)
+  assert.equal(edge.includes('algo relacionado a ${mood.toLowerCase()'), false)
+  assert.match(diary, /if \(!m \|\| m === 'outro'\)/)
+  assert.match(edge, /if \(!m \|\| m === 'outro'\)/)
+})
