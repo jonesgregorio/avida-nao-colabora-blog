@@ -10,6 +10,7 @@ interface Article {
   slug: string
   status: string
   category: string
+  summary?: string | null
   content_type?: string | null
   plan_required?: string | null
   image_url?: string | null
@@ -170,9 +171,29 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
   }
   const selectedIds = () => [...selected].filter(id => filtered.some(a => a.id === id))
 
+  // Mesmos campos críticos exigidos ao publicar um artigo individualmente
+  // (AdminArticleEditor). Ação em massa publicava sem checar nada.
+  function missingCriticalFields(a: Article): string[] {
+    const missing: string[] = []
+    if (!a.title?.trim()) missing.push('Título')
+    if (!a.slug?.trim()) missing.push('Slug')
+    if (!a.summary?.trim()) missing.push('Resumo')
+    if ((a.content || '').trim().length < 300) missing.push('Conteúdo (≥ 300 caracteres)')
+    if (!a.category?.trim()) missing.push('Categoria')
+    if (!a.plan_required) missing.push('Plano definido')
+    return missing
+  }
+
   async function bulkStatus(status: string) {
     const ids = selectedIds()
     if (!ids.length) return
+    if (status === 'published') {
+      const incomplete = filtered.filter(a => ids.includes(a.id) && missingCriticalFields(a).length > 0)
+      if (incomplete.length > 0) {
+        showToast(`Não dá para publicar: ${incomplete.length} conteúdo(s) incompleto(s) (ex.: "${incomplete[0].title || incomplete[0].slug}" — falta ${missingCriticalFields(incomplete[0]).join(', ')}).`, true)
+        return
+      }
+    }
     setBulkBusy(true)
     const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
     if (status === 'published') patch.published_at = new Date().toISOString()

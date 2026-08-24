@@ -142,6 +142,35 @@ export default function ArticleView({
     if (user && article?.slug) void markArticleRead(user.id, article.slug)
   }, [user, article?.slug])
 
+  // Sincroniza <title> e meta tags quando o usuário navega de um artigo para
+  // outro DENTRO do app (SPA), sem recarregar a página. A camada de SSR
+  // (api/article.js) já cobre o carregamento direto/robôs corretamente; sem
+  // este efeito, título/descrição/OG ficavam presos no primeiro artigo aberto
+  // na sessão ao trocar de artigo pelos links de "conteúdos relacionados".
+  useEffect(() => {
+    if (!article) return
+    const title = (article.seo_title || article.title || 'Artigo').trim()
+    const description = (article.seo_description || article.summary || article.excerpt || '').trim().slice(0, 320)
+    const canonical = `https://www.avidanaocolabora.com/blog/${encodeURIComponent(article.slug)}`
+    const image = article.og_image || article.cover_image_url || article.image_url || article.cover_image || ''
+
+    document.title = title
+    const setMeta = (selector: string, content: string) => {
+      const el = document.head.querySelector(selector)
+      if (el && content) el.setAttribute('content', content)
+    }
+    setMeta('meta[name="description"]', description)
+    setMeta('meta[property="og:title"]', title)
+    setMeta('meta[property="og:description"]', description)
+    setMeta('meta[property="og:url"]', canonical)
+    if (image) setMeta('meta[property="og:image"]', image)
+    setMeta('meta[name="twitter:title"]', title)
+    setMeta('meta[name="twitter:description"]', description)
+    if (image) setMeta('meta[name="twitter:image"]', image)
+    const canonicalLink = document.head.querySelector('link[rel="canonical"]')
+    if (canonicalLink) canonicalLink.setAttribute('href', canonical)
+  }, [article])
+
   // Analytics: visualização do artigo — dispara para QUALQUER visitante, inclusive
   // deslogado. É este evento que alimenta "Artigos vistos" e a etapa "Leram artigo"
   // do funil no Analytics do admin. entity_id = slug (para agrupar por artigo).
@@ -177,7 +206,7 @@ export default function ArticleView({
     setLoading(true)
     setLocked(null)
     try {
-      const articleCols = 'id,slug,title,category,content,created_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords'
+      const articleCols = 'id,slug,title,category,content,created_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords,seo_title,seo_description,og_image'
       const { data, error } = await supabase.from('articles').select(articleCols).eq('slug', s).single()
       if (error || !data) {
         setArticle(null)

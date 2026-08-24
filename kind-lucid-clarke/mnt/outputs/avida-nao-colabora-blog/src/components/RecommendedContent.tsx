@@ -54,7 +54,7 @@ export default function RecommendedContent({
       setHasData(sig.hasData)
       setRisk(sig.risk)
       if (sig.risk) { setScored([]); return }
-      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read })
+      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read, isLoggedIn: !!user?.id })
       setScored(recs)
       if (recs.length) void logRecommendationsShown(user?.id, source, recs)
     })()

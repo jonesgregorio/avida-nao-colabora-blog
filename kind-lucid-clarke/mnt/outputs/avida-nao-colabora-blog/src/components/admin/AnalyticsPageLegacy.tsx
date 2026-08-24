@@ -14,7 +14,7 @@ const ANALYTICS_VERSION = 'v5 · jul/2026' // selo para confirmar que o bundle n
 
 type Period = 'today' | '7d' | '30d' | '90d'
 const PERIODS: { id: Period; label: string; days: number }[] = [
-  { id: 'today', label: 'Hoje', days: 1 },
+  { id: 'today', label: 'Últimas 24h', days: 1 },
   { id: '7d', label: '7 dias', days: 7 },
   { id: '30d', label: '30 dias', days: 30 },
   { id: '90d', label: '90 dias', days: 90 },
