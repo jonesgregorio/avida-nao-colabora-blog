@@ -72,6 +72,12 @@ export interface PersonalizationTask {
   admin_notes: string | null
   created_at: string
   updated_at: string
+  // §11 da MISSÃO GERAL: nenhuma tarefa deve falhar em silêncio. Gravados por
+  // run-automations a cada tentativa (e usados para cancelar após o teto de
+  // tentativas) — ver migration 20260824220000_personalization_task_failure_visibility.sql.
+  last_error: string | null
+  attempts: number
+  last_attempt_at: string | null
   // joined
   user_name?: string | null
   user_email?: string | null
