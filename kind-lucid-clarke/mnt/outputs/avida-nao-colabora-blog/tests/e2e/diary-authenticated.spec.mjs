@@ -192,12 +192,14 @@ test('Check-in salvo oferece concluir ou continuar no diário', async ({ page })
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
 })
 
-test('Gratuito mantém check-in simples, limite visível e histórico sem PDF', async ({ page }) => {
+test('Gratuito mantém check-in simples, limite visível no diário e histórico sem PDF', async ({ page }) => {
   await openDiary(page, 'free', { width: 1440, height: 900 })
-  await expect(page.getByText('Plano Gratuito')).toBeVisible()
-  await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
   await expect(page.getByLabel('Energia')).toHaveCount(0)
   await expect(page.getByText('Quero refletir mais sobre este registro')).toHaveCount(0)
+
+  await openWritingMode(page)
+  await expect(page.getByText('Plano Gratuito')).toBeVisible()
+  await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
 
   await page.getByRole('button', { name: 'Histórico' }).click()
   await expect(page.getByRole('heading', { name: /Sua história deste mês/i })).toBeVisible()
