@@ -19,7 +19,7 @@ function corsFor(req: Request) {
   const allowOrigin = (origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)))
     ? origin
     : 'https://www.avidanaocolabora.com'
-  return { 'Access-Control-Allow-Origin': allowOrigin, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
+  return { 'Access-Control-Allow-Origin': allowOrigin, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
 }
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const calendarYmd = (value: string | Date | null | undefined): string | null => {
