@@ -868,6 +868,9 @@ function SummaryCards({ allTasks, deliveryCount: _deliveryCount, onFilter }: {
     { label: 'Rascunhos',             value: allTasks.filter(t => ['draft','generated'].includes(t.status)).length,                                            color: 'text-blue-600',    bg: 'bg-blue-50 hover:bg-blue-100',     tab: 'drafts'   as AdminTab },
     { label: 'Resolvidas este mês',   value: allTasks.filter(t => ['sent','resolved'].includes(t.status) && (t.sent_at?.startsWith(cur) || t.completed_at?.startsWith(cur))).length, color: 'text-forest-700', bg: 'bg-mint hover:bg-mint', tab: 'resolved' as AdminTab },
     { label: 'Usuários c/ pendência', value: new Set(allTasks.filter(t => ['pending','overdue'].includes(t.status)).map(t => t.user_id)).size,                 color: 'text-purple-600',  bg: 'bg-purple-50 hover:bg-purple-100', tab: 'queue'    as AdminTab },
+    // §11: torna visível quando run-automations desistiu de uma tarefa após
+    // esgotar as tentativas — antes ficava só no banco, sem nenhum card aqui.
+    { label: 'Falhas de IA',          value: allTasks.filter(t => !!t.last_error).length,                                                                       color: 'text-red-700',     bg: 'bg-red-50 hover:bg-red-100',       tab: 'cancelled' as AdminTab },
   ]
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-5">
@@ -1034,6 +1037,14 @@ function TaskTable({ tasks, profileMap, deliveryMap, selectedIds, onSelectChange
                     )}
                     {inconsistent && (
                       <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Rascunho inconsistente — gere novamente</p>
+                    )}
+                    {/* §11: nenhuma tarefa falha em silêncio — mostra o motivo real gravado
+                        pelo run-automations, não só "cancelada" sem explicação. */}
+                    {task.last_error && (
+                      <p className="text-xs text-red-600 mt-0.5 flex items-center gap-1" title={task.last_error}>
+                        <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{task.attempts >= 1 ? `Falhou ${task.attempts}x: ` : ''}{task.last_error}</span>
+                      </p>
                     )}
                     <p className="text-xs text-stone-400">{TARGET_AREA_LABELS[task.target_area ?? ''] ?? task.target_area}</p>
                   </td>
