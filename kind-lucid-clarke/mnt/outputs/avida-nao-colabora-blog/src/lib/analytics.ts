@@ -24,7 +24,7 @@ export type AnalyticsEvent =
   | 'page_view' | 'route_change' | 'error_404' | 'article_view' | 'article_click'
   | 'article_scroll_50' | 'article_scroll_75' | 'article_scroll_100' | 'cta_click'
   | 'blog_search' | 'questionnaire_start' | 'questionnaire_complete' | 'trail_start' | 'trail_complete'
-  | 'daily_content_view' | 'daily_content_expand' | 'pdf_export' | 'diary_entry' | 'plan_upgrade_click'
+  | 'pdf_export' | 'diary_entry' | 'plan_upgrade_click'
   | 'auth_signup' | 'auth_login' | 'web_vital' | 'visit_source' | 'diary_open' | 'checkin_start'
   | 'checkin_complete' | 'emotional_map_view' | 'weekly_report_view' | 'monthly_report_view'
   | 'self_care_plan_view' | 'professional_guidance_request' | 'professional_guidance_view'
