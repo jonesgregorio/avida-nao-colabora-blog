@@ -44,9 +44,12 @@ test('SupportPage associa label e campo via htmlFor/id (não só placeholder)', 
 // §20: os sliders já mostravam um rótulo textual da escala (ex. "razoável"),
 // mas só visualmente — o leitor de tela lia só o número bruto do range.
 test('Sliders do Diário expõem o valor com significado via aria-valuetext', () => {
-  const diary = read('src/components/DiaryExperience.tsx')
-  const sliderFn = diary.match(/function SliderField\([\s\S]*?\n\}/)?.[0] ?? ''
-  const quickScaleFn = diary.match(/function QuickScaleField\([\s\S]*?\n\}/)?.[0] ?? ''
+  // SliderField/QuickScaleField saíram de DiaryExperience.tsx pra
+  // DiaryFormFields.tsx numa componentização posterior (Parte 17) — mesmo
+  // comportamento, arquivo diferente.
+  const fields = read('src/components/DiaryFormFields.tsx')
+  const sliderFn = fields.match(/export function SliderField\([\s\S]*?\n\}/)?.[0] ?? ''
+  const quickScaleFn = fields.match(/export function QuickScaleField\([\s\S]*?\n\}/)?.[0] ?? ''
   assert.match(sliderFn, /aria-valuetext=/)
   assert.match(quickScaleFn, /aria-valuetext=\{`\$\{label\}: \$\{currentLabel\}`\}/)
 })

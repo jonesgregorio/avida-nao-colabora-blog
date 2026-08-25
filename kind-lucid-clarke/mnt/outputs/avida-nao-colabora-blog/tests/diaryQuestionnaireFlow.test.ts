@@ -4,13 +4,16 @@ import { readFileSync } from 'node:fs'
 
 const diaryEntry = readFileSync(new URL('../src/components/DiaryPage.tsx', import.meta.url), 'utf8')
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
+// A tela de "registro salvo" saiu de DiaryExperience.tsx pra
+// DiarySavedReflection.tsx numa componentização posterior (Parte 17).
+const savedReflection = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
 const questionnaire = readFileSync(new URL('../src/lib/questionnaireResult.ts', import.meta.url), 'utf8')
 const player = readFileSync(new URL('../src/components/QuestionnairePlayer.tsx', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260823150500_diary_single_deepening_flow.sql', import.meta.url), 'utf8')
 
 test('rota canônica usa a nova experiência e check-in continua levando ao diário', () => {
   assert.match(diaryEntry, /DiaryExperience/)
-  assert.match(diary, /Quero escrever sobre isso/)
+  assert.match(savedReflection, /Quero escrever sobre isso/)
   assert.match(diary, /Check-in rápido/)
   assert.match(diary, /setMode\(todayMain \? 'main-saved' : 'diary'\)/)
 })
