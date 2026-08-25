@@ -54,6 +54,7 @@ interface Delivery {
   ai_generated: boolean; status: string; sent_at: string | null
   created_at: string; task_id?: string | null; read_at?: string | null
   updated_at?: string | null
+  data_snapshot?: (TaskSnapshot & { topContexts?: string[]; topNeeds?: string[]; topCareActions?: string[]; topTriggers?: string[] }) | null
 }
 
 const TAB_CONFIG: { id: AdminTab; label: string; statuses: string[] }[] = [
@@ -114,6 +115,34 @@ async function buildSnapshot(userId: string, plan: string, taskKey: string): Pro
     avgMood: moodCount > 0 ? Math.round((moodSum / moodCount) * 10) / 10 : null,
     questionnaireCount: qCount ?? 0, articlesRead: articlesRead ?? 0, savedCount: savedCount ?? 0,
   }
+}
+
+// Painel de conferência: mostra ao revisor humano QUAIS dados alimentaram a
+// geração (data_snapshot já era salvo desde sempre, mas nunca aparecia na
+// tela de revisão — o admin não tinha como verificar se uma afirmação da IA
+// realmente veio de um marcador/gatilho real ou foi invenção do modelo).
+function SnapshotPanel({ snapshot }: { snapshot: Delivery['data_snapshot'] }) {
+  if (!snapshot) return null
+  const rows: [string, string[] | undefined][] = [
+    ['Marcadores emocionais', snapshot.topMarkers],
+    ['Contextos', snapshot.topContexts],
+    ['Necessidades', snapshot.topNeeds],
+    ['Ações de cuidado', snapshot.topCareActions],
+    ['Gatilhos reais', snapshot.topTriggers],
+  ]
+  const withData = rows.filter(([, v]) => v && v.length > 0)
+  return (
+    <details className="bg-white border border-line rounded-lg text-xs">
+      <summary className="cursor-pointer px-3 py-2 text-stone-500 hover:text-stone-700 select-none">Dados usados pela IA (conferir antes de enviar)</summary>
+      <div className="px-3 pb-3 space-y-1.5">
+        <p className="text-stone-500">Período: {snapshot.period} · {snapshot.diaryCount} registros de diário · humor médio {snapshot.avgMood ?? '—'}</p>
+        {withData.length === 0 && <p className="text-stone-400 italic">Sem tags recorrentes suficientes neste período.</p>}
+        {withData.map(([label, values]) => (
+          <p key={label}><span className="text-stone-500">{label}:</span> {values!.join(', ')}</p>
+        ))}
+      </div>
+    </details>
+  )
 }
 
 function applyFilters(task: PersonalizationTask, filters: Filters, profileMap: Record<string, UserRow>): boolean {
@@ -206,9 +235,12 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
       let savedDelivery: Delivery | null = null
       if (delivery?.id) {
         // Substituir rascunho existente
+        // data_snapshot também é atualizado -- sem isso, "gerar novamente"
+        // trocava o texto mas deixava o painel de conferência mostrando o
+        // snapshot da geração anterior, divergente do texto realmente exibido.
         const { data } = await supabase
           .from('personalized_content_deliveries')
-          .update({ title, body: result, status: 'draft', updated_at: new Date().toISOString() })
+          .update({ title, body: result, data_snapshot: snap, status: 'draft', updated_at: new Date().toISOString() })
           .eq('id', delivery.id)
           .select('*')
           .single()
@@ -542,6 +574,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
                   <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">{editBody}</p>
                 </div>
               </div>
+              <SnapshotPanel snapshot={delivery.data_snapshot} />
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-700 italic">{DISCLAIMER}</div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => setPhase('edit')} className="flex items-center gap-1.5 bg-stone-100 text-stone-700 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-200">
@@ -571,6 +604,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
                 <label className="text-xs text-stone-500 block mb-1">Conteúdo — revise antes de enviar</label>
                 <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={12} className={inputCls + ' font-mono text-xs resize-y'} />
               </div>
+              <SnapshotPanel snapshot={delivery?.data_snapshot} />
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-xs text-amber-700 italic">{DISCLAIMER}</div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => setPhase('confirm-regen')} disabled={generating} className="flex items-center gap-1.5 border border-line text-stone-600 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50">
