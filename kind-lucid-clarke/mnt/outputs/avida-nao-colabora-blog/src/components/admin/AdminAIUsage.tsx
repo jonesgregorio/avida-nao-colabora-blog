@@ -35,8 +35,17 @@ const TYPE_LABELS: Record<string, string> = {
   professional_comment: 'Comentário prof.', monthly_guidance: 'Orientação',
   plan_description: 'Descrição de plano', scheduled_content: 'Conteúdo programado',
   automated_content: 'Conteúdo automático', health_check: 'Teste de IA', generic: 'Geral',
+  weekly_report: 'Relatório semanal', monthly_deep_report: 'Relatório mensal',
+  emotional_map_explanation: 'Mapa emocional',
 }
 const typeLabel = (t: string) => TYPE_LABELS[t] ?? t
+
+// Central de IA: uma tela só reúne editorial + emocional (nunca foi dado
+// separado — content_type já convive na mesma tabela). O filtro é só um
+// recorte de leitura, não uma segunda tela duplicada.
+const EMOTIONAL_TYPES = new Set(['weekly_report', 'monthly_deep_report', 'self_care_plan', 'monthly_guidance', 'emotional_map_explanation'])
+type Category = 'todos' | 'emocional' | 'editorial'
+const categoryOf = (t: string): 'emocional' | 'editorial' => EMOTIONAL_TYPES.has(t) ? 'emocional' : 'editorial'
 
 function providerBadge(p: string) {
   // "fallback" (§17): a IA não respondeu e o texto determinístico assumiu —
@@ -59,6 +68,7 @@ export default function AdminAIUsage() {
   const [userResults, setUserResults] = useState<UserHit[]>([])
   const [userSearching, setUserSearching] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserHit | null>(null)
+  const [category, setCategory] = useState<Category>('todos')
 
   async function load() {
     setLoading(true); setErr('')
@@ -124,17 +134,21 @@ export default function AdminAIUsage() {
     }
   }
 
+  // Central de IA: um só recorte de leitura sobre a mesma tabela, em vez de
+  // duas telas (Conteúdo & IA / IA Emocional) mostrando o mesmo componente.
+  const visibleLogs = category === 'todos' ? logs : logs.filter(l => categoryOf(l.content_type) === category)
+
   // Resumo dos últimos registros: quantas gerações por provedor (só sucessos
   // de IA de verdade — fallback determinístico não é um provedor).
-  const ok = logs.filter(l => l.status === 'success')
+  const ok = visibleLogs.filter(l => l.status === 'success')
   const byProvider = new Map<string, number>()
   ok.forEach(l => byProvider.set(l.provider, (byProvider.get(l.provider) ?? 0) + 1))
   const providers = [...byProvider.entries()].sort((a, b) => b[1] - a[1])
   // §17: fallback é rede de segurança (a IA não respondeu, texto determinístico
   // assumiu), diferente de erro técnico (429/timeout/5xx) — métricas separadas
   // em vez de uma única contagem de "falhas" que confundia as duas coisas.
-  const fallbackCount = logs.filter(l => l.status === 'fallback').length
-  const fails = logs.filter(l => l.status !== 'success' && l.status !== 'fallback').length
+  const fallbackCount = visibleLogs.filter(l => l.status === 'fallback').length
+  const fails = visibleLogs.filter(l => l.status !== 'success' && l.status !== 'fallback').length
   const aiAttempts = ok.length + fallbackCount
   const fallbackRate = aiAttempts > 0 ? Math.round((fallbackCount / aiAttempts) * 100) : 0
   // Limiar de alerta (§17): acima disso, a rede de segurança virou o caminho
@@ -151,7 +165,7 @@ export default function AdminAIUsage() {
 
     push(['Relatório de Uso de IA'])
     push(['Gerado em', new Date().toLocaleString('pt-BR')])
-    push(['Registros no relatório', logs.length])
+    push(['Registros no relatório', visibleLogs.length])
     lines.push('')
 
     push(['RESUMO POR PROVEDOR', 'Gerações (sucesso)', '% do total'])
@@ -161,7 +175,7 @@ export default function AdminAIUsage() {
     lines.push('')
 
     push(['GERAÇÕES', 'Quando', 'Tipo', 'IA usada', 'Status', 'Erro'])
-    logs.forEach(l => push([
+    visibleLogs.forEach(l => push([
       '', new Date(l.created_at).toLocaleString('pt-BR'), typeLabel(l.content_type),
       providerLabel(l.provider), l.status === 'success' ? 'sucesso' : l.status === 'fallback' ? 'fallback' : 'erro', l.error_msg ?? '',
     ]))
@@ -181,17 +195,31 @@ export default function AdminAIUsage() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
-          <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2"><Cpu className="w-6 h-6 text-forest-600" /> Uso de IA</h1>
-          <p className="text-sm text-ink-soft mt-1">Qual IA (Gemini/Groq) gerou cada conteúdo. O app sempre tenta o Gemini primeiro e cai no Groq só quando o Gemini está indisponível/limitado.</p>
+          <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2"><Cpu className="w-6 h-6 text-forest-600" /> Central de IA</h1>
+          <p className="text-sm text-ink-soft mt-1">Qual IA (Gemini/Groq) gerou cada conteúdo — editorial e emocional juntos. O app sempre tenta o Gemini primeiro e cai no Groq só quando o Gemini está indisponível/limitado.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
           </button>
-          <button onClick={exportCSV} disabled={loading || logs.length === 0} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
+          <button onClick={exportCSV} disabled={loading || visibleLogs.length === 0} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
             <Download className="w-4 h-4" /> Extrair relatório
           </button>
         </div>
+      </div>
+
+      {/* Um só lugar pra tudo: content_type de editorial e emocional sempre
+          conviveram na mesma tabela — este filtro é só recorte de leitura. */}
+      <div className="flex gap-1.5 mb-5">
+        {([['todos', 'Tudo'], ['emocional', 'Emocional'], ['editorial', 'Editorial']] as [Category, string][]).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setCategory(key)}
+            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${category === key ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-forest-800 border-line hover:border-forest-300'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Diagnóstico sob demanda: gera relatório/plano de autocuidado agora
@@ -298,8 +326,8 @@ export default function AdminAIUsage() {
         {err && <p className="px-5 py-3 text-sm text-red-600">Erro ao carregar: {err}</p>}
         {loading ? (
           <p className="px-5 py-6 text-sm text-ink-soft flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</p>
-        ) : logs.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-ink-soft">Sem registros. Assim que você gerar algum conteúdo com IA, aparece aqui.</p>
+        ) : visibleLogs.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-ink-soft">Sem registros neste filtro. Assim que você gerar algum conteúdo com IA, aparece aqui.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -312,7 +340,7 @@ export default function AdminAIUsage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {logs.map(l => (
+                {visibleLogs.map(l => (
                   <tr key={l.id}>
                     <td className="px-4 py-2 text-ink-soft whitespace-nowrap">{fmt(l.created_at)}</td>
                     <td className="px-4 py-2 text-forest-900">{typeLabel(l.content_type)}</td>
