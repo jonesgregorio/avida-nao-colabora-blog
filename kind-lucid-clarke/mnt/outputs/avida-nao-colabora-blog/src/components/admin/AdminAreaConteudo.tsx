@@ -16,8 +16,13 @@ import AdminAIUsage from './AdminAIUsage'
 // Conteúdo & IA — área única que reúne TUDO de conteúdo:
 //   • tipos de conteúdo (artigos, práticas, pausas emocionais)
 //   • geração com IA + templates de prompt
-//   • automações (cron), conteúdo diário, calendário editorial e agendamentos
+//   • automações (cron), práticas e pausas avulsas, calendário editorial e agendamentos
 //   • apoio (categorias, mídia, SEO, home/depoimentos)
+// "Práticas e pausas" (antes rotulada "Conteúdo diário") NÃO é um recurso que
+// publica um conteúdo por dia para todo mundo -- é só o cadastro de itens
+// avulsos (sugestão de artigo, exercício de escrita, pausa emocional) usados
+// pelo catálogo de Conteúdos Guiados. O nome antigo sugeria a ideia proibida
+// de "conteúdo diário automático"; o recurso em si sempre foi outra coisa.
 // Nenhuma funcionalidade foi perdida — antes estavam espalhadas em 3 itens de
 // menu (Fábrica IA, Calendário, Automações) + abas soltas em Comunicação.
 // "Recomendações IA" (entregas personalizadas) migrou para Orientação.
@@ -27,7 +32,7 @@ const TABS = [
   { id: 'uso-ia',       label: 'Uso de IA',          icon: Cpu },
   { id: 'templates',    label: 'Templates de IA',    icon: FileCode },
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
-  { id: 'automaticos',  label: 'Conteúdo diário',    icon: Repeat },
+  { id: 'automaticos',  label: 'Práticas e pausas',  icon: Repeat },
   { id: 'calendario',   label: 'Calendário',         icon: CalendarDays },
   { id: 'programados',  label: 'Programados',        icon: Clock },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
