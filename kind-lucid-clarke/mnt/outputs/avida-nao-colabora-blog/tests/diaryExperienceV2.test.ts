@@ -33,7 +33,7 @@ test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom
   assert.match(moodSelector, /'ansiedade'/)
   assert.match(moodSelector, /'tristeza'/)
   assert.match(moodSelector, /showAll/)
-  assert.match(moodSelector, />Mais</)
+  assert.match(moodSelector, /expanded \? 'Menos' : 'Mais'/)
   assert.match(detailsDrawer, /role="dialog"/)
   assert.match(detailsDrawer, /aria-modal="true"/)
   assert.match(detailsDrawer, /bottom-0/)
