@@ -59,6 +59,20 @@ function excerptFrom(content: string): string {
 }
 const MIN_AUTO_PUBLISH_WORDS = 1000
 function wordCount(text: string): number { return text.trim().split(/\s+/).filter(Boolean).length }
+
+// §9.3 da MISSÃO GERAL: instruir o prompt a evitar "tom de ChatGPT" não é
+// suficiente sozinho — a IA às vezes ignora a instrução. Guarda determinística:
+// se o corpo do artigo usar essas frases-clichê, a auto-publicação é bloqueada
+// (vira rascunho para revisão humana), em vez de confiar cegamente no prompt.
+const AI_CLICHE_PHRASES = [
+  'em conclusão', 'é importante ressaltar', 'é importante destacar', 'em suma',
+  'não podemos esquecer que', 'em um mundo cada vez mais', 'convido você a refletir',
+  'ao longo deste artigo, vamos explorar', 'sem sombra de dúvida', 'é fundamental destacar',
+]
+function detectAiCliches(content: string): string[] {
+  const lower = content.toLowerCase()
+  return AI_CLICHE_PHRASES.filter(phrase => lower.includes(phrase))
+}
 function cleanText(value: unknown, max = 10000): string { return typeof value === 'string' ? value.trim().slice(0, max) : '' }
 function stringList(value: unknown, max = 8): string[] {
   if (!Array.isArray(value)) return []
@@ -285,6 +299,8 @@ async function persistArticle(
   if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
   if (!cover?.url) validationErrors.push('imagem de capa ausente')
   if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
+  const cliches = detectAiCliches(content)
+  if (cliches.length > 0) validationErrors.push(`tom genérico de IA detectado ("${cliches.join('", "')}")`)
 
   // Trava de duplicidade: "gerar agora" (forceOne) ignora o gating por
   // next_run_at/last_run_at, então nada impedia rodar a mesma automação duas
@@ -344,6 +360,7 @@ Temas disponíveis: ${themes.join(' | ')}. Tom: ${tone}.
 Cada corpo precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso de que o conteúdo não substitui acompanhamento profissional.
 Para pacote, varie os temas e ângulos; não gere títulos quase iguais.
 Não diagnostique, não prescreva, não prometa cura e não invente pesquisas.
+Evite clichês de texto gerado por IA: não use frases como "em conclusão", "é importante ressaltar", "em suma", "não podemos esquecer que", "em um mundo cada vez mais", "convido você a refletir", "ao longo deste artigo, vamos explorar". Não repita sempre a mesma introdução ("Você já se pegou pensando...", "Vivemos em uma sociedade..."). Não abuse de listas — prefira parágrafos corridos na maior parte do texto.
 Retorne SOMENTE JSON válido:
 {"articles":[{"title":"máx. 10 palavras","content":"corpo completo","excerpt":"120 a 190 caracteres","seo_title":"35 a 60 caracteres","seo_description":"120 a 155 caracteres","keyword":"principal","secondary_keywords":["3 a 6"],"tags":["3 a 6"],"emotional_themes":["até 4"],"image_query":"busca curta para foto real","image_alt":"alt em português","diary_question":"pergunta curta","cta_text":"CTA gentil","category":"categoria"}]}
 ${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
