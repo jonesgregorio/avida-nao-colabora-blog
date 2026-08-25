@@ -99,7 +99,7 @@ export default function ForceChangePassword({ userId: _userId, onDone }: Props) 
           <button
             type="submit"
             disabled={saving || password.length < 8 || password !== confirm}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
+            className="w-full bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
           >
             {saving ? 'Salvando...' : 'Definir nova senha e entrar'}
           </button>

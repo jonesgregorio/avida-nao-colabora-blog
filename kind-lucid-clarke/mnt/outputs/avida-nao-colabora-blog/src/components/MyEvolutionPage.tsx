@@ -55,7 +55,7 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
       <p className="text-stone-600 text-sm max-w-sm mx-auto">{message}</p>
       <button
         onClick={onNavigatePricing}
-        className="bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+        className="bg-forest-900 text-white text-sm px-5 py-2 rounded-2xl hover:bg-forest-800 transition-colors font-medium"
       >
         Conhecer plano {getPlanLabel(requiredPlan)}
       </button>

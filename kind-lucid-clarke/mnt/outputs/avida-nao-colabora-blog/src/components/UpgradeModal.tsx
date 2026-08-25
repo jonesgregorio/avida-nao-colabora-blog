@@ -77,7 +77,7 @@ export function UpgradeModal({ isOpen, feature, featureName, requiredPlan, onClo
               navigate('pricing')
               onClose()
             }}
-            className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+            className="flex-1 bg-forest-900 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800 transition-colors"
           >
             Ver planos
           </button>
