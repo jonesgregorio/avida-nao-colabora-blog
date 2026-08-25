@@ -1007,7 +1007,9 @@ function SettingsTab({ settings, onChange }: { settings: MonitorSettings; onChan
         <p className="font-medium mb-1">Usuários de teste</p>
         <p className="text-xs">Para diagnósticos completos com dados isolados, configure usuários de teste no banco:</p>
         <ul className="text-xs mt-1 space-y-0.5 font-mono">
-          {['teste.gratuito', 'teste.essencial', 'teste.terapeutico', 'teste.plus'].map(u => (
+          {/* Só os 3 planos oficiais (Gratuito/Essencial/Plus) — "terapeutico" era
+              nome legado e ficava redundante com "plus" nesta lista. */}
+          {['teste.gratuito', 'teste.essencial', 'teste.plus'].map(u => (
             <li key={u}>• {u}@avida-nao-colabora.com</li>
           ))}
         </ul>
