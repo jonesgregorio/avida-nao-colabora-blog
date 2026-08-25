@@ -840,7 +840,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                       </div>
                     )}
                   </div>
-                  <button onClick={closeDrawer} className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100">
+                  <button onClick={closeDrawer} aria-label="Fechar" className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100">
                     <X className="w-4 h-4" />
                   </button>
                 </div>

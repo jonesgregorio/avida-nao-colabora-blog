@@ -1398,7 +1398,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
               {pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar PDF
             </button>
           )}
-          <button onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 flex-shrink-0"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 flex-shrink-0"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-4 sm:p-5 overflow-y-auto">
           {isReport

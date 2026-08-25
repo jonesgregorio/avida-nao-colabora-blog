@@ -501,7 +501,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             <h2 className="font-serif text-xl text-forest-900">{user.full_name || user.email}</h2>
             <p className="text-xs text-ink-soft capitalize">{monthTitle(monthRef)} · {formatPeriodShort(period)} · {STATUS_LABEL[status]}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-mint/40 rounded-lg"><X className="w-5 h-5 text-ink-soft" /></button>
+          <button onClick={onClose} aria-label="Fechar" className="p-2 hover:bg-mint/40 rounded-lg"><X className="w-5 h-5 text-ink-soft" /></button>
         </div>
 
         <div className="p-5 space-y-6">

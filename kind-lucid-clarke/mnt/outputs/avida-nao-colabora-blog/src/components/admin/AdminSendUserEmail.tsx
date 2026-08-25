@@ -113,7 +113,7 @@ export default function AdminSendUserEmail({ user, adminId, adminEmail, onClose,
               <p className="text-xs text-ink-soft mt-0.5">Escolha um template, revise a mensagem e envie para este usuário.</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label="Fechar" className="p-1 text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="px-6 py-5 space-y-4">
