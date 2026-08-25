@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
-  BookOpen, CheckCircle2, ChevronDown, ChevronUp, FileDown, Home,
-  Loader2, Maximize2, Mic, Minimize2, PenLine, RefreshCw, Save, Sparkles,
+  BookOpen, ChevronDown, ChevronUp, FileDown, Home,
+  Loader2, Maximize2, Mic, Minimize2, RefreshCw, Save, Sparkles,
   SlidersHorizontal, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -14,9 +14,9 @@ import { exportElementToPdf } from '../lib/exportPdf'
 import { emailDiaryLimitReachedForUser, emailDiaryLimitWarningForUser } from '../lib/emailTriggers'
 import { signalFromEntry, type Signal } from '../lib/contentRecommendation'
 import { askDiaryCompanion, type DiaryMirror, type DiarySuggestedTags } from '../lib/diaryCompanion'
-import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
-import type { TagCategory } from '../lib/tagCategories'
+import { SliderField, QuickScaleField, TagGroup } from './DiaryFormFields'
+import DiarySavedReflection from './DiarySavedReflection'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 
@@ -136,51 +136,6 @@ function localMirror(text: string, mood: string): DiaryMirror {
     suggested_tags: { emotions: [], contexts: [], needs: [], care_actions: [], triggers: [] },
     ai_used: false,
   }
-}
-
-function SliderField({ label, value, touched, onChange, onClear }: { label: string; value: number; touched: boolean; onChange: (n: number) => void; onClear: () => void }) {
-  return (
-    <div className="rounded-2xl border border-line bg-white px-4 py-3">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <span className="text-sm font-medium text-forest-900">{label}</span>
-        <span className="text-xs text-ink-soft">{touched ? `${value}/5` : 'Não informado'}</span>
-      </div>
-      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} aria-valuetext={touched ? `${label}: ${value} de 5` : 'Não informado'} />
-      {touched && <button type="button" onClick={onClear} className="mt-1 text-[11px] text-ink-soft underline underline-offset-2">Limpar</button>}
-    </div>
-  )
-}
-
-function QuickScaleField({ label, value, touched, labels, onChange, onClear }: { label: string; value: number; touched: boolean; labels: string[]; onChange: (n: number) => void; onClear: () => void }) {
-  const currentLabel = labels[Math.max(0, Math.min(labels.length - 1, value - 1))] || `${value}/5`
-  return (
-    <div className="rounded-2xl border border-line bg-white px-4 py-3">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <span className="text-sm font-medium text-forest-900">{label}</span>
-        <span className="text-xs text-ink-soft text-right">{touched ? currentLabel : 'Opcional'}</span>
-      </div>
-      {/* §20: currentLabel já existe e é mostrado visualmente, mas não chegava ao
-          leitor de tela — só o número bruto do slider era anunciado. */}
-      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} aria-valuetext={`${label}: ${currentLabel}`} />
-      <div className="flex items-center justify-between gap-2 mt-1 text-[10px] text-ink-soft"><span>{labels[0]}</span><span>{labels[labels.length - 1]}</span></div>
-      {touched && <button type="button" onClick={onClear} className="mt-1 text-[11px] text-ink-soft underline underline-offset-2">Limpar</button>}
-    </div>
-  )
-}
-
-function TagGroup({ title, description, options, selected, onToggle, category }: { title: string; description?: string; options: string[]; selected: string[]; onToggle: (tag: string) => void; category?: TagCategory }) {
-  const [open, setOpen] = useState(false)
-  const visible = open ? options : unique([...options.slice(0, 7), ...selected])
-  return (
-    <div className="rounded-2xl border border-line bg-white p-4">
-      <p className="text-sm font-semibold text-forest-900">{title}</p>
-      {description && <p className="text-xs text-ink-soft mt-1 mb-3">{description}</p>}
-      <div className="flex flex-wrap gap-2">
-        {visible.map(tag => <DiaryTagChip key={tag} label={tag} category={category} selected={selected.includes(tag)} onClick={() => onToggle(tag)} />)}
-      </div>
-      {options.length > 7 && <button type="button" onClick={() => setOpen(v => !v)} className="text-xs text-forest-700 font-medium mt-3">{open ? 'Mostrar menos' : 'Ver mais opções'}</button>}
-    </div>
-  )
 }
 
 interface RecognitionResultLike { 0: { transcript: string }; isFinal: boolean }
@@ -592,61 +547,23 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   }
 
   if (saved) {
-    const meta = moodMeta(saved.entry.mood)
-    const suggestedCount = saved.mirror ? Object.values(saved.mirror.suggested_tags).reduce((sum, arr) => sum + arr.length, 0) : 0
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-        <div className="text-center">
-          <div className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto"><CheckCircle2 className="w-7 h-7 text-forest-700" /></div>
-          <h1 className="font-serif text-3xl text-forest-900 mt-5">{saved.kind === 'checkin' ? 'Check-in registrado' : 'Seu registro ficou guardado'}</h1>
-          <p className="text-ink-soft mt-2">{saved.kind === 'checkin' ? 'Você registrou como está agora. Quer deixar assim ou escrever um pouco mais?' : 'Você não precisava resolver nada. Colocar em palavras já foi suficiente por hoje.'}</p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm"><span>{meta.emoji}</span><span>{meta.label}</span></div>
-        </div>
-
-        {saved.kind === 'diary' && saved.processing && (
-          <div className="mt-8 rounded-3xl border border-line bg-paper-soft p-6 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-forest-600" /><p className="text-sm text-ink-soft mt-3">Lendo seu registro com cuidado para devolver um espelho curto…</p></div>
-        )}
-
-        {saved.kind === 'diary' && !saved.processing && saved.mirror && (
-          <section className="mt-8 rounded-3xl border border-forest-100 bg-mint/35 p-5 sm:p-7">
-            <div className="flex items-start gap-3"><Sparkles className="w-5 h-5 text-forest-600 mt-1" /><div><p className="text-xs uppercase tracking-[0.16em] text-forest-600 font-semibold">O que apareceu no seu registro</p><h2 className="font-serif text-2xl text-forest-900 mt-1">{saved.mirror.title}</h2></div></div>
-            <div className="grid sm:grid-cols-3 gap-3 mt-6">
-              <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">O que ganhou espaço</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.weight}</p></div>
-              <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo para observar</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.observation}</p></div>
-              <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo que você fez por si</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.strength}</p></div>
-            </div>
-            {saved.mirror.pattern && <div className="mt-3 rounded-2xl border border-line bg-white/70 p-4"><p className="text-xs font-semibold text-forest-700">Recorrência para observar</p><p className="text-sm text-ink-soft mt-1">{saved.mirror.pattern}</p></div>}
-            <div className="mt-4 rounded-2xl bg-forest-900 text-white p-5"><p className="text-xs text-forest-100">Uma pergunta para levar com você</p><p className="font-serif text-xl mt-1">{saved.mirror.question}</p></div>
-            <p className="text-[11px] text-ink-soft mt-3">Leitura automática de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
-          </section>
-        )}
-
-        {saved.kind === 'diary' && !saved.processing && !saved.mirror && <div className="mt-8 rounded-2xl border border-line bg-paper-soft p-5 text-sm text-ink-soft">Este registro foi salvo sem análise de IA, como você escolheu.</div>}
-
-        {suggestedCount > 0 && saved.mirror && (
-          <section className="mt-5 rounded-3xl border border-line bg-white p-5">
-            <h3 className="font-serif text-xl text-forest-900">A IA percebeu algumas marcações possíveis</h3>
-            <p className="text-sm text-ink-soft mt-1">Elas só entram no seu mapa e nos relatórios se você confirmar.</p>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {saved.mirror.suggested_tags.emotions.map(t => <DiaryTagChip key={`e-${t}`} label={t} selected />)}
-              {saved.mirror.suggested_tags.contexts.map(t => <DiaryTagChip key={`c-${t}`} label={t} category="context" selected />)}
-              {saved.mirror.suggested_tags.needs.map(t => <DiaryTagChip key={`n-${t}`} label={t} category="need" selected />)}
-              {saved.mirror.suggested_tags.care_actions.map(t => <DiaryTagChip key={`a-${t}`} label={t} category="care_action" selected />)}
-              {saved.mirror.suggested_tags.triggers.map(t => <DiaryTagChip key={`t-${t}`} label={t} category="advanced" selected />)}
-            </div>
-            <button type="button" disabled={suggestionsApplied} onClick={applySuggestions} className="mt-4 rounded-xl bg-forest-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60">{suggestionsApplied ? 'Marcações confirmadas' : 'Confirmar estas marcações'}</button>
-          </section>
-        )}
-
-        {onOpenArticle && <div className="mt-6"><RecommendedContent user={user ? { id: user.id } : null} profile={{ plan }} signal={saved.signal} source={saved.kind === 'checkin' ? 'checkin' : 'diary'} limit={2} variant="compact" title="Conteúdos que podem fazer sentido agora" description="Sugestões relacionadas ao que você acabou de registrar." onOpen={onOpenArticle} /></div>}
-
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {saved.kind === 'checkin' && <><button onClick={() => { setSaved(null); setMode('quick'); setTab('write') }} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Concluir</button><button onClick={continueFromCheckin} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><PenLine className="w-4 h-4" /> Quero escrever sobre isso</button></>}
-          {saved.kind === 'diary' && isEssential && !todayDeepened && <button onClick={() => void askFollowUp()} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> {saved.mirror ? 'Quero responder à pergunta' : 'Quero aprofundar meu registro'}</button>}
-          <button onClick={() => { setSaved(null); setTab('history') }} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Ver meus registros</button>
-          <button onClick={onBack} className="px-4 py-2.5 text-sm text-ink-soft inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button>
-        </div>
-      </div>
+      <DiarySavedReflection
+        saved={saved}
+        user={user}
+        plan={plan}
+        isEssential={isEssential}
+        todayDeepened={todayDeepened}
+        suggestionsApplied={suggestionsApplied}
+        onOpenArticle={onOpenArticle}
+        moodMeta={moodMeta}
+        onApplySuggestions={() => void applySuggestions()}
+        onAskFollowUp={() => void askFollowUp()}
+        onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }}
+        onContinueFromCheckin={continueFromCheckin}
+        onViewHistory={() => { setSaved(null); setTab('history') }}
+        onBack={onBack}
+      />
     )
   }
 

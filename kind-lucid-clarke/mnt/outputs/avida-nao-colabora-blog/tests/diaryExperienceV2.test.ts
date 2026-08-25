@@ -3,6 +3,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
+// A tela de "registro salvo" (recompensa pós-escrita, tags sugeridas, CTAs de
+// continuidade) saiu de DiaryExperience.tsx pra DiarySavedReflection.tsx numa
+// componentização posterior (Parte 17) — mesmo comportamento, arquivo diferente.
+const savedReflection = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
 const client = readFileSync(new URL('../src/lib/diaryCompanion.ts', import.meta.url), 'utf8')
 const edge = readFileSync(new URL('../supabase/functions/diary-companion/index.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260823210500_diary_ai_companion.sql', import.meta.url), 'utf8')
@@ -38,8 +42,8 @@ test('check-in rápido é a entrada principal e coleta sinais complementares sem
   assert.match(diary, /O que mais está influenciando você agora\?/)
   assert.match(diary, /payload\.stress_level = normalizeScale\(stress\)/)
   assert.match(diary, /payload\.context_tags = \[quickContext\]/)
-  assert.match(diary, /Quero escrever sobre isso/)
-  assert.match(diary, /Você registrou como está agora\. Quer deixar assim ou escrever um pouco mais\?/)
+  assert.match(savedReflection, /Quero escrever sobre isso/)
+  assert.match(savedReflection, /Você registrou como está agora\. Quer deixar assim ou escrever um pouco mais\?/)
 })
 
 test('jornada deixa de punir ausência com streak', () => {
@@ -52,9 +56,9 @@ test('jornada deixa de punir ausência com streak', () => {
 
 test('IA é opcional, não clínica e devolve recompensa depois de escrever', () => {
   assert.match(diary, /Salvar sem análise de IA/)
-  assert.match(diary, /O que apareceu no seu registro/)
-  assert.match(diary, /Uma pergunta para levar com você/)
-  assert.match(diary, /Não é diagnóstico/)
+  assert.match(savedReflection, /O que apareceu no seu registro/)
+  assert.match(savedReflection, /Uma pergunta para levar com você/)
+  assert.match(savedReflection, /Não é diagnóstico/)
   assert.match(client, /diary-companion/)
   assert.match(edge, /Não diagnostique/)
   assert.match(edge, /não atribua causa clínica/i)
@@ -118,8 +122,8 @@ test('entrada do diário é tratada como dado não confiável contra prompt inje
 })
 
 test('tags sugeridas só entram nos dados após confirmação explícita', () => {
-  assert.match(diary, /Elas só entram no seu mapa e nos relatórios se você confirmar/)
-  assert.match(diary, /Confirmar estas marcações/)
+  assert.match(savedReflection, /Elas só entram no seu mapa e nos relatórios se você confirmar/)
+  assert.match(savedReflection, /Confirmar estas marcações/)
   assert.match(diary, /applySuggestions/)
   assert.match(migration, /ai_suggested_tags jsonb/)
 })
