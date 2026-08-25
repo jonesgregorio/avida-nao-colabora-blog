@@ -20,16 +20,20 @@ export interface ExplainMapQuestionnaireSignals {
 }
 
 export interface ExplainMapResult {
-  what_stood_out: string
-  what_changed: string
-  worth_observing: string
+  title: string
+  what_stands_out: string
+  possible_connections: string[]
+  helpful_signals: string[]
+  what_to_observe: string[]
   reflection_question: string
+  data_quality_notice: string
 }
 
 export interface ExplainMapResponse {
   ok: boolean
   ai_used?: boolean
   low_sample?: boolean
+  cached?: boolean
   result?: ExplainMapResult
   message?: string
 }
@@ -40,6 +44,8 @@ export async function explainEmotionalMap(input: {
   current: EmotionalSummary
   previous: ExplainMapPreviousPeriod | null
   questionnaire_signals: ExplainMapQuestionnaireSignals
+  // Botão secundário "Atualizar leitura" — pula o cache de propósito.
+  force?: boolean
 }): Promise<ExplainMapResponse> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {

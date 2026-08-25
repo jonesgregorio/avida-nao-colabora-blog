@@ -809,15 +809,18 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
   const [result, setResult] = useState<ExplainMapResult | null>(null)
   const [lowSample, setLowSample] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
-  async function handleClick() {
-    setState('loading')
+  async function handleClick(force = false) {
+    setState(force ? state : 'loading')
+    if (force) setRefreshing(true)
     setErrorMessage('')
     try {
       const response = await explainEmotionalMap({
         current: summary,
         previous,
         questionnaire_signals: { completedCount: questionnaireSignals.completedCount, topTags: questionnaireSignals.topTags },
+        force,
       })
       setLowSample(!!response.low_sample)
       setResult(response.result ?? null)
@@ -825,6 +828,8 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Não foi possível gerar a leitura do mapa agora.')
       setState('error')
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -837,7 +842,7 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
       <p className="text-xs text-ink-soft mt-1 mb-4">Uma leitura curta do período selecionado, a partir dos dados já calculados acima — sem inventar médias ou frequências.</p>
 
       {state === 'idle' && (
-        <button onClick={handleClick} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
+        <button onClick={() => void handleClick(false)} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
           <Sparkles className="w-4 h-4" /> Entender meu mapa com IA
         </button>
       )}
@@ -849,31 +854,52 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
       {state === 'error' && (
         <div className="space-y-2">
           <p className="text-sm text-coral">{errorMessage}</p>
-          <button onClick={handleClick} className="text-xs font-medium text-forest-700 underline">Tentar novamente</button>
+          <button onClick={() => void handleClick(false)} className="text-xs font-medium text-forest-700 underline">Tentar novamente</button>
         </div>
       )}
 
       {state === 'done' && result && (
         lowSample ? (
-          <p className="text-sm text-forest-800 bg-paper-soft rounded-xl p-4">{result.what_stood_out}</p>
+          <p className="text-sm text-forest-800 bg-paper-soft rounded-xl p-4">{result.what_stands_out}</p>
         ) : (
           <div className="space-y-3">
+            {result.title && <h4 className="font-serif text-base text-forest-900">{result.title}</h4>}
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mais apareceu</p>
-              <p className="text-sm text-forest-800 mt-0.5">{result.what_stood_out}</p>
+              <p className="text-sm text-forest-800 mt-0.5">{result.what_stands_out}</p>
             </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mudou</p>
-              <p className="text-sm text-forest-800 mt-0.5">{result.what_changed}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Algo que vale observar</p>
-              <p className="text-sm text-forest-800 mt-0.5">{result.worth_observing}</p>
-            </div>
+            {result.possible_connections.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Conexões que valem observar</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.possible_connections.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.helpful_signals.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que parece ter ajudado</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.helpful_signals.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.what_to_observe.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Algo para observar</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.what_to_observe.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
             <div className="rounded-xl bg-mint/40 p-3">
               <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Uma pergunta para refletir</p>
               <p className="text-sm text-forest-900 mt-0.5">{result.reflection_question}</p>
             </div>
+            {result.data_quality_notice && <p className="text-xs text-ink-soft">{result.data_quality_notice}</p>}
+            <button onClick={() => void handleClick(true)} disabled={refreshing} className="inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 hover:text-forest-900 disabled:opacity-60">
+              {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Atualizar leitura
+            </button>
           </div>
         )
       )}
