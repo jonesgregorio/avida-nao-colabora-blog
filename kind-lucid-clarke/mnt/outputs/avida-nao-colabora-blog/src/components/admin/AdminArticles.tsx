@@ -91,10 +91,14 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
   async function load() {
     setLoading(true)
     // select('*') é tolerante caso a migration 059 (content_type) ainda não tenha aplicado.
+    // §21 (performance): antes buscava a tabela inteira sem limite algum — cresce
+    // linearmente com o catálogo. 2000 é uma rede de segurança generosa (não é
+    // paginação de verdade), no mesmo padrão já usado em personalizationTasks.ts.
     const { data, error } = await supabase
       .from('articles')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(2000)
     if (error) showToast('Erro ao carregar artigos: ' + error.message, true)
     setArticles(data || [])
     setLoading(false)
