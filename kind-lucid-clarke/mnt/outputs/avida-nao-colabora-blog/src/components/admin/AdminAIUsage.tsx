@@ -39,6 +39,10 @@ const TYPE_LABELS: Record<string, string> = {
 const typeLabel = (t: string) => TYPE_LABELS[t] ?? t
 
 function providerBadge(p: string) {
+  // "fallback" (§17): a IA não respondeu e o texto determinístico assumiu —
+  // diferente de um erro técnico, então tem cor e rótulo próprios em vez de
+  // aparecer como se o Gemini tivesse gerado o conteúdo.
+  if (p === 'fallback') return <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-stone-200 text-stone-700">Sem IA (fallback)</span>
   const isGemini = /gemini/i.test(p)
   const cls = isGemini ? 'bg-blue-100 text-blue-700' : /groq/i.test(p) ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-600'
   return <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cls}`}>{providerLabel(p)}</span>
@@ -120,12 +124,22 @@ export default function AdminAIUsage() {
     }
   }
 
-  // Resumo dos últimos registros: quantas gerações por provedor (só sucessos).
+  // Resumo dos últimos registros: quantas gerações por provedor (só sucessos
+  // de IA de verdade — fallback determinístico não é um provedor).
   const ok = logs.filter(l => l.status === 'success')
   const byProvider = new Map<string, number>()
   ok.forEach(l => byProvider.set(l.provider, (byProvider.get(l.provider) ?? 0) + 1))
   const providers = [...byProvider.entries()].sort((a, b) => b[1] - a[1])
-  const fails = logs.filter(l => l.status !== 'success').length
+  // §17: fallback é rede de segurança (a IA não respondeu, texto determinístico
+  // assumiu), diferente de erro técnico (429/timeout/5xx) — métricas separadas
+  // em vez de uma única contagem de "falhas" que confundia as duas coisas.
+  const fallbackCount = logs.filter(l => l.status === 'fallback').length
+  const fails = logs.filter(l => l.status !== 'success' && l.status !== 'fallback').length
+  const aiAttempts = ok.length + fallbackCount
+  const fallbackRate = aiAttempts > 0 ? Math.round((fallbackCount / aiAttempts) * 100) : 0
+  // Limiar de alerta (§17): acima disso, a rede de segurança virou o caminho
+  // principal em vez de exceção — vale investigar chaves/cota dos provedores.
+  const FALLBACK_ALERT_THRESHOLD = 30
 
   const fmt = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
@@ -142,13 +156,14 @@ export default function AdminAIUsage() {
 
     push(['RESUMO POR PROVEDOR', 'Gerações (sucesso)', '% do total'])
     providers.forEach(([p, n]) => push([providerLabel(p), n, `${Math.round((n / Math.max(1, ok.length)) * 100)}%`]))
-    if (fails > 0) push(['Falhas (tentativas com erro)', fails, ''])
+    if (fallbackCount > 0) push(['Fallback (rede de segurança, sem IA)', fallbackCount, `${fallbackRate}%`])
+    if (fails > 0) push(['Erros técnicos (tentativas com falha)', fails, ''])
     lines.push('')
 
     push(['GERAÇÕES', 'Quando', 'Tipo', 'IA usada', 'Status', 'Erro'])
     logs.forEach(l => push([
       '', new Date(l.created_at).toLocaleString('pt-BR'), typeLabel(l.content_type),
-      providerLabel(l.provider), l.status === 'success' ? 'sucesso' : 'erro', l.error_msg ?? '',
+      providerLabel(l.provider), l.status === 'success' ? 'sucesso' : l.status === 'fallback' ? 'fallback' : 'erro', l.error_msg ?? '',
     ]))
 
     // BOM (via charCode p/ não usar espaço irregular no fonte) => acentos no Excel.
@@ -252,14 +267,30 @@ export default function AdminAIUsage() {
             <p className="text-sm text-ink-soft mt-1">gerações ({Math.round((n / Math.max(1, ok.length)) * 100)}% do total)</p>
           </div>
         ))}
+        {fallbackCount > 0 && (
+          <div className={`bg-white border rounded-2xl p-5 ${fallbackRate >= FALLBACK_ALERT_THRESHOLD ? 'border-amber-300' : 'border-line'}`}>
+            <div className="mb-2"><span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-stone-200 text-stone-700">Fallback</span></div>
+            <p className="font-serif text-3xl text-forest-900">{fallbackCount}</p>
+            <p className="text-sm text-ink-soft mt-1">{fallbackRate}% das tentativas de IA emocional — rede de segurança, sem IA de verdade</p>
+          </div>
+        )}
         {fails > 0 && (
           <div className="bg-white border border-line rounded-2xl p-5">
-            <div className="mb-2"><span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Falhas</span></div>
+            <div className="mb-2"><span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Erros</span></div>
             <p className="font-serif text-3xl text-forest-900">{fails}</p>
-            <p className="text-sm text-ink-soft mt-1">tentativas com erro</p>
+            <p className="text-sm text-ink-soft mt-1">tentativas com erro técnico (fora o fallback)</p>
           </div>
         )}
       </div>
+
+      {/* §17: alerta quando o fallback deixou de ser exceção e virou o caminho
+          principal das automações emocionais — vale checar cota/chaves dos
+          provedores em vez de deixar passar despercebido. */}
+      {fallbackRate >= FALLBACK_ALERT_THRESHOLD && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 mb-6 text-sm text-amber-900">
+          <strong>{fallbackRate}%</strong> das gerações de IA emocional (relatórios, plano de autocuidado, mapa) recentes caíram no fallback determinístico em vez de usar IA de verdade. Vale checar se as chaves de IA (Gemini/Groq/OpenAI) estão configuradas e com cota disponível.
+        </div>
+      )}
 
       {/* Tabela */}
       <div className="bg-white border border-line rounded-2xl overflow-hidden">
@@ -289,7 +320,9 @@ export default function AdminAIUsage() {
                     <td className="px-4 py-2">
                       {l.status === 'success'
                         ? <span className="text-forest-700">✓ sucesso</span>
-                        : <span className="text-red-600" title={l.error_msg ?? undefined}>✕ erro</span>}
+                        : l.status === 'fallback'
+                          ? <span className="text-stone-600" title={l.error_msg ?? undefined}>↺ fallback</span>
+                          : <span className="text-red-600" title={l.error_msg ?? undefined}>✕ erro</span>}
                     </td>
                   </tr>
                 ))}

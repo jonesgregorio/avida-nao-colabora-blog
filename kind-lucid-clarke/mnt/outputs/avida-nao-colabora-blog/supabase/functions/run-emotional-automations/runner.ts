@@ -411,6 +411,18 @@ async function log(admin: AdminClient, row: Record<string, unknown>) {
   try { await admin.from('ai_generation_logs').insert(row) } catch { /* best effort */ }
 }
 
+// A coluna `provider` tem DEFAULT 'gemini' (migration 100) e esta função nunca
+// a preenchia -- todo registro de relatório/plano ficava marcado como "Gemini"
+// no painel "Uso de IA", mesmo quando o fallback determinístico rodou ou
+// quando Groq/OpenAI de fato responderam. Deriva do mesmo `model` que já é
+// salvo em `model_used`, sem mudar o texto do model_used em si (§16/§17).
+function providerFromModel(model: string): string {
+  if (model === 'deterministic-fallback') return 'fallback'
+  if (model.startsWith('groq:')) return 'groq'
+  if (model.startsWith('openai:')) return 'openai'
+  return 'gemini'
+}
+
 Deno.serve(async (req) => {
   const cors = corsFor(req)
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
@@ -484,7 +496,7 @@ Deno.serve(async (req) => {
       const promptType = job.kind === 'weekly' ? 'weekly_report' : 'monthly_deep_report'
       const { error: saveError } = await admin.from('reports').insert({ user_id: profile.user_id, report_type: job.kind, plan_required: job.kind === 'weekly' ? 'essential' : 'plus', period_start: job.start, period_end: job.end, available_at: new Date().toISOString(), status: 'generated', title: job.kind === 'weekly' ? `Relatório semanal — ${job.start}` : `Relatório mensal aprofundado — ${job.start.slice(0, 7)}`, summary: content.summary, content, generated_at: new Date().toISOString(), ai_prompt_type: promptType, ai_prompt_version: PROMPT_VERSION[promptType], model_used: model, fallback_used: fallback, data_quality: summary.data_quality, error_message: errorMessage, generated_by: actor })
       if (saveError) { results.push(`${profile.user_id}:${job.kind}:erro`); continue }
-      await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: promptType, prompt_type: promptType, prompt_version: PROMPT_VERSION[promptType], model_used: model, fallback_used: fallback, data_quality: summary.data_quality, source_period_start: job.start, source_period_end: job.end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
+      await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: promptType, prompt_type: promptType, prompt_version: PROMPT_VERSION[promptType], provider: providerFromModel(model), model_used: model, fallback_used: fallback, data_quality: summary.data_quality, source_period_start: job.start, source_period_end: job.end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
       results.push(`${profile.user_id}:${job.kind}:ok`)
     }
     if (plan === 'plus' && (!body.mode || body.mode === 'all' || body.mode === 'monthly')) {
@@ -501,7 +513,7 @@ Deno.serve(async (req) => {
         const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
         const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${careStart} a ${careEnd}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
         await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: s, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
-        await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
+        await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, provider: providerFromModel(model), model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
         results.push(`${profile.user_id}:plano:ok`)
       }
     }
