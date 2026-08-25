@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { RefreshCw, Loader2, Cpu, Download, PlayCircle } from 'lucide-react'
+import { RefreshCw, Loader2, Cpu, Download, PlayCircle, Search, X } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
+
+interface UserHit {
+  user_id: string
+  email: string | null
+  full_name: string | null
+  plan: string | null
+  subscription_status: string | null
+}
+
+const PLAN_LABEL: Record<string, string> = { free: 'Gratuito', essential: 'Essencial', plus: 'Plus', therapeutic: 'Plus', 'therapeutic-plus': 'Plus' }
 
 // Histórico de uso de IA — lê ai_generation_logs (RLS: só admin, migration 026).
 // Mostra, por geração, QUAL provedor (Gemini/Groq) foi usado, o tipo e o status.
@@ -40,6 +50,11 @@ export default function AdminAIUsage() {
   const [err, setErr] = useState('')
   const [diagBusy, setDiagBusy] = useState(false)
   const [diagMsg, setDiagMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [diagMode, setDiagMode] = useState<'all' | 'weekly' | 'monthly'>('all')
+  const [userQuery, setUserQuery] = useState('')
+  const [userResults, setUserResults] = useState<UserHit[]>([])
+  const [userSearching, setUserSearching] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserHit | null>(null)
 
   async function load() {
     setLoading(true); setErr('')
@@ -54,29 +69,48 @@ export default function AdminAIUsage() {
   }
   useEffect(() => { load() }, [])
 
+  // Busca usuário por e-mail/nome para escolher QUEM vai receber a geração de
+  // teste — nem todo usuário é elegível (semanal exige Essencial+, mensal e
+  // plano de autocuidado exigem Plus), então mostra o plano de cada resultado.
+  async function buscarUsuario() {
+    const term = userQuery.trim()
+    if (term.length < 3) { setUserResults([]); return }
+    setUserSearching(true)
+    const { data } = await supabase.from('profiles')
+      .select('user_id, email, full_name, plan, subscription_status')
+      .or(`email.ilike.%${term}%,full_name.ilike.%${term}%`)
+      .limit(8)
+    setUserResults((data as UserHit[]) ?? [])
+    setUserSearching(false)
+  }
+
   // Diagnóstico sob demanda: não existia forma de gerar relatório/plano de
-  // autocuidado fora do cron diário. Roda run-emotional-automations agora,
-  // restrito à PRÓPRIA conta do admin (nunca dispara para outros usuários
-  // reais), para que o erro real de cada provedor apareça aqui embaixo sem
-  // esperar o próximo ciclo. Precisa de dados elegíveis (registros de diário
-  // no período) para de fato tentar a IA — senão a tarefa é só ignorada.
+  // autocuidado fora do cron diário. Roda run-emotional-automations agora —
+  // por padrão na própria conta do admin, ou num usuário elegível escolhido
+  // pela busca acima — para que o erro real de cada provedor apareça aqui
+  // embaixo sem esperar o próximo ciclo. Precisa de dados elegíveis (registros
+  // de diário no período) para de fato tentar a IA — senão a tarefa é ignorada.
   async function gerarDiagnostico() {
     setDiagBusy(true); setDiagMsg(null)
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const uid = userData.user?.id
+      let uid = selectedUser?.user_id
+      if (!uid) {
+        const { data: userData } = await supabase.auth.getUser()
+        uid = userData.user?.id
+      }
       if (!uid) throw new Error('Sessão inválida — faça login novamente.')
       const { data, error } = await supabase.functions.invoke('run-emotional-automations', {
-        body: { userId: uid, mode: 'all' },
+        body: { userId: uid, mode: diagMode },
       })
       const res = data as { ok?: boolean; results?: string[]; error?: string } | null
       const msg = error?.message ?? res?.error
       if (msg) throw new Error(msg)
       const results = res?.results ?? []
+      const alvo = selectedUser ? (selectedUser.email || selectedUser.full_name || 'usuário selecionado') : 'sua conta'
       setDiagMsg({
         text: results.length
-          ? `Executado: ${results.join(', ')}. Confira o resultado na lista abaixo (Atualizar).`
-          : 'Executado, mas nada foi gerado — sua conta não tem registros elegíveis no período (semana/mês atual) ou já existe um relatório/plano gerado para este ciclo.',
+          ? `Executado para ${alvo}: ${results.join(', ')}. Confira o resultado na lista abaixo (Atualizar).`
+          : `Executado, mas nada foi gerado para ${alvo} — sem registros elegíveis no período (semana/mês atual), plano insuficiente para o modo escolhido, ou já existe um relatório/plano gerado para este ciclo.`,
       })
       load()
     } catch (e) {
@@ -145,19 +179,65 @@ export default function AdminAIUsage() {
         </div>
       </div>
 
-      {/* Diagnóstico sob demanda: gera relatório/plano de autocuidado agora,
-          só para a própria conta do admin, para revelar o erro real de cada
-          provedor de IA sem esperar o cron diário. */}
-      <div className="bg-white border border-line rounded-2xl p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-forest-900">Diagnóstico da IA emocional</p>
-          <p className="text-xs text-ink-soft mt-0.5">Gera relatório semanal/mensal e plano de autocuidado agora, só para esta conta (admin), para ver o motivo real de um eventual fallback sem esperar o cron diário.</p>
+      {/* Diagnóstico sob demanda: gera relatório/plano de autocuidado agora
+          — na própria conta do admin ou num usuário elegível escolhido por
+          busca — para revelar o erro real de cada provedor de IA sem esperar
+          o cron diário. Elegibilidade: semanal exige Essencial+; mensal e
+          plano de autocuidado exigem Plus. */}
+      <div className="bg-white border border-line rounded-2xl p-5 mb-6">
+        <p className="text-sm font-medium text-forest-900">Diagnóstico da IA emocional</p>
+        <p className="text-xs text-ink-soft mt-0.5 mb-3">Gera relatório semanal/mensal e plano de autocuidado agora, para ver o motivo real de um eventual fallback sem esperar o cron diário. Semanal exige Essencial ou Plus; mensal e plano de autocuidado exigem Plus.</p>
+
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="w-4 h-4 text-ink-soft absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={userQuery}
+              onChange={e => { setUserQuery(e.target.value); setSelectedUser(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') buscarUsuario() }}
+              placeholder="Buscar usuário por e-mail ou nome (ou deixe em branco para gerar na sua própria conta)"
+              className="w-full pl-9 pr-3 py-2 border border-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+            />
+          </div>
+          <button onClick={buscarUsuario} disabled={userSearching || userQuery.trim().length < 3} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300 disabled:opacity-50">
+            {userSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
+          </button>
+          <select value={diagMode} onChange={e => setDiagMode(e.target.value as typeof diagMode)} className="border border-line rounded-xl text-sm px-3 py-2">
+            <option value="all">Semanal + mensal + autocuidado</option>
+            <option value="weekly">Só semanal</option>
+            <option value="monthly">Só mensal (inclui autocuidado)</option>
+          </select>
         </div>
-        <button onClick={gerarDiagnostico} disabled={diagBusy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50 shrink-0">
-          {diagBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />} Gerar agora (minha conta)
-        </button>
+
+        {userResults.length > 0 && !selectedUser && (
+          <div className="border border-line rounded-xl divide-y divide-line mb-3 max-h-56 overflow-y-auto">
+            {userResults.map(u => (
+              <button key={u.user_id} onClick={() => { setSelectedUser(u); setUserResults([]) }} className="w-full text-left px-3 py-2 text-sm hover:bg-mint flex items-center justify-between gap-2">
+                <span>{u.full_name || u.email || u.user_id}<span className="text-ink-soft"> · {u.email}</span></span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-mint text-forest-700 shrink-0">{PLAN_LABEL[u.plan ?? 'free'] ?? u.plan}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {userQuery.trim().length >= 3 && userResults.length === 0 && !userSearching && !selectedUser && (
+          <p className="text-xs text-ink-soft mb-3">Nenhum usuário encontrado — clique em Buscar após digitar.</p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {selectedUser ? (
+            <span className="inline-flex items-center gap-2 bg-mint text-forest-800 text-sm px-3 py-1.5 rounded-xl">
+              Alvo: {selectedUser.full_name || selectedUser.email} ({PLAN_LABEL[selectedUser.plan ?? 'free'] ?? selectedUser.plan})
+              <button onClick={() => { setSelectedUser(null); setUserQuery('') }} className="hover:text-forest-900"><X className="w-3.5 h-3.5" /></button>
+            </span>
+          ) : (
+            <span className="text-sm text-ink-soft">Alvo: sua própria conta (nenhum usuário selecionado)</span>
+          )}
+          <button onClick={gerarDiagnostico} disabled={diagBusy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50 shrink-0">
+            {diagBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />} Gerar agora
+          </button>
+        </div>
         {diagMsg && (
-          <p className={`w-full text-sm ${diagMsg.err ? 'text-red-600' : 'text-forest-700'}`}>{diagMsg.text}</p>
+          <p className={`w-full text-sm mt-3 ${diagMsg.err ? 'text-red-600' : 'text-forest-700'}`}>{diagMsg.text}</p>
         )}
       </div>
 
