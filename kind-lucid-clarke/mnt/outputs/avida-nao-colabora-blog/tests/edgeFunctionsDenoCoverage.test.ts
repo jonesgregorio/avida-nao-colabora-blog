@@ -61,7 +61,6 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'run-automations',
     'run-emotional-automations',
     'run-lifecycle-emails',
-    'send-automated-emails',
     'send-transactional-email',
     'stripe-audit',
     'stripe-selftest',
@@ -142,9 +141,4 @@ test('documentação registra que não há dívida de tipo liberada pelo CI', ()
   const doc = readFileSync(new URL('../docs/EDGE_FUNCTIONS_TYPE_DEBT.md', import.meta.url), 'utf8')
   assert.match(doc, /nenhuma Edge Function tem exceção no CI/i)
   assert.doesNotMatch(doc, /Dívida restante/)
-})
-
-test('função legada com import remoto antigo é sinalizada, não escondida', () => {
-  const legacy = readFileSync(new URL('send-automated-emails/index.ts', functionsDir), 'utf8')
-  assert.match(legacy, /from 'https:\/\/(deno\.land|esm\.sh)\//)
 })
