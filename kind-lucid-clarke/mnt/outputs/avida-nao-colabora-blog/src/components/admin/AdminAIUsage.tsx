@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { RefreshCw, Loader2, Cpu, Download } from 'lucide-react'
+import { RefreshCw, Loader2, Cpu, Download, PlayCircle } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
 
 // Histórico de uso de IA — lê ai_generation_logs (RLS: só admin, migration 026).
@@ -38,6 +38,8 @@ export default function AdminAIUsage() {
   const [logs, setLogs] = useState<Log[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [diagBusy, setDiagBusy] = useState(false)
+  const [diagMsg, setDiagMsg] = useState<{ text: string; err?: boolean } | null>(null)
 
   async function load() {
     setLoading(true); setErr('')
@@ -51,6 +53,38 @@ export default function AdminAIUsage() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  // Diagnóstico sob demanda: não existia forma de gerar relatório/plano de
+  // autocuidado fora do cron diário. Roda run-emotional-automations agora,
+  // restrito à PRÓPRIA conta do admin (nunca dispara para outros usuários
+  // reais), para que o erro real de cada provedor apareça aqui embaixo sem
+  // esperar o próximo ciclo. Precisa de dados elegíveis (registros de diário
+  // no período) para de fato tentar a IA — senão a tarefa é só ignorada.
+  async function gerarDiagnostico() {
+    setDiagBusy(true); setDiagMsg(null)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const uid = userData.user?.id
+      if (!uid) throw new Error('Sessão inválida — faça login novamente.')
+      const { data, error } = await supabase.functions.invoke('run-emotional-automations', {
+        body: { userId: uid, mode: 'all' },
+      })
+      const res = data as { ok?: boolean; results?: string[]; error?: string } | null
+      const msg = error?.message ?? res?.error
+      if (msg) throw new Error(msg)
+      const results = res?.results ?? []
+      setDiagMsg({
+        text: results.length
+          ? `Executado: ${results.join(', ')}. Confira o resultado na lista abaixo (Atualizar).`
+          : 'Executado, mas nada foi gerado — sua conta não tem registros elegíveis no período (semana/mês atual) ou já existe um relatório/plano gerado para este ciclo.',
+      })
+      load()
+    } catch (e) {
+      setDiagMsg({ text: 'Erro ao gerar: ' + (e instanceof Error ? e.message : 'desconhecido'), err: true })
+    } finally {
+      setDiagBusy(false)
+    }
+  }
 
   // Resumo dos últimos registros: quantas gerações por provedor (só sucessos).
   const ok = logs.filter(l => l.status === 'success')
@@ -109,6 +143,22 @@ export default function AdminAIUsage() {
             <Download className="w-4 h-4" /> Extrair relatório
           </button>
         </div>
+      </div>
+
+      {/* Diagnóstico sob demanda: gera relatório/plano de autocuidado agora,
+          só para a própria conta do admin, para revelar o erro real de cada
+          provedor de IA sem esperar o cron diário. */}
+      <div className="bg-white border border-line rounded-2xl p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-forest-900">Diagnóstico da IA emocional</p>
+          <p className="text-xs text-ink-soft mt-0.5">Gera relatório semanal/mensal e plano de autocuidado agora, só para esta conta (admin), para ver o motivo real de um eventual fallback sem esperar o cron diário.</p>
+        </div>
+        <button onClick={gerarDiagnostico} disabled={diagBusy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50 shrink-0">
+          {diagBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />} Gerar agora (minha conta)
+        </button>
+        {diagMsg && (
+          <p className={`w-full text-sm ${diagMsg.err ? 'text-red-600' : 'text-forest-700'}`}>{diagMsg.text}</p>
+        )}
       </div>
 
       {/* Resumo por provedor */}
