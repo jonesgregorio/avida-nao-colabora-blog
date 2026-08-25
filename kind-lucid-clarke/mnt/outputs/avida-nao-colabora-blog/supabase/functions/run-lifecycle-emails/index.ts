@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       if ((recent7.get(u.user_id) ?? 0) < 1) continue
       if (!usersWithWeeklyReport.has(u.user_id)) continue
       const nome = (u.full_name || '').split(' ')[0] || 'Olá'
-      if (await send(u.email, 'weekly_report_available', { nome, link_relatorio: `${SITE}/meu-plano` }, `weekly_report:${u.user_id}:${isoWeek(now)}`, u.user_id)) summary.weekly_report++
+      if (await send(u.email, 'weekly_report_available', { nome, link_relatorio: `${SITE}/meu-relatorio` }, `weekly_report:${u.user_id}:${isoWeek(now)}`, u.user_id)) summary.weekly_report++
     }
   }
 
