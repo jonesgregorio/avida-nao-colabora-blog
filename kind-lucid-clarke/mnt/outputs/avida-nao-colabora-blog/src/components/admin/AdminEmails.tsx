@@ -59,7 +59,7 @@ const PREVIEW_VARS: Record<string, string> = {
   titulo: 'Quando a ansiedade aperta antes de dormir',
   resumo: 'Um texto acolhedor sobre reconhecer a ansiedade noturna e caminhos gentis para se acalmar.',
   link_meu_plano: 'https://avidanaocolabora.com/meu-plano',
-  link_relatorio: 'https://avidanaocolabora.com/meu-plano',
+  link_relatorio: 'https://avidanaocolabora.com/meu-relatorio',
   link_conteudo: 'https://avidanaocolabora.com/blog',
   link_diario: 'https://avidanaocolabora.com/diario',
   link_site: 'https://avidanaocolabora.com',

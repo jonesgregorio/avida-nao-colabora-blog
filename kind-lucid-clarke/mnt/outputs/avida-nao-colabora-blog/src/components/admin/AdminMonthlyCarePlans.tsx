@@ -41,6 +41,7 @@ interface CarePlanRow {
   admin_notes: string | null
   sent_at: string | null
   updated_at: string
+  generated_by_ai: boolean | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -376,6 +377,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   const [care, setCare] = useState<CarePlanContent>({ ...emptyPlan(), ...(plan?.care_plan ?? {}) })
   const [content, setContent] = useState<ResolvedContent[]>([])
   const [adminNotes, setAdminNotes] = useState(plan?.admin_notes ?? '')
+  // A persistência gravava generated_by_ai: true de forma fixa, mesmo quando
+  // o admin nunca clicou em "Gerar com IA" (texto todo manual) ou quando a IA
+  // caiu no fallback determinístico por poucos dados. Reflete a origem real.
+  const [generatedByAI, setGeneratedByAI] = useState(plan?.generated_by_ai ?? false)
   const status = plan?.status ?? 'pending_generation'
   const readOnly = status === 'sent'
 
@@ -424,6 +429,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
       const result = await generateCarePlanAI(analysis, rs)
       setSummary(result.summary)
       setCare(result.care_plan)
+      setGeneratedByAI(result.generatedByAI)
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
       setContent(resolved)
       showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (poucos dados — texto de incentivo). Revise.')
@@ -447,7 +453,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         ai_summary_json: summary, care_plan: care, records_summary: rs,
         recommended_content_ids: content.map(c => c.id),
         admin_notes: adminNotes || null,
-        generated_at: new Date().toISOString(), generated_by_ai: true,
+        generated_at: new Date().toISOString(), generated_by_ai: generatedByAI,
         updated_at: new Date().toISOString(),
       }
       if (next === 'skip') {
