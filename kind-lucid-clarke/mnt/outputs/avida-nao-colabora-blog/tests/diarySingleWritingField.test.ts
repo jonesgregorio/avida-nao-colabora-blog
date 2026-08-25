@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const page = readFileSync(new URL('../src/components/DiaryPage.tsx', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/components/diarySingleWritingField.css', import.meta.url), 'utf8')
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
+const detailsDrawer = readFileSync(new URL('../src/components/DiaryDetailsDrawer.tsx', import.meta.url), 'utf8')
 
 test('Diário para de renderizar os campos legados de texto livre na fonte (não só via CSS)', () => {
   assert.match(page, /diarySingleWritingField\.css/)
@@ -29,6 +30,7 @@ test('Diário para de renderizar os campos legados de texto livre na fonte (não
   for (const label of removedOpenFields) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     assert.doesNotMatch(diary, new RegExp(`aria-label="${escaped}"`))
+    assert.doesNotMatch(detailsDrawer, new RegExp(`aria-label="${escaped}"`))
   }
 
   // O CSS não precisa mais esconder nada por display:none -- os campos
@@ -48,9 +50,10 @@ test('Diário mantém editor principal, voz, ajuda, mapas e tags', () => {
   assert.match(diary, /Preciso de ajuda para começar/)
   assert.match(diary, /Sugira uma pergunta/)
   assert.match(diary, /Organizar o que já escrevi/)
-  assert.match(diary, /SliderField label="Humor"/)
-  assert.match(diary, /SliderField label="Energia"/)
-  assert.match(diary, /TagGroup title="Quais sentimentos apareceram\?"/)
-  assert.match(diary, /TagGroup title="Onde isso apareceu\?"/)
-  assert.match(diary, /TagGroup title="Gatilhos que você reconhece"/)
+  assert.match(diary, /<DiaryDetailsDrawer/)
+  assert.match(detailsDrawer, /SliderField label="Humor"/)
+  assert.match(detailsDrawer, /SliderField label="Energia"/)
+  assert.match(detailsDrawer, /TagGroup title="Quais sentimentos apareceram\?"/)
+  assert.match(detailsDrawer, /TagGroup title="Onde isso apareceu\?"/)
+  assert.match(detailsDrawer, /TagGroup title="Gatilhos que você reconhece"/)
 })

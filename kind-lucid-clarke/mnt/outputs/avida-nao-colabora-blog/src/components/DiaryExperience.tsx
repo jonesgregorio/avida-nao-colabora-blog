@@ -15,9 +15,10 @@ import { emailDiaryLimitReachedForUser, emailDiaryLimitWarningForUser } from '..
 import { signalFromEntry, type Signal } from '../lib/contentRecommendation'
 import { askDiaryCompanion, type DiaryMirror, type DiarySuggestedTags } from '../lib/diaryCompanion'
 import DiaryTagChip from './DiaryTagChip'
-import { SliderField, QuickScaleField, TagGroup } from './DiaryFormFields'
+import { QuickScaleField } from './DiaryFormFields'
 import DiarySavedReflection from './DiarySavedReflection'
-import { MoodChip } from './user/ui'
+import DiaryMoodSelector from './DiaryMoodSelector'
+import DiaryDetailsDrawer from './DiaryDetailsDrawer'
 import { MOODS } from './user/moods'
 
 interface DiaryExperienceProps {
@@ -45,6 +46,8 @@ type PageTab = 'write' | 'history'
 type Filter = 'all' | 'checkin' | 'diary' | 'questionnaire'
 type PeriodFilter = 'all' | '7d' | '30d' | 'month'
 
+type ScaleName = 'moodScore' | 'energy' | 'anxiety' | 'sleep' | 'stress' | 'selfEsteem' | 'irritability' | 'overload'
+
 const moodOptions = [
   { value: 'bem_estar', emoji: '😊', label: 'Bem-estar', score: 5 },
   { value: 'tranquilidade', emoji: '😌', label: 'Tranquilidade', score: 5 },
@@ -62,13 +65,7 @@ const CHIP_TO_MOOD: Record<string, string> = {
   bem_estar: 'bem_estar', tranquilidade: 'tranquilidade', cansaco: 'cansaco', sem_energia: 'sem_energia', ansiedade: 'ansiedade', sobrecarga: 'sobrecarga', tristeza: 'tristeza', irritacao: 'irritacao', desanimo: 'desanimo', confusao: 'confusao', outro: 'outro',
   bem: 'bem_estar', 'bem-estar': 'bem_estar', tranquila: 'tranquilidade', tranquilo: 'tranquilidade', ansiosa: 'ansiedade', ansioso: 'ansiedade', cansada: 'cansaco', cansado: 'cansaco', sobrecarregada: 'sobrecarga', sobrecarregado: 'sobrecarga', triste: 'tristeza', irritada: 'irritacao', irritado: 'irritacao', neutro: 'outro', neutra: 'outro',
 }
-const emotionalTags = ['ansiedade','medo','preocupação','insegurança','tristeza','desânimo','solidão','culpa','irritação','raiva','frustração','cansaço','sobrecarga','confusão','calma','esperança','alegria','gratidão']
-const freeEmotionalTags = ['ansiedade','tristeza','cansaço','sobrecarga','calma','gratidão']
-const contextTags = ['trabalho','família','relacionamento','amizades','dinheiro','saúde','corpo','casa','estudos','redes sociais','solidão','rotina','futuro','autoimagem','sono','alimentação','responsabilidades']
 const quickContextTags = ['trabalho','família','relacionamento','saúde','dinheiro','sono','rotina','estudos','outro']
-const needTags = ['descanso','acolhimento','clareza','silêncio','conversa','limite','organização','ajuda','pausa','leveza','segurança','coragem','paciência','presença','menos cobrança']
-const careTags = ['tomar banho','beber água','respirar','ouvir música','caminhar','dormir mais cedo','conversar com alguém','organizar uma tarefa','ficar em silêncio','escrever mais','ver um conteúdo guiado','reduzir redes sociais','fazer uma pausa','comer algo leve','pedir ajuda']
-const triggerTags = ['cobrança','conflito','excesso de tarefas','crítica','rejeição','comparação','incerteza','falta de descanso','mudança de planos','sensação de fracasso','dificuldade financeira','conversa difícil','pressão familiar','exposição em redes sociais']
 const PAGE_SIZE = 30
 
 const normalizeScale = (value: number) => Math.min(5, Math.max(1, Math.round(value)))
@@ -90,8 +87,6 @@ function dayLabel(date: string) {
   if (date === yesterday) return `Ontem · ${basic}`
   return parsed.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
 }
-// Quando o humor é "Outro", o rótulo digitado pela pessoa (mood_other_label)
-// é mais informativo do que o rótulo genérico pra exibição e pra IA.
 function effectiveMoodLabel(mood: string | number | undefined, otherLabel: string | null | undefined): string {
   const m = String(mood ?? '')
   return m.toLowerCase() === 'outro' && otherLabel?.trim() ? otherLabel.trim() : m
@@ -115,9 +110,6 @@ function localStartPrompt(mood: string) {
   if (m.includes('bem') || m.includes('tranq')) return 'O que aconteceu hoje que você gostaria de lembrar quando reler este dia?'
   return 'Complete sem pensar muito: “Se eu pudesse colocar uma coisa para fora agora, seria…”'
 }
-// "outro" é um rótulo genérico ("Other"), não um sentimento descritível —
-// "algo ligado a outro" não faz sentido em português. Os demais humores
-// (ansiedade, cansaço, bem-estar...) são substantivos e encaixam na frase.
 function moodWeightSentence(mood: string): string {
   const m = mood.trim().toLowerCase()
   if (!m || m === 'outro') return 'Seu registro colocou em palavras algo deste momento.'
@@ -282,6 +274,27 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const touch = (key: string, setter: (v: number) => void, value: number) => { setter(value); setTouched(prev => new Set(prev).add(key)) }
   const clearTouch = (key: string, setter: (v: number) => void) => { setter(3); setTouched(prev => { const n = new Set(prev); n.delete(key); return n }) }
   const chooseMood = (key: string) => { setMoodChip(key); setMood(CHIP_TO_MOOD[key] || 'outro') }
+
+  const handleScaleChange = (name: ScaleName, value: number) => {
+    if (name === 'moodScore') touch(name, setMoodScore, value)
+    else if (name === 'energy') touch(name, setEnergy, value)
+    else if (name === 'anxiety') touch(name, setAnxiety, value)
+    else if (name === 'sleep') touch(name, setSleep, value)
+    else if (name === 'stress') touch(name, setStress, value)
+    else if (name === 'selfEsteem') touch(name, setSelfEsteem, value)
+    else if (name === 'irritability') touch(name, setIrritability, value)
+    else touch(name, setOverload, value)
+  }
+  const handleScaleClear = (name: ScaleName) => {
+    if (name === 'moodScore') clearTouch(name, setMoodScore)
+    else if (name === 'energy') clearTouch(name, setEnergy)
+    else if (name === 'anxiety') clearTouch(name, setAnxiety)
+    else if (name === 'sleep') clearTouch(name, setSleep)
+    else if (name === 'stress') clearTouch(name, setStress)
+    else if (name === 'selfEsteem') clearTouch(name, setSelfEsteem)
+    else if (name === 'irritability') clearTouch(name, setIrritability)
+    else clearTouch(name, setOverload)
+  }
 
   const resetComposer = () => {
     setDraft(''); setQuickNote(''); setQuickContextOpen(false); setQuickContext(null); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
@@ -524,7 +537,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   }
 
   const monthKey = today.slice(0, 7)
-  const monthDiaryRows = monthRows.filter(e => e.entry_type === 'diary')
   const monthCheckins = monthRows.filter(e => e.entry_type === 'checkin').length
   const activeDays = new Set(monthRows.map(e => String(e.date || '').slice(0, 10)).filter(Boolean)).size
   const monthMoments = monthRows.length
@@ -568,9 +580,11 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   }
 
   const shell = focusMode ? 'fixed inset-0 z-50 bg-[#f8f5ef] overflow-y-auto' : ''
+  const contentWidth = focusMode ? 'max-w-3xl py-8 sm:py-12' : tab === 'write' ? 'max-w-4xl py-6 sm:py-9' : 'max-w-6xl py-6 sm:py-9'
+
   return (
     <div className={shell}>
-      <div className={`${focusMode ? 'max-w-3xl py-8 sm:py-12' : 'max-w-6xl py-6 sm:py-9'} mx-auto px-4 sm:px-6`}>
+      <div className={`${contentWidth} mx-auto px-4 sm:px-6`}>
         <header className="flex items-start justify-between gap-4 mb-6">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
@@ -591,7 +605,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         )}
 
         {tab === 'write' ? (
-          <div className={`${focusMode ? '' : 'grid lg:grid-cols-[minmax(0,1fr)_280px] gap-6'}`}>
+          <div className={focusMode ? '' : 'mx-auto max-w-3xl'}>
             <main className="min-w-0">
               {!focusMode && (
                 <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -615,20 +629,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                 <section className={`${focusMode ? 'bg-transparent' : 'bg-paper-soft border border-line rounded-[2rem]'} p-4 sm:p-7`}>
                   {promptContext && mode === 'diary' && <div className="mb-5 rounded-2xl bg-mint/50 border border-forest-100 p-4"><p className="text-xs text-forest-600">Pergunta do conteúdo “{promptContext.articleTitle}”</p><p className="text-sm text-forest-900 mt-1">{promptContext.prompt}</p></div>}
 
-                  <div className="mb-5">
-                    <p className="text-sm font-semibold text-forest-900 mb-3">Como você está agora?</p>
-                    <div className="flex flex-wrap gap-2">{MOODS.map(m => <MoodChip key={m.key} mood={m} active={moodChip === m.key} onClick={() => chooseMood(m.key)} />)}</div>
-                    {moodChip === 'outro' && (
-                      <input
-                        value={moodOtherLabel}
-                        onChange={e => setMoodOtherLabel(e.target.value)}
-                        maxLength={80}
-                        placeholder="Como você chamaria o que está sentindo? (opcional)"
-                        aria-label="Como você chamaria o que está sentindo"
-                        className="mt-3 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm"
-                      />
-                    )}
-                  </div>
+                  <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
 
                   {mode === 'quick' ? (
                     <>
@@ -643,10 +644,10 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                       {helperPrompt && <div className="mb-4 rounded-2xl border border-forest-100 bg-mint/45 p-4 flex gap-3"><Sparkles className="w-4 h-4 text-forest-600 mt-0.5 flex-shrink-0" /><div className="flex-1"><p className="text-sm text-forest-900">{helperPrompt}</p><button type="button" onClick={() => void requestStartHelp()} className="text-xs text-forest-700 mt-2">Quero outra pergunta</button></div><button onClick={() => setHelperPrompt('')} className="text-ink-soft" aria-label="Fechar pergunta"><X className="w-4 h-4" /></button></div>}
 
                       <div className={`${focusMode ? 'min-h-[58vh]' : ''}`}>
-                        <textarea ref={editorRef} value={draft} onChange={e => setDraft(e.target.value)} rows={focusMode ? 18 : 10} placeholder="Escreva do seu jeito. Pode ser uma frase, um desabafo ou tudo que estiver na sua cabeça…" aria-label="Texto do diário" className={`w-full bg-transparent px-1 py-3 font-serif text-lg sm:text-xl leading-relaxed resize-none focus:outline-none placeholder:text-ink-soft/55 ${focusMode ? 'min-h-[55vh]' : ''}`} />
+                        <textarea ref={editorRef} value={draft} onChange={e => setDraft(e.target.value)} rows={focusMode ? 18 : 13} placeholder="Escreva do seu jeito. Pode ser uma frase, um desabafo ou tudo que estiver na sua cabeça…" aria-label="Texto do diário" className={`w-full bg-transparent px-1 py-3 font-serif text-lg sm:text-xl leading-relaxed resize-none focus:outline-none placeholder:text-ink-soft/55 ${focusMode ? 'min-h-[55vh]' : 'min-h-[320px] sm:min-h-[380px]'}`} />
                         <div className="border-t border-line/70 pt-3 flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={toggleVoice} className={`rounded-xl px-3 py-2 text-xs inline-flex items-center gap-1.5 ${voiceActive ? 'bg-coral/50 text-[#8a3b23]' : 'bg-white border border-line text-forest-800'}`}><Mic className="w-3.5 h-3.5" /> {voiceActive ? 'Parar ditado' : 'Prefiro falar'}</button>
+                            <button type="button" onClick={toggleVoice} className={`hidden sm:inline-flex rounded-xl px-3 py-2 text-xs items-center gap-1.5 ${voiceActive ? 'bg-coral/50 text-[#8a3b23]' : 'bg-white border border-line text-forest-800'}`}><Mic className="w-3.5 h-3.5" /> {voiceActive ? 'Parar ditado' : 'Prefiro falar'}</button>
                             {!editingEntryId && <button type="button" onClick={() => setStarterOpen(v => !v)} className={`rounded-xl border px-3 py-2 text-xs inline-flex items-center gap-1.5 ${starterOpen ? 'bg-mint border-forest-100 text-forest-900' : 'bg-white border-line text-forest-800'}`}><Sparkles className="w-3.5 h-3.5" /> Preciso de ajuda para começar</button>}
                           </div>
                           <span className="text-[11px] text-ink-soft">{draft.length} caracteres</span>
@@ -658,15 +659,34 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                       {organizedCandidate && <div className="mt-4 rounded-2xl border border-forest-100 bg-mint/35 p-4"><p className="text-xs font-semibold text-forest-700">Uma versão organizada para consultar</p><p className="text-xs text-ink-soft mt-1">Seu texto original permanece intacto no editor. Esta versão não substitui nem altera o que você escreveu.</p><p className="text-sm text-ink mt-3 whitespace-pre-line leading-relaxed">{organizedCandidate}</p><div className="flex gap-2 mt-3"><button onClick={() => setOrganizedCandidate('')} className="rounded-xl border border-line bg-white px-3 py-2 text-xs">Fechar versão organizada</button></div></div>}
 
                       <div className="mt-5 border-t border-line/70 pt-4">
-                        <button type="button" onClick={() => setDetailsOpen(v => !v)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> {detailsOpen ? 'Ocultar detalhes opcionais' : 'Adicionar detalhes opcionais'} {detailsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>
-
-                        {detailsOpen && <div className="mt-4 space-y-3">
-                          {isEssential && <div className="grid sm:grid-cols-2 gap-3"><SliderField label="Humor" value={moodScore} touched={touched.has('moodScore')} onChange={v => touch('moodScore', setMoodScore, v)} onClear={() => clearTouch('moodScore', setMoodScore)} />{fieldOn('energy') && <SliderField label="Energia" value={energy} touched={touched.has('energy')} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} />}{fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxiety} touched={touched.has('anxiety')} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}{fieldOn('sleep_quality') && <SliderField label="Sono" value={sleep} touched={touched.has('sleep')} onChange={v => touch('sleep', setSleep, v)} onClear={() => clearTouch('sleep', setSleep)} />}</div>}
-                          <TagGroup title="Quais sentimentos apareceram?" description="Só marque se fizer sentido — a escrita continua sendo a parte principal." options={isFree ? freeEmotionalTags : emotionalTags} selected={emotions} onToggle={tag => toggle(emotions, setEmotions, tag)} />
-                          {isEssential && <><TagGroup title="Onde isso apareceu?" options={contextTags} selected={contexts} onToggle={tag => toggle(contexts, setContexts, tag)} category="context" /><TagGroup title="O que você sente que precisa agora?" options={needTags} selected={needs} onToggle={tag => toggle(needs, setNeeds, tag)} category="need" /><TagGroup title="O que pode ajudar um pouco?" description="Possibilidades, não obrigações." options={careTags} selected={careActions} onToggle={tag => toggle(careActions, setCareActions, tag)} category="care_action" /></>}
-                          {isPlus && <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4"><button type="button" onClick={() => setPlusDetailsOpen(v => !v)} className="w-full flex items-center justify-between gap-2 text-left"><div><p className="text-sm font-semibold text-forest-900">Quero refletir mais sobre este registro</p><p className="text-xs text-ink-soft mt-0.5">Aprofundamento opcional do plano Plus. Abra somente se quiser.</p></div>{plusDetailsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{plusDetailsOpen && <div className="mt-4 space-y-3"><div className="grid sm:grid-cols-2 gap-3"><SliderField label="Estresse" value={stress} touched={touched.has('stress')} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} /><SliderField label="Autoestima" value={selfEsteem} touched={touched.has('selfEsteem')} onChange={v => touch('selfEsteem', setSelfEsteem, v)} onClear={() => clearTouch('selfEsteem', setSelfEsteem)} /><SliderField label="Irritabilidade" value={irritability} touched={touched.has('irritability')} onChange={v => touch('irritability', setIrritability, v)} onClear={() => clearTouch('irritability', setIrritability)} /><SliderField label="Sobrecarga" value={overload} touched={touched.has('overload')} onChange={v => touch('overload', setOverload, v)} onClear={() => clearTouch('overload', setOverload)} /></div><TagGroup title="Gatilhos que você reconhece" options={triggerTags} selected={triggers} onToggle={tag => toggle(triggers, setTriggers, tag)} category="advanced" /></div>}</div>}
-                        </div>}
+                        <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> Adicionar detalhes opcionais <ChevronUp className="hidden w-4 h-4" /></button>
                       </div>
+
+                      {detailsOpen && (
+                        <DiaryDetailsDrawer
+                          isEssential={isEssential}
+                          isPlus={isPlus}
+                          isFree={isFree}
+                          fieldOn={fieldOn}
+                          touched={touched}
+                          values={{ moodScore, energy, anxiety, sleep, stress, selfEsteem, irritability, overload }}
+                          onScaleChange={handleScaleChange}
+                          onScaleClear={handleScaleClear}
+                          emotions={emotions}
+                          contexts={contexts}
+                          needs={needs}
+                          careActions={careActions}
+                          triggers={triggers}
+                          onToggleEmotion={tag => toggle(emotions, setEmotions, tag)}
+                          onToggleContext={tag => toggle(contexts, setContexts, tag)}
+                          onToggleNeed={tag => toggle(needs, setNeeds, tag)}
+                          onToggleCareAction={tag => toggle(careActions, setCareActions, tag)}
+                          onToggleTrigger={tag => toggle(triggers, setTriggers, tag)}
+                          plusDetailsOpen={plusDetailsOpen}
+                          onTogglePlusDetails={() => setPlusDetailsOpen(value => !value)}
+                          onClose={() => setDetailsOpen(false)}
+                        />
+                      )}
 
                       <div className="mt-4 flex flex-col items-start gap-1">
                         <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer">
@@ -674,29 +694,26 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                           <span className="font-medium text-forest-800">Salvar sem análise de IA</span>
                         </label>
                         <p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Opcional. Seu registro continua salvo normalmente.' : 'Privacidade ativada: este texto não será enviado à IA.'}</p>
+                        {isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês. Check-ins continuam ilimitados.</p>}
                       </div>
                     </>
                   )}
 
                   {error && <div className="mt-4 rounded-xl bg-coral/30 px-4 py-3 text-sm text-[#8a3b23]">{error}</div>}
-                  <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
-                    {!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span />}
-                    <button onClick={() => void handleSave()} disabled={saving || (!moodChip) || (mode === 'diary' && !draft.trim())} className="ml-auto rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button>
+                  <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line/70 bg-[#f8f5ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+                    {!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}
+                    {mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}
+                    {mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir detalhes opcionais" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}
+                    <button onClick={() => void handleSave()} disabled={saving || (!moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button>
                   </div>
                 </section>
               )}
             </main>
-
-            {!focusMode && <aside className="space-y-4">
-              <div className="rounded-3xl border border-line bg-paper-soft p-5"><p className="text-xs uppercase tracking-[0.14em] text-forest-600">Sua presença em {monthTitle}</p><div className="flex items-end gap-2 mt-3"><span className="font-serif text-4xl text-forest-900">{activeDays}</span><span className="text-sm text-ink-soft pb-1">dias em que você se ouviu</span></div><p className="text-xs text-ink-soft mt-3">{monthMoments} momentos registrados · {monthDiaryRows.length} diários · {monthCheckins} check-ins</p><p className="mt-3 rounded-xl bg-mint/50 px-3 py-2.5 text-xs text-forest-800">Não existe sequência para perder. Voltar quando precisar também faz parte.</p></div>
-              {isPlus && <div className="rounded-3xl bg-forest-900 text-white p-5"><Sparkles className="w-5 h-5 text-forest-200" /><h3 className="font-serif text-lg mt-2">O diário alimenta seu acompanhamento</h3><p className="text-sm text-forest-50/85 mt-2">Registros confirmados ajudam seus relatórios, mapa emocional e plano de autocuidado — sem transformar uma frase isolada em padrão.</p></div>}
-              {isFree && entryLimit != null && <div className="rounded-3xl border border-line bg-white p-5"><p className="text-sm font-semibold text-forest-900">Plano Gratuito</p><p className="text-sm text-ink-soft mt-1">{monthDiaryCount} de {entryLimit} registros de diário usados. Check-ins continuam ilimitados.</p><div className="h-2 rounded-full bg-mint mt-3 overflow-hidden"><div className="h-full bg-forest-700" style={{ width: `${Math.min(100, (monthDiaryCount / entryLimit) * 100)}%` }} /></div>{onNavigatePricing && <button onClick={onNavigatePricing} className="mt-3 text-xs text-forest-700 font-semibold">Conhecer registros ilimitados</button>}</div>}
-            </aside>}
           </div>
         ) : (
           <section ref={historyRef}>
             <div className="rounded-[2rem] border border-line bg-paper-soft p-5 sm:p-7 mb-5">
-              <div className="flex items-start justify-between gap-4 flex-wrap"><div><p className="text-xs uppercase tracking-[0.14em] text-forest-600 capitalize">{monthTitle}</p><h2 className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Sua história deste mês, até aqui</h2><p className="text-sm text-ink-soft mt-2">{activeDays} dias de presença · {monthMoments} momentos registrados. Sem pontuação, sem sequência para quebrar.</p></div>{cfg.exportPDF && <button onClick={() => void exportHistory()} disabled={exporting} className="rounded-xl border border-line bg-white px-3 py-2 text-sm text-forest-800 inline-flex items-center gap-2 disabled:opacity-60"><FileDown className="w-4 h-4" /> {exporting ? 'Gerando…' : 'Exportar PDF'}</button>}</div>
+              <div className="flex items-start justify-between gap-4 flex-wrap"><div><p className="text-xs uppercase tracking-[0.14em] text-forest-600 capitalize">{monthTitle}</p><h2 className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Sua história deste mês, até aqui</h2><p className="text-sm text-ink-soft mt-2">{activeDays} dias de presença · {monthMoments} momentos registrados · {monthCheckins} check-ins. Sem pontuação, sem sequência para quebrar.</p></div>{cfg.exportPDF && <button onClick={() => void exportHistory()} disabled={exporting} className="rounded-xl border border-line bg-white px-3 py-2 text-sm text-forest-800 inline-flex items-center gap-2 disabled:opacity-60"><FileDown className="w-4 h-4" /> {exporting ? 'Gerando…' : 'Exportar PDF'}</button>}</div>
               <div className="mt-5 grid grid-cols-7 gap-1.5 max-w-md">{Array.from({ length: firstWeekday }).map((_,i) => <span key={`blank-${i}`} />)}{Array.from({ length: daysInMonth }).map((_,i) => { const day = i + 1; const date = `${monthKey}-${String(day).padStart(2,'0')}`; const emoji = moodByDay.get(date); const future = date > today; return <div key={date} title={date} className={`aspect-square rounded-xl border flex flex-col items-center justify-center text-[11px] ${future ? 'opacity-25 border-line' : emoji ? 'bg-mint/60 border-forest-100 text-forest-900' : 'bg-white border-line text-ink-soft'}`}><span>{day}</span>{emoji && <span className="text-sm leading-none mt-0.5">{emoji}</span>}</div> })}</div>
             </div>
 
