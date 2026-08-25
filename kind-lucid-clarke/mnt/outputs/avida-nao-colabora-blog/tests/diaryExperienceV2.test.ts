@@ -3,25 +3,42 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
-// A tela de "registro salvo" (recompensa pós-escrita, tags sugeridas, CTAs de
-// continuidade) saiu de DiaryExperience.tsx pra DiarySavedReflection.tsx numa
-// componentização posterior (Parte 17) — mesmo comportamento, arquivo diferente.
 const savedReflection = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
+const moodSelector = readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', import.meta.url), 'utf8')
+const detailsDrawer = readFileSync(new URL('../src/components/DiaryDetailsDrawer.tsx', import.meta.url), 'utf8')
 const client = readFileSync(new URL('../src/lib/diaryCompanion.ts', import.meta.url), 'utf8')
 const edge = readFileSync(new URL('../supabase/functions/diary-companion/index.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260823210500_diary_ai_companion.sql', import.meta.url), 'utf8')
 const config = readFileSync(new URL('../src/lib/diaryConfig.ts', import.meta.url), 'utf8')
 
-test('diário v2 prioriza escrita, foco e detalhes progressivos', () => {
+test('diário v2 prioriza escrita em coluna única, foco e detalhes progressivos', () => {
   assert.match(diary, /Modo foco/)
   assert.match(diary, /Preciso de ajuda para começar/)
   assert.match(diary, /Adicionar detalhes opcionais/)
-  assert.match(diary, /Quero refletir mais sobre este registro/)
   assert.match(diary, /Escreva do seu jeito/)
+  assert.match(diary, /mx-auto max-w-3xl/)
+  assert.doesNotMatch(diary, /lg:grid-cols-\[minmax\(0,1fr\)_280px\]/)
+  assert.doesNotMatch(diary, /<aside className=/)
   assert.equal(diary.includes('Só quero escrever'), false)
   assert.equal(diary.includes('Me ajude a começar'), false)
   assert.equal(diary.includes('Não sei o que escrever'), false)
   assert.equal(diary.includes('Que bom ter você aqui.'), false)
+})
+
+test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom sheet', () => {
+  assert.match(diary, /<DiaryMoodSelector/)
+  assert.match(diary, /<DiaryDetailsDrawer/)
+  assert.match(moodSelector, /FEATURED_MOOD_KEYS/)
+  assert.match(moodSelector, /'bem_estar'/)
+  assert.match(moodSelector, /'ansiedade'/)
+  assert.match(moodSelector, /'tristeza'/)
+  assert.match(moodSelector, /showAll/)
+  assert.match(moodSelector, />Mais</)
+  assert.match(detailsDrawer, /role="dialog"/)
+  assert.match(detailsDrawer, /aria-modal="true"/)
+  assert.match(detailsDrawer, /bottom-0/)
+  assert.match(detailsDrawer, /md:right-0/)
+  assert.match(detailsDrawer, /Concluir detalhes/)
 })
 
 test('ajuda e organização ficam recolhidas para não competir com a escrita', () => {
@@ -29,7 +46,14 @@ test('ajuda e organização ficam recolhidas para não competir com a escrita', 
   assert.match(diary, /Sugira uma pergunta/)
   assert.match(diary, /Organizar o que já escrevi/)
   assert.match(diary, /Seu espaço de escrita continua sendo o principal/)
-  assert.match(diary, /Ocultar detalhes opcionais/)
+  assert.match(diary, /setDetailsOpen\(true\)/)
+})
+
+test('mobile mantém ações essenciais próximas do polegar', () => {
+  assert.match(diary, /sticky bottom-0/)
+  assert.match(diary, /aria-label=\{voiceActive \? 'Parar ditado' : 'Usar microfone'\}/)
+  assert.match(diary, /aria-label="Abrir detalhes opcionais"/)
+  assert.match(diary, /Guardar meu registro/)
 })
 
 test('check-in rápido é a entrada principal e coleta sinais complementares sem formulário longo', () => {
@@ -46,10 +70,10 @@ test('check-in rápido é a entrada principal e coleta sinais complementares sem
   assert.match(savedReflection, /Você registrou como está agora\. Quer deixar assim ou escrever um pouco mais\?/)
 })
 
-test('jornada deixa de punir ausência com streak', () => {
-  assert.match(diary, /Sua presença em/)
-  assert.match(diary, /Não existe sequência para perder/)
+test('jornada deixa de punir ausência com streak e tira presença da área de escrita', () => {
+  assert.doesNotMatch(diary, /Sua presença em/)
   assert.match(diary, /Sua história deste mês, até aqui/)
+  assert.match(diary, /Sem pontuação, sem sequência para quebrar/)
   assert.equal(diary.includes('dias de escrita seguidos'), false)
   assert.equal(diary.includes('calcStreak'), false)
 })
@@ -156,8 +180,6 @@ test('ditado e organização preservam o texto original intacto', () => {
 })
 
 test('devolutiva de reflexão não quebra quando o humor é "Outro"', () => {
-  // "algo relacionado a outro" / "algo ligado a outro" não faz sentido em
-  // português — "outro" é um rótulo genérico, não um sentimento descritível.
   assert.equal(diary.includes('algo ligado a ${mood.toLowerCase()'), false)
   assert.equal(edge.includes('algo relacionado a ${mood.toLowerCase()'), false)
   assert.match(diary, /if \(!m \|\| m === 'outro'\)/)
