@@ -6,11 +6,17 @@ const page = readFileSync(new URL('../src/components/DiaryPage.tsx', import.meta
 const css = readFileSync(new URL('../src/components/diarySingleWritingField.css', import.meta.url), 'utf8')
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
 
-test('Diário aplica apresentação de campo único sem remover compatibilidade legada', () => {
+test('Diário para de renderizar os campos legados de texto livre na fonte (não só via CSS)', () => {
   assert.match(page, /diarySingleWritingField\.css/)
   assert.match(page, /diary-single-writing-field/)
 
-  const hiddenOpenFields = [
+  // Estes 7 campos eram inputs/textareas reais, só escondidos por CSS
+  // (display:none). Isso escondia visualmente mas continuava montando o
+  // input no DOM. A simplificação definitiva do Diário exige parar de
+  // RENDERIZAR esses campos na experiência de escrita de um novo registro
+  // -- não apenas escondê-los. Os aria-labels abaixo não podem mais
+  // aparecer como inputs/textareas no componente.
+  const removedOpenFields = [
     'Algo pelo qual sinto gratidão',
     'Uma pequena coisa que consegui',
     'O que parece ter disparado isso?',
@@ -20,10 +26,20 @@ test('Diário aplica apresentação de campo único sem remover compatibilidade 
     'Algo sobre seus hábitos',
   ]
 
-  for (const label of hiddenOpenFields) {
-    assert.match(css, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  for (const label of removedOpenFields) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    assert.doesNotMatch(diary, new RegExp(`aria-label="${escaped}"`))
   }
-  assert.match(css, /display:\s*none\s*!important/)
+
+  // O CSS não precisa mais esconder nada por display:none -- os campos
+  // simplesmente não existem mais na árvore de componentes.
+  assert.doesNotMatch(css, /display:\s*none\s*!important/)
+
+  // Compatibilidade histórica: as colunas continuam existindo no tipo/banco
+  // para leitura de registros antigos -- só a UI de escrita foi removida.
+  // contentRecommendation.ts é o único consumidor de leitura restante.
+  const contentRecommendation = readFileSync(new URL('../src/lib/contentRecommendation.ts', import.meta.url), 'utf8')
+  assert.match(contentRecommendation, /emotional_triggers/)
 })
 
 test('Diário mantém editor principal, voz, ajuda, mapas e tags', () => {

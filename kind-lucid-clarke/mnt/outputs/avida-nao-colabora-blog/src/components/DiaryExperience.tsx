@@ -258,13 +258,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const [needs, setNeeds] = useState<string[]>([])
   const [careActions, setCareActions] = useState<string[]>([])
   const [triggers, setTriggers] = useState<string[]>([])
-  const [gratitude, setGratitude] = useState('')
-  const [smallPride, setSmallPride] = useState('')
-  const [emotionalTriggers, setEmotionalTriggers] = useState('')
-  const [recurringThoughts, setRecurringThoughts] = useState('')
-  const [emotionalNeed, setEmotionalNeed] = useState('')
-  const [relationships, setRelationships] = useState('')
-  const [habits, setHabits] = useState('')
 
   const isEssential = hasPlanAccess(plan, 'essential')
   const isPlus = hasPlanAccess(plan, 'plus')
@@ -336,7 +329,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const resetComposer = () => {
     setDraft(''); setQuickNote(''); setQuickContextOpen(false); setQuickContext(null); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
     setMood('outro'); setMoodChip(null); setMoodOtherLabel(''); setEnergy(3); setAnxiety(3); setSleep(3); setMoodScore(3); setStress(3); setSelfEsteem(3); setIrritability(3); setOverload(3); setTouched(new Set())
-    setEmotions([]); setContexts([]); setNeeds([]); setCareActions([]); setTriggers([]); setGratitude(''); setSmallPride(''); setEmotionalTriggers(''); setRecurringThoughts(''); setEmotionalNeed(''); setRelationships(''); setHabits('')
+    setEmotions([]); setContexts([]); setNeeds([]); setCareActions([]); setTriggers([])
     setAiAllowed(true); setError(''); setEditingEntryId(null)
   }
 
@@ -347,7 +340,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     setEnergy(entry.energy || 3); setAnxiety(entry.anxiety_level || 3); setSleep(entry.sleep_quality || 3); setMoodScore(entry.mood_score || 3); setStress(entry.stress_level || 3); setSelfEsteem(entry.self_esteem || 3); setIrritability(entry.irritability || 3); setOverload(entry.overload || 3)
     const nextTouched = new Set<string>(); if (entry.energy) nextTouched.add('energy'); if (entry.anxiety_level) nextTouched.add('anxiety'); if (entry.sleep_quality) nextTouched.add('sleep'); if (entry.mood_score) nextTouched.add('moodScore'); if (entry.stress_level) nextTouched.add('stress'); if (entry.self_esteem) nextTouched.add('selfEsteem'); if (entry.irritability) nextTouched.add('irritability'); if (entry.overload) nextTouched.add('overload'); setTouched(nextTouched)
     setEmotions(entry.emotional_tags || []); setContexts(entry.context_tags || []); setNeeds(entry.need_tags || []); setCareActions(entry.care_action_tags || []); setTriggers(entry.trigger_tags || [])
-    setGratitude(entry.gratitude || ''); setSmallPride(entry.small_pride || ''); setEmotionalTriggers(entry.emotional_triggers || ''); setRecurringThoughts(entry.recurring_thoughts || ''); setEmotionalNeed(entry.emotional_need || ''); setRelationships(entry.relationships || ''); setHabits(entry.habits || '')
     setAiAllowed(entry.ai_disabled !== true); setEditingEntryId(entry.id); setMode('diary'); setTab('write'); setDetailsOpen(Boolean(entry.energy || entry.anxiety_level || entry.emotional_tags?.length || question)); setError('')
     setTimeout(() => editorRef.current?.focus(), 80)
   }
@@ -486,8 +478,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         if (fieldOn('context_tags') && contexts.length) payload.context_tags = contexts
         if (fieldOn('need_tags') && needs.length) payload.need_tags = needs
         if (fieldOn('care_action_tags') && careActions.length) payload.care_action_tags = careActions
-        if (fieldOn('gratitude') && gratitude.trim()) payload.gratitude = gratitude.trim()
-        if (fieldOn('small_pride') && smallPride.trim()) payload.small_pride = smallPride.trim()
       }
       if (isPlus) {
         if (fieldOn('stress_level') && touched.has('stress')) payload.stress_level = normalizeScale(stress)
@@ -495,11 +485,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         if (fieldOn('irritability') && touched.has('irritability')) payload.irritability = normalizeScale(irritability)
         if (fieldOn('overload') && touched.has('overload')) payload.overload = normalizeScale(overload)
         if (fieldOn('trigger_tags') && triggers.length) payload.trigger_tags = triggers
-        if (fieldOn('emotional_triggers') && emotionalTriggers.trim()) payload.emotional_triggers = emotionalTriggers.trim()
-        if (fieldOn('recurring_thoughts') && recurringThoughts.trim()) payload.recurring_thoughts = recurringThoughts.trim()
-        if (fieldOn('emotional_need') && emotionalNeed.trim()) payload.emotional_need = emotionalNeed.trim()
-        if (fieldOn('relationships') && relationships.trim()) payload.relationships = relationships.trim()
-        if (fieldOn('habits') && habits.trim()) payload.habits = habits.trim()
       }
     }
     const wasEditing = Boolean(editingEntryId)
@@ -759,8 +744,8 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                         {detailsOpen && <div className="mt-4 space-y-3">
                           {isEssential && <div className="grid sm:grid-cols-2 gap-3"><SliderField label="Humor" value={moodScore} touched={touched.has('moodScore')} onChange={v => touch('moodScore', setMoodScore, v)} onClear={() => clearTouch('moodScore', setMoodScore)} />{fieldOn('energy') && <SliderField label="Energia" value={energy} touched={touched.has('energy')} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} />}{fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={anxiety} touched={touched.has('anxiety')} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}{fieldOn('sleep_quality') && <SliderField label="Sono" value={sleep} touched={touched.has('sleep')} onChange={v => touch('sleep', setSleep, v)} onClear={() => clearTouch('sleep', setSleep)} />}</div>}
                           <TagGroup title="Quais sentimentos apareceram?" description="Só marque se fizer sentido — a escrita continua sendo a parte principal." options={isFree ? freeEmotionalTags : emotionalTags} selected={emotions} onToggle={tag => toggle(emotions, setEmotions, tag)} />
-                          {isEssential && <><TagGroup title="Onde isso apareceu?" options={contextTags} selected={contexts} onToggle={tag => toggle(contexts, setContexts, tag)} category="context" /><TagGroup title="O que você sente que precisa agora?" options={needTags} selected={needs} onToggle={tag => toggle(needs, setNeeds, tag)} category="need" /><TagGroup title="O que pode ajudar um pouco?" description="Possibilidades, não obrigações." options={careTags} selected={careActions} onToggle={tag => toggle(careActions, setCareActions, tag)} category="care_action" /><div className="grid sm:grid-cols-2 gap-3"><input value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Algo pelo qual sinto gratidão…" aria-label="Algo pelo qual sinto gratidão" className="rounded-2xl border border-line bg-white px-4 py-3 text-sm" /><input value={smallPride} onChange={e => setSmallPride(e.target.value)} placeholder="Uma pequena coisa que consegui…" aria-label="Uma pequena coisa que consegui" className="rounded-2xl border border-line bg-white px-4 py-3 text-sm" /></div></>}
-                          {isPlus && <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4"><button type="button" onClick={() => setPlusDetailsOpen(v => !v)} className="w-full flex items-center justify-between gap-2 text-left"><div><p className="text-sm font-semibold text-forest-900">Quero refletir mais sobre este registro</p><p className="text-xs text-ink-soft mt-0.5">Aprofundamento opcional do plano Plus. Abra somente se quiser.</p></div>{plusDetailsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{plusDetailsOpen && <div className="mt-4 space-y-3"><div className="grid sm:grid-cols-2 gap-3"><SliderField label="Estresse" value={stress} touched={touched.has('stress')} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} /><SliderField label="Autoestima" value={selfEsteem} touched={touched.has('selfEsteem')} onChange={v => touch('selfEsteem', setSelfEsteem, v)} onClear={() => clearTouch('selfEsteem', setSelfEsteem)} /><SliderField label="Irritabilidade" value={irritability} touched={touched.has('irritability')} onChange={v => touch('irritability', setIrritability, v)} onClear={() => clearTouch('irritability', setIrritability)} /><SliderField label="Sobrecarga" value={overload} touched={touched.has('overload')} onChange={v => touch('overload', setOverload, v)} onClear={() => clearTouch('overload', setOverload)} /></div><TagGroup title="Gatilhos que você reconhece" options={triggerTags} selected={triggers} onToggle={tag => toggle(triggers, setTriggers, tag)} category="advanced" />{[['O que parece ter disparado isso?', emotionalTriggers, setEmotionalTriggers],['Pensamentos que voltaram mais de uma vez', recurringThoughts, setRecurringThoughts],['O que você sente que precisa emocionalmente', emotionalNeed, setEmotionalNeed],['Algo sobre seus relacionamentos', relationships, setRelationships],['Algo sobre seus hábitos', habits, setHabits]].map(([placeholder,value,setter]) => <textarea key={String(placeholder)} value={String(value)} onChange={e => (setter as (v: string) => void)(e.target.value)} rows={2} placeholder={String(placeholder)} aria-label={String(placeholder)} className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm resize-none" />)}</div>}</div>}
+                          {isEssential && <><TagGroup title="Onde isso apareceu?" options={contextTags} selected={contexts} onToggle={tag => toggle(contexts, setContexts, tag)} category="context" /><TagGroup title="O que você sente que precisa agora?" options={needTags} selected={needs} onToggle={tag => toggle(needs, setNeeds, tag)} category="need" /><TagGroup title="O que pode ajudar um pouco?" description="Possibilidades, não obrigações." options={careTags} selected={careActions} onToggle={tag => toggle(careActions, setCareActions, tag)} category="care_action" /></>}
+                          {isPlus && <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4"><button type="button" onClick={() => setPlusDetailsOpen(v => !v)} className="w-full flex items-center justify-between gap-2 text-left"><div><p className="text-sm font-semibold text-forest-900">Quero refletir mais sobre este registro</p><p className="text-xs text-ink-soft mt-0.5">Aprofundamento opcional do plano Plus. Abra somente se quiser.</p></div>{plusDetailsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{plusDetailsOpen && <div className="mt-4 space-y-3"><div className="grid sm:grid-cols-2 gap-3"><SliderField label="Estresse" value={stress} touched={touched.has('stress')} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} /><SliderField label="Autoestima" value={selfEsteem} touched={touched.has('selfEsteem')} onChange={v => touch('selfEsteem', setSelfEsteem, v)} onClear={() => clearTouch('selfEsteem', setSelfEsteem)} /><SliderField label="Irritabilidade" value={irritability} touched={touched.has('irritability')} onChange={v => touch('irritability', setIrritability, v)} onClear={() => clearTouch('irritability', setIrritability)} /><SliderField label="Sobrecarga" value={overload} touched={touched.has('overload')} onChange={v => touch('overload', setOverload, v)} onClear={() => clearTouch('overload', setOverload)} /></div><TagGroup title="Gatilhos que você reconhece" options={triggerTags} selected={triggers} onToggle={tag => toggle(triggers, setTriggers, tag)} category="advanced" /></div>}</div>}
                         </div>}
                       </div>
 
