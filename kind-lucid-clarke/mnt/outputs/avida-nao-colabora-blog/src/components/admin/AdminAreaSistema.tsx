@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { Activity, Plug, ClipboardList, Shield } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield, Zap } from 'lucide-react'
 import AdminSystemHealth from './AdminSystemHealth'
 import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
+import AdminAutomationsHealth from './AdminAutomationsHealth'
 
 // Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
 // serviços (Supabase/Stripe/IA/e-mail/hospedagem) — não é mais texto fixo. A
 // antiga aba "IA" (marketing estático, sem controle) foi removida.
+// "Automações" mostra o status real de todos os cron jobs: antes só existiam
+// duas RPCs de healthcheck (editorial/emocional) que nenhuma tela chamava.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
+  { id: 'automacoes', label: 'Automações', icon: Zap },
   { id: 'integracoes', label: 'Integrações', icon: Plug },
   { id: 'logs', label: 'Logs de auditoria', icon: ClipboardList },
   { id: 'permissoes', label: 'Permissões', icon: Shield },
@@ -58,6 +62,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       </div>
       <div className="flex-1">
         {tab === 'saude' && <AdminSystemHealth />}
+        {tab === 'automacoes' && <AdminAutomationsHealth />}
         {tab === 'integracoes' && <AdminIntegrations />}
         {tab === 'logs' && <AdminLogs />}
         {tab === 'permissoes' && <AdminPermissions />}
