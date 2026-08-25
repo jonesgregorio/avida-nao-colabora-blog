@@ -100,30 +100,24 @@ export default function AdminFabricaIA() {
     if (!temas.length) { flash('Liste ao menos um tema (um por linha).', true); return }
     setMassBusy(true)
     let ok = 0, fail = 0
-    const today = new Date()
     for (let i = 0; i < temas.length; i++) {
       setMassProg(`Gerando ${i + 1}/${temas.length}: ${temas[i]}`)
       try {
         const prompt = `Escreva um conteúdo do tipo "${massTipo}" sobre "${temas[i]}" para um app de saúde emocional. Português brasileiro, acolhedor, sem diagnóstico. Inclua pergunta para o diário e CTA gentil.`
         const content = await callAI(prompt, { tone: 'acolhedor', size: 'médio' })
-        const date = new Date(today.getTime() + i * 86400000)
-        const { data, error } = await insertDraft({
+        const { error } = await insertDraft({
           title: temas[i], slug: `${slugify(temas[i])}-${Date.now().toString(36).slice(-4)}`,
           content, summary: '', excerpt: '', category: '', plan_required: massPlano,
           content_type: massTipo, status: 'draft', origin: 'ia', updated_at: new Date().toISOString(),
         })
         if (error) { fail++; continue }
         ok++
-        // Entrada no calendário editorial (best-effort)
-        supabase.from('editorial_calendar').insert({
-          article_id: (data as { id?: string } | null)?.id ?? null, title: temas[i],
-          content_type: massTipo, plan_required: massPlano, status: 'gerado_ia', origin: 'ia',
-          scheduled_date: date.toISOString().slice(0, 10),
-        }).then(() => {}, () => {})
+        // A geração em massa cria somente rascunhos. Planejamento e data de publicação
+        // são decisões editoriais posteriores, feitas manualmente no Calendário.
       } catch { fail++ }
     }
     setMassBusy(false); setMassProg('')
-    flash(`Pacote gerado: ${ok} rascunho(s)${fail ? `, ${fail} falha(s)` : ''}. Todos como rascunho para revisão.`, fail > 0 && ok === 0)
+    flash(`Pacote gerado: ${ok} rascunho(s)${fail ? `, ${fail} falha(s)` : ''}. O calendário fica livre para planejamento manual.`, fail > 0 && ok === 0)
     setMassTemas('')
   }
 
@@ -186,7 +180,7 @@ export default function AdminFabricaIA() {
       ) : (
         <div className="bg-white border border-line rounded-2xl p-5 space-y-4 max-w-2xl">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Pacote em massa</h2>
-          <p className="text-xs text-ink-soft">Um tema por linha (até 12). Cada tema vira um rascunho + uma entrada no Calendário Editorial (datas sequenciais).</p>
+          <p className="text-xs text-ink-soft">Um tema por linha (até 12). Cada tema vira somente um rascunho; a data de publicação é planejada depois, manualmente no Calendário Editorial.</p>
           <textarea value={massTemas} onChange={e => setMassTemas(e.target.value)} rows={8} placeholder={'ansiedade no trabalho\nautoestima e comparação\nsono e rotina\nlimites nas relações'} className={inputCls} />
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-xs text-stone-500 mb-1">Tipo</label><select value={massTipo} onChange={e => setMassTipo(e.target.value)} className={inputCls}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
