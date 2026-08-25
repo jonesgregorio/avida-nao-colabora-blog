@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
@@ -32,6 +32,21 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
   const [deleteError, setDeleteError] = useState('')
 
   const isAdmin = profile?.role === 'admin'
+
+  // §20: o modal de exclusão fica dentro do mesmo componente (não desmonta/
+  // monta um filho separado), então o efeito de Esc/foco precisa depender de
+  // showDelete em vez de rodar só uma vez no mount — senão o Esc nunca seria
+  // ligado (ou ficaria ligado o tempo todo, mesmo com o modal fechado).
+  const deleteDialogRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!showDelete || isAdmin) return
+    deleteDialogRef.current?.focus()
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !deleting) setShowDelete(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showDelete, isAdmin, deleting])
 
   async function handleExport() {
     if (!user) return
@@ -154,7 +169,7 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
 
       {showDelete && !isAdmin && (
         <div className="fixed inset-0 z-[100] bg-black/40 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-line shadow-xl p-6 max-h-[90vh] overflow-y-auto">
+          <div ref={deleteDialogRef} tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl border border-line shadow-xl p-6 max-h-[90vh] overflow-y-auto outline-none">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 id="delete-account-title" className="font-serif text-2xl text-forest-900">Excluir conta definitivamente</h3>

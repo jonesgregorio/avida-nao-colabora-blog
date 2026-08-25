@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 
@@ -13,6 +13,10 @@ export default function ForceChangePassword({ userId: _userId, onDone }: Props) 
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // §20: sem Esc de propósito — não há como cancelar esta troca obrigatória de
+  // senha sem completá-la; só move o foco pra dentro do diálogo ao abrir.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { dialogRef.current?.focus() }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,7 +36,7 @@ export default function ForceChangePassword({ userId: _userId, onDone }: Props) 
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+      <div ref={dialogRef} role="dialog" aria-modal="true" tabIndex={-1} aria-label="Defina uma nova senha" className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 outline-none">
         <div className="flex flex-col items-center mb-6">
           <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
             <Lock className="w-7 h-7 text-emerald-600" />

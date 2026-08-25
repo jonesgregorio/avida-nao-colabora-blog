@@ -1,5 +1,6 @@
 import { X, Heart } from 'lucide-react'
 import type { Plan, View } from '../types'
+import { useModalA11y } from '../hooks/useModalA11y'
 
 const planLabels: Record<Plan, string> = {
   free: 'Gratuito',
@@ -29,13 +30,18 @@ interface Props {
 export function UpgradeModal({ isOpen, feature, featureName, requiredPlan, onClose, navigate }: Props) {
   const displayFeature = featureName || feature || 'Este recurso'
   const color = planColors[requiredPlan]
+  const dialogRef = useModalA11y(onClose)
 
   if (isOpen === false) return null
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl outline-none"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
