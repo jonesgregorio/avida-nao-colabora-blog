@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useModalA11y } from '../hooks/useModalA11y'
 import { exportReportPdf } from '../lib/reportPdf'
 import { supabase } from '../lib/supabase'
 import { Plan } from '../types'
@@ -1385,9 +1386,10 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
   const sub = isReport
     ? `Período ${perShort(viewer.report)} · Gerado em ${genDate(viewer.report)}`
     : `Prévia em construção · Fecha em ${formatDateBR(viewer.period.end)}`
+  const dialogRef = useModalA11y(onClose)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-paper-soft rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" tabIndex={-1} aria-label={title} className="bg-paper-soft rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col outline-none" onClick={e => e.stopPropagation()}>
         <div className="flex items-start gap-3 p-4 sm:p-5 border-b border-line">
           <div className="min-w-0 flex-1">
             <h2 className="font-serif text-lg sm:text-xl text-forest-900 leading-tight">{title}</h2>

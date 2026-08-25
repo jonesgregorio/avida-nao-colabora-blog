@@ -205,8 +205,8 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-forest-800 mb-1.5">Assunto</label>
-                <input className={inputCls} placeholder="Em que podemos te ajudar?" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+                <label htmlFor="support-subject" className="block text-sm font-medium text-forest-800 mb-1.5">Assunto</label>
+                <input id="support-subject" className={inputCls} placeholder="Em que podemos te ajudar?" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-forest-800 mb-1.5">Prioridade</label>
@@ -220,9 +220,10 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-forest-800 mb-1.5">Mensagem</label>
+              <label htmlFor="support-message" className="block text-sm font-medium text-forest-800 mb-1.5">Mensagem</label>
               <div className="relative">
                 <textarea
+                  id="support-message"
                   className={inputCls + ' resize-none'}
                   rows={5}
                   maxLength={1000}

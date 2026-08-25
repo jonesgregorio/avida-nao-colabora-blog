@@ -145,7 +145,7 @@ function SliderField({ label, value, touched, onChange, onClear }: { label: stri
         <span className="text-sm font-medium text-forest-900">{label}</span>
         <span className="text-xs text-ink-soft">{touched ? `${value}/5` : 'Não informado'}</span>
       </div>
-      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} />
+      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} aria-valuetext={touched ? `${label}: ${value} de 5` : 'Não informado'} />
       {touched && <button type="button" onClick={onClear} className="mt-1 text-[11px] text-ink-soft underline underline-offset-2">Limpar</button>}
     </div>
   )
@@ -159,7 +159,9 @@ function QuickScaleField({ label, value, touched, labels, onChange, onClear }: {
         <span className="text-sm font-medium text-forest-900">{label}</span>
         <span className="text-xs text-ink-soft text-right">{touched ? currentLabel : 'Opcional'}</span>
       </div>
-      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} />
+      {/* §20: currentLabel já existe e é mostrado visualmente, mas não chegava ao
+          leitor de tela — só o número bruto do slider era anunciado. */}
+      <input type="range" min={1} max={5} value={value} onChange={e => onChange(Number(e.target.value))} className={`w-full accent-forest-600 ${touched ? '' : 'opacity-50'}`} aria-label={label} aria-valuetext={`${label}: ${currentLabel}`} />
       <div className="flex items-center justify-between gap-2 mt-1 text-[10px] text-ink-soft"><span>{labels[0]}</span><span>{labels[labels.length - 1]}</span></div>
       {touched && <button type="button" onClick={onClear} className="mt-1 text-[11px] text-ink-soft underline underline-offset-2">Limpar</button>}
     </div>
