@@ -148,11 +148,30 @@ function isSummaryLite(value: unknown): value is SummaryLite {
 
 function lowSampleFallback() {
   return {
-    what_stood_out: 'Ainda há poucos registros neste período para identificar padrões com confiança.',
-    what_changed: 'Com mais registros, será possível comparar este período com o anterior de forma mais confiável.',
-    worth_observing: 'Continuar registrando check-ins e diários nos próximos dias vai deixar essa leitura mais precisa.',
+    title: 'Ainda construindo a leitura deste período',
+    what_stands_out: 'Ainda há poucos registros neste período para identificar padrões com confiança.',
+    possible_connections: [] as string[],
+    helpful_signals: [] as string[],
+    what_to_observe: ['Continuar registrando check-ins e diários nos próximos dias vai deixar essa leitura mais precisa.'],
     reflection_question: 'O que você gostaria de perceber melhor sobre os seus últimos dias?',
+    data_quality_notice: 'Ainda há poucos registros neste período para identificar padrões com confiança.',
   }
+}
+
+function safeStringArray(value: unknown, max = 4, maxLen = 220): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  for (const item of value) {
+    const text = typeof item === 'string' ? item.trim().slice(0, maxLen) : ''
+    if (text && !FORBIDDEN.test(text)) out.push(text)
+    if (out.length >= max) break
+  }
+  return out
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 Deno.serve(async (req) => {
@@ -220,22 +239,41 @@ Deno.serve(async (req) => {
     medias: previous.averages || {},
   } : null
 
+  // Cache por usuário+período+fingerprint dos dados (evita gerar de novo toda
+  // vez que a pessoa reabre a página com os mesmos dados). `force` é o botão
+  // secundário "Atualizar leitura" — pula o cache de propósito.
+  const fingerprint = await sha256Hex(JSON.stringify(payload))
+  const force = body.force === true
+  if (!force) {
+    const { data: cached } = await admin.from('emotional_map_insights')
+      .select('result, ai_used, data_fingerprint')
+      .eq('user_id', user.id).eq('period_start', current.period_start).eq('period_end', current.period_end)
+      .maybeSingle()
+    if (cached && cached.data_fingerprint === fingerprint) {
+      return json(req, { ok: true, ai_used: cached.ai_used, low_sample: false, cached: true, result: cached.result })
+    }
+  }
+
   const prompt = `${safety}
 Você ajuda uma pessoa a entender o próprio Mapa Emocional no app A Vida Não Colabora, a partir de dados JÁ CALCULADOS pelo sistema (você NÃO calcula médias nem frequências, apenas interpreta o que já está pronto).
 Responda em português brasileiro, em tom acolhedor e não clínico, com frases curtas.
 Retorne EXCLUSIVAMENTE JSON no formato:
-{"what_stood_out":"o que mais apareceu neste período, citando emoções/contextos/necessidades reais dos dados","what_changed":"o que mudou em relação ao período anterior, ou que ainda não há período anterior suficiente para comparar","worth_observing":"algo que vale observar com cuidado, sem diagnosticar nem afirmar causa","reflection_question":"uma pergunta curta e leve para a pessoa refletir"}
+{"title":"título curto e acolhedor pra esta leitura","what_stands_out":"o que mais apareceu neste período, citando emoções/contextos/necessidades reais dos dados","possible_connections":["até 3 conexões entre sinais dos dados, ex: relação entre energia baixa e um contexto"],"helpful_signals":["até 3 coisas que apareceram como tendo ajudado, baseadas em care_actions/contexts reais"],"what_to_observe":["até 3 pontos que vale observar com cuidado, sem diagnosticar nem afirmar causa"],"reflection_question":"uma pergunta curta e leve para a pessoa refletir","data_quality_notice":"uma frase curta sobre a confiabilidade da leitura dado o volume de registros deste período"}
+Se não houver dados de um período anterior comparável, ou se os dados não sustentarem uma conexão/sinal real, retorne arrays vazios em vez de inventar.
 ${untrustedBlock('DADOS DO PERÍODO ATUAL', payload)}
-${previousPayload ? untrustedBlock('DADOS DO PERÍODO ANTERIOR (para comparação)', previousPayload) : 'Não há dados de um período anterior comparável — diga isso em "what_changed" em vez de inventar uma comparação.'}`
+${previousPayload ? untrustedBlock('DADOS DO PERÍODO ANTERIOR (para comparação)', previousPayload) : 'Não há dados de um período anterior comparável.'}`
 
   const ai = await generate(prompt)
   const parsed = ai ? parse(ai.raw) : null
   const fallback = lowSampleFallback()
   const result = {
-    what_stood_out: safeSentence(parsed?.what_stood_out, current.dominant_emotions?.length ? `O que mais apareceu neste período: ${topLabels(current.dominant_emotions, 3).join(', ')}.` : fallback.what_stood_out),
-    what_changed: safeSentence(parsed?.what_changed, previous ? 'Os dados deste período e do anterior estão disponíveis, mas ainda não foi possível gerar uma leitura automática da mudança.' : fallback.what_changed),
-    worth_observing: safeSentence(parsed?.worth_observing, fallback.worth_observing),
+    title: safeSentence(parsed?.title, fallback.title, 80),
+    what_stands_out: safeSentence(parsed?.what_stands_out, current.dominant_emotions?.length ? `O que mais apareceu neste período: ${topLabels(current.dominant_emotions, 3).join(', ')}.` : fallback.what_stands_out),
+    possible_connections: safeStringArray(parsed?.possible_connections),
+    helpful_signals: safeStringArray(parsed?.helpful_signals),
+    what_to_observe: safeStringArray(parsed?.what_to_observe).length ? safeStringArray(parsed?.what_to_observe) : fallback.what_to_observe,
     reflection_question: safeSentence(parsed?.reflection_question, fallback.reflection_question, 220),
+    data_quality_notice: safeSentence(parsed?.data_quality_notice, dataQuality.message, 220),
   }
 
   // A coluna `provider` tem DEFAULT 'gemini' (migration 100) e ficava sempre
@@ -260,5 +298,17 @@ ${previousPayload ? untrustedBlock('DADOS DO PERÍODO ANTERIOR (para comparaçã
     })
   } catch { /* auditoria não pode impedir a resposta */ }
 
-  return json(req, { ok: true, ai_used: !!parsed, low_sample: false, result })
+  try {
+    await admin.from('emotional_map_insights').upsert({
+      user_id: user.id,
+      period_start: current.period_start,
+      period_end: current.period_end,
+      data_fingerprint: fingerprint,
+      result,
+      ai_used: !!parsed,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,period_start,period_end' })
+  } catch { /* cache é otimização, nunca bloqueia a resposta */ }
+
+  return json(req, { ok: true, ai_used: !!parsed, low_sample: false, cached: false, result })
 })
