@@ -5,8 +5,22 @@ import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_
 // nunca recebe texto livre do diário: somente colunas analíticas agregadas.
 // Versões e regras de segurança vêm do módulo compartilhado com os prompts do frontend.
 const PROMPT_VERSION = EMOTIONAL_PROMPT_VERSIONS
-const cors = { 'Access-Control-Allow-Origin': 'https://www.avidanaocolabora.com', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+// Chamada normalmente por pg_cron (sem Origin) ou por um admin autenticado no
+// painel (com Origin real do navegador) -- nunca só por www, como este CORS
+// assumia antes. Reflete a origem da requisição quando ela está na lista
+// permitida; senão cai no domínio canônico (cron/curl não têm Origin mesmo).
+const ALLOWED_ORIGINS = new Set([
+  'https://avidanaocolabora.com',
+  'https://www.avidanaocolabora.com',
+  'https://avida-nao-colabora-blog.vercel.app',
+])
+function corsFor(req: Request) {
+  const origin = req.headers.get('origin')
+  const allowOrigin = (origin && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)))
+    ? origin
+    : 'https://www.avidanaocolabora.com'
+  return { 'Access-Control-Allow-Origin': allowOrigin, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type' }
+}
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const calendarYmd = (value: string | Date | null | undefined): string | null => {
   if (!value) return null
@@ -398,6 +412,8 @@ async function log(admin: AdminClient, row: Record<string, unknown>) {
 }
 
 Deno.serve(async (req) => {
+  const cors = corsFor(req)
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405)
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
