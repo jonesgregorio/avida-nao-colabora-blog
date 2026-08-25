@@ -8,15 +8,15 @@ import AdminAIUsage from './AdminAIUsage'
 // IA Emocional — consolida as entregas de IA da jornada emocional num só lugar:
 // Planos de Autocuidado (fila com revisão humana obrigatória), Orientação por
 // mensagem (pedidos + respostas com rascunho de IA), Recomendações IA (fila de
-// conteúdo personalizado) e Uso de IA (logs/custos). Cada aba já existia como
-// área própria ou dentro de "Orientação profissional" — aqui só reorganiza a
-// navegação; nenhum componente foi alterado. "Uso de IA" continua também
-// acessível em Conteúdo & IA (cobre geração de artigos, não só emocional).
+// conteúdo personalizado) e a Central de IA (logs de toda geração, editorial +
+// emocional, com filtro). AdminAIUsage deixou de ter uma segunda entrada
+// dentro de Conteúdo & IA — só existe aqui agora, e um link em Conteúdo & IA
+// traz o admin direto pra esta aba.
 const TABS = [
   { id: 'planos',        label: 'Planos de Autocuidado',    icon: CalendarCheck },
   { id: 'mensagem',      label: 'Orientação por mensagem',  icon: MessageSquare },
   { id: 'recomendacoes', label: 'Recomendações IA',         icon: Sparkles },
-  { id: 'uso-ia',        label: 'Uso de IA',                icon: Activity },
+  { id: 'uso-ia',        label: 'Central de IA',            icon: Activity },
 ] as const
 
 type Tab = typeof TABS[number]['id']

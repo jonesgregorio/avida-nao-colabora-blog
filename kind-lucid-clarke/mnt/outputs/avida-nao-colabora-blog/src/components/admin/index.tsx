@@ -196,7 +196,15 @@ export default function AdminPanel() {
       case 'engajamento': return <AdminEngagement />
       case 'planos': return <AdminPlanosPage />
       case 'cancelamentos': return <AdminCancellations />
-      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'conteudos': return (
+        <AdminAreaConteudo
+          onEditArticle={handleEditArticle}
+          onOpenCentralIA={() => {
+            try { localStorage.setItem('admin-emocional-tab', 'uso-ia') } catch { /* noop */ }
+            navigate('emocional')
+          }}
+        />
+      )
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'financeiro': return <AdminFinanceiro />
       case 'mapa': return <AdminMapaArea />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Cpu } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
@@ -10,7 +10,6 @@ import AdminFabricaIA from './AdminFabricaIA'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminAutomacoesBlog from './AdminAutomacoesBlog'
 import AdminScheduled from './AdminScheduled'
-import AdminAIUsage from './AdminAIUsage'
 
 // Conteúdo & IA — área única que reúne TUDO de conteúdo:
 //   • tipos de conteúdo (artigos)
@@ -34,7 +33,6 @@ import AdminAIUsage from './AdminAIUsage'
 const TABS = [
   { id: 'artigos',      label: 'Artigos',            icon: FileText },
   { id: 'gerar-ia',     label: 'Gerar com IA',       icon: Sparkles },
-  { id: 'uso-ia',       label: 'Uso de IA',          icon: Cpu },
   { id: 'templates',    label: 'Templates de IA',    icon: FileCode },
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
   { id: 'calendario',   label: 'Calendário',         icon: CalendarDays },
@@ -50,9 +48,13 @@ type Tab = typeof TABS[number]['id']
 interface Props {
   onEditArticle: (id?: string) => void
   initialTab?: string
+  // Sem isso a tela de IA continuava duplicada em dois lugares (Conteúdo & IA
+  // e IA Emocional apontando pro mesmo componente). Agora existe só uma vez,
+  // dentro de IA Emocional, e este link leva até lá.
+  onOpenCentralIA?: () => void
 }
 
-export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) {
+export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCentralIA }: Props) {
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const saved = initialTab ?? localStorage.getItem('admin-conteudo-tab') ?? 'artigos'
@@ -68,8 +70,17 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
   return (
     <div className="flex flex-col min-h-0">
       <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
-        <h1 className="font-serif text-3xl text-forest-900">Conteúdo &amp; IA</h1>
-        <p className="text-sm text-ink-soft mt-1">Conteúdos, geração por IA, automações, calendário editorial e agendamentos — tudo num só lugar.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-serif text-3xl text-forest-900">Conteúdo &amp; IA</h1>
+            <p className="text-sm text-ink-soft mt-1">Conteúdos, geração por IA, automações, calendário editorial e agendamentos — tudo num só lugar.</p>
+          </div>
+          {onOpenCentralIA && (
+            <button onClick={onOpenCentralIA} className="text-xs font-medium text-forest-700 border border-line rounded-xl px-3 py-1.5 hover:border-forest-300 whitespace-nowrap">
+              Ver uso de IA (editorial + emocional) →
+            </button>
+          )}
+        </div>
       </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Conteúdo &amp; IA">
@@ -95,7 +106,6 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
       <div className="flex-1">
         {tab === 'artigos'     && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'gerar-ia'    && <AdminFabricaIA />}
-        {tab === 'uso-ia'      && <AdminAIUsage />}
         {tab === 'templates'   && <AdminTemplatesIA />}
         {tab === 'automacoes'  && <AdminAutomacoesBlog />}
         {tab === 'calendario'  && <AdminCalendarioEditorial onEditArticle={onEditArticle} />}
