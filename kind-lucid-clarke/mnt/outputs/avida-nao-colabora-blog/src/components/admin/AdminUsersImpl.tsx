@@ -141,6 +141,13 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
+    // §21 (performance): busca todos os `profiles` de propósito, sem `.limit()`.
+    // Os cards de resumo (novos no mês, pagantes, bloqueados, por plano — ver
+    // abaixo) são calculados no cliente a partir deste array completo; um
+    // limite aqui deixaria essas contagens erradas (undercounting), o que é
+    // pior do que uma query maior. Se a base crescer muito, a correção certa é
+    // mover os agregados para uma contagem no servidor (`count: 'exact', head:
+    // true`) e paginar só a lista renderizada — não um limite simples aqui.
     const { data: profileData } = await supabase
       .from('profiles')
       .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, unlimited_access_until, unlimited_access_reason, discount_percent, discount_fixed, admin_tags, last_seen_at')
