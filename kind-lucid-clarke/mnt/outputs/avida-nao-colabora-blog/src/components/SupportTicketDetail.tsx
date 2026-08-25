@@ -318,7 +318,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
             <button
               onClick={handleSend}
               disabled={sending || !content.trim()}
-              className="flex-shrink-0 w-10 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors"
+              className="flex-shrink-0 w-10 h-10 bg-forest-900 hover:bg-forest-800 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>
