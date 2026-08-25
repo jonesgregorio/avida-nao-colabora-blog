@@ -238,11 +238,18 @@ ${previousPayload ? untrustedBlock('DADOS DO PERÍODO ANTERIOR (para comparaçã
     reflection_question: safeSentence(parsed?.reflection_question, fallback.reflection_question, 220),
   }
 
+  // A coluna `provider` tem DEFAULT 'gemini' (migration 100) e ficava sempre
+  // com esse valor se não for preenchida explicitamente, mesmo em fallback
+  // determinístico ou quando Groq/OpenAI responderam — deriva do mesmo
+  // `ai.model` que já vira `model_used`, sem inventar um valor novo.
+  const provider = !ai?.model ? 'fallback' : ai.model.startsWith('groq:') ? 'groq' : ai.model.startsWith('openai:') ? 'openai' : 'gemini'
+
   try {
     await admin.from('ai_generation_logs').insert({
       user_id: user.id,
       content_type: 'emotional_map_explanation',
       prompt_type: 'emotional_map_explanation',
+      provider,
       model_used: ai?.model,
       fallback_used: !parsed,
       data_quality: dataQuality,

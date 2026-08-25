@@ -56,3 +56,26 @@ test('diagnóstico não expõe prompt, conteúdo emocional nem chaves', () => {
   assert.match(noteFn, /\.slice\(0, 120\)/)
   assert.doesNotMatch(noteFn, /promptText/)
 })
+
+// A coluna `provider` de ai_generation_logs tem DEFAULT 'gemini' (migration
+// 100). run-emotional-automations nunca a preenchia, então relatório/plano
+// gerados por Groq/OpenAI — ou por fallback determinístico, sem IA nenhuma —
+// ficavam marcados como "Google Gemini" no painel "Uso de IA" do Admin.
+test('run-emotional-automations grava o provider real (nunca fica preso em "gemini" por omissão)', () => {
+  assert.match(runnerSource, /function providerFromModel\(model: string\): string/)
+  assert.match(runnerSource, /if \(model === 'deterministic-fallback'\) return 'fallback'/)
+  assert.match(runnerSource, /if \(model\.startsWith\('groq:'\)\) return 'groq'/)
+  assert.match(runnerSource, /if \(model\.startsWith\('openai:'\)\) return 'openai'/)
+
+  const logCalls = runnerSource.match(/await log\(admin, \{[^}]*\}\)/g) ?? []
+  assert.ok(logCalls.length >= 2, 'esperava as chamadas de log() de relatório/plano')
+  for (const call of logCalls) {
+    assert.match(call, /provider: providerFromModel\(model\)/, `chamada de log() sem provider real: ${call}`)
+  }
+})
+
+test('explain-emotional-map também grava o provider real, não o default da coluna', () => {
+  const fn = read('supabase/functions/explain-emotional-map/index.ts')
+  assert.match(fn, /const provider = !ai\?\.model \? 'fallback' : /)
+  assert.match(fn, /provider,\s*\n\s*model_used: ai\?\.model/)
+})
