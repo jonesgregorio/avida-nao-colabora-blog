@@ -14,9 +14,10 @@ import {
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import {
-  computeEmotionalAnalysis, buildEssentialInsights, MOOD_EMOJI,
-  type DiaryRowLite, type EmotionalAnalysis,
+  computeEmotionalAnalysis, buildEssentialInsights, buildEmotionalSummary, MOOD_EMOJI,
+  type DiaryRowLite, type EmotionalAnalysis, type EmotionalSummary,
 } from '../lib/emotionalAnalytics'
+import { explainEmotionalMap, type ExplainMapResult } from '../lib/explainEmotionalMap'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 import { getTagCategory, type TagCategory } from '../lib/tagCategories'
@@ -698,6 +699,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
   const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
   const [entries, setEntries] = useState<DiaryRowLite[]>([])
+  const [prevEntries, setPrevEntries] = useState<DiaryRowLite[]>([])
+  const [period, setPeriod] = useState<{ start: string; end: string; prevStart: string } | null>(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     if (!userId) { setLoading(false); return }
@@ -707,18 +710,21 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     const start = `${selectedMonth}-01`
     const end = `${monthKeyFromDate(new Date(y, m, 1))}-01`
     const prevStart = `${monthKeyFromDate(new Date(y, m - 2, 1))}-01`
+    setPeriod({ start, end, prevStart })
     const analysisCols = 'mood,mood_score,energy,anxiety_level,sleep_quality,self_esteem,stress_level,emotional_tags,context_tags,need_tags,care_action_tags,trigger_tags,entry_type,created_at,date'
     Promise.all([
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', start).lt('date', end),
       supabase.from('diary_entries').select(analysisCols).eq('user_id', userId).gte('date', prevStart).lt('date', start),
     ]).then(([cur, prev]) => {
       const current = (cur.data ?? []) as DiaryRowLite[]
+      const previous = (prev.data ?? []) as DiaryRowLite[]
       setEntries(current)
-      setAnalysis(computeEmotionalAnalysis(current, (prev.data ?? []) as DiaryRowLite[]))
+      setPrevEntries(previous)
+      setAnalysis(computeEmotionalAnalysis(current, previous))
       setLoading(false)
     })
   }, [userId, selectedMonth])
-  return { analysis, entries, loading }
+  return { analysis, entries, prevEntries, period, loading }
 }
 
 type MonthlyConnection = { context: string; marker: string; need: string; careAction: string; count: number }
@@ -789,6 +795,94 @@ function TagFreqPanel({ title, items, category }: { title: string; items: { tag:
   )
 }
 
+// "Entender meu mapa com IA" (MISSÃO GERAL, PARTE 3): botão que envia SÓ o
+// resumo estruturado (buildEmotionalSummary + sinais de questionário) para a
+// Edge Function explain-emotional-map. Nunca envia diário bruto, respostas
+// abertas de questionário, orientação ou mensagens privadas — código já
+// calculou tudo; a IA só interpreta o que já está pronto.
+function ExplainMapCard({ summary, previous, questionnaireSignals }: {
+  summary: EmotionalSummary
+  previous: { period_start: string; period_end: string; active_days: number; total_entries: number; dominant_emotions: EmotionalSummary['dominant_emotions']; averages: EmotionalSummary['averages'] } | null
+  questionnaireSignals: QuestionnaireSignalSummary
+}) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<ExplainMapResult | null>(null)
+  const [lowSample, setLowSample] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  async function handleClick() {
+    setState('loading')
+    setErrorMessage('')
+    try {
+      const response = await explainEmotionalMap({
+        current: summary,
+        previous,
+        questionnaire_signals: { completedCount: questionnaireSignals.completedCount, topTags: questionnaireSignals.topTags },
+      })
+      setLowSample(!!response.low_sample)
+      setResult(response.result ?? null)
+      setState('done')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível gerar a leitura do mapa agora.')
+      setState('error')
+    }
+  }
+
+  return (
+    <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
+        <h3 className="font-serif text-lg text-forest-900">Entender meu mapa com IA</h3>
+      </div>
+      <p className="text-xs text-ink-soft mt-1 mb-4">Uma leitura curta do período selecionado, a partir dos dados já calculados acima — sem inventar médias ou frequências.</p>
+
+      {state === 'idle' && (
+        <button onClick={handleClick} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
+          <Sparkles className="w-4 h-4" /> Entender meu mapa com IA
+        </button>
+      )}
+
+      {state === 'loading' && (
+        <div className="flex items-center gap-2 text-sm text-ink-soft"><Loader2 className="w-4 h-4 animate-spin" /> Lendo seus dados deste período…</div>
+      )}
+
+      {state === 'error' && (
+        <div className="space-y-2">
+          <p className="text-sm text-coral">{errorMessage}</p>
+          <button onClick={handleClick} className="text-xs font-medium text-forest-700 underline">Tentar novamente</button>
+        </div>
+      )}
+
+      {state === 'done' && result && (
+        lowSample ? (
+          <p className="text-sm text-forest-800 bg-paper-soft rounded-xl p-4">{result.what_stood_out}</p>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mais apareceu</p>
+              <p className="text-sm text-forest-800 mt-0.5">{result.what_stood_out}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mudou</p>
+              <p className="text-sm text-forest-800 mt-0.5">{result.what_changed}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Algo que vale observar</p>
+              <p className="text-sm text-forest-800 mt-0.5">{result.worth_observing}</p>
+            </div>
+            <div className="rounded-xl bg-mint/40 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Uma pergunta para refletir</p>
+              <p className="text-sm text-forest-900 mt-0.5">{result.reflection_question}</p>
+            </div>
+          </div>
+        )
+      )}
+
+      <p className="text-[11px] text-ink-soft mt-4 pt-3 border-t border-forest-100">A IA analisa apenas os dados resumidos deste mapa, não o texto completo do seu Diário.</p>
+    </section>
+  )
+}
+
 const PERIOD_ICON: Record<string, React.ReactNode> = {
   madrugada: <CloudMoon className="w-4 h-4" />, manha: <Sun className="w-4 h-4" />,
   tarde: <Sunset className="w-4 h-4" />, noite: <Moon className="w-4 h-4" />,
@@ -799,7 +893,8 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
 }) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
-  const { analysis, loading } = useMonthAnalysis(user?.id, selectedMonth)
+  const { analysis, entries, prevEntries, period, loading } = useMonthAnalysis(user?.id, selectedMonth)
+  const questionnaireSignals = useQuestionnaireSignals(user?.id, selectedMonth)
 
   if (!hasPlan(plan, 'essential')) {
     return (
@@ -819,6 +914,19 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
   const maxMarker = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
+
+  // Resumo estruturado para "Entender meu mapa com IA" — mesma fonte que
+  // alimenta relatórios/plano/orientação (§16 da MISSÃO GERAL: código calcula,
+  // IA só interpreta). "previous" carrega só o necessário pra comparação
+  // narrativa, reaproveitando a.prev já calculado por computeEmotionalAnalysis.
+  const mapSummary = period ? buildEmotionalSummary(entries, period.start, period.end, plan, prevEntries) : null
+  const previousPeriodSummary = period && prevEntries.length ? {
+    period_start: period.prevStart, period_end: period.start,
+    active_days: new Set(prevEntries.map(e => e.date || e.created_at || '').filter(Boolean)).size,
+    total_entries: a.prev.diaryCount + a.prev.checkinCount,
+    dominant_emotions: [] as EmotionalSummary['dominant_emotions'],
+    averages: { mood: a.prev.mood, energy: a.prev.energy, anxiety: a.prev.anxiety, sleep: 0, selfEsteem: 0, stress: 0 },
+  } : null
 
   return (
     <div className="space-y-5">
@@ -844,6 +952,11 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários no período" value={a.diaryCount} />
             <MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} />
           </div>
+
+          {/* Entender meu mapa com IA (MISSÃO GERAL, PARTE 3) */}
+          {mapSummary && (
+            <ExplainMapCard summary={mapSummary} previous={previousPeriodSummary} questionnaireSignals={questionnaireSignals} />
+          )}
 
           {/* Insights automáticos */}
           {insights.length > 0 && (

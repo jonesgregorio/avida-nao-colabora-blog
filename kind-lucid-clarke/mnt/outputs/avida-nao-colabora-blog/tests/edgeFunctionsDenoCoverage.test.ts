@@ -52,6 +52,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'create-checkout',
     'delete-account',
     'diary-companion',
+    'explain-emotional-map',
     'export-user-data',
     'generate-content',
     'image-search',
