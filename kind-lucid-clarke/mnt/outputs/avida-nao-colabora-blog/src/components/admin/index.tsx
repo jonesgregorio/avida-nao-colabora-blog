@@ -61,7 +61,8 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   'fabrica-ia': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'gerar-ia' },
   calendario: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'calendario' },
   'automacoes-blog': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'automacoes' },
-  automated: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'automaticos' },
+  // "automaticos" (conteúdo automático diário) foi removido — ver AdminAreaConteudo.tsx.
+  automated: { area: 'conteudos' },
   scheduled: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'programados' },
   questionnaires: { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'questionarios' },
   'diary-config': { area: 'mapa', tabKey: 'admin-mapa-tab', tab: 'configuracoes' },

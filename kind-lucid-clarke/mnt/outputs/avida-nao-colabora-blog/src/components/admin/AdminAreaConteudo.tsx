@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, Repeat, CalendarDays, Clock, Tag, Image, Search, Star, Cpu } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Cpu } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
@@ -9,30 +9,34 @@ import AdminTemplatesIA from './AdminTemplatesIA'
 import AdminFabricaIA from './AdminFabricaIA'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminAutomacoesBlog from './AdminAutomacoesBlog'
-import AdminAutomated from './AdminAutomated'
 import AdminScheduled from './AdminScheduled'
 import AdminAIUsage from './AdminAIUsage'
 
 // Conteúdo & IA — área única que reúne TUDO de conteúdo:
-//   • tipos de conteúdo (artigos, práticas, pausas emocionais)
+//   • tipos de conteúdo (artigos)
 //   • geração com IA + templates de prompt
-//   • automações (cron), práticas e pausas avulsas, calendário editorial e agendamentos
+//   • automações (cron), calendário editorial e agendamentos
 //   • apoio (categorias, mídia, SEO, home/depoimentos)
-// "Práticas e pausas" (antes rotulada "Conteúdo diário") NÃO é um recurso que
-// publica um conteúdo por dia para todo mundo -- é só o cadastro de itens
-// avulsos (sugestão de artigo, exercício de escrita, pausa emocional) usados
-// pelo catálogo de Conteúdos Guiados. O nome antigo sugeria a ideia proibida
-// de "conteúdo diário automático"; o recurso em si sempre foi outra coisa.
-// Nenhuma funcionalidade foi perdida — antes estavam espalhadas em 3 itens de
-// menu (Fábrica IA, Calendário, Automações) + abas soltas em Comunicação.
-// "Recomendações IA" (entregas personalizadas) migrou para Orientação.
+// A aba "Conteúdo diário" (antes renomeada para "Práticas e pausas") foi
+// REMOVIDA (não só renomeada): a investigação mostrou que o único consumidor
+// real de `automated_contents` era a Edge Function send-automated-emails, que
+// mandava o MESMO e-mail para todo usuário elegível todo dia — exatamente a
+// "Conteúdo Diário automático para todos" que a Regra Definitiva nº 1 proíbe,
+// só que por e-mail em vez de widget in-app. O cron que a disparava nunca foi
+// de fato agendado em produção (ficou comentado desde a migration 004), mas o
+// admin autor + a função de disparo continuavam prontos para reativação.
+// AdminAutomated.tsx e send-automated-emails/index.ts foram removidos; a
+// tabela automated_contents e os logs de e-mail permanecem no banco (dado
+// histórico, sem novos registros).
+// Nenhuma outra funcionalidade foi perdida — o resto desta área já estava
+// consolidado em 3 itens de menu (Fábrica IA, Calendário, Automações) + abas
+// de apoio. "Recomendações IA" (entregas personalizadas) migrou para Orientação.
 const TABS = [
   { id: 'artigos',      label: 'Artigos',            icon: FileText },
   { id: 'gerar-ia',     label: 'Gerar com IA',       icon: Sparkles },
   { id: 'uso-ia',       label: 'Uso de IA',          icon: Cpu },
   { id: 'templates',    label: 'Templates de IA',    icon: FileCode },
   { id: 'automacoes',   label: 'Automações',         icon: Zap },
-  { id: 'automaticos',  label: 'Práticas e pausas',  icon: Repeat },
   { id: 'calendario',   label: 'Calendário',         icon: CalendarDays },
   { id: 'programados',  label: 'Programados',        icon: Clock },
   { id: 'categorias',   label: 'Categorias',         icon: Tag },
@@ -94,7 +98,6 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab }: Props) 
         {tab === 'uso-ia'      && <AdminAIUsage />}
         {tab === 'templates'   && <AdminTemplatesIA />}
         {tab === 'automacoes'  && <AdminAutomacoesBlog />}
-        {tab === 'automaticos' && <AdminAutomated />}
         {tab === 'calendario'  && <AdminCalendarioEditorial onEditArticle={onEditArticle} />}
         {tab === 'programados' && <AdminScheduled />}
         {tab === 'categorias'  && <AdminCategories />}

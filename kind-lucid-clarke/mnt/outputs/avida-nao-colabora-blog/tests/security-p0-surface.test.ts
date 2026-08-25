@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const migration = readFileSync(new URL('../supabase/migrations/20260819224000_security_p0_surface_hardening.sql', import.meta.url), 'utf8')
-const automated = readFileSync(new URL('../supabase/functions/send-automated-emails/index.ts', import.meta.url), 'utf8')
 const resend = readFileSync(new URL('../supabase/functions/resend-webhook/index.ts', import.meta.url), 'utf8')
 
 test('RPC de atividade do diário deixa de ser pública e preserva service_role', () => {
@@ -22,15 +21,6 @@ test('Storage aplica limites e tipos de imagem no servidor', () => {
   assert.match(migration, /image\/jpeg/)
   assert.match(migration, /image\/png/)
   assert.match(migration, /image\/webp/)
-})
-
-test('send-automated-emails exige token interno ou service role', () => {
-  assert.match(automated, /rpc\('get_automation_token'\)/)
-  assert.match(automated, /\[internal, SUPABASE_SERVICE_KEY\]/)
-  assert.match(automated, /status: 401/)
-  const authPos = automated.indexOf("rpc('get_automation_token')")
-  const queryPos = automated.indexOf("from('automated_contents')")
-  assert.ok(authPos >= 0 && queryPos > authPos, 'autorização precisa ocorrer antes de consultar conteúdo/usuários')
 })
 
 test('resend-webhook falha fechado e limita replay', () => {
