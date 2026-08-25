@@ -515,7 +515,7 @@ function DraftEditor({ task, profileMap, initialDelivery, onClose, onDone, showT
             <p className="text-sm text-stone-500">{profile?.full_name ?? '(sem nome)'} · {profile?.email ?? '—'}</p>
           </div>
           {!generating && !saving && !sending && (
-            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} aria-label="Fechar" className="text-stone-400 hover:text-stone-600 flex-shrink-0"><X className="w-5 h-5" /></button>
           )}
         </div>
 
@@ -734,7 +734,7 @@ function BulkGenerateModal({ tasks, profileMap, onClose, onDone, showToast: _sho
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="p-5 border-b border-line flex items-start justify-between">
           <h2 className="font-bold text-forest-900">Gerar conteúdos com IA</h2>
-          {!progress?.active && <button onClick={onClose}><X className="w-5 h-5 text-stone-400" /></button>}
+          {!progress?.active && <button onClick={onClose} aria-label="Fechar"><X className="w-5 h-5 text-stone-400" /></button>}
         </div>
 
         <div className="p-5 space-y-4">

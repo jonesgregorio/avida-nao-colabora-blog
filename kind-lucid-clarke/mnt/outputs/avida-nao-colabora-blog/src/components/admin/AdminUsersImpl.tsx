@@ -829,7 +829,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   )}
                 </div>
               </div>
-              <button onClick={closeDrawer} className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100">
+              <button onClick={closeDrawer} aria-label="Fechar" className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -866,6 +866,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         ['Perfil', selectedUser.role === 'admin' ? 'Admin' : 'Usuário'],
                         ['Cadastro', new Date(selectedUser.created_at).toLocaleDateString('pt-BR')],
                         ['Desde', timeSince(selectedUser.created_at)],
+                        // §13: calculado em load() (esteve no site OU escreveu no diário,
+                        // o que for mais recente) mas nunca era exibido no resumo.
+                        ['Último acesso', selectedUser.last_activity ? timeSince(selectedUser.last_activity) : 'Sem registros'],
                         ['Status', selectedUser.account_status ?? 'active'],
                       ].map(([label, value]) => (
                         <div key={label} className="bg-stone-50 rounded-xl p-3 border border-line">

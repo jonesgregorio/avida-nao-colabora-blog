@@ -42,7 +42,7 @@ export default function ArticlePreview({ title, category, content, imageUrl, ima
               <Smartphone className="w-4 h-4" />
             </button>
           </div>
-          <button onClick={onClose} className="p-1.5 text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100" title="Fechar">
+          <button onClick={onClose} className="p-1.5 text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100" title="Fechar" aria-label="Fechar">
             <X className="w-4 h-4" />
           </button>
         </div>

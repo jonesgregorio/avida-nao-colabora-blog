@@ -314,7 +314,7 @@ export default function AIContentAssistant({
               Gratuito · Sem chave
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100">
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100">
             <X className="w-4 h-4" />
           </button>
         </div>
