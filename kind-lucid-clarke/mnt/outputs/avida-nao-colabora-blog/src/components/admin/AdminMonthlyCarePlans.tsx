@@ -39,9 +39,15 @@ interface CarePlanRow {
   records_summary: Record<string, unknown> | null
   recommended_content_ids: string[] | null
   admin_notes: string | null
+  generated_at: string | null
   sent_at: string | null
   updated_at: string
   generated_by_ai: boolean | null
+  fallback_used: boolean | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  edited_by_human: boolean | null
+  edited_at: string | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -377,10 +383,12 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   const [care, setCare] = useState<CarePlanContent>({ ...emptyPlan(), ...(plan?.care_plan ?? {}) })
   const [content, setContent] = useState<ResolvedContent[]>([])
   const [adminNotes, setAdminNotes] = useState(plan?.admin_notes ?? '')
-  // A persistência gravava generated_by_ai: true de forma fixa, mesmo quando
-  // o admin nunca clicou em "Gerar com IA" (texto todo manual) ou quando a IA
-  // caiu no fallback determinístico por poucos dados. Reflete a origem real.
+  // Proveniência: origem de geração e edição humana são estados independentes.
+  // Salvar/revisar não deve reescrever generated_at como se uma nova geração tivesse ocorrido.
   const [generatedByAI, setGeneratedByAI] = useState(plan?.generated_by_ai ?? false)
+  const [fallbackUsed, setFallbackUsed] = useState(plan?.fallback_used ?? false)
+  const [generatedAt, setGeneratedAt] = useState<string | null>(plan?.generated_at ?? null)
+  const contentBaselineRef = useRef(JSON.stringify({ summary, care }))
   const status = plan?.status ?? 'pending_generation'
   const readOnly = status === 'sent'
 
@@ -427,12 +435,16 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
     try {
       const rs = buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period))
       const result = await generateCarePlanAI(analysis, rs)
+      const generatedNow = new Date().toISOString()
       setSummary(result.summary)
       setCare(result.care_plan)
       setGeneratedByAI(result.generatedByAI)
+      setFallbackUsed(!result.generatedByAI)
+      setGeneratedAt(generatedNow)
+      contentBaselineRef.current = JSON.stringify({ summary: result.summary, care: result.care_plan })
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
       setContent(resolved)
-      showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (poucos dados — texto de incentivo). Revise.')
+      showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (fallback determinístico). Revise antes de enviar.')
     } catch {
       showToast('Não foi possível gerar agora. Tente novamente.', true)
     } finally {
@@ -445,7 +457,12 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
     try {
       const { data: auth } = await supabase.auth.getUser()
       const adminId = auth.user?.id ?? null
+      if (next === 'send' && !adminId) throw new Error('Sessão administrativa inválida para registrar a revisão.')
+      const now = new Date().toISOString()
       const rs = analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : {}
+      const contentSnapshot = JSON.stringify({ summary, care })
+      const editedNow = contentSnapshot !== contentBaselineRef.current
+      const editedByHuman = (plan?.edited_by_human ?? false) || editedNow
       const base: Record<string, unknown> = {
         user_id: user.user_id, month_reference: monthRef,
         period_start: period.start, period_end: period.end, available_at: period.availableAt,
@@ -453,15 +470,19 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         ai_summary_json: summary, care_plan: care, records_summary: rs,
         recommended_content_ids: content.map(c => c.id),
         admin_notes: adminNotes || null,
-        generated_at: new Date().toISOString(), generated_by_ai: generatedByAI,
-        updated_at: new Date().toISOString(),
+        generated_at: generatedAt,
+        generated_by_ai: generatedByAI,
+        fallback_used: generatedByAI ? false : fallbackUsed,
+        edited_by_human: editedByHuman,
+        edited_at: editedNow ? now : (plan?.edited_at ?? null),
+        updated_at: now,
       }
       if (next === 'skip') {
         base.status = 'skipped'
       } else if (next === 'send') {
         base.status = 'sent'
-        base.reviewed_by = adminId; base.reviewed_at = new Date().toISOString()
-        base.sent_by = adminId; base.sent_at = new Date().toISOString()
+        base.reviewed_by = adminId; base.reviewed_at = now
+        base.sent_by = adminId; base.sent_at = now
       } else {
         base.status = 'pending_review'
       }
