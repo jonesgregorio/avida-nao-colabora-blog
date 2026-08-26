@@ -36,8 +36,12 @@ test('explain-emotional-map audita a geração em ai_generation_logs sem gravar 
   assert.doesNotMatch(fn, /result_preview/)
 })
 
-test('Mapa Emocional mantém CTA de leitura por IA e aviso de privacidade', () => {
-  assert.match(page, /Entender meu mapa com IA/)
-  assert.match(page, /A IA analisa apenas os dados resumidos deste mapa, não o texto completo do seu Diário\./)
+test('Mapa Emocional oferece leitura complementar sem expor IA ao usuário', () => {
+  assert.match(page, /Entender melhor meu mapa/)
+  assert.match(page, /Esta leitura considera apenas os dados resumidos deste mapa, não o texto completo do seu Diário\./)
+  assert.doesNotMatch(page, />Entender meu mapa com IA</)
+  assert.doesNotMatch(page, />A IA analisa apenas/)
   assert.match(page, /buildEmotionalSummary\(entries, period\.start, period\.end, plan, prevEntries\)/)
+  assert.match(client, /EXPLAIN_MAP_ERROR/)
+  assert.doesNotMatch(client, /A leitura por IA|error\.message|data\?\.message/)
 })
