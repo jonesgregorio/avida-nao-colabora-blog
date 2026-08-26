@@ -78,8 +78,8 @@ test('jornada deixa de punir ausência com streak e tira presença da área de e
   assert.equal(diary.includes('calcStreak'), false)
 })
 
-test('IA é opcional, não clínica e devolve recompensa depois de escrever', () => {
-  assert.match(diary, /Salvar sem análise de IA/)
+test('leitura complementar é opcional, não clínica e devolve recompensa depois de escrever', () => {
+  assert.match(diary, /Salvar sem leitura complementar/)
   assert.match(savedReflection, /O que apareceu no seu registro/)
   assert.match(savedReflection, /Uma pergunta para levar com você/)
   assert.match(savedReflection, /Não é diagnóstico/)
@@ -91,15 +91,15 @@ test('IA é opcional, não clínica e devolve recompensa depois de escrever', ()
   assert.match(edge, /causa/)
 })
 
-test('opt-out impede envio do registro à IA em início, organização, espelho e continuidade', () => {
+test('opt-out impede envio do registro ao processamento complementar em início, organização, espelho e continuidade', () => {
   assert.match(diary, /if \(!aiAllowed\) \{\s*setHelperPrompt\(fallback\)/)
   assert.match(diary, /if \(!aiAllowed\) \{ setOrganizedCandidate\(''\)/)
   assert.match(diary, /isEssential && aiAllowed && draft\.trim\(\)\.length >= 10/)
   assert.match(diary, /if \(!aiAllowed \|\| !String\(entry\.text \|\| ''\)\.trim\(\)\)/)
   assert.match(diary, /if \(entry\.ai_disabled !== true\)/)
-  assert.match(diary, /Privacidade ativada/)
+  assert.match(diary, /Leitura complementar desativada/)
   assert.match(diary, /Seu registro continua salvo normalmente/i)
-  assert.match(diary, /não será enviado à IA/i)
+  assert.doesNotMatch(diary, /não será enviado à IA/i)
   assert.match(diary, /aria-describedby="diary-ai-privacy-help"/)
 })
 
@@ -130,9 +130,11 @@ test('recorrência Plus é calculada deterministicamente a partir de sinais reai
   assert.equal(edge.includes('Ainda não há recorrência suficiente para destacar um padrão'), false)
 })
 
-test('falhas e lentidão de IA têm timeout e fallback sem bloquear a escrita', () => {
+test('falhas e lentidão do processamento complementar têm timeout e fallback sem bloquear a escrita', () => {
   assert.match(client, /DIARY_COMPANION_TIMEOUT_MS/)
+  assert.match(client, /DIARY_COMPANION_ERROR/)
   assert.match(client, /Promise\.race/)
+  assert.doesNotMatch(client, /ajuda de IA/i)
   assert.match(edge, /PROVIDER_TIMEOUT_MS/)
   assert.match(edge, /AbortController/)
   assert.match(edge, /fetchWithTimeout/)
