@@ -4,14 +4,24 @@ import { readFileSync } from 'node:fs'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('gestão de suporte chama textos reutilizáveis de Respostas prontas', () => {
-  const src = read('src/components/admin/AdminReplyTemplates.tsx')
-  assert.match(src, /Respostas prontas/)
-  assert.match(src, /Nova resposta pronta/)
-  assert.match(src, /Salvar resposta pronta/)
-  assert.match(src, /Nada é enviado automaticamente/)
-  assert.doesNotMatch(src, />Modelos de resposta</)
-  assert.doesNotMatch(src, />Novo modelo</)
+test('Suporte chama textos reutilizáveis de Respostas prontas em toda a interface', () => {
+  const manager = read('src/components/admin/AdminReplyTemplates.tsx')
+  const support = read('src/components/admin/AdminSupport.tsx')
+
+  assert.match(manager, /Respostas prontas/)
+  assert.match(manager, /Nova resposta pronta/)
+  assert.match(manager, /Salvar resposta pronta/)
+  assert.match(manager, /Nada é enviado automaticamente/)
+  assert.doesNotMatch(manager, />Modelos de resposta</)
+  assert.doesNotMatch(manager, />Novo modelo</)
+
+  assert.match(support, /> Respostas prontas/)
+  assert.match(support, /Selecionar resposta pronta…/)
+  assert.match(support, /Buscar resposta pronta…/)
+  assert.match(support, /Nenhuma resposta pronta encontrada/)
+  assert.doesNotMatch(support, /Modelos de resposta/)
+  assert.doesNotMatch(support, /Selecionar modelo…/)
+  assert.doesNotMatch(support, /Buscar modelo…/)
 })
 
 test('usuário sabe que a orientação passa por revisão humana', () => {
