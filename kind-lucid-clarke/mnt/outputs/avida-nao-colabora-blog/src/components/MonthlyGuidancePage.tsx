@@ -190,9 +190,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         <div className="flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><CheckCircle className="w-4 h-4" /></span>
           <div>
-            <h2 className="font-serif text-base text-forest-900">Revisão humana antes da resposta</h2>
+            <h2 className="font-serif text-base text-forest-900">Análise cuidadosa antes da resposta</h2>
             <p className="text-xs text-forest-800/80 mt-1 leading-relaxed">
-              Seu pedido entra em uma fila de revisão no Admin. A IA pode ajudar a preparar um rascunho interno, mas <strong>não responde nem envia nada sozinha</strong>: uma pessoa administradora revisa o conteúdo e faz o envio final.
+              Sua solicitação é analisada com atenção antes da resposta final. Consideramos as informações que você enviou e os dados disponíveis na sua experiência no site para preparar uma orientação coerente com o seu momento.
             </p>
           </div>
         </div>
@@ -216,7 +216,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           <div className="text-sm leading-relaxed">
             <p className="text-amber-800">Você já usou a orientação deste mês. 🌱</p>
             <p className="text-amber-700/90 text-xs mt-0.5">
-              Seu pedido está na fila de revisão humana. A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
+              Seu pedido está em análise. A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
             </p>
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           </span>
           <div className="text-sm leading-relaxed">
             <p className="text-forest-800">Você tem até <strong className="text-forest-900">{deadline}</strong> (dia 23) para enviar a orientação deste mês.</p>
-            <p className="text-forest-700/80 text-xs mt-0.5">É uma solicitação por mês. Depois do envio, ela passa por revisão humana e a resposta chega em até <strong className="text-forest-900">7 dias corridos</strong>.</p>
+            <p className="text-forest-700/80 text-xs mt-0.5">É uma solicitação por mês. Depois do envio, ela entra em análise e a resposta chega em até <strong className="text-forest-900">7 dias corridos</strong>.</p>
           </div>
         </div>
       )}
@@ -284,10 +284,10 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             className="flex items-center gap-2 bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Enviar para revisão
+            Enviar orientação
           </button>
           <p className="text-[11px] text-stone-400 mt-3 flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline} (dia 23). Uma orientação por mês; o pedido será revisado antes da resposta final.
+            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline} (dia 23). Uma orientação por mês; a resposta chega em até 7 dias corridos.
           </p>
         </div>
       )}
@@ -309,7 +309,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       )}
 
       <p className="text-xs text-stone-400 text-center mt-6">
-        Cada orientação passa por revisão humana antes do envio. A resposta chega em até 7 dias corridos. Este espaço não é um canal de emergência.
+        Sua solicitação é analisada antes da resposta. O retorno chega em até 7 dias corridos. Este espaço não é um canal de emergência.
       </p>
     </div>
   )
@@ -343,7 +343,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
             </span>
           ) : (
             <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
-              <Clock className="w-3 h-3" /> Em revisão
+              <Clock className="w-3 h-3" /> Em análise
             </span>
           )}
           <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -372,7 +372,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
             <div className="bg-white border border-forest-100 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação respondida</span>
               </div>
               <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
               {req.responded_at && (
@@ -382,7 +382,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
           ) : (
             <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
               <Loader2 className="w-3.5 h-3.5 text-forest-400" />
-              Recebemos sua mensagem. Ela está aguardando revisão humana e você será avisado(a) quando a resposta final for enviada.
+              Recebemos sua mensagem. Ela está em análise e você será avisado(a) quando a resposta for enviada.
             </div>
           )}
         </div>
