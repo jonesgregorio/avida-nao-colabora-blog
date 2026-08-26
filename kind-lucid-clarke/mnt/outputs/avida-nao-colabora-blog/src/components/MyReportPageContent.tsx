@@ -24,6 +24,7 @@ import {
   loadReportHistory, buildWeeklyContent, buildMonthlyContent,
   type StoredReport, type WeeklyContent, type MonthlyContent, type DayPoint,
 } from '../lib/reportGeneration'
+import ReportReadingBase from './report/ReportReadingBase'
 
 interface Props {
   user: User | null
@@ -38,7 +39,6 @@ interface Props {
 
 const DISCLAIMER = 'Este relatório é uma ferramenta de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'
 
-// data (YYYY-MM-DD) de um registro
 function entryYmd(e: DiaryRowLite): string {
   if (e.date) return String(e.date).slice(0, 10)
   if (e.created_at) return ymd(new Date(e.created_at))
@@ -47,7 +47,6 @@ function entryYmd(e: DiaryRowLite): string {
 function inPeriod(e: DiaryRowLite, p: { start: string; end: string }): boolean {
   const d = entryYmd(e); return !!d && d >= p.start && d <= p.end
 }
-// período imediatamente anterior (mesma duração) — para comparação
 function prevRange(p: { start: string; end: string }): { start: string; end: string } {
   const s = new Date(p.start + 'T12:00:00'); const e = new Date(p.end + 'T12:00:00')
   const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1
@@ -56,7 +55,6 @@ function prevRange(p: { start: string; end: string }): { start: string; end: str
   return { start: ymd(ps), end: ymd(pe) }
 }
 
-// ─── Wrappers visuais ─────────────────────────────────────────────────────────
 function Section({ icon, title, badge, children }: { icon: React.ReactNode; title: string; badge?: string; children: React.ReactNode }) {
   return (
     <div className="bg-paper-soft rounded-2xl border border-line p-5">
@@ -88,11 +86,7 @@ function LockedSection({ title, description, onUpgrade }: { title: string; descr
   )
 }
 
-// ─── Gráficos de síntese (apoio ao relatório — não substituem o Mapa) ─────────
-
-// ─── Peças do relatório semanal (redesign visual) ─────────────────────────────
 const WD_ABBR = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
-// Mapa dia-do-mês → rótulo "ter 27/07", cobrindo o período do relatório.
 function buildDayLabels(startYmd: string, endYmd: string): Map<number, string> {
   const m = new Map<number, string>()
   let d = parseYmd(startYmd)
@@ -324,7 +318,6 @@ function QuestionnaireReportContext({ content }: { content: unknown }) {
   )
 }
 
-// ─── Corpo do relatório fechado (on-screen e PDF) ─────────────────────────────
 function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSelfCare, onNavigateGuidance, forPdf }: {
   report: StoredReport; plan: string
   onOpenArticle?: (slug: string) => void; onNavigateDiary: () => void
@@ -348,10 +341,8 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
     const lowAnx = pickDay(c.anxietyByDay, 'min')
     return (
       <div className="space-y-4">
-        {/* Resumo da semana (hero) */}
         <WeeklySummaryHero summary={c.summary} />
 
-        {/* Métricas principais */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
           <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
@@ -361,21 +352,17 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <MetricTile icon={<Target className="w-4 h-4" />} label="Marcador emocional" value={c.topEmotionalMarker ?? c.topTrigger ?? '—'} accent="coral" />
         </div>
 
-        {/* Energia e ansiedade ao longo da semana */}
         <EnergyAnxietyPanel data={chartData} bestEnergy={bestEnergy} lowAnx={lowAnx} labels={dayLabels} />
 
-        {/* Emoções + marcadores emocionais */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <EmotionDonut emotions={c.topEmotions} />
           <TriggerRanking triggers={c.emotionalMarkers ?? c.triggers ?? []} />
         </div>
 
-        {/* Contextos (§14.1) */}
         {c.topContexts && c.topContexts.length > 0 && (
           <TriggerRanking triggers={c.topContexts} title="Contextos que mais apareceram" emptyText="Ainda não há contextos marcados nesta semana." />
         )}
 
-        {/* Blocos interpretativos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que seus registros parecem indicar">
             <p className="text-sm text-stone-700 leading-relaxed">{c.interpretation}</p>
@@ -402,19 +389,16 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           )}
         </div>
 
-        {/* Conteúdos recomendados */}
         {!forPdf && recs.length > 0 && (
           <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1.5">Conteúdos guiados recomendados</p>
             <div className="space-y-2">{recs.map(rc => <RecCard key={rc.id} rc={rc} onOpen={() => rc.slug && onOpenArticle ? onOpenArticle(rc.slug) : onNavigateDiary()} />)}</div></div>
         )}
 
-        {/* Próximos passos */}
         {c.nextSteps.length > 0 && <WeeklyNextSteps steps={c.nextSteps} />}
       </div>
     )
   }
 
-  // ══════════ Mensal aprofundado (redesign fiel à referência) ══════════
   const c = report.content as MonthlyContent
   const totalRecords = (c.checkinCount ?? 0) + (c.diaryCount ?? 0)
   const mEmotions = c.topEmotions ?? []
@@ -439,7 +423,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
 
   return (
     <div className="space-y-5">
-      {/* ── 1. Hero "Seu mês em perspectiva" ── */}
       <div className="relative overflow-hidden rounded-2xl border border-line bg-paper-soft">
         <div className="relative z-10 p-5 sm:p-6 sm:max-w-[72%]">
           <div className="flex items-center gap-2.5 mb-3">
@@ -458,7 +441,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         <MonthlyHeroDecoration />
       </div>
 
-      {/* ── 2. Grade de métricas (8 cards) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <MetricTile icon={<BarChart2 className="w-4 h-4" />} label="Registros analisados" value={totalRecords} sub="Total do mês" />
         <MetricTile icon={<Calendar className="w-4 h-4" />} label="Check-ins" value={c.checkinCount ?? 0} sub="Dias registrados" />
@@ -472,7 +454,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         <MetricTile icon={<TrendingUp className="w-4 h-4" />} label="Dias observados" value={c.energyByDay?.length ?? 0} sub="Com indicadores" />
       </div>
 
-      {/* ── Aviso de poucos dados ── */}
       {!c.hasEnoughData && (
         <div className="flex items-start gap-3 bg-coral/30 border border-coral/60 rounded-2xl p-4">
           <AlertCircle className="w-5 h-5 text-[#c2673f] flex-shrink-0 mt-0.5" />
@@ -483,7 +464,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       )}
 
-      {/* ── 3. Seção "Análises do mês" ── */}
       <div>
         <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
           <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><TrendingUp className="w-4 h-4" /></span>
@@ -491,16 +471,13 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </h3>
 
         <div className="space-y-3">
-          {/* Gráfico energia × ansiedade */}
           <EnergyAnxietyPanel data={chartDataM} bestEnergy={bestEnergyM} lowAnx={lowAnxM} labels={dayLabelsM} title="Energia e ansiedade ao longo do mês" />
 
-          {/* Emoções + marcadores emocionais */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <EmotionDonut emotions={mEmotions} />
             <TriggerRanking triggers={mEmotionalMarkers} />
           </div>
 
-          {/* Contextos e necessidades mais recorrentes (§14.2) */}
           {((c.topContexts?.length ?? 0) > 0 || (c.topNeeds?.length ?? 0) > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <TriggerRanking triggers={c.topContexts ?? []} title="Contextos mais recorrentes" emptyText="Ainda não há contextos marcados neste mês." />
@@ -512,7 +489,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             <TriggerRanking triggers={mRealTriggers} title="Gatilhos reais mais citados" emptyText="Ainda não há gatilhos reais registrados neste mês." />
           )}
 
-          {/* Dias de maior atenção */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <div className="flex items-center gap-2.5 mb-3">
               <span className="w-8 h-8 rounded-full bg-coral/50 flex items-center justify-center text-[#c2673f]"><AlertCircle className="w-4 h-4" /></span>
@@ -537,7 +513,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       </div>
 
-      {/* ── 4. Seção "Interpretações e insights" ── */}
       <div>
         <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
           <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><FileText className="w-4 h-4" /></span>
@@ -545,13 +520,11 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </h3>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Resumo geral do mês */}
           <InsightCard icon={<Sprout className="w-4 h-4" />} title="Resumo geral do mês">
             <p className="text-sm text-stone-700 leading-relaxed">{c.summary}</p>
             {c.energyAnxietySleep && <p className="text-sm text-stone-600 leading-relaxed mt-2">{c.energyAnxietySleep}</p>}
           </InsightCard>
 
-          {/* Principais padrões emocionais */}
           <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões emocionais">
             <p className="text-sm text-stone-700 leading-relaxed mb-2">{c.predominantEmotions}</p>
             {c.patterns.length > 0 && (
@@ -559,7 +532,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             )}
           </InsightCard>
 
-          {/* Relações percebidas */}
           <InsightCard icon={<Activity className="w-4 h-4" />} title="Relações percebidas">
             {(c.relations?.length ?? 0) > 0 ? (
               <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul>
@@ -568,12 +540,10 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             )}
           </InsightCard>
 
-          {/* Momentos de melhora */}
           <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
             <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments || 'Continue registrando para que seus momentos de melhora fiquem mais visíveis.'}</p>
           </InsightCard>
 
-          {/* Comparação com o mês anterior (span full) */}
           <div className="lg:col-span-2 bg-paper-soft border border-line rounded-2xl p-4 sm:p-5">
             <div className="flex items-center gap-2.5 mb-3">
               <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><TrendingUp className="w-4 h-4" /></span>
@@ -591,7 +561,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       </div>
 
-      {/* Como o mês se desenhou (narrativa) */}
       {(c.narrative?.length ?? 0) > 0 && (
         <div className="bg-paper-soft border border-line rounded-2xl p-5">
           <div className="flex items-center gap-2.5 mb-3">
@@ -607,30 +576,28 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       )}
 
-      {/* ── 5. Reflexões do período ── */}
       <div>
         <h3 className="font-serif text-xl text-forest-900 flex items-center gap-2 mb-4">
           <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600"><BookOpen className="w-4 h-4" /></span>
           Perguntas para refletir
         </h3>
         <div className="bg-paper-soft border border-line rounded-2xl p-5">
-            <h4 className="text-sm font-semibold text-forest-900 mb-4">Leve estas perguntas no seu tempo</h4>
-            {c.reflectionQuestions.length > 0 ? (
-              <ul className="space-y-3">{c.reflectionQuestions.map((q, i) => (
-                <li key={i} className="text-sm text-stone-700 flex gap-2.5 leading-relaxed">
-                  <span className="text-forest-500 mt-0.5 flex-shrink-0">•</span>{q}
-                </li>
-              ))}</ul>
-            ) : (
-              <p className="text-sm text-ink-soft">Perguntas de reflexão ficarão disponíveis quando houver mais registros no período.</p>
-            )}
-            {!forPdf && (
-              <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>
-            )}
+          <h4 className="text-sm font-semibold text-forest-900 mb-4">Leve estas perguntas no seu tempo</h4>
+          {c.reflectionQuestions.length > 0 ? (
+            <ul className="space-y-3">{c.reflectionQuestions.map((q, i) => (
+              <li key={i} className="text-sm text-stone-700 flex gap-2.5 leading-relaxed">
+                <span className="text-forest-500 mt-0.5 flex-shrink-0">•</span>{q}
+              </li>
+            ))}</ul>
+          ) : (
+            <p className="text-sm text-ink-soft">Perguntas de reflexão ficarão disponíveis quando houver mais registros no período.</p>
+          )}
+          {!forPdf && (
+            <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Responder no diário</button>
+          )}
         </div>
       </div>
 
-      {/* Conteúdos recomendados */}
       {!forPdf && recs.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-2xl p-5">
           <h4 className="text-sm font-semibold text-forest-900 mb-3">Conteúdos guiados recomendados</h4>
@@ -638,7 +605,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>
       )}
 
-      {/* Pontes curtas: o plano e a orientação vivem em seus próprios recursos. */}
       <div className="bg-paper-soft border border-line rounded-2xl p-5">
         <div className="flex items-center gap-2.5 mb-3">
           <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center text-white"><MessageCircle className="w-4 h-4" /></span>
@@ -653,7 +619,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         </div>}
       </div>
 
-      {/* ── 7. Disclaimer ── */}
       <div className="flex items-start gap-2.5 text-xs text-ink-soft bg-paper-soft border border-line rounded-2xl px-4 py-3">
         <Lock className="w-4 h-4 text-forest-500 flex-shrink-0 mt-0.5" />
         <span>{DISCLAIMER}</span>
@@ -706,9 +671,6 @@ function RecCard({ rc, onOpen }: { rc: RecommendedContent; onOpen: () => void })
   )
 }
 
-// Prévia "em construção" — apenas um FRAGMENTO (teaser). A análise completa
-// (padrões, relações, gráficos, plano, síntese) só é liberada quando o ciclo
-// fecha e o relatório fica disponível (domingo / dia 1º).
 function BuildingPreview({ type, period, content, onRefresh }: {
   type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent; onRefresh: () => void
 }) {
@@ -726,7 +688,6 @@ function BuildingPreview({ type, period, content, onRefresh }: {
       <p className="text-xs text-ink-soft mb-1">{type === 'weekly' ? `Semana de ${formatPeriodShort(period)}` : `${monthTitle(period.start)} · ${formatPeriodShort(period)}`}</p>
       <p className="text-[11px] text-ink-soft mb-3">Fecha em <strong className="text-forest-700">{formatDateBR(period.end)}</strong> · disponível em <strong className="text-forest-700">{unlockWhen}</strong></p>
 
-      {/* Fragmento: só um panorama parcial em números */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatPill label="Check-ins" value={content.checkinCount ?? 0} />
         <StatPill label="Diários" value={content.diaryCount ?? 0} />
@@ -748,14 +709,11 @@ function BuildingPreview({ type, period, content, onRefresh }: {
   )
 }
 
-// Estado do modal visualizador de relatório (fechado = ver conteúdo salvo;
-// preview = ver a prévia "em construção" do ciclo atual).
 type ViewerState =
   | { kind: 'report'; report: StoredReport }
   | { kind: 'preview'; type: 'weekly' | 'monthly'; period: Period; content: WeeklyContent | MonthlyContent }
   | null
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 export default function MyReportPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigateGuidance, onNavigateSelfCare, onOpenArticle }: Props) {
   const plan: Plan = profile?.plan ?? 'free'
   const planKey = normalizePlan(plan)
@@ -770,7 +728,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   const [pdfBusy, setPdfBusy] = useState(false)
-  // ── Estados de UI (apenas visuais) ──
   const [viewer, setViewer] = useState<ViewerState>(null)
   const [essTab, setEssTab] = useState<'atual' | 'anteriores'>('anteriores')
   const [essPeriod, setEssPeriod] = useState('all')
@@ -790,7 +747,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const load = useCallback(async () => {
     if (!user || !isEssential) { setLoading(false); return }
     setLoading(true)
-    // 1) Ativação do plano (para cortar o 1º ciclo)
     const [{ data: prof }, { data: sub }] = await Promise.all([
       supabase.from('profiles').select('plan_activated_at, created_at').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_subscriptions').select('subscription_created_at').eq('user_id', user.id).maybeSingle(),
@@ -802,15 +758,11 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     })
     setActivation(act)
 
-    // 2) Registros — janela ampla (cobre semana/mês atuais e anteriores + comparação)
     const since = new Date(); since.setDate(since.getDate() - 100)
     const { data } = await supabase.from('diary_entries').select('*').eq('user_id', user.id).gte('created_at', since.toISOString())
     const all = (data ?? []) as DiaryRowLite[]
     setEntries(all)
 
-    // 3) Relatórios fechados são produzidos pela automação no servidor. A tela
-    // apenas lê o conteúdo persistido: abrir esta página jamais cria, altera ou
-    // regenera um relatório histórico.
     const now = new Date()
     const lastW = getPreviousWeeklyPeriod(act, now)
     if (lastW) {
@@ -833,7 +785,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
   useEffect(() => { void load() }, [load])
 
-  // Prévias "em construção" (ao vivo, não salvas)
   const now = new Date()
   const curWeek = getCurrentWeeklyPeriod(activation, now)
   const curMonth = getCurrentMonthlyPeriod(activation, now)
@@ -858,7 +809,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
   if (loading) return <div className="flex justify-center items-center py-24"><Loader2 className="w-6 h-6 text-forest-400 animate-spin" /></div>
 
-  // ── Gratuito ──
   if (!isEssential) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -885,7 +835,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
       onPdf={handlePdf} pdfBusy={pdfBusy} onRefresh={() => setRefreshKey(k => k + 1)} nav={navProps} />
   )
 
-  // ══════════════════════════ PLANO PLUS ══════════════════════════
   if (isPlus) {
     const weeklyStatus = lastWeekly
       ? { label: 'Relatório mais recente', value: `${perShort(lastWeekly)} · Gerado em ${genDate(lastWeekly)}` }
@@ -907,7 +856,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">Relatórios <BarChart2 className="w-6 h-6 text-forest-400" /></h1>
@@ -920,7 +868,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
         {showHowto && <HowtoPanel isPlus />}
 
-        {/* Cards principais */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           <SummaryCard accent="forest" icon={<Calendar className="w-6 h-6" />} title="Relatório semanal"
             desc="Visão contínua da sua semana com check-ins e diário, gráficos e recomendações."
@@ -934,11 +881,9 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
             secondary={lastMonthly ? { label: 'PDF', onClick: () => handlePdf(lastMonthly), busy: pdfBusy } : undefined} />
         </div>
 
-        {/* Relatórios disponíveis */}
         <section className="mb-8 space-y-5">
           <h2 className="font-serif text-2xl text-forest-900">Relatórios disponíveis</h2>
 
-          {/* Semanais */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-forest-900">Semanais <span className="text-ink-soft font-normal">(semanas completas)</span></p>
@@ -955,7 +900,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
             </div>
           </div>
 
-          {/* Mensais aprofundados */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-forest-900 flex items-center gap-2">Mensais aprofundados <span className="text-[10px] bg-coral text-[#9a3b26] px-2 py-0.5 rounded-full font-medium">Plus</span></p>
@@ -973,12 +917,10 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           </div>
         </section>
 
-        {/* Comentário profissional sobre o relatório (Plus) */}
         <div className="mb-8">
           <ProfessionalComment userId={user!.id} selectedMonth={lastMonthly?.period_start?.slice(0, 7) ?? ymd(now).slice(0, 7)} onNavigateDiary={onNavigateDiary} />
         </div>
 
-        {/* Histórico de relatórios (unificado) */}
         <section className="bg-paper-soft border border-line rounded-2xl p-5 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-4">
             <div>
@@ -1047,7 +989,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
     )
   }
 
-  // ══════════════════════════ PLANO ESSENCIAL ══════════════════════════
   const essPeriodOptions = [...new Set(weeklyReports.map(r => r.period_start.slice(0, 7)))].sort().reverse()
   const essRows = weeklyReports.filter(r => essPeriod === 'all' || r.period_start.slice(0, 7) === essPeriod)
   const essEnergy = weeklyPreview.avgEnergy
@@ -1055,7 +996,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">Relatórios <BarChart2 className="w-6 h-6 text-forest-400" /></h1>
@@ -1070,7 +1010,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </div>
       </header>
 
-      {/* Resumo da semana */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <MetricCard icon={<Heart className="w-5 h-5" />} label="Check-ins nesta semana" value={weeklyPreview.checkinCount ?? 0} sub="de 7 dias" />
         <MetricCard icon={<BookOpen className="w-5 h-5" />} label="Diários" value={weeklyPreview.diaryCount ?? 0} sub="registros" />
@@ -1082,18 +1021,15 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         Complete seus check-ins e registros para que seus relatórios tragam insights mais precisos sobre você.
       </div>
 
-      {/* Relatório semanal atual */}
       <div className="flex items-center gap-2 mb-3">
         <h2 className="font-serif text-2xl text-forest-900">Relatório semanal atual</h2>
         <span className="text-[10px] bg-forest-100 text-forest-800 px-2 py-0.5 rounded-full font-medium">Atual</span>
       </div>
       <div className="bg-paper-soft border border-line rounded-2xl p-5 sm:p-6 mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] gap-5">
-          {/* Ilustração */}
           <div className="hidden sm:flex w-full lg:w-28 h-28 rounded-2xl bg-gradient-to-br from-mint to-coral/40 items-center justify-center flex-shrink-0">
             <div className="relative"><FileText className="w-10 h-10 text-forest-500" /><Sprout className="w-5 h-5 text-forest-400 absolute -bottom-1 -right-2" /></div>
           </div>
-          {/* Conteúdo */}
           <div className="min-w-0">
             <h3 className="font-serif text-xl text-forest-900">Relatório semanal — {formatPeriodShort(curWeek)}</h3>
             <p className="text-sm text-ink-soft mt-0.5">Período em andamento · Fecha em <strong className="text-forest-700">{formatDateBR(curWeek.end)}</strong> (sábado)</p>
@@ -1105,7 +1041,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
               <StatPill label="Ansiedade média" value={essAnx > 0 ? essAnx : '—'} unit={essAnx > 0 ? '/5' : ''} />
             </div>
           </div>
-          {/* Dica + ações */}
           <div className="lg:w-64 flex flex-col gap-3 flex-shrink-0">
             <div className="bg-mint/40 border border-forest-100 rounded-xl p-3">
               <p className="text-xs font-semibold text-forest-800 flex items-center gap-1.5 mb-1"><Sprout className="w-3.5 h-3.5" /> Dica para esta semana</p>
@@ -1119,7 +1054,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </div>
       </div>
 
-      {/* Histórico de relatórios semanais */}
       <section className="bg-paper-soft border border-line rounded-2xl p-5 mb-6">
         <h2 className="font-serif text-2xl text-forest-900 mb-3">Histórico de relatórios semanais</h2>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -1199,7 +1133,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   )
 }
 
-// ─── Helpers de apresentação ──────────────────────────────────────────────────
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const perShort = (r: { period_start: string; period_end: string }) => formatPeriodShort({ start: r.period_start, end: r.period_end })
 const genDate = (r: StoredReport) => r.generated_at ? formatDateBR(ymd(new Date(r.generated_at))) : formatDateBR(r.available_at)
@@ -1224,7 +1157,6 @@ function HowtoPanel({ isPlus }: { isPlus: boolean }) {
   )
 }
 
-// Card de métrica (faixa de resumo — Essencial).
 function MetricCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string | number; sub: string }) {
   return (
     <div className="bg-paper-soft border border-line rounded-2xl p-4 flex items-center justify-between gap-3">
@@ -1238,7 +1170,6 @@ function MetricCard({ icon, label, value, sub }: { icon: React.ReactNode; label:
   )
 }
 
-// Card principal de resumo (Plus).
 function SummaryCard({ accent, icon, title, desc, statusLabel, statusValue, primary, secondary }: {
   accent: 'forest' | 'plus'; icon: React.ReactNode; title: string; desc: string
   statusLabel: string; statusValue: string
@@ -1278,7 +1209,6 @@ function SummaryCard({ accent, icon, title, desc, statusLabel, statusValue, prim
   )
 }
 
-// Cartão pequeno de relatório disponível (grids Plus).
 function MiniReportCard({ accent, title, subtitle, badge, locked, lockedLabel, onView, onPdf, pdfBusy }: {
   accent: 'forest' | 'plus'; title: string; subtitle?: string; badge?: string
   locked?: boolean; lockedLabel?: string; onView: () => void; onPdf?: () => void; pdfBusy?: boolean
@@ -1310,7 +1240,6 @@ function MiniReportCard({ accent, title, subtitle, badge, locked, lockedLabel, o
   )
 }
 
-// Badge de tipo de relatório (histórico Plus).
 function TypePill({ type }: { type: 'weekly' | 'monthly' }) {
   return type === 'monthly' ? (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#9a3b26] whitespace-nowrap"><span className="w-6 h-6 rounded-lg bg-coral flex items-center justify-center"><FileText className="w-3.5 h-3.5" /></span><span className="hidden sm:inline">Mensal aprofundado</span><span className="sm:hidden">Mensal</span></span>
@@ -1319,7 +1248,6 @@ function TypePill({ type }: { type: 'weekly' | 'monthly' }) {
   )
 }
 
-// Ações de linha da tabela (Ver relatório + PDF).
 function RowActions({ report, onView, onPdf, pdfBusy }: { report: StoredReport; onView: () => void; onPdf: () => void; pdfBusy: boolean }) {
   return (
     <div className="flex items-center justify-end gap-1.5">
@@ -1375,7 +1303,6 @@ function ReportDisclaimer() {
   )
 }
 
-// Modal visualizador — mostra o relatório fechado (ReportBody) ou a prévia em construção.
 function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, nav }: {
   viewer: Exclude<ViewerState, null>; plan: string; onClose: () => void
   onPdf: (r: StoredReport) => void; pdfBusy: boolean; onRefresh: () => void
@@ -1404,7 +1331,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
         </div>
         <div className="p-4 sm:p-5 overflow-y-auto">
           {isReport
-            ? <><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>
+            ? <><ReportReadingBase content={viewer.report.content} /><QuestionnaireReportContext content={viewer.report.content} /><ReportBody report={viewer.report} plan={plan} {...nav} /></>
             : <BuildingPreview type={viewer.type} period={viewer.period} content={viewer.content} onRefresh={onRefresh} />}
         </div>
       </div>
@@ -1412,7 +1339,6 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
   )
 }
 
-// Comentário profissional sobre o relatório (Plus) — recurso existente no sistema.
 function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userId: string; selectedMonth: string; onNavigateDiary: () => void }) {
   const [comment, setComment] = useState<{ comment_text: string; professional_name: string | null; report_month: string } | null>(null)
   useEffect(() => {
