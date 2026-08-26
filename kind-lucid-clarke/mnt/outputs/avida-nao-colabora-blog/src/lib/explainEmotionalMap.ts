@@ -69,6 +69,7 @@ interface MonthlyConnectionPayload {
 }
 
 const EXPLAIN_MAP_TIMEOUT_MS = 20_000
+const EXPLAIN_MAP_ERROR = 'Não foi possível gerar a leitura do mapa agora. Tente novamente em instantes.'
 
 function asArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter(v => typeof v === 'string').map(v => String(v).trim()).filter(Boolean)
@@ -128,7 +129,7 @@ export async function explainEmotionalMap(input: {
 }): Promise<ExplainMapResponse> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('A leitura por IA demorou mais que o esperado. Tente novamente em instantes.')), EXPLAIN_MAP_TIMEOUT_MS)
+    timer = setTimeout(() => reject(new Error(EXPLAIN_MAP_ERROR)), EXPLAIN_MAP_TIMEOUT_MS)
   })
 
   try {
@@ -137,8 +138,8 @@ export async function explainEmotionalMap(input: {
       supabase.functions.invoke<ExplainMapApiResponse>('explain-emotional-map', { body: { ...input, monthly_connections } }),
       timeout,
     ])
-    if (error) throw new Error(error.message || 'Não foi possível gerar a leitura do mapa agora.')
-    if (!data?.ok) throw new Error(data?.message || 'Não foi possível gerar a leitura do mapa agora.')
+    if (error) throw new Error(EXPLAIN_MAP_ERROR)
+    if (!data?.ok) throw new Error(EXPLAIN_MAP_ERROR)
     return { ...data, result: adaptResult(data.result) }
   } finally {
     if (timer) clearTimeout(timer)
