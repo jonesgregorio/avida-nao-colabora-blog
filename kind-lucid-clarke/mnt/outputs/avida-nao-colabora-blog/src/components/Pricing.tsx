@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { trackEvent } from '../lib/analytics'
 import { Check, Loader2, Sprout, Star, LineChart, ShieldCheck } from 'lucide-react'
 import { PLAN_COMPARE_ROWS, PLAN_BENEFITS, type PlanCompareValue } from '../lib/planComparison'
+import { OFFICIAL_PLANS, normalizePlan, type PlanKey } from '../lib/officialPlans'
 import { resolvePricingPlanAction } from '../lib/pricingPlanAction'
 
 interface PricingProps {
@@ -12,38 +13,30 @@ interface PricingProps {
   onNavigateAuth: () => void
 }
 
-type PlanKey = 'free' | 'essential' | 'plus'
-
-// Legado → plano atual (para exibir "Plano atual" corretamente).
-function normalize(p: Plan | string): PlanKey {
-  if (p === 'therapeutic' || p === 'therapeutic-plus') return 'plus'
-  if (p === 'essential' || p === 'plus') return p
-  return 'free'
+// Somente apresentação visual fica local. Nome, preço, promessa, recomendação e
+// benefícios vêm do catálogo/matriz oficial.
+const PLAN_PRESENTATION: Record<PlanKey, {
+  Icon: typeof Sprout
+  iconBg: string
+  iconColor: string
+  cta: string
+  coral?: boolean
+}> = {
+  free: { Icon: Sprout, iconBg: 'bg-mint', iconColor: 'text-forest-600', cta: 'Começar agora' },
+  essential: { Icon: LineChart, iconBg: 'bg-mint', iconColor: 'text-forest-600', cta: 'Assinar Essencial' },
+  plus: { Icon: Star, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', cta: 'Assinar Plus', coral: true },
 }
 
-// O backend (create-checkout) já mapeia 'plus' para o price de R$ 39,90.
-const CHECKOUT_PLAN: Record<string, string> = { essential: 'essential', plus: 'plus' }
-
-const PLANS = [
-  {
-    key: 'free' as const, name: 'Gratuito', promise: 'Comece a se entender', price: 'R$ 0', period: '',
-    Icon: Sprout, iconBg: 'bg-mint', iconColor: 'text-forest-600',
-    benefits: PLAN_BENEFITS.free,
-    cta: 'Começar agora',
-  },
-  {
-    key: 'essential' as const, name: 'Essencial', promise: 'Acompanhe seus padrões', price: 'R$ 19,90', period: '/mês',
-    Icon: LineChart, iconBg: 'bg-mint', iconColor: 'text-forest-600', featured: true,
-    benefits: PLAN_BENEFITS.essential,
-    cta: 'Assinar Essencial',
-  },
-  {
-    key: 'plus' as const, name: 'Plus', promise: 'Receba orientação para agir', price: 'R$ 39,90', period: '/mês',
-    Icon: Star, iconBg: 'bg-coral', iconColor: 'text-[#c05f3c]', coral: true,
-    benefits: PLAN_BENEFITS.plus,
-    cta: 'Assinar Plus',
-  },
-]
+const PLANS = OFFICIAL_PLANS.map(plan => ({
+  key: plan.key,
+  name: plan.label,
+  promise: plan.tagline,
+  price: plan.price,
+  period: plan.key === 'free' ? '' : plan.period,
+  featured: plan.recommended ?? false,
+  benefits: PLAN_BENEFITS[plan.key],
+  ...PLAN_PRESENTATION[plan.key],
+}))
 
 function Cell({ value }: { value: PlanCompareValue }) {
   if (value === true) return <Check className="w-4 h-4 text-forest-600 inline" aria-label="incluído" />
@@ -54,7 +47,7 @@ function Cell({ value }: { value: PlanCompareValue }) {
 export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const current = normalize(currentPlan)
+  const current = normalizePlan(currentPlan)
   const isPaidSubscriber = !!user && current !== 'free'
   const [dynamicPrices, setDynamicPrices] = useState<Record<string, string>>({})
 
@@ -83,7 +76,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     setError(null)
     try {
       const { data, error: fnError } = await supabase.functions.invoke('create-checkout', {
-        body: { plan: CHECKOUT_PLAN[planKey] ?? planKey, origin: window.location.origin },
+        body: { plan: planKey, origin: window.location.origin },
       })
       if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao iniciar o pagamento')
       trackEvent('checkout_started', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
@@ -102,13 +95,12 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
           <p className="mt-3 text-ink-soft">Comece grátis. Evolua quando fizer sentido.</p>
         </div>
 
-        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
           {displayPlans.map(plan => {
             const action = resolvePricingPlanAction(!!user, current, plan.key)
             const isCurrent = action === 'current'
-            const featured = 'featured' in plan && plan.featured
-            const coral = 'coral' in plan && plan.coral
+            const featured = plan.featured
+            const coral = plan.coral ?? false
             const isCheckoutLoading = action === 'checkout' && loadingPlan === plan.key
             return (
               <div
@@ -191,7 +183,6 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
           </div>
         )}
 
-        {/* Tabela comparativa */}
         <div className="mt-14">
           <h2 className="font-serif text-2xl md:text-3xl text-forest-900 text-center mb-6">O que muda em cada plano</h2>
           <div className="border border-line rounded-3xl overflow-hidden bg-paper-soft">
