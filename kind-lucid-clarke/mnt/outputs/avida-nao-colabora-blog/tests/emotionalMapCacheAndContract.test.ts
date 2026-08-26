@@ -94,7 +94,7 @@ test('poucos dados ficam explícitos e não disparam interpretação inventada',
 
 test('guardas de linguagem proíbem diagnóstico, causalidade e prescrição', () => {
   assert.match(fn, /Nunca diagnostique, prescreva, prometa cura ou atribua causalidade/)
-  assert.match(fn, /Não diga que a pessoa \\"tem ansiedade\\"/)
+  assert.match(fn, /Não diga que a pessoa "tem ansiedade"/)
   assert.match(fn, /seus registros sugerem/)
   assert.match(fn, /pode valer observar/)
   assert.match(fn, /FORBIDDEN/)
