@@ -83,8 +83,12 @@ test('Fábrica IA e automação reutilizam o mesmo construtor, parser e validado
 })
 
 test('artigo curto recebe no máximo uma tentativa explícita de expansão em cada fluxo', () => {
-  const factoryGeneration = factory.match(/async function generateArticleContract\([\s\S]*?\n\}/)?.[0] ?? ''
-  const automationPersist = automation.match(/async function persistArticle\([\s\S]*?\n\}/)?.[0] ?? ''
+  const factoryStart = factory.indexOf('async function generateArticleContract(')
+  const factoryEnd = factory.indexOf('\nexport default function AdminFabricaIA()', factoryStart)
+  const automationStart = automation.indexOf('async function persistArticle(')
+  const automationEnd = automation.indexOf('\nasync function executeArticleAutomation(', automationStart)
+  const factoryGeneration = factoryStart >= 0 && factoryEnd > factoryStart ? factory.slice(factoryStart, factoryEnd) : ''
+  const automationPersist = automationStart >= 0 && automationEnd > automationStart ? automation.slice(automationStart, automationEnd) : ''
   assert.notEqual(factoryGeneration, '')
   assert.notEqual(automationPersist, '')
   assert.equal((factoryGeneration.match(/buildArticleExpansionPrompt\(/g) ?? []).length, 1)
