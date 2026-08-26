@@ -10,7 +10,7 @@ import {
   parseArticlePackages,
   validateArticlePackage,
   type ArticleAIContract,
-} from '../../../supabase/functions/_shared/articleGenerationContract'
+} from '../../lib/articleGenerationContract'
 import { Sparkles, Loader2, Save, Layers, FileText } from 'lucide-react'
 
 interface Template { id: string; template_key: string; name: string; content_type: string; prompt: string }
