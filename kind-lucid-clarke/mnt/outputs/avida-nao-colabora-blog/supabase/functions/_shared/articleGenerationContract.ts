@@ -146,8 +146,8 @@ export function buildArticleGenerationPrompt(options: ArticlePromptOptions): str
   const category = (options.category || 'saúde emocional').trim()
   const audience = (options.audience || 'público geral').trim()
   const keyword = (options.keyword || '').trim()
-  const containerStart = quantity === 1 ? '{' : '{"articles":['
-  const containerEnd = quantity === 1 ? '}' : ']}'
+  const containerStart = quantity === 1 ? '{' : '{"articles":[{'
+  const containerEnd = quantity === 1 ? '}' : '}]}'
 
   return `Você escreve para o blog A Vida Não Colabora. Gere ${quantity === 1 ? 'UM artigo' : `exatamente ${quantity} artigos distintos`} em português brasileiro.
 Temas disponíveis: ${themes.join(' | ') || 'saúde emocional'}.
