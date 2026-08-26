@@ -347,7 +347,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   }
 
   const organizeWriting = async () => {
-    if (!aiAllowed) { setOrganizedCandidate(''); setError('A análise por IA está desativada para este registro. Seu texto permanece somente com você.'); return }
+    if (!aiAllowed) { setOrganizedCandidate(''); setError('A leitura complementar está desativada para este registro. Seu texto permanece salvo normalmente.'); return }
     if (!draft.trim() || organizing) return
     setOrganizing(true); setError('')
     try {
@@ -691,9 +691,9 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                       <div className="mt-4 flex flex-col items-start gap-1">
                         <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer">
                           <input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" />
-                          <span className="font-medium text-forest-800">Salvar sem análise de IA</span>
+                          <span className="font-medium text-forest-800">Salvar sem leitura complementar</span>
                         </label>
-                        <p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Opcional. Seu registro continua salvo normalmente.' : 'Privacidade ativada: este texto não será enviado à IA.'}</p>
+                        <p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Opcional. Seu registro continua salvo normalmente.' : 'Leitura complementar desativada: seu registro será salvo normalmente.'}</p>
                         {isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês. Check-ins continuam ilimitados.</p>}
                       </div>
                     </>
