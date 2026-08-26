@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Activity, Plug, ClipboardList, Shield, Zap } from 'lucide-react'
-import AdminSystemHealth from './AdminSystemHealth'
+import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
 import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
@@ -9,8 +9,9 @@ import AdminAutomationsHealth from './AdminAutomationsHealth'
 // Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
 // serviços (Supabase/Stripe/IA/e-mail/hospedagem) — não é mais texto fixo. A
 // antiga aba "IA" (marketing estático, sem controle) foi removida.
-// "Automações" mostra o status real de todos os cron jobs: antes só existiam
-// duas RPCs de healthcheck (editorial/emocional) que nenhuma tela chamava.
+// "Automações" mostra o status real de todos os cron jobs. A Saúde do sistema
+// começa por uma leitura em linguagem de produto e mantém o diagnóstico técnico
+// existente disponível como detalhe secundário, sem perder ferramentas de reparo.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
   { id: 'automacoes', label: 'Automações', icon: Zap },
@@ -37,7 +38,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
     <div className="flex flex-col min-h-0">
       <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
         <h1 className="font-serif text-3xl text-forest-900">Sistema</h1>
-        <p className="text-sm text-ink-soft mt-1">Monitore a saúde do sistema, as integrações, os logs de auditoria e as permissões de plano.</p>
+        <p className="text-sm text-ink-soft mt-1">Monitore a saúde do produto, as automações, as integrações, os logs de auditoria e as permissões.</p>
       </div>
       <div className="border-b border-line bg-white sticky top-0 z-10">
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas do Sistema">
@@ -61,7 +62,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
         </nav>
       </div>
       <div className="flex-1">
-        {tab === 'saude' && <AdminSystemHealth />}
+        {tab === 'saude' && <AdminSystemHealthFriendly />}
         {tab === 'automacoes' && <AdminAutomationsHealth />}
         {tab === 'integracoes' && <AdminIntegrations />}
         {tab === 'logs' && <AdminLogs />}
