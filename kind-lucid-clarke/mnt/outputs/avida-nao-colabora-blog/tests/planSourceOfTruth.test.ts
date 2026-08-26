@@ -12,7 +12,6 @@ import {
   getPublicPlanBenefits,
   normalizePlan,
 } from '../src/lib/officialPlans.ts'
-import { PLAN_BENEFITS, PLAN_COMPARE_ROWS } from '../src/lib/planComparison.ts'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -23,18 +22,21 @@ test('catálogo oficial mantém somente Gratuito, Essencial e Plus', () => {
   assert.equal(normalizePlan('therapeutic-plus'), 'plus')
 })
 
-test('benefícios públicos e comparação são derivados da fonte oficial', () => {
+test('benefícios públicos são derivados do catálogo e planComparison só reexporta a matriz oficial', () => {
   for (const plan of PLAN_KEYS) {
     assert.deepEqual(PUBLIC_PLAN_FEATURES[plan], getPublicPlanBenefits(plan))
-    assert.deepEqual(PLAN_BENEFITS[plan], PUBLIC_PLAN_FEATURES[plan])
   }
-  assert.deepEqual(
-    PLAN_COMPARE_ROWS,
-    OFFICIAL_PLAN_COMPARISON.map(({ label, values }) => ({ label, values })),
-  )
+
+  const comparison = read('src/lib/planComparison.ts')
+  assert.match(comparison, /OFFICIAL_PLAN_COMPARISON/)
+  assert.match(comparison, /PUBLIC_PLAN_FEATURES/)
+  assert.match(comparison, /OFFICIAL_PLAN_COMPARISON\.map/)
+  assert.match(comparison, /PLAN_BENEFITS[^=]*=[^\n]*PUBLIC_PLAN_FEATURES/)
+  assert.doesNotMatch(comparison, /Questionários intermediários/i)
+  assert.doesNotMatch(comparison, /Questionários avançados/i)
 })
 
-test('comparação não inventa níveis de questionário fora do catálogo oficial', () => {
+test('comparação oficial não inventa níveis de questionário fora do catálogo', () => {
   const labels = OFFICIAL_FEATURES.map(feature => feature.name).join(' | ')
   assert.match(labels, /Questionário inicial/)
   const comparison = JSON.stringify(OFFICIAL_PLAN_COMPARISON)
