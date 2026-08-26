@@ -1,60 +1,47 @@
 import type { Plan } from '../types'
+import {
+  OFFICIAL_FEATURES,
+  OWN_FEATURE_KEYS,
+  PLAN_KEYS,
+  PLAN_RANK,
+  normalizePlan,
+  resolveKey,
+  type PlanKey,
+} from './officialPlans'
 
-const PLAN_ORDER: Record<string, number> = {
-  free: 0,
-  essential: 1,
-  plus: 2,
-  // legados → mesmo tier do Plus
-  therapeutic: 2,
-  'therapeutic-plus': 2,
+// Compatibilidade para consumidores antigos: a ordem agora é um alias direto da
+// hierarquia oficial, em vez de uma segunda tabela independente.
+export const PLAN_ORDER = PLAN_RANK
+
+// Descobre o piso de cada recurso a partir do catálogo oficial e das features
+// próprias de cada plano. Aliases passam por resolveKey(), portanto não existe
+// mais um segundo FEATURE_PLAN_FLOOR para manter manualmente.
+function minimumPlanForFeature(featureKey: string): PlanKey | null {
+  const canonicalKey = resolveKey(featureKey)
+  const exists = OFFICIAL_FEATURES.some(feature => feature.key === canonicalKey)
+  if (!exists) return null
+  return PLAN_KEYS.find(plan => OWN_FEATURE_KEYS[plan].includes(canonicalKey)) ?? null
 }
 
-// Pisos por recurso — SOMENTE os recursos dos 3 planos oficiais (§17).
-// Nada de pausas emocionais/pdf/suporte isolados, diário avançado, marcadores extras,
-// recomendações, acesso antecipado, avaliações semanais, anúncios etc.
-const FEATURE_PLAN_FLOOR: Record<string, Plan> = {
-  // Gratuito
-  articles_free: 'free',                 // blog aberto
-  wellbeing_diary_5_month: 'free',       // diário emocional básico
-  wellbeing_diary_limited: 'free',       // (alias de compat)
-  diary_monthly_limit_5: 'free',         // (alias de compat)
-  simple_mood_checkin: 'free',
-  basic_self_assessment: 'free',         // questionário inicial
-  biweekly_auto_challenges: 'free',      // algumas práticas guiadas
-
-  // Essencial
-  diary_unlimited: 'essential',          // diário ilimitado
-  diary_mood_symptoms_summary: 'essential', // mapa emocional completo
-  full_history: 'essential',             // histórico e gráficos
-  simple_evolution_charts: 'essential',
-  emotional_exercise_library: 'essential', // conteúdos guiados completos
-  weekly_assessments: 'essential',       // relatório semanal automático
-
-  // Plus
-  personalized_self_care_plan: 'plus',            // plano de autocuidado mensal
-  advanced_monthly_report: 'plus',                // relatório mensal aprofundado
-  professional_comment_on_monthly_report: 'plus', // comentário profissional mensal
-  monthly_message_guidance: 'plus',               // orientação mensal por mensagem
-}
-
-// Runtime cache from plan_feature_access table (populated via loadPlanAccess())
+// Runtime cache from plan_feature_access table (populated via loadPlanAccess()).
 let runtimeAccess: Record<string, Record<string, boolean>> | null = null
 
 export function canAccessFeature(userPlan: Plan | string | null | undefined, featureKey: string): boolean {
   const raw = String(userPlan || 'free')
-  const norm = raw === 'therapeutic' || raw === 'therapeutic-plus' || raw === 'therapeutic_plus' ? 'plus' : raw
+  const norm = normalizePlan(raw)
+  const canonicalKey = resolveKey(featureKey)
 
-  // Cache runtime (plan_feature_access): tenta o plano e o normalizado. Se não houver
-  // linha para o plano (ex.: banco ainda sem 'plus'), cai no fallback estático em vez
-  // de bloquear tudo.
+  // Cache runtime (plan_feature_access): tenta o plano bruto e o normalizado. As
+  // chaves são normalizadas ao carregar para que aliases legados não criem uma
+  // matriz paralela de autorização.
   if (runtimeAccess) {
     const row = runtimeAccess[raw] ?? runtimeAccess[norm]
-    if (row) return row[featureKey] ?? false
+    if (row) return row[canonicalKey] ?? false
   }
 
-  const floor = FEATURE_PLAN_FLOOR[featureKey]
+  const floor = minimumPlanForFeature(canonicalKey)
   if (!floor) return false
-  return (PLAN_ORDER[norm] ?? 0) >= (PLAN_ORDER[floor] ?? 99)
+  return PLAN_RANK[norm] >= PLAN_RANK[floor]
 }
 
 export async function loadPlanAccess(supabaseClient: {
@@ -67,8 +54,9 @@ export async function loadPlanAccess(supabaseClient: {
 
   const map: Record<string, Record<string, boolean>> = {}
   for (const row of data) {
-    if (!map[row.plan_key]) map[row.plan_key] = {}
-    map[row.plan_key][row.feature_key] = row.enabled
+    const planKey = normalizePlan(row.plan_key)
+    if (!map[planKey]) map[planKey] = {}
+    map[planKey][resolveKey(row.feature_key)] = row.enabled
   }
   runtimeAccess = map
   return map
@@ -77,5 +65,3 @@ export async function loadPlanAccess(supabaseClient: {
 export function clearPermissionsCache() {
   runtimeAccess = null
 }
-
-export { PLAN_ORDER }
