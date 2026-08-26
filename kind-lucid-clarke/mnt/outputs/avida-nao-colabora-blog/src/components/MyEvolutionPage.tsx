@@ -22,8 +22,12 @@ import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 import { getTagCategory, type TagCategory } from '../lib/tagCategories'
 
+// ─── Constantes e helpers ──────────────────────────────────────────────────────
+
 const DISCLAIMER = EMOTIONAL_SUPPORT_DISCLAIMER
 
+// Mapa Emocional é SÓ visualização (§10): Resumo + Gráficos. As demais funções
+// (Relatórios, Plano de Autocuidado, Orientação, Comentário) ficam nos seus menus.
 export type Tab = 'resumo' | 'graficos'
 
 function monthLabel(key: string) {
@@ -31,9 +35,12 @@ function monthLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
+// Delega para a fonte única (normaliza legados e reconhece 'plus' corretamente).
 function hasPlan(userPlan: string, required: string) {
   return hasPlanAccess(userPlan, required)
 }
+
+// ─── Subcomponentes utilitários ────────────────────────────────────────────────
 
 function LockedSection({ requiredPlan, onNavigatePricing, message }: {
   requiredPlan: string
@@ -56,6 +63,11 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
   )
 }
 
+
+// §8 do audit: "Conexões do mês" extraído em componente reutilizável pra viver
+// como card premium na aba Resumo (visível de cara) em vez de só nos Gráficos.
+// context_tags/emotional_tags/need_tags/care_action_tags — nunca trigger_tags
+// (gatilhos reais ficam numa seção própria, só com dados de trigger_tags).
 function MonthlyConnectionsCard({ connections }: { connections: MonthlyConnection[] }) {
   return (
     <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -97,6 +109,8 @@ function MonthlyConnectionsTeaser({ onNavigatePricing }: { onNavigatePricing: ()
   )
 }
 
+// ─── Props principal ───────────────────────────────────────────────────────────
+
 interface Props {
   user: User | null
   profile: Profile | null
@@ -107,6 +121,8 @@ interface Props {
   onOpenArticle?: (slug: string) => void
   initialTab?: Tab
 }
+
+// ─── Dados do diário ──────────────────────────────────────────────────────────
 
 interface DiaryStats {
   totalEntries: number
@@ -135,6 +151,8 @@ const MOOD_LABELS: Record<number, string> = {
   1: 'Muito baixo', 2: 'Baixo', 3: 'Neutro', 4: 'Bom', 5: 'Muito bom',
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigate, onOpenArticle, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
@@ -150,6 +168,7 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Header */}
       <header className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -162,6 +181,7 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         </div>
       </header>
 
+      {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-6 -mx-1 px-1">
         {tabs.map(t => {
           const locked = !hasPlan(plan, t.minPlan)
@@ -185,11 +205,14 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         })}
       </div>
 
+      {/* Tab content — SÓ visualização */}
       <div>
         {tab === 'resumo' && <TabResumo plan={plan} user={user} onNavigatePricing={onNavigatePricing} onNavigateDiary={onNavigateDiary} />}
         {tab === 'graficos' && <TabGraficos plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
       </div>
 
+      {/* Conteúdos relacionados aos seus padrões recentes (§9.4) — bloco discreto,
+          personalizado (Essencial+). Some sozinho quando não há dados/relação. */}
       {onOpenArticle && hasPlan(plan, 'essential') && (
         <section className="mt-8 border-t border-line pt-6">
           <RecommendedContent
@@ -204,6 +227,7 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         </section>
       )}
 
+      {/* Próximos passos — atalhos discretos (§10.4). Cada função tem a sua própria área no menu. */}
       {onNavigate && (
         <section className="mt-8 border-t border-line pt-6">
           <h2 className="font-serif text-lg text-forest-900 mb-1">Próximos passos</h2>
@@ -221,6 +245,8 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
     </div>
   )
 }
+
+// ─── Hook compartilhado: carrega stats do diário ──────────────────────────────
 
 function useDiaryStats(userId: string | undefined, selectedMonth: string) {
   const [stats, setStats] = useState<DiaryStats>(emptyStats)
@@ -241,6 +267,8 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
     const prevEnd = start
 
     Promise.all([
+      // `date` é o dia emocional escolhido pela pessoa. Horário, fuso ou uma
+      // edição tardia não devem mover um registro de mês.
       supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,stress_level,emotional_tags,date,created_at').eq('user_id', userId).gte('date', start).lt('date', end),
       supabase.from('diary_entries').select('mood,mood_score,energy,sleep_quality,date,created_at').eq('user_id', userId).gte('date', prevStart).lt('date', prevEnd),
     ]).then(([curr, prev]) => {
@@ -250,11 +278,17 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
       type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; stress_level?: number; emotional_tags?: string[] | string; date?: string; created_at: string }
       const entryDay = (e: DiaryRow) => new Date(e.date || e.created_at).getDate()
+      // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número na
+      // escala oficial 1–5 (Bem-estar=5, Outro=3, Sobrecarga=1). Dados antigos em
+      // 1–10 foram normalizados para 1–5 pela migration 080, então aqui só validamos
+      // a faixa. (Não dividir por 2: mood_score já vem em 1–5.)
       const moodTo5 = (e: DiaryRow): number => {
         const s = Number(e.mood_score)
         if (!Number.isFinite(s) || s <= 0) return 0
         return Math.min(5, Math.max(1, Math.round(s)))
       }
+      // §8: com check-in ILIMITADO, um dia com muitos check-ins não pode distorcer as
+      // médias do mês. Cada métrica é a MÉDIA DAS MÉDIAS DIÁRIAS (um valor por dia).
       const avgByDay = (rows: DiaryRow[], getVal: (e: DiaryRow) => number): number => {
         const byDay = new Map<number, number[]>()
         rows.forEach((e) => {
@@ -289,6 +323,10 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         weeklyEntries[weekIdx]++
       })
 
+      // Agrega por DIA do calendário (média do humor do dia). O usuário pode ter
+      // vários registros no mesmo dia (check-ins + diário completo), então isso mantém
+      // 1 ponto por dia: deixa o "% dos dias" honesto e evita pontos/células duplicados
+      // no gráfico de evolução e no heatmap.
       const moodByDay = new Map<number, number[]>()
       ;(entries as DiaryRow[]).forEach((e) => {
         const m = moodTo5(e)
@@ -325,6 +363,8 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
   return { stats, loading }
 }
 
+// ─── Sinais estruturados de questionários ────────────────────────────────────
+
 type QuestionnaireSignalView = {
   questionnaireId: string
   title: string
@@ -360,6 +400,7 @@ function useQuestionnaireSignals(userId: string | undefined, selectedMonth: stri
     const start = `${selectedMonth}-01T00:00:00-03:00`
     const end = `${nextMonth}-01T00:00:00-03:00`
 
+    // PRIVACIDADE: não seleciona `answers`; respostas abertas não entram no Mapa.
     supabase.from('questionnaire_responses')
       .select('questionnaire_id,total_score,generated_tags,result_id,completed_at')
       .eq('user_id', userId)
@@ -434,6 +475,8 @@ function QuestionnaireSignalsCard({ summary }: { summary: QuestionnaireSignalSum
   )
 }
 
+// ─── ABA: Resumo ─────────────────────────────────────────────────────────────
+
 const Y_LABELS: Record<number, string> = { 1: 'Muito difícil', 2: 'Difícil', 3: 'Neutro', 4: 'Bem', 5: 'Ótimo' }
 
 function heatColor(mood: number) {
@@ -493,6 +536,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   const { stats, loading } = useDiaryStats(user?.id, selectedMonth)
   const questionnaireSignals = useQuestionnaireSignals(user?.id, selectedMonth)
   const isPlus = hasPlan(plan, 'plus')
+  // Só busca entries pra Conexões do mês quando o plano realmente usa o card
+  // (Plus renderiza completo; useMonthAnalysis já tem seu próprio loading interno).
   const { entries: connectionEntries } = useMonthAnalysis(isPlus ? user?.id : undefined, selectedMonth)
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
@@ -511,6 +556,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
+      {/* Visão geral: anel + gráfico */}
       <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
         <h3 className="font-serif text-lg sm:text-xl text-forest-900">Visão geral da sua evolução emocional</h3>
         <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(selectedMonth)}.</p>
@@ -532,7 +578,11 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
                   <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#5F6661' }} axisLine={false} tickLine={false} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tickFormatter={(v: number) => Y_LABELS[v] ?? String(v)} tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} width={78} />
-                  <Tooltip formatter={(v: number) => [Y_LABELS[Math.round(v)] ?? v, 'Humor']} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(v: number) => [Y_LABELS[Math.round(v)] ?? v, 'Humor']}
+                    labelFormatter={(l) => `Dia ${l}`}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }}
+                  />
                   <Area type="monotone" dataKey="humor" stroke="#1c4a37" strokeWidth={2} fill="url(#humorFill)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -543,6 +593,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       </div>
 
+      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <MetricTile icon={<Smile className="w-4 h-4" />} label="Humor médio" value={stats.avgMood > 0 ? `${stats.avgMood.toFixed(1)}/5` : '—'} trend={trend(stats.avgMood, stats.prevMonthAvgMood)} />
         {isEssential ? (
@@ -551,6 +602,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
             <MetricTile icon={<Moon className="w-4 h-4" />} label="Sono" value={stats.avgSleep > 0 ? `${stats.avgSleep.toFixed(1)}/5` : '—'} trend={trend(stats.avgSleep, stats.prevMonthAvgSleep)} />
             <MetricTile icon={<Waves className="w-4 h-4" />} label="Ansiedade" value={stats.avgAnxiety > 0 ? `${stats.avgAnxiety.toFixed(1)}/5` : '—'} goodDown />
             <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Marcadores emocionais" value={stats.topTags[0] ?? '—'} sub={stats.topTags.slice(0, 3).join(' · ') || undefined} />
+            {/* Autoestima e estresse são campos avançados do Plus (diaryConfig.ts) — só
+                existem no diário do Plus, então só aparecem como métrica do Plus aqui. */}
             {isPlus && <MetricTile icon={<Heart className="w-4 h-4" />} label="Autoestima" value={stats.avgSelfEsteem > 0 ? `${stats.avgSelfEsteem.toFixed(1)}/5` : '—'} />}
             {isPlus && <MetricTile icon={<Flame className="w-4 h-4" />} label="Estresse" value={stats.avgStress > 0 ? `${stats.avgStress.toFixed(1)}/5` : '—'} goodDown />}
           </>
@@ -563,20 +616,30 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         )}
       </div>
 
+      {/* Marcadores */}
       {isEssential && stats.topTags.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5">
           <h3 className="font-serif text-base text-forest-900 mb-3">Marcadores mais registrados por você</h3>
-          <div className="flex flex-wrap gap-2">{stats.topTags.map(tag => <span key={tag} className="bg-mint text-forest-700 text-xs px-3 py-1 rounded-full">{tag}</span>)}</div>
+          <div className="flex flex-wrap gap-2">
+            {stats.topTags.map(tag => (
+              <span key={tag} className="bg-mint text-forest-700 text-xs px-3 py-1 rounded-full">{tag}</span>
+            ))}
+          </div>
         </div>
       )}
 
       <QuestionnaireSignalsCard summary={questionnaireSignals} />
 
+      {/* Linha do tempo emocional */}
       {chartData.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
           <h3 className="font-serif text-base sm:text-lg text-forest-900">Seu período em cores</h3>
           <p className="text-sm text-ink-soft mt-1 mb-4">Seu mês em cores, um registro por dia.</p>
-          <div className="flex flex-wrap gap-1.5">{chartData.map(d => <span key={d.day} title={`Dia ${d.day} · ${Y_LABELS[Math.round(d.humor)] ?? ''}`} className={`w-5 h-5 rounded-md ${heatColor(d.humor)}`} />)}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {chartData.map(d => (
+              <span key={d.day} title={`Dia ${d.day} · ${Y_LABELS[Math.round(d.humor)] ?? ''}`} className={`w-5 h-5 rounded-md ${heatColor(d.humor)}`} />
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-3 mt-4 text-[11px] text-ink-soft">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-forest-600" /> Ótimo</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-forest-300" /> Bem</span>
@@ -587,8 +650,13 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
-      {isPlus ? <MonthlyConnectionsCard connections={monthlyConnections(connectionEntries)} /> : isEssential && <MonthlyConnectionsTeaser onNavigatePricing={onNavigatePricing} />}
+      {/* Conexões do mês — card premium Plus, visível já na aba Resumo (§8 do
+          audit). Essencial vê teaser bloqueado; Gratuito não vê (sem Mapa completo). */}
+      {isPlus
+        ? <MonthlyConnectionsCard connections={monthlyConnections(connectionEntries)} />
+        : isEssential && <MonthlyConnectionsTeaser onNavigatePricing={onNavigatePricing} />}
 
+      {/* Resumo da jornada */}
       <div className="rounded-3xl border border-line bg-mint/40 p-5 sm:p-6">
         <h3 className="font-serif text-base sm:text-lg text-forest-900 flex items-center gap-2"><Leaf className="w-4 h-4 text-forest-500" /> Resumo da sua jornada</h3>
         <p className="text-sm text-forest-800 mt-2 leading-relaxed">
@@ -596,9 +664,12 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
             ? `Você fez ${stats.totalEntries} ${stats.totalEntries === 1 ? 'registro' : 'registros'} em ${monthLabel(selectedMonth)}. Olhar para o que sente, um dia de cada vez, já é uma forma de cuidado. Continue assim.`
             : `Ainda não há registros em ${monthLabel(selectedMonth)}. Um pequeno registro por dia já ajuda a entender seus padrões. Comece quando quiser.`}
         </p>
-        <button onClick={onNavigateDiary} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:gap-2 transition-all"><BookOpen className="w-4 h-4" /> Ir para o diário</button>
+        <button onClick={onNavigateDiary} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:gap-2 transition-all">
+          <BookOpen className="w-4 h-4" /> Ir para o diário
+        </button>
       </div>
 
+      {/* Gratuito: CTA para o Mapa completo */}
       {!isEssential && (
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
@@ -607,10 +678,13 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
+      {/* Plus: como o Mapa se conecta às demais funções */}
       {isPlus && (
         <div className="rounded-3xl border border-line bg-paper-soft px-6 py-5 flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Leaf className="w-4 h-4" /></span>
-          <p className="text-sm text-forest-800 leading-relaxed">No plano Plus, o seu Mapa Emocional também alimenta o <strong>relatório mensal aprofundado</strong>, o <strong>plano de autocuidado</strong> e a <strong>orientação mensal</strong>. Registros do diário continuam sendo a base principal, e resultados estruturados de questionários concluídos podem complementar o contexto sem usar respostas abertas.</p>
+          <p className="text-sm text-forest-800 leading-relaxed">
+            No plano Plus, o seu Mapa Emocional também alimenta o <strong>relatório mensal aprofundado</strong>, o <strong>plano de autocuidado</strong> e a <strong>orientação mensal</strong>. Registros do diário continuam sendo a base principal, e resultados estruturados de questionários concluídos podem complementar o contexto sem usar respostas abertas.
+          </p>
         </div>
       )}
 
@@ -619,6 +693,9 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   )
 }
 
+// ─── ABA: Gráficos ────────────────────────────────────────────────────────────
+
+// Carrega os registros brutos do mês (e do anterior) para a análise emocional.
 function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
   const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
   const [entries, setEntries] = useState<DiaryRowLite[]>([])
@@ -641,7 +718,10 @@ function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
     ]).then(([cur, prev]) => {
       const current = (cur.data ?? []) as DiaryRowLite[]
       const previous = (prev.data ?? []) as DiaryRowLite[]
-      setEntries(current); setPrevEntries(previous); setAnalysis(computeEmotionalAnalysis(current, previous)); setLoading(false)
+      setEntries(current)
+      setPrevEntries(previous)
+      setAnalysis(computeEmotionalAnalysis(current, previous))
+      setLoading(false)
     })
   }, [userId, selectedMonth])
   return { analysis, entries, prevEntries, period, loading }
@@ -662,6 +742,7 @@ function monthlyConnections(entries: DiaryRowLite[]): MonthlyConnection[] {
   return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5)
 }
 
+// Gráfico de linha compacto (recharts) para energia/ansiedade por dia.
 function LineChartCard({ title, subtitle, data, color, yLabels }: {
   title: string; subtitle: string; data: { day: number; value: number }[]; color: string; yLabels: Record<number, string>
 }) {
@@ -670,21 +751,55 @@ function LineChartCard({ title, subtitle, data, color, yLabels }: {
       <h3 className="font-serif text-base text-forest-900">{title}</h3>
       <p className="text-xs text-ink-soft mt-0.5 mb-3">{subtitle}</p>
       {data.length > 1 ? (
-        <div className="h-40"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}><defs><linearGradient id={`g-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.25} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} /><XAxis dataKey="day" tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} /><YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 9, fill: '#5F6661' }} axisLine={false} tickLine={false} width={22} /><Tooltip formatter={(v: number) => [`${v} · ${yLabels[Math.round(v)] ?? ''}`, title]} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }} /><Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#g-${color.replace('#', '')})`} /></AreaChart></ResponsiveContainer></div>
-      ) : <p className="text-xs text-ink-soft py-6 text-center">Poucos registros para traçar a linha. Continue registrando check-ins.</p>}
+        <div className="h-40">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`g-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 9, fill: '#5F6661' }} axisLine={false} tickLine={false} width={22} />
+              <Tooltip formatter={(v: number) => [`${v} · ${yLabels[Math.round(v)] ?? ''}`, title]} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }} />
+              <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#g-${color.replace('#', '')})`} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="text-xs text-ink-soft py-6 text-center">Poucos registros para traçar a linha. Continue registrando check-ins.</p>
+      )}
     </div>
   )
 }
 
+// Frequência de uma categoria de tag (contexto/necessidade/cuidado) — chips
+// coloridos por categoria em vez de barra, já que aqui a cor É a leitura.
 function TagFreqPanel({ title, items, category }: { title: string; items: { tag: string; count: number }[]; category: TagCategory }) {
   return (
     <div className="bg-paper-soft border border-line rounded-2xl p-5">
       <h3 className="font-serif text-base text-forest-900 mb-3">{title}</h3>
-      {items.length > 0 ? <div className="flex flex-wrap gap-2">{items.map(it => <span key={it.tag} className="inline-flex items-center gap-1.5"><DiaryTagChip label={it.tag} category={category} /><span className="text-[10px] text-ink-soft">×{it.count}</span></span>)}</div> : <p className="text-xs text-ink-soft py-4 text-center">Sem registros suficientes ainda.</p>}
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map(it => (
+            <span key={it.tag} className="inline-flex items-center gap-1.5">
+              <DiaryTagChip label={it.tag} category={category} />
+              <span className="text-[10px] text-ink-soft">×{it.count}</span>
+            </span>
+          ))}
+        </div>
+      ) : <p className="text-xs text-ink-soft py-4 text-center">Sem registros suficientes ainda.</p>}
     </div>
   )
 }
 
+// "Entender meu mapa com IA" (MISSÃO GERAL, PARTE 3): botão que envia SÓ o
+// resumo estruturado (buildEmotionalSummary + sinais de questionário) para a
+// Edge Function explain-emotional-map. Nunca envia diário bruto, respostas
+// abertas de questionário, orientação ou mensagens privadas — código já
+// calculou tudo; a IA só interpreta o que já está pronto.
 function ExplainMapCard({ summary, previous, questionnaireSignals }: {
   summary: EmotionalSummary
   previous: { period_start: string; period_end: string; active_days: number; total_entries: number; dominant_emotions: EmotionalSummary['dominant_emotions']; averages: EmotionalSummary['averages'] } | null
@@ -701,41 +816,95 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
     if (force) setRefreshing(true)
     setErrorMessage('')
     try {
-      const response = await explainEmotionalMap({ current: summary, previous, questionnaire_signals: { completedCount: questionnaireSignals.completedCount, topTags: questionnaireSignals.topTags }, force })
-      setLowSample(!!response.low_sample); setResult(response.result ?? null); setState('done')
+      const response = await explainEmotionalMap({
+        current: summary,
+        previous,
+        questionnaire_signals: { completedCount: questionnaireSignals.completedCount, topTags: questionnaireSignals.topTags },
+        force,
+      })
+      setLowSample(!!response.low_sample)
+      setResult(response.result ?? null)
+      setState('done')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível gerar a leitura do mapa agora.'); setState('error')
-    } finally { setRefreshing(false) }
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível gerar a leitura do mapa agora.')
+      setState('error')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   return (
     <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
       <div className="flex items-center gap-2">
         <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
-        <h3 className="font-serif text-lg text-forest-900">Entender melhor meu mapa</h3>
+        <h3 className="font-serif text-lg text-forest-900">Entender meu mapa com IA</h3>
       </div>
       <p className="text-xs text-ink-soft mt-1 mb-4">Uma leitura curta do período selecionado, a partir dos dados já calculados acima — sem inventar médias ou frequências.</p>
 
-      {state === 'idle' && <button onClick={() => void handleClick(false)} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors"><Sparkles className="w-4 h-4" /> Entender melhor meu mapa</button>}
-      {state === 'loading' && <div className="flex items-center gap-2 text-sm text-ink-soft"><Loader2 className="w-4 h-4 animate-spin" /> Lendo seus dados deste período…</div>}
-      {state === 'error' && <div className="space-y-2"><p className="text-sm text-coral">{errorMessage}</p><button onClick={() => void handleClick(false)} className="text-xs font-medium text-forest-700 underline">Tentar novamente</button></div>}
+      {state === 'idle' && (
+        <button onClick={() => void handleClick(false)} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
+          <Sparkles className="w-4 h-4" /> Entender meu mapa com IA
+        </button>
+      )}
+
+      {state === 'loading' && (
+        <div className="flex items-center gap-2 text-sm text-ink-soft"><Loader2 className="w-4 h-4 animate-spin" /> Lendo seus dados deste período…</div>
+      )}
+
+      {state === 'error' && (
+        <div className="space-y-2">
+          <p className="text-sm text-coral">{errorMessage}</p>
+          <button onClick={() => void handleClick(false)} className="text-xs font-medium text-forest-700 underline">Tentar novamente</button>
+        </div>
+      )}
 
       {state === 'done' && result && (
-        lowSample ? <p className="text-sm text-forest-800 bg-paper-soft rounded-xl p-4">{result.what_stands_out}</p> : (
+        lowSample ? (
+          <p className="text-sm text-forest-800 bg-paper-soft rounded-xl p-4">{result.what_stands_out}</p>
+        ) : (
           <div className="space-y-3">
             {result.title && <h4 className="font-serif text-base text-forest-900">{result.title}</h4>}
-            <div><p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mais apareceu</p><p className="text-sm text-forest-800 mt-0.5">{result.what_stands_out}</p></div>
-            {result.possible_connections.length > 0 && <div><p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Conexões que valem observar</p><ul className="mt-0.5 space-y-1">{result.possible_connections.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}</ul></div>}
-            {result.helpful_signals.length > 0 && <div><p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que parece ter ajudado</p><ul className="mt-0.5 space-y-1">{result.helpful_signals.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}</ul></div>}
-            {result.what_to_observe.length > 0 && <div><p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Algo para observar</p><ul className="mt-0.5 space-y-1">{result.what_to_observe.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}</ul></div>}
-            <div className="rounded-xl bg-mint/40 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Uma pergunta para refletir</p><p className="text-sm text-forest-900 mt-0.5">{result.reflection_question}</p></div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que mais apareceu</p>
+              <p className="text-sm text-forest-800 mt-0.5">{result.what_stands_out}</p>
+            </div>
+            {result.possible_connections.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Conexões que valem observar</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.possible_connections.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.helpful_signals.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">O que parece ter ajudado</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.helpful_signals.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.what_to_observe.length > 0 && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Algo para observar</p>
+                <ul className="mt-0.5 space-y-1">
+                  {result.what_to_observe.map((item, i) => <li key={i} className="text-sm text-forest-800 flex gap-1.5"><span className="text-forest-400">•</span>{item}</li>)}
+                </ul>
+              </div>
+            )}
+            <div className="rounded-xl bg-mint/40 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-forest-500">Uma pergunta para refletir</p>
+              <p className="text-sm text-forest-900 mt-0.5">{result.reflection_question}</p>
+            </div>
             {result.data_quality_notice && <p className="text-xs text-ink-soft">{result.data_quality_notice}</p>}
-            <button onClick={() => void handleClick(true)} disabled={refreshing} className="inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 hover:text-forest-900 disabled:opacity-60">{refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Atualizar leitura</button>
+            <button onClick={() => void handleClick(true)} disabled={refreshing} className="inline-flex items-center gap-1.5 text-xs font-medium text-forest-700 hover:text-forest-900 disabled:opacity-60">
+              {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Atualizar leitura
+            </button>
           </div>
         )
       )}
 
-      <p className="text-[11px] text-ink-soft mt-4 pt-3 border-t border-forest-100">Esta leitura considera apenas os dados resumidos deste mapa, sem usar o texto completo do seu Diário.</p>
+      <p className="text-[11px] text-ink-soft mt-4 pt-3 border-t border-forest-100">A IA analisa apenas os dados resumidos deste mapa, não o texto completo do seu Diário.</p>
     </section>
   )
 }
@@ -745,13 +914,24 @@ const PERIOD_ICON: Record<string, React.ReactNode> = {
   tarde: <Sunset className="w-4 h-4" />, noite: <Moon className="w-4 h-4" />,
 }
 
-function TabGraficos({ plan, user, onNavigatePricing }: { plan: string; user: User | null; onNavigatePricing: () => void }) {
+function TabGraficos({ plan, user, onNavigatePricing }: {
+  plan: string; user: User | null; onNavigatePricing: () => void
+}) {
   const [selectedMonth, setSelectedMonth] = useState(monthKey())
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return monthKey(d) })
   const { analysis, entries, prevEntries, period, loading } = useMonthAnalysis(user?.id, selectedMonth)
   const questionnaireSignals = useQuestionnaireSignals(user?.id, selectedMonth)
 
-  if (!hasPlan(plan, 'essential')) return <LockedSection requiredPlan="essential" message="Os gráficos e padrões do Mapa Emocional completo estão disponíveis a partir do plano Essencial." onNavigatePricing={onNavigatePricing} />
+  if (!hasPlan(plan, 'essential')) {
+    return (
+      <LockedSection
+        requiredPlan="essential"
+        message="Os gráficos e padrões do Mapa Emocional completo estão disponíveis a partir do plano Essencial."
+        onNavigatePricing={onNavigatePricing}
+      />
+    )
+  }
+
   if (loading || !analysis) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
 
   const a = analysis
@@ -760,6 +940,11 @@ function TabGraficos({ plan, user, onNavigatePricing }: { plan: string; user: Us
   const maxEmoDay = Math.max(...a.topEmotionsByDay.map(e => e.count), 1)
   const maxMarker = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
+
+  // Resumo estruturado para "Entender meu mapa com IA" — mesma fonte que
+  // alimenta relatórios/plano/orientação (§16 da MISSÃO GERAL: código calcula,
+  // IA só interpreta). "previous" carrega só o necessário pra comparação
+  // narrativa, reaproveitando a.prev já calculado por computeEmotionalAnalysis.
   const mapSummary = period ? buildEmotionalSummary(entries, period.start, period.end, plan, prevEntries) : null
   const previousPeriodSummary = period && prevEntries.length ? {
     period_start: period.prevStart, period_end: period.start,
@@ -771,41 +956,191 @@ function TabGraficos({ plan, user, onNavigatePricing }: { plan: string; user: Us
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3"><label className="text-sm text-ink-soft">Mês:</label><select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">{months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}</select></div>
+      <div className="flex items-center gap-3">
+        <label className="text-sm text-ink-soft">Mês:</label>
+        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+          {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+        </select>
+      </div>
 
       {a.totalEntries === 0 ? (
-        <div className="rounded-3xl border border-dashed border-line bg-mint/20 p-8 text-center space-y-3"><BarChart2 className="w-10 h-10 mx-auto text-forest-300" /><p className="text-sm font-medium text-forest-900">Ainda não há registros em {monthLabel(selectedMonth)}.</p><p className="text-xs text-ink-soft max-w-sm mx-auto">Quanto mais check-ins e diários você registrar, mais claros ficam seus padrões — humor, energia, ansiedade, marcadores emocionais e horários.</p></div>
+        <div className="rounded-3xl border border-dashed border-line bg-mint/20 p-8 text-center space-y-3">
+          <BarChart2 className="w-10 h-10 mx-auto text-forest-300" />
+          <p className="text-sm font-medium text-forest-900">Ainda não há registros em {monthLabel(selectedMonth)}.</p>
+          <p className="text-xs text-ink-soft max-w-sm mx-auto">Quanto mais check-ins e diários você registrar, mais claros ficam seus padrões — humor, energia, ansiedade, marcadores emocionais e horários.</p>
+        </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3"><MetricTile icon={<CheckCircle2 className="w-4 h-4" />} label="Check-ins no período" value={a.checkinCount} /><MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários no período" value={a.diaryCount} /><MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} /></div>
+          {/* Contagens do período (§9): check-in mede frequência emocional, diário
+              mede reflexão — separados para não confundir os dois. */}
+          <div className="grid grid-cols-3 gap-3">
+            <MetricTile icon={<CheckCircle2 className="w-4 h-4" />} label="Check-ins no período" value={a.checkinCount} />
+            <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários no período" value={a.diaryCount} />
+            <MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} />
+          </div>
 
-          {mapSummary && <ExplainMapCard summary={mapSummary} previous={previousPeriodSummary} questionnaireSignals={questionnaireSignals} />}
+          {/* Entender meu mapa com IA (MISSÃO GERAL, PARTE 3) */}
+          {mapSummary && (
+            <ExplainMapCard summary={mapSummary} previous={previousPeriodSummary} questionnaireSignals={questionnaireSignals} />
+          )}
 
-          {insights.length > 0 && <div className="bg-paper-soft border border-line rounded-3xl p-5"><h3 className="font-serif text-lg text-forest-900 flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-forest-500" /> O que seus registros mostram</h3><div className="grid sm:grid-cols-2 gap-2.5">{insights.map((t, i) => <div key={i} className="flex gap-2.5 bg-mint/40 rounded-xl px-3.5 py-2.5"><span className="text-forest-500 mt-0.5">•</span><p className="text-sm text-forest-800 leading-snug">{t}</p></div>)}</div></div>}
+          {/* Insights automáticos */}
+          {insights.length > 0 && (
+            <div className="bg-paper-soft border border-line rounded-3xl p-5">
+              <h3 className="font-serif text-lg text-forest-900 flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-forest-500" /> O que seus registros mostram</h3>
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                {insights.map((t, i) => (
+                  <div key={i} className="flex gap-2.5 bg-mint/40 rounded-xl px-3.5 py-2.5">
+                    <span className="text-forest-500 mt-0.5">•</span><p className="text-sm text-forest-800 leading-snug">{t}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div className="grid md:grid-cols-2 gap-4"><LineChartCard title="Energia" subtitle="Média por dia (1 = muito baixa · 5 = alta)" data={a.energyByDay} color="#2f9e6f" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'boa', 5: 'alta' }} /><LineChartCard title="Ansiedade percebida" subtitle="Média por dia (1 = muito baixa · 5 = muito alta)" data={a.anxietyByDay} color="#d98b3c" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'alta', 5: 'muito alta' }} /></div>
-
-          <div className="rounded-2xl border border-line bg-mint/30 p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><Waves className="w-4 h-4 text-forest-500" /> Energia e ansiedade</h3><p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p></div>
-
+          {/* Linhas: energia e ansiedade */}
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais registradas</h3>{a.topEmotions.length > 0 ? <div className="space-y-2">{a.topEmotions.map(e => <div key={e.label} className="flex items-center gap-2"><span className="text-base w-5 text-center">{e.emoji}</span><span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span><div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmo) * 100}%` }} /></div><span className="text-xs text-ink-soft w-6 text-right">{e.count}</span></div>)}</div> : <p className="text-xs text-ink-soft py-4 text-center">Registre check-ins com emoções para ver o ranking.</p>}</div>
-            <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><CalendarDays className="w-4 h-4 text-forest-500" /> Emoção predominante por dia</h3>{a.topEmotionsByDay.length > 0 ? <div className="space-y-2">{a.topEmotionsByDay.map(e => <div key={e.label} className="flex items-center gap-2"><span className="text-base w-5 text-center">{e.emoji}</span><span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span><div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmoDay) * 100}%` }} /></div><span className="text-xs text-ink-soft w-6 text-right">{e.count}</span></div>)}</div> : <p className="text-xs text-ink-soft py-4 text-center">Registre em mais dias para ver esse padrão.</p>}</div>
+            <LineChartCard title="Energia" subtitle="Média por dia (1 = muito baixa · 5 = alta)" data={a.energyByDay} color="#2f9e6f" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'boa', 5: 'alta' }} />
+            <LineChartCard title="Ansiedade percebida" subtitle="Média por dia (1 = muito baixa · 5 = muito alta)" data={a.anxietyByDay} color="#d98b3c" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'alta', 5: 'muito alta' }} />
+          </div>
+
+          {/* Relação energia × ansiedade */}
+          <div className="rounded-2xl border border-line bg-mint/30 p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><Waves className="w-4 h-4 text-forest-500" /> Energia e ansiedade</h3>
+            <p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p>
+          </div>
+
+          {/* Emoções mais registradas × emoção predominante por dia (§10): a 1ª conta
+              todo registro (check-ins incluídos); a 2ª vota só 1x por dia ativo, então
+              muitos check-ins da mesma emoção no mesmo dia não dominam a leitura. */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais registradas</h3>
+              {a.topEmotions.length > 0 ? (
+                <div className="space-y-2">
+                  {a.topEmotions.map(e => (
+                    <div key={e.label} className="flex items-center gap-2">
+                      <span className="text-base w-5 text-center">{e.emoji}</span>
+                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span>
+                      <div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmo) * 100}%` }} /></div>
+                      <span className="text-xs text-ink-soft w-6 text-right">{e.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-ink-soft py-4 text-center">Registre check-ins com emoções para ver o ranking.</p>}
+            </div>
+
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><CalendarDays className="w-4 h-4 text-forest-500" /> Emoção predominante por dia</h3>
+              {a.topEmotionsByDay.length > 0 ? (
+                <div className="space-y-2">
+                  {a.topEmotionsByDay.map(e => (
+                    <div key={e.label} className="flex items-center gap-2">
+                      <span className="text-base w-5 text-center">{e.emoji}</span>
+                      <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{e.label}</span>
+                      <div className="flex-1 h-2.5 bg-mint rounded-full overflow-hidden"><div className="h-full bg-forest-500 rounded-full" style={{ width: `${(e.count / maxEmoDay) * 100}%` }} /></div>
+                      <span className="text-xs text-ink-soft w-6 text-right">{e.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-ink-soft py-4 text-center">Registre em mais dias para ver esse padrão.</p>}
+            </div>
           </div>
           <p className="text-xs text-ink-soft px-1 -mt-2">Quando há muitos check-ins no mesmo dia, o mapa também considera a emoção predominante do dia para evitar distorções.</p>
 
-          <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Marcadores emocionais mais frequentes</h3>{a.emotionalMarkers.length > 0 ? <div className="space-y-2">{a.emotionalMarkers.map(t => <div key={t.tag} className="flex items-center gap-2"><span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span><div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxMarker) * 100}%` }} /></div><span className="text-xs text-ink-soft w-6 text-right">{t.count}</span></div>)}</div> : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}</div>
+          {/* §13.1: a fonte aqui é emotional_tags (sentimentos marcados), não um
+              gatilho real — "Gatilhos" seria conceitualmente errado (ansiedade,
+              tristeza etc. não são gatilhos, são emoções). */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Marcadores emocionais mais frequentes</h3>
+            {a.emotionalMarkers.length > 0 ? (
+              <div className="space-y-2">
+                {a.emotionalMarkers.map(t => (
+                  <div key={t.tag} className="flex items-center gap-2">
+                    <span className="text-sm text-ink w-28 flex-shrink-0 truncate">{t.tag}</span>
+                    <div className="flex-1 h-2.5 bg-coral/20 rounded-full overflow-hidden"><div className="h-full bg-[#d98b3c] rounded-full" style={{ width: `${(t.count / maxMarker) * 100}%` }} /></div>
+                    <span className="text-xs text-ink-soft w-6 text-right">{t.count}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-4"><TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" /><TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" /></div>
+          {/* Conexões do mês agora vive na aba Resumo (MonthlyConnectionsCard),
+              logo após "Seu período em cores" — visível de cara, sem duplicar
+              o mesmo card aqui nos Gráficos (§8 do audit). */}
+
+          {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
+              completo (§14), pra não ficarem ignoradas no Mapa. */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" />
+            <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
+          </div>
           <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
-          {hasPlan(plan, 'plus') && <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />}
 
-          <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-forest-500" /> Por período do dia</h3><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{a.periods.map(p => <div key={p.key} className="rounded-xl border border-line bg-white p-3 text-center"><span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-mint text-forest-600 mb-1.5">{PERIOD_ICON[p.key]}</span><p className="text-sm font-medium text-forest-900">{p.label}</p>{p.count > 0 ? <><p className="text-lg mt-0.5">{p.dominant ? (MOOD_EMOJI[p.dominant] ?? '•') : '—'}</p><p className="text-[11px] text-ink-soft leading-tight">{p.dominant ?? '—'}</p><p className="text-[10px] text-ink-soft mt-1">{p.count} reg. · energia {p.avgEnergy || '—'}</p></> : <p className="text-[11px] text-ink-soft mt-2">Sem registros</p>}</div>)}</div></div>
+          {/* Gatilhos reais (§13.1) — Plus. Diferente do bloco "Marcadores
+              emocionais" acima, que é sentimento, não gatilho. */}
+          {hasPlan(plan, 'plus') && (
+            <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
+          )}
 
-          {a.weekly.hasData && <div className="rounded-2xl border border-line bg-paper-soft p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-forest-500" /> Semana atual x anterior</h3><ul className="space-y-1.5">{a.weekly.lines.map((l, i) => <li key={i} className="text-sm text-forest-800 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{l}</span></li>)}</ul></div>}
+          {/* Mapa por período do dia */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-forest-500" /> Por período do dia</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {a.periods.map(p => (
+                <div key={p.key} className="rounded-xl border border-line bg-white p-3 text-center">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-mint text-forest-600 mb-1.5">{PERIOD_ICON[p.key]}</span>
+                  <p className="text-sm font-medium text-forest-900">{p.label}</p>
+                  {p.count > 0 ? (
+                    <>
+                      <p className="text-lg mt-0.5">{p.dominant ? (MOOD_EMOJI[p.dominant] ?? '•') : '—'}</p>
+                      <p className="text-[11px] text-ink-soft leading-tight">{p.dominant ?? '—'}</p>
+                      <p className="text-[10px] text-ink-soft mt-1">{p.count} reg. · energia {p.avgEnergy || '—'}</p>
+                    </>
+                  ) : <p className="text-[11px] text-ink-soft mt-2">Sem registros</p>}
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {a.calendar.length > 0 && <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-1"><BarChart2 className="w-4 h-4 text-forest-500" /> Calendário emocional</h3><p className="text-xs text-ink-soft mb-3">Cada dia: emoção predominante e nº de registros.</p><div className="grid grid-cols-7 gap-1.5">{a.calendar.map(c => <div key={c.day} title={`Dia ${c.day} · ${c.label} · ${c.count} registro(s)`} className={`aspect-square rounded-lg flex flex-col items-center justify-center ${heatColor(c.avg)}`}><span className="text-[10px] text-white/90 leading-none">{c.day}</span><span className="text-xs leading-none mt-0.5">{MOOD_EMOJI[c.label] ?? ''}</span></div>)}</div></div>}
+          {/* Comparativo semanal */}
+          {a.weekly.hasData && (
+            <div className="rounded-2xl border border-line bg-paper-soft p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-forest-500" /> Semana atual x anterior</h3>
+              <ul className="space-y-1.5">
+                {a.weekly.lines.map((l, i) => <li key={i} className="text-sm text-forest-800 flex gap-2"><span className="text-forest-400 mt-0.5">→</span><span>{l}</span></li>)}
+              </ul>
+            </div>
+          )}
 
-          <div className="bg-paper-soft border border-line rounded-2xl p-5"><h3 className="font-serif text-base text-forest-900 mb-3">Humor: comparação com o mês anterior</h3>{a.prev.mood > 0 ? <div className="grid grid-cols-3 gap-4 text-center"><div><p className="text-xs text-ink-soft mb-1">Mês anterior</p><p className="font-serif text-xl text-forest-900">{a.prev.mood.toFixed(1)}</p></div><div><p className="text-xs text-ink-soft mb-1">Variação</p><p className={`font-serif text-xl ${(moodTrend ?? 0) >= 0 ? 'text-forest-600' : 'text-coral'}`}>{(moodTrend ?? 0) >= 0 ? '+' : ''}{moodTrend ?? '—'}</p></div><div><p className="text-xs text-ink-soft mb-1">Este mês</p><p className="font-serif text-xl text-forest-900">{a.avg.mood.toFixed(1)}</p></div></div> : <p className="text-sm text-ink-soft">Sem registros no mês anterior para comparar.</p>}</div>
+          {/* Calendário emocional */}
+          {a.calendar.length > 0 && (
+            <div className="bg-paper-soft border border-line rounded-2xl p-5">
+              <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-1"><BarChart2 className="w-4 h-4 text-forest-500" /> Calendário emocional</h3>
+              <p className="text-xs text-ink-soft mb-3">Cada dia: emoção predominante e nº de registros.</p>
+              <div className="grid grid-cols-7 gap-1.5">
+                {a.calendar.map(c => (
+                  <div key={c.day} title={`Dia ${c.day} · ${c.label} · ${c.count} registro(s)`} className={`aspect-square rounded-lg flex flex-col items-center justify-center ${heatColor(c.avg)}`}>
+                    <span className="text-[10px] text-white/90 leading-none">{c.day}</span>
+                    <span className="text-xs leading-none mt-0.5">{MOOD_EMOJI[c.label] ?? ''}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Comparativo mensal do humor */}
+          <div className="bg-paper-soft border border-line rounded-2xl p-5">
+            <h3 className="font-serif text-base text-forest-900 mb-3">Humor: comparação com o mês anterior</h3>
+            {a.prev.mood > 0 ? (
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div><p className="text-xs text-ink-soft mb-1">Mês anterior</p><p className="font-serif text-xl text-forest-900">{a.prev.mood.toFixed(1)}</p></div>
+                <div><p className="text-xs text-ink-soft mb-1">Variação</p><p className={`font-serif text-xl ${(moodTrend ?? 0) >= 0 ? 'text-forest-600' : 'text-coral'}`}>{(moodTrend ?? 0) >= 0 ? '+' : ''}{moodTrend ?? '—'}</p></div>
+                <div><p className="text-xs text-ink-soft mb-1">Este mês</p><p className="font-serif text-xl text-forest-900">{a.avg.mood.toFixed(1)}</p></div>
+              </div>
+            ) : <p className="text-sm text-ink-soft">Sem registros no mês anterior para comparar.</p>}
+          </div>
         </>
       )}
 
@@ -814,10 +1149,18 @@ function TabGraficos({ plan, user, onNavigatePricing }: { plan: string; user: Us
   )
 }
 
+
+// ─── Atalho de "Próximos passos" (§10.4) ─────────────────────────────────────
 function ShortcutCard({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group text-left bg-paper-soft border border-line rounded-2xl px-4 py-3 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300">
-      <span className="text-sm text-forest-900 font-medium leading-snug flex items-center justify-between gap-2">{label}<span aria-hidden className="text-ink-soft group-hover:text-forest-700 group-hover:translate-x-0.5 transition-all">→</span></span>
+    <button
+      onClick={onClick}
+      className="group text-left bg-paper-soft border border-line rounded-2xl px-4 py-3 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+    >
+      <span className="text-sm text-forest-900 font-medium leading-snug flex items-center justify-between gap-2">
+        {label}
+        <span aria-hidden className="text-ink-soft group-hover:text-forest-700 group-hover:translate-x-0.5 transition-all">→</span>
+      </span>
     </button>
   )
 }
