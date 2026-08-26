@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { createUserNotification } from '../../lib/notifications'
 import { emailGuidanceAnsweredForUser, emailPersonalizedContentForUser, emailProfessionalCommentForUser } from '../../lib/emailTriggers'
 import {
-  Sparkles, Loader2, Search, X, Copy, Send, Save, RefreshCw,
+  Sparkles, Loader2, X, Copy, Send, Save, RefreshCw,
   CheckCircle, Square, CheckSquare, Ban, Check, FileText, AlertCircle,
   SlidersHorizontal, UserRound,
 } from 'lucide-react'
