@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
+const history = readFileSync(new URL('../src/components/DiaryHistorySection.tsx', import.meta.url), 'utf8')
 const savedReflection = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
 const moodSelector = readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', import.meta.url), 'utf8')
 const detailsDrawer = readFileSync(new URL('../src/components/DiaryDetailsDrawer.tsx', import.meta.url), 'utf8')
@@ -70,10 +71,11 @@ test('check-in rápido é a entrada principal e coleta sinais complementares sem
   assert.match(savedReflection, /Você registrou como está agora\. Quer deixar assim ou escrever um pouco mais\?/)
 })
 
-test('jornada deixa de punir ausência com streak e tira presença da área de escrita', () => {
+test('jornada deixa de punir ausência com streak e mantém presença apenas no histórico', () => {
   assert.doesNotMatch(diary, /Sua presença em/)
-  assert.match(diary, /Sua história deste mês, até aqui/)
-  assert.match(diary, /Sem pontuação, sem sequência para quebrar/)
+  assert.match(diary, /<DiaryHistorySection/)
+  assert.match(history, /Sua história deste mês, até aqui/)
+  assert.match(history, /Sem pontuação, sem sequência para quebrar/)
   assert.equal(diary.includes('dias de escrita seguidos'), false)
   assert.equal(diary.includes('calcStreak'), false)
 })
