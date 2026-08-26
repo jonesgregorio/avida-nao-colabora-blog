@@ -68,11 +68,11 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
         </section>
       )}
 
-      {saved.kind === 'diary' && !saved.processing && !saved.mirror && <div className="mt-8 rounded-2xl border border-line bg-paper-soft p-5 text-sm text-ink-soft">Este registro foi salvo sem análise de IA, como você escolheu.</div>}
+      {saved.kind === 'diary' && !saved.processing && !saved.mirror && <div className="mt-8 rounded-2xl border border-line bg-paper-soft p-5 text-sm text-ink-soft">Este registro foi salvo sem leitura complementar, como você escolheu.</div>}
 
       {suggestedCount > 0 && saved.mirror && (
         <section className="mt-5 rounded-3xl border border-line bg-white p-5">
-          <h3 className="font-serif text-xl text-forest-900">A IA percebeu algumas marcações possíveis</h3>
+          <h3 className="font-serif text-xl text-forest-900">Algumas marcações podem combinar com seu registro</h3>
           <p className="text-sm text-ink-soft mt-1">Elas só entram no seu mapa e nos relatórios se você confirmar.</p>
           <div className="flex flex-wrap gap-2 mt-4">
             {saved.mirror.suggested_tags.emotions.map(t => <DiaryTagChip key={`e-${t}`} label={t} selected />)}
