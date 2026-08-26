@@ -24,13 +24,27 @@ test('Suporte chama textos reutilizáveis de Respostas prontas em toda a interfa
   assert.doesNotMatch(support, /Buscar modelo…/)
 })
 
-test('usuário sabe que a orientação passa por revisão humana', () => {
+test('Orientação do usuário mantém os bastidores de IA invisíveis', () => {
   const src = read('src/components/MonthlyGuidancePage.tsx')
-  assert.match(src, /Revisão humana antes da resposta/)
-  assert.match(src, /não responde nem envia nada sozinha/)
-  assert.match(src, /Enviar para revisão/)
-  assert.match(src, /Em revisão/)
-  assert.match(src, /Cada orientação passa por revisão humana antes do envio/)
+
+  assert.match(src, /Análise cuidadosa antes da resposta/)
+  assert.match(src, /Seu pedido está em análise/)
+  assert.match(src, /Enviar orientação/)
+  assert.match(src, /> Em análise</)
+  assert.match(src, /Orientação respondida/)
+
+  assert.doesNotMatch(src, /A IA pode/)
+  assert.doesNotMatch(src, /inteligência artificial/i)
+  assert.doesNotMatch(src, /rascunho interno/i)
+  assert.doesNotMatch(src, /fila de revisão no Admin/i)
+  assert.doesNotMatch(src, /Revisão humana antes da resposta/)
+  assert.doesNotMatch(src, /Enviar para revisão/)
+  assert.doesNotMatch(src, /> Em revisão</)
+
+  // Compatibilidade interna permanece: os dados antigos ainda podem ser lidos,
+  // mas esses nomes técnicos nunca são apresentados como texto ao usuário.
+  assert.match(src, /ai_draft_json/)
+  assert.match(src, /aiDraftJson: req\.ai_draft_json/)
 })
 
 test('Admin de Orientação usa quatro blocos e resumo lateral da IA', () => {
