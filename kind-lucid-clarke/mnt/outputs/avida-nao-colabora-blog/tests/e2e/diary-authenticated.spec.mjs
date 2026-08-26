@@ -236,10 +236,10 @@ test('Essencial respeita opt-out integral, preserva o original e mantém organiz
   await page.getByRole('button', { name: 'Preciso de ajuda para começar' }).click()
   await expect(page.getByRole('button', { name: /Organizar o que já escrevi/i })).toBeVisible()
 
-  await page.getByLabel('Salvar sem análise de IA').check()
+  await page.getByLabel('Salvar sem leitura complementar').check()
   await expect(page.getByRole('button', { name: /Organizar o que já escrevi/i })).toHaveCount(0)
   await expect(editor).toHaveValue(original)
-  await expect(page.getByText(/Privacidade ativada: este texto não será enviado à IA/i)).toBeVisible()
+  await expect(page.getByText(/Leitura complementar desativada: seu registro será salvo normalmente/i)).toBeVisible()
 })
 
 test('Plus mantém detalhes e reflexão avançada em dois níveis progressivos', async ({ page }) => {

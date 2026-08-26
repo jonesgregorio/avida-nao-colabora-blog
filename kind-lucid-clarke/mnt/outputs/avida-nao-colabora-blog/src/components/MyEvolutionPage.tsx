@@ -837,13 +837,13 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
     <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
       <div className="flex items-center gap-2">
         <span className="w-8 h-8 rounded-full bg-forest-900 flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-mint" /></span>
-        <h3 className="font-serif text-lg text-forest-900">Entender meu mapa com IA</h3>
+        <h3 className="font-serif text-lg text-forest-900">Entender melhor meu mapa</h3>
       </div>
       <p className="text-xs text-ink-soft mt-1 mb-4">Uma leitura curta do período selecionado, a partir dos dados já calculados acima — sem inventar médias ou frequências.</p>
 
       {state === 'idle' && (
         <button onClick={() => void handleClick(false)} className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-5 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors">
-          <Sparkles className="w-4 h-4" /> Entender meu mapa com IA
+          <Sparkles className="w-4 h-4" /> Entender melhor meu mapa
         </button>
       )}
 
@@ -904,7 +904,7 @@ function ExplainMapCard({ summary, previous, questionnaireSignals }: {
         )
       )}
 
-      <p className="text-[11px] text-ink-soft mt-4 pt-3 border-t border-forest-100">A IA analisa apenas os dados resumidos deste mapa, não o texto completo do seu Diário.</p>
+      <p className="text-[11px] text-ink-soft mt-4 pt-3 border-t border-forest-100">Esta leitura considera apenas os dados resumidos deste mapa, não o texto completo do seu Diário.</p>
     </section>
   )
 }
