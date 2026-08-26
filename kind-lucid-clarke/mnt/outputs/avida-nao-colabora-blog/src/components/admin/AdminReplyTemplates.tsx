@@ -51,14 +51,14 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
       : await supabase.from('support_reply_templates').update(payload).eq('id', (sel as Template).id)
     setSaving(false)
     if (error) { flash('Erro ao salvar: ' + error.message, true); return }
-    flash('Modelo salvo.'); setSel(null); load()
+    flash('Resposta pronta salva.'); setSel(null); load()
   }
 
   async function remove(t: Template) {
-    if (!confirm(`Excluir o modelo "${t.title}"?`)) return
+    if (!confirm(`Excluir a resposta pronta "${t.title}"?`)) return
     const { error } = await supabase.from('support_reply_templates').delete().eq('id', t.id)
     if (error) flash('Erro ao excluir: ' + error.message, true)
-    else { flash('Modelo excluído.'); load() }
+    else { flash('Resposta pronta excluída.'); load() }
   }
 
   async function toggle(t: Template) {
@@ -73,9 +73,10 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
     return (
       <div className="max-w-3xl mx-auto px-6 py-8">
         {toast && <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>{toast.msg}</div>}
-        <button onClick={() => setSel(null)} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900 mb-4"><ArrowLeft className="w-4 h-4" /> Voltar aos modelos</button>
+        <button onClick={() => setSel(null)} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900 mb-4"><ArrowLeft className="w-4 h-4" /> Voltar às respostas prontas</button>
         <div className="bg-white border border-line rounded-2xl p-6 space-y-4">
-          <h2 className="font-serif text-2xl text-forest-900">{isNew ? 'Novo modelo' : 'Editar modelo'}</h2>
+          <h2 className="font-serif text-2xl text-forest-900">{isNew ? 'Nova resposta pronta' : 'Editar resposta pronta'}</h2>
+          <p className="text-xs text-stone-500">Uma resposta pronta apenas preenche o editor. O atendente ainda pode revisar o texto antes de enviar.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs text-stone-500 mb-1">Título</label><input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputCls} /></div>
             <div><label className="block text-xs text-stone-500 mb-1">Categoria</label><input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="Ex: Planos, Suporte..." className={inputCls} /></div>
@@ -100,12 +101,12 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
             <p className="text-[11px] text-stone-400 mt-1">Variáveis (no e-mail ao usuário): {'{{nome}}'}, {'{{email}}'}, {'{{plano}}'}, {'{{data_atual}}'}, {'{{meu_plano_url}}'}, {'{{suporte_url}}'}.</p>
           </div>
           <div className="flex items-center gap-4">
-            <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-forest-700" /> Ativo</label>
-            <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.is_favorite} onChange={e => setForm(f => ({ ...f, is_favorite: e.target.checked }))} className="accent-forest-700" /> Favorito</label>
+            <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="accent-forest-700" /> Ativa</label>
+            <label className="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.is_favorite} onChange={e => setForm(f => ({ ...f, is_favorite: e.target.checked }))} className="accent-forest-700" /> Favorita</label>
           </div>
           <div className="flex justify-end">
             <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar modelo
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar resposta pronta
             </button>
           </div>
         </div>
@@ -119,15 +120,15 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           {onBack && <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900 mb-2"><ArrowLeft className="w-4 h-4" /> Voltar ao suporte</button>}
-          <h1 className="font-serif text-3xl text-forest-900">Modelos de resposta</h1>
-          <p className="text-sm text-ink-soft mt-1">Respostas automáticas usadas ao atender tickets. Edite o texto de cada uma.</p>
+          <h1 className="font-serif text-3xl text-forest-900">Respostas prontas</h1>
+          <p className="text-sm text-ink-soft mt-1">Textos reutilizáveis que preenchem uma resposta de suporte ou e-mail. Nada é enviado automaticamente.</p>
         </div>
-        <button onClick={() => open('new')} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Novo modelo</button>
+        <button onClick={() => open('new')} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Nova resposta pronta</button>
       </div>
 
       {missing ? (
         <div className="p-8 text-center border border-dashed border-line rounded-2xl bg-paper-soft">
-          <p className="text-ink-soft text-sm">A tabela <code>support_reply_templates</code> não está disponível.</p>
+          <p className="text-ink-soft text-sm">As respostas prontas não estão disponíveis no momento.</p>
         </div>
       ) : loading ? (
         <p className="text-ink-soft text-sm">Carregando…</p>
@@ -145,7 +146,7 @@ export default function AdminReplyTemplates({ onBack }: { onBack?: () => void })
                   <p className="text-xs text-ink-soft mt-1.5 line-clamp-2">{t.body}</p>
                 </button>
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <button onClick={() => toggle(t)} title={t.is_active ? 'Ativo' : 'Inativo'} className={`w-9 h-5 rounded-full relative transition-colors ${t.is_active ? 'bg-forest-600' : 'bg-stone-300'}`}>
+                  <button onClick={() => toggle(t)} title={t.is_active ? 'Ativa' : 'Inativa'} className={`w-9 h-5 rounded-full relative transition-colors ${t.is_active ? 'bg-forest-600' : 'bg-stone-300'}`}>
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${t.is_active ? 'left-4' : 'left-0.5'}`} />
                   </button>
                   <button onClick={() => remove(t)} className="text-stone-400 hover:text-red-500" title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>

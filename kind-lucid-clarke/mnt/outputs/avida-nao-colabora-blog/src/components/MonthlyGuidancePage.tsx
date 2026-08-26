@@ -26,21 +26,15 @@ interface GuidanceRequest {
   responded_at: string | null
   created_at: string
   ai_draft_json?: { final_response?: GuidanceLetter } | null
-  // Coluna própria (migration 20260816210000): prioridade sobre ai_draft_json.final_response.
   final_response_json?: GuidanceLetter | null
 }
 interface Cycle {
-  key: string           // YYYY-MM do mês-calendário atual (uma orientação por mês)
-  deadline: Date        // dia 23 do mês atual (fim do dia) — prazo p/ solicitar
-  nextOpen: Date        // 1º dia do próximo mês — quando o período reabre
+  key: string
+  deadline: Date
+  nextOpen: Date
   isPastDeadline: boolean
 }
 
-// ── Ciclo de orientação = MÊS-CALENDÁRIO, com prazo no dia 23 ─────────────────
-// Regra (03/08/2026): a orientação mensal segue o mês do calendário, não o ciclo
-// de cobrança. A pessoa pode solicitar UMA orientação por mês, até o DIA 23. Depois
-// do dia 23 o período do mês encerra e reabre no dia 1º do mês seguinte. A resposta
-// chega em até 7 dias CORRIDOS.
 const DEADLINE_DAY = 23
 function guidanceCycle(now: Date = new Date()): Cycle {
   const y = now.getFullYear(), m = now.getMonth()
@@ -73,10 +67,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const [expectedHelp, setExpectedHelp] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // §15: se o pedido tiver linguagem de risco, o prazo normal de 7 dias é
-  // longo demais — mostramos apoio imediato (CVV/emergência) além do envio.
   const [riskFlag, setRiskFlag] = useState(false)
-  // Histórico completo (nunca apagado). Cards começam FECHADOS.
   const [requests, setRequests] = useState<GuidanceRequest[]>([])
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setOpenIds(prev => {
@@ -95,12 +86,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
   async function load() {
     setLoading(true)
-    // 1) Ciclo = mês-calendário atual, com prazo no dia 23 (não depende da assinatura).
     const cyc = guidanceCycle()
     setCycle(cyc)
-
-    // 2) Carrega TODO o histórico do usuário (nunca apagado). O pedido do mês
-    //    atual controla o formulário; os demais aparecem em "Orientações anteriores".
     const { data } = await supabase
       .from('monthly_guidance_requests')
       .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json')
@@ -164,9 +151,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
     )
   }
 
-  const deadline = formatShort(cycle.deadline)   // dia 23 do mês atual
-  const reopen = formatShort(cycle.nextOpen)     // 1º do próximo mês (reabertura)
-  // Histórico = todos os pedidos, exceto o do mês atual (que aparece no topo).
+  const deadline = formatShort(cycle.deadline)
+  const reopen = formatShort(cycle.nextOpen)
   const history = requests.filter(r => r.id !== request?.id)
 
   return (
@@ -200,6 +186,18 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
       {riskFlag && <div className="mb-5"><RiskHelpBanner /></div>}
 
+      <div className="mb-5 rounded-2xl border border-forest-200 bg-forest-50/70 p-4">
+        <div className="flex items-start gap-3">
+          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><CheckCircle className="w-4 h-4" /></span>
+          <div>
+            <h2 className="font-serif text-base text-forest-900">Análise cuidadosa antes da resposta</h2>
+            <p className="text-xs text-forest-800/80 mt-1 leading-relaxed">
+              Sua solicitação é analisada com atenção antes da resposta final. Consideramos as informações que você enviou e os dados disponíveis na sua experiência no site para preparar uma orientação coerente com o seu momento.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/30 p-4">
         <div className="flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><FileText className="w-4 h-4" /></span>
@@ -210,18 +208,15 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
         </div>
       </div>
 
-      {/* Destaque do mês: até quando pode solicitar / quando reabre */}
       {request ? (
         <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-amber-600 flex-shrink-0">
             <CheckCircle className="w-4 h-4" />
           </span>
           <div className="text-sm leading-relaxed">
-            <p className="text-amber-800">
-              Você já usou a orientação deste mês. 🌱
-            </p>
+            <p className="text-amber-800">Você já usou a orientação deste mês. 🌱</p>
             <p className="text-amber-700/90 text-xs mt-0.5">
-              A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
+              Seu pedido está em análise. A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
             </p>
           </div>
         </div>
@@ -231,12 +226,8 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             <CalendarClock className="w-4 h-4" />
           </span>
           <div className="text-sm leading-relaxed">
-            <p className="text-stone-700">
-              O prazo para solicitar a orientação deste mês encerrou no <strong className="text-stone-900">dia 23</strong>.
-            </p>
-            <p className="text-stone-500 text-xs mt-0.5">
-              Você poderá solicitar novamente a partir de <strong className="text-stone-700">{reopen}</strong>.
-            </p>
+            <p className="text-stone-700">O prazo para solicitar a orientação deste mês encerrou no <strong className="text-stone-900">dia 23</strong>.</p>
+            <p className="text-stone-500 text-xs mt-0.5">Você poderá solicitar novamente a partir de <strong className="text-stone-700">{reopen}</strong>.</p>
           </div>
         </div>
       ) : (
@@ -245,17 +236,12 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             <CalendarClock className="w-4 h-4" />
           </span>
           <div className="text-sm leading-relaxed">
-            <p className="text-forest-800">
-              Você tem até <strong className="text-forest-900">{deadline}</strong> (dia 23) para enviar a orientação deste mês.
-            </p>
-            <p className="text-forest-700/80 text-xs mt-0.5">
-              É uma solicitação por mês. A resposta chega em até <strong className="text-forest-900">7 dias corridos</strong>.
-            </p>
+            <p className="text-forest-800">Você tem até <strong className="text-forest-900">{deadline}</strong> (dia 23) para enviar a orientação deste mês.</p>
+            <p className="text-forest-700/80 text-xs mt-0.5">É uma solicitação por mês. Depois do envio, ela entra em análise e a resposta chega em até <strong className="text-forest-900">7 dias corridos</strong>.</p>
           </div>
         </div>
       )}
 
-      {/* Formulário — apenas quando ainda não há pedido no mês E o prazo (dia 23) não passou */}
       {!request && !cycle.isPastDeadline && (
         <div className="bg-white border border-forest-100 rounded-2xl p-6 shadow-sm">
           <h2 className="font-semibold text-forest-800 mb-4">Nova orientação — <span className="capitalize">{currentMonthLabel()}</span></h2>
@@ -298,20 +284,18 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
             className="flex items-center gap-2 bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Enviar orientação deste ciclo
+            Enviar orientação
           </button>
           <p className="text-[11px] text-stone-400 mt-3 flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline} (dia 23). Uma orientação por mês, respondida em até 7 dias corridos.
+            <Sparkles className="w-3 h-3 text-forest-400" /> Você pode enviar até {deadline} (dia 23). Uma orientação por mês; a resposta chega em até 7 dias corridos.
           </p>
         </div>
       )}
 
-      {/* Pedido do ciclo atual (fechado por padrão) */}
       {request && (
         <RequestCard req={request} open={openIds.has(request.id)} onToggle={() => toggle(request.id)} />
       )}
 
-      {/* Histórico — nunca apagado, sempre disponível, fechado por padrão */}
       {history.length > 0 && (
         <div className="mt-6">
           <h2 className="font-serif text-lg text-forest-800 mb-1">Orientações anteriores</h2>
@@ -325,13 +309,12 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       )}
 
       <p className="text-xs text-stone-400 text-center mt-6">
-        Sua orientação será respondida em até 7 dias corridos. Este espaço não é um canal de emergência.
+        Sua solicitação é analisada antes da resposta. O retorno chega em até 7 dias corridos. Este espaço não é um canal de emergência.
       </p>
     </div>
   )
 }
 
-// ── Cartão sanfona de uma orientação (ciclo atual ou histórico) ───────────────
 function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: boolean; onToggle: () => void }) {
   const resolvedResponse = resolveGuidanceResponse({
     finalResponseJson: req.final_response_json,
@@ -360,7 +343,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
             </span>
           ) : (
             <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700">
-              <Clock className="w-3 h-3" /> Aguardando resposta
+              <Clock className="w-3 h-3" /> Em análise
             </span>
           )}
           <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -389,7 +372,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
             <div className="bg-white border border-forest-100 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação revisada</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação respondida</span>
               </div>
               <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
               {req.responded_at && (
@@ -399,7 +382,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
           ) : (
             <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
               <Loader2 className="w-3.5 h-3.5 text-forest-400" />
-              Recebemos sua mensagem. Você será avisado(a) quando a orientação for respondida.
+              Recebemos sua mensagem. Ela está em análise e você será avisado(a) quando a resposta for enviada.
             </div>
           )}
         </div>

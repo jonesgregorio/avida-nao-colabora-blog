@@ -27,7 +27,6 @@ interface Ticket {
   last_message_at: string | null
   created_at: string
   updated_at: string
-  // enriched
   user_name?: string | null
   user_plan?: string | null
   user_email?: string | null
@@ -465,7 +464,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
     })
   }
 
-  // ── Derivados ──────────────────────────────────────────────────────────────
   const planOf = (t: Ticket) => t.user_plan ?? t.plan_at_creation ?? ''
   const categories = [...new Set(tickets.map(t => t.category).filter(Boolean))] as string[]
 
@@ -562,10 +560,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
 
   return (
     <div className="flex h-full overflow-hidden bg-paper">
-      {/* ─── Coluna esquerda ─── */}
       <div className={`flex flex-col flex-1 min-w-0 ${selectedTicket ? 'hidden lg:flex' : 'flex'}`}>
-
-        {/* Cabeçalho */}
         <div className="px-6 pt-5 pb-0 border-b border-line flex-shrink-0 bg-white">
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
@@ -581,7 +576,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
               </button>
               {onManageTemplates && (
                 <button onClick={onManageTemplates} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-xs text-forest-800 hover:border-forest-300">
-                  <FileText className="w-3.5 h-3.5" /> Modelos de resposta
+                  <FileText className="w-3.5 h-3.5" /> Respostas prontas
                 </button>
               )}
               <div className="flex items-center gap-1 border border-line rounded-xl p-0.5">
@@ -591,7 +586,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
             </div>
           </div>
 
-          {/* Cards de resumo (5) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 mb-4">
             {summaryCards.map(c => {
               const active = (c.key === '__overdue' && overdueOnly) || (statusTab === c.key)
@@ -609,7 +603,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
             })}
           </div>
 
-          {/* Status tabs — underline nav */}
           <div className="flex overflow-x-auto -mx-1 px-1">
             {STATUS_TABS.map(tab => (
               <button key={tab.key} onClick={() => { setStatusTab(tab.key); setOverdueOnly(false); setPage(1) }}
@@ -634,7 +627,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
           </div>
         </div>
 
-        {/* Barra de busca e filtros */}
         <div className="px-4 py-3 border-b border-line bg-white flex-shrink-0 flex gap-2 flex-wrap items-center">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
@@ -671,7 +663,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
           {hasFilters && <button onClick={clearFilters} className="text-xs text-stone-400 hover:text-stone-600 px-1">Limpar</button>}
         </div>
 
-        {/* Lista / Kanban */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-6 space-y-2">{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />)}</div>
@@ -755,7 +746,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                   </tbody>
                 </table>
               </div>
-              {/* Paginação */}
               <div className="flex items-center justify-between gap-3 px-5 py-3 text-xs text-stone-500 border-t border-line">
                 <span>Mostrando {(curPage - 1) * PAGE_SIZE + 1}–{Math.min(curPage * PAGE_SIZE, filtered.length)} de {filtered.length} tickets</span>
                 <div className="flex items-center gap-1">
@@ -766,7 +756,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
               </div>
             </>
           ) : (
-            /* Kanban */
             <div className="flex gap-3 p-4 overflow-x-auto h-full">
               {KANBAN_COLUMNS.map(col => {
                 const colTickets = filtered.filter(t => t.status === col.key)
@@ -795,7 +784,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
         </div>
       </div>
 
-      {/* ─── Painel lateral de detalhes ─── */}
       <div className={`${selectedTicket ? 'flex' : 'hidden lg:flex'} flex-col w-full lg:w-[540px] border-l border-line bg-white flex-shrink-0 overflow-hidden`}>
         {!selectedTicket ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8 text-stone-400">
@@ -804,7 +792,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
           </div>
         ) : (
           <>
-            {/* Cabeçalho do ticket */}
             <div className="px-5 py-4 border-b border-line flex-shrink-0 bg-white">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -847,9 +834,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
               </div>
             </div>
 
-            {/* Dados do usuário + controles — área scrollável no painel */}
             <div className="overflow-y-auto flex-shrink-0 max-h-[280px] border-b border-line bg-stone-50">
-              {/* Card do usuário */}
               <div className="px-5 pt-4 pb-3">
                 <div className="bg-white rounded-2xl border border-line p-4 mb-3">
                   <div className="flex items-start gap-3">
@@ -892,7 +877,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                   </div>
                 </div>
 
-                {/* Grid 3 colunas: Status, Prioridade, SLA */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div>
                     <p className="text-[10px] text-stone-400 uppercase tracking-wide mb-1">Status</p>
@@ -933,7 +917,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                   </div>
                 </div>
 
-                {/* Card SLA */}
                 {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (() => {
                   const sla = getSLARemaining(selectedTicket)
                   const cardCls = sla.isOverdue
@@ -954,7 +937,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                   )
                 })()}
 
-                {/* Ações rápidas */}
                 <div className="flex gap-2 flex-wrap">
                   {isClosed ? (
                     <button onClick={() => updateTicket('status', 'open')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50">
@@ -975,7 +957,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
               </div>
             </div>
 
-            {/* Conversa */}
             <div className="flex-1 overflow-y-auto min-h-0 bg-stone-50">
               <div className="flex items-center justify-between px-5 py-2.5 border-b border-stone-100 bg-stone-50 sticky top-0 z-10">
                 <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Conversa</p>
@@ -1015,7 +996,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
               </div>
             </div>
 
-            {/* Área de resposta */}
             <div className="flex-shrink-0 border-t border-line bg-white">
               {sendError && <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 px-4 py-2 border-b border-red-100"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}</div>}
               {savedMsg && <div className="text-xs text-forest-700 bg-mint/60 px-4 py-2 border-b border-mint">{savedMsg}</div>}
@@ -1027,11 +1007,10 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                 </div>
               ) : (
                 <div className="p-4">
-                  {/* Seletor de modelo */}
                   <div className="mb-3 relative">
                     <button type="button" onClick={() => setShowTemplatePanel(v => !v)}
                       className="w-full flex items-center justify-between text-xs px-2.5 py-2 border border-line rounded-lg bg-white hover:bg-stone-50">
-                      <span className="text-stone-500 truncate">{selectedTemplate ? (templates.find(t => t.id === selectedTemplate)?.title ?? 'Selecionar modelo…') : 'Selecionar modelo…'}</span>
+                      <span className="text-stone-500 truncate">{selectedTemplate ? (templates.find(t => t.id === selectedTemplate)?.title ?? 'Selecionar resposta pronta…') : 'Selecionar resposta pronta…'}</span>
                       <ChevronDown className={`w-3.5 h-3.5 text-stone-400 flex-shrink-0 ml-2 transition-transform ${showTemplatePanel ? 'rotate-180' : ''}`} />
                     </button>
                     {showTemplatePanel && (() => {
@@ -1044,7 +1023,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                           <div className="p-2 border-b border-line flex gap-2">
                             <div className="relative flex-1">
                               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
-                              <input autoFocus value={templateSearch} onChange={e => setTemplateSearch(e.target.value)} placeholder="Buscar modelo…" className="w-full pl-6 pr-2 py-1 text-xs border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300" />
+                              <input autoFocus value={templateSearch} onChange={e => setTemplateSearch(e.target.value)} placeholder="Buscar resposta pronta…" className="w-full pl-6 pr-2 py-1 text-xs border border-line rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300" />
                             </div>
                             <select value={templateCategory} onChange={e => setTemplateCategory(e.target.value)} className="text-xs px-2 py-1 border border-line rounded-lg bg-white focus:outline-none">
                               <option value="">Todas categorias</option>
@@ -1053,7 +1032,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                           </div>
                           <div className="max-h-52 overflow-y-auto divide-y divide-stone-50">
                             {list.length === 0
-                              ? <p className="text-xs text-stone-400 text-center py-4">Nenhum modelo encontrado</p>
+                              ? <p className="text-xs text-stone-400 text-center py-4">Nenhuma resposta pronta encontrada</p>
                               : list.map(t => (
                                 <button key={t.id} type="button"
                                   onClick={() => { setSelectedTemplate(t.id); setReplyContent(t.body); setShowTemplatePanel(false); setTemplateSearch('') }}
@@ -1069,7 +1048,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                     })()}
                   </div>
 
-                  {/* Sugestões rápidas */}
                   {!replyContent && quickSuggestions.length > 0 && (
                     <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
                       {quickSuggestions.map(s => (
@@ -1082,7 +1060,6 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                     </div>
                   )}
 
-                  {/* Tabs Responder / Nota interna */}
                   <div className="flex border-b border-line mb-3">
                     <button onClick={() => setIsInternal(false)}
                       className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${!isInternal ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-400 hover:text-stone-600'}`}>
