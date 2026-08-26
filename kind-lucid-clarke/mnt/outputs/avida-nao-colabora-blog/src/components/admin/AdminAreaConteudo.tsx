@@ -57,8 +57,8 @@ function firstTabForGroup(group: Group): Tab {
 interface Props {
   onEditArticle: (id?: string) => void
   initialTab?: string
-  // A Central de IA continua única em IA Emocional. Aqui existe só um atalho
-  // contextual dentro de Inteligência, sem duplicar AdminAIUsage.
+  // A Central de IA continua única em IA Emocional. Aqui existe apenas um
+  // atalho contextual em Inteligência, sem renderizar novamente a tela de uso.
   onOpenCentralIA?: () => void
 }
 
