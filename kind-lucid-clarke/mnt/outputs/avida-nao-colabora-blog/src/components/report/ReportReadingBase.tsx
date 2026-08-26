@@ -13,6 +13,14 @@ function addCounted(target: CountedItem[], label: string, count: unknown) {
   if (normalized > 0) target.push({ label, count: normalized })
 }
 
+function weeklyMarkers(content: WeeklyContent) {
+  return (content.emotionalMarkers?.length ?? 0) > 0 ? content.emotionalMarkers : (content.triggers ?? [])
+}
+
+function monthlyMarkers(content: MonthlyContent) {
+  return (content.topEmotionalMarkers?.length ?? 0) > 0 ? content.topEmotionalMarkers : (content.topTriggers ?? [])
+}
+
 function confirmedSignals(content: ReportContent): CountedItem[] {
   const items: CountedItem[] = []
 
@@ -22,7 +30,7 @@ function confirmedSignals(content: ReportContent): CountedItem[] {
 
   if (content.kind === 'weekly') {
     const weekly = content as WeeklyContent
-    for (const marker of weekly.emotionalMarkers ?? weekly.triggers ?? []) {
+    for (const marker of weeklyMarkers(weekly)) {
       addCounted(items, `Marcador emocional: ${marker.tag}`, marker.count)
     }
     for (const context of weekly.topContexts ?? []) {
@@ -30,7 +38,7 @@ function confirmedSignals(content: ReportContent): CountedItem[] {
     }
   } else {
     const monthly = content as MonthlyContent
-    for (const marker of monthly.topEmotionalMarkers ?? monthly.topTriggers ?? []) {
+    for (const marker of monthlyMarkers(monthly)) {
       addCounted(items, `Marcador emocional: ${marker.tag}`, marker.count)
     }
     for (const context of monthly.topContexts ?? []) {
@@ -81,12 +89,12 @@ function missingSignals(content: ReportContent): string[] {
 
   if (content.kind === 'weekly') {
     const weekly = content as WeeklyContent
-    if ((weekly.emotionalMarkers?.length ?? weekly.triggers?.length ?? 0) === 0) items.push('Sem marcadores emocionais registrados')
+    if (weeklyMarkers(weekly).length === 0) items.push('Sem marcadores emocionais registrados')
     if ((weekly.topContexts?.length ?? 0) === 0) items.push('Sem contextos estruturados suficientes')
     if (weekly.data_quality?.has_enough_data === false || weekly.hasEnoughData === false) items.push('Poucos registros para uma leitura mais consistente')
   } else {
     const monthly = content as MonthlyContent
-    if ((monthly.topEmotionalMarkers?.length ?? monthly.topTriggers?.length ?? 0) === 0) items.push('Sem marcadores emocionais registrados')
+    if (monthlyMarkers(monthly).length === 0) items.push('Sem marcadores emocionais registrados')
     if ((monthly.topContexts?.length ?? 0) === 0) items.push('Sem contextos estruturados suficientes')
     if ((monthly.topNeeds?.length ?? 0) === 0) items.push('Sem necessidades estruturadas suficientes')
     if ((monthly.realTriggers?.length ?? 0) === 0) items.push('Sem gatilhos reais informados no período')
