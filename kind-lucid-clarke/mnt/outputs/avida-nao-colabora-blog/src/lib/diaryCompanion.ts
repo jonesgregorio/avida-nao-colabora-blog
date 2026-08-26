@@ -42,11 +42,12 @@ interface CompanionInput {
 }
 
 const DIARY_COMPANION_TIMEOUT_MS = 26_000
+const DIARY_COMPANION_ERROR = 'Não foi possível concluir esta ajuda agora. Seu texto continua intacto e você pode seguir normalmente.'
 
 export async function askDiaryCompanion(input: CompanionInput): Promise<DiaryCompanionResponse> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('A ajuda de IA demorou mais que o esperado. Seu texto continua intacto e você pode seguir sem ela.')), DIARY_COMPANION_TIMEOUT_MS)
+    timer = setTimeout(() => reject(new Error(DIARY_COMPANION_ERROR)), DIARY_COMPANION_TIMEOUT_MS)
   })
 
   try {
@@ -54,8 +55,8 @@ export async function askDiaryCompanion(input: CompanionInput): Promise<DiaryCom
       supabase.functions.invoke<DiaryCompanionResponse>('diary-companion', { body: input }),
       timeout,
     ])
-    if (error) throw new Error(error.message || 'Não foi possível usar a ajuda de IA agora.')
-    if (!data?.ok) throw new Error(data?.message || 'Não foi possível usar a ajuda de IA agora.')
+    if (error) throw new Error(DIARY_COMPANION_ERROR)
+    if (!data?.ok) throw new Error(DIARY_COMPANION_ERROR)
     return data
   } finally {
     if (timer) clearTimeout(timer)
