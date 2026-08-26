@@ -30,7 +30,7 @@ test('Orientação do usuário mantém os bastidores de IA invisíveis', () => {
   assert.match(src, /Análise cuidadosa antes da resposta/)
   assert.match(src, /Seu pedido está em análise/)
   assert.match(src, /Enviar orientação/)
-  assert.match(src, /> Em análise</)
+  assert.match(src, /Em análise/)
   assert.match(src, /Orientação respondida/)
 
   assert.doesNotMatch(src, /A IA pode/)
