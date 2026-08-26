@@ -7,6 +7,16 @@ import {
   type EditorialAutomationConfig,
   type EditorialAutomationType,
 } from '../_shared/editorialAutomationContracts.ts'
+import {
+  MIN_ARTICLE_WORDS,
+  articleExcerptFrom,
+  articleWordCount,
+  buildArticleExpansionPrompt,
+  buildArticleGenerationPrompt,
+  parseArticlePackages,
+  validateArticlePackage,
+  type ArticleAIContract,
+} from '../_shared/articleGenerationContract.ts'
 
 // ─── Executor de automações de conteúdo (chamado por pg_cron via pg_net) ─────
 // Autenticado pelo SERVICE ROLE (só o banco/vault tem). Para cada automação de
@@ -51,14 +61,6 @@ function slugify(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 72)
 }
-// Resumo curto p/ card do blog — 1º parágrafo substancial do conteúdo gerado,
-// sem chamar a IA de novo (evita custo/latência extra por artigo).
-function excerptFrom(content: string): string {
-  const firstPara = content.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#') && l.length > 40) || ''
-  return firstPara.replace(/[*_`]/g, '').slice(0, 200)
-}
-const MIN_AUTO_PUBLISH_WORDS = 1000
-function wordCount(text: string): number { return text.trim().split(/\s+/).filter(Boolean).length }
 
 // §9.3 da MISSÃO GERAL: instruir o prompt a evitar "tom de ChatGPT" não é
 // suficiente sozinho — a IA às vezes ignora a instrução. Guarda determinística:
@@ -74,10 +76,6 @@ function detectAiCliches(content: string): string[] {
   return AI_CLICHE_PHRASES.filter(phrase => lower.includes(phrase))
 }
 function cleanText(value: unknown, max = 10000): string { return typeof value === 'string' ? value.trim().slice(0, max) : '' }
-function stringList(value: unknown, max = 8): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map(v => String(v || '').trim()).filter(Boolean).slice(0, max)
-}
 function parseJsonObject(raw: string): Record<string, unknown> | null {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim()
   try { const value = JSON.parse(cleaned); return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null }
@@ -222,27 +220,7 @@ type AutomationRow = {
   next_run_at?: string | null
 }
 
-type GeneratedArticlePackage = {
-  title?: unknown
-  content?: unknown
-  excerpt?: unknown
-  seo_title?: unknown
-  seo_description?: unknown
-  keyword?: unknown
-  secondary_keywords?: unknown
-  tags?: unknown
-  emotional_themes?: unknown
-  image_query?: unknown
-  image_alt?: unknown
-  diary_question?: unknown
-  cta_text?: unknown
-  category?: unknown
-}
-
-function articleItems(raw: Record<string, unknown>): GeneratedArticlePackage[] {
-  const items = Array.isArray(raw.articles) ? raw.articles : []
-  return items.filter(v => v && typeof v === 'object' && !Array.isArray(v)) as GeneratedArticlePackage[]
-}
+type GeneratedArticlePackage = ArticleAIContract
 
 function ideaItems(raw: Record<string, unknown>): Record<string, unknown>[] {
   const items = Array.isArray(raw.ideas) ? raw.ideas : []
@@ -271,34 +249,47 @@ async function persistArticle(
 ): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
   const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
   let content = cleanText(pkg.content, 50000)
-  if (allowExpansion && content && wordCount(content) < MIN_AUTO_PUBLISH_WORDS) {
+  // Etapa 5.1: no máximo UMA tentativa de expansão por artigo.
+  if (allowExpansion && content && articleWordCount(content) < MIN_ARTICLE_WORDS) {
     try {
-      content = await genAI(`Amplie o artigo abaixo para pelo menos 1100 palavras, preservando o título, o tom acolhedor, a estrutura e a segurança. Não invente dados clínicos. Responda somente com o corpo final do artigo.\n\n${content}`)
-    } catch { /* a validação determinística mantém como rascunho */ }
+      const expanded = await genAI(buildArticleExpansionPrompt(content))
+      if (expanded.trim()) content = expanded.trim()
+    } catch { /* a validação compartilhada mantém como rascunho */ }
   }
   if (!content) throw new Error(`Artigo “${title}” retornou sem conteúdo.`)
 
-  const excerpt = cleanText(pkg.excerpt, 200) || excerptFrom(content)
+  const excerpt = cleanText(pkg.excerpt, 200) || articleExcerptFrom(content) || title.slice(0, 200)
   const seoTitle = cleanText(pkg.seo_title, 60) || title.slice(0, 60)
   const seoDescription = cleanText(pkg.seo_description, 155) || excerpt.slice(0, 155)
   const keyword = cleanText(pkg.keyword, 120) || fallbackTheme.slice(0, 120)
-  const secondaryKeywords = stringList(pkg.secondary_keywords, 6)
-  const tags = stringList(pkg.tags, 6)
-  const emotionalThemes = stringList(pkg.emotional_themes, 4)
-  const imageQuery = cleanText(pkg.image_query, 120) || `${fallbackTheme} wellbeing lifestyle`
+  const secondaryKeywords = pkg.secondary_keywords.slice(0, 6)
+  const tags = pkg.tags.slice(0, 6)
+  const emotionalThemes = pkg.emotional_themes.slice(0, 4)
+  const imageQuery = cleanText(pkg.image_query, 120)
   const cover = await searchPexelsCover(imageQuery)
   const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
   const diaryQuestion = cleanText(pkg.diary_question, 260)
   const ctaText = cleanText(pkg.cta_text, 180)
+  const category = cleanText(pkg.category, 120) || automation.category || 'Geral'
 
-  const validationErrors: string[] = []
-  if (wordCount(content) < MIN_AUTO_PUBLISH_WORDS) validationErrors.push(`menos de ${MIN_AUTO_PUBLISH_WORDS} palavras`)
-  if (excerpt.length < 80) validationErrors.push('resumo curto/ausente')
-  if (seoTitle.length < 25) validationErrors.push('SEO title ausente/curto')
-  if (seoDescription.length < 90) validationErrors.push('meta description ausente/curta')
-  if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
-  if (!cover?.url) validationErrors.push('imagem de capa ausente')
-  if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
+  const validatedPackage: ArticleAIContract = {
+    ...pkg,
+    title,
+    content,
+    excerpt,
+    seo_title: seoTitle,
+    seo_description: seoDescription,
+    keyword,
+    secondary_keywords: secondaryKeywords,
+    tags,
+    emotional_themes: emotionalThemes,
+    category,
+    image_query: imageQuery,
+    image_alt: imageAlt,
+    diary_question: diaryQuestion,
+    cta_text: ctaText,
+  }
+  const validationErrors = validateArticlePackage(validatedPackage, { imageUrl: cover?.url })
   const cliches = detectAiCliches(content)
   if (cliches.length > 0) validationErrors.push(`tom genérico de IA detectado ("${cliches.join('", "')}")`)
 
@@ -314,11 +305,10 @@ async function persistArticle(
   const wantsAutoPublish = automation.mode === 'auto_publish'
   const publish = wantsAutoPublish && validationErrors.length === 0
   const nowIso = new Date().toISOString()
-  const readTime = Math.max(1, Math.ceil(wordCount(content) / 200))
-  const internalNotes = wantsAutoPublish && !publish
-    ? `Auto-publicação bloqueada pela validação: ${validationErrors.join('; ')}.`
+  const readTime = Math.max(1, Math.ceil(articleWordCount(content) / 200))
+  const internalNotes = validationErrors.length
+    ? `${wantsAutoPublish ? 'Auto-publicação bloqueada' : 'Rascunho mantido'} pela validação: ${validationErrors.join('; ')}.`
     : null
-  const category = cleanText(pkg.category, 120) || automation.category || 'Geral'
 
   const { data: art, error: insErr } = await admin.from('articles').insert({
     title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-5)}-${Math.random().toString(36).slice(2, 5)}`,
@@ -355,27 +345,20 @@ async function executeArticleAutomation(
   const quantity = clampAutomationQuantity(type, config.quantity)
   const themes = uniqueThemes(config, automation.category || 'saúde emocional')
   const tone = config.tone || 'acolhedor'
-  const prompt = `Você escreve para o blog A Vida Não Colabora. Gere exatamente ${quantity} ${quantity === 1 ? 'artigo' : 'artigos distintos'} em português brasileiro.
-Temas disponíveis: ${themes.join(' | ')}. Tom: ${tone}.
-Cada corpo precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso de que o conteúdo não substitui acompanhamento profissional.
-Para pacote, varie os temas e ângulos; não gere títulos quase iguais.
-Não diagnostique, não prescreva, não prometa cura e não invente pesquisas.
-Evite clichês de texto gerado por IA: não use frases como "em conclusão", "é importante ressaltar", "em suma", "não podemos esquecer que", "em um mundo cada vez mais", "convido você a refletir", "ao longo deste artigo, vamos explorar". Não repita sempre a mesma introdução ("Você já se pegou pensando...", "Vivemos em uma sociedade..."). Não abuse de listas — prefira parágrafos corridos na maior parte do texto.
-Retorne SOMENTE JSON válido:
-{"articles":[{"title":"máx. 10 palavras","content":"corpo completo","excerpt":"120 a 190 caracteres","seo_title":"35 a 60 caracteres","seo_description":"120 a 155 caracteres","keyword":"principal","secondary_keywords":["3 a 6"],"tags":["3 a 6"],"emotional_themes":["até 4"],"image_query":"busca curta para foto real","image_alt":"alt em português","diary_question":"pergunta curta","cta_text":"CTA gentil","category":"categoria"}]}
-${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
+  const prompt = buildArticleGenerationPrompt({
+    quantity,
+    themes,
+    tone,
+    category: automation.category || 'saúde emocional',
+    extraInstructions: config.extra || undefined,
+  })
   const raw = await genAI(prompt)
-  const parsed = parseJsonObject(raw)
-  if (!parsed) throw new Error('IA não retornou JSON válido para artigos.')
-  const packages = articleItems(parsed).slice(0, quantity)
-  if (packages.length === 0) throw new Error('IA não retornou nenhum artigo no pacote.')
+  const packages = parseArticlePackages(raw, themes, automation.category || '').slice(0, quantity)
+  if (packages.length === 0) throw new Error('IA não retornou nenhum artigo válido no contrato editorial.')
 
   // Pexels e persistência podem rodar em paralelo. A geração textual já ocorreu em
   // uma única chamada, evitando multiplicar a latência do cron semanal.
-  // allowExpansion sempre ativo: o pacote tem no máximo 4 artigos (ver
-  // EDITORIAL_AUTOMATION_SPECS), então o custo extra de expandir os que
-  // saírem curtos é limitado. Antes só rodava para quantity===1, deixando
-  // pacotes com >1 artigo curto caírem direto pra rascunho sem tentar expandir.
+  // A expansão é limitada a UMA tentativa por artigo pelo persistArticle.
   const results = await Promise.all(packages.map((pkg, index) =>
     persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, true),
   ))
@@ -385,7 +368,7 @@ ${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
     const first = results[0]
     return first.published
       ? `Publicado: ${first.title}`
-      : `Rascunho: ${first.title}${first.validationErrors.length ? ` (auto-publicação bloqueada: ${first.validationErrors.join(', ')})` : ''}`
+      : `Rascunho: ${first.title}${first.validationErrors.length ? ` (validação: ${first.validationErrors.join(', ')})` : ''}`
   }
   return `Pacote: ${results.length} artigos gerados (${published} publicado(s), ${drafts} rascunho(s)).`
 }
