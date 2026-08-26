@@ -64,7 +64,7 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
           </div>
           {saved.mirror.pattern && <div className="mt-3 rounded-2xl border border-line bg-white/70 p-4"><p className="text-xs font-semibold text-forest-700">Recorrência para observar</p><p className="text-sm text-ink-soft mt-1">{saved.mirror.pattern}</p></div>}
           <div className="mt-4 rounded-2xl bg-forest-900 text-white p-5"><p className="text-xs text-forest-100">Uma pergunta para levar com você</p><p className="font-serif text-xl mt-1">{saved.mirror.question}</p></div>
-          <p className="text-[11px] text-ink-soft mt-3">Leitura automática de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
+          <p className="text-[11px] text-ink-soft mt-3">Leitura de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
         </section>
       )}
 
