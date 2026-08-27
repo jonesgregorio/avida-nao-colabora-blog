@@ -85,10 +85,11 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
 
   const comparisonRows = useMemo(() => {
     const byKey = new Map(catalog.items.map(item => [item.key, item]))
-    const official = PLAN_COMPARE_ROWS.map(row => {
+    const official = PLAN_COMPARE_ROWS.flatMap(row => {
       const featureKey = COMPARISON_FEATURE_BY_ROW[row.label]
       const item = featureKey ? byKey.get(featureKey) : null
-      return { ...row, label: item?.isActive && item.showOnComparison ? item.name : row.label }
+      if (item && (!item.isActive || !item.showOnComparison)) return []
+      return [{ ...row, label: item?.name || row.label }]
     })
     const commercial = catalog.items
       .filter(item => item.kind === 'commercial' && item.isActive && item.showOnComparison)
