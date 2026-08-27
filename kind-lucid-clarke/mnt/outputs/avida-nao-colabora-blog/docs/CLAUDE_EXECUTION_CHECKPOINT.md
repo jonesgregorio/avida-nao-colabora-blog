@@ -12,9 +12,9 @@ preço-texto manual no Admin, plano ativo/inativo bloqueando checkout de
 verdade, permissões técnicas honestas no Admin (read-only ou remover).
 
 ## Última `main` conhecida
-- Commit: `f2762ac` ("fix(planos): tornar permissões técnicas somente leitura no Admin (Etapa 4) (#168)")
-- Sincronizada e deployada em produção em 2026-08-27 23:34 UTC (confirmado via API de deployments do GitHub).
-- **Todos os 4 itens P0 do novo super-prompt (ZIP 76) estão concluídos, mesclados e em produção.**
+- Commit: `970f414` ("feat(planos): verificador de consistência + Stripe Audit dinâmico (Etapas 9-10) (#170)")
+- Sincronizada e deployada em produção em 2026-08-27 23:50 UTC (confirmado via API de deployments do GitHub).
+- **Todo o P0 (Etapas 1-4) e parte do P1 (Etapas 9-10) do novo super-prompt estão concluídos, mesclados e em produção.**
 
 ## Achado importante desta missão
 Ao começar, dois PRs de uma sessão paralela ("feat(planos): catálogo central
@@ -33,16 +33,16 @@ auditar o código atual antes de assumir que algo já foi corrigido.
 | Etapa 3 (P0) | `plan_configs.active` bloqueando novas assinaturas/upgrades de verdade | ✅ CONCLUÍDA — [PR #167](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/167) (mesclado) | `create-checkout`/`manage-subscription` agora consultam `plan_configs.active` e recusam com erro claro. `'free'` nunca é bloqueado (downgrade pra Gratuito passa por `cancel`, não por este helper). Frontend (`Pricing.tsx`/`MyPlanPageCore.tsx`) mostra "Indisponível agora" pra quem ainda não está no plano; assinante atual não é afetado. Sem migration. |
 | Etapa 4 (P0/P1) | Permissões técnicas honestas no Admin (read-only ou remover) | ✅ CONCLUÍDA — [PR #168](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/168) (mesclado) | Confirmado: `loadPlanAccess()` realmente nunca era chamada. `toggleOwnFeature()`/`saveAllAccess()` removidos; as duas visões (cards + tabela técnica) do Admin agora mostram sempre `OWN_FEATURE_KEYS` (fonte real) como indicador somente leitura, com selo "🔒 regra técnica do produto". "Visualização comercial" e "Sincronizar com Supabase" intactos. |
 | Etapa 7 (P1) | MyPlanPage/Core sem mutação global (`splice` em `PUBLIC_PLAN_FEATURES`/`PLAN_COMPARE_ROWS`) | ✅ JÁ ESTAVA OK (não precisou de correção) | Auditoria confirmou: `PLAN_COMPARE_ROWS` (`planComparison.ts`) e `PUBLIC_PLAN_FEATURES` são derivados via `.map`/função pura, nunca mutados com `splice`. O medo da auditoria original (ZIP 76) não se confirmou no código atual. |
-| Etapa 9 (P1) | Verificador de consistência dos planos no Admin | ❌ NÃO EXISTE | Nenhum bloco "Verificação de consistência" (crítico/atenção/informativo) encontrado em `AdminPlans.tsx`/`AdminPlanosPage.tsx`/`AdminPlanFeatureCatalog.tsx`. |
-| Etapa 10 (P1) | Stripe Audit sem valor fixo hardcoded | ⚠️ PARCIAL — risco baixo | `AdminBillingPriceEditor.tsx:10` tem `FALLBACK = { essential: 1990, plus: 3990 }`, mas só como estado inicial de exibição; `load()` sempre busca o preço real via `admin-plan-pricing`. Não há um "Stripe Audit" dedicado separado — não confundir com o editor de preços, que já está correto. |
+| Etapa 9 (P1) | Verificador de consistência dos planos no Admin | ✅ CONCLUÍDA — [PR #170](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/170) (mesclado) | Novo bloco "Verificação de consistência" em `AdminPlanosPage.tsx` (botão "Verificar planos") + Edge Function `admin-plan-consistency` (read-only, AAL2, nunca corrige sozinha). Checa catálogo (duplicidade, técnico-virou-comercial, arquivado-mas-anunciado, comercial-sem-plano), planos (inativo, informativo) e preços (banco × Stripe ao vivo: moeda, valor, produto, Price arquivado/inexistente). 3 níveis: crítico/atenção/informativo. |
+| Etapa 10 (P1) | Stripe Audit sem valor fixo hardcoded | ✅ CONCLUÍDA — [PR #170](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/170) (mesclado) | **Achado real, não só risco baixo**: `supabase/functions/stripe-audit/index.ts` (função JÁ EXISTENTE, distinta do editor de preços) tinha `const EXPECTED = { essential: 1990, plus: 3990 }` usado nas comparações reais (`essentialOk`/`plusOk`/`expected_amounts`) — ficou errado assim que o preço virou editável na Etapa 1. Corrigido: agora busca `plan_configs.price_cents` em runtime antes de comparar com o Stripe; a constante fixa vira só fallback de emergência (renomeada `FALLBACK_EXPECTED`). |
 | Etapas 11–35 | Templates de suporte, anexos, categorias, feedback do plano/orientação, evolução de questionários, personalização negativa, senha 8+, MFA opcional, exportação, mapa emocional, modularização, docs, gates, Supabase/Stripe/Vercel, auditoria final | Não auditado ainda nesta sessão | P2/P3 — depois dos P0/P1 acima. |
 
 ## Itens concluídos nesta sessão (contando as duas missões)
 Ver tabela "Histórico" no fim para a missão anterior (22 etapas). Nesta
-missão nova (ZIP 76): **Etapas 1, 2, 3 e 4 concluídas — todo o P0** (4 PRs:
-#164, #165, #167, #168), mais Etapa 5 da missão anterior fechada no meio do
-caminho (PR #163). 8 PRs mesclados no total nesta sessão, todos com CI verde
-e deploy de produção confirmado via API do GitHub.
+missão nova (ZIP 76): **Etapas 1, 2, 3, 4, 9 e 10 concluídas** (5 PRs:
+#164, #165, #167, #168, #170), mais Etapa 5 da missão anterior fechada no
+meio do caminho (PR #163). 9 PRs mesclados no total nesta sessão, todos com
+CI verde e deploy de produção confirmado via API do GitHub.
 
 ## Arquivos modificados nesta missão (ZIP 76)
 - `src/lib/planPricing.ts` (novo — fonte canônica de preço + flag `active`)
@@ -102,33 +102,26 @@ Ambas validadas com `deno check` local antes do push, além do CI.
   escrita legítima do preço real é `admin-plan-pricing` (Stripe).
 
 ## PRÓXIMA AÇÃO A EXECUTAR
-Todo o P0 está fechado. Ordem sugerida para continuar (P1 → P2 → P3):
-1. **Etapa 9 (P1)** — Verificador de consistência dos planos no Admin. Não
-   existe ainda. Criar bloco "Verificação de consistência" com botão
-   "Verificar planos" em Admin → Planos e Assinaturas, comparando: catálogo
-   (feature_key ausente/duplicado), planos (recurso anunciado onde não
-   deveria, plano inativo aparecendo), preços (Admin vs banco vs Stripe vs
-   público vs Meu Plano — agora que a Etapa 1 unificou a leitura, isso deve
-   bater; o verificador serve pra provar isso continuamente), Stripe (Price
-   ID inexistente/arquivado/moeda errada). Importante: **só aponta, não
-   corrige automaticamente** (regra explícita do super-prompt).
-2. **Etapa 10 (P1)** — Stripe Audit dinâmico. Auditoria já encontrou que
-   `AdminBillingPriceEditor.tsx:10` tem um `FALLBACK` hardcoded, mas só usado
-   como estado inicial antes da carga real — risco baixo, mas vale confirmar
-   se existe (ou deveria existir) uma tela "Stripe Audit" dedicada separada
-   do editor de preços, e se ela usa valor fixo em algum lugar.
-3. **Etapa 7 já estava OK** (não precisa de trabalho) — só confirmar de novo
+Todo o P0 e as Etapas 9-10 do P1 estão fechados. Ordem sugerida para continuar:
+1. **Etapa 7 já estava OK** (não precisa de trabalho) — só confirmar de novo
    se algo mudar na área de MyPlanPage no futuro.
-4. Etapas 11-20 (P2): templates de suporte com preço dinâmico, anexos no
-   suporte, categorias de suporte, feedback do plano de autocuidado (mesma
-   pendência da missão anterior), feedback da orientação, evolução de
-   questionários, personalização negativa, senha 8+, exportação melhor.
-5. Etapas 20-22 (P3): MFA opcional, comparação livre no mapa, modularização
-   gradual (Admin Usuários — mesma pendência antiga, agora é P3 aqui).
-6. Etapas 31-35: gates de CI, Supabase, Stripe, Vercel, documentação e
+2. Etapas 11-20 (P2): templates de suporte com preço dinâmico (verificar se
+   `AdminSupport.tsx`/respostas prontas ainda têm preço hardcoded — a
+   auditoria original encontrou isso em `AdminSupport.tsx:94-95`, não
+   corrigido ainda), anexos no suporte, categorias de suporte, feedback do
+   plano de autocuidado (mesma pendência da missão anterior, Etapa 14 nova =
+   Etapa 4 antiga), feedback da orientação (Etapa 15), evolução de
+   questionários (Etapa 16), personalização negativa (Etapa 17), senha 8+
+   (Etapa 18 — auditoria original encontrou inconsistência 6/6/8 caracteres
+   entre cadastro/perfil/troca obrigatória, não verificado nesta sessão se
+   ainda existe), exportação melhor (Etapa 20).
+3. Etapas 21-22 (P3): MFA opcional (Etapa 19), comparação livre no mapa
+   (Etapa 21), modularização gradual (Etapa 24 — Admin Usuários, mesma
+   pendência antiga, agora é P3 aqui).
+4. Etapas 31-35: gates de CI, Supabase, Stripe, Vercel, documentação e
    auditoria final — fazer por último, com o código já estável.
 
-## STATUS: MISSÃO ATUAL EM ANDAMENTO (não concluída) — todo o P0 do novo super-prompt fechado nesta sessão (Etapas 1-4). Próximo: P1 (Etapas 9-10).
+## STATUS: MISSÃO ATUAL EM ANDAMENTO (não concluída) — P0 completo (Etapas 1-4) + parte do P1 (Etapas 7 já ok, 9-10 concluídas) fechados nesta sessão. Próximo: restante do P2.
 
 ---
 
