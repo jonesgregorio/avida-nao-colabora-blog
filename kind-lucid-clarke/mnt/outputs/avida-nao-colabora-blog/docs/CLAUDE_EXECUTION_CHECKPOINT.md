@@ -12,9 +12,9 @@ preço-texto manual no Admin, plano ativo/inativo bloqueando checkout de
 verdade, permissões técnicas honestas no Admin (read-only ou remover).
 
 ## Última `main` conhecida
-- Commit: verificar com `git log origin/main -1` — no momento deste snapshot,
-  `main` já inclui os PRs #157–#164 mesclados (missão anterior + Etapa 2 desta).
-- PR #165 (Etapa 1 desta missão) aberto, CI em andamento no momento deste snapshot.
+- Commit: `f2762ac` ("fix(planos): tornar permissões técnicas somente leitura no Admin (Etapa 4) (#168)")
+- Sincronizada e deployada em produção em 2026-08-27 23:34 UTC (confirmado via API de deployments do GitHub).
+- **Todos os 4 itens P0 do novo super-prompt (ZIP 76) estão concluídos, mesclados e em produção.**
 
 ## Achado importante desta missão
 Ao começar, dois PRs de uma sessão paralela ("feat(planos): catálogo central
@@ -30,8 +30,8 @@ auditar o código atual antes de assumir que algo já foi corrigido.
 |---|---|---|---|
 | Etapa 1 (P0) | Fonte canônica de preço (Home/Pricing/MeuPlano/Admin) | ✅ CONCLUÍDA — [PR #165](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/165) (CI em andamento, não mesclado ainda) | Criado `src/lib/planPricing.ts` (`loadPlanPricing`/`usePlanPricing`), lê `get_public_plan_pricing`. `HomeContent.tsx` tinha preço 100% hardcoded (`'R$ 19,90'`) — corrigido. `MyPlanPageCore.tsx` (`PLAN_PRICES` estático usado em valor atual/comparação/proração) — corrigido, vira `FALLBACK_PLAN_PRICES` só para antes da RPC responder. `Pricing.tsx` e `AdminPlanosPage.tsx` cada um chamava a RPC separadamente — consolidado. |
 | Etapa 2 (P0) | Remover "Preço (texto)" manual em AdminPlans.tsx | ✅ CONCLUÍDA — [PR #164](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/164) (mesclado) | `plan_configs.price` já era sincronizado automaticamente pelo Stripe via `admin-plan-pricing/index.ts:97`, mas `AdminPlans.tsx` tinha um input de texto livre ligado à mesma coluna, permitindo dessincronizar manualmente. Campo virou somente leitura; `savePlans()` não envia mais `price` no upsert. |
-| Etapa 3 (P0) | `plan_configs.active` bloqueando novas assinaturas/upgrades de verdade | ❌ AINDA PENDENTE | Auditoria confirmou: `create-checkout/index.ts` e `manage-subscription/index.ts` **nunca leem `active`** — só buscam `stripe_price_id`. Um plano marcado inativo no Admin não impede checkout nem troca de plano hoje. **Próxima etapa a atacar.** |
-| Etapa 4 (P0/P1) | Permissões técnicas honestas no Admin (read-only ou remover) | ❌ AINDA PENDENTE | A tela "Permissões" do Admin (`plan_feature_access`, `toggleOwnFeature`) grava no banco, mas `loadPlanAccess()` (que leria esse cache para o runtime) **nunca é chamada em nenhum outro lugar do código** — `canAccessFeature` sempre usa o fallback estático de `officialPlans.ts`. A tela edita algo que não tem efeito real; precisa virar read-only com aviso, ou ser removida. |
+| Etapa 3 (P0) | `plan_configs.active` bloqueando novas assinaturas/upgrades de verdade | ✅ CONCLUÍDA — [PR #167](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/167) (mesclado) | `create-checkout`/`manage-subscription` agora consultam `plan_configs.active` e recusam com erro claro. `'free'` nunca é bloqueado (downgrade pra Gratuito passa por `cancel`, não por este helper). Frontend (`Pricing.tsx`/`MyPlanPageCore.tsx`) mostra "Indisponível agora" pra quem ainda não está no plano; assinante atual não é afetado. Sem migration. |
+| Etapa 4 (P0/P1) | Permissões técnicas honestas no Admin (read-only ou remover) | ✅ CONCLUÍDA — [PR #168](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/168) (mesclado) | Confirmado: `loadPlanAccess()` realmente nunca era chamada. `toggleOwnFeature()`/`saveAllAccess()` removidos; as duas visões (cards + tabela técnica) do Admin agora mostram sempre `OWN_FEATURE_KEYS` (fonte real) como indicador somente leitura, com selo "🔒 regra técnica do produto". "Visualização comercial" e "Sincronizar com Supabase" intactos. |
 | Etapa 7 (P1) | MyPlanPage/Core sem mutação global (`splice` em `PUBLIC_PLAN_FEATURES`/`PLAN_COMPARE_ROWS`) | ✅ JÁ ESTAVA OK (não precisou de correção) | Auditoria confirmou: `PLAN_COMPARE_ROWS` (`planComparison.ts`) e `PUBLIC_PLAN_FEATURES` são derivados via `.map`/função pura, nunca mutados com `splice`. O medo da auditoria original (ZIP 76) não se confirmou no código atual. |
 | Etapa 9 (P1) | Verificador de consistência dos planos no Admin | ❌ NÃO EXISTE | Nenhum bloco "Verificação de consistência" (crítico/atenção/informativo) encontrado em `AdminPlans.tsx`/`AdminPlanosPage.tsx`/`AdminPlanFeatureCatalog.tsx`. |
 | Etapa 10 (P1) | Stripe Audit sem valor fixo hardcoded | ⚠️ PARCIAL — risco baixo | `AdminBillingPriceEditor.tsx:10` tem `FALLBACK = { essential: 1990, plus: 3990 }`, mas só como estado inicial de exibição; `load()` sempre busca o preço real via `admin-plan-pricing`. Não há um "Stripe Audit" dedicado separado — não confundir com o editor de preços, que já está correto. |
@@ -39,38 +39,46 @@ auditar o código atual antes de assumir que algo já foi corrigido.
 
 ## Itens concluídos nesta sessão (contando as duas missões)
 Ver tabela "Histórico" no fim para a missão anterior (22 etapas). Nesta
-missão nova (ZIP 76): Etapas 1 e 2 concluídas (2 PRs), Etapa 5 da missão
-anterior também fechada no meio do caminho (PR #163, já mesclado).
+missão nova (ZIP 76): **Etapas 1, 2, 3 e 4 concluídas — todo o P0** (4 PRs:
+#164, #165, #167, #168), mais Etapa 5 da missão anterior fechada no meio do
+caminho (PR #163). 8 PRs mesclados no total nesta sessão, todos com CI verde
+e deploy de produção confirmado via API do GitHub.
 
 ## Arquivos modificados nesta missão (ZIP 76)
-- `src/lib/planPricing.ts` (novo)
+- `src/lib/planPricing.ts` (novo — fonte canônica de preço + flag `active`)
 - `src/components/HomeContent.tsx`
 - `src/components/MyPlanPageCore.tsx`
 - `src/components/Pricing.tsx`
 - `src/components/admin/AdminPlanosPage.tsx`
-- `src/components/admin/AdminPlans.tsx`
+- `src/components/admin/AdminPlans.tsx` (preço read-only + permissões read-only)
+- `supabase/functions/create-checkout/index.ts` (checa `plan_configs.active`)
+- `supabase/functions/manage-subscription/index.ts` (`planIsActive()` helper)
 - `tests/canonicalPlanPricing.test.ts` (novo)
 - `tests/adminPlansPriceReadOnly.test.ts` (novo)
+- `tests/planInactiveBlocksCheckout.test.ts` (novo)
+- `tests/adminTechnicalPermissionsReadOnly.test.ts` (novo)
 - `tests/billing-price-admin-sync.test.ts` (atualizado, não quebrado)
 
 ## Migrations criadas nesta missão
-Nenhuma ainda. A próxima etapa (Etapa 3 — plano inativo) NÃO deve precisar de
-migration nova (`plan_configs.active` já existe) — só lógica nas Edge
-Functions `create-checkout`/`manage-subscription`.
+Nenhuma. Todos os itens P0 foram resolvidos usando colunas/tabelas que já
+existiam (`plan_configs.active`, `plan_configs.price`/`price_cents`,
+`plan_feature_access`) — o problema era sempre "ninguém lê/escreve isso
+direito", nunca "falta coluna".
 
 ## Edge Functions modificadas nesta missão
-Nenhuma ainda (Etapa 3, próxima, vai mexer em `create-checkout` e
-`manage-subscription` — CUIDADO: são fluxos Stripe, testar bem, não fazer
-cobrança real de teste).
+- `create-checkout/index.ts` — recusa checkout de plano inativo.
+- `manage-subscription/index.ts` — recusa upgrade/downgrade pra plano inativo.
+Ambas validadas com `deno check` local antes do push, além do CI.
 
-## Testes executados (última rodada, branch claude/etapa1-preco-canonico antes do merge)
-- `npm test` completo: 3 falhas, todas pré-existentes (mesmas desde o início
-  da sessão, não relacionadas a preço/planos):
+## Testes executados (última rodada, após merge do PR #168)
+- `npm test` completo: 3 falhas, todas pré-existentes desde o início da
+  sessão, não relacionadas a nenhuma mudança feita:
   - `tests/speechRecognitionPermission.test.ts`
   - `tests/monthlyGuidanceContract.test.ts` (2 asserts)
 - `npm run typecheck`: limpo.
 - `npm run lint`: limpo.
 - `npm run build`: limpo.
+- `deno check` local em `create-checkout/index.ts` e `manage-subscription/index.ts`: limpo.
 
 ## Erros encontrados e resolvidos
 - Lock de git órfão (`index.lock`) apareceu repetidas vezes durante a sessão
@@ -94,29 +102,33 @@ cobrança real de teste).
   escrita legítima do preço real é `admin-plan-pricing` (Stripe).
 
 ## PRÓXIMA AÇÃO A EXECUTAR
-1. Confirmar CI verde e mesclar [PR #165](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/165) (Etapa 1 — fonte canônica de preço).
-2. Iniciar Etapa 3 do novo super-prompt (P0): `plan_configs.active` bloqueando
-   checkout/upgrade de verdade.
-   - Backend primeiro: `create-checkout/index.ts` e `manage-subscription/index.ts`
-     devem consultar `plan_configs.active` e recusar com erro claro
-     (`"Este plano não está disponível para novas assinaturas."`) se `false`.
-     NÃO afetar assinantes já ativos no plano (eles continuam normalmente).
-   - Frontend depois: esconder CTA de upgrade/checkout para plano inativo em
-     `Pricing.tsx`/`MyPlanPageCore.tsx` (a UI já lê `plan.active` em algum
-     lugar do Admin — verificar se o front público também precisa ler isso).
-   - Testes: cenário completo (Etapa 26 do super-prompt) — plano inativo não
-     aparece p/ novas assinaturas, checkout recusa, manage-subscription
-     recusa, assinante atual mantém acesso, Admin continua vendo o plano.
-   - CUIDADO: são Edge Functions de Stripe — não fazer cobrança real de
-     teste; testar estruturalmente (validação de payload/erro), não
-     end-to-end contra o Stripe de produção.
-3. Depois: Etapa 4 (permissões técnicas honestas no Admin — provavelmente só
-   read-only na UI + texto explicativo, baixo risco).
-4. Etapas 9/10 (verificador de consistência, Stripe Audit dinâmico) são P1,
-   ficam depois dos P0.
-5. Etapas 11+ (P2/P3) só depois de fechar P0/P1.
+Todo o P0 está fechado. Ordem sugerida para continuar (P1 → P2 → P3):
+1. **Etapa 9 (P1)** — Verificador de consistência dos planos no Admin. Não
+   existe ainda. Criar bloco "Verificação de consistência" com botão
+   "Verificar planos" em Admin → Planos e Assinaturas, comparando: catálogo
+   (feature_key ausente/duplicado), planos (recurso anunciado onde não
+   deveria, plano inativo aparecendo), preços (Admin vs banco vs Stripe vs
+   público vs Meu Plano — agora que a Etapa 1 unificou a leitura, isso deve
+   bater; o verificador serve pra provar isso continuamente), Stripe (Price
+   ID inexistente/arquivado/moeda errada). Importante: **só aponta, não
+   corrige automaticamente** (regra explícita do super-prompt).
+2. **Etapa 10 (P1)** — Stripe Audit dinâmico. Auditoria já encontrou que
+   `AdminBillingPriceEditor.tsx:10` tem um `FALLBACK` hardcoded, mas só usado
+   como estado inicial antes da carga real — risco baixo, mas vale confirmar
+   se existe (ou deveria existir) uma tela "Stripe Audit" dedicada separada
+   do editor de preços, e se ela usa valor fixo em algum lugar.
+3. **Etapa 7 já estava OK** (não precisa de trabalho) — só confirmar de novo
+   se algo mudar na área de MyPlanPage no futuro.
+4. Etapas 11-20 (P2): templates de suporte com preço dinâmico, anexos no
+   suporte, categorias de suporte, feedback do plano de autocuidado (mesma
+   pendência da missão anterior), feedback da orientação, evolução de
+   questionários, personalização negativa, senha 8+, exportação melhor.
+5. Etapas 20-22 (P3): MFA opcional, comparação livre no mapa, modularização
+   gradual (Admin Usuários — mesma pendência antiga, agora é P3 aqui).
+6. Etapas 31-35: gates de CI, Supabase, Stripe, Vercel, documentação e
+   auditoria final — fazer por último, com o código já estável.
 
-## STATUS: MISSÃO ATUAL EM ANDAMENTO (não concluída) — Etapas 1 e 2 do novo super-prompt fechadas nesta sessão.
+## STATUS: MISSÃO ATUAL EM ANDAMENTO (não concluída) — todo o P0 do novo super-prompt fechado nesta sessão (Etapas 1-4). Próximo: P1 (Etapas 9-10).
 
 ---
 
