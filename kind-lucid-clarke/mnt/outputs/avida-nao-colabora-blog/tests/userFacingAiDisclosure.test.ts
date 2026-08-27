@@ -19,6 +19,9 @@ const userSurfaces = [
   'src/components/MonthlyGuidancePage.tsx',
   'src/components/SelfCarePlanPage.tsx',
   'src/components/SupportPage.tsx',
+  'src/components/MyReportPageContent.tsx',
+  'src/components/QuestionnairesPage.tsx',
+  'src/components/LoggedHome.tsx',
 ]
 
 const clientHelpersThatCanSurfaceErrors = [
