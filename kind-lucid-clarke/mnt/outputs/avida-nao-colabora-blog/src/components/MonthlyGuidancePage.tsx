@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { getEffectivePlan } from '../lib/officialPlans'
 import { detectRisk } from '../lib/contentRecommendation'
-import { isGuidanceAnswered, resolveGuidanceResponse, type GuidanceLetter } from '../lib/monthlyGuidanceResponse'
+import { isGuidanceAnswered, resolveGuidanceResponse, guidanceResponseDueDate, type GuidanceLetter } from '../lib/monthlyGuidanceResponse'
 import RiskHelpBanner from './RiskHelpBanner'
 
 interface Props {
@@ -382,7 +382,7 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
           ) : (
             <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
               <Loader2 className="w-3.5 h-3.5 text-forest-400" />
-              Recebemos sua mensagem. Ela está em análise e você será avisado(a) quando a resposta for enviada.
+              Recebemos sua mensagem. Ela está em análise — resposta prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.
             </div>
           )}
         </div>
