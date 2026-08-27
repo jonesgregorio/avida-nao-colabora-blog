@@ -75,7 +75,13 @@ Deno.serve(async (req) => {
 
     const { plan, origin } = await req.json()
     if (!isPaidPlan(plan)) throw new UserFacingError('Plano inválido. Escolha Essencial ou Plus.')
-    const { data: priceCfg } = await supabase.from('plan_configs').select('stripe_price_id').eq('plan_key', plan).maybeSingle()
+    const { data: priceCfg } = await supabase.from('plan_configs').select('stripe_price_id, active').eq('plan_key', plan).maybeSingle()
+    // Plano desativado pelo Admin: não pode receber novas assinaturas. Assinantes
+    // já ativos nesse plano não passam por aqui (fluxo de checkout é só para
+    // quem ainda não tem assinatura ativa — ver checagem `existing` abaixo).
+    if ((priceCfg as { active?: boolean } | null)?.active === false) {
+      throw new UserFacingError('Este plano não está disponível para novas assinaturas no momento.')
+    }
     const priceId = (priceCfg as { stripe_price_id?: string } | null)?.stripe_price_id || FALLBACK_PRICE_IDS[plan]
     if (!priceId) throw new UserFacingError(`Price ID não configurado para o plano ${plan}.`)
 

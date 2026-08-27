@@ -481,7 +481,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               <div className="mt-4">
                 {isCurrent ? (
                   <span className="block text-center text-sm font-medium bg-mint text-forest-700 rounded-xl py-2.5">Plano atual</span>
-                ) : blockPlanChanges ? (
+                ) : blockPlanChanges || pricingMap[p.key]?.active === false ? (
                   <span className="block text-center text-sm text-ink-soft rounded-xl py-2.5 border border-line">Indisponível agora</span>
                 ) : (
                   <button
