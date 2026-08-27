@@ -10,6 +10,7 @@ const webhook = read('supabase/functions/stripe-webhook/index.ts')
 const billingEditor = read('src/components/admin/AdminBillingPriceEditor.tsx')
 const pricing = read('src/components/Pricing.tsx')
 const adminOverview = read('src/components/admin/AdminPlanosPage.tsx')
+const planPricing = read('src/lib/planPricing.ts')
 const discount = read('supabase/functions/admin-discount/index.ts')
 
 test('schema mantém preço Stripe canônico e histórico sem expor escrita ao cliente', () => {
@@ -49,8 +50,12 @@ test('Admin distingue preço exibido de cobrança real e páginas leem preço p�
   assert.match(billingEditor, /admin-plan-pricing/)
   assert.match(billingEditor, /Atualizar/)
   assert.match(billingEditor, /Assinaturas existentes|Assinaturas já existentes/i)
-  assert.match(pricing, /get_public_plan_pricing/)
-  assert.match(adminOverview, /get_public_plan_pricing/)
+  // Pricing.tsx e o Admin não chamam a RPC direto: consomem via a camada
+  // canônica compartilhada (src/lib/planPricing.ts), que é quem chama
+  // get_public_plan_pricing — impede que cada tela derive seu próprio preço.
+  assert.match(planPricing, /get_public_plan_pricing/)
+  assert.match(pricing, /from '..\/lib\/planPricing'/)
+  assert.match(adminOverview, /from '..\/..\/lib\/planPricing'/)
 })
 
 test('desconto individual continua sendo Coupon Stripe real protegido por AAL2', () => {
