@@ -1,3 +1,15 @@
+// Fonte única do prazo de resposta da Orientação Mensal (Admin e usuário
+// devem calcular a mesma data prevista a partir do mesmo envio).
+export const GUIDANCE_RESPONSE_SLA_DAYS = 7
+
+export function guidanceResponseDueDate(createdAtIso: string): Date {
+  return new Date(new Date(createdAtIso).getTime() + GUIDANCE_RESPONSE_SLA_DAYS * 86400_000)
+}
+
+export function guidanceDaysUntilDue(createdAtIso: string): number {
+  return Math.ceil((guidanceResponseDueDate(createdAtIso).getTime() - Date.now()) / 86400_000)
+}
+
 export interface GuidanceLetter {
   title?: string
   user_request_summary?: string

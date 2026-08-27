@@ -9,6 +9,7 @@ import { emailGuidanceAnsweredForUser } from '../../lib/emailTriggers'
 import { detectRisk } from '../../lib/contentRecommendation'
 import { buildProfessionalGuidancePrompt } from '../../lib/aiPrompts/emotionalPrompts'
 import type { EmotionalSummary } from '../../lib/emotionalAnalytics'
+import { GUIDANCE_RESPONSE_SLA_DAYS, guidanceResponseDueDate, guidanceDaysUntilDue } from '../../lib/monthlyGuidanceResponse'
 
 interface GuidanceLetter {
   title?: string; user_request_summary?: string; emotional_context_summary?: string; gentle_guidance?: string
@@ -86,13 +87,9 @@ function RiskBadge() {
   )
 }
 
-const RESPONSE_SLA_DAYS = 7
-function responseDueDate(iso: string): Date {
-  return new Date(new Date(iso).getTime() + RESPONSE_SLA_DAYS * 86400_000)
-}
-function daysUntilDue(iso: string): number {
-  return Math.ceil((responseDueDate(iso).getTime() - Date.now()) / 86400_000)
-}
+const RESPONSE_SLA_DAYS = GUIDANCE_RESPONSE_SLA_DAYS
+const responseDueDate = guidanceResponseDueDate
+const daysUntilDue = guidanceDaysUntilDue
 function dueShort(iso: string): string {
   return responseDueDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
