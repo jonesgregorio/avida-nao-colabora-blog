@@ -13,17 +13,22 @@ export interface PlanPriceInfo {
   amount: number // em reais (não centavos), para exibição/cálculo simples
   display: string // ex.: "R$ 19,90"
   currency: string
+  // Reflete plan_configs.active: um plano inativo não deve oferecer CTA de
+  // assinatura/troca para ele (o backend também recusa — isto é só a UI).
+  active: boolean
 }
 
 export type PlanPricingMap = Record<PlanKey, PlanPriceInfo>
 
 // Fallback: usado antes da RPC responder e caso ela falhe — deriva do
 // catálogo oficial (não é uma segunda fonte de verdade paralela, é o
-// mesmo valor que já alimenta OFFICIAL_PLANS).
+// mesmo valor que já alimenta OFFICIAL_PLANS). Assume ativo por padrão: se a
+// RPC falhar por instabilidade, é mais seguro manter o CTA visível (o backend
+// ainda recusa checkout/troca de plano inativo) do que esconder planos válidos.
 function fallbackPricing(): PlanPricingMap {
   const map = {} as PlanPricingMap
   for (const plan of OFFICIAL_PLANS) {
-    map[plan.key] = { amount: plan.priceValue, display: plan.price, currency: 'brl' }
+    map[plan.key] = { amount: plan.priceValue, display: plan.price, currency: 'brl', active: true }
   }
   return map
 }
@@ -38,11 +43,18 @@ export async function loadPlanPricing(): Promise<PlanPricingMap> {
   const map = fallbackPricing()
   const { data } = await supabase.rpc('get_public_plan_pricing')
   if (!Array.isArray(data)) return map
+  // get_public_plan_pricing() já filtra `WHERE active = true` — qualquer plano
+  // oficial que não aparecer na resposta está desativado no Admin.
+  const returnedKeys = new Set<string>()
   for (const row of data as { plan_key: string; display_price: string; price_cents: number | null; currency: string }[]) {
     if (!PLAN_KEYS.includes(row.plan_key as PlanKey)) continue
     const key = row.plan_key as PlanKey
+    returnedKeys.add(key)
     const amount = typeof row.price_cents === 'number' ? row.price_cents / 100 : parseAmountFromDisplay(row.display_price) ?? map[key].amount
-    map[key] = { amount, display: row.display_price || map[key].display, currency: row.currency || 'brl' }
+    map[key] = { amount, display: row.display_price || map[key].display, currency: row.currency || 'brl', active: true }
+  }
+  for (const key of PLAN_KEYS) {
+    if (!returnedKeys.has(key)) map[key] = { ...map[key], active: false }
   }
   return map
 }

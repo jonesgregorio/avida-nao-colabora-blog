@@ -215,6 +215,18 @@ Deno.serve(async (req) => {
     return (data as { stripe_price_id?: string } | null)?.stripe_price_id || FALLBACK_PRICE_IDS[plan] || FALLBACK_PRICE_IDS[canonicalPlan]
   }
 
+  // Plano desativado pelo Admin não pode receber upgrade/downgrade (novas
+  // assinaturas para ele) — mas quem já está no plano continua normalmente,
+  // pois esta função nunca é chamada para "ficar como está". 'free' nunca é
+  // bloqueado aqui: downgrade para Gratuito passa pela ação 'cancel', não por
+  // este helper, e não faria sentido travar alguém no plano pago contra a vontade.
+  async function planIsActive(plan: string): Promise<boolean> {
+    if (plan === 'free') return true
+    const canonicalPlan = plan === 'therapeutic' || plan === 'therapeutic-plus' ? 'plus' : plan
+    const { data } = await supabase.from('plan_configs').select('active').eq('plan_key', canonicalPlan).maybeSingle()
+    return (data as { active?: boolean } | null)?.active !== false
+  }
+
   // Linha do tempo financeira (094). Nunca quebra o fluxo: um erro aqui não pode
   // impedir um cancelamento que o Stripe já aceitou — só é logado.
   async function registrarEvento(
@@ -280,6 +292,9 @@ Deno.serve(async (req) => {
     //    webhook (subscription.updated) confirmar — nunca aqui.
     if (action === 'upgrade') {
       if (!targetPlan) return jsonResponse({ error: 'targetPlan obrigatório para upgrade' }, 400)
+      if (!(await planIsActive(targetPlan))) {
+        return jsonResponse({ error: 'Este plano não está disponível para novas assinaturas no momento.' }, 400)
+      }
       const newPrice = await resolvePriceId(targetPlan)
       if (!newPrice) return jsonResponse({ error: `Plano inválido ou Price ID ausente: ${targetPlan}` }, 400)
       if (rankOf(targetPlan) <= rankOf(currentPlan)) {
@@ -386,6 +401,9 @@ Deno.serve(async (req) => {
     //    até lá e, no próximo ciclo, tem uma assinatura VÁLIDA e COBRADA do plano inferior.
     if (action === 'downgrade') {
       if (!targetPlan) return jsonResponse({ error: 'targetPlan obrigatório para downgrade' }, 400)
+      if (!(await planIsActive(targetPlan))) {
+        return jsonResponse({ error: 'Este plano não está disponível para novas assinaturas no momento.' }, 400)
+      }
       // Motivo obrigatório também no downgrade (§9), validado no servidor.
       const erroMotivo = validarMotivos(reasons, comment)
       if (erroMotivo) return jsonResponse({ error: erroMotivo }, 400)

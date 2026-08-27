@@ -139,6 +139,10 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
             const featured = plan.featured
             const coral = plan.coral ?? false
             const isCheckoutLoading = action === 'checkout' && loadingPlan === plan.key
+            // Plano desativado pelo Admin: não oferece CTA de assinatura para
+            // quem ainda não está nele (quem já assina continua normalmente,
+            // por isso a checagem só vale quando não é o plano atual).
+            const unavailable = !isCurrent && prices[plan.key]?.active === false
             return (
               <div key={plan.key} className={`relative bg-paper-soft rounded-3xl p-6 flex flex-col ${featured ? 'border-2 border-forest-900 shadow-md md:-mt-2' : coral ? 'border border-[#f0997b]' : 'border border-line'}`}>
                 {featured && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-forest-900 text-white text-xs font-medium px-4 py-1 rounded-full whitespace-nowrap">Mais escolhido</span>}
@@ -151,6 +155,8 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
 
                 {isCurrent ? (
                   <button disabled className="w-full py-3 rounded-2xl text-sm font-medium bg-mint/60 text-forest-700 cursor-default">✓ Plano atual</button>
+                ) : unavailable ? (
+                  <button disabled className="w-full py-3 rounded-2xl text-sm font-medium border border-line text-ink-soft cursor-default">Indisponível agora</button>
                 ) : plan.key === 'free' ? (
                   <button onClick={() => handlePlanAction(plan.key)} className="w-full py-3 rounded-2xl text-sm font-medium border border-forest-800 text-forest-900 hover:bg-forest-900 hover:text-white transition-colors">{action === 'manage' ? 'Gerenciar mudança' : plan.cta}</button>
                 ) : (

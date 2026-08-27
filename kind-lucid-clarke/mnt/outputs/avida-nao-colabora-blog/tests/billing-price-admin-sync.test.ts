@@ -33,7 +33,7 @@ test('alteração de preço exige AAL2, cria novo Price e preserva assinaturas e
   assert.ok(retireAt >= 0 && activateAt >= 0 && retireAt < activateAt)
 })
 test('checkout e mudanças de plano consultam preço canônico antes do fallback legado', () => {
-  assert.match(checkout, /from\('plan_configs'\)[\s\S]*select\('stripe_price_id'\)/)
+  assert.match(checkout, /from\('plan_configs'\)[\s\S]*select\('stripe_price_id, active'\)/)
   assert.match(checkout, /stripe_price_id[^\n]*\|\| FALLBACK_PRICE_IDS\[plan\]/)
   assert.match(manage, /async function resolvePriceId/)
   assert.match(manage, /from\('plan_configs'\)[\s\S]*stripe_price_id/)
