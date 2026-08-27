@@ -155,10 +155,13 @@ export default function AdminPlans() {
     setSaving(true)
     let hasError = false
     for (const pl of plans) {
+      // `price` não é enviado aqui de propósito: é somente leitura nesta tela
+      // (sincronizado automaticamente pelo editor de preços/admin-plan-pricing a
+      // partir do Stripe). Enviar o valor em cache do formulário arriscaria
+      // sobrescrever um preço mais recente sincronizado em outra aba.
       const { error } = await supabase.from('plan_configs').upsert({
         plan_key:            pl.key,
         label:               pl.label,
-        price:               pl.price,
         description:         pl.description,
         recommended:         pl.recommended,
         active:              pl.active,
@@ -370,8 +373,13 @@ export default function AdminPlans() {
                 <input value={plan.label} onChange={e => updatePlan(plan.key, 'label', e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label className="block text-xs text-stone-500 mb-1">Preço (texto)</label>
-                <input value={plan.price} onChange={e => updatePlan(plan.key, 'price', e.target.value)} placeholder="Ex: R$ 19,90/mês" className={inputCls} />
+                <label className="block text-xs text-stone-500 mb-1">Preço exibido</label>
+                <div className={`${inputCls} bg-stone-50 text-stone-600 cursor-not-allowed`}>{plan.price || '—'}</div>
+                {plan.key !== 'free' && (
+                  <p className="text-[11px] text-stone-400 mt-1">
+                    Somente leitura — sincronizado automaticamente com o Price do Stripe. Para alterar o valor cobrado, use o editor de preços abaixo.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-stone-500 mb-1">Descrição curta</label>
