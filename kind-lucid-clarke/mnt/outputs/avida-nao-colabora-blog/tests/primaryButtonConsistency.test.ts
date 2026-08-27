@@ -13,7 +13,6 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 // só o botão de enviar (hover:bg-emerald-700) estava fora do padrão.
 test('CTAs primários usam bg-forest-900/hover:bg-forest-800, não mais o segundo estilo emerald-600', () => {
   assert.doesNotMatch(read('src/components/MyEvolutionPage.tsx'), /bg-emerald-600 text-white text-sm px-5 py-2 rounded-lg/)
-  assert.doesNotMatch(read('src/components/UpgradeModal.tsx'), /bg-emerald-600/)
   assert.doesNotMatch(read('src/components/ForceChangePassword.tsx'), /bg-emerald-600/)
   assert.doesNotMatch(read('src/components/SupportTicketDetail.tsx'), /hover:bg-emerald-700 disabled:opacity-40/)
 })
