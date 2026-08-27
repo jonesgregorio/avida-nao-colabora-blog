@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { emailSupportReplyForUser } from '../../lib/emailTriggers'
+import { getSupportSlaHours } from '../../lib/supportSla'
 
 interface Ticket {
   id: string
@@ -128,10 +129,7 @@ function formatDateTime(iso: string) {
 function getSLA(ticket: Ticket): { label: string; color: string } {
   const created = new Date(ticket.created_at).getTime()
   const hours = (Date.now() - created) / 3600000
-  const slaHours: Record<string, number> = {
-    free: 72, essential: 48, plus: 24, therapeutic: 24, 'therapeutic-plus': 24,
-  }
-  const limit = slaHours[ticket.user_plan ?? ticket.plan_at_creation ?? 'free'] ?? 72
+  const limit = getSupportSlaHours(ticket.user_plan ?? ticket.plan_at_creation)
   if (hours > limit) return { label: 'Atrasado', color: 'bg-red-100 text-red-700' }
   if (hours > limit * 0.75) return { label: 'Perto de vencer', color: 'bg-yellow-100 text-yellow-700' }
   return { label: 'Dentro do prazo', color: 'bg-green-100 text-green-700' }
@@ -141,10 +139,7 @@ function getSLARemaining(ticket: Ticket): {
   deadline: string; limitHours: number
 } {
   const created = new Date(ticket.created_at).getTime()
-  const slaHours: Record<string, number> = {
-    free: 72, essential: 48, plus: 24, therapeutic: 24, 'therapeutic-plus': 24,
-  }
-  const limit = slaHours[ticket.user_plan ?? ticket.plan_at_creation ?? 'free'] ?? 72
+  const limit = getSupportSlaHours(ticket.user_plan ?? ticket.plan_at_creation)
   const deadlineMs = created + limit * 3600000
   const deadlineStr = new Date(deadlineMs).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',

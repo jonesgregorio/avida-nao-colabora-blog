@@ -4,6 +4,7 @@ import {
   MessageCircle, Clock, ChevronRight, ChevronDown, Send, AlertTriangle, Crown, ArrowRight, HeartHandshake, ShieldCheck, CheckCircle2, Plus,
 } from 'lucide-react'
 import { normalizePlan } from '../lib/officialPlans'
+import { getSupportSlaLabel } from '../lib/supportSla'
 
 interface Ticket {
   id: string
@@ -165,7 +166,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
         </div>
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900">Mensagem enviada!</h1>
         <p className="mt-3 text-ink-soft leading-relaxed">
-          Recebemos sua solicitação e nossa equipe responde com carinho — normalmente em até 24h úteis.
+          Recebemos sua solicitação e nossa equipe responde com carinho — normalmente {getSupportSlaLabel(profile?.plan)}.
           Você recebe a resposta por aqui e pode acompanhar o status dos seus chamados a qualquer momento.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
@@ -245,7 +246,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
               >
                 <Send className="w-4 h-4" /> {creating ? 'Enviando…' : 'Enviar mensagem'}
               </button>
-              <span className="text-xs text-ink-soft">Tempo médio de resposta: <strong className="text-forest-700 font-medium">até 24h úteis</strong></span>
+              <span className="text-xs text-ink-soft">Prazo estimado de resposta: <strong className="text-forest-700 font-medium">{getSupportSlaLabel(profile?.plan)}</strong></span>
             </div>
           </section>
 
