@@ -125,6 +125,7 @@ export default function AdminPlanFeatureCatalog() {
       feature_description: editing.description.trim() || null,
       category: editing.category.trim() || 'Outros',
       display_order: Number.isFinite(editing.order) ? editing.order : 999,
+      presentation_revision: Date.now(),
       ...(isNew ? { feature_kind: 'commercial', is_system: false, is_implemented: true } : {}),
       is_active: editing.isActive,
       show_on_pricing: editing.showOnPricing,
@@ -174,6 +175,7 @@ export default function AdminPlanFeatureCatalog() {
     const { error } = await supabase.from('plan_features').update({
       is_active: nextActive,
       archived_at: nextActive ? null : new Date().toISOString(),
+      presentation_revision: Date.now(),
       updated_at: new Date().toISOString(),
     }).eq('feature_key', item.key)
     if (error) {
