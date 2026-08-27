@@ -13,8 +13,11 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 }
 
-// Valores esperados (em centavos) — fonte da verdade do produto: Essencial R$19,90 / Plus R$39,90.
-const EXPECTED = { essential: 1990, plus: 3990 }
+// Fallback só para o caso (improvável) de plan_configs não ter price_cents
+// preenchido — o valor esperado de verdade é lido do banco em runtime (Etapa 10:
+// o preço passou a ser editável no Admin, um valor fixo aqui ficaria errado
+// assim que alguém mudasse o preço em admin-plan-pricing).
+const FALLBACK_EXPECTED = { essential: 1990, plus: 3990 }
 
 // Eventos que o stripe-webhook trata. Mesma lista da configure-stripe-webhook —
 // se divergir, o endpoint deixa de avisar o app sobre pagamento/ciclo.
@@ -341,11 +344,23 @@ Deno.serve(async (req) => {
     for (const w of r.warnings) warnings.push(w)
   }
 
+  // Preço esperado de verdade: o que está configurado agora em plan_configs
+  // (mesma fonte que admin-plan-pricing escreve e que o site público lê via
+  // get_public_plan_pricing) — nunca um valor fixo, já que o Admin pode mudar
+  // o preço a qualquer momento.
+  const { data: cfgRows } = await supabase.from('plan_configs').select('plan_key, price_cents').in('plan_key', ['essential', 'plus'])
+  const expected: Record<'essential' | 'plus', number> = { ...FALLBACK_EXPECTED }
+  for (const row of (cfgRows ?? []) as { plan_key: string; price_cents: number | null }[]) {
+    if ((row.plan_key === 'essential' || row.plan_key === 'plus') && typeof row.price_cents === 'number') {
+      expected[row.plan_key] = row.price_cents
+    }
+  }
+
   let account: Record<string, unknown> = {}
   try {
     if (!secret) throw new Error('STRIPE_SECRET_KEY ausente nas Edge Functions.')
-    await runPrice('essential', priceEnv.essential, EXPECTED.essential)
-    await runPrice('plus', priceEnv.plus, EXPECTED.plus)
+    await runPrice('essential', priceEnv.essential, expected.essential)
+    await runPrice('plus', priceEnv.plus, expected.plus)
 
     // O secret legado STRIPE_PRICE_PLUS (antigo R$ 79,90) NÃO cobra nada: create-checkout,
     // manage-subscription e selftest usam STRIPE_PRICE_PLUS_3990/THERAPEUTIC. Ele só existe
@@ -383,8 +398,8 @@ Deno.serve(async (req) => {
   const webhookSecretPresent = !!Deno.env.get('STRIPE_WEBHOOK_SECRET')
   if (!webhookSecretPresent) warnings.push('STRIPE_WEBHOOK_SECRET ausente — a validação de assinatura do webhook não funciona.')
 
-  const essentialOk = (prices.essential as { active?: boolean; unit_amount?: number })?.active === true && (prices.essential as { unit_amount?: number })?.unit_amount === EXPECTED.essential
-  const plusOk = (prices.plus as { active?: boolean; unit_amount?: number })?.active === true && (prices.plus as { unit_amount?: number })?.unit_amount === EXPECTED.plus
+  const essentialOk = (prices.essential as { active?: boolean; unit_amount?: number })?.active === true && (prices.essential as { unit_amount?: number })?.unit_amount === expected.essential
+  const plusOk = (prices.plus as { active?: boolean; unit_amount?: number })?.active === true && (prices.plus as { unit_amount?: number })?.unit_amount === expected.plus
   // `ok` = os preços que realmente cobram estão certos, o webhook valida assinatura e
   // não há problema real. Secret legado ilegível vira `notes`, não derruba nada.
   const ok = essentialOk && plusOk && webhookSecretPresent && warnings.length === 0
@@ -399,7 +414,11 @@ Deno.serve(async (req) => {
     key_restricted: keyRestricted,
     webhook_secret_present: webhookSecretPresent,
     plus_price_source: plusSource,
-    expected_amounts: { essential_brl: '19,90', plus_brl: '39,90' },
+    expected_amounts: {
+      essential_brl: (expected.essential / 100).toFixed(2).replace('.', ','),
+      plus_brl: (expected.plus / 100).toFixed(2).replace('.', ','),
+      fonte: 'plan_configs.price_cents (mesmo valor editável em Admin → Cobrança no Stripe)',
+    },
     account,
     prices,
     warnings,

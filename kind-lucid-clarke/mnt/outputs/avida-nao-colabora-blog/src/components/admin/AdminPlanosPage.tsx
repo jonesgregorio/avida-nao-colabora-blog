@@ -3,6 +3,7 @@ import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags } from 'lucide-react'
 import AdminPlans from './AdminPlans'
 import AdminPlanFeatureCatalog from './AdminPlanFeatureCatalog'
 import AdminBillingPriceEditor from './AdminBillingPriceEditor'
+import AdminPlanConsistencyCheck from './AdminPlanConsistencyCheck'
 import { OFFICIAL_PLANS, type PlanKey } from '../../lib/officialPlans'
 import { usePlanPricing } from '../../lib/planPricing'
 import {
@@ -98,6 +99,7 @@ export default function AdminPlanosPage() {
       </div>
 
       <AdminBillingPriceEditor />
+      <AdminPlanConsistencyCheck />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {displayPlans.map(plan => (
