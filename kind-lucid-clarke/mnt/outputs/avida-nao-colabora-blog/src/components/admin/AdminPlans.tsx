@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Save, Check, Loader2, RefreshCw, RotateCcw, Upload, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { Save, Check, Loader2, RefreshCw, RotateCcw, Upload, AlertTriangle, ChevronDown, ChevronRight, Lock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   OFFICIAL_FEATURES,
@@ -59,7 +59,6 @@ export default function AdminPlans() {
   const [inheritMap, setInheritMap] = useState<InheritMap>({ ...DEFAULT_INHERIT })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [savingKey, setSavingKey] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [activeTab, setActiveTab] = useState<PlanKey>('free')
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
@@ -177,41 +176,13 @@ export default function AdminPlans() {
     else { void logAdminAction('config', 'plan_configs', null, null); showToast('Informações dos planos salvas!') }
   }
 
-  async function toggleOwnFeature(planKey: string, featureKey: string, current: boolean) {
-    const newValue = !current
-    setSavingKey(`${planKey}:${featureKey}`)
-    setOwnAccess(prev => ({
-      ...prev,
-      [planKey]: { ...(prev[planKey] || {}), [featureKey]: newValue },
-    }))
-    const { error } = await supabase.from('plan_feature_access').upsert(
-      { plan_key: planKey, feature_key: featureKey, enabled: newValue, updated_at: new Date().toISOString() },
-      { onConflict: 'plan_key,feature_key' }
-    )
-    setSavingKey(null)
-    if (error) {
-      setOwnAccess(prev => ({
-        ...prev,
-        [planKey]: { ...(prev[planKey] || {}), [featureKey]: current },
-      }))
-      showToast('Erro ao salvar: ' + error.message, false)
-    }
-  }
-
-  async function saveAllAccess() {
-    setSaving(true)
-    const effective = effectiveAccessMap()
-    const rows: { plan_key: string; feature_key: string; enabled: boolean; updated_at: string }[] = []
-    for (const pk of PLAN_KEYS) {
-      for (const feat of OFFICIAL_FEATURES) {
-        rows.push({ plan_key: pk, feature_key: feat.key, enabled: effective[pk]?.[feat.key] ?? false, updated_at: new Date().toISOString() })
-      }
-    }
-    const { error } = await supabase.from('plan_feature_access').upsert(rows, { onConflict: 'plan_key,feature_key' })
-    setSaving(false)
-    if (error) showToast('Erro ao salvar permissões: ' + error.message, false)
-    else showToast('Permissões salvas com sucesso!')
-  }
+  // toggleOwnFeature/saveAllAccess foram removidos (Etapa 4, honestidade de
+  // permissões): editavam plan_feature_access, mas nada no runtime lê essa
+  // tabela — canAccessFeature() sempre usou a hierarquia estática de
+  // OWN_FEATURE_KEYS (officialPlans.ts). A tela dava a falsa impressão de
+  // controlar o acesso técnico real. As duas visões abaixo agora são
+  // somente leitura, mostrando sempre OWN_FEATURE_KEYS (a fonte que de fato
+  // governa o runtime), nunca o valor persistido e desconectado do banco.
 
   function restoreDefaults() {
     const newInherit = { ...DEFAULT_INHERIT }
@@ -224,7 +195,7 @@ export default function AdminPlans() {
     }
     setOwnAccess(newOwn)
     setConfirmRestore(false)
-    showToast('Padrão oficial restaurado. Clique em "Salvar permissões" para gravar no banco.')
+    showToast('Padrão oficial restaurado na pré-visualização comercial. Clique em "Salvar informações" para gravar a herança no banco.')
   }
 
   async function syncToSupabase() {
@@ -442,10 +413,11 @@ export default function AdminPlans() {
                   </div>
                 )}
 
-                {/* Benefícios próprios — editáveis */}
+                {/* Benefícios próprios — somente leitura (Etapa 4): regra técnica do
+                    produto, determinada pelo código (OWN_FEATURE_KEYS), não editável aqui. */}
                 <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                    Benefícios próprios do {plan.label}
+                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <Lock className="w-3 h-3 text-stone-400" /> Benefícios próprios do {plan.label} — regra técnica do produto
                   </p>
                   {categories.map(cat => {
                     const catFeatures = OFFICIAL_FEATURES.filter(f => f.category === cat && !inheritedKeys.has(f.key))
@@ -455,16 +427,12 @@ export default function AdminPlans() {
                         <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1.5 border-b pb-1">{cat}</p>
                         <div className="space-y-1">
                           {catFeatures.map(feat => {
-                            const enabled = ownAccess[plan.key]?.[feat.key] ?? false
-                            const isSaving = savingKey === `${plan.key}:${feat.key}`
+                            const enabled = OWN_FEATURE_KEYS[plan.key].includes(feat.key)
                             return (
-                              <label key={feat.key} className="flex items-center gap-3 cursor-pointer py-0.5">
-                                {isSaving
-                                  ? <Loader2 className="w-4 h-4 animate-spin text-stone-400 flex-shrink-0" />
-                                  : <input type="checkbox" checked={enabled} onChange={() => toggleOwnFeature(plan.key, feat.key, enabled)} className="accent-forest-700 w-4 h-4 flex-shrink-0" />
-                                }
+                              <div key={feat.key} className="flex items-center gap-3 py-0.5">
+                                <input type="checkbox" checked={enabled} disabled aria-readonly className="accent-forest-400 w-4 h-4 flex-shrink-0 cursor-not-allowed" />
                                 <span className={`text-sm leading-tight ${enabled ? 'text-forest-900' : 'text-stone-400'}`}>{feat.name}</span>
-                              </label>
+                              </div>
                             )
                           })}
                         </div>
@@ -473,11 +441,6 @@ export default function AdminPlans() {
                   })}
                 </div>
               </div>
-
-              <button onClick={saveAllAccess} disabled={saving} className="mt-4 w-full flex items-center justify-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-forest-800 disabled:opacity-60">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {saving ? 'Salvando...' : 'Salvar permissões'}
-              </button>
             </div>
           </div>
         </>
@@ -493,10 +456,11 @@ export default function AdminPlans() {
                 Visualização técnica
               </button>
             </div>
-            <button onClick={saveAllAccess} disabled={saving} className="flex items-center gap-1.5 bg-forest-900 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-forest-800 disabled:opacity-60">
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salvar permissões
-            </button>
+            {tableMode === 'technical' && (
+              <span className="flex items-center gap-1.5 text-xs text-stone-400">
+                <Lock className="w-3.5 h-3.5" /> Regra técnica do produto — somente leitura
+              </span>
+            )}
           </div>
 
           {tableMode === 'commercial' ? (
@@ -577,8 +541,9 @@ export default function AdminPlans() {
                           {PLAN_KEYS.map(pk => {
                             const inherit = inheritMap[pk] ?? DEFAULT_INHERIT[pk]
                             const isInherited = inherit && getInheritedFeatureKeys(pk, inheritMap).includes(feat.key)
-                            const isOwn = ownAccess[pk]?.[feat.key] ?? false
-                            const isSaving = savingKey === `${pk}:${feat.key}`
+                            // Fonte real (governa o runtime), não o valor persistido em
+                            // plan_feature_access — ver nota da Etapa 4 acima.
+                            const isOwn = OWN_FEATURE_KEYS[pk].includes(feat.key)
                             if (isInherited) {
                               return (
                                 <td key={pk} className="px-3 py-2.5 text-center">
@@ -588,18 +553,12 @@ export default function AdminPlans() {
                             }
                             return (
                               <td key={pk} className="px-3 py-2.5 text-center">
-                                {isSaving
-                                  ? <Loader2 className="w-4 h-4 animate-spin text-stone-400 mx-auto" />
-                                  : (
-                                    <button
-                                      onClick={() => toggleOwnFeature(pk, feat.key, isOwn)}
-                                      title={isOwn ? 'Desativar' : 'Ativar como benefício próprio'}
-                                      className={`w-5 h-5 rounded-full border-2 mx-auto flex items-center justify-center transition-colors ${isOwn ? 'bg-forest-600 border-forest-600 text-white' : 'border-stone-300 hover:border-stone-500'}`}
-                                    >
-                                      {isOwn && <Check className="w-3 h-3" />}
-                                    </button>
-                                  )
-                                }
+                                <span
+                                  title={isOwn ? 'Benefício próprio (regra técnica do produto)' : 'Não incluído'}
+                                  className={`w-5 h-5 rounded-full border-2 mx-auto flex items-center justify-center ${isOwn ? 'bg-forest-600 border-forest-600 text-white' : 'border-stone-300'}`}
+                                >
+                                  {isOwn && <Check className="w-3 h-3" />}
+                                </span>
                               </td>
                             )
                           })}
