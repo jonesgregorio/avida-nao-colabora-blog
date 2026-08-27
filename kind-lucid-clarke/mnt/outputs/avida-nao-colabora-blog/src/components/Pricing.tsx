@@ -12,6 +12,7 @@ import {
   type PlanFeatureCatalog,
 } from '../lib/planFeatureCatalog'
 import { resolvePricingPlanAction } from '../lib/pricingPlanAction'
+import { usePlanPricing } from '../lib/planPricing'
 
 interface PricingProps {
   user: unknown
@@ -64,24 +65,18 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
   const [error, setError] = useState<string | null>(null)
   const current = normalizePlan(currentPlan)
   const isPaidSubscriber = !!user && current !== 'free'
-  const [dynamicPrices, setDynamicPrices] = useState<Record<string, string>>({})
+  const { prices } = usePlanPricing()
   const [catalog, setCatalog] = useState<PlanFeatureCatalog>(() => buildFallbackPlanFeatureCatalog())
 
   useEffect(() => {
-    void supabase.rpc('get_public_plan_pricing').then(({ data }) => {
-      if (!Array.isArray(data)) return
-      const next: Record<string, string> = {}
-      for (const row of data as { plan_key: string; display_price: string }[]) next[row.plan_key] = row.display_price
-      setDynamicPrices(next)
-    })
     void loadPlanFeatureCatalog().then(setCatalog)
   }, [])
 
   const displayPlans = useMemo(() => PLANS.map(p => ({
     ...p,
-    price: dynamicPrices[p.key] || p.price,
+    price: prices[p.key]?.display || p.price,
     benefits: getCatalogPlanBenefits(catalog, p.key, 'pricing').map(item => item.label),
-  })), [dynamicPrices, catalog])
+  })), [prices, catalog])
 
   const comparisonRows = useMemo(() => {
     const byKey = new Map(catalog.items.map(item => [item.key, item]))

@@ -3,8 +3,8 @@ import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags } from 'lucide-react'
 import AdminPlans from './AdminPlans'
 import AdminPlanFeatureCatalog from './AdminPlanFeatureCatalog'
 import AdminBillingPriceEditor from './AdminBillingPriceEditor'
-import { supabase } from '../../lib/supabase'
 import { OFFICIAL_PLANS, type PlanKey } from '../../lib/officialPlans'
+import { usePlanPricing } from '../../lib/planPricing'
 import {
   buildFallbackPlanFeatureCatalog,
   getCatalogPlanBenefits,
@@ -24,28 +24,22 @@ const RULE_FEATURES: { key: string; values: Record<PlanKey, string> }[] = [
 
 export default function AdminPlanosPage() {
   const [view, setView] = useState<View>('overview')
-  const [dynamicPrices, setDynamicPrices] = useState<Record<string, string>>({})
+  const { prices } = usePlanPricing()
   const [catalog, setCatalog] = useState<PlanFeatureCatalog>(() => buildFallbackPlanFeatureCatalog())
 
   useEffect(() => {
     if (view !== 'overview') return
-    void supabase.rpc('get_public_plan_pricing').then(({ data }) => {
-      if (!Array.isArray(data)) return
-      const next: Record<string, string> = {}
-      for (const row of data as { plan_key: string; display_price: string }[]) next[row.plan_key] = row.display_price
-      setDynamicPrices(next)
-    })
     void loadPlanFeatureCatalog().then(setCatalog)
   }, [view])
 
   const displayPlans = useMemo(() => OFFICIAL_PLANS.map(plan => {
-    const price = dynamicPrices[plan.key] || plan.price
+    const price = prices[plan.key]?.display || plan.price
     return {
       ...plan,
       displayPrice: plan.key === 'free' ? price : `${price}/mês`,
       benefits: getCatalogPlanBenefits(catalog, plan.key, 'pricing').map(item => item.label),
     }
-  }), [dynamicPrices, catalog])
+  }), [prices, catalog])
 
   const rules = useMemo(() => {
     const byKey = new Map(catalog.items.map(item => [item.key, item]))

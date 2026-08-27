@@ -3,6 +3,7 @@ import {
   ClipboardCheck, PenLine, PieChart, Sparkles, Sprout, Star, Heart,
   ShieldCheck, HeartHandshake, ArrowRight, Check,
 } from 'lucide-react'
+import { usePlanPricing } from '../lib/planPricing'
 
 interface HomeContentProps {
   onNavigate: (section: string) => void
@@ -47,6 +48,7 @@ const SUPPORT = [
 ]
 
 export default function HomeContent({ onNavigate }: HomeContentProps) {
+  const { prices } = usePlanPricing()
   return (
     <>
       {/* ── Tudo em um fluxo simples de cuidado ── */}
@@ -102,7 +104,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
                   <h3 className="font-serif text-2xl text-forest-900 text-center mt-4">{p.name}</h3>
                   <p className="text-sm text-ink-soft text-center">{p.promise}</p>
                   <div className="text-center mt-4">
-                    <span className="font-serif text-3xl text-forest-900">{p.price}</span>
+                    <span className="font-serif text-3xl text-forest-900">{prices[p.key as keyof typeof prices]?.display ?? p.price}</span>
                     {p.per && <span className="text-sm text-ink-soft">/mês</span>}
                   </div>
                   <div className="border-t border-line my-5" />

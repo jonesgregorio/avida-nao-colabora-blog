@@ -4,6 +4,7 @@ import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldChec
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
+import { usePlanPricing } from '../lib/planPricing'
 import { PLAN_COMPARE_ROWS } from '../lib/planComparison'
 import {
   resolveEffectivePeriodEnd,
@@ -45,7 +46,9 @@ interface PlanChangeRecord {
   created_at: string
 }
 
-const PLAN_PRICES: Record<string, number> = Object.fromEntries(
+// Fallback só até a fonte canônica (usePlanPricing) responder — nunca fica
+// vazio, mas o valor exibido de verdade vem sempre do hook abaixo.
+const FALLBACK_PLAN_PRICES: Record<string, number> = Object.fromEntries(
   OFFICIAL_PLANS.map(p => [p.key, p.priceValue])
 )
 
@@ -110,8 +113,8 @@ function lostFeatures(fromPlan: string, toPlan: string): string[] {
 
 // Estimativa exibida na modal de upgrade. O valor REAL é calculado pelo Stripe
 // (proration) — aqui é só uma previsão para o usuário não ser pego de surpresa.
-function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null, periodEnd: Date | null): number {
-  const diff = PLAN_PRICES[newPlan] - PLAN_PRICES[currentPlan]
+function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null, periodEnd: Date | null, prices: Record<string, number>): number {
+  const diff = prices[newPlan] - prices[currentPlan]
   if (diff <= 0) return 0
   const remaining = daysRemaining(periodEnd)
   const total = totalDaysInCycle(sub?.current_period_start ?? null, sub?.current_period_end ?? null)
@@ -119,6 +122,13 @@ function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscri
 }
 
 export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateAuth, onRefreshProfile: _onRefreshProfile }: Props) {
+  // Fonte canônica de preço (mesma de Home/Pricing) — nunca deriva de um valor
+  // estático separado, para não divergir se o Admin alterar o preço no Stripe.
+  const { prices: pricingMap } = usePlanPricing()
+  const planPrices: Record<string, number> = Object.keys(FALLBACK_PLAN_PRICES).reduce((acc, key) => {
+    acc[key] = pricingMap[key as keyof typeof pricingMap]?.amount ?? FALLBACK_PLAN_PRICES[key]
+    return acc
+  }, {} as Record<string, number>)
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
@@ -352,7 +362,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               <Crown className="w-5 h-5 text-forest-500" />
               <span className="font-serif text-2xl text-forest-900">{PLAN_LABELS[currentPlan]}</span>
             </div>
-            <p className="text-2xl font-bold text-forest-800">{formatPrice(PLAN_PRICES[currentPlan])}<span className="text-sm font-normal text-ink-soft">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
+            <p className="text-2xl font-bold text-forest-800">{formatPrice(planPrices[currentPlan])}<span className="text-sm font-normal text-ink-soft">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
           </div>
           {(() => {
             // No plano Gratuito não há assinatura: mostramos "Ativo" (o plano está
@@ -466,7 +476,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               </div>
               <p className="mt-3 font-serif text-2xl text-forest-900">
-                {p.price}<span className="text-sm font-normal text-ink-soft">{p.priceValue > 0 ? '/mês' : ''}</span>
+                {pricingMap[p.key]?.display ?? p.price}<span className="text-sm font-normal text-ink-soft">{p.priceValue > 0 ? '/mês' : ''}</span>
               </p>
               <div className="mt-4">
                 {isCurrent ? (
@@ -557,10 +567,10 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               {[
                 ['Plano atual', PLAN_LABELS[currentPlan]],
                 ['Novo plano', PLAN_LABELS[modal.targetPlan]],
-                ['Valor atual', formatPrice(PLAN_PRICES[currentPlan]) + '/mês'],
-                ['Novo valor mensal', formatPrice(PLAN_PRICES[modal.targetPlan]) + '/mês'],
+                ['Valor atual', formatPrice(planPrices[currentPlan]) + '/mês'],
+                ['Novo valor mensal', formatPrice(planPrices[modal.targetPlan]) + '/mês'],
                 ['Dias restantes no ciclo', `${daysRemaining(effectivePeriodEnd)} dias`],
-                ['Diferença mensal', formatPrice(PLAN_PRICES[modal.targetPlan] - PLAN_PRICES[currentPlan])],
+                ['Diferença mensal', formatPrice(planPrices[modal.targetPlan] - planPrices[currentPlan])],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-sm">
                   <span className="text-stone-500">{label}</span>
@@ -568,7 +578,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               ))}
               {(() => {
-                const proration = calcUpgradeProration(currentPlan, modal.targetPlan, sub, effectivePeriodEnd)
+                const proration = calcUpgradeProration(currentPlan, modal.targetPlan, sub, effectivePeriodEnd, planPrices)
                 return proration > 0 ? (
                   <>
                     <div className="border-t pt-3 flex justify-between text-sm font-semibold">
@@ -576,7 +586,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                       <span className="text-purple-700">{formatPrice(proration)}</span>
                     </div>
                     <p className="text-xs text-stone-400">
-                      Você será cobrado apenas pela diferença proporcional entre os planos até o fim do ciclo atual. A data de renovação permanece a mesma. Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no ciclo, a diferença estimada é de {formatPrice(proration)} (o valor exato é calculado pelo Stripe). A próxima mensalidade será de {formatPrice(PLAN_PRICES[modal.targetPlan])}.
+                      Você será cobrado apenas pela diferença proporcional entre os planos até o fim do ciclo atual. A data de renovação permanece a mesma. Como ainda restam {daysRemaining(effectivePeriodEnd)} dias no ciclo, a diferença estimada é de {formatPrice(proration)} (o valor exato é calculado pelo Stripe). A próxima mensalidade será de {formatPrice(planPrices[modal.targetPlan])}.
                     </p>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
                       {currentPlan === 'free'
@@ -618,12 +628,12 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 mb-0.5">Plano atual</p>
                   <p className="text-sm font-semibold text-stone-800">{PLAN_LABELS[currentPlan]}</p>
-                  <p className="text-xs text-stone-500">{formatPrice(PLAN_PRICES[currentPlan])}/mês</p>
+                  <p className="text-xs text-stone-500">{formatPrice(planPrices[currentPlan])}/mês</p>
                 </div>
                 <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 mb-0.5">Novo plano</p>
                   <p className="text-sm font-semibold text-stone-800">{PLAN_LABELS[modal.targetPlan]}</p>
-                  <p className="text-xs text-stone-500">{formatPrice(PLAN_PRICES[modal.targetPlan])}/mês</p>
+                  <p className="text-xs text-stone-500">{formatPrice(planPrices[modal.targetPlan])}/mês</p>
                 </div>
               </div>
 
