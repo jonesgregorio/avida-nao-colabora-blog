@@ -8,6 +8,7 @@ import {
   buildRecordsSummary, generateCarePlanAI, resolveRecommendedContent,
   type CareSummary, type CarePlanContent, type ResolvedContent,
 } from '../../lib/careePlanAI'
+import { normalizeCarePlanBasis } from '../../lib/carePlanBasis'
 import {
   ymd, parseYmd, activationYmd, getReportAvailabilityDate,
   formatPeriodShort, formatDateBR, monthTitle,
@@ -391,6 +392,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   const contentBaselineRef = useRef(JSON.stringify({ summary, care }))
   const status = plan?.status ?? 'pending_generation'
   const readOnly = status === 'sent'
+  const carePlanBasis = useMemo(() => normalizeCarePlanBasis(plan?.records_summary ?? null), [plan?.records_summary])
 
   // Carrega os dados analíticos do mês (RPC sem texto sensível) e monta a análise.
   useEffect(() => {
@@ -560,6 +562,38 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
                 </div>
               )}
           </section>
+
+          {/* Base deste plano (§3, Etapa 3): fotografia real dos dados persistidos
+              no momento da geração — distinto de "Dados do mês" acima, que é
+              recalculado ao vivo para permitir gerar/regerar. */}
+          {carePlanBasis && (
+            <section className="bg-white border border-line rounded-2xl p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-3">Base deste plano</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <Stat label="Dias ativos" value={carePlanBasis.activeDays} />
+                <Stat label="Check-ins" value={carePlanBasis.checkinCount} />
+                <Stat label="Diários" value={carePlanBasis.diaryCount} />
+              </div>
+              {carePlanBasis.emotionalMarkers.length > 0 && (
+                <p className="text-xs text-ink-soft mt-3"><span className="text-stone-500">Marcadores: </span>{carePlanBasis.emotionalMarkers.join(', ')}</p>
+              )}
+              {carePlanBasis.contexts.length > 0 && (
+                <p className="text-xs text-ink-soft mt-1"><span className="text-stone-500">Contextos: </span>{carePlanBasis.contexts.join(', ')}</p>
+              )}
+              {carePlanBasis.needs.length > 0 && (
+                <p className="text-xs text-ink-soft mt-1"><span className="text-stone-500">Necessidades: </span>{carePlanBasis.needs.join(', ')}</p>
+              )}
+              {carePlanBasis.careActions.length > 0 && (
+                <p className="text-xs text-ink-soft mt-1"><span className="text-stone-500">Ações de cuidado: </span>{carePlanBasis.careActions.join(', ')}</p>
+              )}
+              {carePlanBasis.realTriggers.length > 0 && (
+                <p className="text-xs text-ink-soft mt-1"><span className="text-stone-500">Gatilhos reais: </span>{carePlanBasis.realTriggers.join(', ')}</p>
+              )}
+              {carePlanBasis.dataQualityMessage && (
+                <p className="text-xs text-ink-soft/70 mt-2 italic">{carePlanBasis.dataQualityMessage}</p>
+              )}
+            </section>
+          )}
 
           {!readOnly && (
             <button onClick={runAI} disabled={generating || loadingData} className="w-full flex items-center justify-center gap-2 bg-forest-900 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-forest-800 disabled:opacity-50">

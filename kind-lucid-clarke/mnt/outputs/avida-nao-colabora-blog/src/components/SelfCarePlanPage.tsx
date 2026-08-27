@@ -9,6 +9,7 @@ import PlanBadge from './PlanBadge'
 import RecommendedContent from './RecommendedContent'
 import { signalFromTags, fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
 import { CARE_PLAN_DISCLAIMER, type CareSummary, type CarePlanContent } from '../lib/careePlanAI'
+import { normalizeCarePlanBasis, describeCarePlanBasis } from '../lib/carePlanBasis'
 import { formatPeriodShort, formatDateBR, monthTitle } from '../lib/reportPeriods'
 
 interface Props {
@@ -29,6 +30,7 @@ interface SentPlan {
   ai_summary_json: CareSummary | null
   care_plan: CarePlanContent | null
   recommended_content_ids: string[] | null
+  records_summary: Record<string, unknown> | null
 }
 interface Review {
   id: string; month_key: string; summary: string | null
@@ -86,7 +88,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
     let active = true
     Promise.all([
       // RLS: só devolve os PRÓPRIOS planos já ENVIADOS (nunca draft, nunca de outro).
-      supabase.from('monthly_care_plans').select('id, month_reference, period_start, period_end, sent_at, ai_summary, ai_summary_json, care_plan, recommended_content_ids')
+      supabase.from('monthly_care_plans').select('id, month_reference, period_start, period_end, sent_at, ai_summary, ai_summary_json, care_plan, recommended_content_ids, records_summary')
         .eq('user_id', user.id).eq('status', 'sent').order('month_reference', { ascending: false }).limit(120),
       supabase.from('self_care_plan_reviews').select('id, month_key, summary, suggested_adjustments, next_focus, pdf_url, created_at')
         .eq('user_id', user.id).order('month_key', { ascending: false }).limit(120),
@@ -233,6 +235,8 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
   const priorities = prioritiesOf(c)
   const rhythm = rhythmOf(c)
   const microActions = c?.suggested_micro_actions?.length ? c.suggested_micro_actions : (c?.practical_tips ?? [])
+  const basis = normalizeCarePlanBasis(plan.records_summary)
+  const basisText = basis ? describeCarePlanBasis(basis, monthTitle(plan.month_reference)) : null
   return (
     <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
       <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
@@ -251,6 +255,7 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
 
       {open && (
         <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
+          {basisText && <p className="text-xs text-ink-soft/80">{basisText}</p>}
           {focus && <Field label="Seu foco de cuidado para este mês" value={focus} strong />}
           {why && <Field label="Por que este foco" value={why} />}
 
