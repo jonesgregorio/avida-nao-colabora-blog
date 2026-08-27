@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import {
+  DEFAULT_PLAN_ACCESS,
   INHERIT_LABEL,
   OFFICIAL_FEATURES,
   OWN_FEATURE_KEYS,
@@ -79,7 +80,7 @@ export function buildFallbackPlanFeatureCatalog(): PlanFeatureCatalog {
   const items = OFFICIAL_FEATURES.map(feature => {
     const plans = emptyAccess()
     for (const plan of PLAN_KEYS) {
-      plans[plan].enabled = OWN_FEATURE_KEYS[plan].includes(feature.key)
+      plans[plan].enabled = DEFAULT_PLAN_ACCESS[plan].includes(feature.key)
     }
     return {
       key: feature.key,
@@ -113,7 +114,6 @@ function chooseCanonicalRows(rows: FeatureRow[]): FeatureRow[] {
     }
     if (!officialKeySet.has(resolved)) continue
     const existing = canonical.get(resolved)
-    // Prefere a linha cuja feature_key já é a chave canônica, evitando aliases legados.
     if (!existing || row.feature_key === resolved) canonical.set(resolved, row)
   }
 
@@ -145,7 +145,6 @@ export async function loadPlanFeatureCatalog(): Promise<PlanFeatureCatalog> {
       const resolved = resolveKey(row.feature_key)
       const mapKey = `${plan}:${resolved}`
       const current = accesses.get(mapKey)
-      // Linha canônica prevalece sobre alias legado.
       if (!current || row.feature_key === resolved) {
         accesses.set(mapKey, {
           enabled: row.enabled === true,
@@ -183,7 +182,6 @@ export async function loadPlanFeatureCatalog(): Promise<PlanFeatureCatalog> {
       }
     })
 
-    // Se alguma feature oficial ainda não existe na tabela, mantém o fallback dela.
     const seen = new Set(items.map(item => item.key))
     for (const item of fallback.items) if (!seen.has(item.key)) items.push(item)
 
@@ -221,6 +219,7 @@ export function getCatalogPlanBenefits(
     const item = byKey.get(key)
     if (!item || !visibleOnSurface(item, surface)) continue
     const access = item.plans[plan]
+    if (!access.enabled) continue
     result.push({
       key: item.key,
       label: access.label || item.name,
