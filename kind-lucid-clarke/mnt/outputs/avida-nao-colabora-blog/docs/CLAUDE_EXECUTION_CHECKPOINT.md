@@ -8,8 +8,8 @@ Ordem autorizada: P1 restante → P2 → P3 → validações live/documentação
 Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequenos e só mesclar com gates verdes.
 
 ## Última `main` conhecida
-- Commit: `9bee222df6c14af76ef3a783dc004c07569b5bb8`
-- Merge: PR #177 — `feat(suporte): categorias oficiais nos chamados`
+- Commit: `ee2059d4d8a03e8ed487b7e8483e5e592b14d078`
+- Merge: PR #179 — `fix(plano): restringir grants do feedback de autocuidado`
 - Data: 2026-08-27/28 (America/Sao_Paulo)
 
 ## Regras invariáveis
@@ -29,55 +29,37 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
 
 ## P1 — CONCLUÍDO
 7. ✅ Sincronização não destrutiva — PR #172, merge `daf1bb17f56bbc4fe3069a12fca310e63fea4baf`.
-   - `AdminPlans.tsx` mostra **Verificar estrutura**.
-   - `src/lib/planStructureCheck.ts` cria somente features/vínculos ausentes usando `insert`.
-   - nunca usa `upsert` sobre configurações existentes.
-   - divergências existentes são contadas e preservadas para revisão.
-
 8/9. ✅ Verificador de consistência e Stripe Audit dinâmico — PR #170.
-   - `admin-plan-consistency` é read-only/AAL2.
-   - Stripe Audit lê preço atual do banco em vez de 1990/3990 fixos.
-
 10. ✅ Superfícies do catálogo + correção da mutação global real de Meu Plano — PR #173, merge `d8d63965e82ef99c4079954212ba12295ad54eea`.
-   - `showOnPricing`, `showOnComparison`, `showOnUpgrade` e `showOnMyPlan` têm efeito real.
-   - removida mutação global de `PUBLIC_PLAN_FEATURES`/`PLAN_COMPARE_ROWS` durante renderização.
-   - `MyPlanPageCore.tsx` mantém handlers financeiros intactos.
 
 ## P2 — EM ANDAMENTO
 11. ✅ Templates do Suporte com preços dinâmicos — PR #175, merge `daf468c5ffb1ec3ebd331589cd97d8da84c5a36f`.
-   - fallbacks usam placeholders de preço.
-   - preços são resolvidos pela fonte canônica `planPricing.ts` no momento de uso.
-   - compatibilidade com templates antigos preservada.
-   - sem migration/Edge Function e sem mudança em Stripe.
-
 12. ✅ Suporte com anexos privados + RLS — PR #176, merge `38d4d636eeaf043cfbe8ae9947eaab2111dda551`.
-   - bucket `support-attachments` privado, até 5 MB, JPG/PNG/WEBP/PDF.
-   - até 3 anexos por mensagem.
-   - RLS por usuário/ticket; Admin mantém acesso operacional.
-   - metadados reutilizam `ticket_messages.attachments`.
-   - downloads autenticados; nunca `getPublicUrl`.
-   - migration e Edge Function validadas live; Vercel produção READY.
-
 13. ✅ Categorias oficiais de Suporte — PR #177, merge `9bee222df6c14af76ef3a783dc004c07569b5bb8`.
-   - fonte única compartilhada entre Suporte e Contato.
-   - categorias: Uso do site, Problema técnico, Conta e acesso, Planos e assinatura, Pagamento, Privacidade e dados, Sugestão de melhoria e Outro.
-   - Edge Function valida categoria e rejeita valor inventado.
-   - prioridade `urgent` passa a ser aceita corretamente.
-   - sem migration; Edge Function publicada e Vercel produção READY.
 
-14. 🚧 Feedback estruturado por ação do Plano de Autocuidado, sem gamificação — branch `feat/plano-autocuidado-feedback-acoes`.
-   - nova tabela `care_plan_action_feedback` com RLS.
-   - percepções reversíveis: `helpful` = Fez sentido; `later` = Talvez depois; `not_for_me` = Não combinou comigo.
-   - não existe conclusão, pontos, streak, ranking ou meta de produtividade.
-   - UI delegada a `CarePlanActionFeedback.tsx`.
-   - o próximo plano consulta somente o último roteiro enviado e feedbacks estruturados daquele roteiro.
-   - feedback é tratado como preferência, nunca como eficácia, progresso, diagnóstico ou prova de melhora.
-   - `not_for_me` orienta a evitar repetição literal; `later` sugere ajustar momento/intensidade; `helpful` pode inspirar ação semelhante.
-   - contrato interno versionado para `self_care_plan_v3`.
+14. ✅ Feedback estruturado por ação do Plano de Autocuidado, sem gamificação.
+   - PR #178, merge `035c605edd60f4a85e13eeb45642d6ec67d90e8c`.
+   - tabela `care_plan_action_feedback` com RLS, trigger e feedback reversível por microação.
+   - opções: `helpful` = Fez sentido; `later` = Talvez depois; `not_for_me` = Não combinou comigo.
+   - sem conclusão, pontos, streak, ranking ou meta de produtividade.
+   - próximo roteiro usa somente feedback estruturado do último plano enviado como preferência, nunca como eficácia/progresso.
+   - `self_care_plan_v3` ativo no runner `run-emotional-automations` v65.
+   - migration aplicada live e Vercel produção READY.
+   - validação live detectou grants excessivos herdados em `authenticated`; corrigidos no PR #179, merge `ee2059d4d8a03e8ed487b7e8483e5e592b14d078`.
+   - banco live confirmado: `authenticated` possui somente SELECT/INSERT/UPDATE/DELETE; `anon` sem acesso; RLS/policies/trigger ativos.
+   - `main` CI verde; domínio oficial HTTP 200; sem error/fatal recente no Vercel.
+
+15. 🚧 Feedback da Orientação Mensal, sem virar chat infinito — branch `feat/orientacao-feedback-estruturado`.
+   - auditoria confirmou que `monthly_guidance_requests` já limita o produto a uma solicitação mensal e uma resposta final revisada.
+   - nova tabela `monthly_guidance_feedback` guarda uma única avaliação por orientação respondida.
+   - avaliação reversível e estruturada: `helpful`, `partial`, `not_for_me` + até 3 tags permitidas.
+   - sem textarea, mensagem livre, réplica ou reabertura do atendimento.
+   - UI só aparece depois de `answered` e deixa explícito que o retorno não abre nova conversa.
+   - grants mínimos já definidos na migration: authenticated somente CRUD; anon sem acesso.
+   - correção associada: aviso do mês deixa de dizer “em análise” quando a orientação já está respondida.
    - migration ainda NÃO aplicada live antes dos gates/merge.
 
-## P2 restante depois do item 14
-15. Feedback da Orientação Mensal, sem virar chat infinito.
+## P2 restante depois do item 15
 16. Evolução longitudinal dos questionários com linguagem não clínica.
 17. Personalização negativa reversível para conteúdos.
 18. Padronizar senha mínima em 8 caracteres após auditar código real.
@@ -96,8 +78,8 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
 - Auditoria final das 40 áreas com nota 0–10.
 
 ## Histórico útil
-PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177.
+PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179.
 PRs relevantes da missão anterior: #157 (SLA), #158 (limpeza + IA invisível), #159 (Base deste plano), #163 (previsão da Orientação).
 
 ## STATUS
-**P0 ✅ completo | P1 ✅ completo | P2 🚧 item 14 em validação; próximo após merge: item 15 — feedback da Orientação Mensal.**
+**P0 ✅ completo | P1 ✅ completo | P2 🚧 item 15 em validação; próximo após merge: item 16 — evolução longitudinal dos questionários.**
