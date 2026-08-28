@@ -118,6 +118,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   }
 
   async function handleCreate() {
+    if (!user) return
     setCreateError(null)
     setSent(false)
     setSentWarning(null)
