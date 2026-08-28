@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import {
   OFFICIAL_FEATURES,
   OFFICIAL_PLANS,
-  DEFAULT_PLAN_ACCESS,
   DEFAULT_INHERIT,
   OWN_FEATURE_KEYS,
   PLAN_INHERITS_FROM,
@@ -16,6 +15,7 @@ import {
   type PlanKey,
 } from '../../lib/officialPlans'
 import { logAdminAction } from '../../lib/adminAudit'
+import { verifyPlanStructure } from '../../lib/planStructureCheck'
 
 interface PlanConfig {
   key: PlanKey
@@ -67,6 +67,7 @@ export default function AdminPlans() {
   const [usingFallback, setUsingFallback] = useState(false)
   const [confirmRestore, setConfirmRestore] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [structureSummary, setStructureSummary] = useState<string | null>(null)
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok }); setTimeout(() => setToast(null), 4000)
@@ -200,28 +201,27 @@ export default function AdminPlans() {
 
   async function syncToSupabase() {
     setSyncing(true)
-    const featureRows = OFFICIAL_FEATURES.map(f => ({
-      feature_key: f.key, feature_name: f.name, feature_description: '',
-      category: f.category, display_order: f.order, is_implemented: true,
-      updated_at: new Date().toISOString(),
-    }))
-    const { error: featErr } = await supabase.from('plan_features').upsert(featureRows, { onConflict: 'feature_key' })
-    if (featErr) { showToast('Erro ao sincronizar recursos: ' + featErr.message, false); setSyncing(false); return }
-
-    const accessRows: { plan_key: string; feature_key: string; enabled: boolean; updated_at: string }[] = []
-    for (const pk of PLAN_KEYS) {
-      const effective = new Set(DEFAULT_PLAN_ACCESS[pk])
-      for (const feat of OFFICIAL_FEATURES) {
-        accessRows.push({ plan_key: pk, feature_key: feat.key, enabled: effective.has(feat.key), updated_at: new Date().toISOString() })
-      }
+    try {
+      const result = await verifyPlanStructure()
+      const summary = [
+        `${result.createdFeatures} funcionalidade(s) ausente(s) criada(s)`,
+        `${result.createdAccessRows} vínculo(s) ausente(s) criado(s)`,
+        result.accessDivergences > 0
+          ? `${result.accessDivergences} divergência(s) existente(s) preservada(s) para revisão`
+          : 'nenhuma divergência encontrada',
+      ].join(' · ')
+      setStructureSummary(summary)
+      setUsingFallback(false)
+      void logAdminAction('config', 'plan_structure_check', null, null)
+      showToast('Estrutura verificada sem sobrescrever configurações existentes.')
+      await load()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido ao verificar a estrutura.'
+      setStructureSummary(null)
+      showToast(message, false)
+    } finally {
+      setSyncing(false)
     }
-    const { error: accErr } = await supabase.from('plan_feature_access').upsert(accessRows, { onConflict: 'plan_key,feature_key' })
-    if (accErr) { showToast('Erro ao sincronizar permissões: ' + accErr.message, false); setSyncing(false); return }
-
-    showToast('Recursos oficiais sincronizados com o Supabase!')
-    setUsingFallback(false)
-    setSyncing(false)
-    load()
   }
 
   // ── Derivações para a view atual ──────────────────────────────────────────
@@ -245,8 +245,15 @@ export default function AdminPlans() {
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
             Nenhum acesso encontrado no Supabase. Exibindo padrão oficial local.{' '}
-            <button onClick={syncToSupabase} className="underline font-semibold">Clique aqui para sincronizar com o banco.</button>
+            <button onClick={syncToSupabase} className="underline font-semibold">Verificar estrutura e criar apenas o que estiver ausente.</button>
           </span>
+        </div>
+      )}
+
+      {structureSummary && (
+        <div className="mb-4 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+          <Check className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span><strong>Última verificação:</strong> {structureSummary}. Nenhuma configuração existente foi sobrescrita.</span>
         </div>
       )}
 
@@ -254,7 +261,7 @@ export default function AdminPlans() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
           <h1 className="font-serif text-3xl text-forest-900">Planos e assinaturas</h1>
-          <p className="text-sm text-ink-soft mt-0.5">Configure preços, limites e permissões.</p>
+          <p className="text-sm text-ink-soft mt-0.5">Configure informações do plano e consulte as regras técnicas do produto.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={load} title="Recarregar" className="p-2 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100">
@@ -262,7 +269,7 @@ export default function AdminPlans() {
           </button>
           <button onClick={syncToSupabase} disabled={syncing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-stone-300 rounded-lg text-stone-600 hover:bg-stone-50 disabled:opacity-50">
             {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            Sincronizar com Supabase
+            Verificar estrutura
           </button>
           <button onClick={() => setConfirmRestore(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-amber-300 rounded-lg text-amber-700 hover:bg-amber-50">
             <RotateCcw className="w-3.5 h-3.5" />
