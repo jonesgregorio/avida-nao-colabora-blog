@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 const migration = read('supabase/migrations/20260828013500_care_plan_action_feedback.sql')
+const grantFix = read('supabase/migrations/20260828015000_care_plan_feedback_minimum_grants.sql')
 const component = read('src/components/CarePlanActionFeedback.tsx')
 const page = read('src/components/SelfCarePlanPage.tsx')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
@@ -31,6 +32,13 @@ test('RLS limita feedback ao próprio plano enviado e mantém administração se
   assert.match(migration, /effective_plan_for_user\(pr\.user_id\) = 'plus'/)
   assert.match(migration, /care_plan_feedback_admin_all/)
   assert.match(migration, /REVOKE ALL ON public\.care_plan_action_feedback FROM anon/)
+})
+
+test('authenticated recebe somente operações CRUD necessárias na tabela de feedback', () => {
+  assert.match(grantFix, /REVOKE ALL ON public\.care_plan_action_feedback FROM authenticated/)
+  assert.match(grantFix, /GRANT SELECT, INSERT, UPDATE, DELETE ON public\.care_plan_action_feedback TO authenticated/)
+  assert.match(grantFix, /REVOKE ALL ON public\.care_plan_action_feedback FROM anon/)
+  assert.doesNotMatch(grantFix, /GRANT[^\n]*(TRUNCATE|TRIGGER|REFERENCES)[^\n]*authenticated/)
 })
 
 test('Plano de Autocuidado delega microações ao componente de percepção', () => {
