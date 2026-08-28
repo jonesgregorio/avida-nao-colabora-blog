@@ -8,6 +8,7 @@ import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
 import { SupportCard } from './user/ui'
 import EmailPreferences from './EmailPreferences'
+import ContentThemePreferences from './ContentThemePreferences'
 import AccountPrivacyControls from './AccountPrivacyControls'
 import { ymd } from '../lib/reportPeriods'
 
@@ -232,6 +233,9 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
           <section className="bg-paper-soft border border-line rounded-3xl p-6">
             <EmailPreferences user={user} />
           </section>
+
+          {/* Temas reduzidos (Etapa 17) — só aparece se houver algo silenciado */}
+          <ContentThemePreferences user={user} />
 
           {/* Segurança */}
           <section className="bg-paper-soft border border-line rounded-3xl p-6">
