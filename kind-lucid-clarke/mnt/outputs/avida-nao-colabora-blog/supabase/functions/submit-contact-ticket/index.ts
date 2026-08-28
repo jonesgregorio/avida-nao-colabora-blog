@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   const { data: profile } = user
     ? await supabase.from('profiles').select('email,full_name,plan').eq('user_id', user.id).maybeSingle()
     : { data: null }
-  const { error: insertError } = await supabase.from('support_tickets').insert({
+  const { data: insertedTicket, error: insertError } = await supabase.from('support_tickets').insert({
     user_id: user?.id ?? null,
     contact_email: user ? (profile?.email || user.email || contactEmail || null) : contactEmail,
     contact_name: user ? (profile?.full_name || contactName || null) : contactName,
@@ -117,10 +117,10 @@ Deno.serve(async (req) => {
     category,
     plan_at_creation: user ? (profile?.plan || 'free') : null,
     unread_for_admin: true,
-  })
-  if (insertError) {
-    console.error('contact ticket:', insertError.message)
+  }).select('id').single()
+  if (insertError || !insertedTicket) {
+    console.error('contact ticket:', insertError?.message || 'missing inserted ticket')
     return json({ error: 'Não foi possível enviar agora. Tente novamente em instantes.' }, cors, 503)
   }
-  return json({ ok: true }, cors, 201)
+  return json({ ok: true, ticket_id: user ? insertedTicket.id : undefined }, cors, 201)
 })
