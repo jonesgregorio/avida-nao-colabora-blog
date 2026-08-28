@@ -5,6 +5,12 @@ import {
 } from 'lucide-react'
 import { normalizePlan } from '../lib/officialPlans'
 import { getSupportSlaLabel } from '../lib/supportSla'
+import SupportAttachmentPicker from './support/SupportAttachmentPicker'
+import {
+  removeSupportAttachments,
+  uploadSupportAttachments,
+  type SupportAttachment,
+} from '../lib/supportAttachments'
 
 interface Ticket {
   id: string
@@ -73,8 +79,10 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [sentWarning, setSentWarning] = useState<string | null>(null)
   const [openTopic, setOpenTopic] = useState<number | null>(null)
   const [form, setForm] = useState({ subject: '', description: '', priority: 'medium' })
+  const [files, setFiles] = useState<File[]>([])
 
   const isPlus = normalizePlan(profile?.plan) === 'plus'
 
@@ -112,6 +120,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   async function handleCreate() {
     setCreateError(null)
     setSent(false)
+    setSentWarning(null)
     if (!form.subject.trim() || !form.description.trim()) {
       setCreateError('Preencha o assunto e a mensagem.'); return
     }
@@ -139,8 +148,38 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
       return
     }
 
+    let attachmentWarning: string | null = null
+    if (files.length > 0) {
+      const ticketId = typeof data?.ticket_id === 'string' ? data.ticket_id : ''
+      if (!ticketId) {
+        attachmentWarning = 'O chamado foi criado, mas os anexos não puderam ser vinculados. Você pode enviá-los ao abrir o chamado.'
+      } else {
+        let uploaded: SupportAttachment[] = []
+        try {
+          uploaded = await uploadSupportAttachments(user.id, ticketId, files)
+          const { error: messageError } = await supabase.from('ticket_messages').insert({
+            ticket_id: ticketId,
+            sender_id: user.id,
+            sender_role: 'user',
+            content: uploaded.length === 1 ? 'Anexo enviado na abertura do chamado.' : 'Anexos enviados na abertura do chamado.',
+            is_internal: false,
+            attachments: uploaded,
+          })
+          if (messageError) {
+            await removeSupportAttachments(uploaded)
+            attachmentWarning = 'O chamado foi criado, mas não foi possível anexar os arquivos. Você pode enviá-los ao abrir o chamado.'
+          }
+        } catch {
+          if (uploaded.length) await removeSupportAttachments(uploaded)
+          attachmentWarning = 'O chamado foi criado, mas não foi possível anexar os arquivos. Você pode enviá-los ao abrir o chamado.'
+        }
+      }
+    }
+
     setForm({ subject: '', description: '', priority: 'medium' })
+    setFiles([])
     setCreating(false)
+    setSentWarning(attachmentWarning)
     setSent(true)
     void loadTickets()
   }
@@ -169,9 +208,12 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
           Recebemos sua solicitação e nossa equipe responde com carinho — normalmente {getSupportSlaLabel(profile?.plan)}.
           Você recebe a resposta por aqui e pode acompanhar o status dos seus chamados a qualquer momento.
         </p>
+        {sentWarning && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{sentWarning}</p>
+        )}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
           <button
-            onClick={() => setSent(false)}
+            onClick={() => { setSent(false); setSentWarning(null) }}
             className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
           >
             <Plus className="w-4 h-4" /> Abrir nova solicitação
@@ -234,6 +276,10 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
                 />
                 <span className="absolute bottom-2.5 right-3 text-[11px] text-ink-soft/70">{form.description.length}/1000</span>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <SupportAttachmentPicker files={files} onChange={setFiles} onError={setCreateError} disabled={creating} />
             </div>
 
             {createError && <p className="text-sm text-coral mt-3">{createError}</p>}
