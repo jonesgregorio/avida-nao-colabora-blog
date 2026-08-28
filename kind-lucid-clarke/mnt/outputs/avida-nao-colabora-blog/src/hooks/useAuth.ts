@@ -5,6 +5,8 @@ import { isEmailConfirmed } from '../lib/authVerification'
 import { clearSensitiveDrafts } from '../lib/sensitiveDraftStorage'
 import { Profile } from '../types'
 
+const AUTH_BOOT_TIMEOUT_MS = 8_000
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -35,7 +37,7 @@ export function useAuth() {
     }
   }, [])
 
-  const acceptConfirmedUser = useCallback(async (candidate: User | null) => {
+  const acceptConfirmedUser = useCallback(async (candidate: User | null, waitForProfile = true) => {
     if (!candidate || !isEmailConfirmed(candidate)) {
       setUser(null)
       setProfile(null)
@@ -44,7 +46,14 @@ export function useAuth() {
     }
 
     setUser(candidate)
-    await fetchProfile(candidate.id, candidate.email)
+    const profilePromise = fetchProfile(candidate.id, candidate.email)
+    if (waitForProfile) {
+      await profilePromise
+    } else {
+      // O perfil complementa a sessão, mas não pode bloquear o shell inteiro.
+      // Uma lentidão no PostgREST/Auth não deve deixar o blog preso no loader.
+      void profilePromise.catch(() => setProfile(null))
+    }
     return true
   }, [fetchProfile])
 
@@ -62,9 +71,19 @@ export function useAuth() {
   }, [acceptConfirmedUser])
 
   useEffect(() => {
+    let active = true
+    // Auth pode ficar aguardando refresh/lock entre abas. O app nunca deve ficar
+    // eternamente bloqueado no loader global por causa disso.
+    const bootTimeout = window.setTimeout(() => {
+      if (active) setLoading(false)
+    }, AUTH_BOOT_TIMEOUT_MS)
+
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
-        const accepted = await acceptConfirmedUser(session?.user ?? null)
+        if (!active) return
+        // Assim que a sessão é conhecida, libera o shell; o perfil termina em
+        // segundo plano e continua sendo atualizado normalmente.
+        const accepted = await acceptConfirmedUser(session?.user ?? null, false)
         if (accepted) {
           // Registra o acesso (096). A RPC ignora se foi tocado há < 1h e nunca
           // quebra o boot — o motor de lembretes usa isso para não e-mailar quem
@@ -73,14 +92,21 @@ export function useAuth() {
         }
       })
       .catch(() => { /* falha silenciosa — mantém user=null */ })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        window.clearTimeout(bootTimeout)
+        if (active) setLoading(false)
+      })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') clearSensitiveDrafts()
       void handleAuthCandidate(event, session?.user ?? null)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      active = false
+      window.clearTimeout(bootTimeout)
+      subscription.unsubscribe()
+    }
   }, [acceptConfirmedUser, handleAuthCandidate])
 
   const signOut = async () => {
