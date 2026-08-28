@@ -7,6 +7,7 @@ import { getEffectivePlan } from '../lib/officialPlans'
 import { detectRisk } from '../lib/contentRecommendation'
 import { isGuidanceAnswered, resolveGuidanceResponse, guidanceResponseDueDate, type GuidanceLetter } from '../lib/monthlyGuidanceResponse'
 import RiskHelpBanner from './RiskHelpBanner'
+import MonthlyGuidanceFeedback from './MonthlyGuidanceFeedback'
 
 interface Props {
   user: User | null
@@ -154,6 +155,11 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   const deadline = formatShort(cycle.deadline)
   const reopen = formatShort(cycle.nextOpen)
   const history = requests.filter(r => r.id !== request?.id)
+  const currentAnswered = request ? isGuidanceAnswered(request.status, {
+    finalResponseJson: request.final_response_json,
+    aiDraftJson: request.ai_draft_json,
+    response: request.response,
+  }) : false
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -209,14 +215,16 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       </div>
 
       {request ? (
-        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
-          <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-amber-600 flex-shrink-0">
+        <div className={`mb-5 rounded-2xl border p-4 flex items-start gap-3 ${currentAnswered ? 'border-forest-200 bg-mint/30' : 'border-amber-200 bg-amber-50'}`}>
+          <span className={`w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0 ${currentAnswered ? 'text-forest-600' : 'text-amber-600'}`}>
             <CheckCircle className="w-4 h-4" />
           </span>
           <div className="text-sm leading-relaxed">
-            <p className="text-amber-800">Você já usou a orientação deste mês. 🌱</p>
-            <p className="text-amber-700/90 text-xs mt-0.5">
-              Seu pedido está em análise. A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.
+            <p className={currentAnswered ? 'text-forest-800' : 'text-amber-800'}>Você já usou a orientação deste mês. 🌱</p>
+            <p className={`text-xs mt-0.5 ${currentAnswered ? 'text-forest-700/90' : 'text-amber-700/90'}`}>
+              {currentAnswered
+                ? <>Sua orientação já está disponível no histórico abaixo. Uma nova solicitação abre em <strong className="text-forest-900">{reopen}</strong>, no início do próximo mês.</>
+                : <>Seu pedido está em análise. A resposta chega em até 7 dias corridos. Uma nova solicitação abre em <strong className="text-amber-900">{reopen}</strong>, no início do próximo mês.</>}
             </p>
           </div>
         </div>
@@ -293,7 +301,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       )}
 
       {request && (
-        <RequestCard req={request} open={openIds.has(request.id)} onToggle={() => toggle(request.id)} />
+        <RequestCard req={request} userId={user?.id ?? ''} open={openIds.has(request.id)} onToggle={() => toggle(request.id)} />
       )}
 
       {history.length > 0 && (
@@ -302,7 +310,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
           <p className="text-xs text-stone-400 mb-3">Seu histórico fica sempre aqui. Toque para abrir.</p>
           <div className="space-y-2">
             {history.map(r => (
-              <RequestCard key={r.id} req={r} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
+              <RequestCard key={r.id} req={r} userId={user?.id ?? ''} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
             ))}
           </div>
         </div>
@@ -315,7 +323,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   )
 }
 
-function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: boolean; onToggle: () => void }) {
+function RequestCard({ req, userId, open, onToggle }: { req: GuidanceRequest; userId: string; open: boolean; onToggle: () => void }) {
   const resolvedResponse = resolveGuidanceResponse({
     finalResponseJson: req.final_response_json,
     aiDraftJson: req.ai_draft_json,
@@ -369,16 +377,19 @@ function RequestCard({ req, open, onToggle }: { req: GuidanceRequest; open: bool
             </div>
           )}
           {answered ? (
-            <div className="bg-white border border-forest-100 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação respondida</span>
+            <>
+              <div className="bg-white border border-forest-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-[11px] font-semibold text-forest-700">Sua orientação mensal</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Orientação respondida</span>
+                </div>
+                <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
+                {req.responded_at && (
+                  <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
+                )}
               </div>
-              <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
-              {req.responded_at && (
-                <p className="text-[10px] text-stone-400 mt-2">Respondida em {formatDate(req.responded_at)}</p>
-              )}
-            </div>
+              {userId && <MonthlyGuidanceFeedback userId={userId} guidanceRequestId={req.id} />}
+            </>
           ) : (
             <div className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-2 text-xs text-stone-500">
               <Loader2 className="w-3.5 h-3.5 text-forest-400" />
