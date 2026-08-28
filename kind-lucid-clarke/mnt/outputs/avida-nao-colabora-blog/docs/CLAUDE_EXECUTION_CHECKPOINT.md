@@ -2,138 +2,98 @@
 
 > Memória operacional das missões de finalização/hardening do projeto.
 > Ler este arquivo primeiro ao retomar. Não repetir etapas marcadas ✅.
-> Duas missões já passaram por esta sessão — ver "Histórico" no fim. Este topo
-> documenta a missão ATUAL (a mais recente, baseada na auditoria do ZIP 76,
-> foco em Planos/Preços/Admin), que é a que deve ser continuada agora.
 
-## Missão atual (ZIP 76 — preços/planos/admin)
-Super-prompt de 35 etapas, prioridade P0 em: fonte canônica de preço, remover
-preço-texto manual no Admin, plano ativo/inativo bloqueando checkout de
-verdade, permissões técnicas honestas no Admin (read-only ou remover).
+## Missão atual — continuação ZIP 76
+Ordem autorizada: P1 restante → P2 → P3 → validações live/documentação/auditoria final.
+Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequenos e só mesclar com gates verdes.
 
 ## Última `main` conhecida
-- Commit: `970f414` ("feat(planos): verificador de consistência + Stripe Audit dinâmico (Etapas 9-10) (#170)")
-- Sincronizada e deployada em produção em 2026-08-27 23:50 UTC (confirmado via API de deployments do GitHub).
-- **Todo o P0 (Etapas 1-4) e parte do P1 (Etapas 9-10) do novo super-prompt estão concluídos, mesclados e em produção.**
+- Commit: `d8d63965e82ef99c4079954212ba12295ad54eea`
+- Merge: PR #173 — `fix(planos): concluir superfícies do catálogo sem mutação global`
+- Data: 2026-08-27 (America/Sao_Paulo)
 
-## Achado importante desta missão
-Ao começar, dois PRs de uma sessão paralela ("feat(planos): catálogo central
-editável de funcionalidades" e "feat(planos): refletir catálogo editável em
-Meu Plano") tinham acabado de mesclar. Um agente de auditoria confirmou, lendo
-o código real (não os nomes dos PRs), que 4 dos 7 itens críticos do novo
-super-prompt AINDA eram problemas reais mesmo depois desses PRs. Sempre
-auditar o código atual antes de assumir que algo já foi corrigido.
+## Regras invariáveis
+- Planos comerciais: somente `free`, `essential`, `plus`.
+- `unlimited_access` é entitlement administrativo, não plano.
+- `emotional_tags` e `trigger_tags` nunca são equivalentes.
+- IA pode existir internamente, mas não é exposta ao usuário final.
+- Stripe/cobrança não pode ser refatorado como efeito colateral.
+- PR que alterar fluxo real de cobrança/Stripe exige confirmação explícita do usuário antes do merge.
+- Migration destrutiva/ação irreversível exige confirmação explícita antes de executar.
 
-## Status por item do novo super-prompt (auditado no código real)
+## P0 — CONCLUÍDO
+1. ✅ Fonte canônica de preço — `src/lib/planPricing.ts`; Home, Pricing, Meu Plano e Admin usam a mesma fonte. PR #165.
+2. ✅ Campo de preço textual livre removido/tornado somente leitura. PR #164.
+3. ✅ Plano inativo bloqueia checkout e troca no backend e UI, preservando assinante atual. PR #167.
+4. ✅ Permissões técnicas do Admin são honestas/read-only; runtime continua governado pelas regras oficiais. PR #168.
 
-| Item | Tema | Status | Evidência / PR |
-|---|---|---|---|
-| Etapa 1 (P0) | Fonte canônica de preço (Home/Pricing/MeuPlano/Admin) | ✅ CONCLUÍDA — [PR #165](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/165) (CI em andamento, não mesclado ainda) | Criado `src/lib/planPricing.ts` (`loadPlanPricing`/`usePlanPricing`), lê `get_public_plan_pricing`. `HomeContent.tsx` tinha preço 100% hardcoded (`'R$ 19,90'`) — corrigido. `MyPlanPageCore.tsx` (`PLAN_PRICES` estático usado em valor atual/comparação/proração) — corrigido, vira `FALLBACK_PLAN_PRICES` só para antes da RPC responder. `Pricing.tsx` e `AdminPlanosPage.tsx` cada um chamava a RPC separadamente — consolidado. |
-| Etapa 2 (P0) | Remover "Preço (texto)" manual em AdminPlans.tsx | ✅ CONCLUÍDA — [PR #164](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/164) (mesclado) | `plan_configs.price` já era sincronizado automaticamente pelo Stripe via `admin-plan-pricing/index.ts:97`, mas `AdminPlans.tsx` tinha um input de texto livre ligado à mesma coluna, permitindo dessincronizar manualmente. Campo virou somente leitura; `savePlans()` não envia mais `price` no upsert. |
-| Etapa 3 (P0) | `plan_configs.active` bloqueando novas assinaturas/upgrades de verdade | ✅ CONCLUÍDA — [PR #167](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/167) (mesclado) | `create-checkout`/`manage-subscription` agora consultam `plan_configs.active` e recusam com erro claro. `'free'` nunca é bloqueado (downgrade pra Gratuito passa por `cancel`, não por este helper). Frontend (`Pricing.tsx`/`MyPlanPageCore.tsx`) mostra "Indisponível agora" pra quem ainda não está no plano; assinante atual não é afetado. Sem migration. |
-| Etapa 4 (P0/P1) | Permissões técnicas honestas no Admin (read-only ou remover) | ✅ CONCLUÍDA — [PR #168](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/168) (mesclado) | Confirmado: `loadPlanAccess()` realmente nunca era chamada. `toggleOwnFeature()`/`saveAllAccess()` removidos; as duas visões (cards + tabela técnica) do Admin agora mostram sempre `OWN_FEATURE_KEYS` (fonte real) como indicador somente leitura, com selo "🔒 regra técnica do produto". "Visualização comercial" e "Sincronizar com Supabase" intactos. |
-| Etapa 7 (P1) | MyPlanPage/Core sem mutação global (`splice` em `PUBLIC_PLAN_FEATURES`/`PLAN_COMPARE_ROWS`) | ✅ JÁ ESTAVA OK (não precisou de correção) | Auditoria confirmou: `PLAN_COMPARE_ROWS` (`planComparison.ts`) e `PUBLIC_PLAN_FEATURES` são derivados via `.map`/função pura, nunca mutados com `splice`. O medo da auditoria original (ZIP 76) não se confirmou no código atual. |
-| Etapa 9 (P1) | Verificador de consistência dos planos no Admin | ✅ CONCLUÍDA — [PR #170](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/170) (mesclado) | Novo bloco "Verificação de consistência" em `AdminPlanosPage.tsx` (botão "Verificar planos") + Edge Function `admin-plan-consistency` (read-only, AAL2, nunca corrige sozinha). Checa catálogo (duplicidade, técnico-virou-comercial, arquivado-mas-anunciado, comercial-sem-plano), planos (inativo, informativo) e preços (banco × Stripe ao vivo: moeda, valor, produto, Price arquivado/inexistente). 3 níveis: crítico/atenção/informativo. |
-| Etapa 10 (P1) | Stripe Audit sem valor fixo hardcoded | ✅ CONCLUÍDA — [PR #170](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/170) (mesclado) | **Achado real, não só risco baixo**: `supabase/functions/stripe-audit/index.ts` (função JÁ EXISTENTE, distinta do editor de preços) tinha `const EXPECTED = { essential: 1990, plus: 3990 }` usado nas comparações reais (`essentialOk`/`plusOk`/`expected_amounts`) — ficou errado assim que o preço virou editável na Etapa 1. Corrigido: agora busca `plan_configs.price_cents` em runtime antes de comparar com o Stripe; a constante fixa vira só fallback de emergência (renomeada `FALLBACK_EXPECTED`). |
-| Etapas 11–35 | Templates de suporte, anexos, categorias, feedback do plano/orientação, evolução de questionários, personalização negativa, senha 8+, MFA opcional, exportação, mapa emocional, modularização, docs, gates, Supabase/Stripe/Vercel, auditoria final | Não auditado ainda nesta sessão | P2/P3 — depois dos P0/P1 acima. |
+## P1 — CONCLUÍDO
+7. ✅ Sincronização não destrutiva — PR #172, merge `daf1bb17f56bbc4fe3069a12fca310e63fea4baf`.
+   - `AdminPlans.tsx` agora mostra **Verificar estrutura**.
+   - novo `src/lib/planStructureCheck.ts` cria somente features/vínculos ausentes usando `insert`.
+   - nunca usa `upsert` sobre configurações existentes.
+   - divergências existentes são contadas e preservadas para revisão.
+   - teste: `tests/adminPlanStructureCheck.test.ts`.
+   - gates: testes, TypeScript, Deno, ESLint, build, migrations-guard, Chromium/Axe verdes.
 
-## Itens concluídos nesta sessão (contando as duas missões)
-Ver tabela "Histórico" no fim para a missão anterior (22 etapas). Nesta
-missão nova (ZIP 76): **Etapas 1, 2, 3, 4, 9 e 10 concluídas** (5 PRs:
-#164, #165, #167, #168, #170), mais Etapa 5 da missão anterior fechada no
-meio do caminho (PR #163). 9 PRs mesclados no total nesta sessão, todos com
-CI verde e deploy de produção confirmado via API do GitHub.
+8/9. ✅ Verificador de consistência e Stripe Audit dinâmico — PR #170.
+   - `admin-plan-consistency` é read-only/AAL2.
+   - Stripe Audit lê preço atual do banco em vez de 1990/3990 fixos.
 
-## Arquivos modificados nesta missão (ZIP 76)
-- `src/lib/planPricing.ts` (novo — fonte canônica de preço + flag `active`)
-- `src/components/HomeContent.tsx`
-- `src/components/MyPlanPageCore.tsx`
-- `src/components/Pricing.tsx`
-- `src/components/admin/AdminPlanosPage.tsx`
-- `src/components/admin/AdminPlans.tsx` (preço read-only + permissões read-only)
-- `supabase/functions/create-checkout/index.ts` (checa `plan_configs.active`)
-- `supabase/functions/manage-subscription/index.ts` (`planIsActive()` helper)
-- `tests/canonicalPlanPricing.test.ts` (novo)
-- `tests/adminPlansPriceReadOnly.test.ts` (novo)
-- `tests/planInactiveBlocksCheckout.test.ts` (novo)
-- `tests/adminTechnicalPermissionsReadOnly.test.ts` (novo)
-- `tests/billing-price-admin-sync.test.ts` (atualizado, não quebrado)
+10. ✅ Superfícies do catálogo + correção da mutação global real de Meu Plano — PR #173, merge `d8d63965e82ef99c4079954212ba12295ad54eea`.
+   - AUDITORIA DO CÓDIGO REAL CORRIGIU O CHECKPOINT ANTERIOR: a `main` ainda possuía `applyCatalogPresentation()` e `PLAN_COMPARE_ROWS.splice(...)`; portanto a afirmação anterior de que a mutação global já estava resolvida estava errada.
+   - `showOnPricing` governa cards de Pricing.
+   - `showOnComparison` governa tabelas de comparação.
+   - `showOnUpgrade` governa listas de benefício em downgrade/cancelamento.
+   - `showOnMyPlan` agora tem efeito real na seção **O que está incluído no seu plano**.
+   - descrições do catálogo passam a aparecer nessa seção quando configuradas.
+   - novo helper puro `src/lib/planCatalogPresentation.ts`.
+   - `MyPlanPage.tsx` deriva apresentação com `useMemo` e passa por props.
+   - `MyPlanPageCore.tsx` mantém checkout/manage-subscription/pró-rata/cancelamento/reativação, mas não depende de mutação de arrays globais.
+   - testes: `tests/planCatalogSurfaces.test.ts` + `tests/myPlanFeatureCatalogBridge.test.ts` atualizado.
+   - primeira rodada do PR falhou somente porque 2 testes antigos exigiam explicitamente a mutação removida; testes foram atualizados para o novo contrato seguro.
+   - rodada final: 382/382 testes verdes + TypeScript + Deno + ESLint + build + migrations-guard + Chromium/Axe verdes.
 
-## Migrations criadas nesta missão
-Nenhuma. Todos os itens P0 foram resolvidos usando colunas/tabelas que já
-existiam (`plan_configs.active`, `plan_configs.price`/`price_cents`,
-`plan_feature_access`) — o problema era sempre "ninguém lê/escreve isso
-direito", nunca "falta coluna".
+## Estado de banco/migrations no P1 atual
+- PR #172: sem migration.
+- PR #173: sem migration.
+- Nenhuma mudança de Stripe/cobrança foi feita nesses dois PRs.
 
-## Edge Functions modificadas nesta missão
-- `create-checkout/index.ts` — recusa checkout de plano inativo.
-- `manage-subscription/index.ts` — recusa upgrade/downgrade pra plano inativo.
-Ambas validadas com `deno check` local antes do push, além do CI.
+## P2 — PRÓXIMA AÇÃO EXATA
+### Item 11 — Templates do Suporte com preços dinâmicos
+Achado confirmado novamente na `main`:
+- `src/components/admin/AdminSupport.tsx`
+- fallback `REPLY_TEMPLATES_FALLBACK` ainda contém preços fixos:
+  - f05: Essencial R$ 19,90 / Plus R$ 39,90
+  - f07: Essencial R$ 19,90
+  - f08: Plus R$ 39,90
+A correção deve consumir `src/lib/planPricing.ts` no momento em que a resposta pronta é aplicada, usando placeholders ou substituição dinâmica. Não deixar preço reutilizável hardcoded.
 
-## Testes executados (última rodada, após merge do PR #168)
-- `npm test` completo: 3 falhas, todas pré-existentes desde o início da
-  sessão, não relacionadas a nenhuma mudança feita:
-  - `tests/speechRecognitionPermission.test.ts`
-  - `tests/monthlyGuidanceContract.test.ts` (2 asserts)
-- `npm run typecheck`: limpo.
-- `npm run lint`: limpo.
-- `npm run build`: limpo.
-- `deno check` local em `create-checkout/index.ts` e `manage-subscription/index.ts`: limpo.
+## P2 restante depois do item 11
+12. Suporte com anexos privados + RLS.
+13. Categorias de suporte e métricas/filtros.
+14. Feedback estruturado por ação do Plano de Autocuidado, sem gamificação.
+15. Feedback da Orientação Mensal, sem virar chat infinito.
+16. Evolução longitudinal dos questionários com linguagem não clínica.
+17. Personalização negativa reversível para conteúdos.
+18. Padronizar senha mínima em 8 caracteres após auditar código real.
+19. Exportação de dados mais legível, preservando JSON.
 
-## Erros encontrados e resolvidos
-- Lock de git órfão (`index.lock`) apareceu repetidas vezes durante a sessão
-  (auto-push local, ver memória `autopush_interferencia`). Sempre confirmado
-  com `Get-Process git` (PowerShell) que nenhum processo estava vivo antes de
-  remover. Se continuar acontecendo com frequência, vale desligar esse loop.
-- PRs precisam estar atualizados com a `main` antes de mesclar (branch
-  protection "BEHIND" bloqueia merge mesmo com CI verde) — usar
-  `gh api repos/OWNER/REPO/pulls/N/update-branch -X PUT` e aguardar o CI
-  rodar de novo antes de tentar `gh pr merge`.
-- `node --experimental-strip-types` exige extensão `.ts` explícita em imports
-  relativos entre módulos de `src/lib` (ESM estrito, diferente do Vite).
+## P3
+20. MFA opcional para usuário comum via Supabase, sem afetar MFA Admin.
+21. Comparação livre no Mapa Emocional + resumo textual acessível.
+22. AdminUsers escalável: agregados server-side + paginação real + atividade agregada; NÃO adicionar `.limit()` simples. Modularização somente depois.
 
-## Decisões arquiteturais tomadas nesta missão
-- `planPricing.ts` é a ÚNICA camada que chama `get_public_plan_pricing`;
-  todo consumidor (Home/Pricing/MeuPlano/Admin) usa `usePlanPricing()`/
-  `loadPlanPricing()`, nunca a RPC direto.
-- Fallback de preço deriva sempre de `OFFICIAL_PLANS` (nunca um número
-  paralelo hardcoded) — evita reintroduzir o mesmo bug de divergência.
-- `AdminPlans.tsx` não escreve mais `price` no upsert — a única via de
-  escrita legítima do preço real é `admin-plan-pricing` (Stripe).
+## Validações finais fora do código
+- Supabase live: migrations/RLS/índices/functions/triggers/crons.
+- Stripe estrutural: checkout/upgrade/downgrade/pró-rata/cancelamento/reativação/webhook/idempotência sem cobrança real.
+- Vercel: produção READY + domínio oficial HTTP 200 + runtime error/fatal.
+- Atualizar `docs/ARQUITETURA_ATUAL.md`.
+- Auditoria final das 40 áreas com nota 0–10.
 
-## PRÓXIMA AÇÃO A EXECUTAR
-Todo o P0 e as Etapas 9-10 do P1 estão fechados. Ordem sugerida para continuar:
-1. **Etapa 7 já estava OK** (não precisa de trabalho) — só confirmar de novo
-   se algo mudar na área de MyPlanPage no futuro.
-2. Etapas 11-20 (P2): templates de suporte com preço dinâmico (verificar se
-   `AdminSupport.tsx`/respostas prontas ainda têm preço hardcoded — a
-   auditoria original encontrou isso em `AdminSupport.tsx:94-95`, não
-   corrigido ainda), anexos no suporte, categorias de suporte, feedback do
-   plano de autocuidado (mesma pendência da missão anterior, Etapa 14 nova =
-   Etapa 4 antiga), feedback da orientação (Etapa 15), evolução de
-   questionários (Etapa 16), personalização negativa (Etapa 17), senha 8+
-   (Etapa 18 — auditoria original encontrou inconsistência 6/6/8 caracteres
-   entre cadastro/perfil/troca obrigatória, não verificado nesta sessão se
-   ainda existe), exportação melhor (Etapa 20).
-3. Etapas 21-22 (P3): MFA opcional (Etapa 19), comparação livre no mapa
-   (Etapa 21), modularização gradual (Etapa 24 — Admin Usuários, mesma
-   pendência antiga, agora é P3 aqui).
-4. Etapas 31-35: gates de CI, Supabase, Stripe, Vercel, documentação e
-   auditoria final — fazer por último, com o código já estável.
+## Histórico útil
+PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173.
+PRs relevantes da missão anterior: #157 (SLA), #158 (limpeza + IA invisível), #159 (Base deste plano), #163 (previsão da Orientação).
 
-## STATUS: MISSÃO ATUAL EM ANDAMENTO (não concluída) — P0 completo (Etapas 1-4) + parte do P1 (Etapas 7 já ok, 9-10 concluídas) fechados nesta sessão. Próximo: restante do P2.
-
----
-
-## Histórico — missão anterior (super-prompt de 22 etapas, "ZIP 75")
-
-Concluída parcialmente nesta mesma sessão, antes do novo super-prompt chegar.
-PRs mesclados: [#157](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/157) (SLA suporte),
-[#158](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/158) (limpeza UpgradeModal + testes IA invisível),
-[#159](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/159) (Base deste plano),
-[#163](https://github.com/jonesgregorio/avida-nao-colabora-blog/pull/163) (previsão de data na Orientação Mensal).
-
-Pendências que NÃO foram retomadas pelo novo super-prompt (ainda válidas, retomar quando o novo super-prompt permitir):
-- Etapa 4 (feedback por ação do plano de autocuidado — "Quero tentar/Fiz/Não fez sentido") — o novo super-prompt também pede isso (sua Etapa 14), então quando chegar lá, é a mesma pendência.
-- Etapa 6/7 (Admin Usuários escalável — `AdminUsersImpl.tsx` 1809 linhas, busca todos os `profiles` sem paginação "de propósito") — o novo super-prompt não prioriza isso tão alto (é sua Etapa 24, "modularização gradual", P3); adiado.
-- `src/lib/careePlanAI.ts` com typo no nome — cosmético, baixo risco, não priorizado.
+## STATUS
+**P0 ✅ completo | P1 ✅ completo | P2 🚧 próximo: item 11 — templates do suporte com preço dinâmico.**
