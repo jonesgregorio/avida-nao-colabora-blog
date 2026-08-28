@@ -5,15 +5,19 @@ import { readFileSync } from 'node:fs'
 const wrapper = readFileSync(new URL('../src/components/MyPlanPage.tsx', import.meta.url), 'utf8')
 const core = readFileSync(new URL('../src/components/MyPlanPageCore.tsx', import.meta.url), 'utf8')
 const pricing = readFileSync(new URL('../src/components/Pricing.tsx', import.meta.url), 'utf8')
+const presentation = readFileSync(new URL('../src/lib/planCatalogPresentation.ts', import.meta.url), 'utf8')
 
 test('Meu Plano injeta somente apresentação e preserva núcleo financeiro separado', () => {
   assert.match(wrapper, /MyPlanPageCore/)
   assert.match(wrapper, /loadPlanFeatureCatalog/)
-  assert.match(wrapper, /getCatalogPlanBenefits/)
-  assert.match(wrapper, /applyCatalogPresentation/)
+  assert.match(wrapper, /buildCatalogPlanLabels/)
+  assert.match(wrapper, /buildCatalogPlanBenefits/)
+  assert.match(wrapper, /buildCatalogComparisonRows/)
   assert.doesNotMatch(wrapper, /manage-subscription/)
   assert.doesNotMatch(wrapper, /create-checkout/)
   assert.doesNotMatch(wrapper, /calcUpgradeProration/)
+  assert.doesNotMatch(wrapper, /applyCatalogPresentation/)
+  assert.doesNotMatch(wrapper, /\.splice\(/)
 
   assert.match(core, /manage-subscription/)
   assert.match(core, /create-checkout/)
@@ -24,12 +28,18 @@ test('Meu Plano injeta somente apresentação e preserva núcleo financeiro sepa
   assert.match(core, /handleReactivate/)
 })
 
-test('Meu Plano usa nomes do catálogo para downgrade e comparativo sem alterar entitlement', () => {
-  assert.match(wrapper, /PUBLIC_PLAN_FEATURES\[plan\] = getCatalogPlanBenefits\(catalog, plan, 'upgrade'\)/)
-  assert.match(wrapper, /PLAN_COMPARE_ROWS\.splice/)
-  assert.match(wrapper, /item\.kind === 'commercial'/)
-  assert.match(wrapper, /item\.showOnComparison/)
-  assert.match(wrapper, /!item\.isActive/)
+test('Meu Plano usa nomes do catálogo para downgrade, comparativo e plano atual sem alterar entitlement', () => {
+  assert.match(wrapper, /buildCatalogPlanLabels\(catalog, 'upgrade'\)/)
+  assert.match(wrapper, /buildCatalogPlanBenefits\(catalog, currentPlan, 'my_plan'\)/)
+  assert.match(wrapper, /buildCatalogComparisonRows\(catalog\)/)
+  assert.match(wrapper, /planFeatures=\{planFeatures\}/)
+  assert.match(wrapper, /compareRows=\{compareRows\}/)
+  assert.match(wrapper, /currentPlanBenefits=\{currentPlanBenefits\}/)
+  assert.match(core, /lostFeatures\(currentPlan, modal\.targetPlan, planFeatures\)/)
+  assert.match(core, /lostFeatures\(currentPlan, 'free', planFeatures\)/)
+  assert.match(presentation, /item\.kind === 'commercial'/)
+  assert.match(presentation, /item\.showOnComparison/)
+  assert.match(presentation, /!item\.isActive/)
 })
 
 test('Pricing remove do comparativo recursos ocultos ou arquivados', () => {

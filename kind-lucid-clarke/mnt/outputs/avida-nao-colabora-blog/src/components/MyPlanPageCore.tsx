@@ -5,7 +5,8 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
 import { usePlanPricing } from '../lib/planPricing'
-import { PLAN_COMPARE_ROWS } from '../lib/planComparison'
+import { PLAN_COMPARE_ROWS, type PlanCompareRow } from '../lib/planComparison'
+import type { CatalogBenefitView } from '../lib/planCatalogPresentation'
 import {
   resolveEffectivePeriodEnd,
   formatBillingDate,
@@ -21,6 +22,9 @@ interface Props {
   onBack: () => void
   onNavigateAuth: () => void
   onRefreshProfile: () => void
+  planFeatures?: Record<string, string[]>
+  compareRows?: PlanCompareRow[]
+  currentPlanBenefits?: CatalogBenefitView[]
 }
 
 interface Subscription {
@@ -46,8 +50,6 @@ interface PlanChangeRecord {
   created_at: string
 }
 
-// Fallback só até a fonte canônica (usePlanPricing) responder — nunca fica
-// vazio, mas o valor exibido de verdade vem sempre do hook abaixo.
 const FALLBACK_PLAN_PRICES: Record<string, number> = Object.fromEntries(
   OFFICIAL_PLANS.map(p => [p.key, p.priceValue])
 )
@@ -57,8 +59,7 @@ const PLAN_LABELS: Record<string, string> = Object.fromEntries(
 )
 
 const PLAN_ORDER: string[] = OFFICIAL_PLANS.map(p => p.key)
-
-const PLAN_FEATURES = PUBLIC_PLAN_FEATURES as Record<string, string[]>
+const FALLBACK_PLAN_FEATURES = PUBLIC_PLAN_FEATURES as Record<string, string[]>
 
 const PLAN_COLORS: Record<string, string> = {
   free: 'border-line bg-paper-soft',
@@ -66,10 +67,7 @@ const PLAN_COLORS: Record<string, string> = {
   plus: 'border-coral/50 bg-coral/10',
 }
 
-// Matriz de comparação (alinhada à referência visual de "Meu plano").
 type CellValue = boolean | string
-// Fonte única compartilhada com "Ver planos" (Pricing) — ver src/lib/planComparison.ts
-const COMPARE_ROWS = PLAN_COMPARE_ROWS
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Ativa',
@@ -90,29 +88,25 @@ const STATUS_COLORS: Record<string, string> = {
   free: 'bg-mint text-forest-700',
 }
 
-// Datas de cobrança: formatação e cálculo vivem em lib/billingCycle.ts (fonte única).
 const formatDate = formatBillingDate
 
 function formatPrice(v: number) {
   return v === 0 ? 'R$ 0,00' : `R$ ${v.toFixed(2).replace('.', ',')}`
 }
 
-function lostFeatures(fromPlan: string, toPlan: string): string[] {
+function lostFeatures(fromPlan: string, toPlan: string, planFeatures: Record<string, string[]>): string[] {
   const fromIdx = PLAN_ORDER.indexOf(fromPlan)
   const toIdx = PLAN_ORDER.indexOf(toPlan)
   if (fromIdx <= toIdx) return []
-  // Acumula todos os benefícios dos planos pagos perdidos, do mais alto até o mais baixo (exclusive toPlan)
   const lost: string[] = []
   for (let i = toIdx + 1; i <= fromIdx; i++) {
-    for (const f of PLAN_FEATURES[PLAN_ORDER[i]] ?? []) {
+    for (const f of planFeatures[PLAN_ORDER[i]] ?? []) {
       if (!f.startsWith('Tudo do') && !lost.includes(f)) lost.push(f)
     }
   }
   return lost
 }
 
-// Estimativa exibida na modal de upgrade. O valor REAL é calculado pelo Stripe
-// (proration) — aqui é só uma previsão para o usuário não ser pego de surpresa.
 function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscription | null, periodEnd: Date | null, prices: Record<string, number>): number {
   const diff = prices[newPlan] - prices[currentPlan]
   if (diff <= 0) return 0
@@ -121,9 +115,16 @@ function calcUpgradeProration(currentPlan: string, newPlan: string, sub: Subscri
   return Math.max(0, (diff / total) * remaining)
 }
 
-export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateAuth, onRefreshProfile: _onRefreshProfile }: Props) {
-  // Fonte canônica de preço (mesma de Home/Pricing) — nunca deriva de um valor
-  // estático separado, para não divergir se o Admin alterar o preço no Stripe.
+export default function MyPlanPage({
+  user,
+  profile,
+  onBack: _onBack,
+  onNavigateAuth,
+  onRefreshProfile: _onRefreshProfile,
+  planFeatures = FALLBACK_PLAN_FEATURES,
+  compareRows = PLAN_COMPARE_ROWS,
+  currentPlanBenefits = [],
+}: Props) {
   const { prices: pricingMap } = usePlanPricing()
   const planPrices: Record<string, number> = Object.keys(FALLBACK_PLAN_PRICES).reduce((acc, key) => {
     acc[key] = pricingMap[key as keyof typeof pricingMap]?.amount ?? FALLBACK_PLAN_PRICES[key]
@@ -132,20 +133,15 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   const [sub, setSub] = useState<Subscription | null>(null)
   const [history, setHistory] = useState<PlanChangeRecord[]>([])
   const [planActivatedAt, setPlanActivatedAt] = useState<string | null>(null)
-  // Motivo já informado numa saída agendada (§17) — para o usuário lembrar do que disse.
-  // status: 'pending_approval' (pedido em análise pelo admin) | 'scheduled' (aprovado) — 110.
   const [feedback, setFeedback] = useState<{ reasons: string[]; comment: string | null; change_type: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string } | null>(null)
   const [acting, setActing] = useState(false)
   const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  // Motivos da saída (§9): obrigatórios em cancelamento e downgrade.
   const [reasons, setReasons] = useState<string[]>([])
   const [reasonComment, setReasonComment] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
 
-  // Abre a modal sempre com os motivos zerados — resposta anterior não pode
-  // vazar para a próxima decisão.
   function openModal(m: { type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string }) {
     setReasons([])
     setReasonComment('')
@@ -167,7 +163,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
     const [subRes, histRes, planHistRes, fbRes] = await Promise.all([
       supabase.from('user_subscriptions').select('*').eq('user_id', user!.id).maybeSingle(),
       supabase.from('plan_change_history').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(20),
-      // Busca a data em que o plano atual foi ativado
       supabase.from('plan_change_history')
         .select('created_at')
         .eq('user_id', user!.id)
@@ -175,8 +170,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // Motivo da saída agendada OU do pedido em análise (110) — RLS garante que
-      // só vem o do próprio usuário.
       supabase.from('subscription_change_feedback')
         .select('reasons, comment, change_type, status')
         .eq('user_id', user!.id).in('status', ['scheduled', 'pending_approval'])
@@ -185,11 +178,9 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
     setSub(subRes.data as Subscription | null)
     setHistory((histRes.data as PlanChangeRecord[]) ?? [])
     setFeedback((fbRes.data as { reasons: string[]; comment: string | null; change_type: string; status: string } | null) ?? null)
-    // Data de ativação: registro no plan_change_history, ou user_plan_history como fallback
     if (planHistRes.data?.created_at) {
       setPlanActivatedAt(planHistRes.data.created_at)
     } else {
-      // Fallback: busca em user_plan_history (tabela anterior)
       const { data: oldHist } = await supabase
         .from('user_plan_history')
         .select('created_at')
@@ -207,17 +198,15 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
     setActing(true)
     setActionMsg(null)
     try {
-      // Sem plano pago (Gratuito) → PRIMEIRA assinatura via checkout do Stripe.
       if (currentPlan === 'free') {
         const { data, error } = await supabase.functions.invoke('create-checkout', {
           body: { plan: targetPlan, origin: window.location.origin },
         })
         if (error || !data?.url) throw new Error(error?.message ?? 'URL de checkout não retornada')
         setModal(null)
-        window.location.href = data.url  // plano só muda via webhook após pagamento
+        window.location.href = data.url
         return
       }
-      // Já tem plano pago → UPGRADE altera a assinatura existente (proration), sem novo checkout.
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: { action: 'upgrade', targetPlan },
       })
@@ -236,7 +225,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   }
 
   async function handleDowngrade(targetPlan: string) {
-    // Barra aqui para dar feedback imediato; o back-end revalida por segurança.
     const erro = validateReasons(reasons, reasonComment)
     if (erro) { setReasonError(erro); return }
     setActing(true)
@@ -316,24 +304,16 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
     return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 text-purple-500 animate-spin" /></div>
   }
 
-  // Fim do ciclo pago: Stripe (current_period_end) → agendamento → ativação+30d.
-  // Pode ser null quando não há nenhuma fonte confiável — a UI mostra "—".
   const effectivePeriodEnd = resolveEffectivePeriodEnd(sub, planActivatedAt)
-  // Downgrade já agendado: a data gravada no agendamento manda; se faltar, cai no ciclo.
   const downgradeEffectiveAt = sub?.pending_plan_starts_at
     ? resolveEffectivePeriodEnd({ current_period_end: sub.pending_plan_starts_at }, planActivatedAt)
     : effectivePeriodEnd
 
   const isUpgrade = (plan: string) => PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(currentPlan)
   const isCancelPending = sub?.cancel_at_period_end || sub?.status === 'cancel_pending'
-  // Pedido de cancelamento em análise pelo admin (110): ainda NÃO agendado no
-  // Stripe — o usuário mantém tudo até a aprovação.
   const isCancelRequested = !isCancelPending
     && feedback?.change_type === 'cancellation' && feedback?.status === 'pending_approval'
   const hasPendingDowngrade = !!sub?.pending_plan && sub.pending_plan !== currentPlan && !isCancelPending
-  // Enquanto há saída em curso (agendada ou em análise), travamos NOVAS trocas de plano.
-  // Downgrade pendente também entra aqui: o usuário precisa desfazer o schedule atual
-  // antes de escolher outro plano, evitando schedules concorrentes no Stripe.
   const blockPlanChanges = isCancelPending || isCancelRequested || hasPendingDowngrade
 
   return (
@@ -353,7 +333,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       )}
 
-      {/* Card do plano atual */}
       <div className={`rounded-2xl border-2 p-6 mb-6 shadow-sm ${PLAN_COLORS[currentPlan]}`}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
@@ -365,8 +344,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
             <p className="text-2xl font-bold text-forest-800">{formatPrice(planPrices[currentPlan])}<span className="text-sm font-normal text-ink-soft">{currentPlan !== 'free' ? '/mês' : ''}</span></p>
           </div>
           {(() => {
-            // No plano Gratuito não há assinatura: mostramos "Ativo" (o plano está
-            // valendo) em vez de "Inativa", que parecia que a conta estava com problema.
             const effectiveStatus = currentPlan === 'free' ? 'free' : (sub?.status ?? 'active')
             return (
               <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[effectiveStatus]}`}>
@@ -384,6 +361,23 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
             {effectivePeriodEnd && currentPlan !== 'free' && !isCancelPending && (
               <div><p className="text-stone-400 mb-0.5">Próxima cobrança</p><p className="font-medium text-stone-700">{formatDate(effectivePeriodEnd)}</p></div>
             )}
+          </div>
+        )}
+
+        {currentPlanBenefits.length > 0 && (
+          <div className="border-t border-current/10 pt-4 mb-4">
+            <p className="text-xs font-semibold text-forest-800 mb-2">O que está incluído no seu plano</p>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {currentPlanBenefits.map(item => (
+                <li key={item.key} className="flex items-start gap-2 text-xs text-forest-800">
+                  <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-forest-600" />
+                  <span>
+                    <strong className="font-medium">{item.label}</strong>
+                    {item.description ? <span className="block text-ink-soft mt-0.5">{item.description}</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -423,7 +417,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex flex-wrap gap-2">
           {hasPendingDowngrade ? (
             <button
@@ -457,7 +450,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       </div>
 
-      {/* Comparação dos planos */}
       <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mb-4">Compare os planos e escolha o ideal para você</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         {OFFICIAL_PLANS.map(p => {
@@ -497,7 +489,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         })}
       </div>
 
-      {/* Matriz de recursos */}
       <div className="bg-paper-soft border border-line rounded-3xl overflow-hidden mb-6">
         <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 px-4 sm:px-5 py-2.5 bg-mint/40 text-[11px] font-semibold text-forest-700">
           <span>Recurso</span>
@@ -505,7 +496,7 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
           <span className="text-center">Essencial</span>
           <span className="text-center">Plus</span>
         </div>
-        {COMPARE_ROWS.map((row, i) => (
+        {compareRows.map((row, i) => (
           <div key={row.label} className={`grid grid-cols-[1.4fr_1fr_1fr_1fr] items-center gap-2 px-4 sm:px-5 py-3 text-xs sm:text-sm ${i > 0 ? 'border-t border-line' : ''}`}>
             <span className="text-ink-soft">{row.label}</span>
             {(['free', 'essential', 'plus'] as const).map(k => (
@@ -515,7 +506,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         ))}
       </div>
 
-      {/* Histórico */}
       {history.length > 0 && (
         <div>
           <h2 className="font-semibold text-forest-800 mb-3 text-sm">Histórico de alterações</h2>
@@ -545,7 +535,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       )}
 
-      {/* Aviso */}
       <div className="mt-6 rounded-3xl border border-line bg-mint/40 px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <span className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0 text-forest-600">
           <ShieldCheck className="w-5 h-5" />
@@ -555,7 +544,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </p>
       </div>
 
-      {/* Modal de upgrade */}
       {modal?.type === 'upgrade' && modal.targetPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
@@ -614,7 +602,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       )}
 
-      {/* Modal de downgrade */}
       {modal?.type === 'downgrade' && modal.targetPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
@@ -623,7 +610,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
-              {/* Resumo de planos */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 mb-0.5">Plano atual</p>
@@ -637,7 +623,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               </div>
 
-              {/* Data de vigência */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <p className="text-xs font-semibold text-blue-800 mb-1">Você continua no plano atual até</p>
                 <p className="text-lg font-bold text-blue-900">{formatDate(effectivePeriodEnd)}</p>
@@ -647,9 +632,8 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </p>
               </div>
 
-              {/* Funcionalidades perdidas */}
               {(() => {
-                const lost = lostFeatures(currentPlan, modal.targetPlan)
+                const lost = lostFeatures(currentPlan, modal.targetPlan, planFeatures)
                 return lost.length > 0 ? (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
@@ -698,7 +682,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       )}
 
-      {/* Modal de cancelamento */}
       {modal?.type === 'cancel' && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
@@ -707,7 +690,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
               <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
-              {/* Resumo */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 mb-0.5">Plano atual</p>
@@ -719,7 +701,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </div>
               </div>
 
-              {/* Como funciona */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="text-xs font-semibold text-amber-800 mb-1">Seu pedido passa por uma análise</p>
                 <p className="text-xs text-amber-700 mt-1">
@@ -730,9 +711,8 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
                 </p>
               </div>
 
-              {/* Funcionalidades perdidas */}
               {(() => {
-                const lost = lostFeatures(currentPlan, 'free')
+                const lost = lostFeatures(currentPlan, 'free', planFeatures)
                 return lost.length > 0 ? (
                   <div className="bg-red-50 border border-red-100 rounded-xl p-4">
                     <p className="text-xs font-semibold text-red-700 mb-2 flex items-center gap-1.5">
@@ -781,7 +761,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
         </div>
       )}
 
-      {/* Modal de reativação */}
       {modal?.type === 'reactivate' && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -814,7 +793,6 @@ export default function MyPlanPage({ user, profile, onBack: _onBack, onNavigateA
   )
 }
 
-// Célula da matriz de comparação: booleano → check/traço; texto → rótulo.
 function Cell({ value }: { value: CellValue }) {
   if (value === true) return <Check className="w-4 h-4 text-forest-600 inline" aria-label="Incluído" />
   if (value === false) return <span className="text-ink-soft/40" aria-label="Não incluído">—</span>
