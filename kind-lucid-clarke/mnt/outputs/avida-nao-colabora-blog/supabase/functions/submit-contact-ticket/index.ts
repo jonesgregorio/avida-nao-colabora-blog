@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
   const priority = ['low', 'medium', 'high'].includes(text(body.priority, 20)) ? text(body.priority, 20) : 'medium'
   const contactName = text(body.contact_name, 160)
   const contactEmail = text(body.contact_email, 254).toLowerCase()
-  if (description.length < 10 || !subject || (!contactName && !contactEmail)) {
-    return json({ error: 'Preencha os dados de contato e uma mensagem com pelo menos 10 caracteres.' }, cors, 400)
+  if (description.length < 10 || !subject) {
+    return json({ error: 'Preencha uma mensagem com pelo menos 10 caracteres.' }, cors, 400)
   }
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
     return json({ error: 'Informe um e-mail válido.' }, cors, 400)
@@ -90,6 +90,10 @@ Deno.serve(async (req) => {
   )
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
   const { data: { user } } = await supabase.auth.getUser(token)
+  if (!user && !contactName && !contactEmail) {
+    return json({ error: 'Preencha seus dados de contato.' }, cors, 400)
+  }
+
   const keyIdentity = user?.id || `${clientIp}:${contactEmail}`
   const { data: allowed, error: rateError } = await supabase.rpc('consume_contact_ticket_rate_limit', {
     p_rate_key: await rateKey(keyIdentity), p_max_attempts: MAX_ATTEMPTS,
@@ -105,7 +109,7 @@ Deno.serve(async (req) => {
   const { data: profile } = user
     ? await supabase.from('profiles').select('email,full_name,plan').eq('user_id', user.id).maybeSingle()
     : { data: null }
-  const { error: insertError } = await supabase.from('support_tickets').insert({
+  const { data: insertedTicket, error: insertError } = await supabase.from('support_tickets').insert({
     user_id: user?.id ?? null,
     contact_email: user ? (profile?.email || user.email || contactEmail || null) : contactEmail,
     contact_name: user ? (profile?.full_name || contactName || null) : contactName,
@@ -117,10 +121,10 @@ Deno.serve(async (req) => {
     category,
     plan_at_creation: user ? (profile?.plan || 'free') : null,
     unread_for_admin: true,
-  })
-  if (insertError) {
-    console.error('contact ticket:', insertError.message)
+  }).select('id').single()
+  if (insertError || !insertedTicket) {
+    console.error('contact ticket:', insertError?.message || 'missing inserted ticket')
     return json({ error: 'Não foi possível enviar agora. Tente novamente em instantes.' }, cors, 503)
   }
-  return json({ ok: true }, cors, 201)
+  return json({ ok: true, ticket_id: user ? insertedTicket.id : undefined }, cors, 201)
 })

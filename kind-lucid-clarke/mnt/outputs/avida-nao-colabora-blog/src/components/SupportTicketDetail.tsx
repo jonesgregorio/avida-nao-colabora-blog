@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Send, Lock, CheckCheck } from 'lucide-react'
+import SupportAttachmentPicker from './support/SupportAttachmentPicker'
+import SupportAttachmentList from './support/SupportAttachmentList'
+import {
+  normalizeSupportAttachments,
+  removeSupportAttachments,
+  uploadSupportAttachments,
+  type SupportAttachment,
+} from '../lib/supportAttachments'
 
 interface Ticket {
   id: string
@@ -25,6 +33,7 @@ interface Message {
   content: string
   is_internal: boolean
   created_at: string
+  attachments: SupportAttachment[]
 }
 
 interface Props {
@@ -79,6 +88,7 @@ function descriptionAsMessage(ticket: Ticket): Message {
     content: ticket.description,
     is_internal: false,
     created_at: ticket.created_at,
+    attachments: [],
   }
 }
 
@@ -90,6 +100,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [content, setContent] = useState('')
+  const [files, setFiles] = useState<File[]>([])
 
   const messagesRef = useRef<HTMLDivElement>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -126,12 +137,16 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
 
       const { data: msgData } = await supabase
         .from('ticket_messages')
-        .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at')
+        .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at, attachments')
         .eq('ticket_id', ticketId)
         .eq('is_internal', false)
         .order('created_at', { ascending: true })
 
-      const msgs: Message[] = (msgData || []).map(m => ({ ...m, sender_name: null }))
+      const msgs: Message[] = (msgData || []).map(m => ({
+        ...m,
+        sender_name: null,
+        attachments: normalizeSupportAttachments(m.attachments),
+      }))
       const all: Message[] = [descriptionAsMessage(ticketData), ...msgs]
 
       setTicket(ticketData)
@@ -170,11 +185,23 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
 
   async function handleSend() {
     const trimmed = content.trim()
-    if (!trimmed || sending || !user) return
+    if ((!trimmed && files.length === 0) || sending || !user) return
     if (ticket?.status === 'closed' || ticket?.status === 'resolved') { setSendError('Este ticket está fechado.'); return }
 
     setSending(true)
     setSendError(null)
+    const originalFiles = files
+    let uploaded: SupportAttachment[] = []
+
+    try {
+      uploaded = await uploadSupportAttachments(user.id, ticketId, originalFiles)
+    } catch {
+      setSendError('Não foi possível enviar os anexos. Confira os arquivos e tente novamente.')
+      setSending(false)
+      return
+    }
+
+    const finalContent = trimmed || (uploaded.length === 1 ? 'Anexo enviado.' : 'Anexos enviados.')
     const optimisticId = `opt-${Date.now()}`
     const optimistic: Message = {
       id: optimisticId,
@@ -182,22 +209,33 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
       sender_id: user.id,
       sender_role: 'user',
       sender_name: null,
-      content: trimmed,
+      content: finalContent,
       is_internal: false,
       created_at: new Date().toISOString(),
+      attachments: uploaded,
     }
     setMessages(prev => [...prev, optimistic])
     setContent('')
+    setFiles([])
 
     const { data: newMsg, error } = await supabase
       .from('ticket_messages')
-      .insert({ ticket_id: ticketId, sender_id: user.id, sender_role: 'user', content: trimmed, is_internal: false })
+      .insert({
+        ticket_id: ticketId,
+        sender_id: user.id,
+        sender_role: 'user',
+        content: finalContent,
+        is_internal: false,
+        attachments: uploaded,
+      })
       .select()
       .single()
 
     if (error) {
+      await removeSupportAttachments(uploaded)
       setMessages(prev => prev.filter(m => m.id !== optimisticId))
       setContent(trimmed)
+      setFiles(originalFiles)
       setSendError('Erro ao enviar mensagem. Tente novamente.')
       setSending(false)
       return
@@ -205,7 +243,9 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
 
     // Replace optimistic with real message
     setMessages(prev => prev.map(m =>
-      m.id === optimisticId ? { ...newMsg, sender_name: null } : m
+      m.id === optimisticId
+        ? { ...newMsg, sender_name: null, attachments: normalizeSupportAttachments(newMsg.attachments) }
+        : m
     ))
 
     // O trigger do banco é a fonte de verdade para status/unread/timestamps.
@@ -283,6 +323,7 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
                   <p className="text-[10px] font-semibold text-emerald-600 mb-1">Suporte</p>
                 )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                <SupportAttachmentList attachments={msg.attachments} inverse={isUser} />
                 <div className={`flex items-center justify-end gap-1 mt-1.5 ${isUser ? 'text-emerald-100' : 'text-stone-300'}`}>
                   <span className="text-[10px]">{formatDateTime(msg.created_at)}</span>
                   {isUser && <CheckCheck className="w-3 h-3" />}
@@ -305,23 +346,26 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
             Ticket encerrado — abra um novo ticket se precisar de mais ajuda.
           </div>
         ) : (
-          <div className="flex gap-2 items-end">
-            <textarea
-              placeholder="Digite uma mensagem... (Ctrl+Enter para enviar)"
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={2}
-              disabled={sending}
-              className="flex-1 resize-none px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
-            />
-            <button
-              onClick={handleSend}
-              disabled={sending || !content.trim()}
-              className="flex-shrink-0 w-10 h-10 bg-forest-900 hover:bg-forest-800 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+          <div className="space-y-2">
+            <SupportAttachmentPicker files={files} onChange={setFiles} onError={setSendError} disabled={sending} compact />
+            <div className="flex gap-2 items-end">
+              <textarea
+                placeholder="Digite uma mensagem... (Ctrl+Enter para enviar)"
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={2}
+                disabled={sending}
+                className="flex-1 resize-none px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+              />
+              <button
+                onClick={handleSend}
+                disabled={sending || (!content.trim() && files.length === 0)}
+                className="flex-shrink-0 w-10 h-10 bg-forest-900 hover:bg-forest-800 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
