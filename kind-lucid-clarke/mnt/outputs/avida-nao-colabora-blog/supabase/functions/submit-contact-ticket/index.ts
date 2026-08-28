@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
   const priority = ['low', 'medium', 'high'].includes(text(body.priority, 20)) ? text(body.priority, 20) : 'medium'
   const contactName = text(body.contact_name, 160)
   const contactEmail = text(body.contact_email, 254).toLowerCase()
-  if (description.length < 10 || !subject || (!contactName && !contactEmail)) {
-    return json({ error: 'Preencha os dados de contato e uma mensagem com pelo menos 10 caracteres.' }, cors, 400)
+  if (description.length < 10 || !subject) {
+    return json({ error: 'Preencha uma mensagem com pelo menos 10 caracteres.' }, cors, 400)
   }
   if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
     return json({ error: 'Informe um e-mail válido.' }, cors, 400)
@@ -90,6 +90,10 @@ Deno.serve(async (req) => {
   )
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
   const { data: { user } } = await supabase.auth.getUser(token)
+  if (!user && !contactName && !contactEmail) {
+    return json({ error: 'Preencha seus dados de contato.' }, cors, 400)
+  }
+
   const keyIdentity = user?.id || `${clientIp}:${contactEmail}`
   const { data: allowed, error: rateError } = await supabase.rpc('consume_contact_ticket_rate_limit', {
     p_rate_key: await rateKey(keyIdentity), p_max_attempts: MAX_ATTEMPTS,
