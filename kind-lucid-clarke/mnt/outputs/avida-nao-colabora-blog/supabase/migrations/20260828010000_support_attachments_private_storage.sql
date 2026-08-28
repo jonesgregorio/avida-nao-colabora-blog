@@ -5,7 +5,7 @@
 -- - máximo de 5 MB por arquivo;
 -- - somente JPEG, PNG, WEBP e PDF;
 -- - caminho obrigatório: <user_id>/<ticket_id>/<arquivo>;
--- - usuário autenticado só lê/envia/remove anexos de tickets próprios;
+-- - usuário autenticado lê anexos dos próprios tickets e só envia/remove enquanto o ticket está aberto;
 -- - administradores podem ler/enviar/remover anexos para atendimento;
 -- - nenhuma URL pública é criada.
 
@@ -72,6 +72,7 @@ CREATE POLICY "support_attachments_user_delete"
       FROM public.support_tickets st
       WHERE st.id::text = (storage.foldername(name))[2]
         AND st.user_id = auth.uid()
+        AND st.status NOT IN ('resolved', 'closed')
     )
   );
 
