@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { normalizePlan } from '../lib/officialPlans'
 import { getSupportSlaLabel } from '../lib/supportSla'
+import { DEFAULT_SUPPORT_CATEGORY, SUPPORT_CATEGORIES } from '../lib/supportCategories'
 import SupportAttachmentPicker from './support/SupportAttachmentPicker'
 import {
   removeSupportAttachments,
@@ -18,6 +19,7 @@ interface Ticket {
   subject: string
   status: string
   priority: string
+  category: string | null
   created_at: string
   updated_at: string
   message_count?: number
@@ -81,7 +83,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
   const [sent, setSent] = useState(false)
   const [sentWarning, setSentWarning] = useState<string | null>(null)
   const [openTopic, setOpenTopic] = useState<number | null>(null)
-  const [form, setForm] = useState({ subject: '', description: '', priority: 'medium' })
+  const [form, setForm] = useState({ subject: '', description: '', priority: 'medium', category: DEFAULT_SUPPORT_CATEGORY })
   const [files, setFiles] = useState<File[]>([])
 
   const isPlus = normalizePlan(profile?.plan) === 'plus'
@@ -138,7 +140,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
         subject: form.subject.trim(),
         description: form.description.trim(),
         priority: form.priority,
-        category: 'Suporte',
+        category: form.category,
         website: '',
       },
     })
@@ -177,7 +179,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
       }
     }
 
-    setForm({ subject: '', description: '', priority: 'medium' })
+    setForm({ subject: '', description: '', priority: 'medium', category: DEFAULT_SUPPORT_CATEGORY })
     setFiles([])
     setCreating(false)
     setSentWarning(attachmentWarning)
@@ -253,8 +255,14 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
                 <input id="support-subject" className={inputCls} placeholder="Em que podemos te ajudar?" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-forest-800 mb-1.5">Prioridade</label>
-                <select aria-label="Prioridade" className={inputCls} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                <label htmlFor="support-category" className="block text-sm font-medium text-forest-800 mb-1.5">Categoria</label>
+                <select id="support-category" className={inputCls} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as typeof DEFAULT_SUPPORT_CATEGORY }))}>
+                  {SUPPORT_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="support-priority" className="block text-sm font-medium text-forest-800 mb-1.5">Prioridade</label>
+                <select id="support-priority" className={inputCls} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                   <option value="low">Baixa</option>
                   <option value="medium">Média</option>
                   <option value="high">Alta</option>
@@ -329,6 +337,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-forest-900 truncate">{ticket.subject}</p>
                       <p className="text-[11px] text-ink-soft flex items-center gap-2 mt-0.5">
+                        {ticket.category && <span>{ticket.category}</span>}
                         <span className="font-mono">#{ticket.ticket_number}</span>
                         <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}</span>
                         {(ticket.message_count ?? 0) > 0 && <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {ticket.message_count}</span>}
