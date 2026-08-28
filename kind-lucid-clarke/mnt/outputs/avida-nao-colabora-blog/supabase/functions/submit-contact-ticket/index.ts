@@ -7,6 +7,18 @@ const ALLOWED_ORIGINS = new Set([
 ])
 const MAX_ATTEMPTS = 5
 const MAX_FIELD_LENGTH = 4000
+const DEFAULT_SUPPORT_CATEGORY = 'Uso do site'
+const SUPPORT_CATEGORIES = new Set([
+  'Uso do site',
+  'Problema técnico',
+  'Conta e acesso',
+  'Planos e assinatura',
+  'Pagamento',
+  'Privacidade e dados',
+  'Sugestão de melhoria',
+  'Outro',
+])
+const SUPPORT_PRIORITIES = new Set(['low', 'medium', 'high', 'urgent'])
 
 function corsFor(req: Request) {
   const origin = req.headers.get('Origin')
@@ -67,8 +79,13 @@ Deno.serve(async (req) => {
 
   const description = text(body.description)
   const subject = text(body.subject, 180) || 'Contato via FAQ'
-  const category = text(body.category, 120) || null
-  const priority = ['low', 'medium', 'high'].includes(text(body.priority, 20)) ? text(body.priority, 20) : 'medium'
+  const requestedCategory = text(body.category, 120)
+  if (requestedCategory && !SUPPORT_CATEGORIES.has(requestedCategory)) {
+    return json({ error: 'Categoria inválida.' }, cors, 400)
+  }
+  const category = requestedCategory || DEFAULT_SUPPORT_CATEGORY
+  const requestedPriority = text(body.priority, 20)
+  const priority = SUPPORT_PRIORITIES.has(requestedPriority) ? requestedPriority : 'medium'
   const contactName = text(body.contact_name, 160)
   const contactEmail = text(body.contact_email, 254).toLowerCase()
   if (description.length < 10 || !subject) {
