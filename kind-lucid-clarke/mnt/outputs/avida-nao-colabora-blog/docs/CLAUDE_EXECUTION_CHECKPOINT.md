@@ -8,9 +8,12 @@ Ordem autorizada: P1 restante → P2 → P3 → validações live/documentação
 Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequenos e só mesclar com gates verdes.
 
 ## Última `main` conhecida
-- Commit: `ee2059d4d8a03e8ed487b7e8483e5e592b14d078`
-- Merge: PR #179 — `fix(plano): restringir grants do feedback de autocuidado`
+- Commit: `5f937d4827779a4e79658a7048aefea67081d225`
+- Merge: PR #181 — `hotfix(auth): impedir carregamento infinito no bootstrap`
 - Data: 2026-08-27/28 (America/Sao_Paulo)
+- Sincronizada e validada nesta sessão: `npm test`/`typecheck`/`lint`/`build` limpos
+  (mesmas 3 falhas pré-existentes de sempre, sem novas). Hash do bundle local
+  bate com o servido em produção (`index-B6xdtYGT.js`) — confirmado ao vivo.
 
 ## Regras invariáveis
 - Planos comerciais: somente `free`, `essential`, `plus`.
@@ -49,15 +52,21 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
    - banco live confirmado: `authenticated` possui somente SELECT/INSERT/UPDATE/DELETE; `anon` sem acesso; RLS/policies/trigger ativos.
    - `main` CI verde; domínio oficial HTTP 200; sem error/fatal recente no Vercel.
 
-15. 🚧 Feedback da Orientação Mensal, sem virar chat infinito — branch `feat/orientacao-feedback-estruturado`.
-   - auditoria confirmou que `monthly_guidance_requests` já limita o produto a uma solicitação mensal e uma resposta final revisada.
+15. ✅ Feedback da Orientação Mensal, sem virar chat infinito — PR #180, merge `adf244509f723ef5f4404540664a3360fe2006d2`.
+   - `monthly_guidance_requests` já limita o produto a uma solicitação mensal e uma resposta final revisada.
    - nova tabela `monthly_guidance_feedback` guarda uma única avaliação por orientação respondida.
    - avaliação reversível e estruturada: `helpful`, `partial`, `not_for_me` + até 3 tags permitidas.
    - sem textarea, mensagem livre, réplica ou reabertura do atendimento.
    - UI só aparece depois de `answered` e deixa explícito que o retorno não abre nova conversa.
-   - grants mínimos já definidos na migration: authenticated somente CRUD; anon sem acesso.
+   - grants mínimos definidos na migration: authenticated somente CRUD; anon sem acesso.
    - correção associada: aviso do mês deixa de dizer “em análise” quando a orientação já está respondida.
-   - migration ainda NÃO aplicada live antes dos gates/merge.
+   - CI verde, merge confirmado, produção deployada.
+
+## Incidente resolvido nesta sessão (fora da lista de etapas, prioridade máxima)
+**Loading infinito no bootstrap de autenticação** — usuário reportou blog e Admin travados em “Carregando...” sem conseguir logar. Diagnóstico: chamadas de sessão/token do Supabase Auth com latência anormal, e `useAuth()` mantinha `loading=true` indefinidamente até `getSession()`+perfil terminarem, sem timeout algum.
+- Correção: PR #181, merge `5f937d4827779a4e79658a7048aefea67081d225`. Timeout defensivo de 8s libera o shell mesmo se o Auth travar; quando a sessão já é conhecida, o perfil termina de carregar em segundo plano sem bloquear a tela.
+- Doc do incidente: `docs/incident-auth-loading-20260827.md`.
+- Verificado ao vivo nesta sessão (Browser): `/diario` e `/admin` carregam normalmente, telas de login renderizam, zero erro no console, todas as requisições 200. **Confirmado resolvido.**
 
 ## P2 restante depois do item 15
 16. Evolução longitudinal dos questionários com linguagem não clínica.
@@ -78,8 +87,14 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
 - Auditoria final das 40 áreas com nota 0–10.
 
 ## Histórico útil
-PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179.
+PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179, #180, #181.
 PRs relevantes da missão anterior: #157 (SLA), #158 (limpeza + IA invisível), #159 (Base deste plano), #163 (previsão da Orientação).
 
+## PRÓXIMA AÇÃO A EXECUTAR
+1. Item 16 (P2) — evolução longitudinal dos questionários, linguagem não clínica.
+2. Depois, itens 17-19 (P2) na ordem do prompt de continuação.
+3. Depois, P3 (itens 20-22).
+4. Por último, validações fora do código (Supabase live, Stripe estrutural, Vercel, docs, auditoria final de 40 áreas).
+
 ## STATUS
-**P0 ✅ completo | P1 ✅ completo | P2 🚧 item 15 em validação; próximo após merge: item 16 — evolução longitudinal dos questionários.**
+**P0 ✅ completo | P1 ✅ completo | P2: itens 11-15 ✅ completos, restam 16-19 | Incidente de produção (loading infinito) ✅ resolvido e verificado ao vivo.**
