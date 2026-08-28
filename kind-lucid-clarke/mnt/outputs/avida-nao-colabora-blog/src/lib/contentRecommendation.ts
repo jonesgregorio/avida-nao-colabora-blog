@@ -95,6 +95,11 @@ const THEMES: Record<Theme, ThemeDef> = {
 
 const THEME_ORDER: Theme[] = ['ansiedade', 'sobrecarga', 'cansaco', 'autocobranca', 'alimentacao', 'sono', 'irritacao', 'tristeza', 'bem_estar']
 
+/** Rótulo natural de cada tema — usado em "Temas reduzidos" (Etapa 17). */
+export const THEME_LABELS: Record<Theme, string> = Object.fromEntries(
+  (Object.keys(THEMES) as Theme[]).map(t => [t, THEMES[t].label]),
+) as Record<Theme, string>
+
 // Linguagem de risco (§15): NÃO tratar apenas com conteúdo — orientar ajuda.
 const RISK_WORDS = [
   'me matar', 'suicid', 'nao quero mais viver', 'nao aguento mais viver', 'tirar minha vida',
@@ -383,6 +388,8 @@ interface ScoreOpts {
   isLoggedIn?: boolean
   /** Slugs recomendados há pouco (fetchRecentlyShownSlugs) — desconta para variar. */
   recentlyShown?: Set<string>
+  /** Temas que o usuário silenciou (Etapa 17) — nunca aparecem como motivo principal. */
+  mutedThemes?: Set<Theme>
 }
 
 /**
@@ -396,8 +403,10 @@ export function scoreCatalog(
   plan: string | null | undefined,
   opts: ScoreOpts = {},
 ): ScoredContent[] {
-  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true, isLoggedIn = false, recentlyShown = new Set() } = opts
-  const themesRanked = topThemes(sig, 5)
+  const { limit = 6, readSlugs = new Set(), accessibleOnly = true, requireMatch = true, isLoggedIn = false, recentlyShown = new Set(), mutedThemes = new Set() } = opts
+  // Tema silenciado não entra no ranking do usuário — como se ele não tivesse
+  // aparecido nos registros, sem precisar reescrever a pontuação depois.
+  const themesRanked = topThemes(sig, 5).filter(th => !mutedThemes.has(th))
   const kw = [...sig.keywords].filter(Boolean)
 
   const scored = catalog
@@ -545,6 +554,37 @@ export async function fetchReadSlugsForRec(userId: string | null | undefined): P
   } catch {
     return new Set()
   }
+}
+
+// ── Personalização negativa reversível (Etapa 17) ──────────────────────────────
+// "Mostrar menos conteúdos assim" / "Não quero ver este tema agora": silencia um
+// TEMA (não um conteúdo específico) das recomendações, até o usuário reverter em
+// Perfil → Temas reduzidos. Nunca exclui conteúdo — só filtra recomendação futura.
+
+/** Temas que o usuário pediu para não ver por enquanto. */
+export async function fetchMutedThemes(userId: string | null | undefined): Promise<Set<Theme>> {
+  if (!userId) return new Set()
+  try {
+    const { data } = await supabase.from('user_muted_content_themes').select('theme').eq('user_id', userId)
+    return new Set((data ?? []).map((r: { theme: string }) => r.theme).filter((t): t is Theme => t in THEMES))
+  } catch {
+    return new Set()
+  }
+}
+
+/** Silencia um tema ("Mostrar menos conteúdos assim" / "Não quero ver este tema agora"). */
+export async function muteContentTheme(userId: string, theme: Theme): Promise<boolean> {
+  const { error } = await supabase.from('user_muted_content_themes').upsert(
+    { user_id: userId, theme }, { onConflict: 'user_id,theme' },
+  )
+  return !error
+}
+
+/** Reverte ("Voltar a mostrar") — usado em Perfil → Temas reduzidos. */
+export async function unmuteContentTheme(userId: string, theme: Theme): Promise<boolean> {
+  const { error } = await supabase.from('user_muted_content_themes').delete()
+    .eq('user_id', userId).eq('theme', theme)
+  return !error
 }
 
 /** Registra as recomendações exibidas (best-effort; nunca quebra a UI). */

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Sparkles, Clock, ArrowRight, BookOpen, PenLine } from 'lucide-react'
+import { Sparkles, Clock, ArrowRight, BookOpen, PenLine, EyeOff } from 'lucide-react'
 import {
   fetchGuidedCatalog, fetchReadSlugsForRec, fetchRecentlyShownSlugs, fetchUserSignal, scoreCatalog,
-  logRecommendationsShown,
+  logRecommendationsShown, fetchMutedThemes, muteContentTheme,
   type Signal, type CatalogItem, type ScoredContent,
 } from '../lib/contentRecommendation'
 import RiskHelpBanner from './RiskHelpBanner'
@@ -41,27 +41,41 @@ export default function RecommendedContent({
   const [scored, setScored] = useState<ScoredContent[] | null>(null)
   const [risk, setRisk] = useState(false)
   const [hasData, setHasData] = useState(false)
+  const [muting, setMuting] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
     ;(async () => {
-      const [cat, sig, read, recent] = await Promise.all([
+      const [cat, sig, read, recent, muted] = await Promise.all([
         catalog && catalog.length ? Promise.resolve(catalog) : fetchGuidedCatalog(),
         signal ? Promise.resolve(signal) : fetchUserSignal(user?.id),
         fetchReadSlugsForRec(user?.id),
         fetchRecentlyShownSlugs(user?.id),
+        fetchMutedThemes(user?.id),
       ])
       if (!active) return
       setHasData(sig.hasData)
       setRisk(sig.risk)
       if (sig.risk) { setScored([]); return }
-      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read, isLoggedIn: !!user?.id, recentlyShown: recent })
+      const recs = scoreCatalog(cat, sig, profile?.plan, { limit, readSlugs: read, isLoggedIn: !!user?.id, recentlyShown: recent, mutedThemes: muted })
       setScored(recs)
       if (recs.length) void logRecommendationsShown(user?.id, source, recs)
     })()
     return () => { active = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profile?.plan, signal, catalog])
+
+  // "Mostrar menos conteúdos assim": silencia o tema principal do card e some
+  // com ele da lista na hora — sem esperar recarregar a página. Reversível em
+  // Perfil → Temas reduzidos.
+  async function handleMuteLess(s: ScoredContent) {
+    const theme = s.matchedThemes[0]
+    if (!user?.id || !theme) return
+    setMuting(s.item.id)
+    const ok = await muteContentTheme(user.id, theme)
+    if (ok) setScored(prev => (prev ?? []).filter(x => x.item.id !== s.item.id))
+    setMuting(null)
+  }
 
   // Linguagem de risco (§15): não tratar só com conteúdo — orientar ajuda.
   if (risk) return <RiskHelpBanner />
@@ -111,39 +125,61 @@ export default function RecommendedContent({
       <div className={variant === 'grid'
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
         : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
-        {scored.map(s => <RecCard key={s.item.id} s={s} onOpen={onOpen} compact={variant === 'compact'} />)}
+        {scored.map(s => (
+          <RecCard
+            key={s.item.id} s={s} onOpen={onOpen} compact={variant === 'compact'}
+            onMuteLess={user?.id ? () => handleMuteLess(s) : undefined}
+            muting={muting === s.item.id}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
-function RecCard({ s, onOpen, compact }: { s: ScoredContent; onOpen: (slug: string) => void; compact?: boolean }) {
+function RecCard({ s, onOpen, compact, onMuteLess, muting }: {
+  s: ScoredContent; onOpen: (slug: string) => void; compact?: boolean
+  onMuteLess?: () => void; muting?: boolean
+}) {
   const it = s.item
   const plan = it.plan_required && it.plan_required !== 'free' ? PLAN_BADGE[it.plan_required] : null
   const time = it.estimated_time_minutes ?? it.read_time ?? null
   return (
-    <button
-      onClick={() => it.slug && onOpen(it.slug)}
-      className="group flex flex-col text-left bg-white border border-line rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-    >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[11px] font-medium text-forest-700 bg-mint px-2 py-0.5 rounded-full truncate max-w-[70%]">{it.category || 'Conteúdo'}</span>
-        {plan
-          ? <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${plan.cls}`}>{plan.label}</span>
-          : time ? <span className="text-xs text-ink-soft flex items-center gap-1"><Clock size={12} /> {time} min</span> : null}
-      </div>
-      <h3 className={`font-serif ${compact ? 'text-base' : 'text-lg'} text-forest-900 leading-snug mb-1.5 line-clamp-2 group-hover:text-forest-700 transition-colors`}>
-        {it.title}
-      </h3>
-      {!compact && it.summary && <p className="text-ink-soft text-sm leading-relaxed line-clamp-2 mb-3">{it.summary}</p>}
-      {s.reason && (
-        <p className="text-[13px] text-forest-700 bg-forest-50 border border-forest-100 rounded-xl px-3 py-2 mb-3 leading-snug">
-          {s.reason}
-        </p>
+    <div className="group relative flex flex-col text-left bg-white border border-line rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-forest-200 transition-all">
+      {onMuteLess && s.matchedThemes.length > 0 && (
+        <button
+          onClick={e => { e.stopPropagation(); onMuteLess() }}
+          disabled={muting}
+          title="Mostrar menos conteúdos assim"
+          aria-label="Mostrar menos conteúdos assim"
+          className="absolute top-3 right-3 z-10 p-1.5 rounded-full text-ink-soft/60 hover:text-forest-700 hover:bg-mint/50 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
+        >
+          <EyeOff size={14} />
+        </button>
       )}
-      <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 group-hover:gap-2 transition-all">
-        Abrir conteúdo <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
-      </span>
-    </button>
+      <button
+        onClick={() => it.slug && onOpen(it.slug)}
+        className="flex flex-col text-left flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 rounded-xl"
+      >
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-[11px] font-medium text-forest-700 bg-mint px-2 py-0.5 rounded-full truncate max-w-[70%]">{it.category || 'Conteúdo'}</span>
+          {plan
+            ? <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${plan.cls}`}>{plan.label}</span>
+            : time ? <span className="text-xs text-ink-soft flex items-center gap-1"><Clock size={12} /> {time} min</span> : null}
+        </div>
+        <h3 className={`font-serif ${compact ? 'text-base' : 'text-lg'} text-forest-900 leading-snug mb-1.5 line-clamp-2 group-hover:text-forest-700 transition-colors`}>
+          {it.title}
+        </h3>
+        {!compact && it.summary && <p className="text-ink-soft text-sm leading-relaxed line-clamp-2 mb-3">{it.summary}</p>}
+        {s.reason && (
+          <p className="text-[13px] text-forest-700 bg-forest-50 border border-forest-100 rounded-xl px-3 py-2 mb-3 leading-snug">
+            {s.reason}
+          </p>
+        )}
+        <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 group-hover:gap-2 transition-all">
+          Abrir conteúdo <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+        </span>
+      </button>
+    </div>
   )
 }
