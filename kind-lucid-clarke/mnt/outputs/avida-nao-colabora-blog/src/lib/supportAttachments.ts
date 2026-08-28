@@ -111,7 +111,7 @@ export function formatSupportAttachmentSize(bytes: number): string {
 export async function downloadSupportAttachment(attachment: SupportAttachment): Promise<void> {
   const { data, error } = await supabase.storage
     .from(SUPPORT_ATTACHMENTS_BUCKET)
-    .download(attachment.path, { download: attachment.name })
+    .download(attachment.path)
   if (error || !data) throw error ?? new Error('Arquivo indisponível.')
 
   const url = URL.createObjectURL(data)
