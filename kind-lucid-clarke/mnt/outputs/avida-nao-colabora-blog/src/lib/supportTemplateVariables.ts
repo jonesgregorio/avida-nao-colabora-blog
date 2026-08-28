@@ -13,10 +13,15 @@ export const SUPPORT_TEMPLATE_PRICE_PLACEHOLDERS = {
  * persistidos antes da adoção dos placeholders; novos templates devem usar
  * exclusivamente {{preco_essential}} / {{preco_plus}}.
  */
+function replaceAllCompatible(value: string, search: string, replacement: string): string {
+  return value.split(search).join(replacement)
+}
+
 export function resolveSupportTemplateVariables(body: string, pricing: PlanPricingMap): string {
-  return body
-    .replaceAll(SUPPORT_TEMPLATE_PRICE_PLACEHOLDERS.essential, pricing.essential.display)
-    .replaceAll(SUPPORT_TEMPLATE_PRICE_PLACEHOLDERS.plus, pricing.plus.display)
-    .replaceAll('R$ 19,90', pricing.essential.display)
-    .replaceAll('R$ 39,90', pricing.plus.display)
+  return [
+    [SUPPORT_TEMPLATE_PRICE_PLACEHOLDERS.essential, pricing.essential.display],
+    [SUPPORT_TEMPLATE_PRICE_PLACEHOLDERS.plus, pricing.plus.display],
+    ['R$ 19,90', pricing.essential.display],
+    ['R$ 39,90', pricing.plus.display],
+  ].reduce((text, [search, replacement]) => replaceAllCompatible(text, search, replacement), body)
 }
