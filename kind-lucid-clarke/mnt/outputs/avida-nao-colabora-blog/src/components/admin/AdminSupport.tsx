@@ -8,6 +8,8 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { emailSupportReplyForUser } from '../../lib/emailTriggers'
 import { getSupportSlaHours } from '../../lib/supportSla'
+import { usePlanPricing } from '../../lib/planPricing'
+import { resolveSupportTemplateVariables } from '../../lib/supportTemplateVariables'
 
 interface Ticket {
   id: string
@@ -89,10 +91,10 @@ const REPLY_TEMPLATES_FALLBACK = [
   { id: 'f02', title: 'Como o blog funciona', category: 'Uso do blog', body: 'Olá! O "A Vida Não Colabora" funciona como um espaço de apoio ao autoconhecimento e à organização emocional.\n\nVocê pode usar o site para ler artigos, registrar como está se sentindo no diário, responder questionários, acompanhar sua evolução, salvar conteúdos importantes e acessar recursos extras conforme o seu plano.\n\nA ideia não é oferecer diagnóstico ou substituir acompanhamento profissional, mas ajudar você a perceber padrões, organizar sentimentos e criar pequenos passos de cuidado no dia a dia.' },
   { id: 'f03', title: 'Objetivo do site', category: 'Missão e propósito', body: 'O objetivo do "A Vida Não Colabora" é oferecer um espaço simples, acolhedor e sem julgamentos para quem quer se entender melhor.\n\nO site ajuda você a organizar pensamentos, registrar emoções, perceber padrões, encontrar conteúdos úteis para o seu momento e construir uma rotina de autocuidado possível.\n\nEle é uma ferramenta complementar de autoconhecimento e não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.' },
   { id: 'f04', title: 'Missão do blog', category: 'Missão e propósito', body: 'Nossa missão é transformar temas de saúde emocional em algo mais próximo da vida real.\n\nFalamos sobre autocuidado, cansaço, ansiedade, autoestima, limites, rotina e emoções difíceis de uma forma simples, humana e prática.\n\nQueremos que você encontre aqui um espaço para respirar, se organizar e dar pequenos passos, sem cobrança de perfeição.' },
-  { id: 'f05', title: 'Diferença entre os planos', category: 'Planos', body: 'Olá! Os planos foram pensados para diferentes níveis de uso dentro do site.\n\nO Gratuito permite começar: blog aberto, diário emocional básico, questionário inicial e algumas práticas guiadas.\n\nO Essencial (R$ 19,90/mês) libera uso contínuo: diário ilimitado, mapa emocional completo, histórico e gráficos, conteúdos guiados completos e relatório semanal automático.\n\nO Plus (R$ 39,90/mês) inclui tudo do Essencial e ainda plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório e orientação mensal por mensagem.' },
+  { id: 'f05', title: 'Diferença entre os planos', category: 'Planos', body: 'Olá! Os planos foram pensados para diferentes níveis de uso dentro do site.\n\nO Gratuito permite começar: blog aberto, diário emocional básico, questionário inicial e algumas práticas guiadas.\n\nO Essencial ({{preco_essential}}/mês) libera uso contínuo: diário ilimitado, mapa emocional completo, histórico e gráficos, conteúdos guiados completos e relatório semanal automático.\n\nO Plus ({{preco_plus}}/mês) inclui tudo do Essencial e ainda plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório e orientação mensal por mensagem.' },
   { id: 'f06', title: 'Plano Gratuito', category: 'Planos', body: 'O plano Gratuito é uma forma de começar a usar o site sem compromisso.\n\nEle inclui artigos gratuitos, questionário inicial, check-ins rápidos, um diário básico com até 5 entradas por mês e histórico limitado.\n\nÉ ideal para conhecer o projeto e começar a registrar emoções de forma simples.' },
-  { id: 'f07', title: 'Plano Essencial', category: 'Planos', body: 'O plano Essencial custa R$ 19,90 por mês e é indicado para quem quer usar o site de forma contínua.\n\nEle inclui tudo do Gratuito e também diário completo, check-ins ilimitados, complementos do diário, histórico completo, mapa emocional completo, conteúdos guiados, relatório semanal automático e suporte por e-mail prioritário.' },
-  { id: 'f08', title: 'Plano Plus', category: 'Planos', body: 'O plano Plus custa R$ 39,90 por mês e é o plano mais completo.\n\nEle inclui tudo do Essencial e também plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório sobre seus registros e orientação mensal por mensagem.' },
+  { id: 'f07', title: 'Plano Essencial', category: 'Planos', body: 'O plano Essencial custa {{preco_essential}} por mês e é indicado para quem quer usar o site de forma contínua.\n\nEle inclui tudo do Gratuito e também diário completo, check-ins ilimitados, complementos do diário, histórico completo, mapa emocional completo, conteúdos guiados, relatório semanal automático e suporte por e-mail prioritário.' },
+  { id: 'f08', title: 'Plano Plus', category: 'Planos', body: 'O plano Plus custa {{preco_plus}} por mês e é o plano mais completo.\n\nEle inclui tudo do Essencial e também plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório sobre seus registros e orientação mensal por mensagem.' },
   { id: 'f10', title: 'Qual plano escolher', category: 'Planos', body: 'Para escolher o plano, pense no tipo de uso que você deseja.\n\nSe você quer apenas conhecer o site, o Gratuito pode ser suficiente.\nSe quer registrar emoções com frequência e acompanhar seu mapa emocional, o Essencial costuma fazer mais sentido.\nSe quer também plano de autocuidado mensal, relatório aprofundado, comentário profissional e orientação mensal por mensagem, o Plus é o plano mais completo.' },
   { id: 'f11', title: 'Orientação mensal por mensagem', category: 'Orientação profissional', body: 'A orientação mensal por mensagem é um recurso do plano Plus.\n\nEla permite enviar uma solicitação mensal para receber uma orientação breve dentro do próprio site.\n\nA ideia é ajudar você a organizar dúvidas, revisar dificuldades do mês e receber um direcionamento simples de cuidado, sempre sem substituir acompanhamento psicológico, psiquiátrico ou médico.' },
   { id: 'f13', title: 'Comentário sobre o relatório do mês', category: 'Profissional', body: 'No plano Plus, o usuário pode receber um comentário profissional individual sobre o relatório do mês.\n\nEsse comentário deve ser uma devolutiva breve e organizada, feita a partir das informações autorizadas e disponíveis no relatório.' },
@@ -219,6 +221,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
 
 export default function AdminSupport({ onManageTemplates, onViewUser }: { onManageTemplates?: () => void; onViewUser?: (userId: string) => void }) {
   const { user } = useAuth()
+  const { prices: planPricing } = usePlanPricing()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -252,6 +255,15 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
   const [templateSearch, setTemplateSearch] = useState('')
   const [templateCategory, setTemplateCategory] = useState('')
   const [showTemplatePanel, setShowTemplatePanel] = useState(false)
+
+  function applyReplyTemplate(template: ReplyTemplate, closePanel = false) {
+    setSelectedTemplate(template.id)
+    setReplyContent(resolveSupportTemplateVariables(template.body, planPricing))
+    if (closePanel) {
+      setShowTemplatePanel(false)
+      setTemplateSearch('')
+    }
+  }
 
   useEffect(() => {
     supabase.from('support_reply_templates').select('id,title,category,body').eq('is_active', true)
@@ -1030,7 +1042,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                               ? <p className="text-xs text-stone-400 text-center py-4">Nenhuma resposta pronta encontrada</p>
                               : list.map(t => (
                                 <button key={t.id} type="button"
-                                  onClick={() => { setSelectedTemplate(t.id); setReplyContent(t.body); setShowTemplatePanel(false); setTemplateSearch('') }}
+                                  onClick={() => applyReplyTemplate(t, true)}
                                   className="w-full text-left px-3 py-2 hover:bg-stone-50">
                                   <p className="text-xs font-medium text-stone-700">{t.title}</p>
                                   <p className="text-[10px] text-stone-400">{t.category}</p>
@@ -1047,7 +1059,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
                     <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
                       {quickSuggestions.map(s => (
                         <button key={s.id} type="button"
-                          onClick={() => { setSelectedTemplate(s.id); setReplyContent(s.body) }}
+                          onClick={() => applyReplyTemplate(s)}
                           className="flex-shrink-0 text-[10px] px-2.5 py-1.5 bg-stone-50 border border-line rounded-full text-stone-600 hover:bg-stone-100 whitespace-nowrap">
                           {s.title}
                         </button>
