@@ -7,7 +7,7 @@ export type EmotionalPromptKind =
 export const EMOTIONAL_PROMPT_VERSIONS: Record<EmotionalPromptKind, string> = {
   weekly_report: 'weekly_report_v2',
   monthly_deep_report: 'monthly_deep_report_v2',
-  self_care_plan: 'self_care_plan_v2',
+  self_care_plan: 'self_care_plan_v3',
   professional_guidance_draft: 'professional_guidance_v1',
 }
 

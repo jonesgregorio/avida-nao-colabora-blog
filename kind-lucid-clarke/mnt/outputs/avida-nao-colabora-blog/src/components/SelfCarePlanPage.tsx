@@ -7,6 +7,7 @@ import { getContentTypeLabel } from '../lib/personalizedContentLabels'
 import { Sprout, Loader2, Download, ArrowRight, Sparkles, ShieldCheck, ChevronDown, BookOpen, HelpCircle, Heart } from 'lucide-react'
 import PlanBadge from './PlanBadge'
 import RecommendedContent from './RecommendedContent'
+import CarePlanActionFeedback from './CarePlanActionFeedback'
 import { signalFromTags, fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
 import { CARE_PLAN_DISCLAIMER, type CareSummary, type CarePlanContent } from '../lib/careePlanAI'
 import { normalizeCarePlanBasis, describeCarePlanBasis } from '../lib/carePlanBasis'
@@ -176,7 +177,7 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
             </div>
             <div className="space-y-3">
               {sentPlans.map(p => (
-                <PlanCard key={p.id} plan={p} catalog={catalog} onOpenArticle={onOpenArticle} open={openIds.has(p.id)} onToggle={() => toggle(p.id)} />
+                <PlanCard key={p.id} userId={user!.id} plan={p} catalog={catalog} onOpenArticle={onOpenArticle} open={openIds.has(p.id)} onToggle={() => toggle(p.id)} />
               ))}
               {reviews.map(r => (
                 <LegacyReviewCard key={r.id} r={r} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
@@ -224,8 +225,8 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
 }
 
 // ── Cartão sanfona do plano mensal ────────────────────────────────────────────
-function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
-  plan: SentPlan; catalog: Map<string, CatalogItem>; onOpenArticle?: (slug: string) => void; open: boolean; onToggle: () => void
+function PlanCard({ userId, plan, catalog, onOpenArticle, open, onToggle }: {
+  userId: string; plan: SentPlan; catalog: Map<string, CatalogItem>; onOpenArticle?: (slug: string) => void; open: boolean; onToggle: () => void
 }) {
   const c = plan.care_plan
   const s = plan.ai_summary_json
@@ -292,12 +293,7 @@ function PlanCard({ plan, catalog, onOpenArticle, open, onToggle }: {
           )}
 
           {microActions.length > 0 && (
-            <div>
-              <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Pequenas ações possíveis</p>
-              <ul className="space-y-1.5">
-                {microActions.map((t, i) => <li key={i} className="text-sm text-ink leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{t}</li>)}
-              </ul>
-            </div>
+            <CarePlanActionFeedback userId={userId} carePlanId={plan.id} actions={microActions} />
           )}
 
           {(c?.gentle_reminders?.length ?? 0) > 0 && (
