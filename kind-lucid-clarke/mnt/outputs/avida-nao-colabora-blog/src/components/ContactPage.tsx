@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { ArrowLeft, MessageSquare, Send, CheckCircle, LogIn } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
+import { DEFAULT_SUPPORT_CATEGORY, SUPPORT_CATEGORIES, isSupportCategory } from '../lib/supportCategories'
 
 interface Props {
   user: User | null
@@ -11,22 +12,13 @@ interface Props {
   navigate?: (v: string) => void
 }
 
-const CATEGORIES = [
-  'Dúvida sobre o serviço',
-  'Problema técnico',
-  'Sugestão de melhoria',
-  'Cancelamento ou plano',
-  'Privacidade e dados',
-  'Outro',
-]
-
 const inputCls = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
 
 const DRAFT_KEY = 'contact_draft'
 
 export default function ContactPage({ user, profile, onBack, navigate }: Props) {
-  const [subject, setSubject] = useState(CATEGORIES[0])
-  const [category, setCategory] = useState(CATEGORIES[0])
+  const [subject, setSubject] = useState(DEFAULT_SUPPORT_CATEGORY)
+  const [category, setCategory] = useState(DEFAULT_SUPPORT_CATEGORY)
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [description, setDescription] = useState('')
   const [sending, setSending] = useState(false)
@@ -41,8 +33,13 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
       if (draft) {
         try {
           const parsed = JSON.parse(draft)
-          if (parsed.subject) setSubject(parsed.subject)
-          if (parsed.category) setCategory(parsed.category)
+          if (isSupportCategory(parsed.category)) {
+            setCategory(parsed.category)
+            setSubject(parsed.category)
+          } else if (isSupportCategory(parsed.subject)) {
+            setCategory(parsed.subject)
+            setSubject(parsed.subject)
+          }
           if (parsed.priority) setPriority(parsed.priority)
           if (parsed.description) setDescription(parsed.description)
           localStorage.removeItem(DRAFT_KEY)
@@ -153,8 +150,8 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             <div className="text-left space-y-4 border-t border-stone-100 pt-5">
               <div>
                 <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
-                <select id="contact-subject" value={subject} onChange={e => setSubject(e.target.value)} className={inputCls}>
-                  {CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
+                <select id="contact-subject" value={subject} onChange={e => { const next = e.target.value; if (isSupportCategory(next)) { setSubject(next); setCategory(next) } }} className={inputCls}>
+                  {SUPPORT_CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -188,8 +185,8 @@ export default function ContactPage({ user, profile, onBack, navigate }: Props) 
             {/* Subject */}
             <div>
               <label htmlFor="contact-subject" className="block text-sm font-medium text-stone-700 mb-1.5">Assunto *</label>
-              <select id="contact-subject" value={subject} onChange={e => { setSubject(e.target.value); setCategory(e.target.value) }} className={inputCls}>
-                {CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
+              <select id="contact-subject" value={subject} onChange={e => { const next = e.target.value; if (isSupportCategory(next)) { setSubject(next); setCategory(next) } }} className={inputCls}>
+                {SUPPORT_CATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
