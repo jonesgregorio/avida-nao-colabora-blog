@@ -39,6 +39,7 @@ const ArticleView = lazy(() => import('./components/ArticleView'))
 const DiaryPage = lazy(() => import('./components/DiaryPage'))
 const ProfilePage = lazy(() => import('./components/Profile'))
 const QuestionnairesPage = lazy(() => import('./components/QuestionnairesPage'))
+const QuestionnaireEvolutionPage = lazy(() => import('./components/QuestionnaireEvolutionPage'))
 const QuestionnairePlayer = lazy(() => import('./components/QuestionnairePlayer'))
 const SupportPage = lazy(() => import('./components/SupportPage'))
 const SupportTicketDetail = lazy(() => import('./components/SupportTicketDetail'))
@@ -190,7 +191,7 @@ export default function App() {
 
     const directViews: View[] = [
       'home', 'auth', 'diary', 'profile',
-      'about', 'privacy', 'terms', 'questionnaire', 'questionarios',
+      'about', 'privacy', 'terms', 'questionnaire', 'questionarios', 'questionarios-evolucao',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
       'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
       'notifications',
@@ -458,7 +459,15 @@ export default function App() {
         onBack={() => navigate('home')}
         onNavigatePricing={() => navigate('pricing')}
         onNavigateReport={() => navigate('my-report')}
+        onNavigateEvolution={() => navigate('questionarios-evolucao')}
       />
+    )
+  }
+
+  if (view === 'questionarios-evolucao') {
+    if (!user) { navigate('auth'); return null }
+    return appShell(
+      <QuestionnaireEvolutionPage user={user} onBack={() => navigate('questionarios')} />
     )
   }
 

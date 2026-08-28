@@ -21,6 +21,7 @@ const userSurfaces = [
   'src/components/SupportPage.tsx',
   'src/components/MyReportPageContent.tsx',
   'src/components/QuestionnairesPage.tsx',
+  'src/components/QuestionnaireEvolutionPage.tsx',
   'src/components/LoggedHome.tsx',
 ]
 

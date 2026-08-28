@@ -33,10 +33,11 @@ interface Props {
   onBack: () => void
   onNavigatePricing: () => void
   onNavigateReport: () => void
+  onNavigateEvolution?: () => void
 }
 
 export default function QuestionnairesPage({
-  user, profile, onStart, onStartAuth, onBack, onNavigatePricing, onNavigateReport,
+  user, profile, onStart, onStartAuth, onBack, onNavigatePricing, onNavigateReport, onNavigateEvolution,
 }: Props) {
   const [items, setItems] = useState<QItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -252,6 +253,9 @@ export default function QuestionnairesPage({
                 <button onClick={onNavigateReport} className="text-xs text-forest-700 hover:underline flex items-center gap-1">Ver relatório <ArrowRight className="w-3 h-3" /></button>
               )}
             </div>
+            {user && onNavigateEvolution && doneCount > 0 && (
+              <button onClick={onNavigateEvolution} className="mb-3 text-xs text-forest-700 hover:underline flex items-center gap-1">Ver minha evolução <ArrowRight className="w-3 h-3" /></button>
+            )}
             {totalQ === 0 ? (
               <p className="text-sm text-ink-soft">Novos questionários aparecerão aqui.</p>
             ) : (
