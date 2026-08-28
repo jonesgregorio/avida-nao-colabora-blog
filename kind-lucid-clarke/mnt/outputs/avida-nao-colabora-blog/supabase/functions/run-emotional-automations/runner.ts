@@ -70,6 +70,12 @@ type QuestionnaireSignal = {
   completed_at: string
 }
 
+type CarePlanFeedbackValue = 'helpful' | 'later' | 'not_for_me'
+type CarePlanFeedbackEntry = {
+  action: string
+  feedback: CarePlanFeedbackValue
+}
+
 function questionnaireTags(value: unknown): string[] {
   if (Array.isArray(value)) return [...new Set(value.map(String).map(v => v.trim()).filter(Boolean))].slice(0, 12)
   if (typeof value !== 'string' || !value.trim()) return []
@@ -208,12 +214,17 @@ function summaryOf(rows: Record<string, unknown>[], start: string, end: string, 
 // registros reais — pedir pra IA "inventar" esses números violaria a própria
 // regra de segurança de não inventar fatos/padrões. Isso é deliberado, não uma
 // simplificação: números vêm de cálculo determinístico, nunca de geração de texto.
-function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan', summary: Summary) {
+function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan', summary: Summary, careFeedback: CarePlanFeedbackEntry[] = []) {
   const task = kind === 'weekly_report'
     ? 'Esta leitura responde "como foi minha semana?": curta, leve, prática, focada nos últimos 7 dias, com 2 ou 3 próximos passos leves. Não gere relatório mensal, plano de autocuidado ou orientação profissional.'
     : kind === 'monthly_deep_report'
       ? 'Esta leitura responde "o que o mês mostrou sobre meus padrões emocionais?": retrospectiva, mais profunda, organizada e não clínica. Não vire plano de autocuidado (sem rotina para o próximo mês) nem orientação profissional.'
       : 'Este roteiro responde "o que posso fazer agora com base no que meus registros mostraram?": prospectivo, leve e realista para o próximo ciclo. Não repita a retrospectiva do relatório mensal.'
+  // Feedback é uma preferência declarada sobre ações que o próprio sistema já
+  // sugeriu no roteiro anterior. Não é evidência de eficácia, adesão ou melhora.
+  const feedbackContext = kind === 'self_care_plan' && careFeedback.length
+    ? ` Considere também estas percepções opcionais sobre ações do roteiro anterior: ${JSON.stringify(careFeedback)}. Interprete helpful apenas como "fez sentido" e use isso para inspirar ações semelhantes sem assumir eficácia. Interprete later como "talvez depois": adapte intensidade ou momento, sem tratar como recusa. Interprete not_for_me como "não combinou comigo": evite repetir a mesma ação ou uma formulação praticamente idêntica e escolha outra abordagem. Essas percepções não são progresso, conclusão, diagnóstico ou prova de melhora. Não mencione mecanismo de feedback, pontuação, sistema interno ou bastidores na resposta.`
+    : ''
   // §6.2/6.3 do audit: além do texto-base (summary/patterns/...), a IA também
   // lê em prosa curta os dados já agregados em código (marcadores, contextos,
   // necessidades, ações de cuidado, gatilhos reais, indicadores avançados,
@@ -222,7 +233,7 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
   // não inventar fatos. Campos condicionais (ex.: real_triggers_reading) só
   // devem vir preenchidos quando os dados correspondentes existirem no resumo.
   const shape = EMOTIONAL_NARRATIVE_SHAPES[kind]
-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Sinais de questionários, quando presentes, são contexto estruturado auxiliar: nunca trate um único resultado ou tag de questionário como recorrência, padrão, diagnóstico, causa ou prova. A pontuação só faz sentido dentro do respectivo questionário e não pode ser comparada entre questionários diferentes. Nenhuma resposta aberta de questionário é fornecida. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Sinais de questionários, quando presentes, são contexto estruturado auxiliar: nunca trate um único resultado ou tag de questionário como recorrência, padrão, diagnóstico, causa ou prova. A pontuação só faz sentido dentro do respectivo questionário e não pode ser comparada entre questionários diferentes. Nenhuma resposta aberta de questionário é fornecida. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task}${feedbackContext} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
@@ -367,6 +378,52 @@ function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = any
 
+async function loadPreviousCarePlanFeedback(admin: AdminClient, userId: string, beforeStart: string): Promise<CarePlanFeedbackEntry[]> {
+  // Usa somente o roteiro anterior já enviado e a escolha estruturada do usuário.
+  // Falha aberta: se a migration ainda não tiver chegado ao banco durante deploy,
+  // a automação continua gerando o plano sem esse contexto opcional.
+  const { data: previous, error: previousError } = await admin
+    .from('monthly_care_plans')
+    .select('id,care_plan,period_end')
+    .eq('user_id', userId)
+    .eq('status', 'sent')
+    .lt('period_end', beforeStart)
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (previousError || !previous) return []
+
+  const carePlan = previous.care_plan && typeof previous.care_plan === 'object'
+    ? previous.care_plan as Record<string, unknown>
+    : {}
+  const actions = texts(carePlan.suggested_micro_actions ?? carePlan.practical_tips, 260)
+  if (!actions.length) return []
+
+  const { data: rows, error: feedbackError } = await admin
+    .from('care_plan_action_feedback')
+    .select('action_index,feedback')
+    .eq('user_id', userId)
+    .eq('care_plan_id', previous.id)
+  if (feedbackError || !rows?.length) return []
+
+  const allowed = new Set<CarePlanFeedbackValue>(['helpful', 'later', 'not_for_me'])
+  return rows.flatMap((row: Record<string, unknown>) => {
+    const actionIndex = Number(row.action_index)
+    const feedback = String(row.feedback || '') as CarePlanFeedbackValue
+    if (!Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex >= actions.length || !allowed.has(feedback)) return []
+    return [{ action: actions[actionIndex], feedback }]
+  }).slice(0, 5)
+}
+
+function careFeedbackSummary(items: CarePlanFeedbackEntry[]) {
+  return {
+    total: items.length,
+    helpful: items.filter(item => item.feedback === 'helpful').length,
+    later: items.filter(item => item.feedback === 'later').length,
+    not_for_me: items.filter(item => item.feedback === 'not_for_me').length,
+  }
+}
+
 async function loadQuestionnaireSignals(admin: AdminClient, userId: string, start: string, end: string): Promise<QuestionnaireSignal[]> {
   // PRIVACIDADE: nunca seleciona `answers`. O pipeline emocional recebe apenas
   // resultado, pontuação, tags geradas e metadados do questionário.
@@ -508,11 +565,12 @@ Deno.serve(async (req) => {
         const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', careStart).lte('date', careEnd)
         const questionnaireSignals = await loadQuestionnaireSignals(admin, profile.user_id, careStart, careEnd)
         const s = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly', questionnaireSignals)
+        const previousCareFeedback = await loadPreviousCarePlanFeedback(admin, profile.user_id, careStart)
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
-        try { const generated = await generate(prompt('self_care_plan', s)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
+        try { const generated = await generate(prompt('self_care_plan', s, previousCareFeedback)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
         const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
         const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${careStart} a ${careEnd}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
-        await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: s, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
+        await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: { ...s, previous_care_action_feedback: careFeedbackSummary(previousCareFeedback) }, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
         await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, provider: providerFromModel(model), model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
         results.push(`${profile.user_id}:plano:ok`)
       }
