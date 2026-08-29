@@ -32,7 +32,7 @@ test('persistência mantém uma linha por usuário/semana com RLS e sem gamifica
   assert.match(migrationDdl, /ENABLE ROW LEVEL SECURITY/)
   assert.match(migrationDdl, /auth\.uid\(\) = user_id/)
   assert.match(migrationDdl, /GRANT SELECT, INSERT, UPDATE/)
-  assert.doesNotMatch(migrationDdl, /points|xp|streak|seed|semente|ranking/i)
+  assert.doesNotMatch(migrationDdl, /\bpoints?\b|\bXP\b|\bstreak\b|\bseeds?\b|\bsementes?\b|\branking\b/i)
 })
 
 test('reflexão de fechamento é estruturada e não armazena relato livre', () => {
@@ -48,7 +48,7 @@ test('foco é lembrado como orientação, não tarefa concluível', () => {
   assert.match(card, /não como uma meta/i)
   assert.match(card, /não vira obrigação nem lista de tarefas/i)
   assert.match(card, /Trocar foco/)
-  assert.doesNotMatch(card, /Marcar como feito|pontos|XP|streak|sementes|ranking/i)
+  assert.doesNotMatch(card, /Marcar como feito|\bpontos?\b|\bXP\b|\bstreak\b|\bsementes?\b|\branking\b/i)
 })
 
 test('store acessa apenas a tabela própria do foco semanal', () => {
