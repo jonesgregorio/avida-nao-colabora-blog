@@ -56,7 +56,7 @@ test('compara frequência por proporção de dias e não por contagem bruta', ()
     { date: '2026-08-20', context_tags: ['trabalho'] },
     { date: '2026-08-19', context_tags: ['trabalho'] },
     { date: '2026-08-18', context_tags: ['casa'] },
-    { date: '2026-08-17', context_tags: ['casa'] },
+    { date: '2026-08-17', context_tags: ['lazer'] },
   ]
   const previous = [
     { date: '2026-07-20', context_tags: ['trabalho'] },
@@ -66,7 +66,7 @@ test('compara frequência por proporção de dias e não por contagem bruta', ()
     { date: '2026-07-16', context_tags: ['saúde'] },
     { date: '2026-07-15', context_tags: ['descanso'] },
     { date: '2026-07-14', context_tags: ['estudo'] },
-    { date: '2026-07-13', context_tags: ['lazer'] },
+    { date: '2026-07-13', context_tags: ['rotina'] },
   ]
   const model = buildTemporalComparison([...current, ...previous], { now })
 
