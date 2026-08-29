@@ -1,5 +1,6 @@
 import { CheckCircle2, HeartHandshake, X } from 'lucide-react'
 import type { TodaySmallAction } from '../lib/todaySmallAction'
+import { trackRetentionEvent } from '../lib/retentionAnalytics'
 
 export type SmallActionStatus = 'idle' | 'accepted' | 'done'
 
@@ -12,6 +13,22 @@ interface Props {
 }
 
 export default function TodaySmallActionCard({ action, status, onAccept, onDone, onDismiss }: Props) {
+  function accept() {
+    trackRetentionEvent('small_action_accepted', {
+      dedupeKey: action.id,
+      metadata: { surface: 'home' },
+    })
+    onAccept()
+  }
+
+  function done() {
+    trackRetentionEvent('small_action_completed', {
+      dedupeKey: action.id,
+      metadata: { surface: 'home' },
+    })
+    onDone()
+  }
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-forest-100 bg-gradient-to-br from-mint/60 via-paper-soft to-sand-50 p-5 sm:p-6" aria-labelledby="small-action-title">
       {status !== 'done' && (
@@ -49,7 +66,7 @@ export default function TodaySmallActionCard({ action, status, onAccept, onDone,
             <div className="mt-4 flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={onAccept}
+                onClick={accept}
                 className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
               >
                 {action.cta}
@@ -67,7 +84,7 @@ export default function TodaySmallActionCard({ action, status, onAccept, onDone,
               <div className="mt-3 flex flex-wrap gap-2.5">
                 <button
                   type="button"
-                  onClick={onDone}
+                  onClick={done}
                   className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-4 py-2.5 rounded-2xl transition-colors"
                 >
                   <CheckCircle2 className="w-4 h-4" /> Marcar como feito
