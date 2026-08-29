@@ -253,7 +253,7 @@ async function installAuthenticatedMocks(page, plan = 'plus') {
 async function openLoggedRoute(page, route, viewport) {
   await page.setViewportSize(viewport)
   await page.goto(route)
-  await expect(page.locator('main')).toBeVisible()
+  await expect(page.locator('main').first()).toBeVisible()
   await expect(page.locator('vite-error-overlay')).toHaveCount(0)
   await page.waitForTimeout(80)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
@@ -323,11 +323,11 @@ test('Perfil usa continuidade recente em vez de sequência obrigatória', async 
 test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha História', async ({ page }) => {
   await openLoggedRoute(page, '/', { width: 390, height: 844 })
   await expect(page.getByRole('button', { name: 'Hoje', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Diário' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Mapa' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Conteúdos' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Diário', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Conteúdos', exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Mais' }).click()
+  await page.getByRole('button', { name: 'Mais', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Mais recursos' })
   await expect(dialog).toBeVisible()
   await expect(dialog).toBeFocused()
@@ -336,8 +336,8 @@ test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha Histór
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Mais' }).click()
-  await page.getByRole('dialog', { name: 'Mais recursos' }).getByRole('button', { name: 'Minha História' }).click()
+  await page.getByRole('button', { name: 'Mais', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Mais recursos' }).getByRole('button', { name: 'Minha História', exact: true }).click()
   await expect(page).toHaveURL(/\/minha-historia$/)
   await expect(page.getByRole('dialog', { name: 'Mais recursos' })).toHaveCount(0)
 })
