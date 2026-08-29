@@ -44,3 +44,16 @@ test('Home Hoje ganha continuidade sem expor o texto livre do Diário', () => {
   assert.doesNotMatch(home, /select\([^)]*\btext\b/)
   assert.doesNotMatch(home, /free_note|recurring_thoughts|emotional_triggers/)
 })
+
+test('Home Hoje mostra descoberta progressiva sem criar uma segunda leitura de texto', () => {
+  assert.match(home, /buildHomeDiscovery/)
+  assert.match(home, /<HomeDiscoveryCard/)
+  assert.match(home, /avnc:discovery-dismissed/)
+  assert.match(home, /trigger_tags,emotional_tags/)
+  assert.doesNotMatch(home, /select\([^)]*\btext\b/)
+})
+
+test('Home aceita humor salvo como chave antiga ou rótulo atual', () => {
+  assert.match(home, /item\.key === raw \|\| item\.label\.toLowerCase\(\) === raw\.toLowerCase\(\)/)
+  assert.match(home, /m\.key === key \|\| m\.label\.toLowerCase\(\) === key\.toLowerCase\(\)/)
+})
