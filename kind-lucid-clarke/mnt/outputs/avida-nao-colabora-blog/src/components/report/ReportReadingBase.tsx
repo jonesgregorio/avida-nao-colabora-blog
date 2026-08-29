@@ -1,5 +1,6 @@
 import { AlertCircle, Check, Info } from 'lucide-react'
 import type { MonthlyContent, ReportContent, WeeklyContent } from '../../lib/reportGeneration'
+import WeeklyRetrospective from './WeeklyRetrospective'
 
 type CountedItem = { label: string; count: number }
 
@@ -138,44 +139,48 @@ export default function ReportReadingBase({ content }: { content: ReportContent 
   const missing = missingSignals(content)
 
   return (
-    <section className="mb-4 rounded-2xl border border-line bg-paper-soft p-4 sm:p-5" aria-labelledby="report-reading-base-title">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h3 id="report-reading-base-title" className="font-serif text-lg text-forest-900">Base desta leitura</h3>
-          <p className="text-xs text-ink-soft mt-1 leading-relaxed">Veja o que veio diretamente dos seus registros, o que foi observado ao combinar os dados do período e onde ainda faltam informações.</p>
+    <>
+      <section className="mb-4 rounded-2xl border border-line bg-paper-soft p-4 sm:p-5" aria-labelledby="report-reading-base-title">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 id="report-reading-base-title" className="font-serif text-lg text-forest-900">Base desta leitura</h3>
+            <p className="text-xs text-ink-soft mt-1 leading-relaxed">Veja o que veio diretamente dos seus registros, o que foi observado ao combinar os dados do período e onde ainda faltam informações.</p>
+          </div>
+          <span
+            className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"
+            title="Contagens são ocorrências registradas. Leituras contextuais combinam sinais do período e não representam diagnóstico, causa ou certeza."
+            aria-label="Como interpretar a base desta leitura"
+          ><Info className="w-4 h-4" /></span>
         </div>
-        <span
-          className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"
-          title="Contagens são ocorrências registradas. Leituras contextuais combinam sinais do período e não representam diagnóstico, causa ou certeza."
-          aria-label="Como interpretar a base desta leitura"
-        ><Info className="w-4 h-4" /></span>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <Group title="Confirmado nos registros" description="Marcações estruturadas que aparecem nos seus check-ins e diários, com a quantidade de ocorrências." tone="confirmed">
-          {confirmed.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {confirmed.map(item => <span key={`${item.label}-${item.count}`} className="rounded-full bg-white border border-forest-100 px-2.5 py-1 text-[11px] text-forest-800">{item.label} · {item.count}x</span>)}
-            </div>
-          ) : <p className="text-xs text-ink-soft">Nenhuma marcação estruturada suficiente neste período.</p>}
-        </Group>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <Group title="Confirmado nos registros" description="Marcações estruturadas que aparecem nos seus check-ins e diários, com a quantidade de ocorrências." tone="confirmed">
+            {confirmed.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {confirmed.map(item => <span key={`${item.label}-${item.count}`} className="rounded-full bg-white border border-forest-100 px-2.5 py-1 text-[11px] text-forest-800">{item.label} · {item.count}x</span>)}
+              </div>
+            ) : <p className="text-xs text-ink-soft">Nenhuma marcação estruturada suficiente neste período.</p>}
+          </Group>
 
-        <Group title="Leitura contextual" description="Médias, recorrências e relações observadas quando os registros do período são considerados em conjunto." tone="context">
-          {contextual.length > 0 ? (
-            <ul className="space-y-1.5">{contextual.map(item => <li key={item} className="text-xs text-stone-700 flex gap-2"><span className="text-forest-400">•</span><span>{item}</span></li>)}</ul>
-          ) : <p className="text-xs text-ink-soft">Ainda não há sinais contextuais suficientes para destacar.</p>}
-        </Group>
+          <Group title="Leitura contextual" description="Médias, recorrências e relações observadas quando os registros do período são considerados em conjunto." tone="context">
+            {contextual.length > 0 ? (
+              <ul className="space-y-1.5">{contextual.map(item => <li key={item} className="text-xs text-stone-700 flex gap-2"><span className="text-forest-400">•</span><span>{item}</span></li>)}</ul>
+            ) : <p className="text-xs text-ink-soft">Ainda não há sinais contextuais suficientes para destacar.</p>}
+          </Group>
 
-        <Group title="Sem dados suficientes" description="Itens que não foram registrados ou ainda não apareceram o bastante para sustentar uma leitura." tone="missing">
-          {missing.length > 0 ? (
-            <ul className="space-y-1.5">{missing.map(item => <li key={item} className="text-xs text-stone-700 flex gap-2"><span className="text-[#c2673f]">•</span><span>{item}</span></li>)}</ul>
-          ) : <p className="text-xs text-ink-soft">Não há uma lacuna relevante entre os principais campos usados neste relatório.</p>}
-        </Group>
-      </div>
+          <Group title="Sem dados suficientes" description="Itens que não foram registrados ou ainda não apareceram o bastante para sustentar uma leitura." tone="missing">
+            {missing.length > 0 ? (
+              <ul className="space-y-1.5">{missing.map(item => <li key={item} className="text-xs text-stone-700 flex gap-2"><span className="text-[#c2673f]">•</span><span>{item}</span></li>)}</ul>
+            ) : <p className="text-xs text-ink-soft">Não há uma lacuna relevante entre os principais campos usados neste relatório.</p>}
+          </Group>
+        </div>
 
-      <p className="mt-3 pt-3 border-t border-line text-[11px] text-ink-soft leading-relaxed">
-        <strong className="text-forest-800">Como ler:</strong> contagens representam ocorrências marcadas nos registros. Leituras contextuais combinam sinais do período; elas não significam diagnóstico, causa ou certeza sobre você. A ausência de dados é mostrada explicitamente em vez de ser preenchida por suposição.
-      </p>
-    </section>
+        <p className="mt-3 pt-3 border-t border-line text-[11px] text-ink-soft leading-relaxed">
+          <strong className="text-forest-800">Como ler:</strong> contagens representam ocorrências marcadas nos registros. Leituras contextuais combinam sinais do período; elas não significam diagnóstico, causa ou certeza sobre você. A ausência de dados é mostrada explicitamente em vez de ser preenchida por suposição.
+        </p>
+      </section>
+
+      {content.kind === 'weekly' && <WeeklyRetrospective content={content as WeeklyContent} />}
+    </>
   )
 }

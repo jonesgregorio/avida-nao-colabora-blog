@@ -18,6 +18,18 @@ export type SavedWeeklyFocus = {
 
 const SELECT_COLUMNS = 'id,user_id,week_start,focus_key,focus_title,status,outcome,chosen_at,closed_at,updated_at'
 
+export async function loadWeeklyFocusForWeek(userId: string, weekStart: string): Promise<SavedWeeklyFocus | null> {
+  const { data, error } = await supabase
+    .from('user_weekly_focus')
+    .select(SELECT_COLUMNS)
+    .eq('user_id', userId)
+    .eq('week_start', weekStart)
+    .maybeSingle()
+
+  if (error) throw error
+  return (data as SavedWeeklyFocus | null) ?? null
+}
+
 export async function loadWeeklyFocusState(userId: string, weekStart: string): Promise<{
   current: SavedWeeklyFocus | null
   previousOpen: SavedWeeklyFocus | null
