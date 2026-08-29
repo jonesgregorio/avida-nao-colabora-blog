@@ -6,6 +6,7 @@
 --   • o usuário havia escolhido um foco naquela semana; e
 --   • o foco continua aberto (sem reflexão estruturada).
 --
+-- Reutiliza o tipo canônico `reminder` e diferencia este caso por action_data.
 -- Não envia e-mail, não usa ausência/streak e não lê texto livre do Diário.
 -- A notificação é um convite opcional; ela nunca fecha o foco automaticamente.
 -- ============================================================================
@@ -21,7 +22,9 @@ DECLARE
   v_week_start date;
   v_dedupe_key text;
 BEGIN
-  IF NEW.report_type IS DISTINCT FROM 'weekly' OR NEW.status IS DISTINCT FROM 'generated' THEN
+  IF NEW.report_type IS DISTINCT FROM 'weekly'
+     OR NEW.status IS DISTINCT FROM 'generated'
+     OR (TG_OP = 'UPDATE' AND OLD.status = 'generated') THEN
     RETURN NEW;
   END IF;
 
@@ -52,8 +55,11 @@ BEGIN
     SELECT 1
       FROM public.notifications AS notification
      WHERE notification.user_id = NEW.user_id
-       AND notification.type = 'weekly_focus_reflection'
-       AND COALESCE(notification.action_data, '{}'::jsonb) @> jsonb_build_object('key', v_dedupe_key)
+       AND notification.type = 'reminder'
+       AND COALESCE(notification.action_data, '{}'::jsonb) @> jsonb_build_object(
+         'kind', 'weekly_focus_reflection',
+         'key', v_dedupe_key
+       )
   ) THEN
     RETURN NEW;
   END IF;
@@ -70,7 +76,7 @@ BEGIN
     is_read
   ) VALUES (
     NEW.user_id,
-    'weekly_focus_reflection',
+    'reminder',
     'Como foi carregar seu foco nesta semana?',
     format(
       'Se fizer sentido, conte se “%s” teve algum valor para você. É uma reflexão opcional, não uma avaliação.',
@@ -80,6 +86,7 @@ BEGIN
     'home',
     'low',
     jsonb_build_object(
+      'kind', 'weekly_focus_reflection',
       'key', v_dedupe_key,
       'week_start', v_week_start,
       'week_end', NEW.period_end::date,
@@ -119,4 +126,4 @@ EXECUTE FUNCTION public.enqueue_weekly_focus_reflection_notification();
 REVOKE ALL ON FUNCTION public.enqueue_weekly_focus_reflection_notification() FROM PUBLIC;
 
 COMMENT ON FUNCTION public.enqueue_weekly_focus_reflection_notification() IS
-  'Cria um único convite in-app para refletir sobre um Foco da Semana ainda aberto quando o relatório semanal correspondente fica disponível. Sem e-mail, ausência, gamificação ou texto livre.';
+  'Cria um único lembrete in-app para refletir sobre um Foco da Semana ainda aberto quando o relatório semanal correspondente fica disponível. Sem e-mail, ausência, gamificação ou texto livre.';
