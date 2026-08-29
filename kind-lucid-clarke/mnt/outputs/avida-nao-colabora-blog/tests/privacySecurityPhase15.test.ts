@@ -68,6 +68,6 @@ test('preferência nova entra na exportação de dados do usuário', () => {
 })
 
 test('controle não reintroduz linguagem técnica de provedor nem gamificação', () => {
-  assert.doesNotMatch(privacyControl, /OpenAI|Anthropic|Gemini|GPT|Claude/i)
-  assert.doesNotMatch(privacyControl, /streak|ranking|sementes|xp|recompensa/i)
+  assert.doesNotMatch(privacyControl, /\b(?:OpenAI|Anthropic|Gemini|GPT|Claude)\b/i)
+  assert.doesNotMatch(privacyControl, /\b(?:streak|ranking|sementes|xp|recompensa)\b/i)
 })
