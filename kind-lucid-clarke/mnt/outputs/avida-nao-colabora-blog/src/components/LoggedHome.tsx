@@ -127,7 +127,7 @@ function dominantMood(entries: HomeEntry[]) {
 }
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
-  const plan = normalizePlan(profile?.plan)
+  const plan: PlanKey = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
   const lastSeven = getLastSevenDays()
@@ -357,7 +357,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               </div>
 
               <div className="mt-5 pt-4 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-soft">
-                <span>{nextStep.eyebrow}</span>
+                <span className="inline-flex items-center gap-1.5"><NotebookPen className="w-3.5 h-3.5" /> {nextStep.eyebrow}</span>
                 {plan === 'free' && stats.diaryLimit != null ? (
                   <span>Diário básico: {stats.diaryThisMonth}/{stats.diaryLimit} neste mês · check-ins ilimitados</span>
                 ) : (
