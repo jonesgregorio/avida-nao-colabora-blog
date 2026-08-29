@@ -322,7 +322,7 @@ test('Perfil usa continuidade recente em vez de sequência obrigatória', async 
 
 test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha História', async ({ page }) => {
   await openLoggedRoute(page, '/', { width: 390, height: 844 })
-  await expect(page.getByRole('button', { name: 'Hoje' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hoje', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Diário' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Mapa' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Conteúdos' })).toBeVisible()
