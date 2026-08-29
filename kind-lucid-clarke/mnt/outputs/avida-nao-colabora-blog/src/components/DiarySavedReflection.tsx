@@ -7,6 +7,7 @@ import { fetchDiaryPatternInsight, type DiaryPatternEntry, type DiaryPatternInsi
 import type { Signal } from '../lib/contentRecommendation'
 import { hasPlanAccess } from '../lib/officialPlans'
 import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
+import { trackRetentionEvent } from '../lib/retentionAnalytics'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 
@@ -48,6 +49,8 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
   const meta = moodMeta(saved.entry.mood)
   const suggestedCount = saved.mirror ? Object.values(saved.mirror.suggested_tags).reduce((sum, arr) => sum + arr.length, 0) : 0
   const plusAccess = hasPlanAccess(plan, 'plus')
+  const retentionEntry = saved.entry as { id?: string; created_at?: string; date?: string }
+  const retentionEntryKey = retentionEntry.id ?? retentionEntry.created_at ?? `${saved.kind}:${retentionEntry.date ?? 'current'}`
   const patternSourceKey = JSON.stringify({
     id: (saved.entry as DiaryPatternEntry).id ?? null,
     date: (saved.entry as DiaryPatternEntry).date ?? null,
@@ -57,6 +60,24 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
     need_tags: (saved.entry as DiaryPatternEntry).need_tags ?? [],
     trigger_tags: (saved.entry as DiaryPatternEntry).trigger_tags ?? [],
   })
+
+  useEffect(() => {
+    if (!user) return
+    trackRetentionEvent(saved.kind === 'checkin' ? 'checkin_complete' : 'diary_entry', {
+      userId: user.id,
+      dedupeKey: retentionEntryKey,
+      metadata: { surface: 'diary' },
+    })
+  }, [retentionEntryKey, saved.kind, user])
+
+  useEffect(() => {
+    if (!user || !patternInsight) return
+    trackRetentionEvent('diary_pattern_view', {
+      userId: user.id,
+      dedupeKey: retentionEntryKey,
+      metadata: { surface: 'diary' },
+    })
+  }, [patternInsight, retentionEntryKey, user])
 
   useEffect(() => {
     if (saved.kind !== 'diary' || !user || !plusAccess || todayDeepened) {

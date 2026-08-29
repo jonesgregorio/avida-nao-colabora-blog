@@ -3,6 +3,7 @@ import { ArrowRight, CalendarRange, Check, Loader2, RotateCcw, Sparkles } from '
 import { formatPeriodShort, getCurrentWeeklyPeriod } from '../lib/reportPeriods'
 import { hasPlanAccess, type PlanKey } from '../lib/officialPlans'
 import { buildWeeklyFocusSuggestions, type WeeklyFocusEntry, type WeeklyFocusSuggestion } from '../lib/weeklyFocus'
+import { trackRetentionEvent } from '../lib/retentionAnalytics'
 import {
   closeWeeklyFocus,
   loadWeeklyFocusState,
@@ -69,6 +70,11 @@ export default function WeeklyFocusCard({ userId, plan, entries }: Props) {
     setSaving(true)
     try {
       const saved = await saveWeeklyFocus(userId, period.start, suggestion)
+      trackRetentionEvent('weekly_focus_saved', {
+        userId,
+        dedupeKey: saved.id,
+        metadata: { surface: 'home', source: suggestion.source === 'history' ? 'history' : 'general' },
+      })
       setCurrent(saved)
       setChoosing(false)
     } catch {
@@ -83,6 +89,11 @@ export default function WeeklyFocusCard({ userId, plan, entries }: Props) {
     setSaving(true)
     try {
       await closeWeeklyFocus(userId, previousOpen.id, outcome)
+      trackRetentionEvent('weekly_focus_reflected', {
+        userId,
+        dedupeKey: previousOpen.id,
+        metadata: { surface: 'home' },
+      })
       setPreviousOpen(null)
     } catch {
       setFailed(true)

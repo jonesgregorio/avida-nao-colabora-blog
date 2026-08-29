@@ -1,3 +1,4 @@
+import AdminRetentionAnalytics from './AdminRetentionAnalytics'
 import AdminConversionFunnel from './AdminConversionFunnel'
 import AnalyticsPageLegacy from './AnalyticsPageLegacy'
 
@@ -8,6 +9,7 @@ interface AnalyticsPageProps {
 export default function AnalyticsPage(props: AnalyticsPageProps) {
   return (
     <>
+      <AdminRetentionAnalytics />
       <div className="max-w-7xl mx-auto w-full px-6 pt-8">
         <AdminConversionFunnel />
       </div>
