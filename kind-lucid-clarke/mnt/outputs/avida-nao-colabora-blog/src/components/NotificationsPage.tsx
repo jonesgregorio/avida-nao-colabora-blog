@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { NOTIF_DESTINATION, resolveNotifDestination } from '../lib/notifications'
 import {
   Bell, MessageCircle, BarChart3, Sprout, BookOpen, Crown, CheckCheck, Sparkles,
+  RotateCcw, NotebookPen,
 } from 'lucide-react'
 
 interface Notif {
@@ -14,6 +15,7 @@ interface Notif {
   type: string
   is_read: boolean
   action_url?: string | null
+  action_data?: Record<string, unknown> | null
   created_at: string
 }
 
@@ -27,11 +29,14 @@ const TYPE_META: Record<string, { Icon: typeof Bell; color: string; bg: string }
   support_reply:        { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
   monthly_guidance:     { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
   professional_comment: { Icon: Crown,         color: 'text-[#8a6d1f]', bg: 'bg-amber-100' },
+  weekly_report:        { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
   monthly_report:       { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
   self_care_review:     { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
   content:              { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
   personalized_content: { Icon: Sparkles,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
+  reminder:             { Icon: NotebookPen,   color: 'text-forest-700', bg: 'bg-mint' },
 }
+const WEEKLY_FOCUS_META = { Icon: RotateCcw, color: 'text-forest-700', bg: 'bg-lilac/60' }
 const DEFAULT_META = { Icon: Bell, color: 'text-forest-700', bg: 'bg-mint' }
 
 function timeAgo(iso: string): string {
@@ -116,7 +121,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
           <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
             Notificações <Bell className="w-6 h-6 text-forest-400" />
           </h1>
-          <p className="mt-2 text-ink-soft">Acompanhe respostas, comentários, relatórios e novidades num só lugar.</p>
+          <p className="mt-2 text-ink-soft">Respostas, relatórios e convites úteis para retomar sua experiência ficam reunidos aqui.</p>
         </div>
         {unreadOwn.length > 0 && (
           <button
@@ -161,7 +166,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
         <div className="bg-paper-soft border border-line rounded-3xl p-10 text-center">
           <Bell className="w-10 h-10 text-forest-300 mx-auto mb-3" />
           <p className="font-serif text-lg text-forest-900">Você ainda não tem notificações.</p>
-          <p className="text-sm text-ink-soft mt-1">Quando algo novo acontecer — uma resposta, um relatório ou um novo conteúdo — você vê por aqui.</p>
+          <p className="text-sm text-ink-soft mt-1">Quando houver uma resposta, um relatório ou algo útil para retomar, você vê por aqui.</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-paper-soft border border-line rounded-3xl p-10 text-center">
@@ -172,7 +177,8 @@ export default function NotificationsPage({ user, navigate }: Props) {
       ) : (
         <ul className="space-y-2">
           {visible.map(n => {
-            const meta = TYPE_META[n.type] ?? DEFAULT_META
+            const isWeeklyFocusReflection = n.type === 'reminder' && n.action_data?.kind === 'weekly_focus_reflection'
+            const meta = isWeeklyFocusReflection ? WEEKLY_FOCUS_META : (TYPE_META[n.type] ?? DEFAULT_META)
             const unread = !n.is_read && !!n.user_id
             const text = n.message || n.body || ''
             const clickable = !!n.action_url || !!NOTIF_DESTINATION[n.type]
