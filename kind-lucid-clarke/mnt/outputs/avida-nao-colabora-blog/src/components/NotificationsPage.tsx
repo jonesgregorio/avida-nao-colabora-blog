@@ -197,7 +197,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm text-forest-900 ${unread ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
                     {text && <p className="text-sm text-ink-soft leading-snug mt-0.5 line-clamp-2">{text}</p>}
-                    <p className="text-[11px] text-ink-soft/70 mt-1">{timeAgo(n.created_at)}</p>
+                    <p className="text-[11px] text-ink-soft mt-1">{timeAgo(n.created_at)}</p>
                   </div>
                   {unread && <span className="w-2.5 h-2.5 rounded-full bg-[#c05f3c] flex-shrink-0 mt-1.5" aria-label="Não lida" />}
                 </button>
