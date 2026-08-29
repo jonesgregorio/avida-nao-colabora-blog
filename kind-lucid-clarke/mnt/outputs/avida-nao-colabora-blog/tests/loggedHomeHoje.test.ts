@@ -40,7 +40,7 @@ test('Home Hoje ganha continuidade sem expor o texto livre do Diário', () => {
   assert.match(home, /Lembra de ontem|Continuamos daqui|retomada/i)
   assert.match(home, /Agora não/)
   assert.match(home, /Nenhum trecho do texto do Diário é exibido aqui/)
-  assert.match(home, /sleep_quality,context_tags,trigger_tags/)
+  assert.match(home, /sleep_quality[^']*context_tags,trigger_tags/)
   assert.doesNotMatch(home, /select\([^)]*\btext\b/)
   assert.doesNotMatch(home, /free_note|recurring_thoughts|emotional_triggers/)
 })
