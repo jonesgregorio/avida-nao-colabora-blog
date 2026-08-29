@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import {
-  NotebookPen, LineChart, BookOpen, Sprout, MessageCircle, CreditCard,
-  BarChart3, TrendingUp, ClipboardList, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf, Lock,
+  ArrowRight, BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Leaf,
+  LineChart, Lock, NotebookPen, Sparkles, Sprout,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
@@ -12,11 +11,60 @@ import { fetchDiaryConfig } from '../lib/diaryConfig'
 import { ymd } from '../lib/reportPeriods'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
+import RecommendedContent from './RecommendedContent'
 
 interface LoggedHomeProps {
   user: User | null
   profile: Profile | null
-  onNavigate: (section: string) => void
+  onNavigate: (section: string, articleSlug?: string) => void
+}
+
+interface HomeEntry {
+  created_at?: string | null
+  entry_type?: string | null
+  diary_kind?: string | null
+  date?: string | null
+  mood?: string | number | null
+  energy?: number | null
+  anxiety_level?: number | null
+}
+
+interface HomeStats {
+  activeDays30: number
+  activeDays7: number
+  activeDayKeys: string[]
+  checkins30: number
+  reflections30: number
+  checkins7: number
+  reflections7: number
+  diaryThisMonth: number
+  diaryLimit: number | null
+  todayEntries: number
+  todayCheckins: number
+  todayReflections: number
+  latestMood: string | null
+  latestCreatedAt: string | null
+  dominantMood7: string | null
+  loaded: boolean
+}
+
+const EMPTY_STATS: HomeStats = {
+  activeDays30: 0,
+  activeDays7: 0,
+  activeDayKeys: [],
+  checkins30: 0,
+  reflections30: 0,
+  checkins7: 0,
+  reflections7: 0,
+  diaryThisMonth: 0,
+  diaryLimit: null,
+  todayEntries: 0,
+  todayCheckins: 0,
+  todayReflections: 0,
+  latestMood: null,
+  latestCreatedAt: null,
+  dominantMood7: null,
+  loaded: false,
 }
 
 function greeting() {
@@ -26,293 +74,474 @@ function greeting() {
   return 'Boa noite'
 }
 
-interface QuickItem {
-  title: string
-  desc: string
-  to: string
-  Icon: LucideIcon
-  /** Ausente = disponível em todos os planos (§3). */
-  requiredPlan?: 'essential' | 'plus'
-  /** Card com dica contextual própria (contador do diário / prévia do mapa). */
-  hintKind?: 'diary' | 'mapa'
+function todayLabel() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(new Date())
 }
 
-// Atalhos — SOMENTE funções que existem nos planos oficiais. Relatório semanal
-// e mensal viram cards separados (mesma página my-report) porque respondem
-// perguntas diferentes e têm disponibilidade diferente por plano (§1/§3).
-const QUICK: QuickItem[] = [
-  { title: 'Diário',               desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',            Icon: NotebookPen,   hintKind: 'diary' },
-  { title: 'Questionários',        desc: 'Autopercepção guiada, no seu tempo.',            to: 'questionarios',    Icon: ClipboardList },
-  { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',     Icon: LineChart,     hintKind: 'mapa' },
-  { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',         Icon: BookOpen },
-  { title: 'Relatório semanal',    desc: 'Resumo leve do que sua semana mostrou.',         to: 'my-report',        Icon: BarChart3,     requiredPlan: 'essential' },
-  { title: 'Relatório mensal',     desc: 'Leitura mais profunda dos padrões do mês.',      to: 'my-report',        Icon: TrendingUp,    requiredPlan: 'plus' },
-  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'self-care',        Icon: Sprout,        requiredPlan: 'plus' },
-  { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance', Icon: MessageCircle, requiredPlan: 'plus' },
-  { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',          Icon: CreditCard },
-]
+function timeLabel(value: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
+}
 
-interface HomeStats { presence: number; checkins: number; reflections: number; diaryThisMonth: number; diaryLimit: number | null; loaded: boolean }
+function entryDay(entry: HomeEntry) {
+  const explicit = String(entry.date ?? '').slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit
+  if (!entry.created_at) return ''
+  const date = new Date(entry.created_at)
+  return Number.isNaN(date.getTime()) ? '' : ymd(date)
+}
 
-// Dica contextual por card: bloqueio por plano tem prioridade; senão, cards com
-// hintKind mostram contador (diário) ou nível de acesso (mapa). null = sem dica.
-function quickHint(item: QuickItem, plan: PlanKey, stats: HomeStats): { text: string; locked: boolean } | null {
-  if (item.requiredPlan && !hasPlanAccess(plan, item.requiredPlan)) {
-    return { text: item.requiredPlan === 'plus' ? 'Disponível no Plus' : 'Disponível no Essencial', locked: true }
+function moodLabel(key: string | null) {
+  if (!key) return null
+  return MOODS.find(m => m.key === key)?.label ?? null
+}
+
+function getLastSevenDays() {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date()
+    date.setHours(12, 0, 0, 0)
+    date.setDate(date.getDate() - (6 - index))
+    return {
+      key: ymd(date),
+      label: new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(date).replace('.', '').slice(0, 3),
+      day: new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(date),
+      isToday: index === 6,
+    }
+  })
+}
+
+function dominantMood(entries: HomeEntry[]) {
+  const counts = new Map<string, number>()
+  for (const entry of entries) {
+    const mood = String(entry.mood ?? '')
+    if (!MOODS.some(item => item.key === mood)) continue
+    counts.set(mood, (counts.get(mood) ?? 0) + 1)
   }
-  if (item.hintKind === 'diary') {
-    if (plan !== 'free') return { text: 'Ilimitado', locked: false }
-    return stats.diaryLimit != null ? { text: `${stats.diaryThisMonth}/${stats.diaryLimit} este mês`, locked: false } : null
-  }
-  if (item.hintKind === 'mapa' && plan === 'free') return { text: 'Prévia', locked: false }
-  return null
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
-  const plan = normalizePlan(profile?.plan)
+  const plan: PlanKey = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
-  const [stats, setStats] = useState<HomeStats>({ presence: 0, checkins: 0, reflections: 0, diaryThisMonth: 0, diaryLimit: null, loaded: false })
+  const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
+  const lastSeven = getLastSevenDays()
+  const todayKey = ymd(new Date())
 
   useEffect(() => {
     if (!user) return
     let active = true
+
     ;(async () => {
-      const since = new Date(Date.now() - 30 * 864e5).toISOString()
-      const [{ data }, diaryCfg] = await Promise.all([
-        supabase.from('diary_entries').select('created_at,entry_type,diary_kind,date').eq('user_id', user.id).gte('created_at', since),
-        fetchDiaryConfig(profile?.plan ?? 'free'),
-      ])
-      if (!active) return
-      const entries = (data ?? []) as { created_at?: string; entry_type?: string; diary_kind?: string; date?: string }[]
-      const days = new Set(entries.map(e => String(e.created_at ?? '').slice(0, 10)))
-      // Separa check-ins rápidos de reflexões completas (§8) para os números baterem
-      // com o que cada registro realmente é.
-      const checkins = entries.filter(e => e.entry_type === 'checkin').length
-      const reflections = entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
-      // Mesma regra de mês-calendário usada no Diário: para o Gratuito, o
-      // contador considera exclusivamente registros básicos; check-ins e
-      // complementos nunca consomem a franquia.
-      const monthKey = ymd(new Date()).slice(0, 7)
-      const diaryThisMonth = entries.filter(e =>
-        (e.entry_type ?? 'diary') === 'diary' && e.diary_kind === 'basic' && String(e.date ?? '').startsWith(monthKey),
-      ).length
-      setStats({
-        presence: Math.min(100, Math.round((days.size / 30) * 100)),
-        checkins,
-        reflections,
-        diaryThisMonth,
-        diaryLimit: diaryCfg.entriesPerMonth,
-        loaded: true,
-      })
+      try {
+        const since = new Date(Date.now() - 30 * 864e5).toISOString()
+        const [{ data }, diaryCfg] = await Promise.all([
+          supabase
+            .from('diary_entries')
+            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level')
+            .eq('user_id', user.id)
+            .gte('created_at', since)
+            .order('created_at', { ascending: false }),
+          fetchDiaryConfig(profile?.plan ?? 'free'),
+        ])
+        if (!active) return
+
+        const entries = (data ?? []) as HomeEntry[]
+        const keys7 = new Set(lastSeven.map(day => day.key))
+        const days30 = new Set(entries.map(entryDay).filter(Boolean))
+        const entries7 = entries.filter(entry => keys7.has(entryDay(entry)))
+        const todayEntries = entries.filter(entry => entryDay(entry) === todayKey)
+        const latest = todayEntries[0] ?? null
+        const monthKey = todayKey.slice(0, 7)
+        const diaryThisMonth = entries.filter(entry =>
+          (entry.entry_type ?? 'diary') === 'diary' &&
+          entry.diary_kind === 'basic' &&
+          entryDay(entry).startsWith(monthKey),
+        ).length
+
+        setStats({
+          activeDays30: days30.size,
+          activeDays7: new Set(entries7.map(entryDay).filter(Boolean)).size,
+          activeDayKeys: [...days30],
+          checkins30: entries.filter(entry => entry.entry_type === 'checkin').length,
+          reflections30: entries.filter(entry => (entry.entry_type ?? 'diary') === 'diary').length,
+          checkins7: entries7.filter(entry => entry.entry_type === 'checkin').length,
+          reflections7: entries7.filter(entry => (entry.entry_type ?? 'diary') === 'diary').length,
+          diaryThisMonth,
+          diaryLimit: diaryCfg.entriesPerMonth,
+          todayEntries: todayEntries.length,
+          todayCheckins: todayEntries.filter(entry => entry.entry_type === 'checkin').length,
+          todayReflections: todayEntries.filter(entry => (entry.entry_type ?? 'diary') === 'diary').length,
+          latestMood: latest?.mood != null ? String(latest.mood) : null,
+          latestCreatedAt: latest?.created_at ?? null,
+          dominantMood7: dominantMood(entries7),
+          loaded: true,
+        })
+      } catch {
+        if (active) setStats(current => ({ ...current, loaded: true }))
+      }
     })()
+
     return () => { active = false }
+    // lastSeven/todayKey intentionally represent the day when the Home mounted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile?.plan])
 
-  const upgrade =
-    plan === 'free'
-      ? { text: 'Desbloqueie o Mapa emocional completo, os conteúdos guiados e o relatório semanal.', cta: 'Conhecer o Essencial' }
-      : plan === 'essential'
-        ? { text: 'Ative o Plano de autocuidado, o Relatório aprofundado e a Orientação profissional.', cta: 'Conhecer o Plus' }
-        : null
+  const latestMoodName = moodLabel(stats.latestMood)
+  const dominantMoodName = moodLabel(stats.dominantMood7)
+  const latestTime = timeLabel(stats.latestCreatedAt)
+  const weeklyAccess = hasPlanAccess(plan, 'essential')
+  const selfCareAccess = hasPlanAccess(plan, 'plus')
+
+  const nextStep = !stats.loaded || stats.todayEntries === 0
+    ? {
+        eyebrow: '1 minuto para você',
+        title: 'Faça seu primeiro registro de hoje',
+        description: 'Comece pelo que está acontecendo agora. Não precisa explicar tudo nem chegar a nenhuma conclusão.',
+        action: 'Fazer check-in',
+        target: 'diary',
+        secondary: 'Quero escrever',
+      }
+    : stats.todayReflections === 0
+      ? {
+          eyebrow: 'Você já começou',
+          title: 'Quer colocar esse momento em palavras?',
+          description: latestMoodName
+            ? `Seu registro mais recente marcou ${latestMoodName.toLowerCase()}. Se fizer sentido, você pode escrever um pouco sobre o que está por trás disso.`
+            : 'Seu check-in de hoje já está salvo. Se fizer sentido, você pode escrever um pouco sobre o que está por trás dele.',
+          action: 'Escrever no diário',
+          target: 'diary',
+          secondary: 'Ver meu mapa',
+        }
+      : {
+          eyebrow: 'Seu momento está registrado',
+          title: 'Agora você pode apenas seguir o dia — ou olhar com mais distância',
+          description: 'Seu registro de hoje já faz parte da sua história. O Mapa Emocional reúne esses momentos para mostrar o que vem aparecendo ao longo do tempo.',
+          action: 'Ver meus padrões',
+          target: 'my-evolution',
+          secondary: 'Registrar como estou agora',
+        }
+
+  const nextSecondaryTarget = stats.todayEntries === 0
+    ? 'diary'
+    : stats.todayReflections === 0
+      ? 'my-evolution'
+      : 'diary'
+
+  const weekSummary = stats.activeDays7 === 0
+    ? 'Ainda não há registros nos últimos 7 dias. O próximo registro já cria um novo ponto para você observar depois.'
+    : stats.activeDays7 === 1
+      ? 'Há um dia registrado nesta semana. É um começo suficiente — não existe sequência obrigatória por aqui.'
+      : dominantMoodName
+        ? `Você registrou algo em ${stats.activeDays7} dos últimos 7 dias. Entre os estados marcados, ${dominantMoodName.toLowerCase()} está entre os que mais apareceram.`
+        : `Você registrou algo em ${stats.activeDays7} dos últimos 7 dias. Aos poucos, esses pontos deixam sua visão do período mais completa.`
+
+  const upgrade = plan === 'free'
+    ? { label: 'Conhecer o Essencial', text: 'O Essencial libera a leitura semanal completa e o Mapa Emocional sem limitações.' }
+    : plan === 'essential'
+      ? { label: 'Conhecer o Plus', text: 'O Plus acrescenta relatório mensal aprofundado, plano de autocuidado e orientação.' }
+      : null
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 lg:gap-6">
-        {/* ─── Coluna principal ─── */}
-        <div className="space-y-5 min-w-0">
-          {/* Boas-vindas */}
-          <div className="grid sm:grid-cols-2 bg-paper-soft border border-line rounded-3xl overflow-hidden">
-            <div className="p-6 sm:p-7 flex flex-col justify-center">
-              <h1 className="font-serif text-2xl sm:text-3xl text-forest-900 flex items-center gap-2">
-                {greeting()}, <span className="capitalize">{name}</span>! <Leaf className="w-5 h-5 text-forest-400" />
-              </h1>
-              <p className="mt-2 text-sm text-ink-soft leading-relaxed">
-                Que bom ter você aqui. Que tal reservar alguns minutos hoje para cuidar de você com gentileza e presença?
-              </p>
-              <button
-                onClick={() => onNavigate('diary')}
-                className="mt-5 self-start inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
-              >
-                Começar meu momento <Sparkles className="w-4 h-4" />
-              </button>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8 space-y-6">
+      {/* ─── Hoje: entrada diária ─── */}
+      <section className="relative overflow-hidden rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50">
+        <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/50 blur-2xl" aria-hidden />
+        <div className="relative grid lg:grid-cols-[1fr_300px] gap-6 p-5 sm:p-7 lg:p-8">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft mb-4">
+              <span className="inline-flex items-center gap-1.5 bg-white/70 border border-line rounded-full px-3 py-1.5 capitalize">
+                <CalendarDays className="w-3.5 h-3.5 text-forest-600" /> {todayLabel()}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Leaf className="w-3.5 h-3.5 text-forest-500" /> Seu espaço de hoje
+              </span>
             </div>
-            <div className="hidden sm:block bg-mint min-h-[200px]">
-              <img
-                src="https://images.unsplash.com/photo-1495197359483-d092478c170a?w=700&q=80"
-                alt=""
-                className="w-full h-full object-cover"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
-          </div>
 
-          {/* Check-in */}
-          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900">Como você está se sentindo hoje?</h2>
-            <p className="text-sm text-ink-soft mt-1 mb-4">Faça um check-in rápido e registre como está se sentindo agora.</p>
-            <div className="flex flex-wrap gap-2">
-              {MOODS.map(m => (
-                <MoodChip key={m.key} mood={m} active={false} onClick={() => onNavigate(`diary?mood=${m.key}`)} />
+            <p className="text-sm font-medium text-forest-700">{greeting()}, <span className="capitalize">{name}</span>.</p>
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] leading-[1.08] text-forest-900 mt-1.5 max-w-2xl">
+              Como a vida colaborou hoje?
+            </h1>
+            <p className="text-sm sm:text-base text-ink-soft mt-3 max-w-2xl leading-relaxed">
+              Não precisa estar tudo bem. Escolha o estado que mais combina com o seu momento agora e continue a partir daí.
+            </p>
+
+            <div className="flex flex-wrap gap-2 mt-5" aria-label="Como você está agora">
+              {MOODS.map(mood => (
+                <MoodChip
+                  key={mood.key}
+                  mood={mood}
+                  active={stats.latestMood === mood.key && stats.todayEntries > 0}
+                  onClick={() => onNavigate(`diary?mood=${mood.key}`)}
+                />
               ))}
             </div>
-          </section>
+          </div>
 
-          {/* Jornada emocional: cada atalho explica seu papel no cuidado. */}
-          <section>
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900 px-1">Minha rotina emocional</h2>
-            <p className="text-sm text-ink-soft mt-1 mb-3 px-1">Registre, perceba seus padrões e escolha pequenos próximos passos no seu tempo.</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {QUICK.map(q => {
-                const hint = quickHint(q, plan, stats)
-                return (
-                  <button
-                    key={q.title}
-                    onClick={() => onNavigate(q.to)}
-                    className="group text-left bg-paper-soft border border-line rounded-2xl p-4 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-                  >
-                    <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 mb-3">
-                      <q.Icon className="w-5 h-5" />
-                    </span>
-                    <p className="font-serif text-base text-forest-900 leading-tight">{q.title}</p>
-                    <p className="text-xs text-ink-soft mt-1 leading-snug line-clamp-2">{q.desc}</p>
-                    {hint && (
-                      <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${hint.locked ? 'bg-stone-100 text-stone-500' : 'bg-mint text-forest-700'}`}>
-                        {hint.locked && <Lock className="w-2.5 h-2.5" />} {hint.text}
-                      </span>
-                    )}
-                    <ArrowRight className="w-4 h-4 text-ink-soft mt-2 group-hover:translate-x-0.5 group-hover:text-forest-700 transition-all" />
-                  </button>
-                )
-              })}
-              {/* Novo check-in — destaque */}
-              <button
-                onClick={() => onNavigate('diary')}
-                className="group text-left bg-forest-900 text-white rounded-2xl p-4 hover:bg-forest-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-              >
-                <span className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center mb-3">
-                  <NotebookPen className="w-5 h-5" />
-                </span>
-                <p className="font-serif text-base leading-tight">Novo check-in</p>
-                <p className="text-xs text-white/70 mt-1 leading-snug">Como você está agora? Registre e acompanhe.</p>
-                <ArrowRight className="w-4 h-4 text-white/80 mt-2 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-          </section>
-
-          {/* Convite de upgrade */}
-          {upgrade && (
-            <div className="bg-forest-900 rounded-3xl px-6 py-6 text-white flex flex-col sm:flex-row sm:items-center gap-4">
-              <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </span>
-              <p className="flex-1 text-sm leading-relaxed text-forest-50">{upgrade.text}</p>
-              <button
-                onClick={() => onNavigate('pricing')}
-                className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap"
-              >
-                {upgrade.cta} <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <div className="lg:self-stretch rounded-3xl bg-white/80 border border-white shadow-sm p-5 flex flex-col justify-between">
+            {stats.todayEntries > 0 ? (
+              <>
+                <div>
+                  <span className="w-10 h-10 rounded-2xl bg-mint text-forest-700 flex items-center justify-center mb-4">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </span>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-forest-600">Você já passou por aqui hoje</p>
+                  <p className="font-serif text-xl text-forest-900 mt-1.5">
+                    {latestMoodName ? latestMoodName : 'Seu registro está salvo'}
+                  </p>
+                  <p className="text-sm text-ink-soft mt-2 leading-relaxed">
+                    {latestTime ? `Último registro às ${latestTime}. ` : ''}Você pode voltar quantas vezes precisar — sem ter que recomeçar o dia.
+                  </p>
+                </div>
+                <button
+                  onClick={() => onNavigate('diary')}
+                  className="mt-5 inline-flex items-center justify-between gap-3 text-sm font-medium text-forest-800 bg-mint/70 hover:bg-mint rounded-2xl px-4 py-3 transition-colors"
+                >
+                  Continuar meu registro <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="w-10 h-10 rounded-2xl bg-sand-100 text-forest-700 flex items-center justify-center mb-4">
+                    <Clock3 className="w-5 h-5" />
+                  </span>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-forest-600">Seu momento de hoje</p>
+                  <p className="font-serif text-xl text-forest-900 mt-1.5">Hoje ainda está em branco</p>
+                  <p className="text-sm text-ink-soft mt-2 leading-relaxed">
+                    Um check-in rápido já é suficiente. Você decide se quer parar por aí ou continuar escrevendo.
+                  </p>
+                </div>
+                <button
+                  onClick={() => onNavigate('diary')}
+                  className="mt-5 inline-flex items-center justify-between gap-3 text-sm font-medium text-white bg-forest-900 hover:bg-forest-800 rounded-2xl px-4 py-3 transition-colors"
+                >
+                  Começar meu momento <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
+      </section>
 
-        {/* ─── Coluna lateral ─── */}
-        <aside className="space-y-5">
-          {/* Sua evolução emocional */}
-          <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-serif text-lg text-forest-900">Sua evolução emocional</h2>
-              <button onClick={() => onNavigate('my-report')} className="text-xs text-forest-700 hover:underline flex items-center gap-1">
-                Ver relatório <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="flex items-center gap-4">
-              <ProgressRing value={stats.presence} />
-              <div className="space-y-2 text-sm">
-                <StatLine icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label="Check-ins" />
-                <StatLine icon={<NotebookPen className="w-4 h-4" />} value={stats.reflections} label="Reflexões no diário" />
+      {/* ─── Próximo passo + ritmo recente ─── */}
+      <div className="grid lg:grid-cols-[1fr_340px] gap-5 lg:gap-6">
+        <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6 lg:p-7">
+          <div className="flex items-start gap-4">
+            <span className="w-11 h-11 rounded-2xl bg-forest-900 text-white flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu próximo passo</p>
+              <h2 className="font-serif text-2xl text-forest-900 mt-1">{nextStep.title}</h2>
+              <p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-2xl">{nextStep.description}</p>
+
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <button
+                  onClick={() => onNavigate(nextStep.target)}
+                  className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+                >
+                  {nextStep.action} <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onNavigate(nextSecondaryTarget)}
+                  className="inline-flex items-center gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
+                >
+                  {nextStep.secondary}
+                </button>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-soft">
+                <span className="inline-flex items-center gap-1.5"><NotebookPen className="w-3.5 h-3.5" /> {nextStep.eyebrow}</span>
+                {plan === 'free' && stats.diaryLimit != null ? (
+                  <span>Diário básico: {stats.diaryThisMonth}/{stats.diaryLimit} neste mês · check-ins ilimitados</span>
+                ) : (
+                  <span>Diário completo disponível no seu plano</span>
+                )}
               </div>
             </div>
-            <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">
-              {stats.loaded && stats.checkins > 0
-                ? 'Você está evoluindo com consistência e isso já faz toda a diferença. 🌿'
-                : 'Um pequeno registro por dia já é um ato de cuidado. Comece quando quiser. 🌿'}
-            </p>
+          </div>
+        </section>
+
+        <aside className="rounded-3xl border border-line bg-sand-50 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu ritmo recente</p>
+              <h2 className="font-serif text-xl text-forest-900 mt-1">{stats.activeDays7} de 7 dias</h2>
+            </div>
+            <span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center">
+              <CalendarDays className="w-5 h-5" />
+            </span>
           </div>
 
-          {/* Frase */}
-          <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <p className="font-serif text-lg text-forest-900 leading-snug">
-              "Você não precisa dar conta de tudo hoje. Um passo de cada vez já é progresso."
-            </p>
-            <p className="text-xs text-ink-soft mt-3">A Vida Não Colabora</p>
+          <div className="grid grid-cols-7 gap-1.5 mt-5">
+            {lastSeven.map(day => {
+              const active = stats.activeDayKeys.includes(day.key)
+              return (
+                <div key={day.key} className="text-center">
+                  <span className="block text-[9px] uppercase text-ink-soft mb-1.5">{day.label}</span>
+                  <span
+                    aria-label={`${day.key}: ${active ? 'com registro' : 'sem registro'}`}
+                    className={`mx-auto w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold border transition-colors ${
+                      active
+                        ? 'bg-forest-900 border-forest-900 text-white'
+                        : day.isToday
+                          ? 'bg-white border-forest-300 text-forest-700'
+                          : 'bg-white/70 border-line text-ink-soft'
+                    }`}
+                  >
+                    {day.day}
+                  </span>
+                </div>
+              )
+            })}
           </div>
 
-          {/* Sugestão */}
-          <button
-            onClick={() => onNavigate('articles')}
-            className="group block w-full text-left bg-paper-soft border border-line rounded-3xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all"
-          >
-            <div className="aspect-[16/9] bg-mint overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=600&q=80"
-                alt=""
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
-            <div className="p-5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-forest-600">Sugestão para você</span>
-              <p className="font-serif text-lg text-forest-900 mt-1 leading-snug">Conteúdos que acolhem o seu momento</p>
-              <p className="text-sm text-ink-soft mt-1 leading-relaxed">Práticas e leituras curtas para atravessar o dia com mais leveza.</p>
-              <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700">
-                Explorar conteúdos <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </div>
-          </button>
+          <p className="text-xs text-ink-soft mt-4 leading-relaxed">
+            Sem sequência obrigatória. Cada retorno conta, inclusive depois de alguns dias longe.
+          </p>
+          <div className="mt-4 rounded-2xl bg-white/70 border border-line px-4 py-3 text-xs text-ink-soft">
+            Últimos 30 dias: <strong className="font-semibold text-forest-900">{stats.activeDays30} dias</strong> com algum registro.
+          </div>
         </aside>
       </div>
 
-      {/* Banner acolhedor */}
-      <div className="mt-6 rounded-3xl border border-line bg-mint/40 px-5 sm:px-6 py-4 flex items-center gap-4">
-        <span className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0 text-forest-600">
-          <HeartHandshake className="w-5 h-5" />
-        </span>
-        <p className="text-sm text-forest-800 leading-relaxed">
-          <strong className="font-medium">Você encontra apoio aqui.</strong> Este é um espaço seguro para você se ouvir, se cuidar e seguir no seu tempo.
-        </p>
-      </div>
-    </div>
-  )
-}
+      {/* ─── Visão objetiva da semana ─── */}
+      <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-5">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Últimos 7 dias</p>
+            <h2 className="font-serif text-2xl text-forest-900 mt-1">Uma visão simples antes das análises</h2>
+            <p className="text-sm text-ink-soft mt-2 leading-relaxed">{weekSummary}</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <span className="text-xs bg-mint/60 text-forest-800 rounded-full px-3 py-1.5">{stats.checkins7} check-ins</span>
+              <span className="text-xs bg-sand-100 text-forest-800 rounded-full px-3 py-1.5">{stats.reflections7} registros no diário</span>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row md:flex-col gap-2 md:w-48 flex-shrink-0">
+            <button
+              onClick={() => onNavigate('my-evolution')}
+              className="inline-flex items-center justify-between gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-4 py-3 rounded-2xl transition-colors"
+            >
+              Ver meu mapa <LineChart className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onNavigate(weeklyAccess ? 'my-report' : 'pricing')}
+              className="inline-flex items-center justify-between gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-4 py-3 rounded-2xl transition-colors"
+            >
+              {weeklyAccess ? 'Ver relatórios' : 'Relatório semanal'}
+              {weeklyAccess ? <BarChart3 className="w-4 h-4" /> : <Lock className="w-4 h-4 text-ink-soft" />}
+            </button>
+          </div>
+        </div>
+      </section>
 
-function StatLine({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-forest-500 flex-shrink-0">{icon}</span>
-      <span className="font-semibold text-forest-900">{value}</span>
-      <span className="text-ink-soft text-xs">{label}</span>
-    </div>
-  )
-}
-
-function ProgressRing({ value }: { value: number }) {
-  const r = 34
-  const circ = 2 * Math.PI * r
-  const offset = circ * (1 - Math.min(100, Math.max(0, value)) / 100)
-  return (
-    <div className="relative w-[92px] h-[92px] flex-shrink-0">
-      <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#E8F0EB" strokeWidth="7" />
-        <circle
-          cx="40" cy="40" r={r} fill="none" stroke="#1c4a37" strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={offset}
+      {/* ─── Conteúdo contextual já existente ─── */}
+      <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6">
+        <RecommendedContent
+          user={user}
+          profile={profile}
+          source="home-hoje"
+          limit={2}
+          title="Para o seu momento"
+          description="Sugestões escolhidas a partir dos seus registros recentes. Se ainda houver poucos dados, você pode começar pelo check-in de hoje."
+          variant="compact"
+          showEmpty
+          onOpen={(slug) => onNavigate('article', slug)}
+          onCheckin={() => onNavigate('diary')}
+          onDiary={() => onNavigate('diary')}
+          onSeeAll={() => onNavigate('articles')}
         />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-serif text-xl text-forest-900 leading-none">{value}%</span>
-        <span className="text-[9px] text-ink-soft mt-0.5">presença</span>
+      </section>
+
+      {/* ─── Ferramentas de segunda camada: não competir com o momento de hoje ─── */}
+      <section>
+        <div className="flex items-end justify-between gap-4 px-1 mb-3">
+          <div>
+            <h2 className="font-serif text-xl sm:text-2xl text-forest-900">Quando quiser olhar com mais distância</h2>
+            <p className="text-sm text-ink-soft mt-1">Essas áreas organizam o que você vem registrando — elas não precisam ser usadas todos os dias.</p>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <ActionCard
+            title="Mapa Emocional"
+            description="Veja frequência, variações e padrões dos seus registros."
+            icon={<LineChart className="w-5 h-5" />}
+            onClick={() => onNavigate('my-evolution')}
+          />
+          <ActionCard
+            title="Relatórios"
+            description={weeklyAccess ? 'Leia a retrospectiva que organiza sua semana.' : 'A retrospectiva semanal está disponível no Essencial.'}
+            icon={<BarChart3 className="w-5 h-5" />}
+            locked={!weeklyAccess}
+            onClick={() => onNavigate(weeklyAccess ? 'my-report' : 'pricing')}
+          />
+          <ActionCard
+            title="Plano de Autocuidado"
+            description={selfCareAccess ? 'Transforme a leitura do mês em pequenos próximos passos.' : 'O plano mensal de autocuidado está disponível no Plus.'}
+            icon={<Sprout className="w-5 h-5" />}
+            locked={!selfCareAccess}
+            onClick={() => onNavigate(selfCareAccess ? 'self-care' : 'pricing')}
+          />
+        </div>
+      </section>
+
+      {/* ─── Fechamento leve / upgrade sem interromper o fluxo diário ─── */}
+      <div className="rounded-3xl border border-line bg-sand-50 px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-5 h-5" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-forest-900">A vida talvez não tenha colaborado. Você ainda pode colaborar com você hoje.</p>
+            <p className="text-xs text-ink-soft mt-0.5">Sem cobrança, sem ranking e sem precisar “compensar” dias em que você não entrou.</p>
+          </div>
+        </div>
+        {upgrade && (
+          <button
+            onClick={() => onNavigate('pricing')}
+            className="inline-flex items-center justify-center gap-2 text-sm font-medium text-forest-800 hover:bg-white border border-line rounded-2xl px-4 py-2.5 transition-colors flex-shrink-0"
+          >
+            {upgrade.label} <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
+  )
+}
+
+function ActionCard({
+  title,
+  description,
+  icon,
+  locked = false,
+  onClick,
+}: {
+  title: string
+  description: string
+  icon: React.ReactNode
+  locked?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group text-left rounded-2xl border border-line bg-paper-soft p-4 sm:p-5 hover:border-forest-200 hover:shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="w-10 h-10 rounded-2xl bg-mint text-forest-700 flex items-center justify-center">{icon}</span>
+        {locked && <Lock className="w-4 h-4 text-ink-soft" />}
+      </div>
+      <h3 className="font-serif text-lg text-forest-900 mt-4">{title}</h3>
+      <p className="text-xs text-ink-soft mt-1.5 leading-relaxed">{description}</p>
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-forest-700 mt-3">
+        {locked ? 'Conhecer plano' : 'Abrir'} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+      </span>
+    </button>
   )
 }
