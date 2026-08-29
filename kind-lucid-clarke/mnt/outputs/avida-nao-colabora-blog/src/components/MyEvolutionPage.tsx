@@ -507,8 +507,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-ink-soft">Mês do resumo:</label>
-        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+        <label htmlFor="map-summary-month" className="text-sm text-ink-soft">Mês do resumo:</label>
+        <select id="map-summary-month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
@@ -883,8 +883,8 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-ink-soft">Mês:</label>
-        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+        <label htmlFor="map-charts-month" className="text-sm text-ink-soft">Mês:</label>
+        <select id="map-charts-month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
