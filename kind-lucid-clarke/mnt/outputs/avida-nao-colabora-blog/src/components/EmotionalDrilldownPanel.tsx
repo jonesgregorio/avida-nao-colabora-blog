@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, ChevronRight, CircleHelp, Moon, Sparkles, Waves, Zap } from 'lucide-react'
+import { CalendarDays, CircleHelp, Moon, Sparkles, Waves, Zap } from 'lucide-react'
 import type { DiaryRowLite } from '../lib/emotionalAnalytics'
 import { buildEmotionalDrilldown, listDrilldownEmotions } from '../lib/emotionalDrilldown'
 import { hasPlanAccess } from '../lib/officialPlans'
