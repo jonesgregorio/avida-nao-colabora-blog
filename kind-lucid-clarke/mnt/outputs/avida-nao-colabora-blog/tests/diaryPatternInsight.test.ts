@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildDiaryPatternInsight } from '../src/lib/diaryPatternInsight.ts'
+import { buildDiaryPatternInsight } from '../src/lib/diaryPatternRules.ts'
 
 test('recorrência exige o marcador atual em pelo menos dois outros dias distintos', () => {
   const insight = buildDiaryPatternInsight(
