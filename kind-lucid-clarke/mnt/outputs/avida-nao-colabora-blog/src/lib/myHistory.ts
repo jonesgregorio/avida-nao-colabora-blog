@@ -2,6 +2,9 @@ export interface MyHistoryEntry {
   date?: string | null
   created_at?: string | null
   mood?: string | number | null
+  energy?: number | null
+  anxiety_level?: number | null
+  sleep_quality?: number | null
   emotional_tags?: string[] | string | null
   context_tags?: string[] | string | null
   need_tags?: string[] | string | null
