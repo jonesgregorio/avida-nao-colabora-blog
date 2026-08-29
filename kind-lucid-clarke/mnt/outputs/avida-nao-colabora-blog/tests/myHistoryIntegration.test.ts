@@ -25,6 +25,11 @@ test('histórico completo respeita o entitlement oficial do Essencial', () => {
   assert.match(page, /Seu histórico completo começa no Essencial/)
 })
 
+test('marcos de relatório respeitam o plano atual e mensal permanece Plus', () => {
+  assert.match(page, /const isPlus = plan === 'plus'/)
+  assert.match(page, /isPlus \? reports : reports\.filter\(report => report\.report_type === 'weekly'\)/)
+})
+
 test('linha do tempo consulta apenas marcadores estruturados do Diário', () => {
   const select = page.match(/\.select\('([^']+)'\)/)?.[1] ?? ''
   const columns = select.split(',').map(column => column.trim()).filter(Boolean)
