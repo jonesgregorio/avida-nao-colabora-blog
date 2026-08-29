@@ -15,6 +15,7 @@ interface Notif {
   type: string
   is_read: boolean
   action_url?: string | null
+  action_data?: Record<string, unknown> | null
   created_at: string
 }
 
@@ -25,24 +26,17 @@ interface Props {
 
 // Ícone + cores por tipo de notificação (paleta da marca).
 const TYPE_META: Record<string, { Icon: typeof Bell; color: string; bg: string }> = {
-  support_reply:             { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
-  support_ticket_replied:    { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
-  monthly_guidance:          { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
-  monthly_guidance_ready:    { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
-  monthly_guidance_replied:  { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
-  professional_comment:      { Icon: Crown,         color: 'text-[#8a6d1f]', bg: 'bg-amber-100' },
-  weekly_report:             { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
-  monthly_report:            { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
-  self_care_review:          { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
-  self_care_plan:            { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
-  care_plan_available:       { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
-  content:                   { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
-  new_content:               { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
-  guided_content_available:  { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
-  personalized_content:      { Icon: Sparkles,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
-  diary_reminder:            { Icon: NotebookPen,   color: 'text-forest-700', bg: 'bg-mint' },
-  weekly_focus_reflection:   { Icon: RotateCcw,     color: 'text-forest-700', bg: 'bg-lilac/60' },
+  support_reply:        { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
+  monthly_guidance:     { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
+  professional_comment: { Icon: Crown,         color: 'text-[#8a6d1f]', bg: 'bg-amber-100' },
+  weekly_report:        { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
+  monthly_report:       { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
+  self_care_review:     { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
+  content:              { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
+  personalized_content: { Icon: Sparkles,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
+  reminder:             { Icon: NotebookPen,   color: 'text-forest-700', bg: 'bg-mint' },
 }
+const WEEKLY_FOCUS_META = { Icon: RotateCcw, color: 'text-forest-700', bg: 'bg-lilac/60' }
 const DEFAULT_META = { Icon: Bell, color: 'text-forest-700', bg: 'bg-mint' }
 
 function timeAgo(iso: string): string {
@@ -183,7 +177,8 @@ export default function NotificationsPage({ user, navigate }: Props) {
       ) : (
         <ul className="space-y-2">
           {visible.map(n => {
-            const meta = TYPE_META[n.type] ?? DEFAULT_META
+            const isWeeklyFocusReflection = n.type === 'reminder' && n.action_data?.kind === 'weekly_focus_reflection'
+            const meta = isWeeklyFocusReflection ? WEEKLY_FOCUS_META : (TYPE_META[n.type] ?? DEFAULT_META)
             const unread = !n.is_read && !!n.user_id
             const text = n.message || n.body || ''
             const clickable = !!n.action_url || !!NOTIF_DESTINATION[n.type]
