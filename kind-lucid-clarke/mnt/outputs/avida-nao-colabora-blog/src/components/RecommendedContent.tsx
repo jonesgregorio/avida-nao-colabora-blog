@@ -5,6 +5,7 @@ import {
   logRecommendationsShown, fetchMutedThemes, muteContentTheme,
   type Signal, type CatalogItem, type ScoredContent,
 } from '../lib/contentRecommendation'
+import { fetchStructuredUserSignal } from '../lib/structuredContentRecommendation'
 import RiskHelpBanner from './RiskHelpBanner'
 
 const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
@@ -46,9 +47,18 @@ export default function RecommendedContent({
   useEffect(() => {
     let active = true
     ;(async () => {
+      // Home Hoje e Mapa já são experiências baseadas em sinais estruturados.
+      // Nesses dois contextos, não fazemos uma segunda leitura de texto livre só
+      // para recomendar conteúdo: reutilizamos humor, escalas, tags e questionário.
+      const signalPromise = signal
+        ? Promise.resolve(signal)
+        : source === 'home-hoje' || source === 'map'
+          ? fetchStructuredUserSignal(user?.id)
+          : fetchUserSignal(user?.id)
+
       const [cat, sig, read, recent, muted] = await Promise.all([
         catalog && catalog.length ? Promise.resolve(catalog) : fetchGuidedCatalog(),
-        signal ? Promise.resolve(signal) : fetchUserSignal(user?.id),
+        signalPromise,
         fetchReadSlugsForRec(user?.id),
         fetchRecentlyShownSlugs(user?.id),
         fetchMutedThemes(user?.id),
@@ -63,7 +73,7 @@ export default function RecommendedContent({
     })()
     return () => { active = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.plan, signal, catalog])
+  }, [user?.id, profile?.plan, signal, catalog, source])
 
   // "Mostrar menos conteúdos assim": silencia o tema principal do card e some
   // com ele da lista na hora — sem esperar recarregar a página. Reversível em
@@ -114,6 +124,9 @@ export default function RecommendedContent({
     )
   }
 
+  const structuredContext = source === 'home-hoje' || source === 'map'
+  const carePlanContext = source === 'care_plan'
+
   return (
     <div>
       {title && (
@@ -133,6 +146,16 @@ export default function RecommendedContent({
           />
         ))}
       </div>
+      {structuredContext && (
+        <p className="text-[11px] text-ink-soft mt-3 leading-relaxed">
+          Estas sugestões usam apenas humor, escalas, marcadores estruturados e resultados estruturados de questionários dos últimos dias. O texto completo do Diário não é relido para montar este bloco.
+        </p>
+      )}
+      {carePlanContext && (
+        <p className="text-[11px] text-ink-soft mt-3 leading-relaxed">
+          Aqui, o foco do seu Plano de Autocuidado é o contexto principal da recomendação. O conteúdo é opcional e não altera o seu plano.
+        </p>
+      )}
     </div>
   )
 }
