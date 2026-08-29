@@ -11,10 +11,12 @@ import { fetchDiaryConfig } from '../lib/diaryConfig'
 import { ymd } from '../lib/reportPeriods'
 import { buildContinuityPrompt, type ContinuityEntry, type ContinuityPrompt } from '../lib/todayContinuity'
 import { buildHomeDiscovery, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
+import { buildTodaySmallAction, type SmallActionEntry, type TodaySmallAction } from '../lib/todaySmallAction'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 import RecommendedContent from './RecommendedContent'
 import HomeDiscoveryCard from './HomeDiscoveryCard'
+import TodaySmallActionCard, { type SmallActionStatus } from './TodaySmallActionCard'
 
 interface LoggedHomeProps {
   user: User | null
@@ -22,7 +24,7 @@ interface LoggedHomeProps {
   onNavigate: (section: string, articleSlug?: string) => void
 }
 
-type HomeEntry = ContinuityEntry & HomeDiscoveryEntry & {
+type HomeEntry = ContinuityEntry & HomeDiscoveryEntry & SmallActionEntry & {
   entry_type?: string | null
   diary_kind?: string | null
 }
@@ -125,12 +127,22 @@ function dismissedDiscoveryKey(todayKey: string, discovery: HomeDiscovery) {
   return `avnc:discovery-dismissed:${todayKey}:${discovery.id}`
 }
 
+function smallActionStatusKey(todayKey: string, action: TodaySmallAction) {
+  return `avnc:small-action-status:${todayKey}:${action.id}`
+}
+
+function dismissedSmallActionKey(todayKey: string, action: TodaySmallAction) {
+  return `avnc:small-action-dismissed:${todayKey}:${action.id}`
+}
+
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
   const plan: PlanKey = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
   const [continuity, setContinuity] = useState<ContinuityPrompt | null>(null)
   const [discovery, setDiscovery] = useState<HomeDiscovery | null>(null)
+  const [smallAction, setSmallAction] = useState<TodaySmallAction | null>(null)
+  const [smallActionStatus, setSmallActionStatus] = useState<SmallActionStatus>('idle')
   const lastSeven = getLastSevenDays()
   const todayKey = ymd(new Date())
 
@@ -144,7 +156,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         const [{ data }, diaryCfg] = await Promise.all([
           supabase
             .from('diary_entries')
-            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags,emotional_tags')
+            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags,emotional_tags,need_tags,care_action_tags')
             .eq('user_id', user.id)
             .gte('created_at', since)
             .order('created_at', { ascending: false }),
@@ -181,6 +193,22 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           loaded: true,
         })
 
+        const nextSmallAction = buildTodaySmallAction(entries, todayKey)
+        if (!nextSmallAction) {
+          setSmallAction(null)
+          setSmallActionStatus('idle')
+        } else {
+          let dismissed = false
+          let status: SmallActionStatus = 'idle'
+          try {
+            dismissed = window.localStorage.getItem(dismissedSmallActionKey(todayKey, nextSmallAction)) === '1'
+            const stored = window.localStorage.getItem(smallActionStatusKey(todayKey, nextSmallAction))
+            if (stored === 'accepted' || stored === 'done') status = stored
+          } catch { /* storage opcional */ }
+          setSmallAction(dismissed ? null : nextSmallAction)
+          setSmallActionStatus(status)
+        }
+
         const nextDiscovery = buildHomeDiscovery(entries, plan)
         if (!nextDiscovery) {
           setDiscovery(null)
@@ -203,6 +231,8 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           setStats(current => ({ ...current, loaded: true }))
           setContinuity(null)
           setDiscovery(null)
+          setSmallAction(null)
+          setSmallActionStatus('idle')
         }
       }
     })()
@@ -222,6 +252,24 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     if (!discovery) return
     try { window.localStorage.setItem(dismissedDiscoveryKey(todayKey, discovery), '1') } catch { /* segue sem persistência local */ }
     setDiscovery(null)
+  }
+
+  function dismissSmallAction() {
+    if (!smallAction) return
+    try { window.localStorage.setItem(dismissedSmallActionKey(todayKey, smallAction), '1') } catch { /* segue sem persistência local */ }
+    setSmallAction(null)
+  }
+
+  function acceptSmallAction() {
+    if (!smallAction) return
+    try { window.localStorage.setItem(smallActionStatusKey(todayKey, smallAction), 'accepted') } catch { /* segue sem persistência local */ }
+    setSmallActionStatus('accepted')
+  }
+
+  function completeSmallAction() {
+    if (!smallAction) return
+    try { window.localStorage.setItem(smallActionStatusKey(todayKey, smallAction), 'done') } catch { /* segue sem persistência local */ }
+    setSmallActionStatus('done')
   }
 
   const latestMoodName = moodLabel(stats.latestMood)
@@ -465,6 +513,16 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           discovery={discovery}
           onOpenMap={() => onNavigate('my-evolution')}
           onDismiss={dismissDiscovery}
+        />
+      )}
+
+      {smallAction && (
+        <TodaySmallActionCard
+          action={smallAction}
+          status={smallActionStatus}
+          onAccept={acceptSmallAction}
+          onDone={completeSmallAction}
+          onDismiss={dismissSmallAction}
         />
       )}
 

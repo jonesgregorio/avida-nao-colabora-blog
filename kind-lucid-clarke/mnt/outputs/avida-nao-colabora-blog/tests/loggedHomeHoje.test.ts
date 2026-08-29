@@ -57,3 +57,17 @@ test('Home aceita humor salvo como chave antiga ou rótulo atual', () => {
   assert.match(home, /item\.key === raw \|\| item\.label\.toLowerCase\(\) === raw\.toLowerCase\(\)/)
   assert.match(home, /m\.key === key \|\| m\.label\.toLowerCase\(\) === key\.toLowerCase\(\)/)
 })
+
+test('Home Hoje oferece pequena ação opcional somente a partir de sinais estruturados', () => {
+  assert.match(home, /buildTodaySmallAction/)
+  assert.match(home, /<TodaySmallActionCard/)
+  assert.match(home, /need_tags,care_action_tags/)
+  assert.match(home, /avnc:small-action-status/)
+  assert.match(home, /avnc:small-action-dismissed/)
+  assert.doesNotMatch(home, /select\([^)]*\btext\b/)
+})
+
+test('pequena ação não cria persistência de gamificação no backend', () => {
+  assert.doesNotMatch(home, /small_action_points|mission_points|streak|seeds|sementes/i)
+  assert.match(home, /window\.localStorage\.setItem\(smallActionStatusKey/)
+})
