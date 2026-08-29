@@ -27,12 +27,13 @@ test('histórico completo respeita o entitlement oficial do Essencial', () => {
 
 test('linha do tempo consulta apenas marcadores estruturados do Diário', () => {
   const select = page.match(/\.select\('([^']+)'\)/)?.[1] ?? ''
-  assert.ok(select.includes('mood'))
-  assert.ok(select.includes('emotional_tags'))
-  assert.ok(select.includes('context_tags'))
-  assert.ok(select.includes('need_tags'))
-  assert.ok(select.includes('trigger_tags'))
-  assert.equal(select.includes('text'), false)
-  assert.equal(select.includes('free_note'), false)
+  const columns = select.split(',').map(column => column.trim()).filter(Boolean)
+  assert.ok(columns.includes('mood'))
+  assert.ok(columns.includes('emotional_tags'))
+  assert.ok(columns.includes('context_tags'))
+  assert.ok(columns.includes('need_tags'))
+  assert.ok(columns.includes('trigger_tags'))
+  assert.equal(columns.includes('text'), false)
+  assert.equal(columns.includes('free_note'), false)
   assert.match(page, /Nenhum trecho do texto livre do Diário é exibido/)
 })
