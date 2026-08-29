@@ -3,6 +3,7 @@ import { Download, Loader2, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
+import HistoryPersonalizationControl from './HistoryPersonalizationControl'
 
 interface Props {
   user: User | null
@@ -117,12 +118,14 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
         <div>
           <h2 className="font-serif text-lg sm:text-xl text-forest-900">Privacidade e seus dados</h2>
           <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-            Baixe uma cópia dos dados vinculados à sua conta ou solicite a exclusão definitiva diretamente por aqui.
+            Controle como o histórico entra nas retomadas automáticas, baixe uma cópia dos seus dados ou solicite a exclusão definitiva da conta.
           </p>
         </div>
       </div>
 
       <div className="space-y-4">
+        <HistoryPersonalizationControl user={user} />
+
         <div className="rounded-2xl border border-line bg-white p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
