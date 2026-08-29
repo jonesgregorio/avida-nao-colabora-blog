@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
   Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
-  BarChart3, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
+  BarChart3, History, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
   LifeBuoy, Leaf, Bell,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -34,13 +34,13 @@ interface NavGroup {
 }
 
 // Fase 1 da nova experiência (Ideia 1): reorganiza o que JÁ existe sem criar
-// destinos vazios. Descobertas e Minha História entram somente quando suas
-// fases funcionais forem implementadas.
+// destinos vazios. Cada novo destino entra apenas quando sua fase funcional existe.
 const PRIMARY_NAV: NavItem[] = [
   { id: 'home',             label: 'Hoje',                 Icon: Home,          match: ['home'] },
   { id: 'diary',            label: 'Diário',               Icon: NotebookPen,   match: ['diary'] },
   { id: 'my-evolution',     label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
   { id: 'my-report',        label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
+  { id: 'my-history',       label: 'Minha História',       Icon: History,       match: ['my-history'] },
   { id: 'articles',         label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
   { id: 'questionarios',    label: 'Questionários',        Icon: ClipboardList, match: ['questionarios', 'questionnaire'] },
   { id: 'self-care',        label: 'Plano de Autocuidado', Icon: Sprout,        match: ['self-care'], matchPath: ['/plano-de-autocuidado'] },
@@ -52,7 +52,7 @@ const PRIMARY_NAV: NavItem[] = [
 
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Seu espaço', items: PRIMARY_NAV.filter(item => ['home', 'diary'].includes(item.id)) },
-  { label: 'Entender', items: PRIMARY_NAV.filter(item => ['my-evolution', 'my-report', 'articles', 'questionarios'].includes(item.id)) },
+  { label: 'Entender', items: PRIMARY_NAV.filter(item => ['my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'].includes(item.id)) },
   { label: 'Cuidar', items: PRIMARY_NAV.filter(item => ['self-care', 'monthly-guidance'].includes(item.id)) },
   { label: 'Conta', items: PRIMARY_NAV.filter(item => ['my-plan', 'profile', 'support'].includes(item.id)) },
 ]

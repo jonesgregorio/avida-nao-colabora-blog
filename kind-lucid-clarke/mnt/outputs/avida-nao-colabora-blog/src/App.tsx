@@ -49,6 +49,7 @@ const ProfessionalCommentsSection = lazy(() => import('./components/Professional
 const MyPlanPage = lazy(() => import('./components/MyPlanPage'))
 const MyReportPage = lazy(() => import('./components/MyReportPage'))
 const MyEvolutionPage = lazy(() => import('./components/MyEvolutionPage'))
+const MyHistoryPage = lazy(() => import('./components/MyHistoryPage'))
 const SelfCarePlanPage = lazy(() => import('./components/SelfCarePlanPage'))
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle.
@@ -193,7 +194,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios', 'questionarios-evolucao',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
-      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
+      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'self-care',
       'notifications',
     ]
     if (directViews.includes(section as View)) {
@@ -630,6 +631,20 @@ export default function App() {
         onNavigateGuidance={() => navigate('monthly-guidance')}
         onNavigateSelfCare={() => navigate('self-care')}
         onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+      />
+    )
+  }
+
+  if (view === 'my-history') {
+    if (!user) { goAuth('my-history'); return null }
+    return appShell(
+      <MyHistoryPage
+        user={user}
+        profile={accessProfile}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateDiary={() => navigate('diary')}
+        onNavigateReport={() => navigate('my-report')}
+        onNavigateMap={() => navigate('my-evolution')}
       />
     )
   }
