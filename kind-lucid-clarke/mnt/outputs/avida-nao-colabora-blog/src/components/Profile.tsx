@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Profile as ProfileType } from '../types'
 import {
-  Camera, Save, Key, LogOut, CheckCircle2, Flame, AlertTriangle, Check,
+  Camera, Save, Key, LogOut, CheckCircle2, CalendarDays, AlertTriangle, Check,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import PlanBadge from './PlanBadge'
@@ -33,7 +33,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   const [newPassword, setNewPassword] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [stats, setStats] = useState({ checkins: 0, streak: 0 })
+  const [stats, setStats] = useState({ checkins: 0, activeDays30: 0 })
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -53,17 +53,22 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
       const entriesRes = await supabase.from('diary_entries').select('date,entry_type').eq('user_id', user.id)
       if (!active) return
       const rows = (entriesRes.data ?? []) as { date?: string; entry_type?: string }[]
-      // "check-ins realizados": quantos check-ins o usuário fez (entry_type='checkin')
+      // "check-ins realizados": quantos check-ins o usuário fez (entry_type='checkin').
       const checkins = rows.filter(e => e.entry_type === 'checkin').length
-      // streak: dias consecutivos (terminando hoje/ontem) com qualquer registro (check-in ou diário)
-      const days = new Set(rows.map(e => String(e.date ?? '').slice(0, 10)).filter(Boolean))
-      // Data LOCAL (ymd) — toISOString() é UTC e à noite no Brasil (UTC-3) já
-      // conta como o dia seguinte, quebrando a sequência incorretamente.
-      const d = new Date()
-      if (!days.has(ymd(d))) d.setDate(d.getDate() - 1)
-      let streak = 0
-      while (days.has(ymd(d))) { streak++; d.setDate(d.getDate() - 1) }
-      setStats({ checkins, streak })
+      // Continuidade sem sequência obrigatória: contamos somente dias distintos com
+      // algum registro na janela recente. Ausências não zeram nem punem nada.
+      const today = new Date()
+      today.setHours(12, 0, 0, 0)
+      const cutoff = new Date(today)
+      cutoff.setDate(cutoff.getDate() - 29)
+      const cutoffKey = ymd(cutoff)
+      const todayKey = ymd(today)
+      const activeDays30 = new Set(
+        rows
+          .map(e => String(e.date ?? '').slice(0, 10))
+          .filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day) && day >= cutoffKey && day <= todayKey),
+      ).size
+      setStats({ checkins, activeDays30 })
     })()
     return () => { active = false }
   }, [user])
@@ -279,7 +284,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
             <h2 className="font-serif text-lg text-forest-900 mb-4">Resumo da sua jornada</h2>
             <div className="space-y-3">
               <JourneyStat icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label={stats.checkins === 1 ? 'check-in realizado' : 'check-ins realizados'} />
-              <JourneyStat icon={<Flame className="w-4 h-4" />} value={stats.streak} label={stats.streak === 1 ? 'dia seguido' : 'dias seguidos'} />
+              <JourneyStat icon={<CalendarDays className="w-4 h-4" />} value={stats.activeDays30} label={stats.activeDays30 === 1 ? 'dia com registro nos últimos 30 dias' : 'dias com registro nos últimos 30 dias'} />
             </div>
           </div>
 
