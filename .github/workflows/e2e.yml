@@ -58,11 +58,13 @@ jobs:
       - name: Run browser smoke and accessibility tests
         run: npx playwright test --config=playwright.e2e.config.mjs
 
-      - name: Upload diary visual audit screenshots
+      - name: Upload visual audit screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: diary-visual-audit-${{ github.run_number }}
-          path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/diary-visual/*.png
+          name: browser-visual-audit-${{ github.run_number }}
+          path: |
+            kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/diary-visual/*.png
+            kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/idea1-qa/*.png
           if-no-files-found: ignore
           retention-days: 7
