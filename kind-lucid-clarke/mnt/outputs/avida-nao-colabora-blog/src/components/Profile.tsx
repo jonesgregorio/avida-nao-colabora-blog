@@ -272,7 +272,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
           {/* Sair */}
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-600 py-3 border border-red-200 rounded-2xl hover:bg-red-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 text-red-700 hover:text-red-800 py-3 border border-red-200 rounded-2xl hover:bg-red-50 transition-colors"
           >
             <LogOut size={16} /> Sair da conta
           </button>
