@@ -17,12 +17,10 @@ import { supabase } from './supabase'
 // Nunca usar 'my-evolution' (Mapa) como destino coringa.
 export const NOTIF_DESTINATION: Record<string, string> = {
   self_care_review: 'self-care',
-  self_care_plan: 'self-care',
   care_plan_available: 'self-care',
   support_reply: 'support',
   support_ticket_replied: 'support',
   content: 'articles',
-  new_content: 'articles',
   guided_content_available: 'articles',
   personalized_content: 'self-care',
   weekly_report: 'my-report',
@@ -31,10 +29,7 @@ export const NOTIF_DESTINATION: Record<string, string> = {
   professional_comment: 'professional-comments',
   professional_comment_available: 'professional-comments',
   monthly_guidance: 'monthly-guidance',
-  monthly_guidance_ready: 'monthly-guidance',
   monthly_guidance_replied: 'monthly-guidance',
-  diary_reminder: 'diary',
-  weekly_focus_reflection: 'home',
   plan_change: 'my-plan',
   plan_updated: 'my-plan',
   payment: 'my-plan',
