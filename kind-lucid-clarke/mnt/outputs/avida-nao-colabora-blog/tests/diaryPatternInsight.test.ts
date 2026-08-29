@@ -18,6 +18,7 @@ test('recorrência exige o marcador atual em pelo menos dois outros dias distint
   assert.equal(insight.tag, 'trabalho')
   assert.equal(insight.previousDays, 2)
   assert.equal(insight.totalDays, 3)
+  assert.equal(insight.title, 'Tem uma coisa que talvez valha observar')
   assert.match(insight.description, /registro de hoje.*2 outros dias/i)
   assert.match(insight.evidence, /não uma causa nem um diagnóstico/i)
 })
@@ -69,7 +70,7 @@ test('busca de recorrência não consulta texto livre do diário', () => {
 
 test('devolutiva separa espelho do registro e recorrência explorável', () => {
   const screen = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
-  assert.match(screen, /Tem uma coisa que talvez valha observar/)
+  assert.match(screen, /\{patternInsight\.title\}/)
   assert.match(screen, />Explorar isso</)
   assert.match(screen, />Agora não</)
   assert.match(screen, /Uma pergunta para olhar com mais calma/)
