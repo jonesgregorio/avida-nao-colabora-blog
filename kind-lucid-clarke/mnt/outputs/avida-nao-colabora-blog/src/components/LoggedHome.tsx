@@ -12,11 +12,13 @@ import { ymd } from '../lib/reportPeriods'
 import { buildContinuityPrompt, type ContinuityEntry, type ContinuityPrompt } from '../lib/todayContinuity'
 import { buildHomeDiscovery, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
 import { buildTodaySmallAction, type SmallActionEntry, type TodaySmallAction } from '../lib/todaySmallAction'
+import type { WeeklyFocusEntry } from '../lib/weeklyFocus'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 import RecommendedContent from './RecommendedContent'
 import HomeDiscoveryCard from './HomeDiscoveryCard'
 import TodaySmallActionCard, { type SmallActionStatus } from './TodaySmallActionCard'
+import WeeklyFocusCard from './WeeklyFocusCard'
 
 interface LoggedHomeProps {
   user: User | null
@@ -24,7 +26,7 @@ interface LoggedHomeProps {
   onNavigate: (section: string, articleSlug?: string) => void
 }
 
-type HomeEntry = ContinuityEntry & HomeDiscoveryEntry & SmallActionEntry & {
+type HomeEntry = ContinuityEntry & HomeDiscoveryEntry & SmallActionEntry & WeeklyFocusEntry & {
   entry_type?: string | null
   diary_kind?: string | null
 }
@@ -139,6 +141,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   const plan: PlanKey = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
+  const [homeEntries, setHomeEntries] = useState<HomeEntry[]>([])
   const [continuity, setContinuity] = useState<ContinuityPrompt | null>(null)
   const [discovery, setDiscovery] = useState<HomeDiscovery | null>(null)
   const [smallAction, setSmallAction] = useState<TodaySmallAction | null>(null)
@@ -156,7 +159,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         const [{ data }, diaryCfg] = await Promise.all([
           supabase
             .from('diary_entries')
-            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags,emotional_tags,need_tags,care_action_tags')
+            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,stress_level,overload,context_tags,trigger_tags,emotional_tags,need_tags,care_action_tags')
             .eq('user_id', user.id)
             .gte('created_at', since)
             .order('created_at', { ascending: false }),
@@ -165,6 +168,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         if (!active) return
 
         const entries = (data ?? []) as HomeEntry[]
+        setHomeEntries(entries)
         const keys7 = new Set(lastSeven.map(day => day.key))
         const days30 = new Set(entries.map(entryDay).filter(Boolean))
         const entries7 = entries.filter(entry => keys7.has(entryDay(entry)))
@@ -229,6 +233,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
       } catch {
         if (active) {
           setStats(current => ({ ...current, loaded: true }))
+          setHomeEntries([])
           setContinuity(null)
           setDiscovery(null)
           setSmallAction(null)
@@ -507,6 +512,10 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           </div>
         </div>
       </section>
+
+      {user && weeklyAccess && (
+        <WeeklyFocusCard userId={user.id} plan={plan} entries={homeEntries} />
+      )}
 
       {discovery && (
         <HomeDiscoveryCard
