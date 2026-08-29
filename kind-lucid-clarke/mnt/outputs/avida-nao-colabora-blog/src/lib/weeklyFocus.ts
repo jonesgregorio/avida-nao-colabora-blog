@@ -1,5 +1,3 @@
-import { parseYmd, ymd } from './reportPeriods'
-
 export type WeeklyFocusEntry = {
   date?: string | null
   created_at?: string | null
@@ -40,6 +38,8 @@ type DayBucket = {
   avgOverload: number | null
 }
 
+const WEEKLY_FOCUS_TIME_ZONE = 'America/Sao_Paulo'
+
 function normalize(value: unknown) {
   return String(value ?? '').trim().toLocaleLowerCase('pt-BR')
 }
@@ -69,12 +69,35 @@ function unique(values: string[]) {
   return out
 }
 
+function saoPauloYmd(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: WEEKLY_FOCUS_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? ''
+  const year = get('year')
+  const month = get('month')
+  const day = get('day')
+  return year && month && day ? `${year}-${month}-${day}` : ''
+}
+
+function parseCalendarKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+}
+
+function calendarYmd(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
 function dayKey(entry: WeeklyFocusEntry): string {
   const explicit = String(entry.date ?? '').slice(0, 10)
   if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit
   if (!entry.created_at) return ''
   const parsed = new Date(entry.created_at)
-  return Number.isNaN(parsed.getTime()) ? '' : ymd(parsed)
+  return Number.isNaN(parsed.getTime()) ? '' : saoPauloYmd(parsed)
 }
 
 function numeric(value: unknown): number | null {
@@ -93,9 +116,9 @@ function dayAverage(rows: WeeklyFocusEntry[], field: 'energy' | 'anxiety_level' 
 }
 
 function addDays(key: string, amount: number) {
-  const date = parseYmd(key)
+  const date = parseCalendarKey(key)
   date.setUTCDate(date.getUTCDate() + amount)
-  return ymd(date)
+  return calendarYmd(date)
 }
 
 function buildDays(entries: WeeklyFocusEntry[], weekStart: string, includeTriggers: boolean) {
