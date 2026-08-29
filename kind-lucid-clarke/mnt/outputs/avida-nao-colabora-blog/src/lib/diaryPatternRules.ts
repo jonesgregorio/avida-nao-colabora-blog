@@ -40,23 +40,42 @@ const TRIGGERS = new Set([
   'mudança de planos','sensação de fracasso','dificuldade financeira','conversa difícil','pressão familiar','exposição em redes sociais',
 ])
 
-const RULES: Array<{ kind: DiaryPatternKind; field: keyof DiaryPatternEntry; allowed: Set<string>; priority: number }> = [
-  { kind: 'trigger', field: 'trigger_tags', allowed: TRIGGERS, priority: 0 },
-  { kind: 'context', field: 'context_tags', allowed: CONTEXTS, priority: 1 },
-  { kind: 'emotion', field: 'emotional_tags', allowed: EMOTIONS, priority: 2 },
-  { kind: 'need', field: 'need_tags', allowed: NEEDS, priority: 3 },
+/**
+ * Taxonomia estruturada compartilhada pelas camadas de recorrência e descobertas.
+ * Mantê-la aqui evita que uma superfície aceite marcadores que o Diário não oferece.
+ */
+export const DIARY_PATTERN_TAGS: Record<DiaryPatternKind, ReadonlySet<string>> = {
+  trigger: TRIGGERS,
+  context: CONTEXTS,
+  emotion: EMOTIONS,
+  need: NEEDS,
+}
+
+const FIELD_BY_KIND: Record<DiaryPatternKind, keyof DiaryPatternEntry> = {
+  trigger: 'trigger_tags',
+  context: 'context_tags',
+  emotion: 'emotional_tags',
+  need: 'need_tags',
+}
+
+const RULES: Array<{ kind: DiaryPatternKind; priority: number }> = [
+  { kind: 'trigger', priority: 0 },
+  { kind: 'context', priority: 1 },
+  { kind: 'emotion', priority: 2 },
+  { kind: 'need', priority: 3 },
 ]
 
-function dayKey(entry: DiaryPatternEntry): string {
+export function diaryPatternDayKey(entry: DiaryPatternEntry): string {
   const explicit = String(entry.date ?? '').slice(0, 10)
   if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit
   const raw = String(entry.created_at ?? '')
   return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : ''
 }
 
-function safeTags(entry: DiaryPatternEntry, field: keyof DiaryPatternEntry, allowed: Set<string>): string[] {
-  const value = entry[field]
+export function getDiaryPatternTags(entry: DiaryPatternEntry, kind: DiaryPatternKind): string[] {
+  const value = entry[FIELD_BY_KIND[kind]]
   if (!Array.isArray(value)) return []
+  const allowed = DIARY_PATTERN_TAGS[kind]
   return [...new Set(value.map(item => String(item).trim().toLowerCase()).filter(item => allowed.has(item)))]
 }
 
@@ -79,18 +98,18 @@ export function buildDiaryPatternInsight(
   current: DiaryPatternEntry,
   recent: DiaryPatternEntry[],
 ): DiaryPatternInsight | null {
-  const currentDay = dayKey(current)
+  const currentDay = diaryPatternDayKey(current)
   if (!currentDay) return null
 
   const candidates: Array<{ kind: DiaryPatternKind; tag: string; previousDays: number; priority: number }> = []
 
   for (const rule of RULES) {
-    for (const tag of safeTags(current, rule.field, rule.allowed)) {
+    for (const tag of getDiaryPatternTags(current, rule.kind)) {
       const days = new Set<string>()
       for (const entry of recent) {
-        const day = dayKey(entry)
+        const day = diaryPatternDayKey(entry)
         if (!day || day === currentDay) continue
-        if (safeTags(entry, rule.field, rule.allowed).includes(tag)) days.add(day)
+        if (getDiaryPatternTags(entry, rule.kind).includes(tag)) days.add(day)
       }
       if (days.size >= 2) candidates.push({ kind: rule.kind, tag, previousDays: days.size, priority: rule.priority })
     }
