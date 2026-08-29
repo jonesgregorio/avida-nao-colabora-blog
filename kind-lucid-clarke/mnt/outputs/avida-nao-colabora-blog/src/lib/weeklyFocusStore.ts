@@ -64,6 +64,7 @@ export async function saveWeeklyFocus(
       focus_title: suggestion.title,
       status: 'active',
       outcome: null,
+      chosen_at: now,
       closed_at: null,
       updated_at: now,
     }, { onConflict: 'user_id,week_start' })
