@@ -10,9 +10,11 @@ import { normalizePlan, hasPlanAccess, type PlanKey } from '../lib/officialPlans
 import { fetchDiaryConfig } from '../lib/diaryConfig'
 import { ymd } from '../lib/reportPeriods'
 import { buildContinuityPrompt, type ContinuityEntry, type ContinuityPrompt } from '../lib/todayContinuity'
+import { buildHomeDiscovery, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
 import { MoodChip } from './user/ui'
 import { MOODS } from './user/moods'
 import RecommendedContent from './RecommendedContent'
+import HomeDiscoveryCard from './HomeDiscoveryCard'
 
 interface LoggedHomeProps {
   user: User | null
@@ -20,7 +22,7 @@ interface LoggedHomeProps {
   onNavigate: (section: string, articleSlug?: string) => void
 }
 
-type HomeEntry = ContinuityEntry & {
+type HomeEntry = ContinuityEntry & HomeDiscoveryEntry & {
   entry_type?: string | null
   diary_kind?: string | null
 }
@@ -87,7 +89,7 @@ function entryDay(entry: HomeEntry) {
 
 function moodLabel(key: string | null) {
   if (!key) return null
-  return MOODS.find(m => m.key === key)?.label ?? null
+  return MOODS.find(m => m.key === key || m.label.toLowerCase() === key.toLowerCase())?.label ?? null
 }
 
 function getLastSevenDays() {
@@ -107,9 +109,10 @@ function getLastSevenDays() {
 function dominantMood(entries: HomeEntry[]) {
   const counts = new Map<string, number>()
   for (const entry of entries) {
-    const mood = String(entry.mood ?? '')
-    if (!MOODS.some(item => item.key === mood)) continue
-    counts.set(mood, (counts.get(mood) ?? 0) + 1)
+    const raw = String(entry.mood ?? '')
+    const mood = MOODS.find(item => item.key === raw || item.label.toLowerCase() === raw.toLowerCase())
+    if (!mood) continue
+    counts.set(mood.key, (counts.get(mood.key) ?? 0) + 1)
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
@@ -118,11 +121,16 @@ function dismissedKey(todayKey: string, prompt: ContinuityPrompt) {
   return `avnc:continuity-dismissed:${todayKey}:${prompt.id}`
 }
 
+function dismissedDiscoveryKey(todayKey: string, discovery: HomeDiscovery) {
+  return `avnc:discovery-dismissed:${todayKey}:${discovery.id}`
+}
+
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
   const plan: PlanKey = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
   const [continuity, setContinuity] = useState<ContinuityPrompt | null>(null)
+  const [discovery, setDiscovery] = useState<HomeDiscovery | null>(null)
   const lastSeven = getLastSevenDays()
   const todayKey = ymd(new Date())
 
@@ -136,7 +144,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         const [{ data }, diaryCfg] = await Promise.all([
           supabase
             .from('diary_entries')
-            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags')
+            .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags,emotional_tags')
             .eq('user_id', user.id)
             .gte('created_at', since)
             .order('created_at', { ascending: false }),
@@ -173,6 +181,15 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           loaded: true,
         })
 
+        const nextDiscovery = buildHomeDiscovery(entries, plan)
+        if (!nextDiscovery) {
+          setDiscovery(null)
+        } else {
+          let dismissed = false
+          try { dismissed = window.localStorage.getItem(dismissedDiscoveryKey(todayKey, nextDiscovery)) === '1' } catch { /* storage opcional */ }
+          setDiscovery(dismissed ? null : nextDiscovery)
+        }
+
         const prompt = buildContinuityPrompt(entries, todayKey, todayEntries.length > 0)
         if (!prompt) {
           setContinuity(null)
@@ -185,6 +202,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         if (active) {
           setStats(current => ({ ...current, loaded: true }))
           setContinuity(null)
+          setDiscovery(null)
         }
       }
     })()
@@ -198,6 +216,12 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     if (!continuity) return
     try { window.localStorage.setItem(dismissedKey(todayKey, continuity), '1') } catch { /* segue sem persistência local */ }
     setContinuity(null)
+  }
+
+  function dismissDiscovery() {
+    if (!discovery) return
+    try { window.localStorage.setItem(dismissedDiscoveryKey(todayKey, discovery), '1') } catch { /* segue sem persistência local */ }
+    setDiscovery(null)
   }
 
   const latestMoodName = moodLabel(stats.latestMood)
@@ -285,7 +309,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
                 <MoodChip
                   key={mood.key}
                   mood={mood}
-                  active={stats.latestMood === mood.key && stats.todayEntries > 0}
+                  active={Boolean(stats.latestMood && (stats.latestMood === mood.key || stats.latestMood.toLowerCase() === mood.label.toLowerCase())) && stats.todayEntries > 0}
                   onClick={() => onNavigate(`diary?mood=${mood.key}`)}
                 />
               ))}
@@ -435,6 +459,14 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           </div>
         </div>
       </section>
+
+      {discovery && (
+        <HomeDiscoveryCard
+          discovery={discovery}
+          onOpenMap={() => onNavigate('my-evolution')}
+          onDismiss={dismissDiscovery}
+        />
+      )}
 
       <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6">
         <RecommendedContent
