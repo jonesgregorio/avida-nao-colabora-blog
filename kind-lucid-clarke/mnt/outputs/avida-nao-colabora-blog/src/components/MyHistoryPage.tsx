@@ -8,11 +8,13 @@ import type { Profile } from '../types'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import { loadReportHistory } from '../lib/reportGeneration'
+import { buildTemporalComparison } from '../lib/temporalComparison'
 import {
   buildMyHistory,
   type MyHistoryEntry,
   type MyHistoryReport,
 } from '../lib/myHistory'
+import TemporalComparisonPanel from './history/TemporalComparisonPanel'
 
 interface Props {
   user: User | null
@@ -35,7 +37,7 @@ async function loadStructuredHistory(userId: string): Promise<{ entries: MyHisto
     const to = from + PAGE_SIZE - 1
     const { data, error } = await supabase
       .from('diary_entries')
-      .select('created_at,date,mood,emotional_tags,context_tags,need_tags,trigger_tags,entry_type')
+      .select('created_at,date,mood,energy,anxiety_level,sleep_quality,emotional_tags,context_tags,need_tags,trigger_tags,entry_type')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(from, to)
@@ -132,6 +134,11 @@ export default function MyHistoryPage({
     return buildMyHistory(entries, visibleReports, { includeTriggers, memoryLimit: 4 })
   }, [entries, reports, includeTriggers, isPlus])
 
+  const comparison = useMemo(
+    () => buildTemporalComparison(entries, { includeTriggers }),
+    [entries, includeTriggers],
+  )
+
   if (!hasHistory) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-7 sm:py-9">
@@ -198,6 +205,8 @@ export default function MyHistoryPage({
               <p className="font-serif text-xl text-forest-900 mt-2 capitalize">{firstDateLabel(history.totals.firstDate)}</p>
             </div>
           </section>
+
+          <TemporalComparisonPanel comparison={comparison} />
 
           {history.memories.length > 0 && (
             <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6" aria-labelledby="memories-heading">
@@ -288,7 +297,7 @@ export default function MyHistoryPage({
           </section>
 
           <div className="rounded-2xl border border-line bg-sand-50 px-4 sm:px-5 py-4 text-xs text-ink-soft leading-relaxed">
-            Esta página usa datas, humor e marcadores estruturados dos seus registros. Nenhum trecho do texto livre do Diário é exibido na linha do tempo ou nas Memórias.{truncated ? ' Para manter a página leve, esta visualização carregou os 5.000 registros estruturados mais recentes.' : ''}
+            Esta página usa datas, humor, energia, ansiedade, sono e marcadores estruturados dos seus registros. Nenhum trecho do texto livre do Diário é exibido na linha do tempo, na comparação temporal ou nas Memórias.{truncated ? ' Para manter a página leve, esta visualização carregou os 5.000 registros estruturados mais recentes.' : ''}
           </div>
         </>
       )}
