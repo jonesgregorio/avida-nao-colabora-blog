@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { CheckCircle2, Home, Loader2, PenLine, Sparkles } from 'lucide-react'
 import type { Plan } from '../types'
 import type { DiaryMirror } from '../lib/diaryCompanion'
+import type { DiaryPatternInsight } from '../lib/diaryPatternInsight'
 import type { Signal } from '../lib/contentRecommendation'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
@@ -16,6 +18,8 @@ export interface SavedState<TEntry extends { mood: string | number }> {
   signal: Signal
   mirror: DiaryMirror | null
   processing: boolean
+  patternInsight: DiaryPatternInsight | null
+  patternProcessing: boolean
   kind: 'diary' | 'checkin'
 }
 
@@ -32,12 +36,13 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
   onOpenArticle?: (slug: string) => void
   moodMeta: (value: string | number | undefined) => { emoji: string; label: string }
   onApplySuggestions: () => void
-  onAskFollowUp: () => void
+  onAskFollowUp: (question?: string) => void
   onFinishCheckin: () => void
   onContinueFromCheckin: () => void
   onViewHistory: () => void
   onBack: () => void
 }) {
+  const [patternDismissed, setPatternDismissed] = useState(false)
   const meta = moodMeta(saved.entry.mood)
   const suggestedCount = saved.mirror ? Object.values(saved.mirror.suggested_tags).reduce((sum, arr) => sum + arr.length, 0) : 0
 
@@ -62,9 +67,26 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo para observar</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.observation}</p></div>
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo que você fez por si</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.strength}</p></div>
           </div>
-          {saved.mirror.pattern && <div className="mt-3 rounded-2xl border border-line bg-white/70 p-4"><p className="text-xs font-semibold text-forest-700">Recorrência para observar</p><p className="text-sm text-ink-soft mt-1">{saved.mirror.pattern}</p></div>}
           <div className="mt-4 rounded-2xl bg-forest-900 text-white p-5"><p className="text-xs text-forest-100">Uma pergunta para levar com você</p><p className="font-serif text-xl mt-1">{saved.mirror.question}</p></div>
           <p className="text-[11px] text-ink-soft mt-3">Leitura de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
+        </section>
+      )}
+
+      {saved.kind === 'diary' && saved.patternInsight && !patternDismissed && (
+        <section className="mt-5 rounded-3xl border border-forest-100 bg-white p-5 sm:p-6" aria-label="Recorrência do histórico">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forest-600">{saved.patternInsight.eyebrow}</p>
+          <h2 className="mt-1 font-serif text-2xl text-forest-900">{saved.patternInsight.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink">{saved.patternInsight.description}</p>
+          <div className="mt-4 rounded-2xl bg-linen/55 px-4 py-3">
+            <p className="text-xs leading-relaxed text-ink-soft">{saved.patternInsight.evidence}</p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {!todayDeepened && (
+              <button type="button" onClick={() => onAskFollowUp(saved.patternInsight?.question)} className="rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Explorar isso</button>
+            )}
+            <button type="button" onClick={() => setPatternDismissed(true)} className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900">Agora não</button>
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">A comparação usa somente marcadores estruturados que você escolheu nos seus registros. O texto livre de dias anteriores não é relido para criar esta observação.</p>
         </section>
       )}
 
@@ -89,7 +111,7 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
 
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         {saved.kind === 'checkin' && <><button onClick={onFinishCheckin} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Concluir</button><button onClick={onContinueFromCheckin} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><PenLine className="w-4 h-4" /> Quero escrever sobre isso</button></>}
-        {saved.kind === 'diary' && isEssential && !todayDeepened && <button onClick={onAskFollowUp} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> {saved.mirror ? 'Quero responder à pergunta' : 'Quero aprofundar meu registro'}</button>}
+        {saved.kind === 'diary' && isEssential && !todayDeepened && <button onClick={() => onAskFollowUp()} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> {saved.mirror ? 'Quero responder à pergunta' : 'Quero aprofundar meu registro'}</button>}
         <button onClick={onViewHistory} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Ver meus registros</button>
         <button onClick={onBack} className="px-4 py-2.5 text-sm text-ink-soft inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button>
       </div>
