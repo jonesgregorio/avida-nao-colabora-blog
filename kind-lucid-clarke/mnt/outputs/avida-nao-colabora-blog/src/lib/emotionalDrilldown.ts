@@ -54,6 +54,11 @@ function arr(value: string[] | string | null | undefined): string[] {
   return [raw]
 }
 
+function emotionValues(entry: DiaryRowLite): string[] {
+  const mood = typeof entry.mood === 'string' && entry.mood.trim() ? [entry.mood.trim()] : []
+  return unique([...mood, ...arr(entry.emotional_tags)])
+}
+
 function dayKey(entry: DiaryRowLite): string {
   const explicit = String(entry.date ?? '').slice(0, 10)
   if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit
@@ -88,9 +93,7 @@ function unique(values: string[]) {
 
 function hasEmotion(entry: DiaryRowLite, emotion: string) {
   const target = normalize(emotion)
-  if (!target) return false
-  if (normalize(entry.mood) === target) return true
-  return arr(entry.emotional_tags).some(tag => normalize(tag) === target)
+  return !!target && emotionValues(entry).some(value => normalize(value) === target)
 }
 
 function dayAverage(rows: DiaryRowLite[], field: 'energy' | 'anxiety_level' | 'sleep_quality') {
@@ -136,12 +139,14 @@ function trendForDays(emotionDayKeys: string[], periodEnd?: string | null) {
   if (!periodEnd || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd)) {
     return { recentDays: 0, previousDays: 0, label: 'sem comparação' as const }
   }
-  const end = parseDate(periodEnd)
+  const requestedEnd = parseDate(periodEnd)
+  const tomorrow = new Date(); tomorrow.setHours(12, 0, 0, 0); tomorrow.setDate(tomorrow.getDate() + 1)
+  const end = requestedEnd > tomorrow ? tomorrow : requestedEnd
   const recentStart = new Date(end); recentStart.setDate(recentStart.getDate() - 14)
   const previousStart = new Date(end); previousStart.setDate(previousStart.getDate() - 28)
-  const keys = emotionDayKeys.map(key => ({ key, date: parseDate(key) }))
-  const recentDays = keys.filter(item => item.date >= recentStart && item.date < end).length
-  const previousDays = keys.filter(item => item.date >= previousStart && item.date < recentStart).length
+  const keys = emotionDayKeys.map(key => parseDate(key))
+  const recentDays = keys.filter(date => date >= recentStart && date < end).length
+  const previousDays = keys.filter(date => date >= previousStart && date < recentStart).length
   if (recentDays === 0 && previousDays === 0) return { recentDays, previousDays, label: 'sem comparação' as const }
   if (recentDays >= previousDays + 2) return { recentDays, previousDays, label: 'mais presente' as const }
   if (previousDays >= recentDays + 2) return { recentDays, previousDays, label: 'menos presente' as const }
@@ -157,7 +162,7 @@ export function listDrilldownEmotions(entries: DiaryRowLite[]): { label: string;
     rows.push(entry)
     byDay.set(key, rows)
   }
-  return rankByDistinctDay(byDay, rows => rows.flatMap(row => [String(row.mood ?? ''), ...arr(row.emotional_tags)]), 10)
+  return rankByDistinctDay(byDay, rows => rows.flatMap(emotionValues), 10)
 }
 
 export function buildEmotionalDrilldown(
@@ -198,7 +203,7 @@ export function buildEmotionalDrilldown(
     .map(([date, rows]) => ({
       date,
       recordCount: rows.length,
-      moods: unique(rows.flatMap(row => [String(row.mood ?? ''), ...arr(row.emotional_tags)]).filter(Boolean)),
+      moods: unique(rows.flatMap(emotionValues)),
       contexts: unique(rows.flatMap(row => arr(row.context_tags))).slice(0, 4),
       triggers: options.includeTriggers ? unique(rows.flatMap(row => arr(row.trigger_tags))).slice(0, 4) : [],
       avgEnergy: round1(dayAverage(rows, 'energy')),
@@ -215,7 +220,7 @@ export function buildEmotionalDrilldown(
     mostCommonWeekday: mostCommonWeekday(occurrenceKeys),
     topContexts: rankByDistinctDay(matchingDays, rows => rows.flatMap(row => arr(row.context_tags)), 4),
     topTriggers: options.includeTriggers ? rankByDistinctDay(matchingDays, rows => rows.flatMap(row => arr(row.trigger_tags)), 4) : [],
-    coEmotions: rankByDistinctDay(matchingDays, rows => rows.flatMap(row => [String(row.mood ?? ''), ...arr(row.emotional_tags)]), 5, emotion),
+    coEmotions: rankByDistinctDay(matchingDays, rows => rows.flatMap(emotionValues), 5, emotion),
     averages: {
       energy: round1(avg(dayEnergy)),
       anxiety: round1(avg(dayAnxiety)),
