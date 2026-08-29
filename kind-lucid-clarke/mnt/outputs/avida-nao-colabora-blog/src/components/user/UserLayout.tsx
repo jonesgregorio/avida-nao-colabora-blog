@@ -130,7 +130,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
             className="absolute inset-0 w-full h-full bg-forest-900/35 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-in">
+          <aside className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-up">
             <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line px-5 pt-3 pb-4">
               <div className="w-12 h-1.5 rounded-full bg-line mx-auto mb-4" aria-hidden />
               <div className="flex items-center justify-between gap-3">
@@ -157,7 +157,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
       {/* ─── Coluna principal ─── */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header superior */}
-        <header className="sticky top-0 z-40 bg-paper/92 backdrop-blur border-b border-line">
+        <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur border-b border-line">
           <div className="h-16 md:h-[72px] px-4 sm:px-6 lg:px-8 flex items-center gap-3">
             <button
               type="button"
