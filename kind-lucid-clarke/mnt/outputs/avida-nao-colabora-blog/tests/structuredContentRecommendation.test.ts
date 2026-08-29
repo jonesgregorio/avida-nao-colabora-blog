@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateStructuredEntriesByDay } from '../src/lib/structuredContentRecommendation.ts'
+import { aggregateStructuredEntriesByDay } from '../src/lib/structuredContentContext.ts'
 
 test('agrega vários check-ins do mesmo dia em um único ponto de contexto', () => {
   const rows = aggregateStructuredEntriesByDay([
