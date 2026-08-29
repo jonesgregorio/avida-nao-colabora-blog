@@ -64,6 +64,8 @@ export interface WeeklyContent {
     active_days?: number
     message?: string
   }
+  /** Somente apresentação: anexado ao carregar o relatório; nunca é persistido. */
+  __view_period?: { start: string; end: string }
 }
 
 export interface MonthlyContent extends Omit<DeepReport, 'bridgeToSelfCarePlan' | 'bridgeToProfessionalGuidance'> {
@@ -113,7 +115,16 @@ export interface StoredReport {
 
 function normalizeStoredReport(report: StoredReport): StoredReport {
   if (report.content?.kind !== 'weekly') return report
-  return { ...report, content: normalizeWeeklyNarrative(report.content as WeeklyContent) }
+  const normalized = normalizeWeeklyNarrative(report.content as WeeklyContent)
+  return {
+    ...report,
+    content: {
+      ...normalized,
+      // Metadado efêmero usado pela retrospectiva para ligar o foco à semana
+      // correta. Não há UPDATE/INSERT aqui e o histórico salvo permanece intacto.
+      __view_period: { start: report.period_start, end: report.period_end },
+    },
+  }
 }
 
 // ── Builders de conteúdo ──────────────────────────────────────────────────────
