@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const migration = readFileSync(new URL('../supabase/migrations/20260829190000_privacy_preferences_and_function_hardening.sql', import.meta.url), 'utf8')
+const rpcHotfix = readFileSync(new URL('../supabase/migrations/20260829193000_revoke_public_execute_from_account_rpcs.sql', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../src/lib/privacyPreferences.ts', import.meta.url), 'utf8')
 const privacyControl = readFileSync(new URL('../src/components/HistoryPersonalizationControl.tsx', import.meta.url), 'utf8')
 const accountPrivacy = readFileSync(new URL('../src/components/AccountPrivacyControls.tsx', import.meta.url), 'utf8')
@@ -29,12 +30,17 @@ test('callbacks de trigger deixam de ser RPCs expostas e search_path fica fixo',
   assert.match(migration, /alter function public\.set_user_subscription_plan_activated_at\(\) set search_path = public, pg_temp/i)
 })
 
-test('RPCs de conta continuam autenticadas, mas perdem execução anônima', () => {
-  assert.match(migration, /revoke execute on function public\.clear_must_change_password\(\) from anon/i)
-  assert.match(migration, /revoke execute on function public\.mark_personalized_content_as_read\(uuid\) from anon/i)
-  assert.match(migration, /revoke execute on function public\.touch_last_seen\(\) from anon/i)
-  assert.match(migration, /revoke execute on function public\.update_my_profile\(text, text, text, text, text, text\) from anon/i)
-  assert.doesNotMatch(migration, /revoke execute on function public\.update_my_profile[^;]+from authenticated/i)
+test('RPCs de conta ficam autenticadas sem herdar EXECUTE anônimo via PUBLIC', () => {
+  for (const signature of [
+    'clear_must_change_password\\(\\)',
+    'mark_personalized_content_as_read\\(uuid\\)',
+    'touch_last_seen\\(\\)',
+    'update_my_profile\\(text, text, text, text, text, text\\)',
+  ]) {
+    assert.match(rpcHotfix, new RegExp(`revoke execute on function public\\.${signature} from public, anon`, 'i'))
+    assert.match(rpcHotfix, new RegExp(`grant execute on function public\\.${signature} to authenticated`, 'i'))
+  }
+  assert.doesNotMatch(rpcHotfix, /grant execute[^;]+to anon/i)
 })
 
 test('controle é reversível e não apaga nem bloqueia áreas manuais', () => {
