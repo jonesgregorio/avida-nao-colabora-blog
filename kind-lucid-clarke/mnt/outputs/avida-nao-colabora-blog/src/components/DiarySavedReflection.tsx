@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { CheckCircle2, Home, Loader2, PenLine, Sparkles } from 'lucide-react'
 import type { Plan } from '../types'
 import type { DiaryMirror } from '../lib/diaryCompanion'
+import { fetchDiaryPatternInsight, type DiaryPatternEntry, type DiaryPatternInsight } from '../lib/diaryPatternInsight'
 import type { Signal } from '../lib/contentRecommendation'
+import { hasPlanAccess } from '../lib/officialPlans'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 
@@ -38,8 +41,34 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
   onViewHistory: () => void
   onBack: () => void
 }) {
+  const [patternInsight, setPatternInsight] = useState<DiaryPatternInsight | null>(null)
+  const [patternDismissed, setPatternDismissed] = useState(false)
+  const [patternExploring, setPatternExploring] = useState(false)
   const meta = moodMeta(saved.entry.mood)
   const suggestedCount = saved.mirror ? Object.values(saved.mirror.suggested_tags).reduce((sum, arr) => sum + arr.length, 0) : 0
+  const plusAccess = hasPlanAccess(plan, 'plus')
+  const patternSourceKey = JSON.stringify({
+    id: (saved.entry as DiaryPatternEntry).id ?? null,
+    date: (saved.entry as DiaryPatternEntry).date ?? null,
+    created_at: (saved.entry as DiaryPatternEntry).created_at ?? null,
+    emotional_tags: (saved.entry as DiaryPatternEntry).emotional_tags ?? [],
+    context_tags: (saved.entry as DiaryPatternEntry).context_tags ?? [],
+    need_tags: (saved.entry as DiaryPatternEntry).need_tags ?? [],
+    trigger_tags: (saved.entry as DiaryPatternEntry).trigger_tags ?? [],
+  })
+
+  useEffect(() => {
+    if (saved.kind !== 'diary' || !user || !plusAccess || todayDeepened) {
+      setPatternInsight(null)
+      return
+    }
+    let active = true
+    const source = JSON.parse(patternSourceKey) as DiaryPatternEntry
+    void fetchDiaryPatternInsight(user.id, source)
+      .then(insight => { if (active) setPatternInsight(insight) })
+      .catch(() => { if (active) setPatternInsight(null) })
+    return () => { active = false }
+  }, [patternSourceKey, plusAccess, saved.kind, todayDeepened, user])
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
@@ -62,9 +91,33 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo para observar</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.observation}</p></div>
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo que você fez por si</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.strength}</p></div>
           </div>
-          {saved.mirror.pattern && <div className="mt-3 rounded-2xl border border-line bg-white/70 p-4"><p className="text-xs font-semibold text-forest-700">Recorrência para observar</p><p className="text-sm text-ink-soft mt-1">{saved.mirror.pattern}</p></div>}
           <div className="mt-4 rounded-2xl bg-forest-900 text-white p-5"><p className="text-xs text-forest-100">Uma pergunta para levar com você</p><p className="font-serif text-xl mt-1">{saved.mirror.question}</p></div>
           <p className="text-[11px] text-ink-soft mt-3">Leitura de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
+        </section>
+      )}
+
+      {saved.kind === 'diary' && patternInsight && !patternDismissed && (
+        <section className="mt-5 rounded-3xl border border-forest-100 bg-white p-5 sm:p-6" aria-label="Recorrência do histórico">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forest-600">{patternInsight.eyebrow}</p>
+          <h2 className="mt-1 font-serif text-2xl text-forest-900">{patternInsight.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink">{patternInsight.description}</p>
+          <div className="mt-4 rounded-2xl bg-linen/55 px-4 py-3">
+            <p className="text-xs leading-relaxed text-ink-soft">{patternInsight.evidence}</p>
+          </div>
+
+          {patternExploring ? (
+            <div className="mt-4 rounded-2xl bg-forest-900 p-5 text-white">
+              <p className="text-xs text-forest-100">Uma pergunta para olhar com mais calma</p>
+              <p className="mt-1 font-serif text-xl">{patternInsight.question}</p>
+              <button type="button" onClick={() => setPatternExploring(false)} className="mt-3 text-xs font-medium text-forest-100 underline underline-offset-4">Fechar pergunta</button>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPatternExploring(true)} className="rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Explorar isso</button>
+              <button type="button" onClick={() => setPatternDismissed(true)} className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900">Agora não</button>
+            </div>
+          )}
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">A comparação usa somente marcadores estruturados que você escolheu nos seus registros. O texto livre de dias anteriores não é relido para criar esta observação.</p>
         </section>
       )}
 
