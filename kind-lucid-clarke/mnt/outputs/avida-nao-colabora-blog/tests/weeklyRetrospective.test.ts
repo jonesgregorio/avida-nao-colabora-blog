@@ -52,7 +52,7 @@ test('pouca amostra permanece explicitamente inicial', () => {
     data_quality: { total_entries: 1, active_days: 1, has_enough_data: false },
   })
   assert.equal(model.hasEnoughData, false)
-  assert.match(model.summary, /sinais iniciais/i)
+  assert.match(model.summary, /sinal inicial/i)
   assert.match(model.evidenceLine, /1 registro/)
   assert.equal(model.comparison.length, 0)
   assert.equal(model.carryForward, null)
