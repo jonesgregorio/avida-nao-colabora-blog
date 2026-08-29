@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../types'
+import { useModalA11y } from '../../hooks/useModalA11y'
 import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
 
@@ -47,7 +48,7 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'monthly-guidance', label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
   { id: 'my-plan',          label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
   { id: 'profile',          label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },
-  { id: 'support',          label: 'Suporte',              Icon: LifeBuoy,      match: ['support', 'support-ticket'] },
+  { id: 'support',          label: 'Suporte',               Icon: LifeBuoy,      match: ['support', 'support-ticket'] },
 ]
 
 const NAV_GROUPS: NavGroup[] = [
@@ -123,35 +124,12 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
 
       {/* ─── Menu "Mais" (mobile) ─── */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex items-end">
-          <button
-            type="button"
-            aria-label="Fechar menu"
-            className="absolute inset-0 w-full h-full bg-forest-900/35 backdrop-blur-[2px]"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line px-5 pt-3 pb-4">
-              <div className="w-12 h-1.5 rounded-full bg-line mx-auto mb-4" aria-hidden />
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-500">Seu espaço</p>
-                  <p className="font-serif text-xl text-forest-900 mt-0.5">Mais recursos</p>
-                </div>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  aria-label="Fechar menu"
-                  className="p-2 rounded-xl text-ink-soft hover:bg-mint/60"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="px-4 py-4 pb-8">
-              <MobileMenuContent groups={NAV_GROUPS} isActive={isActive} go={go} />
-            </div>
-          </aside>
-        </div>
+        <MobileMoreSheet
+          groups={NAV_GROUPS}
+          isActive={isActive}
+          go={go}
+          onClose={() => setMobileOpen(false)}
+        />
       )}
 
       {/* ─── Coluna principal ─── */}
@@ -250,6 +228,8 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-current={mobileMoreActive ? 'page' : undefined}
+            aria-haspopup="dialog"
+            aria-expanded={mobileOpen}
             className={`min-h-[58px] flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium transition-colors ${
               mobileMoreActive ? 'text-forest-900' : 'text-ink-soft'
             }`}
@@ -327,6 +307,57 @@ function SidebarContent({
   )
 }
 
+function MobileMoreSheet({
+  groups, isActive, go, onClose,
+}: {
+  groups: NavGroup[]
+  isActive: (i: NavItem) => boolean
+  go: (id: string) => void
+  onClose: () => void
+}) {
+  const dialogRef = useModalA11y(onClose)
+
+  return (
+    <div className="lg:hidden fixed inset-0 z-50 flex items-end">
+      <button
+        type="button"
+        aria-label="Fechar menu"
+        className="absolute inset-0 w-full h-full bg-forest-900/35 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <aside
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mobile-more-title"
+        tabIndex={-1}
+        className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-up focus:outline-none"
+      >
+        <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line px-5 pt-3 pb-4">
+          <div className="w-12 h-1.5 rounded-full bg-line mx-auto mb-4" aria-hidden />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-500">Seu espaço</p>
+              <h2 id="mobile-more-title" className="font-serif text-xl text-forest-900 mt-0.5">Mais recursos</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar menu"
+              className="p-2 rounded-xl text-ink-soft hover:bg-mint/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div className="px-4 py-4 pb-8">
+          <MobileMenuContent groups={groups} isActive={isActive} go={go} />
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 function MobileMenuContent({
   groups, isActive, go,
 }: {
@@ -349,7 +380,7 @@ function MobileMenuContent({
                   type="button"
                   onClick={() => go(item.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
+                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${
                     active ? 'bg-mint border-forest-200 text-forest-900' : 'bg-white border-line text-ink hover:bg-mint/40'
                   }`}
                 >
