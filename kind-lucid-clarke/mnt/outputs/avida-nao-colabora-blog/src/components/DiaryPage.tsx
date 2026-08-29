@@ -6,6 +6,7 @@
  */
 import type { ComponentProps } from 'react'
 import DiaryExperience from './DiaryExperience'
+import AdaptiveCheckinIntro from './AdaptiveCheckinIntro'
 import './diarySingleWritingField.css'
 
 type DiaryPageProps = ComponentProps<typeof DiaryExperience>
@@ -13,6 +14,7 @@ type DiaryPageProps = ComponentProps<typeof DiaryExperience>
 export default function DiaryPage(props: DiaryPageProps) {
   return (
     <div className="diary-single-writing-field">
+      <AdaptiveCheckinIntro user={props.user} />
       <DiaryExperience {...props} />
     </div>
   )
