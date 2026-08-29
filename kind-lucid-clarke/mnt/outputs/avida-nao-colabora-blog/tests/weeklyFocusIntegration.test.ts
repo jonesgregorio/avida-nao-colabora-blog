@@ -6,6 +6,7 @@ const home = readFileSync(new URL('../src/components/LoggedHome.tsx', import.met
 const card = readFileSync(new URL('../src/components/WeeklyFocusCard.tsx', import.meta.url), 'utf8')
 const store = readFileSync(new URL('../src/lib/weeklyFocusStore.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260829174500_user_weekly_focus.sql', import.meta.url), 'utf8')
+const migrationDdl = migration.replace(/--.*$/gm, '')
 
 test('Home Hoje exibe Foco da Semana somente a partir do Essencial', () => {
   assert.match(home, /import WeeklyFocusCard/)
@@ -26,17 +27,17 @@ test('Foco da Semana reutiliza a consulta estruturada da Home sem texto livre', 
 })
 
 test('persistência mantém uma linha por usuário/semana com RLS e sem gamificação', () => {
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.user_weekly_focus/)
-  assert.match(migration, /UNIQUE \(user_id, week_start\)/)
-  assert.match(migration, /ENABLE ROW LEVEL SECURITY/)
-  assert.match(migration, /auth\.uid\(\) = user_id/)
-  assert.match(migration, /GRANT SELECT, INSERT, UPDATE/)
-  assert.doesNotMatch(migration, /points|xp|streak|seed|semente|ranking/i)
+  assert.match(migrationDdl, /CREATE TABLE IF NOT EXISTS public\.user_weekly_focus/)
+  assert.match(migrationDdl, /UNIQUE \(user_id, week_start\)/)
+  assert.match(migrationDdl, /ENABLE ROW LEVEL SECURITY/)
+  assert.match(migrationDdl, /auth\.uid\(\) = user_id/)
+  assert.match(migrationDdl, /GRANT SELECT, INSERT, UPDATE/)
+  assert.doesNotMatch(migrationDdl, /points|xp|streak|seed|semente|ranking/i)
 })
 
 test('reflexão de fechamento é estruturada e não armazena relato livre', () => {
-  assert.match(migration, /helped.*somewhat.*not_much.*not_used/s)
-  assert.doesNotMatch(migration, /reflection_text|free_text|diary_text/)
+  assert.match(migrationDdl, /helped.*somewhat.*not_much.*not_used/s)
+  assert.doesNotMatch(migrationDdl, /reflection_text|free_text|diary_text/)
   assert.match(card, /Me ajudou/)
   assert.match(card, /Ajudou um pouco/)
   assert.match(card, /Não fez diferença/)
