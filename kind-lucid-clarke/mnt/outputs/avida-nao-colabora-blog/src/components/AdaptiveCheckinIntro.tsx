@@ -3,6 +3,7 @@ import { History, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { ymd } from '../lib/reportPeriods'
+import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
 import { buildContinuityPrompt, type ContinuityEntry } from '../lib/todayContinuity'
 import { buildAdaptiveCheckinPrompt, type AdaptiveCheckinAnswer, type AdaptiveCheckinPrompt } from '../lib/adaptiveCheckin'
 
@@ -37,6 +38,13 @@ export default function AdaptiveCheckinIntro({ user }: Props) {
     let active = true
     ;(async () => {
       try {
+        const historyEnabled = await fetchHistoryPersonalizationEnabled(user.id)
+        if (!active) return
+        if (!historyEnabled) {
+          setPrompt(null)
+          return
+        }
+
         const since = new Date(Date.now() - 30 * 864e5).toISOString()
         const { data, error } = await supabase
           .from('diary_entries')
