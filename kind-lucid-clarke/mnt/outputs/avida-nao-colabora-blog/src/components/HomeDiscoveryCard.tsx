@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { ArrowRight, Eye, Sparkles, X } from 'lucide-react'
 import type { HomeDiscovery } from '../lib/homeDiscoveries'
+import { trackRetentionEvent } from '../lib/retentionAnalytics'
 
 export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss }: {
   discovery: HomeDiscovery
@@ -7,6 +9,22 @@ export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss }: {
   onDismiss: () => void
 }) {
   const forming = discovery.status === 'forming'
+  const analyticsStatus = forming ? 'forming' : 'confirmed'
+
+  useEffect(() => {
+    trackRetentionEvent('discovery_view', {
+      dedupeKey: discovery.id,
+      metadata: { surface: 'home', status: analyticsStatus },
+    })
+  }, [analyticsStatus, discovery.id])
+
+  function openMap() {
+    trackRetentionEvent('discovery_open', {
+      dedupeKey: discovery.id,
+      metadata: { surface: 'home', status: analyticsStatus },
+    })
+    onOpenMap()
+  }
 
   return (
     <section
@@ -40,7 +58,7 @@ export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss }: {
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             <button
               type="button"
-              onClick={onOpenMap}
+              onClick={openMap}
               className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
             >
               Ver no Mapa Emocional <ArrowRight className="w-4 h-4" />
