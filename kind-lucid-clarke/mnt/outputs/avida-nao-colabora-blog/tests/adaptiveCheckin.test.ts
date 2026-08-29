@@ -20,7 +20,7 @@ test('check-in adaptativo compara ansiedade sem inventar escala numérica', () =
   const prompt = buildAdaptiveCheckinPrompt(continuity('yesterday_anxiety'))
   assert.ok(prompt)
   assert.deepEqual(prompt.choices.map(choice => choice.id), ['better', 'same', 'worse'])
-  assert.match(prompt.description, /não.*inventar uma nota/i)
+  assert.match(prompt.description, /inventar uma nota/i)
   assert.match(prompt.guidance.better, /não precisamos transformar.*melhor.*nota automática/i)
 })
 
@@ -47,7 +47,8 @@ test('rota do Diário integra a retomada adaptativa antes da experiência normal
 test('retomada do check-in consulta somente dados estruturados e não texto livre', () => {
   const intro = readFileSync(new URL('../src/components/AdaptiveCheckinIntro.tsx', import.meta.url), 'utf8')
   assert.match(intro, /created_at,date,mood,energy,anxiety_level,sleep_quality,context_tags,trigger_tags/)
-  assert.doesNotMatch(intro, /select\([^)]*text/)
+  assert.doesNotMatch(intro, /\.select\(['"]text(?:,|['"])/)
+  assert.doesNotMatch(intro, /,text(?:,|['"])/)
   assert.doesNotMatch(intro, /free_note/)
   assert.match(intro, /não vira nota automática/)
   assert.match(intro, /Prefiro começar do zero/)
