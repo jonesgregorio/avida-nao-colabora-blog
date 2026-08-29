@@ -8,10 +8,10 @@ const store = readFileSync(new URL('../src/lib/weeklyFocusStore.ts', import.meta
 const migration = readFileSync(new URL('../supabase/migrations/20260829174500_user_weekly_focus.sql', import.meta.url), 'utf8')
 const migrationDdl = migration.replace(/--.*$/gm, '')
 
-test('Home Hoje exibe Foco da Semana somente a partir do Essencial', () => {
+test('Home Hoje exibe Foco da Semana somente a partir do Essencial e respeita a preferência de histórico', () => {
   assert.match(home, /import WeeklyFocusCard/)
   assert.match(home, /user && weeklyAccess/)
-  assert.match(home, /<WeeklyFocusCard userId=\{user\.id\} plan=\{plan\} entries=\{homeEntries\}/)
+  assert.match(home, /<WeeklyFocusCard userId=\{user\.id\} plan=\{plan\} entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
   assert.match(home, /hasPlanAccess\(plan, 'essential'\)/)
 })
 

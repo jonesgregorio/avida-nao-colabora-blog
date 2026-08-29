@@ -6,6 +6,7 @@ import type { DiaryMirror } from '../lib/diaryCompanion'
 import { fetchDiaryPatternInsight, type DiaryPatternEntry, type DiaryPatternInsight } from '../lib/diaryPatternInsight'
 import type { Signal } from '../lib/contentRecommendation'
 import { hasPlanAccess } from '../lib/officialPlans'
+import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 
@@ -64,9 +65,20 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
     }
     let active = true
     const source = JSON.parse(patternSourceKey) as DiaryPatternEntry
-    void fetchDiaryPatternInsight(user.id, source)
-      .then(insight => { if (active) setPatternInsight(insight) })
-      .catch(() => { if (active) setPatternInsight(null) })
+    void (async () => {
+      try {
+        const historyEnabled = await fetchHistoryPersonalizationEnabled(user.id)
+        if (!active) return
+        if (!historyEnabled) {
+          setPatternInsight(null)
+          return
+        }
+        const insight = await fetchDiaryPatternInsight(user.id, source)
+        if (active) setPatternInsight(insight)
+      } catch {
+        if (active) setPatternInsight(null)
+      }
+    })()
     return () => { active = false }
   }, [patternSourceKey, plusAccess, saved.kind, todayDeepened, user])
 

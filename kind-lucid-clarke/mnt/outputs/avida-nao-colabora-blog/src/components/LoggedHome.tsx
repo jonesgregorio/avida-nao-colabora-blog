@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { normalizePlan, hasPlanAccess, type PlanKey } from '../lib/officialPlans'
 import { fetchDiaryConfig } from '../lib/diaryConfig'
 import { ymd } from '../lib/reportPeriods'
+import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
 import { buildContinuityPrompt, type ContinuityEntry, type ContinuityPrompt } from '../lib/todayContinuity'
 import { buildHomeDiscovery, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
 import { buildTodaySmallAction, type SmallActionEntry, type TodaySmallAction } from '../lib/todaySmallAction'
@@ -142,6 +143,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS)
   const [homeEntries, setHomeEntries] = useState<HomeEntry[]>([])
+  const [historyPersonalizationEnabled, setHistoryPersonalizationEnabled] = useState(true)
   const [continuity, setContinuity] = useState<ContinuityPrompt | null>(null)
   const [discovery, setDiscovery] = useState<HomeDiscovery | null>(null)
   const [smallAction, setSmallAction] = useState<TodaySmallAction | null>(null)
@@ -156,7 +158,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     ;(async () => {
       try {
         const since = new Date(Date.now() - 30 * 864e5).toISOString()
-        const [{ data }, diaryCfg] = await Promise.all([
+        const [{ data }, diaryCfg, historyEnabled] = await Promise.all([
           supabase
             .from('diary_entries')
             .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,stress_level,overload,context_tags,trigger_tags,emotional_tags,need_tags,care_action_tags')
@@ -164,11 +166,13 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
             .gte('created_at', since)
             .order('created_at', { ascending: false }),
           fetchDiaryConfig(profile?.plan ?? 'free'),
+          fetchHistoryPersonalizationEnabled(user.id),
         ])
         if (!active) return
 
         const entries = (data ?? []) as HomeEntry[]
         setHomeEntries(entries)
+        setHistoryPersonalizationEnabled(historyEnabled)
         const keys7 = new Set(lastSeven.map(day => day.key))
         const days30 = new Set(entries.map(entryDay).filter(Boolean))
         const entries7 = entries.filter(entry => keys7.has(entryDay(entry)))
@@ -213,7 +217,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           setSmallActionStatus(status)
         }
 
-        const nextDiscovery = buildHomeDiscovery(entries, plan)
+        const nextDiscovery = historyEnabled ? buildHomeDiscovery(entries, plan) : null
         if (!nextDiscovery) {
           setDiscovery(null)
         } else {
@@ -222,7 +226,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           setDiscovery(dismissed ? null : nextDiscovery)
         }
 
-        const prompt = buildContinuityPrompt(entries, todayKey, todayEntries.length > 0)
+        const prompt = historyEnabled ? buildContinuityPrompt(entries, todayKey, todayEntries.length > 0) : null
         if (!prompt) {
           setContinuity(null)
         } else {
@@ -514,10 +518,10 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
       </section>
 
       {user && weeklyAccess && (
-        <WeeklyFocusCard userId={user.id} plan={plan} entries={homeEntries} />
+        <WeeklyFocusCard userId={user.id} plan={plan} entries={historyPersonalizationEnabled ? homeEntries : []} />
       )}
 
-      {discovery && (
+      {historyPersonalizationEnabled && discovery && (
         <HomeDiscoveryCard
           discovery={discovery}
           onOpenMap={() => onNavigate('my-evolution')}
@@ -536,20 +540,31 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
       )}
 
       <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6">
-        <RecommendedContent
-          user={user}
-          profile={profile}
-          source="home-hoje"
-          limit={2}
-          title="Para o seu momento"
-          description="Sugestões escolhidas a partir dos seus registros recentes. Se ainda houver poucos dados, você pode começar pelo check-in de hoje."
-          variant="compact"
-          showEmpty
-          onOpen={(slug) => onNavigate('article', slug)}
-          onCheckin={() => onNavigate('diary')}
-          onDiary={() => onNavigate('diary')}
-          onSeeAll={() => onNavigate('articles')}
-        />
+        {historyPersonalizationEnabled ? (
+          <RecommendedContent
+            user={user}
+            profile={profile}
+            source="home-hoje"
+            limit={2}
+            title="Para o seu momento"
+            description="Sugestões escolhidas a partir dos seus registros recentes. Se ainda houver poucos dados, você pode começar pelo check-in de hoje."
+            variant="compact"
+            showEmpty
+            onOpen={(slug) => onNavigate('article', slug)}
+            onCheckin={() => onNavigate('diary')}
+            onDiary={() => onNavigate('diary')}
+            onSeeAll={() => onNavigate('articles')}
+          />
+        ) : (
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Conteúdos guiados</p>
+            <h2 className="font-serif text-xl text-forest-900 mt-1">Sugestões automáticas pausadas</h2>
+            <p className="text-sm text-ink-soft mt-2 leading-relaxed">Você desativou as retomadas automáticas com o histórico. Seus conteúdos continuam disponíveis para explorar quando quiser.</p>
+            <button onClick={() => onNavigate('articles')} className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 hover:bg-mint/40">
+              Explorar conteúdos <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </section>
 
       <section>
