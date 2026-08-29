@@ -148,7 +148,7 @@ export default function RecommendedContent({
       </div>
       {structuredContext && (
         <p className="text-[11px] text-ink-soft mt-3 leading-relaxed">
-          Estas sugestões usam apenas humor, escalas, marcadores estruturados e resultados estruturados de questionários dos últimos dias. O texto completo do Diário não é relido para montar este bloco.
+          Para escolher estas sugestões, usamos apenas humor, escalas, marcadores estruturados e resultados estruturados de questionários dos últimos dias. O texto completo do Diário não entra na pontuação; sinais de segurança são verificados separadamente.
         </p>
       )}
       {carePlanContext && (
