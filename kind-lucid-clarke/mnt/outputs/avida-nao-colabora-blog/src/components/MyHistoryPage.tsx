@@ -94,7 +94,8 @@ export default function MyHistoryPage({
 }: Props) {
   const plan = normalizePlan(profile?.plan)
   const hasHistory = hasPlanAccess(plan, 'essential')
-  const includeTriggers = plan === 'plus'
+  const isPlus = plan === 'plus'
+  const includeTriggers = isPlus
   const [entries, setEntries] = useState<MyHistoryEntry[]>([])
   const [reports, setReports] = useState<MyHistoryReport[]>([])
   const [loading, setLoading] = useState(hasHistory)
@@ -124,10 +125,12 @@ export default function MyHistoryPage({
     return () => { active = false }
   }, [user, hasHistory])
 
-  const history = useMemo(
-    () => buildMyHistory(entries, reports, { includeTriggers, memoryLimit: 4 }),
-    [entries, reports, includeTriggers],
-  )
+  const history = useMemo(() => {
+    // A linha do tempo nunca vira atalho para um relatório fora do plano atual:
+    // Essencial vê apenas os semanais; Plus pode incluir também os mensais.
+    const visibleReports = isPlus ? reports : reports.filter(report => report.report_type === 'weekly')
+    return buildMyHistory(entries, visibleReports, { includeTriggers, memoryLimit: 4 })
+  }, [entries, reports, includeTriggers, isPlus])
 
   if (!hasHistory) {
     return (
