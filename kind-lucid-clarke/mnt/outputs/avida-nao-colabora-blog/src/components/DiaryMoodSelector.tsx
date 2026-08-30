@@ -8,6 +8,7 @@ interface DiaryMoodSelectorProps {
   otherLabel: string
   onSelect: (key: string) => void
   onOtherLabelChange: (value: string) => void
+  optional?: boolean
 }
 
 const FEATURED_MOOD_KEYS = new Set([
@@ -19,7 +20,7 @@ const FEATURED_MOOD_KEYS = new Set([
   'irritacao',
 ])
 
-export default function DiaryMoodSelector({ selectedKey, otherLabel, onSelect, onOtherLabelChange }: DiaryMoodSelectorProps) {
+export default function DiaryMoodSelector({ selectedKey, otherLabel, onSelect, onOtherLabelChange, optional = false }: DiaryMoodSelectorProps) {
   const [showAll, setShowAll] = useState(false)
   const selectedIsExtra = Boolean(selectedKey && !FEATURED_MOOD_KEYS.has(selectedKey))
   const expanded = showAll || selectedIsExtra
@@ -31,7 +32,9 @@ export default function DiaryMoodSelector({ selectedKey, otherLabel, onSelect, o
 
   return (
     <div className="mb-5">
-      <p className="text-sm font-semibold text-forest-900 mb-3">Como você está agora?</p>
+      <p className="text-sm font-semibold text-forest-900 mb-3">
+        Como você está agora? {optional && <span className="font-normal text-ink-soft">(opcional)</span>}
+      </p>
       <div className="flex flex-wrap gap-2">
         {moods.map(mood => (
           <MoodChip
