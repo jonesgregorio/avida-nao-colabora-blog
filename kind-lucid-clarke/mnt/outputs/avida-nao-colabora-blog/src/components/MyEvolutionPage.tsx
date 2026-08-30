@@ -145,8 +145,8 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
   }, [initialTab])
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; minPlan: string }[] = [
-    { id: 'resumo', label: 'Resumo', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
-    { id: 'graficos', label: 'Gráficos', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
+    { id: 'resumo', label: 'Panorama', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
+    { id: 'graficos', label: 'Explorar', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
   ]
 
   return (
@@ -155,9 +155,9 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-              Mapa emocional <Leaf className="w-6 h-6 text-forest-400" />
+              Mapa Emocional <Leaf className="w-6 h-6 text-forest-400" />
             </h1>
-            <p className="mt-2 text-ink-soft">Uma forma visual de perceber o que vem aparecendo nos seus registros.</p>
+            <p className="mt-2 text-ink-soft">O que vem aparecendo com você ao longo do tempo — quando, com o quê e como muda. Toque numa emoção para explorar.</p>
           </div>
           <PlanBadge plan={plan} member size="sm" className="mt-1" />
         </div>
@@ -513,8 +513,8 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </select>
       </div>
       <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
-        <h3 className="font-serif text-lg sm:text-xl text-forest-900">Visão geral da sua evolução emocional</h3>
-        <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(selectedMonth)}.</p>
+        <h3 className="font-serif text-lg sm:text-xl text-forest-900">Como você vem se sentindo</h3>
+        <p className="text-sm text-ink-soft mt-1 mb-5">O que apareceu nos seus registros de {monthLabel(selectedMonth)}.</p>
         <div className="grid md:grid-cols-[auto_1fr] gap-6 items-center">
           <div className="flex flex-col items-center">
             <BigRing pct={positivePct} />
@@ -903,6 +903,10 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             <MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} />
           </div>
 
+          {/* Fase 19R.5: a exploração por emoção vem primeiro — antes dos gráficos
+              gerais — para o Mapa ser "o que vem acontecendo comigo", não um painel. */}
+          <EmotionalDrilldownPanel entries={entries} plan={plan} periodEnd={period?.end ?? null} />
+
           {mapSummary && (
             <ExplainMapCard summary={mapSummary} previous={previousPeriodSummary} questionnaireSignals={questionnaireSignals} />
           )}
@@ -929,8 +933,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><Waves className="w-4 h-4 text-forest-500" /> Energia e ansiedade</h3>
             <p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p>
           </div>
-
-          <EmotionalDrilldownPanel entries={entries} plan={plan} periodEnd={period?.end ?? null} />
 
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-paper-soft border border-line rounded-2xl p-5">
