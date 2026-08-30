@@ -37,7 +37,7 @@ export default function CuidarPage({ user, profile, onNavigate, onOpenArticle }:
           <RecommendedContent
             user={user}
             profile={profile}
-            source="map"
+            source="care"
             limit={3}
             title="Talvez isso ajude agora"
             description="Sugestões escolhidas a partir dos seus registros recentes."

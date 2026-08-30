@@ -10,29 +10,24 @@ test('área logada preserva logo oficial e mantém a entrada principal como Hoje
   assert.match(source, /<LogoIcon className=/)
 })
 
-test('a navegação principal segue a jornada da Ideia 1 (Fase 19R.1)', () => {
-  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'cuidar', 'mais']) {
-    assert.match(source, new RegExp(`id: '${id}'`), `passo da jornada ausente da navegação: ${id}`)
+test('desktop recupera o menu direto anterior e acrescenta Descobertas', () => {
+  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'articles', 'questionarios', 'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support']) {
+    assert.match(source, new RegExp(`id: '${id}'`), `destino ausente da navegação desktop: ${id}`)
   }
 
-  assert.match(source, /label: 'Descobertas'/)
-  assert.match(source, /label: 'Cuidar'/)
-  assert.match(source, /label: 'Mais'/)
+  for (const group of ['Seu espaço', 'Entender', 'Cuidar', 'Conta']) {
+    assert.match(source, new RegExp(`label: '${group}'`), `grupo desktop ausente: ${group}`)
+  }
 
-  // "Conteúdos Guiados" deixa de ocupar o mesmo nível da jornada — vira recurso de Cuidar.
-  assert.doesNotMatch(source, /id: 'articles',\s+label: 'Conteúdos Guiados'/)
+  assert.match(source, /\['descobertas', 'my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'\]/)
+  assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
 })
 
-test('grupos da sidebar separam a jornada do cuidado e da conta', () => {
-  for (const group of ['Sua jornada', 'Cuidado e conta']) {
-    assert.match(source, new RegExp(`label: '${group}'`))
-  }
-})
-
-test('nenhum destino existente foi removido — só reorganizado sob Cuidar/Mais', () => {
-  for (const view of ['self-care', 'articles', 'questionarios', 'monthly-guidance', 'my-plan', 'profile', 'support', 'notifications']) {
-    assert.match(source, new RegExp(`'${view}'`), `destino existente sumiu da navegação: ${view}`)
-  }
+test('Cuidar e Mais continuam disponíveis sem substituir os atalhos diretos do desktop', () => {
+  assert.match(source, /id: 'cuidar'/)
+  assert.match(source, /id: 'mais'/)
+  assert.match(source, /const NAV_GROUPS/)
+  assert.match(source, /groups=\{NAV_GROUPS\}/)
 })
 
 test('Ideia 1 não ressuscita módulos legados nem gamificação', () => {
@@ -42,7 +37,7 @@ test('Ideia 1 não ressuscita módulos legados nem gamificação', () => {
   assert.doesNotMatch(source, /label: 'Jornada'/)
 })
 
-test('mobile prioriza os quatro passos da jornada mais frequentes + Mais', () => {
+test('mobile mantém Hoje, Diário, Descobertas, Mapa + Mais', () => {
   assert.match(source, /const MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
   assert.match(source, /aria-label="Navegação principal"/)
   assert.match(source, />\s*Mais\s*<\/button>/)
