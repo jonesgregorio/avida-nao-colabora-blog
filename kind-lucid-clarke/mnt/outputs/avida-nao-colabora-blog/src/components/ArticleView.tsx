@@ -437,7 +437,7 @@ export default function ArticleView({
   if (!article) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <p className="text-stone-500">Artigo não encontrado.</p>
+        <p className="text-ink-soft">Artigo não encontrado.</p>
         <button onClick={onBack} className="mt-4 text-forest-600 hover:underline">
           Ver todos os artigos
         </button>
@@ -459,8 +459,8 @@ export default function ArticleView({
         <div className="flex items-center gap-2 mb-2">
           <span className="font-serif text-xl font-bold text-forest-800">A Vida Não Colabora</span>
         </div>
-        <h1 className="text-2xl font-bold text-stone-800 mb-1">{article.title}</h1>
-        <p className="text-sm text-stone-500">{article.category} · {formattedDate}</p>
+        <h1 className="text-2xl font-bold text-forest-900 mb-1">{article.title}</h1>
+        <p className="text-sm text-ink-soft">{article.category} · {formattedDate}</p>
       </div>
 
       {/* Breadcrumb */}
@@ -497,7 +497,7 @@ export default function ArticleView({
 
       {/* Tempo de leitura SEMPRE: usa o valor salvo ou calcula do conteúdo, para
           artigos antigos (sem read_time) também exibirem. */}
-      <div className="flex items-center gap-2 text-stone-400 text-sm mb-8 no-print">
+      <div className="flex items-center gap-2 text-ink-soft text-sm mb-8 no-print">
         <Clock size={14} /> {article.read_time || estimateReadTime(article.content || '')} min de leitura
       </div>
 
@@ -551,11 +551,11 @@ export default function ArticleView({
       {/* B) Diary questions */}
       {diaryQuestions.length > 0 && (
         <div className="mt-12 no-print" data-noprint>
-          <h3 className="font-bold text-forest-800 mb-1 text-lg">Perguntas para o diário</h3>
-          <p className="text-stone-500 text-sm mb-4">Use estas perguntas para explorar o que esse artigo tocou em você.</p>
+          <h3 className="font-serif text-lg text-forest-900 mb-1">Perguntas para o diário</h3>
+          <p className="text-ink-soft text-sm mb-4">Use estas perguntas para explorar o que esse artigo tocou em você.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {diaryQuestions.map((q, i) => (
-              <div key={i} className="bg-stone-50 border border-stone-100 rounded-xl p-4 flex flex-col gap-3">
+              <div key={i} className="bg-paper-soft border border-line rounded-xl p-4 flex flex-col gap-3">
                 <p className="text-forest-700 text-sm leading-relaxed">{q}</p>
                 <button
                   onClick={() => handleAnswerInDiary(q)}
@@ -572,14 +572,14 @@ export default function ArticleView({
 
       {/* C) Emotional thermometer */}
       <div className="mt-10 no-print article-feedback" data-noprint>
-        <h3 className="font-bold text-forest-800 mb-1">Como esse artigo encontrou você hoje?</h3>
+        <h3 className="font-serif text-lg text-forest-900 mb-1">Como esse artigo encontrou você hoje?</h3>
         {feedbackDone ? (
           <p className="text-forest-500 text-sm mt-2">
             Sua resposta foi registrada. Que bom ter você aqui. 💚
           </p>
         ) : (
           <>
-            <p className="text-stone-500 text-sm mb-4">Escolha o que mais combina com o que você está sentindo agora.</p>
+            <p className="text-ink-soft text-sm mb-4">Escolha o que mais combina com o que você está sentindo agora.</p>
             <div className="flex flex-wrap gap-2">
               {FEEDBACK_OPTIONS.map(opt => (
                 <button
@@ -589,7 +589,7 @@ export default function ArticleView({
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm border transition-all ${
                     selectedFeedback === opt.type
                       ? 'bg-forest-600 text-white border-forest-600'
-                      : 'bg-white border-stone-200 text-forest-700 hover:border-forest-400'
+                      : 'bg-white border-line text-forest-700 hover:border-forest-400'
                   }`}
                 >
                   {opt.icon} {opt.label}
@@ -597,7 +597,7 @@ export default function ArticleView({
               ))}
             </div>
             {!user && (
-              <p className="text-xs text-stone-400 mt-2">
+              <p className="text-xs text-ink-soft mt-2">
                 Faça login para salvar sua resposta.
               </p>
             )}
@@ -609,8 +609,8 @@ export default function ArticleView({
           convite de cadastro gratuito (aquisição). */}
       {user ? (
         <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
-          <h3 className="font-bold text-stone-800 mb-2">{DEFAULT_CTA.logged.title}</h3>
-          <p className="text-stone-600 text-sm mb-4">{DEFAULT_CTA.logged.paragraph}</p>
+          <h3 className="font-serif text-lg text-forest-900 mb-2">{DEFAULT_CTA.logged.title}</h3>
+          <p className="text-ink-soft text-sm mb-4">{DEFAULT_CTA.logged.paragraph}</p>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => doNavigate('diary')}
@@ -624,14 +624,14 @@ export default function ArticleView({
         <div className="mt-10 bg-mint/40 rounded-2xl p-6 border border-mint article-cta-buttons" data-noprint>
           {article?.cta_mode === 'custom' && (article.cta_custom_title || article.cta_custom_text) ? (
             <>
-              <h3 className="font-bold text-stone-800 mb-2">{article.cta_custom_title || DEFAULT_CTA.guest.title}</h3>
-              {article.cta_custom_text && <p className="text-stone-600 text-sm mb-4">{article.cta_custom_text}</p>}
+              <h3 className="font-serif text-lg text-forest-900 mb-2">{article.cta_custom_title || DEFAULT_CTA.guest.title}</h3>
+              {article.cta_custom_text && <p className="text-ink-soft text-sm mb-4">{article.cta_custom_text}</p>}
             </>
           ) : (
             <>
-              <h3 className="font-bold text-stone-800 mb-2">{DEFAULT_CTA.guest.title}</h3>
+              <h3 className="font-serif text-lg text-forest-900 mb-2">{DEFAULT_CTA.guest.title}</h3>
               {DEFAULT_CTA.guest.paragraphs.map((p, i) => (
-                <p key={i} className={`text-stone-600 text-sm ${i === DEFAULT_CTA.guest.paragraphs.length - 1 ? 'mb-4' : 'mb-2'}`}>{p}</p>
+                <p key={i} className={`text-ink-soft text-sm ${i === DEFAULT_CTA.guest.paragraphs.length - 1 ? 'mb-4' : 'mb-2'}`}>{p}</p>
               ))}
             </>
           )}
@@ -673,7 +673,7 @@ export default function ArticleView({
       {/* F) Related articles */}
       {related.length > 0 && (
         <div className="mt-12 no-print">
-          <h3 className="text-lg font-bold text-forest-800 mb-4">Conteúdos relacionados</h3>
+          <h3 className="font-serif text-lg text-forest-900 mb-4">Conteúdos relacionados</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {related.map(rel => (
               <button
@@ -682,9 +682,9 @@ export default function ArticleView({
                   if (onSelectArticle) onSelectArticle(rel.slug)
                   else doNavigate('article', rel.slug)
                 }}
-                className="text-left bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow"
+                className="text-left bg-white rounded-xl border border-line overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="aspect-video bg-stone-100 overflow-hidden">
+                <div className="aspect-video bg-mint overflow-hidden">
                   <img
                     src={rel.image_url || rel.cover_image_url || rel.cover_image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=60'}
                     alt={rel.title}
