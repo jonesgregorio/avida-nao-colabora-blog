@@ -135,7 +135,10 @@ function voiceErrorMessage(code?: string) {
 export default function DiaryExperience({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
   const [tab, setTab] = useState<PageTab>('write')
-  const [mode, setMode] = useState<EntryMode>('quick')
+  // Fase 19R.3: o Diário abre pela ESCRITA. Só começa no check-in rápido quando a
+  // pessoa chega da Home já tendo escolhido um humor (intenção explícita de
+  // check-in). O check-in continua a um toque dentro da tela.
+  const [mode, setMode] = useState<EntryMode>(initialMood ? 'quick' : 'diary')
   const [entries, setEntries] = useState<DiaryEntryV2[]>([])
   const [monthRows, setMonthRows] = useState<DiaryEntryV2[]>([])
   const [todayMain, setTodayMain] = useState<DiaryEntryV2 | null>(null)
@@ -249,6 +252,14 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       setMode('diary'); setDraft(promptContext.prompt); setHelperPrompt(promptContext.prompt)
     }
   }, [promptContext, todayMain, atLimit])
+
+  // Se a pessoa já escreveu hoje, abrir na retomada do registro do dia em vez de
+  // um compositor em branco. Só ajusta o estado inicial (sem rascunho, sem edição).
+  useEffect(() => {
+    if (todayMain && mode === 'diary' && !draft.trim() && !editingEntryId && !promptContext) {
+      setMode('main-saved')
+    }
+  }, [todayMain, mode, draft, editingEntryId, promptContext])
 
   const toggle = (items: string[], setter: (v: string[]) => void, value: string) => setter(items.includes(value) ? items.filter(x => x !== value) : [...items, value])
   const touch = (key: string, setter: (v: number) => void, value: number) => { setter(value); setTouched(prev => new Set(prev).add(key)) }
@@ -552,8 +563,8 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         <header className="flex items-start justify-between gap-4 mb-6">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
-            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. Como você chegou até aqui hoje?</h1>
-            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Escreva do seu jeito. Se quiser, adicione detalhes depois.' : mode === 'quick' ? 'Comece com um check-in rápido. Se quiser, aprofunde escrevendo depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
+            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. {mode === 'quick' ? 'Como você está agora?' : 'O que você quer colocar para fora hoje?'}</h1>
+            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Escreva do seu jeito. Se quiser, adicione detalhes depois.' : mode === 'quick' ? 'Um check-in rápido é suficiente. Se quiser, escreva um pouco depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
           </div>
           <button onClick={() => setFocusMode(v => !v)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title={focusMode ? 'Sair do modo foco' : 'Modo foco'} aria-label={focusMode ? 'Sair do modo foco' : 'Ativar modo foco'}>{focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</button>
         </header>
@@ -571,10 +582,27 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
         {tab === 'write' ? (
           <div className={focusMode ? '' : 'mx-auto max-w-3xl'}>
             <main className="min-w-0">
-              {!focusMode && (
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <button onClick={() => setMode('quick')} className={`rounded-full px-4 py-2 text-sm border ${mode === 'quick' ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>Check-in rápido</button>
-                  <button onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className={`rounded-full px-4 py-2 text-sm border ${mode !== 'quick' ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>Meu diário</button>
+              {/* Fase 19R.3: a escrita é a experiência padrão. O check-in rápido
+                  continua a um toque, como opção — não como estado inicial. */}
+              {!focusMode && mode !== 'main-saved' && (
+                <div className="mb-4">
+                  {mode === 'quick' ? (
+                    <button
+                      type="button"
+                      onClick={() => setMode(todayMain ? 'main-saved' : 'diary')}
+                      className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900"
+                    >
+                      <span aria-hidden>←</span> Quero escrever no diário
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMode('quick')}
+                      className="text-sm text-forest-700 underline underline-offset-2 hover:text-forest-900"
+                    >
+                      Prefiro só um Check-in rápido hoje
+                    </button>
+                  )}
                 </div>
               )}
 

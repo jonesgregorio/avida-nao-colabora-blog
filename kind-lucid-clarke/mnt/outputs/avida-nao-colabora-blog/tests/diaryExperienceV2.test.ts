@@ -57,9 +57,17 @@ test('mobile mantém ações essenciais próximas do polegar', () => {
   assert.match(diary, /Guardar meu registro/)
 })
 
-test('check-in rápido é a entrada principal e coleta sinais complementares sem formulário longo', () => {
-  assert.match(diary, /useState<EntryMode>\('quick'\)/)
-  assert.match(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+test('a escrita é a entrada principal do Diário; o check-in rápido continua a um toque (Fase 19R.3)', () => {
+  // Abre escrevendo. Só começa no check-in quando a pessoa chega da Home com humor.
+  assert.match(diary, /useState<EntryMode>\(initialMood \? 'quick' : 'diary'\)/)
+  assert.match(diary, /Quero escrever no diário/)
+  assert.match(diary, /Prefiro só um Check-in rápido hoje/)
+  assert.doesNotMatch(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+  // Se já escreveu hoje, abre na retomada do registro, não num compositor em branco.
+  assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)
+})
+
+test('o check-in rápido continua coletando sinais complementares sem formulário longo', () => {
   assert.match(diary, /Tensão\/estresse/)
   assert.match(diary, /Intensidade da ansiedade/)
   assert.match(diary, /mood === 'ansiedade'/)
