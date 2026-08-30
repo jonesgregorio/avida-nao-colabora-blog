@@ -78,8 +78,8 @@ async function openDiary(page, viewport) {
   await page.setViewportSize(viewport)
   await installSession(page, 'plus')
   await page.goto('/diario')
-  await expect(page.getByRole('heading', { name: /Como você chegou até aqui hoje/i })).toBeVisible()
-  await page.getByRole('button', { name: 'Meu diário' }).click()
+  // Fase 19R.3: o Diário abre pela escrita.
+  await expect(page.getByRole('heading', { name: /O que você quer colocar para fora hoje/i })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
 }
 
