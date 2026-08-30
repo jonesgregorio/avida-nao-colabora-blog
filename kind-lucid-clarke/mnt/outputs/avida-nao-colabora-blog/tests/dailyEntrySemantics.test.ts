@@ -16,8 +16,9 @@ test('Home separa avaliação do dia de estado emocional', () => {
 })
 
 test('Diário e check-in continuam usando estados emocionais, não a escala da Home', () => {
-  assert.match(diaryMood, /Como este momento está para você\?/)
-  assert.match(diaryMood, /estado emocional/)
+  assert.match(diaryMood, /Como você está se sentindo\?/)
+  assert.match(diaryMood, /Quer acrescentar algo sobre este momento\?/)
+  assert.match(diaryMood, /contexto ao que você escreveu/)
   for (const label of expected) assert.doesNotMatch(diaryMood, new RegExp(label))
 })
 

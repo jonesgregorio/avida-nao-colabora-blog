@@ -19,11 +19,12 @@ test('detalhes ficam fora do fluxo principal em drawer responsivo', () => {
   assert.match(drawer, /useModalA11y/)
 })
 
-test('seletor inicial de humor mostra grupo curto e oferece outros estados', () => {
+test('seletor emocional começa recolhido, mostra grupo curto e oferece outros sentimentos', () => {
   const selector = read('src/components/DiaryMoodSelector.tsx')
   const featured = selector.match(/FEATURED_MOOD_KEYS = new Set\(\[([\s\S]*?)\]\)/)?.[1] || ''
   assert.equal((featured.match(/'/g) || []).length / 2, 6)
-  assert.match(selector, /Outros estados/)
+  assert.match(selector, /Quer acrescentar algo sobre este momento\?/)
+  assert.match(selector, /Outros sentimentos/)
   assert.match(selector, /Menos estados/)
 })
 

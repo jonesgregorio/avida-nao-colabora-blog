@@ -31,7 +31,7 @@ export default function DiaryMoodSelector({ selectedKey, otherLabel, onSelect, o
         <span className="flex items-center justify-between gap-3">
           <span>
             <span className="block text-sm font-medium text-forest-900">Quer acrescentar algo sobre este momento?</span>
-            <span className="mt-0.5 block text-xs text-ink-soft">Opcional — ajuda a organizar seu histórico.</span>
+            <span className="mt-0.5 block text-xs text-ink-soft">Opcional — só se isso ajudar a dar contexto ao que você escreveu.</span>
           </span>
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-forest-600" />
         </span>

@@ -1,30 +1,25 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
-const root = process.cwd()
-const diaryPath = path.join(root, 'src/components/DiaryExperience.tsx')
-const moodPath = path.join(root, 'src/components/DiaryMoodSelector.tsx')
-const diary = fs.readFileSync(diaryPath, 'utf8')
-const mood = fs.readFileSync(moodPath, 'utf8')
+const diary = readFileSync(new URL('../src/components/DiaryExperience.tsx', import.meta.url), 'utf8')
+const mood = readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', import.meta.url), 'utf8')
 
-describe('Fase 21.2 — Diário com escrita como protagonista', () => {
-  it('mantém a escrita como entrada principal', () => {
-    expect(diary).toContain('O que você quer colocar para fora hoje?')
-    expect(diary).toContain('Comece pelo texto. Humor e outros detalhes ficam opcionais para depois.')
-    expect(diary).toContain('Guardar meu registro')
-  })
+test('Fase 21.2 mantém a escrita como entrada principal', () => {
+  assert.match(diary, /O que você quer colocar para fora hoje\?/)
+  assert.match(diary, /Comece pelo texto\. Humor e outros detalhes ficam opcionais para depois\./)
+  assert.match(diary, /Guardar meu registro/)
+})
 
-  it('mantém o contexto emocional opcional e recolhido', () => {
-    expect(mood).toContain('Quer acrescentar algo sobre este momento?')
-    expect(mood).toContain('Opcional — ajuda a organizar seu histórico.')
-    expect(mood).toContain('Como você está se sentindo?')
-    expect(mood).toContain('Escolha apenas se isso ajudar a dar contexto ao que você escreveu.')
-    expect(mood).not.toContain('É diferente da pergunta da página inicial')
-  })
+test('Fase 21.2 mantém o contexto emocional opcional e recolhido', () => {
+  assert.match(mood, /Quer acrescentar algo sobre este momento\?/)
+  assert.match(mood, /Opcional — só se isso ajudar a dar contexto ao que você escreveu\./)
+  assert.match(mood, /Como você está se sentindo\?/)
+  assert.match(mood, /Escolha apenas se isso ajudar a dar contexto ao que você escreveu\./)
+  assert.doesNotMatch(mood, /É diferente da pergunta da página inicial/)
+})
 
-  it('não transforma sentimentos em resposta sobre colaboração do dia', () => {
-    expect(mood).not.toContain('como o dia, no geral, colaborou')
-    expect(mood).toContain('Outros sentimentos')
-  })
+test('Fase 21.2 não transforma sentimentos em resposta sobre colaboração do dia', () => {
+  assert.doesNotMatch(mood, /como o dia, no geral, colaborou/)
+  assert.match(mood, /Outros sentimentos/)
 })

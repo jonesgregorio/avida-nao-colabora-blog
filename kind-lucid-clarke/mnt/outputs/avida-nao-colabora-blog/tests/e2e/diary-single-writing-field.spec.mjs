@@ -78,12 +78,13 @@ async function openDiary(page, viewport) {
   await page.setViewportSize(viewport)
   await installSession(page, 'plus')
   await page.goto('/diario')
-  // Fase 19R.3: o Diário abre pela escrita.
   await expect(page.getByRole('heading', { name: /O que você quer colocar para fora hoje/i })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
 }
 
 async function openEveryOptionalLayer(page) {
+  await page.getByRole('button', { name: /Quer acrescentar algo sobre este momento/i }).click()
+  await expect(page.getByText('Como você está se sentindo?')).toBeVisible()
   await page.getByRole('button', { name: /Bem-estar/i }).click()
   await page.getByRole('textbox', { name: 'Texto do diário' }).fill('Hoje eu quero registrar este momento sem preencher vários formulários.')
   await page.getByRole('button', { name: /Adicionar detalhes opcionais/i }).click()
