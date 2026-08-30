@@ -57,9 +57,23 @@ export interface HistoryMemory {
   triggers: string[]
 }
 
+// Marcos da trajetória — só acontecimentos sustentados por dados reais.
+// Nunca inventados para preencher a linha do tempo.
+export type HistoryMilestoneKind = 'first_entry' | 'first_report' | 'first_steady_month'
+
+export interface HistoryMilestone {
+  id: string
+  kind: HistoryMilestoneKind
+  date: string
+  dateLabel: string
+  title: string
+  description: string
+}
+
 export interface MyHistoryModel {
   months: HistoryMonth[]
   memories: HistoryMemory[]
+  milestones: HistoryMilestone[]
   totals: {
     activeDays: number
     entries: number
@@ -247,14 +261,62 @@ export function buildMyHistory(
     })
   }
 
+  const firstDate = days.length ? days[days.length - 1].date : null
+
+  // Acontecimentos — cada um vem de um dado que realmente existe.
+  const milestones: HistoryMilestone[] = []
+  if (firstDate) {
+    milestones.push({
+      id: `milestone:first_entry:${firstDate}`,
+      kind: 'first_entry',
+      date: firstDate,
+      dateLabel: shortDate(firstDate),
+      title: 'Você começou a registrar',
+      description: 'Seu primeiro check-in ou registro no diário. Foi daqui que sua trajetória começou.',
+    })
+  }
+  const generatedReports = reports
+    .filter(report => report.status === 'generated' && /^\d{4}-\d{2}-\d{2}$/.test(String(report.period_end ?? '').slice(0, 10)))
+    .sort((a, b) => String(a.period_end).localeCompare(String(b.period_end)))
+  const firstReport = generatedReports[0]
+  if (firstReport) {
+    const date = String(firstReport.period_end).slice(0, 10)
+    milestones.push({
+      id: `milestone:first_report:${firstReport.id ?? date}`,
+      kind: 'first_report',
+      date,
+      dateLabel: shortDate(date),
+      title: 'Seu primeiro relatório ficou pronto',
+      description: firstReport.report_type === 'monthly'
+        ? 'A primeira retrospectiva mensal do que você vinha registrando.'
+        : 'A primeira retrospectiva semanal do que você vinha registrando.',
+    })
+  }
+  const steadyMonth = [...months]
+    .filter(month => month.activeDays >= 12)
+    .sort((a, b) => a.key.localeCompare(b.key))[0]
+  if (steadyMonth) {
+    const date = `${steadyMonth.key}-15`
+    milestones.push({
+      id: `milestone:first_steady_month:${steadyMonth.key}`,
+      kind: 'first_steady_month',
+      date,
+      dateLabel: monthLabel(steadyMonth.key),
+      title: 'Um mês de registro constante',
+      description: `Em ${steadyMonth.label} você registrou algo em ${steadyMonth.activeDays} dias — o mês mais constante até aqui.`,
+    })
+  }
+  milestones.sort((a, b) => a.date.localeCompare(b.date))
+
   return {
     months,
     memories,
+    milestones,
     totals: {
       activeDays: days.length,
       entries: entries.filter(entry => Boolean(entryDate(entry))).length,
       reports: reports.filter(report => report.status === 'generated').length,
-      firstDate: days.length ? days[days.length - 1].date : null,
+      firstDate,
     },
   }
 }

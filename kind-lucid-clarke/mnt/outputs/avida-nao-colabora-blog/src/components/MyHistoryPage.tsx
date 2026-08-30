@@ -208,6 +208,24 @@ export default function MyHistoryPage({
 
           <TemporalComparisonPanel comparison={comparison} />
 
+          {history.milestones.length > 0 && (
+            <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6" aria-labelledby="milestones-heading">
+              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Acontecimentos</p>
+              <h2 id="milestones-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Momentos da sua trajetória</h2>
+              <p className="text-sm text-ink-soft mt-1">Marcos reais do seu percurso — cada um vem de algo que aconteceu de verdade nos seus registros.</p>
+              <ol className="mt-4 relative border-l border-line ml-1.5 space-y-4">
+                {history.milestones.map(milestone => (
+                  <li key={milestone.id} className="pl-5">
+                    <span className="absolute -left-[7px] mt-1.5 w-3 h-3 rounded-full bg-forest-400 border-2 border-paper-soft" aria-hidden />
+                    <p className="text-[11px] text-ink-soft capitalize">{milestone.dateLabel}</p>
+                    <p className="font-serif text-lg text-forest-900 leading-snug mt-0.5">{milestone.title}</p>
+                    <p className="text-sm text-ink-soft mt-1 leading-relaxed">{milestone.description}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
           {history.memories.length > 0 && (
             <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6" aria-labelledby="memories-heading">
               <div className="flex items-start gap-3 mb-4">
