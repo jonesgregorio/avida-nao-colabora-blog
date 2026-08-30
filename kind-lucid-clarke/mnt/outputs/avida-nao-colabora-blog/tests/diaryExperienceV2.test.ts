@@ -67,6 +67,25 @@ test('a escrita é a entrada principal do Diário; o check-in rápido continua a
   assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)
 })
 
+test('Diário guarda texto sem exigir humor; check-in continua exigindo humor (Fase 19R.B)', () => {
+  assert.match(diary, /if \(isCheckin && !moodChip\)/)
+  assert.match(diary, /mood: meta\?\.label \?\? null/)
+  assert.match(diary, /mood_score: meta \?/)
+  assert.match(diary, /mode === 'quick' && !moodChip/)
+  assert.match(diary, /<DiaryMoodSelector optional/)
+  assert.match(diary, /Humor e outros detalhes ficam opcionais para depois/)
+  assert.match(moodSelector, /optional\?: boolean/)
+  assert.match(moodSelector, /\(opcional\)/)
+})
+
+test('pós-registro mostra uma ajuda por vez e deixa conteúdo extra sob escolha (Fase 19R.B)', () => {
+  assert.match(savedReflection, /showExtras/)
+  assert.match(savedReflection, /Ver outras sugestões/)
+  assert.match(savedReflection, /!hasTagSuggestions \|\| showExtras/)
+  assert.match(savedReflection, /showExtras && onOpenArticle/)
+  assert.match(savedReflection, /não transformar o pós-registro em uma lista de tarefas/)
+})
+
 test('o check-in rápido continua coletando sinais complementares sem formulário longo', () => {
   assert.match(diary, /Tensão\/estresse/)
   assert.match(diary, /Intensidade da ansiedade/)
@@ -191,9 +210,10 @@ test('ditado e organização preservam o texto original intacto', () => {
   assert.match(migration, /nunca é\n-- substituído automaticamente/)
 })
 
-test('devolutiva de reflexão não quebra quando o humor é "Outro"', () => {
+test('devolutiva de reflexão não quebra quando o humor é "Outro" ou não foi marcado', () => {
   assert.equal(diary.includes('algo ligado a ${mood.toLowerCase()'), false)
   assert.equal(edge.includes('algo relacionado a ${mood.toLowerCase()'), false)
-  assert.match(diary, /if \(!m \|\| m === 'outro'\)/)
+  assert.match(diary, /m === 'outro'/)
+  assert.match(diary, /m === 'seu momento'/)
   assert.match(edge, /if \(!m \|\| m === 'outro'\)/)
 })
