@@ -46,11 +46,17 @@ test('Home Hoje ganha continuidade sem expor o texto livre do Diário', () => {
 })
 
 test('Home Hoje mostra descoberta progressiva sem criar uma segunda leitura de texto', () => {
-  assert.match(home, /buildHomeDiscovery/)
+  assert.match(home, /buildHomeDiscoveries/)
   assert.match(home, /<HomeDiscoveryCard/)
   assert.match(home, /avnc:discovery-dismissed/)
   assert.match(home, /trigger_tags,emotional_tags/)
   assert.doesNotMatch(home, /select\([^)]*\btext\b/)
+})
+
+test('Home Hoje respeita "não quero acompanhar" sem reabrir a descoberta oculta', () => {
+  assert.match(home, /mutedDiscoveryKeys/)
+  assert.match(home, /!mutedDiscoveries\.has\(item\.stableKey\)/)
+  assert.match(home, /fetchDiscoveryFeedback/)
 })
 
 test('Home aceita humor salvo como chave antiga ou rótulo atual', () => {

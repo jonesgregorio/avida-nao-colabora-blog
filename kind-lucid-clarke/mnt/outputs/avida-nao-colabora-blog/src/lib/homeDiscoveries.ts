@@ -25,6 +25,12 @@ export interface HomeDiscoveryEntry extends DiaryPatternEntry {
 
 export interface HomeDiscovery {
   id: string
+  /**
+   * Chave estável da descoberta (tipo + assunto, sem a contagem de dias). O `id`
+   * muda conforme a pessoa registra mais; a `stableKey` não. É a chave usada para
+   * guardar o feedback do usuário e para "não quero acompanhar isso".
+   */
+  stableKey: string
   status: HomeDiscoveryStatus
   kind: HomeDiscoveryKind
   eyebrow: string
@@ -90,6 +96,18 @@ function ucfirst(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+// Normaliza um rótulo para compor a chave estável: sem acento, minúsculo,
+// só letras/dígitos separados por "_". Estável mesmo que a contagem mude.
+function deburrKey(value: string): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48)
+}
+
 function aggregateByDay(entries: HomeDiscoveryEntry[]): DaySignals[] {
   const byDay = new Map<string, DaySignals>()
 
@@ -150,6 +168,7 @@ function recurrenceCandidate(
 
   return {
     id: `${kind}:${label.toLowerCase()}:${matchedDays}:${activeDays}`,
+    stableKey: `${kind}:${deburrKey(label)}`,
     kind,
     status,
     priority,
@@ -181,6 +200,7 @@ function relationCandidate(
 
   return {
     id: `${kind}:${left}:${right}:${matchedDays}:${activeDays}`,
+    stableKey: `${kind}:${deburrKey(left)}:${deburrKey(right)}`,
     kind,
     status,
     priority,
@@ -213,6 +233,7 @@ function scaleRelationCandidate(
 
   return {
     id: `${kind}:${matchedDays}:${baseDays}`,
+    stableKey: kind,
     kind,
     status,
     priority,

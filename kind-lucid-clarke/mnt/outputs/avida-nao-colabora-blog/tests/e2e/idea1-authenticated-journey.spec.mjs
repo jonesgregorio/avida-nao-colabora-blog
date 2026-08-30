@@ -216,6 +216,16 @@ async function installAuthenticatedMocks(page, plan = 'plus') {
       return
     }
 
+    if (url.pathname.includes('/rest/v1/user_discovery_feedback')) {
+      if (method === 'POST') {
+        const submitted = request.postDataJSON() || {}
+        await route.fulfill({ status: 201, headers, body: JSON.stringify(Array.isArray(submitted) ? submitted : [submitted]) })
+      } else {
+        await route.fulfill({ status: 200, headers, body: JSON.stringify([]) })
+      }
+      return
+    }
+
     if (url.pathname.includes('/rest/v1/analytics_settings')) {
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ config: { anonymize: true } }) })
       return
