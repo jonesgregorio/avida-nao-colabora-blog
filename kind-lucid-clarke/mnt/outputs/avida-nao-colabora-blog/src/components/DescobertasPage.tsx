@@ -21,6 +21,7 @@ import {
   fetchDiscoveryFeedback,
   saveDiscoveryFeedback,
 } from '../lib/discoveryFeedbackStore'
+import DiscoveryMemoryArchive from './history/DiscoveryMemoryArchive'
 
 interface Props {
   user: User | null
@@ -220,7 +221,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
                 ))}
               </div>
               <p className="text-[11px] text-ink-soft mt-4 leading-relaxed">
-                Esta coleção acompanha apenas as descobertas que ainda são sustentadas pela janela atual de registros. Um arquivo histórico permanente pode ser criado depois sem alterar esta percepção que você já marcou.
+                Quando uma descoberta reconhecida deixa de aparecer na janela recente, o snapshot que você reconheceu continua disponível em “O que já fez sentido antes”.
               </p>
             </section>
           )}
@@ -246,6 +247,14 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
             />
           )}
         </div>
+      )}
+
+      {!loading && user && (
+        <DiscoveryMemoryArchive
+          userId={user.id}
+          discoveries={allDiscoveries}
+          feedback={feedback}
+        />
       )}
 
       {personalizationEnabled && !loading && hiddenCount > 0 && (
