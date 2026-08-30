@@ -293,6 +293,13 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   const weeklyAccess = hasPlanAccess(plan, 'essential')
   const selfCareAccess = hasPlanAccess(plan, 'plus')
 
+  // Um lembrete contextual do dia por vez. Ordem da Ideia 1: descoberta antes de
+  // pequena ação. O Foco da Semana é um ritual semanal à parte e não entra aqui.
+  const dailyNudge: 'discovery' | 'smallAction' | null =
+    historyPersonalizationEnabled && discovery ? 'discovery'
+      : smallAction ? 'smallAction'
+        : null
+
   const nextStep = !stats.loaded || stats.todayEntries === 0
     ? {
         eyebrow: '1 minuto para você',
@@ -472,15 +479,18 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           </div>
         </section>
 
+        {/* Fase 19R.4: "ritmo recente" e "visão simples antes das análises" viram
+            um resumo único da semana, para a Home parar de repetir a mesma leitura
+            em dois blocos. */}
         <aside className="rounded-3xl border border-line bg-sand-50 p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu ritmo recente</p>
-              <h2 className="font-serif text-xl text-forest-900 mt-1">{stats.activeDays7} de 7 dias</h2>
+              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Últimos 7 dias</p>
+              <h2 className="font-serif text-xl text-forest-900 mt-1">Seu ritmo recente: {stats.activeDays7} de 7 dias</h2>
             </div>
-            <span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center"><CalendarDays className="w-5 h-5" /></span>
+            <span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center flex-shrink-0"><CalendarDays className="w-5 h-5" /></span>
           </div>
-          <div className="grid grid-cols-7 gap-1.5 mt-5">
+          <div className="grid grid-cols-7 gap-1.5 mt-4">
             {lastSeven.map(day => {
               const active = stats.activeDayKeys.includes(day.key)
               return (
@@ -493,41 +503,23 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               )
             })}
           </div>
-          <p className="text-xs text-ink-soft mt-4 leading-relaxed">Sem sequência obrigatória. Cada retorno conta, inclusive depois de alguns dias longe.</p>
-          <div className="mt-4 rounded-2xl bg-white/70 border border-line px-4 py-3 text-xs text-ink-soft">
-            Últimos 30 dias: <strong className="font-semibold text-forest-900">{stats.activeDays30} dias</strong> com algum registro.
+          <p className="text-sm text-ink-soft mt-4 leading-relaxed">{weekSummary}</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="text-xs bg-mint/60 text-forest-800 rounded-full px-3 py-1.5">{stats.checkins7} check-ins</span>
+            <span className="text-xs bg-sand-100 text-forest-800 rounded-full px-3 py-1.5">{stats.reflections7} registros no diário</span>
           </div>
+          <p className="text-xs text-ink-soft mt-3 leading-relaxed">Sem sequência obrigatória. Cada retorno conta, inclusive depois de alguns dias longe. Últimos 30 dias: <strong className="font-semibold text-forest-900">{stats.activeDays30} dias</strong> com algum registro.</p>
         </aside>
       </div>
-
-      <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6">
-        <div className="flex flex-col md:flex-row md:items-center gap-5">
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Últimos 7 dias</p>
-            <h2 className="font-serif text-2xl text-forest-900 mt-1">Uma visão simples antes das análises</h2>
-            <p className="text-sm text-ink-soft mt-2 leading-relaxed">{weekSummary}</p>
-            <div className="flex flex-wrap gap-2 mt-4">
-              <span className="text-xs bg-mint/60 text-forest-800 rounded-full px-3 py-1.5">{stats.checkins7} check-ins</span>
-              <span className="text-xs bg-sand-100 text-forest-800 rounded-full px-3 py-1.5">{stats.reflections7} registros no diário</span>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row md:flex-col gap-2 md:w-48 flex-shrink-0">
-            <button onClick={() => onNavigate('my-evolution')} className="inline-flex items-center justify-between gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-4 py-3 rounded-2xl transition-colors">
-              Ver meu mapa <LineChart className="w-4 h-4" />
-            </button>
-            <button onClick={() => onNavigate(weeklyAccess ? 'my-report' : 'pricing')} className="inline-flex items-center justify-between gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-4 py-3 rounded-2xl transition-colors">
-              {weeklyAccess ? 'Ver relatórios' : 'Relatório semanal'}
-              {weeklyAccess ? <BarChart3 className="w-4 h-4" /> : <Lock className="w-4 h-4 text-ink-soft" />}
-            </button>
-          </div>
-        </div>
-      </section>
 
       {user && weeklyAccess && (
         <WeeklyFocusCard userId={user.id} plan={plan} entries={historyPersonalizationEnabled ? homeEntries : []} />
       )}
 
-      {historyPersonalizationEnabled && discovery && (
+      {/* Fase 19R.4: um único lembrete contextual do dia por vez — descoberta OU
+          pequena ação, nunca os dois empilhados. Ambos continuam dispensáveis;
+          ao dispensar a descoberta, a pequena ação aparece no próximo carregamento. */}
+      {dailyNudge === 'discovery' && historyPersonalizationEnabled && discovery && (
         <HomeDiscoveryCard
           discovery={discovery}
           onOpenMap={() => onNavigate('my-evolution')}
@@ -536,7 +528,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         />
       )}
 
-      {smallAction && (
+      {dailyNudge === 'smallAction' && smallAction && (
         <TodaySmallActionCard
           action={smallAction}
           status={smallActionStatus}
