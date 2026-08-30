@@ -8,15 +8,10 @@ import { MOODS } from './user/moods'
 import { MoodChip } from './user/ui'
 
 interface LoggedHomeProps { user: User | null; profile: Profile | null; onNavigate: (section: string, articleSlug?: string) => void }
-
-const COLLABORATION = [
-  { score: 1, emoji: '😣', label: 'Nem um pouco' }, { score: 2, emoji: '😕', label: 'Quase nada' }, { score: 3, emoji: '😐', label: 'Mais ou menos' }, { score: 4, emoji: '🙂', label: 'Até que sim' }, { score: 5, emoji: '😄', label: 'Colaborou' },
-] as const
-
+const COLLABORATION = [{ score: 1, emoji: '😣', label: 'Nem um pouco' }, { score: 2, emoji: '😕', label: 'Quase nada' }, { score: 3, emoji: '😐', label: 'Mais ou menos' }, { score: 4, emoji: '🙂', label: 'Até que sim' }, { score: 5, emoji: '😄', label: 'Colaborou' }] as const
 function todayKey() { const date = new Date(); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000); return local.toISOString().slice(0, 10) }
 function todayLabel() { return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()) }
 function greeting() { const hour = new Date().getHours(); return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite' }
-
 type CollaborationRow = { score: number }
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
@@ -24,7 +19,6 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   const [score, setScore] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [showFeelings, setShowFeelings] = useState(false)
-
   useEffect(() => {
     if (!user) return
     let active = true
@@ -34,20 +28,18 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     })
     return () => { active = false }
   }, [user])
-
   async function chooseScore(nextScore: number) {
     if (!user || saving) return
     const previous = score
     setScore(nextScore); setSaving(true)
-    const { error } = await supabase.from('daily_life_collaboration').upsert({ user_id: user.id, date: todayKey(), score: nextScore, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+    const payload = { user_id: user.id, date: todayKey(), score: nextScore, updated_at: new Date().toISOString() } as never
+    const { error } = await supabase.from('daily_life_collaboration').upsert(payload, { onConflict: 'user_id,date' })
     if (error) setScore(previous); else setShowFeelings(true)
     setSaving(false)
   }
-
   const selected = COLLABORATION.find(item => item.score === score)
   const featuredMoodKeys = new Set(['bem_estar', 'tranquilidade', 'cansaco', 'ansiedade', 'sobrecarga', 'tristeza', 'irritacao'])
   const featuredMoods = MOODS.filter(mood => featuredMoodKeys.has(mood.key))
-
   return <>
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 lg:pt-8"><section className="relative overflow-hidden rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-5 sm:p-7 lg:p-8"><div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/50 blur-2xl" aria-hidden /><div className="relative">
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft mb-4"><span className="inline-flex items-center gap-1.5 bg-white/70 border border-line rounded-full px-3 py-1.5 capitalize"><CalendarDays className="w-3.5 h-3.5 text-forest-600" /> {todayLabel()}</span><span className="inline-flex items-center gap-1.5"><Leaf className="w-3.5 h-3.5 text-forest-500" /> Seu espaço de hoje</span></div>
