@@ -34,7 +34,7 @@ test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom
   assert.match(moodSelector, /'ansiedade'/)
   assert.match(moodSelector, /'tristeza'/)
   assert.match(moodSelector, /showAll/)
-  assert.match(moodSelector, /expanded \? 'Menos' : 'Mais'/)
+  assert.match(moodSelector, /expanded \? 'Menos estados' : 'Outros estados'/)
   assert.match(detailsDrawer, /role="dialog"/)
   assert.match(detailsDrawer, /aria-modal="true"/)
   assert.match(detailsDrawer, /bottom-0/)
@@ -58,12 +58,10 @@ test('mobile mantém ações essenciais próximas do polegar', () => {
 })
 
 test('a escrita é a entrada principal do Diário; o check-in rápido continua a um toque (Fase 19R.3)', () => {
-  // Abre escrevendo. Só começa no check-in quando a pessoa chega da Home com humor.
   assert.match(diary, /useState<EntryMode>\(initialMood \? 'quick' : 'diary'\)/)
   assert.match(diary, /Quero escrever no diário/)
   assert.match(diary, /Prefiro só um Check-in rápido hoje/)
   assert.doesNotMatch(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
-  // Se já escreveu hoje, abre na retomada do registro, não num compositor em branco.
   assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)
 })
 

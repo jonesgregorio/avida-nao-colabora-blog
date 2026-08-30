@@ -8,6 +8,7 @@ const helper = readFileSync(new URL('../src/lib/privacyPreferences.ts', import.m
 const privacyControl = readFileSync(new URL('../src/components/HistoryPersonalizationControl.tsx', import.meta.url), 'utf8')
 const accountPrivacy = readFileSync(new URL('../src/components/AccountPrivacyControls.tsx', import.meta.url), 'utf8')
 const home = readFileSync(new URL('../src/components/LoggedHome.tsx', import.meta.url), 'utf8')
+const legacyHome = readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8')
 const adaptive = readFileSync(new URL('../src/components/AdaptiveCheckinIntro.tsx', import.meta.url), 'utf8')
 const savedReflection = readFileSync(new URL('../src/components/DiarySavedReflection.tsx', import.meta.url), 'utf8')
 const exportFunction = readFileSync(new URL('../supabase/functions/export-user-data/index.ts', import.meta.url), 'utf8')
@@ -53,12 +54,13 @@ test('controle é reversível e não apaga nem bloqueia áreas manuais', () => {
 })
 
 test('Home pausa retomada, descoberta e sugestões automáticas quando a preferência está desligada', () => {
-  assert.match(home, /fetchHistoryPersonalizationEnabled\(user\.id\)/)
-  assert.match(home, /historyEnabled[\s\n]*\?[\s\n]*buildHomeDiscoveries/)
-  assert.match(home, /historyEnabled \? buildContinuityPrompt/)
-  assert.match(home, /entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
-  assert.match(home, /Sugestões automáticas pausadas/)
-  assert.match(home, /Explorar conteúdos/)
+  assert.match(home, /LoggedHomeLegacy/)
+  assert.match(legacyHome, /fetchHistoryPersonalizationEnabled\(user\.id\)/)
+  assert.match(legacyHome, /historyEnabled[\s\n]*\?[\s\n]*buildHomeDiscoveries/)
+  assert.match(legacyHome, /historyEnabled \? buildContinuityPrompt/)
+  assert.match(legacyHome, /entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
+  assert.match(legacyHome, /Sugestões automáticas pausadas/)
+  assert.match(legacyHome, /Explorar conteúdos/)
 })
 
 test('check-in adaptativo e recorrência pós-Diário respeitam a preferência', () => {
