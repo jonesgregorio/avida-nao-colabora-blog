@@ -33,7 +33,7 @@ const GENERIC_GUIDANCE: Record<AdaptiveCheckinAnswer, string> = {
   better: 'Que bom perceber uma mudança. Agora registre como você está neste momento; não precisamos transformar “melhor” em uma nota automática.',
   same: 'Entendi. Vamos registrar como está agora, usando os campos normais do check-in.',
   worse: 'Obrigado por sinalizar. Registre como está agora no check-in; se precisar, você também pode escrever depois.',
-  yes: 'Certo. Continue registrando como você está agora. Se esse contexto também estiver presente hoje, você pode marcá-lo nos detalhes do check-in.',
+  yes: 'Certo. Se fizer sentido para você registrar este momento, esse contexto também pode ser marcado nos detalhes do check-in.',
   a_little: 'Entendi. Vale registrar o momento de hoje sem precisar concluir se esse contexto foi a causa de alguma coisa.',
   not_today: 'Tudo bem. O registro de hoje pode seguir por outro assunto completamente diferente.',
   continue_now: 'Vamos começar apenas por como você está agora.',
