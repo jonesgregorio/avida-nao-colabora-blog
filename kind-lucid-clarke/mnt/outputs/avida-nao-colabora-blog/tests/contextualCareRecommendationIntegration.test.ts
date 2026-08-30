@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs'
 
 const recommended = readFileSync(new URL('../src/components/RecommendedContent.tsx', import.meta.url), 'utf8')
 const structured = readFileSync(new URL('../src/lib/structuredContentRecommendation.ts', import.meta.url), 'utf8')
+const cuidar = readFileSync(new URL('../src/components/CuidarPage.tsx', import.meta.url), 'utf8')
 
-test('Home Hoje e Mapa usam o contexto estruturado para pontuar recomendações', () => {
-  assert.match(recommended, /source === 'home-hoje' \|\| source === 'map'/)
+test('Home Hoje, Cuidar e Mapa usam o contexto estruturado para pontuar recomendações', () => {
+  assert.match(recommended, /source === 'home-hoje' \|\| source === 'map' \|\| source === 'care'/)
   assert.match(recommended, /fetchStructuredUserSignal\(user\?\.id\)/)
 })
 
@@ -22,4 +23,9 @@ test('barreira de risco continua separada da pontuação de conteúdo', () => {
 test('Plano de Autocuidado mantém contexto explícito nas recomendações', () => {
   assert.match(recommended, /source === 'care_plan'/)
   assert.match(recommended, /foco do seu Plano de Autocuidado é o contexto principal/)
+})
+
+test('Cuidar registra a própria origem e não se passa pelo Mapa', () => {
+  assert.match(cuidar, /source="care"/)
+  assert.doesNotMatch(cuidar, /source="map"/)
 })
