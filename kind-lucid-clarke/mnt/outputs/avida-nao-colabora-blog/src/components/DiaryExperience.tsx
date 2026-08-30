@@ -69,16 +69,20 @@ const PAGE_SIZE = 30
 const normalizeScale = (value: number) => Math.min(5, Math.max(1, Math.round(value)))
 const unique = (items: string[]) => [...new Set(items.filter(Boolean))]
 
-function moodMeta(value: string | number | undefined) {
+function moodMeta(value: string | number | null | undefined) {
   return moodOptions.find(m => m.value === value || m.label === value) ?? moodOptions[moodOptions.length - 1]
 }
 function greeting() {
   const h = new Date().getHours()
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
 }
-function effectiveMoodLabel(mood: string | number | undefined, otherLabel: string | null | undefined): string {
+function effectiveMoodLabel(mood: string | number | null | undefined, otherLabel: string | null | undefined): string {
   const m = String(mood ?? '')
   return m.toLowerCase() === 'outro' && otherLabel?.trim() ? otherLabel.trim() : m
+}
+function hasStoredMood(value: unknown): value is string | number {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  return Boolean(normalized && normalized !== 'null' && normalized !== 'undefined')
 }
 
 function localStartPrompt(mood: string) {
@@ -92,7 +96,7 @@ function localStartPrompt(mood: string) {
 }
 function moodWeightSentence(mood: string): string {
   const m = mood.trim().toLowerCase()
-  if (!m || m === 'outro') return 'Seu registro colocou em palavras algo deste momento.'
+  if (!m || m === 'outro' || m === 'seu momento') return 'Seu registro colocou em palavras algo deste momento.'
   return `Seu registro colocou em palavras algo ligado a ${m}.`
 }
 
@@ -199,7 +203,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const today = ymd(new Date())
   const todayDeepened = Boolean(todayMain?.deepened_at)
   const selectedMood = moodMeta(mood)
-  const moodForAi = effectiveMoodLabel(selectedMood.label, moodOtherLabel)
+  const moodForAi = moodChip ? effectiveMoodLabel(selectedMood.label, moodOtherLabel) : 'seu momento'
   const fieldOn = (key: string) => cfg.fields[key] !== false
 
   useEffect(() => { fetchDiaryConfig(plan).then(setCfg) }, [plan])
@@ -295,8 +299,13 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   }
 
   const hydrateForDeepening = (entry: DiaryEntryV2, question?: string) => {
-    const meta = moodMeta(entry.mood)
-    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null); setMoodOtherLabel(entry.mood_other_label || '')
+    if (hasStoredMood(entry.mood)) {
+      const meta = moodMeta(entry.mood)
+      setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null)
+    } else {
+      setMood('outro'); setMoodChip(null)
+    }
+    setMoodOtherLabel(entry.mood_other_label || '')
     setDraft(`${entry.text || ''}${question ? `\n\n${question}\n` : ''}`)
     setEnergy(entry.energy || 3); setAnxiety(entry.anxiety_level || 3); setSleep(entry.sleep_quality || 3); setMoodScore(entry.mood_score || 3); setStress(entry.stress_level || 3); setSelfEsteem(entry.self_esteem || 3); setIrritability(entry.irritability || 3); setOverload(entry.overload || 3)
     const nextTouched = new Set<string>(); if (entry.energy) nextTouched.add('energy'); if (entry.anxiety_level) nextTouched.add('anxiety'); if (entry.sleep_quality) nextTouched.add('sleep'); if (entry.mood_score) nextTouched.add('moodScore'); if (entry.stress_level) nextTouched.add('stress'); if (entry.self_esteem) nextTouched.add('selfEsteem'); if (entry.irritability) nextTouched.add('irritability'); if (entry.overload) nextTouched.add('overload'); setTouched(nextTouched)
@@ -415,13 +424,19 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const handleSave = async () => {
     if (!user) return
     const isCheckin = mode === 'quick'
-    if (!moodChip) { setError('Escolha como você está se sentindo antes de salvar.'); return }
+    if (isCheckin && !moodChip) { setError('Escolha como você está se sentindo antes de salvar o check-in.'); return }
     if (!isCheckin && !draft.trim()) { setError('Escreva ao menos uma frase antes de salvar seu diário.'); return }
     if (!isCheckin && !editingEntryId && atLimit) { setError('Você atingiu o limite de registros de diário deste mês. Seus check-ins continuam liberados.'); return }
     setSaving(true); setError('')
-    const meta = selectedMood
+    const meta = moodChip ? selectedMood : null
     const payload: Record<string, unknown> = {
-      user_id: user.id, date: today, mood: meta.label, mood_score: normalizeScale(touched.has('moodScore') ? moodScore : meta.score), text: isCheckin ? quickNote.trim() : draft.trim(), entry_type: isCheckin ? 'checkin' : 'diary', ai_disabled: isCheckin ? true : !aiAllowed,
+      user_id: user.id,
+      date: today,
+      mood: meta?.label ?? null,
+      mood_score: meta ? normalizeScale(touched.has('moodScore') ? moodScore : meta.score) : touched.has('moodScore') ? normalizeScale(moodScore) : null,
+      text: isCheckin ? quickNote.trim() : draft.trim(),
+      entry_type: isCheckin ? 'checkin' : 'diary',
+      ai_disabled: isCheckin ? true : !aiAllowed,
       ...(!isCheckin ? { diary_kind: isFree ? 'basic' : 'main' } : {}),
       ...(moodChip === 'outro' && moodOtherLabel.trim() ? { mood_other_label: moodOtherLabel.trim().slice(0, 80) } : {}),
     }
@@ -499,7 +514,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     let question = saved?.mirror?.question || 'O que neste registro você sente que ainda ficou sem palavras?'
     if (entry.ai_disabled !== true) {
       try {
-        const response = await askDiaryCompanion({ action: 'continue', mood: effectiveMoodLabel(entry.mood, entry.mood_other_label), text: String(entry.text || '') })
+        const response = await askDiaryCompanion({ action: 'continue', mood: effectiveMoodLabel(entry.mood, entry.mood_other_label) || 'seu momento', text: String(entry.text || '') })
         if (response.prompt) question = response.prompt
       } catch { /* usa pergunta já gerada */ }
     }
@@ -564,7 +579,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. {mode === 'quick' ? 'Como você está agora?' : 'O que você quer colocar para fora hoje?'}</h1>
-            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Escreva do seu jeito. Se quiser, adicione detalhes depois.' : mode === 'quick' ? 'Um check-in rápido é suficiente. Se quiser, escreva um pouco depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
+            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Comece pelo texto. Humor e outros detalhes ficam opcionais para depois.' : mode === 'quick' ? 'Um check-in rápido é suficiente. Se quiser, escreva um pouco depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
           </div>
           <button onClick={() => setFocusMode(v => !v)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title={focusMode ? 'Sair do modo foco' : 'Modo foco'} aria-label={focusMode ? 'Sair do modo foco' : 'Ativar modo foco'}>{focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</button>
         </header>
@@ -621,10 +636,9 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                 <section className={`${focusMode ? 'bg-transparent' : 'bg-paper-soft border border-line rounded-[2rem]'} p-4 sm:p-7`}>
                   {promptContext && mode === 'diary' && <div className="mb-5 rounded-2xl bg-mint/50 border border-forest-100 p-4"><p className="text-xs text-forest-600">Pergunta do conteúdo “{promptContext.articleTitle}”</p><p className="text-sm text-forest-900 mt-1">{promptContext.prompt}</p></div>}
 
-                  <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
-
                   {mode === 'quick' ? (
                     <>
+                      <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
                       <p className="text-sm text-ink-soft mb-4">Leva menos de um minuto. Escolha uma emoção e, se quiser, acrescente alguns sinais deste momento.</p>
                       {isEssential && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"><QuickScaleField label="Energia" value={energy} touched={touched.has('energy')} labels={['Muito baixa','Baixa','Média','Boa','Alta']} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><QuickScaleField label="Tensão/estresse" value={stress} touched={touched.has('stress')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} />{mood === 'ansiedade' && <QuickScaleField label="Intensidade da ansiedade" value={anxiety} touched={touched.has('anxiety')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}</div>}
                       {isEssential && <div className="mb-4"><button type="button" onClick={() => setQuickContextOpen(v => !v)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-800"><SlidersHorizontal className="w-4 h-4" /> Quero contar um pouco mais {quickContextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{quickContextOpen && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><p className="text-sm font-semibold text-forest-900">O que mais está influenciando você agora?</p><p className="text-xs text-ink-soft mt-1">Escolha só uma opção, se fizer sentido.</p><div className="flex flex-wrap gap-2 mt-3">{quickContextTags.map(tag => <button key={tag} type="button" onClick={() => setQuickContext(prev => prev === tag ? null : tag)} className={`rounded-full border px-3 py-1.5 text-xs ${quickContext === tag ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>)}</div></div>}</div>}
@@ -651,6 +665,11 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                       {organizedCandidate && <div className="mt-4 rounded-2xl border border-forest-100 bg-mint/35 p-4"><p className="text-xs font-semibold text-forest-700">Uma versão organizada para consultar</p><p className="text-xs text-ink-soft mt-1">Seu texto original permanece intacto no editor. Esta versão não substitui nem altera o que você escreveu.</p><p className="text-sm text-ink mt-3 whitespace-pre-line leading-relaxed">{organizedCandidate}</p><div className="flex gap-2 mt-3"><button onClick={() => setOrganizedCandidate('')} className="rounded-xl border border-line bg-white px-3 py-2 text-xs">Fechar versão organizada</button></div></div>}
 
                       <div className="mt-5 border-t border-line/70 pt-4">
+                        <p className="text-xs text-ink-soft mb-3">Se quiser, marque como está agora. Isso ajuda a organizar seu histórico, mas não é necessário para guardar o texto.</p>
+                        <DiaryMoodSelector optional selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
+                      </div>
+
+                      <div className="mt-2 border-t border-line/70 pt-4">
                         <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> Adicionar detalhes opcionais <ChevronUp className="hidden w-4 h-4" /></button>
                       </div>
 
@@ -696,7 +715,7 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
                     {!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}
                     {mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}
                     {mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir detalhes opcionais" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}
-                    <button onClick={() => void handleSave()} disabled={saving || (!moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button>
+                    <button onClick={() => void handleSave()} disabled={saving || (mode === 'quick' && !moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button>
                   </div>
                 </section>
               )}
