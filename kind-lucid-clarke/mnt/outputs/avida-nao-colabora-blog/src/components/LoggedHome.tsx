@@ -11,7 +11,9 @@ import { fetchDiaryConfig } from '../lib/diaryConfig'
 import { ymd } from '../lib/reportPeriods'
 import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
 import { buildContinuityPrompt, type ContinuityEntry, type ContinuityPrompt } from '../lib/todayContinuity'
-import { buildHomeDiscovery, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
+import { buildHomeDiscoveries, type HomeDiscovery, type HomeDiscoveryEntry } from '../lib/homeDiscoveries'
+import { mutedDiscoveryKeys } from '../lib/discoveryFeedback'
+import { fetchDiscoveryFeedback } from '../lib/discoveryFeedbackStore'
 import { buildTodaySmallAction, type SmallActionEntry, type TodaySmallAction } from '../lib/todaySmallAction'
 import type { WeeklyFocusEntry } from '../lib/weeklyFocus'
 import { MoodChip } from './user/ui'
@@ -158,7 +160,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     ;(async () => {
       try {
         const since = new Date(Date.now() - 30 * 864e5).toISOString()
-        const [{ data }, diaryCfg, historyEnabled] = await Promise.all([
+        const [{ data }, diaryCfg, historyEnabled, discoveryFeedback] = await Promise.all([
           supabase
             .from('diary_entries')
             .select('created_at,entry_type,diary_kind,date,mood,energy,anxiety_level,sleep_quality,stress_level,overload,context_tags,trigger_tags,emotional_tags,need_tags,care_action_tags')
@@ -167,7 +169,9 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
             .order('created_at', { ascending: false }),
           fetchDiaryConfig(profile?.plan ?? 'free'),
           fetchHistoryPersonalizationEnabled(user.id),
+          fetchDiscoveryFeedback(user.id),
         ])
+        const mutedDiscoveries = mutedDiscoveryKeys(discoveryFeedback)
         if (!active) return
 
         const entries = (data ?? []) as HomeEntry[]
@@ -217,7 +221,9 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           setSmallActionStatus(status)
         }
 
-        const nextDiscovery = historyEnabled ? buildHomeDiscovery(entries, plan) : null
+        const nextDiscovery = historyEnabled
+          ? buildHomeDiscoveries(entries, plan).find(item => !mutedDiscoveries.has(item.stableKey)) ?? null
+          : null
         if (!nextDiscovery) {
           setDiscovery(null)
         } else {

@@ -54,7 +54,7 @@ test('controle é reversível e não apaga nem bloqueia áreas manuais', () => {
 
 test('Home pausa retomada, descoberta e sugestões automáticas quando a preferência está desligada', () => {
   assert.match(home, /fetchHistoryPersonalizationEnabled\(user\.id\)/)
-  assert.match(home, /historyEnabled \? buildHomeDiscovery/)
+  assert.match(home, /historyEnabled[\s\n]*\?[\s\n]*buildHomeDiscoveries/)
   assert.match(home, /historyEnabled \? buildContinuityPrompt/)
   assert.match(home, /entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
   assert.match(home, /Sugestões automáticas pausadas/)

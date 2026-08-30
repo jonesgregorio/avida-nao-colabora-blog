@@ -99,6 +99,33 @@ test('sem amostra mínima, a área Descobertas volta vazia (não quebra)', () =>
   assert.deepEqual(buildHomeDiscoveries([{ date: '2026-08-29', mood: 'ansiedade' }], 'plus'), [])
 })
 
+test('stableKey não muda quando a contagem de dias muda (feedback sobrevive)', () => {
+  const base = [
+    { date: '2026-08-29', mood: 'ansiedade' },
+    { date: '2026-08-28', mood: 'ansiedade' },
+    { date: '2026-08-27', mood: 'ansiedade' },
+    { date: '2026-08-26', mood: 'tranquilidade' },
+    { date: '2026-08-25', mood: 'tristeza' },
+  ]
+  const first = buildHomeDiscovery(base, 'free')
+  const later = buildHomeDiscovery([{ date: '2026-08-30', mood: 'ansiedade' }, ...base], 'free')
+  assert.ok(first && later)
+  assert.notEqual(first.id, later.id, 'o id embute a contagem e deve mudar')
+  assert.equal(first.stableKey, later.stableKey, 'a stableKey ignora a contagem')
+  assert.equal(first.stableKey, 'mood:ansiedade')
+})
+
+test('stableKey de relação é normalizada e sem acento', () => {
+  const discovery = buildHomeDiscovery([
+    { date: '2026-08-29', sleep_quality: 2, anxiety_level: 4 },
+    { date: '2026-08-28', sleep_quality: 1, anxiety_level: 5 },
+    { date: '2026-08-27', sleep_quality: 2, anxiety_level: 4 },
+    { date: '2026-08-26', sleep_quality: 4, anxiety_level: 2 },
+  ], 'essential')
+  assert.ok(discovery)
+  assert.equal(discovery.stableKey, 'sleep_anxiety')
+})
+
 test('motor de descobertas é puro e não recebe texto livre do Diário', () => {
   const source = readFileSync(new URL('../src/lib/homeDiscoveries.ts', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /\.text\b|free_note|recurring_thoughts|emotional_triggers/)
