@@ -25,7 +25,7 @@ interface Props {
   loading: boolean
   loadingMore: boolean
   hasMore: boolean
-  getMoodMeta: (value: string | number | undefined) => { emoji: string; label: string }
+  getMoodMeta: (value: string | number | null | undefined) => { emoji: string; label: string }
   onExport: () => void
   onFilterChange: (filter: DiaryHistoryFilter) => void
   onPeriodFilterChange: (period: DiaryHistoryPeriodFilter) => void
@@ -47,17 +47,22 @@ function dayLabel(date: string) {
   return parsed.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
 }
 
-function effectiveMoodLabel(mood: string | number | undefined, otherLabel: string | null | undefined): string {
-  const value = String(mood ?? '')
+function hasMoodValue(mood: unknown) {
+  const value = String(mood ?? '').trim().toLowerCase()
+  return Boolean(value && value !== 'null' && value !== 'undefined')
+}
+
+function effectiveMoodLabel(mood: string | number | null | undefined, otherLabel: string | null | undefined): string {
+  const value = String(mood ?? '').trim()
   return value.toLowerCase() === 'outro' && otherLabel?.trim() ? otherLabel.trim() : value
 }
 
 function deriveTitle(entry: DiaryHistoryEntry) {
   if (entry.ai_title) return entry.ai_title
   const mood = effectiveMoodLabel(entry.mood, entry.mood_other_label)
-  if (entry.entry_type === 'checkin') return `Check-in · ${mood}`
+  if (entry.entry_type === 'checkin') return mood ? `Check-in · ${mood}` : 'Check-in'
   const clean = String(entry.text || '').replace(/\s+/g, ' ').trim()
-  if (!clean) return `Registro · ${mood}`
+  if (!clean) return mood ? `Registro · ${mood}` : 'Registro'
   const first = clean.split(/[.!?]/)[0] || clean
   return first.length > 68 ? `${first.slice(0, 68).trim()}…` : first
 }
@@ -102,7 +107,10 @@ export default function DiaryHistorySection({
 
   const moodByDay = useMemo(() => {
     const map = new Map<string, string>()
-    for (const row of monthRows) map.set(String(row.date || '').slice(0, 10), getMoodMeta(row.mood).emoji)
+    for (const row of monthRows) {
+      if (!hasMoodValue(row.mood)) continue
+      map.set(String(row.date || '').slice(0, 10), getMoodMeta(row.mood).emoji)
+    }
     return map
   }, [monthRows, getMoodMeta])
 
@@ -175,12 +183,13 @@ export default function DiaryHistorySection({
               <div className="divide-y divide-line/70">
                 {rows.map(entry => {
                   const open = expandedId === entry.id
-                  const meta = getMoodMeta(entry.mood)
+                  const hasMood = hasMoodValue(entry.mood)
+                  const meta = hasMood ? getMoodMeta(entry.mood) : null
                   const tags = [...(entry.emotional_tags || []), ...(entry.context_tags || []), ...(entry.need_tags || [])]
                   return (
                     <div key={entry.id}>
                       <button onClick={() => onExpandedChange(open ? null : entry.id)} className="w-full text-left px-5 py-4 flex gap-3 items-start hover:bg-mint/20">
-                        <span className="text-xl">{meta.emoji}</span>
+                        {meta ? <span className="text-xl">{meta.emoji}</span> : <span className="mt-0.5 text-forest-500" aria-label="Registro sem humor marcado"><BookOpen className="w-5 h-5" /></span>}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-serif text-lg text-forest-900">{deriveTitle(entry)}</h3>
