@@ -80,7 +80,7 @@ export default function RecommendedContent({
     if (!user?.id || !theme) return
     setMuting(s.item.id)
     const ok = await muteContentTheme(user.id, theme)
-    if (ok) setScored(prev => (prev ?? []).filter(x => x.item.id !== s.item.id)
+    if (ok) setScored(prev => (prev ?? []).filter(x => x.item.id !== s.item.id))
     setMuting(null)
   }
 
