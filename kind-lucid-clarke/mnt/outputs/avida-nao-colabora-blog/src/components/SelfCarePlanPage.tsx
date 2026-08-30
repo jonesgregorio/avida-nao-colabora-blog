@@ -145,8 +145,8 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
           <span className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto text-forest-600 mb-4"><Sprout className="w-7 h-7" /></span>
           <h2 className="font-serif text-xl text-forest-900">Disponível no plano Plus</h2>
           <p className="text-sm text-ink-soft mt-2 max-w-md mx-auto leading-relaxed">
-            O Plano de Autocuidado mensal transforma o que você registra no diário, nos questionários e no
-            Mapa Emocional em prioridades, pequenos cuidados e metas simples para o seu mês.
+            O Plano de Autocuidado mensal organiza o que você escolhe registrar no diário, nos questionários e no
+            Mapa Emocional em prioridades e possibilidades de cuidado para o seu mês.
           </p>
           <button onClick={onNavigatePricing} className="mt-5 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">
             Conhecer o Plus <ArrowRight className="w-4 h-4" />
@@ -159,11 +159,11 @@ export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onN
         <div className="bg-paper-soft border border-line rounded-3xl p-8 text-center space-y-3">
           <Sparkles className="w-9 h-9 text-forest-300 mx-auto" />
           <p className="text-ink-soft text-sm">Seu Plano de Autocuidado deste mês ainda está sendo preparado.</p>
-          <p className="text-xs text-ink-soft/70">Continue registrando no diário e respondendo aos questionários — eles alimentam o seu plano. Ele fica disponível após a revisão da equipe.</p>
+          <p className="text-xs text-ink-soft/70">Os registros que você fizer quando quiser podem ajudar a contextualizar seu próximo plano. Ele fica disponível após a revisão da equipe.</p>
           {onNavigate && (
             <div className="flex flex-wrap justify-center gap-2 pt-1">
-              <button onClick={() => onNavigate('diary')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Registrar no diário</button>
-              <button onClick={() => onNavigate('questionarios')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Responder questionário</button>
+              <button onClick={() => onNavigate('diary')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Se quiser, registrar</button>
+              <button onClick={() => onNavigate('questionarios')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Explorar questionários</button>
             </div>
           )}
         </div>
@@ -264,7 +264,7 @@ function PlanCard({ userId, plan, catalog, onOpenArticle, open, onToggle }: {
             <div className="grid gap-2 sm:grid-cols-3">
               {priorities.slice(0, 3).map((item, i) => (
                 <div key={`${item.priority}-${i}`} className="rounded-2xl border border-line bg-white/70 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-forest-500 mb-1">Prioridade {i + 1}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-forest-500 mb-1">Possibilidade {i + 1}</p>
                   <p className="text-sm font-medium text-forest-900">{item.priority}</p>
                   <p className="text-xs text-ink-soft mt-1 leading-relaxed">{item.why_it_matters}</p>
                   {item.small_actions.length > 0 && <p className="text-xs text-forest-700 mt-2 leading-relaxed">{item.small_actions[0]}</p>}
@@ -274,21 +274,22 @@ function PlanCard({ userId, plan, catalog, onOpenArticle, open, onToggle }: {
           )}
 
           {c?.what_not_to_force && <Field label="O que não forçar agora" value={c.what_not_to_force} />}
-          {c?.light_emotional_goal && <Field label="Meta emocional leve" value={c.light_emotional_goal} />}
-          {c?.checkin_suggestion && <Field label="Sugestão de check-in" value={c.checkin_suggestion} />}
+          {c?.light_emotional_goal && <Field label="Uma intenção emocional possível" value={c.light_emotional_goal} />}
+          {c?.checkin_suggestion && <Field label="Sugestão de check-in, se fizer sentido" value={c.checkin_suggestion} />}
           {c?.when_to_seek_more_support && <Field label="Quando buscar mais apoio" value={c.when_to_seek_more_support} />}
 
           {rhythm.length > 0 && (
             <div className="rounded-2xl border border-forest-100 bg-mint/25 p-4">
-              <p className="text-xs font-medium text-forest-800 mb-3">Um ritmo possível para o mês</p>
+              <p className="text-xs font-medium text-forest-800 mb-3">Possibilidades para experimentar ao longo do mês</p>
               <div className="grid sm:grid-cols-2 gap-2">
                 {rhythm.map((tip, i) => (
                   <div key={tip} className="bg-white/80 rounded-xl px-3 py-2.5 text-sm text-forest-800 leading-relaxed">
-                    <span className="block text-[10px] uppercase tracking-wide text-forest-500 mb-0.5">Semana {i + 1}</span>
+                    <span className="block text-[10px] uppercase tracking-wide text-forest-500 mb-0.5">Ideia {i + 1}</span>
                     {tip}
                   </div>
                 ))}
               </div>
+              <p className="text-[11px] text-ink-soft mt-3">Você pode testar nenhuma, uma ou várias delas, na ordem que fizer sentido para você.</p>
             </div>
           )}
 
@@ -354,7 +355,7 @@ function LegacyReviewCard({ r, open, onToggle }: { r: Review; open: boolean; onT
         <div className="min-w-0">
           <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthLabel(r.month_key)}</h3>
           <p className="text-xs text-ink-soft mt-0.5">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p>
-          {!open && r.next_focus && <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Prioridade: </span>{r.next_focus}</p>}
+          {!open && r.next_focus && <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Foco sugerido: </span>{r.next_focus}</p>}
         </div>
         <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -362,7 +363,7 @@ function LegacyReviewCard({ r, open, onToggle }: { r: Review; open: boolean; onT
         <div className="px-4 sm:px-5 pb-5 pt-4 space-y-3 border-t border-line/60">
           {r.summary && <Field label="Resumo" value={r.summary} />}
           {r.suggested_adjustments && <Field label="Pequenos cuidados sugeridos" value={r.suggested_adjustments} />}
-          {r.next_focus && <Field label="Prioridade do próximo período" value={r.next_focus} />}
+          {r.next_focus && <Field label="Possível foco do próximo período" value={r.next_focus} />}
           {r.pdf_url && (
             <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-forest-700 hover:underline">
               <Download className="w-4 h-4" /> Baixar em PDF
