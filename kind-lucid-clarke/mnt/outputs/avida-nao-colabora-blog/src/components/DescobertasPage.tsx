@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { Compass, ArrowRight, EyeOff, LineChart, Loader2, RotateCcw, Sparkles } from 'lucide-react'
+import { Compass, ArrowRight, EyeOff, Heart, LineChart, Loader2, RotateCcw, Sparkles } from 'lucide-react'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 import { normalizePlan } from '../lib/officialPlans'
@@ -87,9 +87,17 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
     () => allDiscoveries.filter(d => muted.has(d.stableKey)),
     [allDiscoveries, muted]
   )
+  const madeSenseDiscoveries = useMemo(
+    () => discoveries.filter(d => feedback[d.stableKey] === 'made_sense'),
+    [discoveries, feedback]
+  )
+  const observingDiscoveries = useMemo(
+    () => discoveries.filter(d => feedback[d.stableKey] !== 'made_sense'),
+    [discoveries, feedback]
+  )
 
-  const forming = discoveries.filter(d => d.status === 'forming')
-  const ready = discoveries.filter(d => d.status === 'ready')
+  const forming = observingDiscoveries.filter(d => d.status === 'forming')
+  const ready = observingDiscoveries.filter(d => d.status === 'ready')
   const hiddenCount = hiddenDiscoveries.length
 
   const choose = useCallback(async (key: string, value: DiscoveryFeedbackValue) => {
@@ -125,7 +133,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 mt-1.5">Descobertas</h1>
         <p className="mt-2 text-ink-soft max-w-2xl leading-relaxed">
           Pequenos padrões que aparecem ao longo do tempo, montados só a partir dos seus próprios registros.
-          Uma descoberta só aparece aqui quando há repetição suficiente para valer uma observação.
+          Quando algo fizer sentido para você, essa percepção passa a ter um lugar próprio nesta página.
         </p>
       </header>
 
@@ -185,6 +193,38 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
         </section>
       ) : (
         <div className="space-y-8">
+          {madeSenseDiscoveries.length > 0 && (
+            <section className="rounded-3xl border border-forest-100 bg-gradient-to-br from-mint/45 via-paper-soft to-sand-50 p-5 sm:p-6" aria-labelledby="made-sense-heading">
+              <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-2xl border border-forest-100 bg-white text-forest-700 flex items-center justify-center flex-shrink-0">
+                  <Heart className="w-5 h-5" />
+                </span>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Sua coleção pessoal</p>
+                  <h2 id="made-sense-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Fez sentido para mim</h2>
+                  <p className="text-sm text-ink-soft mt-1 leading-relaxed">
+                    Aqui ficam as descobertas atuais que você mesmo reconheceu como relevantes. Elas não valem pontos e não viram meta: servem só como memória do que já chamou sua atenção.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                {madeSenseDiscoveries.map(discovery => (
+                  <DiscoveryCard
+                    key={discovery.id}
+                    discovery={discovery}
+                    feedback={feedback}
+                    onChoose={choose}
+                    onOpenMap={() => onNavigate('my-evolution')}
+                    collected
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-ink-soft mt-4 leading-relaxed">
+                Esta coleção acompanha apenas as descobertas que ainda são sustentadas pela janela atual de registros. Um arquivo histórico permanente pode ser criado depois sem alterar esta percepção que você já marcou.
+              </p>
+            </section>
+          )}
+
           {forming.length > 0 && (
             <Section
               title="Em formação"
@@ -197,8 +237,8 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
           )}
           {ready.length > 0 && (
             <Section
-              title="Descobertas"
-              description="Padrões com repetição suficiente nos seus registros para valer uma observação mais atenta."
+              title="Para observar"
+              description="Padrões com repetição suficiente nos seus registros para valer uma observação mais atenta. Quando algum fizer sentido, você pode guardá-lo na sua coleção pessoal."
               discoveries={ready}
               feedback={feedback}
               onChoose={choose}
@@ -267,47 +307,79 @@ function Section({
       <h2 className="font-serif text-2xl text-forest-900">{title}</h2>
       <p className="text-sm text-ink-soft mt-1">{description}</p>
       <div className="mt-4 space-y-3">
-        {discoveries.map(d => (
-          <article key={d.id} className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6">
-            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{d.eyebrow}</p>
-            <h3 className="font-serif text-xl text-forest-900 mt-1">{d.title}</h3>
-            <p className="text-sm text-ink-soft mt-2 leading-relaxed">{d.description}</p>
-            <p className="text-xs text-ink-soft mt-2">{d.evidence}</p>
-            <p className="text-sm text-forest-800 mt-3">Para observar: {d.question}</p>
-
-            <button
-              onClick={onOpenMap}
-              className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 hover:bg-mint/40 transition-colors"
-            >
-              <LineChart className="w-4 h-4" /> Ver no Mapa Emocional
-            </button>
-
-            <div className="mt-4 pt-4 border-t border-line">
-              <p className="text-[11px] text-ink-soft mb-1.5">Essa descoberta fez sentido para você?</p>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sua percepção sobre esta descoberta">
-                {DISCOVERY_FEEDBACK_OPTIONS.map(option => {
-                  const active = feedback[d.stableKey] === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => onChoose(d.stableKey, option.value)}
-                      className={`text-[11px] px-2.5 py-1.5 rounded-full border transition-colors ${
-                        active
-                          ? 'border-forest-500 bg-mint text-forest-800 font-medium'
-                          : 'border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-700'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </article>
+        {discoveries.map(discovery => (
+          <DiscoveryCard
+            key={discovery.id}
+            discovery={discovery}
+            feedback={feedback}
+            onChoose={onChoose}
+            onOpenMap={onOpenMap}
+          />
         ))}
       </div>
     </section>
+  )
+}
+
+function DiscoveryCard({
+  discovery, feedback, onChoose, onOpenMap, collected = false,
+}: {
+  discovery: HomeDiscovery
+  feedback: DiscoveryFeedbackMap
+  onChoose: (key: string, value: DiscoveryFeedbackValue) => void
+  onOpenMap: () => void
+  collected?: boolean
+}) {
+  return (
+    <article className={`rounded-3xl border p-5 sm:p-6 ${collected ? 'border-forest-100 bg-white/85' : 'border-line bg-paper-soft'}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{discovery.eyebrow}</p>
+        {collected && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-mint px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">
+            <Heart className="w-3 h-3" /> Reconhecida por você
+          </span>
+        )}
+      </div>
+      <h3 className="font-serif text-xl text-forest-900 mt-1">{discovery.title}</h3>
+      <p className="text-sm text-ink-soft mt-2 leading-relaxed">{discovery.description}</p>
+      <p className="text-xs text-ink-soft mt-2">{discovery.evidence}</p>
+      <p className="text-sm text-forest-800 mt-3">Para observar: {discovery.question}</p>
+
+      <button
+        onClick={onOpenMap}
+        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 hover:bg-mint/40 transition-colors"
+      >
+        <LineChart className="w-4 h-4" /> Ver no Mapa Emocional
+      </button>
+
+      <div className="mt-4 pt-4 border-t border-line">
+        <p className="text-[11px] text-ink-soft mb-1.5">Essa descoberta fez sentido para você?</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sua percepção sobre esta descoberta">
+          {DISCOVERY_FEEDBACK_OPTIONS.map(option => {
+            const active = feedback[discovery.stableKey] === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChoose(discovery.stableKey, option.value)}
+                className={`text-[11px] px-2.5 py-1.5 rounded-full border transition-colors ${
+                  active
+                    ? 'border-forest-500 bg-mint text-forest-800 font-medium'
+                    : 'border-line bg-white text-ink-soft hover:border-forest-300 hover:text-forest-700'
+                }`}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+        {collected && (
+          <p className="mt-2 text-[11px] text-forest-700">
+            Esta percepção está guardada em “Fez sentido para mim”. Você pode mudar de ideia quando quiser.
+          </p>
+        )}
+      </div>
+    </article>
   )
 }
