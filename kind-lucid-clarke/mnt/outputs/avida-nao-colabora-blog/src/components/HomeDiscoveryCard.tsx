@@ -41,14 +41,14 @@ export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss, onS
   useEffect(() => {
     trackRetentionEvent('discovery_view', {
       dedupeKey: discovery.id,
-      metadata: { surface: 'home', status: analyticsStatus, returned_memory: Boolean(memoryNudge) },
+      metadata: { surface: 'home', status: analyticsStatus },
     })
-  }, [analyticsStatus, discovery.id, memoryNudge])
+  }, [analyticsStatus, discovery.id])
 
   function openMap() {
     trackRetentionEvent('discovery_open', {
       dedupeKey: discovery.id,
-      metadata: { surface: 'home', status: analyticsStatus, returned_memory: Boolean(memoryNudge) },
+      metadata: { surface: 'home', status: analyticsStatus },
     })
     onOpenMap()
   }
