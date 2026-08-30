@@ -9,7 +9,11 @@ import { MoodChip } from './user/ui'
 
 interface LoggedHomeProps { user: User | null; profile: Profile | null; onNavigate: (section: string, articleSlug?: string) => void }
 const COLLABORATION = [{ score: 1, emoji: '😣', label: 'Nem um pouco' }, { score: 2, emoji: '😕', label: 'Quase nada' }, { score: 3, emoji: '😐', label: 'Mais ou menos' }, { score: 4, emoji: '🙂', label: 'Até que sim' }, { score: 5, emoji: '😄', label: 'Colaborou' }] as const
-function todayKey() { const date = new Date(); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000); return local.toISOString().slice(0, 10) }
+function todayKey() {
+  const date = new Date()
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
 function todayLabel() { return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()) }
 function greeting() { const hour = new Date().getHours(); return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite' }
 type CollaborationRow = { score: number }
@@ -31,10 +35,12 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   async function chooseScore(nextScore: number) {
     if (!user || saving) return
     const previous = score
-    setScore(nextScore); setSaving(true)
+    setScore(nextScore)
+    setSaving(true)
     const payload = { user_id: user.id, date: todayKey(), score: nextScore, updated_at: new Date().toISOString() } as never
     const { error } = await supabase.from('daily_life_collaboration').upsert(payload, { onConflict: 'user_id,date' })
-    if (error) setScore(previous); else setShowFeelings(true)
+    if (error) setScore(previous)
+    else setShowFeelings(true)
     setSaving(false)
   }
   const selected = COLLABORATION.find(item => item.score === score)
