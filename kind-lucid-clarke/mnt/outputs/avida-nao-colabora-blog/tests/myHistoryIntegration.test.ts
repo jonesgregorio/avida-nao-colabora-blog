@@ -15,10 +15,10 @@ test('Minha História possui rota canônica própria e entra no shell logado', (
   assert.match(app, /goAuth\('my-history'\)/)
 })
 
-test('navegação expõe Minha História no grupo Entender sem alterar a barra principal mobile', () => {
+test('navegação expõe Minha História no grupo da jornada (Fase 19R.1)', () => {
   assert.match(layout, /label: 'Minha História'/)
-  assert.match(layout, /\['my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'\]/)
-  assert.match(layout, /MOBILE_PRIMARY_IDS = \['home', 'diary', 'my-evolution', 'articles'\]/)
+  assert.match(layout, /\['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history'\]/)
+  assert.match(layout, /MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
 })
 
 test('histórico completo respeita o entitlement oficial do Essencial', () => {

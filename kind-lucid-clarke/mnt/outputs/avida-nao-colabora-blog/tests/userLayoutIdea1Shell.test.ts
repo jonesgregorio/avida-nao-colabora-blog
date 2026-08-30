@@ -4,31 +4,46 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('../src/components/user/UserLayout.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-test('área logada preserva logo oficial e renomeia a entrada principal para Hoje', () => {
+test('área logada preserva logo oficial e mantém a entrada principal como Hoje', () => {
   assert.match(source, /import \{ LogoIcon \} from '\.\.\/Logo'/)
   assert.match(source, /label: 'Hoje'/)
   assert.match(source, /<LogoIcon className=/)
 })
 
-test('sidebar da Ideia 1 organiza recursos existentes sem ressuscitar módulos legados', () => {
-  for (const group of ['Seu espaço', 'Entender', 'Cuidar', 'Conta']) {
+test('a navegação principal segue a jornada da Ideia 1 (Fase 19R.1)', () => {
+  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'cuidar', 'mais']) {
+    assert.match(source, new RegExp(`id: '${id}'`), `passo da jornada ausente da navegação: ${id}`)
+  }
+
+  assert.match(source, /label: 'Descobertas'/)
+  assert.match(source, /label: 'Cuidar'/)
+  assert.match(source, /label: 'Mais'/)
+
+  // "Conteúdos Guiados" deixa de ocupar o mesmo nível da jornada — vira recurso de Cuidar.
+  assert.doesNotMatch(source, /id: 'articles',\s+label: 'Conteúdos Guiados'/)
+})
+
+test('grupos da sidebar separam a jornada do cuidado e da conta', () => {
+  for (const group of ['Sua jornada', 'Cuidado e conta']) {
     assert.match(source, new RegExp(`label: '${group}'`))
   }
+})
 
-  for (const id of [
-    'home', 'diary', 'my-evolution', 'my-report', 'articles', 'questionarios',
-    'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support',
-  ]) {
-    assert.match(source, new RegExp(`id: '${id}'`), `destino existente ausente da navegação: ${id}`)
+test('nenhum destino existente foi removido — só reorganizado sob Cuidar/Mais', () => {
+  for (const view of ['self-care', 'articles', 'questionarios', 'monthly-guidance', 'my-plan', 'profile', 'support', 'notifications']) {
+    assert.match(source, new RegExp(`'${view}'`), `destino existente sumiu da navegação: ${view}`)
   }
+})
 
+test('Ideia 1 não ressuscita módulos legados nem gamificação', () => {
   assert.doesNotMatch(source, /label: 'Caixa de Cuidado'/)
   assert.doesNotMatch(source, /label: 'Trilhas'/)
   assert.doesNotMatch(source, /label: 'Meditações'/)
+  assert.doesNotMatch(source, /label: 'Jornada'/)
 })
 
-test('mobile possui barra inferior persistente e Mais abre os recursos secundários', () => {
-  assert.match(source, /const MOBILE_PRIMARY_IDS = \['home', 'diary', 'my-evolution', 'articles'\]/)
+test('mobile prioriza os quatro passos da jornada mais frequentes + Mais', () => {
+  assert.match(source, /const MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
   assert.match(source, /aria-label="Navegação principal"/)
   assert.match(source, />\s*Mais\s*<\/button>/)
   assert.match(source, /aria-label="Mais recursos"/)

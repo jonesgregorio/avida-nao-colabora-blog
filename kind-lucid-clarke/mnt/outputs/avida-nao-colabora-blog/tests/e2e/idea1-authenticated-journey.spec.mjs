@@ -267,9 +267,12 @@ function blockingAxe(violations) {
 const CORE_ROUTES = [
   '/',
   '/diario',
+  '/descobertas',
   '/mapa-emocional',
   '/meu-relatorio',
   '/minha-historia',
+  '/cuidar',
+  '/mais',
   '/plano-de-autocuidado',
   '/conteudos',
   '/questionarios',
@@ -300,7 +303,7 @@ test('jornada autenticada principal abre no desktop sem erro de renderização o
 })
 
 test('rotas mais densas continuam responsivas em mobile e em 320px', async ({ page }) => {
-  for (const route of ['/', '/diario', '/mapa-emocional', '/meu-relatorio', '/minha-historia', '/perfil', '/notificacoes']) {
+  for (const route of ['/', '/diario', '/descobertas', '/mapa-emocional', '/meu-relatorio', '/minha-historia', '/cuidar', '/mais', '/perfil', '/notificacoes']) {
     await openLoggedRoute(page, route, { width: 390, height: 844 })
   }
 
@@ -324,8 +327,8 @@ test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha Histór
   await openLoggedRoute(page, '/', { width: 390, height: 844 })
   await expect(page.getByRole('button', { name: 'Hoje', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Diário', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Descobertas', exact: true }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Conteúdos', exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Mais', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Mais recursos' })
@@ -343,7 +346,7 @@ test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha Histór
 })
 
 test('áreas autenticadas centrais não têm violações sérias ou críticas de acessibilidade', async ({ page }) => {
-  for (const route of ['/', '/mapa-emocional', '/minha-historia', '/perfil', '/notificacoes']) {
+  for (const route of ['/', '/descobertas', '/mapa-emocional', '/minha-historia', '/perfil', '/notificacoes']) {
     await openLoggedRoute(page, route, { width: 390, height: 844 })
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

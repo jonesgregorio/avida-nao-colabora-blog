@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildHomeDiscovery } from '../src/lib/homeDiscoveries.ts'
+import { buildHomeDiscovery, buildHomeDiscoveries } from '../src/lib/homeDiscoveries.ts'
 
 test('descoberta simples conta dias distintos e não vários registros no mesmo dia', () => {
   const discovery = buildHomeDiscovery([
@@ -76,6 +76,27 @@ test('Plus pode priorizar gatilho + sentimento quando a coocorrência se repete'
   assert.equal(discovery.kind, 'trigger_emotion')
   assert.equal(discovery.status, 'ready')
   assert.match(discovery.description, /coocorrência/i)
+})
+
+test('área Descobertas lista todas as descobertas e a Home usa a primeira', () => {
+  const entries = [
+    { date: '2026-08-29', mood: 'ansiedade', context_tags: ['trabalho'] },
+    { date: '2026-08-28', mood: 'ansiedade', context_tags: ['trabalho'] },
+    { date: '2026-08-27', mood: 'ansiedade', context_tags: ['trabalho'] },
+    { date: '2026-08-26', mood: 'sobrecarga', context_tags: ['trabalho'] },
+    { date: '2026-08-25', mood: 'sobrecarga' },
+  ]
+  const all = buildHomeDiscoveries(entries, 'essential')
+  assert.ok(all.length >= 2, 'a área deve reunir mais de uma descoberta quando há sinais')
+  assert.deepEqual(buildHomeDiscovery(entries, 'essential'), all[0])
+  for (const item of all) {
+    assert.ok(['forming', 'ready'].includes(item.status))
+    assert.equal(typeof item.title, 'string')
+  }
+})
+
+test('sem amostra mínima, a área Descobertas volta vazia (não quebra)', () => {
+  assert.deepEqual(buildHomeDiscoveries([{ date: '2026-08-29', mood: 'ansiedade' }], 'plus'), [])
 })
 
 test('motor de descobertas é puro e não recebe texto livre do Diário', () => {

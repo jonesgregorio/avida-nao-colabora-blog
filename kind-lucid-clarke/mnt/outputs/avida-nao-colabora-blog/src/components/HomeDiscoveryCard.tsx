@@ -3,10 +3,11 @@ import { ArrowRight, Eye, Sparkles, X } from 'lucide-react'
 import type { HomeDiscovery } from '../lib/homeDiscoveries'
 import { trackRetentionEvent } from '../lib/retentionAnalytics'
 
-export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss }: {
+export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss, onSeeAll }: {
   discovery: HomeDiscovery
   onOpenMap: () => void
   onDismiss: () => void
+  onSeeAll?: () => void
 }) {
   const forming = discovery.status === 'forming'
   const analyticsStatus = forming ? 'forming' : 'confirmed'
@@ -64,6 +65,11 @@ export default function HomeDiscoveryCard({ discovery, onOpenMap, onDismiss }: {
               Ver no Mapa Emocional <ArrowRight className="w-4 h-4" />
             </button>
             <button type="button" onClick={onDismiss} className="text-sm font-medium text-forest-700 px-3 py-2.5 rounded-xl hover:bg-white/70 transition-colors">Agora não</button>
+            {onSeeAll && (
+              <button type="button" onClick={onSeeAll} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 px-3 py-2.5 rounded-xl hover:bg-white/70 transition-colors">
+                Ver todas as descobertas <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <p className="text-[11px] text-ink-soft mt-4 leading-relaxed">

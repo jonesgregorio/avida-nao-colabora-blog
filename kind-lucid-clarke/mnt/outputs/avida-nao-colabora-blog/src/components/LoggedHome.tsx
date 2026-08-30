@@ -526,6 +526,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
           discovery={discovery}
           onOpenMap={() => onNavigate('my-evolution')}
           onDismiss={dismissDiscovery}
+          onSeeAll={() => onNavigate('descobertas')}
         />
       )}
 
