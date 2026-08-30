@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js'
-import { ArrowRight, BookOpen, Lock, Sprout } from 'lucide-react'
+import { ArrowRight, BookOpen, Lock, MessageSquareText, Sprout } from 'lucide-react'
 import type { Profile } from '../types'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import RecommendedContent from './RecommendedContent'
@@ -12,12 +12,11 @@ interface Props {
 }
 
 // "Cuidar" responde a uma pergunta diferente das áreas de análise: "não quero
-// analisar mais, quero algo que possa me ajudar agora". Fase 19R.1: reúne os
-// recursos de cuidado que JÁ existem (Plano de Autocuidado, Conteúdos Guiados e a
-// recomendação contextual). Nada de card para módulo inexistente.
+// analisar mais, quero algo que possa me ajudar agora". Só reúne recursos reais.
 export default function CuidarPage({ user, profile, onNavigate, onOpenArticle }: Props) {
   const plan = normalizePlan(profile?.plan)
   const selfCareAccess = hasPlanAccess(plan, 'plus')
+  const guidanceAccess = hasPlanAccess(plan, 'plus')
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
@@ -28,7 +27,7 @@ export default function CuidarPage({ user, profile, onNavigate, onOpenArticle }:
         </div>
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 mt-1.5">Cuidar</h1>
         <p className="mt-2 text-ink-soft max-w-2xl leading-relaxed">
-          Quando você não quer olhar gráficos nem entender padrões — só quer algo que possa ajudar agora.
+          Quando você não quer olhar gráficos nem entender padrões — só quer escolher um próximo cuidado possível para agora.
         </p>
       </header>
 
@@ -51,25 +50,43 @@ export default function CuidarPage({ user, profile, onNavigate, onOpenArticle }:
         </section>
       )}
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <HubCard
-          icon={<BookOpen className="w-5 h-5" />}
-          title="Conteúdos Guiados"
-          description="Artigos, reflexões, práticas e pausas emocionais. As recomendações se ligam ao seu momento."
-          cta="Explorar conteúdos"
-          onClick={() => onNavigate('articles')}
-        />
-        <HubCard
-          icon={<Sprout className="w-5 h-5" />}
-          title="Plano de Autocuidado"
-          description={selfCareAccess
-            ? 'Um plano mensal de ações práticas, feito a partir dos seus registros.'
-            : 'Plano mensal de ações práticas — disponível no Plus.'}
-          cta={selfCareAccess ? 'Abrir meu plano' : 'Conhecer o Plus'}
-          locked={!selfCareAccess}
-          onClick={() => onNavigate(selfCareAccess ? 'self-care' : 'pricing')}
-        />
-      </div>
+      <section>
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Escolha como quer cuidar agora</p>
+        <p className="text-sm text-ink-soft mt-1 mb-4">Você pode explorar algo rápido, seguir um plano ou pedir uma orientação mais individual.</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <HubCard
+            icon={<BookOpen className="w-5 h-5" />}
+            title="Conteúdos Guiados"
+            description="Reflexões, práticas e pausas emocionais para usar no seu tempo."
+            cta="Explorar conteúdos"
+            onClick={() => onNavigate('articles')}
+          />
+          <HubCard
+            icon={<Sprout className="w-5 h-5" />}
+            title="Plano de Autocuidado"
+            description={selfCareAccess
+              ? 'Um plano mensal de ações práticas, feito a partir dos seus registros.'
+              : 'Plano mensal de ações práticas — disponível no Plus.'}
+            cta={selfCareAccess ? 'Abrir meu plano' : 'Conhecer o Plus'}
+            locked={!selfCareAccess}
+            onClick={() => onNavigate(selfCareAccess ? 'self-care' : 'pricing')}
+          />
+          <HubCard
+            icon={<MessageSquareText className="w-5 h-5" />}
+            title="Orientação mensal"
+            description={guidanceAccess
+              ? 'Envie uma pergunta sobre o que está vivendo e receba uma orientação de apoio dentro do site.'
+              : 'Uma orientação mensal individual por mensagem — disponível no Plus.'}
+            cta={guidanceAccess ? 'Pedir orientação' : 'Conhecer o Plus'}
+            locked={!guidanceAccess}
+            onClick={() => onNavigate(guidanceAccess ? 'guidance' : 'pricing')}
+          />
+        </div>
+      </section>
+
+      <p className="text-xs text-ink-soft border-l-2 border-forest-300 pl-3 leading-relaxed">
+        Cuidar não exige completar uma sequência. Use apenas o que fizer sentido para o seu momento.
+      </p>
     </div>
   )
 }
