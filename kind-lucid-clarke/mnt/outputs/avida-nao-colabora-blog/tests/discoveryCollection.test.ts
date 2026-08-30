@@ -19,8 +19,8 @@ test('coleção reaproveita feedback existente sem virar sistema de pontos', () 
   assert.doesNotMatch(page, /progress|aria-valuenow/i)
 })
 
-test('texto deixa explícito o limite temporal da coleção atual', () => {
-  assert.match(page, /janela atual de registros/)
-  assert.match(page, /arquivo histórico permanente pode ser criado depois/i)
-  assert.doesNotMatch(page, /coleção permanente|para sempre/i)
+test('20.4 substitui o limite temporal por memória histórica explícita', () => {
+  assert.match(page, /DiscoveryMemoryArchive/)
+  assert.match(page, /continua disponível em “O que já fez sentido antes”/i)
+  assert.doesNotMatch(page, /arquivo histórico permanente pode ser criado depois/i)
 })
