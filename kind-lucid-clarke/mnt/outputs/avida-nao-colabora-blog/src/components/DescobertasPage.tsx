@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { Compass, ArrowRight, LineChart, Loader2, Sparkles } from 'lucide-react'
+import { Compass, ArrowRight, EyeOff, LineChart, Loader2, RotateCcw, Sparkles } from 'lucide-react'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 import { normalizePlan } from '../lib/officialPlans'
@@ -28,11 +28,6 @@ interface Props {
   onNavigate: (section: string) => void
 }
 
-// Descobertas reúne os padrões que os registros estruturados do usuário já
-// sustentam. Fase 19R.2: cada descoberta ganha retorno da pessoa
-// ("Fez sentido" / "Mais ou menos" / "Não quero acompanhar isso"), salvo por
-// chave estável em user_discovery_feedback. "Não quero acompanhar" oculta a
-// descoberta aqui e na Home — sempre reversível.
 export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   const plan = normalizePlan(profile?.plan)
   const [entries, setEntries] = useState<HomeDiscoveryEntry[]>([])
@@ -40,6 +35,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   const [feedback, setFeedback] = useState<DiscoveryFeedbackMap>({})
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -78,20 +74,28 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
 
   const muted = useMemo(() => mutedDiscoveryKeys(feedback), [feedback])
 
-  const discoveries = useMemo<HomeDiscovery[]>(() => {
+  const allDiscoveries = useMemo<HomeDiscovery[]>(() => {
     if (!personalizationEnabled) return []
-    return buildHomeDiscoveries(entries, plan).filter(d => !muted.has(d.stableKey))
-  }, [entries, plan, personalizationEnabled, muted])
+    return buildHomeDiscoveries(entries, plan)
+  }, [entries, plan, personalizationEnabled])
+
+  const discoveries = useMemo(
+    () => allDiscoveries.filter(d => !muted.has(d.stableKey)),
+    [allDiscoveries, muted]
+  )
+  const hiddenDiscoveries = useMemo(
+    () => allDiscoveries.filter(d => muted.has(d.stableKey)),
+    [allDiscoveries, muted]
+  )
 
   const forming = discoveries.filter(d => d.status === 'forming')
   const ready = discoveries.filter(d => d.status === 'ready')
-  const hiddenCount = muted.size
+  const hiddenCount = hiddenDiscoveries.length
 
   const choose = useCallback(async (key: string, value: DiscoveryFeedbackValue) => {
     if (!user) return
     const previous = feedback[key]
     const clearing = previous === value
-    // Otimista: reflete a escolha na hora; "não quero acompanhar" some com o card.
     setFeedback(current => {
       const next = { ...current }
       if (clearing) delete next[key]
@@ -102,7 +106,6 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       ? await clearDiscoveryFeedback(user.id, key)
       : await saveDiscoveryFeedback(user.id, key, value)
     if (!ok) {
-      // Reverte se o banco recusou.
       setFeedback(current => {
         const next = { ...current }
         if (previous) next[key] = previous
@@ -159,22 +162,33 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
           </h2>
           <p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-2xl">
             {hiddenCount > 0
-              ? 'As descobertas que você pediu para não acompanhar ficam ocultas. Novas continuam aparecendo conforme você registra.'
-              : 'As descobertas aparecem sozinhas conforme você registra. Continue fazendo seus check-ins e escrevendo no diário — quando um sinal se repetir o suficiente, ele vai aparecer aqui.'}
+              ? 'As descobertas que você pediu para não acompanhar ficam guardadas e podem ser restauradas quando quiser.'
+              : 'As descobertas aparecem sozinhas conforme seus registros criam contexto suficiente. Não existe meta de frequência para isso.'}
           </p>
-          <button
-            onClick={() => onNavigate('diary')}
-            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors"
-          >
-            Ir para o diário <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => onNavigate('diary')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors"
+            >
+              Ir para o diário <ArrowRight className="w-4 h-4" />
+            </button>
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHidden(true)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 hover:bg-mint/40 transition-colors"
+              >
+                <EyeOff className="w-4 h-4" /> Ver ocultas ({hiddenCount})
+              </button>
+            )}
+          </div>
         </section>
       ) : (
         <div className="space-y-8">
           {forming.length > 0 && (
             <Section
               title="Em formação"
-              description="Sinais que já se repetiram, mas ainda precisam de mais registros para virar um padrão."
+              description="Sinais que já se repetiram, mas ainda precisam de mais contexto para virar uma observação mais firme."
               discoveries={forming}
               feedback={feedback}
               onChoose={choose}
@@ -195,10 +209,39 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       )}
 
       {personalizationEnabled && !loading && hiddenCount > 0 && (
-        <p className="text-xs text-ink-soft">
-          {hiddenCount === 1 ? '1 descoberta está oculta' : `${hiddenCount} descobertas estão ocultas`} porque você pediu para
-          não acompanhar. Isso é reversível: marque a mesma opção de novo para trazê-la de volta.
-        </p>
+        <section className="rounded-2xl border border-line bg-paper-soft p-4 sm:p-5">
+          <button
+            type="button"
+            onClick={() => setShowHidden(current => !current)}
+            className="w-full flex items-center justify-between gap-3 text-left"
+            aria-expanded={showHidden}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium text-forest-900">
+              <EyeOff className="w-4 h-4 text-forest-600" />
+              Descobertas ocultas ({hiddenCount})
+            </span>
+            <span className="text-xs text-ink-soft">{showHidden ? 'Ocultar lista' : 'Ver e restaurar'}</span>
+          </button>
+          {showHidden && (
+            <div className="mt-4 pt-4 border-t border-line space-y-2">
+              {hiddenDiscoveries.map(discovery => (
+                <div key={discovery.stableKey} className="rounded-2xl border border-line bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">{discovery.eyebrow}</p>
+                    <p className="font-serif text-base text-forest-900 mt-0.5">{discovery.title}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => choose(discovery.stableKey, 'not_following')}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-paper-soft px-3 py-2 text-xs font-medium text-forest-800 hover:bg-mint/50 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Voltar a acompanhar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <p className="text-xs text-ink-soft border-l-2 border-forest-300 pl-3 leading-relaxed">

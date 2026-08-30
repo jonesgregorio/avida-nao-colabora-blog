@@ -43,14 +43,14 @@ export default function SupportAttachmentList({ attachments, inverse = false }: 
             className={`w-full max-w-[320px] flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-60 ${
               inverse
                 ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
-                : 'border-line bg-white text-stone-700 hover:bg-stone-50'
+                : 'border-line bg-white text-forest-800 hover:bg-mint/30'
             }`}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-medium truncate">{attachment.name}</span>
               {attachment.size > 0 && (
-                <span className={`block text-[10px] ${inverse ? 'text-white/70' : 'text-stone-400'}`}>
+                <span className={`block text-[10px] ${inverse ? 'text-white/70' : 'text-ink-soft/70'}`}>
                   {formatSupportAttachmentSize(attachment.size)}
                 </span>
               )}
@@ -59,7 +59,7 @@ export default function SupportAttachmentList({ attachments, inverse = false }: 
           </button>
         )
       })}
-      {error && <p className={`text-[11px] ${inverse ? 'text-red-100' : 'text-red-600'}`}>{error}</p>}
+      {error && <p className={`text-[11px] ${inverse ? 'text-red-100' : 'text-coral'}`}>{error}</p>}
     </div>
   )
 }
