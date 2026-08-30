@@ -1,0 +1,31 @@
+name: Fase 20.9 patch final
+
+on:
+  push:
+    branches:
+      - codex/fase20-lote9-qa-final
+
+permissions:
+  contents: write
+
+jobs:
+  apply-final-qa:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aplicar QA final
+        run: node scripts/fase20-9-patch.mjs
+      - name: Remover utilitário temporário e publicar commit funcional
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -f .github/workflows/fase20-9-patch.yml scripts/fase20-9-patch.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Fase 20.9 — QA final da gamificação saudável"
+          git push origin HEAD:codex/fase20-lote9-qa-final
