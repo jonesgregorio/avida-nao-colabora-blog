@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
-  Home, NotebookPen, LineChart, Sprout, CreditCard,
+  Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
   BarChart3, History, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
   LifeBuoy, Leaf, Bell, Compass, MoreHorizontal,
 } from 'lucide-react'
@@ -34,12 +34,9 @@ interface NavGroup {
   items: NavItem[]
 }
 
-// Fase 19R.1 (Ideia 1): a navegação deixa de ser uma lista de funcionalidades e
-// passa a contar a jornada. Os seis primeiros itens são o caminho do usuário;
-// depois de uma separação visual ficam "Cuidar" (o que posso fazer por mim agora)
-// e "Mais" (conta e ferramentas secundárias). Nenhum destino existente foi
-// removido — Questionários, Perfil, Meu Plano, Orientação, Suporte e Notificações
-// continuam acessíveis dentro de "Cuidar"/"Mais".
+// Navegação compacta da Ideia 1: continua sendo a base do mobile e dos atalhos
+// contextuais. No desktop, a Fase 19R.A recupera os acessos diretos do menu
+// anterior porque há espaço para eles e isso evita cliques desnecessários.
 const PRIMARY_NAV: NavItem[] = [
   { id: 'home',         label: 'Hoje',           Icon: Home,           match: ['home'] },
   { id: 'diary',        label: 'Diário',         Icon: NotebookPen,    match: ['diary'] },
@@ -49,6 +46,32 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'my-history',   label: 'Minha História', Icon: History,        match: ['my-history'] },
   { id: 'cuidar',       label: 'Cuidar',         Icon: Sprout,         match: ['cuidar', 'self-care', 'articles', 'article', 'content'], matchPath: ['/plano-de-autocuidado'] },
   { id: 'mais',         label: 'Mais',           Icon: MoreHorizontal, match: ['mais', 'questionarios', 'questionnaire', 'questionarios-evolucao', 'monthly-guidance', 'professional-comments', 'my-plan', 'profile', 'support', 'support-ticket', 'notifications'] },
+]
+
+// Menu desktop recuperado da arquitetura anterior, com Descobertas adicionada
+// ao grupo Entender. Cuidar e Mais continuam existindo como páginas reais, mas
+// deixam de esconder destinos que cabem diretamente na sidebar desktop.
+const DESKTOP_NAV: NavItem[] = [
+  { id: 'home',             label: 'Hoje',                 Icon: Home,          match: ['home'] },
+  { id: 'diary',            label: 'Diário',               Icon: NotebookPen,   match: ['diary'] },
+  { id: 'descobertas',      label: 'Descobertas',          Icon: Compass,       match: ['descobertas'] },
+  { id: 'my-evolution',     label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
+  { id: 'my-report',        label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
+  { id: 'my-history',       label: 'Minha História',       Icon: History,       match: ['my-history'] },
+  { id: 'articles',         label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
+  { id: 'questionarios',    label: 'Questionários',        Icon: ClipboardList, match: ['questionarios', 'questionnaire', 'questionarios-evolucao'] },
+  { id: 'self-care',        label: 'Plano de Autocuidado', Icon: Sprout,        match: ['self-care'], matchPath: ['/plano-de-autocuidado'] },
+  { id: 'monthly-guidance', label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
+  { id: 'my-plan',          label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
+  { id: 'profile',          label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },
+  { id: 'support',          label: 'Suporte',              Icon: LifeBuoy,      match: ['support', 'support-ticket'] },
+]
+
+const DESKTOP_NAV_GROUPS: NavGroup[] = [
+  { label: 'Seu espaço', items: DESKTOP_NAV.filter(item => ['home', 'diary'].includes(item.id)) },
+  { label: 'Entender', items: DESKTOP_NAV.filter(item => ['descobertas', 'my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'].includes(item.id)) },
+  { label: 'Cuidar', items: DESKTOP_NAV.filter(item => ['self-care', 'monthly-guidance'].includes(item.id)) },
+  { label: 'Conta', items: DESKTOP_NAV.filter(item => ['my-plan', 'profile', 'support'].includes(item.id)) },
 ]
 
 const NAV_GROUPS: NavGroup[] = [
@@ -90,8 +113,6 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
   const name = displayName(profile, user)
   const isAdmin = profile?.role === 'admin'
 
-  // Contagem de notificações NÃO lidas (só as pessoais; broadcasts não contam).
-  // Refetch ao trocar de view — assim volta zerado depois de abrir as notificações.
   useEffect(() => {
     if (!user) { setUnread(0); return }
     let active = true
@@ -114,7 +135,6 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
     return () => document.removeEventListener('mousedown', handle)
   }, [])
 
-  // Fecha o menu mobile ao trocar de view.
   useEffect(() => { setMobileOpen(false) }, [currentView])
 
   const isActive = (item: NavItem) => {
@@ -123,19 +143,17 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
     return item.match.includes(currentView)
   }
 
-  const currentItem = PRIMARY_NAV.find(isActive)
+  const currentItem = PRIMARY_NAV.find(isActive) ?? DESKTOP_NAV.find(isActive)
   const currentLabel = HEADER_LABELS[currentView] ?? currentItem?.label ?? 'Seu espaço'
   const mobileMoreActive = !PRIMARY_NAV.some(item => MOBILE_PRIMARY_IDS.includes(item.id as typeof MOBILE_PRIMARY_IDS[number]) && isActive(item))
   const go = (id: string) => { onNavigate(id); setMobileOpen(false); setProfileOpen(false) }
 
   return (
     <div className="min-h-screen bg-paper flex">
-      {/* ─── Sidebar (desktop) ─── */}
       <aside className="hidden lg:flex flex-col w-[272px] flex-shrink-0 bg-sand-50 border-r border-line sticky top-0 h-screen overflow-y-auto">
-        <SidebarContent name={name} groups={NAV_GROUPS} isActive={isActive} go={go} onNavigate={onNavigate} />
+        <SidebarContent name={name} groups={DESKTOP_NAV_GROUPS} isActive={isActive} go={go} onNavigate={onNavigate} />
       </aside>
 
-      {/* ─── Menu "Mais" (mobile) ─── */}
       {mobileOpen && (
         <MobileMoreSheet
           groups={NAV_GROUPS}
@@ -145,9 +163,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
         />
       )}
 
-      {/* ─── Coluna principal ─── */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Header superior */}
         <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur border-b border-line">
           <div className="h-16 md:h-[72px] px-4 sm:px-6 lg:px-8 flex items-center gap-3">
             <button
@@ -222,11 +238,9 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
           </div>
         </header>
 
-        {/* Conteúdo da página. O padding inferior evita que a barra mobile cubra CTAs. */}
         <main className="flex-1 min-w-0 pb-24 lg:pb-0">{children}</main>
       </div>
 
-      {/* ─── Navegação principal mobile ─── */}
       <nav
         aria-label="Navegação principal"
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-line shadow-[0_-8px_28px_rgba(15,47,37,0.08)]"
@@ -269,7 +283,6 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col min-h-full">
-      {/* Marca oficial + saudação */}
       <button onClick={() => go('home')} className="flex items-center gap-3 px-5 pt-6 pb-5 text-left group">
         <span className="w-10 h-10 rounded-2xl bg-white border border-line flex items-center justify-center shadow-sm group-hover:border-forest-200 transition-colors">
           <LogoIcon className="w-7 h-7 text-forest-900" />
@@ -285,7 +298,6 @@ function SidebarContent({
         <p className="font-serif text-xl text-forest-900 leading-tight capitalize mt-0.5 truncate">{name}</p>
       </div>
 
-      {/* Navegação organizada pela lógica da Ideia 1, sem remover recursos atuais. */}
       <nav className="flex-1 px-3 pb-3 space-y-4" aria-label="Área do usuário">
         {groups.map(group => (
           <div key={group.label}>
@@ -299,7 +311,6 @@ function SidebarContent({
         ))}
       </nav>
 
-      {/* Card de apoio */}
       <div className="p-4 mt-auto">
         <div className="rounded-2xl bg-mint/75 border border-forest-100 p-4">
           <div className="flex items-center gap-2 text-forest-900">
