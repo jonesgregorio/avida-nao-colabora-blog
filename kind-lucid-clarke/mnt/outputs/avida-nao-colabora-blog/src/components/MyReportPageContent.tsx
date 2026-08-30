@@ -343,6 +343,36 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
       <div className="space-y-4">
         <WeeklySummaryHero summary={c.summary} />
 
+        {/* Fase 19R.6: a narrativa vem primeiro — "o que aconteceu comigo nesta
+            semana" antes dos indicadores e gráficos. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que a semana mostrou">
+            <p className="text-sm text-stone-700 leading-relaxed">{c.interpretation}</p>
+          </InsightCard>
+          <InsightCard icon={<TrendingUp className="w-4 h-4" />} title="O que mudou desde a semana passada">
+            {c.comparison.length > 0
+              ? <ul className="space-y-1.5">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
+              : <p className="text-sm text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>}
+          </InsightCard>
+          {c.improvementMoments && (
+            <InsightCard icon={<Heart className="w-4 h-4" />} title="O que ajudou">
+              <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p>
+            </InsightCard>
+          )}
+          {(c.patterns?.length ?? 0) > 0 && (
+            <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Padrão da semana">
+              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+          {(c.attentionPoints?.length ?? 0) > 0 && (
+            <InsightCard icon={<AlertCircle className="w-4 h-4" />} title="Algo para observar" tone="coral">
+              <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-[#d98b3c] mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+        </div>
+
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 pt-1">As evidências abaixo</p>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
           <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
@@ -362,32 +392,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         {c.topContexts && c.topContexts.length > 0 && (
           <TriggerRanking triggers={c.topContexts} title="Contextos que mais apareceram" emptyText="Ainda não há contextos marcados nesta semana." />
         )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que seus registros parecem indicar">
-            <p className="text-sm text-stone-700 leading-relaxed">{c.interpretation}</p>
-          </InsightCard>
-          <InsightCard icon={<TrendingUp className="w-4 h-4" />} title="Comparação com a semana anterior">
-            {c.comparison.length > 0
-              ? <ul className="space-y-1.5">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
-              : <p className="text-sm text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>}
-          </InsightCard>
-          {(c.attentionPoints?.length ?? 0) > 0 && (
-            <InsightCard icon={<AlertCircle className="w-4 h-4" />} title="Pontos de atenção da semana" tone="coral">
-              <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-[#d98b3c] mt-0.5">•</span>{p}</li>)}</ul>
-            </InsightCard>
-          )}
-          {c.improvementMoments && (
-            <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
-              <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p>
-            </InsightCard>
-          )}
-          {(c.patterns?.length ?? 0) > 0 && (
-            <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões da semana">
-              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
-            </InsightCard>
-          )}
-        </div>
 
         {!forPdf && recs.length > 0 && (
           <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1.5">Conteúdos guiados recomendados</p>
