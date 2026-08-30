@@ -19,12 +19,12 @@ test('detalhes ficam fora do fluxo principal em drawer responsivo', () => {
   assert.match(drawer, /useModalA11y/)
 })
 
-test('seletor inicial de humor mostra grupo curto e oferece Mais', () => {
+test('seletor inicial de humor mostra grupo curto e oferece outros estados', () => {
   const selector = read('src/components/DiaryMoodSelector.tsx')
   const featured = selector.match(/FEATURED_MOOD_KEYS = new Set\(\[([\s\S]*?)\]\)/)?.[1] || ''
   assert.equal((featured.match(/'/g) || []).length / 2, 6)
-  assert.match(selector, /Mais/)
-  assert.match(selector, /Menos/)
+  assert.match(selector, /Outros estados/)
+  assert.match(selector, /Menos estados/)
 })
 
 test('mobile preserva barra de ações essenciais', () => {

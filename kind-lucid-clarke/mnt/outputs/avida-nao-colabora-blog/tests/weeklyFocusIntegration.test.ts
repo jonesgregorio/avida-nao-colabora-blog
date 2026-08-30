@@ -3,20 +3,23 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const home = readFileSync(new URL('../src/components/LoggedHome.tsx', import.meta.url), 'utf8')
+const legacyHome = readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8')
 const card = readFileSync(new URL('../src/components/WeeklyFocusCard.tsx', import.meta.url), 'utf8')
 const store = readFileSync(new URL('../src/lib/weeklyFocusStore.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260829174500_user_weekly_focus.sql', import.meta.url), 'utf8')
 const migrationDdl = migration.replace(/--.*$/gm, '')
 
 test('Home Hoje exibe Foco da Semana somente a partir do Essencial e respeita a preferência de histórico', () => {
-  assert.match(home, /import WeeklyFocusCard/)
-  assert.match(home, /user && weeklyAccess/)
-  assert.match(home, /<WeeklyFocusCard userId=\{user\.id\} plan=\{plan\} entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
-  assert.match(home, /hasPlanAccess\(plan, 'essential'\)/)
+  assert.match(home, /LoggedHomeLegacy/)
+  assert.match(legacyHome, /import WeeklyFocusCard/)
+  assert.match(legacyHome, /user && weeklyAccess/)
+  assert.match(legacyHome, /<WeeklyFocusCard userId=\{user\.id\} plan=\{plan\} entries=\{historyPersonalizationEnabled \? homeEntries : \[\]\}/)
+  assert.match(legacyHome, /hasPlanAccess\(plan, 'essential'\)/)
 })
 
 test('Foco da Semana reutiliza a consulta estruturada da Home sem texto livre', () => {
-  const select = home.match(/\.select\('([^']+)'\)/)?.[1] ?? ''
+  const selects = [...legacyHome.matchAll(/\.select\('([^']+)'\)/g)].map(match => match[1])
+  const select = selects.find(value => value.includes('mood') && value.includes('trigger_tags')) ?? ''
   const columns = select.split(',').map(column => column.trim()).filter(Boolean)
   for (const column of ['mood', 'energy', 'anxiety_level', 'sleep_quality', 'stress_level', 'overload', 'context_tags', 'trigger_tags', 'emotional_tags', 'need_tags', 'care_action_tags']) {
     assert.ok(columns.includes(column), `esperava coluna estruturada ${column}`)

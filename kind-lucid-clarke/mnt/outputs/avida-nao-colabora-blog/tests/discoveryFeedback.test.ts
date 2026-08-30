@@ -34,7 +34,6 @@ test('o store é reversível e não guarda progresso, pontuação nem gamificaç
   assert.match(source, /onConflict: 'user_id,discovery_key'/)
   assert.match(source, /user_discovery_feedback/)
   assert.doesNotMatch(source, /points|score|streak|seeds|sementes|progress/i)
-  // Nunca lê texto livre do Diário.
   assert.doesNotMatch(source, /\bfrom\('diary_entries'\)|\.text\b/)
 })
 
@@ -54,9 +53,11 @@ test('a migration cria a tabela com RLS do próprio dono e sem acesso anônimo',
 
 test('a Descoberta some da Home e da área quando marcada como "não acompanhar"', () => {
   const page = readFileSync(new URL('../src/components/DescobertasPage.tsx', import.meta.url), 'utf8')
+  const legacyHome = readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8')
   const home = readFileSync(new URL('../src/components/LoggedHome.tsx', import.meta.url), 'utf8')
   assert.match(page, /mutedDiscoveryKeys/)
   assert.match(page, /filter\(d => !muted\.has\(d\.stableKey\)\)/)
-  assert.match(home, /mutedDiscoveryKeys/)
-  assert.match(home, /!mutedDiscoveries\.has\(item\.stableKey\)/)
+  assert.match(home, /LoggedHomeLegacy/)
+  assert.match(legacyHome, /mutedDiscoveryKeys/)
+  assert.match(legacyHome, /!mutedDiscoveries\.has\(item\.stableKey\)/)
 })
