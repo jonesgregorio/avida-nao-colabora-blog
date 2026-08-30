@@ -4,6 +4,7 @@ import { formatPeriodShort, getCurrentWeeklyPeriod } from '../lib/reportPeriods'
 import { hasPlanAccess, type PlanKey } from '../lib/officialPlans'
 import { buildWeeklyFocusSuggestions, type WeeklyFocusEntry, type WeeklyFocusSuggestion } from '../lib/weeklyFocus'
 import { trackRetentionEvent } from '../lib/retentionAnalytics'
+import { fetchIdea1RolloutDecision } from '../lib/idea1Rollout'
 import {
   closeWeeklyFocus,
   loadWeeklyFocusState,
@@ -36,6 +37,7 @@ export default function WeeklyFocusCard({ userId, plan, entries }: Props) {
 
   const [current, setCurrent] = useState<SavedWeeklyFocus | null>(null)
   const [previousOpen, setPreviousOpen] = useState<SavedWeeklyFocus | null>(null)
+  const [rolloutEligible, setRolloutEligible] = useState(true)
   const [loading, setLoading] = useState(hasAccess)
   const [saving, setSaving] = useState(false)
   const [choosing, setChoosing] = useState(false)
@@ -49,10 +51,14 @@ export default function WeeklyFocusCard({ userId, plan, entries }: Props) {
     let active = true
     ;(async () => {
       try {
-        const state = await loadWeeklyFocusState(userId, period.start)
+        const [state, rollout] = await Promise.all([
+          loadWeeklyFocusState(userId, period.start),
+          fetchIdea1RolloutDecision(userId),
+        ])
         if (!active) return
         setCurrent(state.current)
         setPreviousOpen(state.previousOpen)
+        setRolloutEligible(rollout.active)
         setFailed(false)
       } catch {
         if (active) setFailed(true)
@@ -111,6 +117,10 @@ export default function WeeklyFocusCard({ userId, plan, entries }: Props) {
       </section>
     )
   }
+
+  // O rollout regula somente novos convites. Estado já salvo nunca é escondido:
+  // usuários com foco atual ou reflexão pendente continuam com acesso normal.
+  if (!rolloutEligible && !current && !previousOpen) return null
 
   if (previousOpen) {
     return (
