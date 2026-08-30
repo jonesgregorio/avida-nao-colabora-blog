@@ -9,12 +9,14 @@ import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import { loadReportHistory } from '../lib/reportGeneration'
 import { buildTemporalComparison } from '../lib/temporalComparison'
+import { buildJourneyChapter } from '../lib/journeyChapter'
 import {
   buildMyHistory,
   type MyHistoryEntry,
   type MyHistoryReport,
 } from '../lib/myHistory'
 import TemporalComparisonPanel from './history/TemporalComparisonPanel'
+import JourneyChapterCard from './history/JourneyChapterCard'
 
 interface Props {
   user: User | null
@@ -134,6 +136,14 @@ export default function MyHistoryPage({
     return buildMyHistory(entries, visibleReports, { includeTriggers, memoryLimit: 4 })
   }, [entries, reports, includeTriggers, isPlus])
 
+  const chapter = useMemo(() => buildJourneyChapter({
+    activeDays: history.totals.activeDays,
+    reports: history.totals.reports,
+    months: history.months.length,
+    milestones: history.milestones.length,
+    hasSteadyMonth: history.milestones.some(milestone => milestone.kind === 'first_steady_month'),
+  }), [history])
+
   const comparison = useMemo(
     () => buildTemporalComparison(entries, { includeTriggers }),
     [entries, includeTriggers],
@@ -206,6 +216,8 @@ export default function MyHistoryPage({
             </div>
           </section>
 
+          <JourneyChapterCard chapter={chapter} />
+
           <TemporalComparisonPanel comparison={comparison} />
 
           {history.milestones.length > 0 && (
@@ -214,14 +226,22 @@ export default function MyHistoryPage({
               <h2 id="milestones-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Momentos da sua trajetória</h2>
               <p className="text-sm text-ink-soft mt-1">Marcos reais do seu percurso — cada um vem de algo que aconteceu de verdade nos seus registros.</p>
               <ol className="mt-4 relative border-l border-line ml-1.5 space-y-4">
-                {history.milestones.map(milestone => (
-                  <li key={milestone.id} className="pl-5">
-                    <span className="absolute -left-[7px] mt-1.5 w-3 h-3 rounded-full bg-forest-400 border-2 border-paper-soft" aria-hidden />
-                    <p className="text-[11px] text-ink-soft capitalize">{milestone.dateLabel}</p>
-                    <p className="font-serif text-lg text-forest-900 leading-snug mt-0.5">{milestone.title}</p>
-                    <p className="text-sm text-ink-soft mt-1 leading-relaxed">{milestone.description}</p>
-                  </li>
-                ))}
+                {history.milestones.map((milestone, index) => {
+                  const isLatest = index === history.milestones.length - 1
+                  return (
+                    <li key={milestone.id} className="pl-5">
+                      <span className={`absolute -left-[7px] mt-1.5 w-3 h-3 rounded-full border-2 border-paper-soft ${isLatest ? 'bg-forest-700 ring-4 ring-mint/70' : 'bg-forest-400'}`} aria-hidden />
+                      <div className={isLatest ? 'rounded-2xl border border-forest-100 bg-mint/35 px-4 py-3.5' : ''}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[11px] text-ink-soft capitalize">{milestone.dateLabel}</p>
+                          {isLatest && <span className="rounded-full bg-white border border-line px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">Mais recente</span>}
+                        </div>
+                        <p className="font-serif text-lg text-forest-900 leading-snug mt-0.5">{milestone.title}</p>
+                        <p className="text-sm text-ink-soft mt-1 leading-relaxed">{milestone.description}</p>
+                      </div>
+                    </li>
+                  )
+                })}
               </ol>
             </section>
           )}
@@ -315,7 +335,7 @@ export default function MyHistoryPage({
           </section>
 
           <div className="rounded-2xl border border-line bg-sand-50 px-4 sm:px-5 py-4 text-xs text-ink-soft leading-relaxed">
-            Esta página usa datas, humor, energia, ansiedade, sono e marcadores estruturados dos seus registros. Nenhum trecho do texto livre do Diário é exibido na linha do tempo, na comparação temporal ou nas Memórias.{truncated ? ' Para manter a página leve, esta visualização carregou os 5.000 registros estruturados mais recentes.' : ''}
+            Esta página usa datas, humor, energia, ansiedade, sono e marcadores estruturados dos seus registros. Nenhum trecho do texto livre do Diário é exibido na linha do tempo, na comparação temporal, no capítulo da jornada ou nas Memórias.{truncated ? ' Para manter a página leve, esta visualização carregou os 5.000 registros estruturados mais recentes.' : ''}
           </div>
         </>
       )}
