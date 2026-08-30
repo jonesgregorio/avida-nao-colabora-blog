@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildHomeMemoryNudge } from '../src/lib/homeMemoryNudge'
-import type { DiscoveryMemory } from '../src/lib/discoveryMemoryStore'
-import type { HomeDiscovery } from '../src/lib/homeDiscoveries'
+import { buildHomeMemoryNudge } from '../src/lib/homeMemoryNudge.ts'
+import type { DiscoveryMemory } from '../src/lib/discoveryMemoryStore.ts'
+import type { HomeDiscovery } from '../src/lib/homeDiscoveries.ts'
 
 const current: HomeDiscovery = {
   id: 'current-context',
