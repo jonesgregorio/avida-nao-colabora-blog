@@ -190,7 +190,7 @@ function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels, title = 'Energia
           </div>
         </div>
       ) : (
-        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Gráfico indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período. Continue registrando para acompanhar sua semana.</p>
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Gráfico indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período. Se houver novos registros quando fizer sentido para você, esta leitura pode ganhar mais contexto.</p>
       )}
     </div>
   )
@@ -225,7 +225,7 @@ function EmotionDonut({ emotions }: { emotions: { label: string; count: number }
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com emoções neste período. Continue registrando para ver seu panorama emocional.</p>
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com emoções neste período. Se você registrar outros momentos quando quiser, este panorama poderá ganhar mais contexto.</p>
       )}
     </div>
   )
@@ -463,7 +463,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <AlertCircle className="w-5 h-5 text-[#c2673f] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-[#9a3b26]">Relatório com poucos registros</p>
-            <p className="text-sm text-ink leading-relaxed mt-1">Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Continue registrando check-ins e diários para que os próximos relatórios tragam insights mais precisos.</p>
+            <p className="text-sm text-ink leading-relaxed mt-1">Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Se fizer sentido para você, novos registros podem trazer mais contexto para observar mudanças ao longo do tempo.</p>
           </div>
         </div>
       )}
@@ -545,7 +545,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           </InsightCard>
 
           <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
-            <p className="text-sm text-ink leading-relaxed">{c.improvementMoments || 'Continue registrando para que seus momentos de melhora fiquem mais visíveis.'}</p>
+            <p className="text-sm text-ink leading-relaxed">{c.improvementMoments || 'Ainda não há registros suficientes para destacar momentos de melhora neste período.'}</p>
           </InsightCard>
 
           <div className="lg:col-span-2 bg-paper-soft border border-line rounded-2xl p-4 sm:p-5">
@@ -822,7 +822,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </header>
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
-          <p className="flex-1 text-sm leading-relaxed text-forest-50">Continue registrando no diário. Ao assinar o Essencial, você recebe relatórios semanais fechados aos domingos, com resumo, emoções, energia, ansiedade e conteúdos recomendados.</p>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">Ao assinar o Essencial, seus registros disponíveis podem compor relatórios semanais fechados aos domingos, com resumo, emoções, energia, ansiedade e conteúdos recomendados.</p>
           <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl whitespace-nowrap">Conhecer o Essencial</button>
         </div>
         <div className="space-y-4">
@@ -1015,14 +1015,14 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <MetricCard icon={<Heart className="w-5 h-5" />} label="Check-ins nesta semana" value={weeklyPreview.checkinCount ?? 0} sub="de 7 dias" />
+        <MetricCard icon={<Heart className="w-5 h-5" />} label="Check-ins nesta semana" value={weeklyPreview.checkinCount ?? 0} sub="registros na semana" />
         <MetricCard icon={<BookOpen className="w-5 h-5" />} label="Diários" value={weeklyPreview.diaryCount ?? 0} sub="registros" />
         <MetricCard icon={<Zap className="w-5 h-5" />} label="Energia média" value={essEnergy > 0 ? essEnergy : '—'} sub={essEnergy > 0 ? 'de 5' : 'sem dados'} />
         <MetricCard icon={<Activity className="w-5 h-5" />} label="Ansiedade média" value={essAnx > 0 ? essAnx : '—'} sub={essAnx > 0 ? 'de 5' : 'sem dados'} />
       </div>
       <div className="flex items-start gap-2 text-xs text-ink-soft bg-mint/30 border border-line rounded-xl px-3 py-2 mb-8">
         <Info className="w-3.5 h-3.5 text-forest-500 flex-shrink-0 mt-0.5" />
-        Complete seus check-ins e registros para que seus relatórios tragam insights mais precisos sobre você.
+        Os registros que você escolher fazer podem dar mais contexto às leituras, sem meta de frequência ou obrigação de completar a semana.
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -1037,9 +1037,9 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <div className="min-w-0">
             <h3 className="font-serif text-xl text-forest-900">Relatório semanal — {formatPeriodShort(curWeek)}</h3>
             <p className="text-sm text-ink-soft mt-0.5">Período em andamento · Fecha em <strong className="text-forest-700">{formatDateBR(curWeek.end)}</strong> (sábado)</p>
-            <p className="text-sm text-ink-soft mt-2 leading-relaxed">Continue registrando seus check-ins e diários para que seu relatório fique ainda mais completo.</p>
+            <p className="text-sm text-ink-soft mt-2 leading-relaxed">O relatório usa o que estiver registrado no período; você não precisa completar uma quantidade de dias.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-              <StatPill label="Check-ins" value={`${weeklyPreview.checkinCount ?? 0}/7`} />
+              <StatPill label="Check-ins" value={weeklyPreview.checkinCount ?? 0} />
               <StatPill label="Diários" value={weeklyPreview.diaryCount ?? 0} />
               <StatPill label="Energia média" value={essEnergy > 0 ? essEnergy : '—'} unit={essEnergy > 0 ? '/5' : ''} />
               <StatPill label="Ansiedade média" value={essAnx > 0 ? essAnx : '—'} unit={essAnx > 0 ? '/5' : ''} />
@@ -1048,7 +1048,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <div className="lg:w-64 flex flex-col gap-3 flex-shrink-0">
             <div className="bg-mint/40 border border-forest-100 rounded-xl p-3">
               <p className="text-xs font-semibold text-forest-800 flex items-center gap-1.5 mb-1"><Sprout className="w-3.5 h-3.5" /> Dica para esta semana</p>
-              <p className="text-xs text-forest-700/90 leading-snug">Pequenos registros diários geram grandes clarezas. Continue um passo de cada vez.</p>
+              <p className="text-xs text-forest-700/90 leading-snug">Um registro pode ser útil quando fizer sentido para você — sem obrigação de manter uma sequência.</p>
             </div>
             <div className="flex flex-col gap-2">
               <button onClick={openWeeklyPreview} className="inline-flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl"><BarChart2 className="w-4 h-4" /> Ver relatório</button>
@@ -1085,7 +1085,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
                     <span className="text-[10px] bg-forest-100 text-forest-800 px-1.5 py-0.5 rounded-full font-medium">Em andamento</span>
                   </td>
                   <td className="py-3 pr-3 align-middle text-ink-soft hidden md:table-cell">Fecha em {formatDateBR(curWeek.end)}</td>
-                  <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.checkinCount ?? 0}/7</td>
+                  <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.checkinCount ?? 0}</td>
                   <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.diaryCount ?? 0}</td>
                   <td className="py-3 pl-3 align-middle text-right">
                     <button onClick={openWeeklyPreview} className="text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-lg hover:bg-mint/50 inline-flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Ver relatório</button>
@@ -1292,7 +1292,7 @@ function EmptyState({ onNavigateDiary, weekly }: { onNavigateDiary: () => void; 
     <div className="text-center py-12 px-4">
       <span className="w-12 h-12 rounded-full bg-mint/60 flex items-center justify-center text-forest-500 mx-auto mb-3"><Sprout className="w-6 h-6" /></span>
       <p className="text-sm font-medium text-forest-900">Ainda não há relatórios {weekly ? 'semanais ' : ''}por aqui</p>
-      <p className="text-sm text-ink-soft max-w-sm mx-auto mt-1">Continue registrando seus check-ins e diário para que o próximo relatório tenha mais informações.</p>
+      <p className="text-sm text-ink-soft max-w-sm mx-auto mt-1">Quando houver registros no período, o próximo relatório poderá usar essas informações como contexto.</p>
       <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium border border-forest-200 px-4 py-2 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Abrir meu diário</button>
     </div>
   )
