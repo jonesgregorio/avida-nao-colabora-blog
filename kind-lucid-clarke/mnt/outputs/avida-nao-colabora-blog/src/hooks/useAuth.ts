@@ -13,28 +13,63 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string, email?: string | null) => {
-    const { data, error } = await supabase
+    const readProfile = () => supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
-    if (error || !data) {
-      // Cria um perfil básico automaticamente quando o usuário existe mas não tem
-      // perfil (§15) — assim a área logada sempre funciona.
-      const displayName = email ? email.split('@')[0] : ''
-      const { data: newProfile } = await supabase
-        .from('profiles')
-        .upsert(
-          { user_id: userId, plan: 'free', full_name: '', display_name: displayName },
-          { onConflict: 'user_id', ignoreDuplicates: true },
-        )
-        .select()
-        .single()
-      setProfile(newProfile)
-    } else {
+    const { data, error } = await readProfile()
+
+    if (data) {
       setProfile(data)
+      return
     }
+
+    // Não transforme uma falha temporária de leitura/RLS em uma tentativa de
+    // escrita. O perfil só é criado quando a leitura respondeu corretamente e
+    // confirmou que ainda não existe linha para este usuário.
+    if (error) {
+      console.warn('Não foi possível carregar o perfil agora:', error.message)
+      setProfile(null)
+      return
+    }
+
+    // Cria um perfil básico automaticamente quando o usuário existe mas ainda
+    // não tem perfil (§15). maybeSingle evita 406 quando outra rotina de auth
+    // cria a mesma linha em paralelo e o upsert com ignoreDuplicates não retorna
+    // representação alguma.
+    const displayName = email ? email.split('@')[0] : ''
+    const { data: newProfile, error: createError } = await supabase
+      .from('profiles')
+      .upsert(
+        { user_id: userId, plan: 'free', full_name: '', display_name: displayName },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      )
+      .select()
+      .maybeSingle()
+
+    if (newProfile) {
+      setProfile(newProfile)
+      return
+    }
+
+    if (createError) {
+      console.warn('Não foi possível criar o perfil agora:', createError.message)
+      setProfile(null)
+      return
+    }
+
+    // Se outra chamada concorrente venceu a corrida e criou a linha, o upsert
+    // acima pode não retornar nada. Uma leitura final resolve o perfil existente
+    // sem tratar esse caso normal como erro HTTP 406.
+    const { data: resolvedProfile, error: refetchError } = await readProfile()
+    if (refetchError) {
+      console.warn('Não foi possível confirmar o perfil após a criação:', refetchError.message)
+      setProfile(null)
+      return
+    }
+    setProfile(resolvedProfile ?? null)
   }, [])
 
   const acceptConfirmedUser = useCallback(async (candidate: User | null, waitForProfile = true) => {
