@@ -47,12 +47,12 @@ export default function RecommendedContent({
   useEffect(() => {
     let active = true
     ;(async () => {
-      // Home Hoje e Mapa já são experiências baseadas em sinais estruturados.
-      // Nesses dois contextos, não fazemos uma segunda leitura de texto livre só
+      // Home Hoje, Cuidar e Mapa são experiências baseadas em sinais estruturados.
+      // Nesses contextos, não fazemos uma segunda leitura de texto livre só
       // para recomendar conteúdo: reutilizamos humor, escalas, tags e questionário.
       const signalPromise = signal
         ? Promise.resolve(signal)
-        : source === 'home-hoje' || source === 'map'
+        : source === 'home-hoje' || source === 'map' || source === 'care'
           ? fetchStructuredUserSignal(user?.id)
           : fetchUserSignal(user?.id)
 
@@ -75,23 +75,18 @@ export default function RecommendedContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profile?.plan, signal, catalog, source])
 
-  // "Mostrar menos conteúdos assim": silencia o tema principal do card e some
-  // com ele da lista na hora — sem esperar recarregar a página. Reversível em
-  // Perfil → Temas reduzidos.
   async function handleMuteLess(s: ScoredContent) {
     const theme = s.matchedThemes[0]
     if (!user?.id || !theme) return
     setMuting(s.item.id)
     const ok = await muteContentTheme(user.id, theme)
-    if (ok) setScored(prev => (prev ?? []).filter(x => x.item.id !== s.item.id))
+    if (ok) setScored(prev => (prev ?? []).filter(x => x.item.id !== s.item.id)
     setMuting(null)
   }
 
-  // Linguagem de risco (§15): não tratar só com conteúdo — orientar ajuda.
   if (risk) return <RiskHelpBanner />
 
   if (scored === null) {
-    // Carregando — placeholder discreto (não polui blocos embutidos).
     return variant === 'grid'
       ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: limit }).map((_, i) => <div key={i} className="h-40 rounded-2xl bg-paper-soft border border-line animate-pulse" />)}
@@ -101,7 +96,6 @@ export default function RecommendedContent({
 
   if (scored.length === 0) {
     if (!showEmpty) return null
-    // Sem dados suficientes vs. sem conteúdo compatível (§16).
     return (
       <div className="rounded-3xl border border-line bg-paper-soft p-6 text-center">
         {!hasData ? (
@@ -124,7 +118,7 @@ export default function RecommendedContent({
     )
   }
 
-  const structuredContext = source === 'home-hoje' || source === 'map'
+  const structuredContext = source === 'home-hoje' || source === 'map' || source === 'care'
   const carePlanContext = source === 'care_plan'
 
   return (
