@@ -251,25 +251,58 @@ function pairCounts(days: DaySignals[], left: (day: DaySignals) => Set<string>, 
   return [...counts.values()].sort((a, b) => b.count - a.count || a.left.localeCompare(b.left, 'pt-BR') || a.right.localeCompare(b.right, 'pt-BR'))
 }
 
+function sortCandidates(candidates: Candidate[]): Candidate[] {
+  return [...candidates].sort((a, b) => {
+    const status = Number(b.status === 'ready') - Number(a.status === 'ready')
+    if (status !== 0) return status
+    if (b.matchedDays !== a.matchedDays) return b.matchedDays - a.matchedDays
+    if (Math.abs(b.ratio - a.ratio) > 0.0001) return b.ratio - a.ratio
+    if (a.priority !== b.priority) return a.priority - b.priority
+    return a.id.localeCompare(b.id, 'pt-BR')
+  })
+}
+
+function stripCandidate({ priority: _priority, ratio: _ratio, ...rest }: Candidate): HomeDiscovery {
+  return rest
+}
+
 /**
- * Escolhe no máximo uma descoberta para a Home Hoje.
- *
- * Princípios:
+ * Lista todas as descobertas (em formação + prontas) sustentadas pelos registros
+ * estruturados do usuário, já ordenadas por relevância. É a fonte da área
+ * "Descobertas". Mesmos princípios da Home:
  * - usa somente sinais estruturados do próprio usuário;
  * - conta dias distintos, não quantidade de registros;
  * - Gratuito recebe apenas recorrência simples de humor;
  * - Essencial acrescenta sentimentos, contextos e relações entre escalas;
  * - Plus acrescenta gatilhos reconhecidos pelo próprio usuário;
  * - relações são descritas como coocorrência, nunca causalidade;
- * - nenhum texto livre do Diário entra nesta função.
+ * - nenhum texto livre do Diário entra aqui.
+ */
+export function buildHomeDiscoveries(
+  entries: HomeDiscoveryEntry[],
+  plan: HomeDiscoveryPlan,
+): HomeDiscovery[] {
+  const candidates = collectDiscoveryCandidates(entries, plan)
+  return sortCandidates(candidates).map(stripCandidate)
+}
+
+/**
+ * Escolhe no máximo uma descoberta para a Home Hoje.
  */
 export function buildHomeDiscovery(
   entries: HomeDiscoveryEntry[],
   plan: HomeDiscoveryPlan,
 ): HomeDiscovery | null {
+  return buildHomeDiscoveries(entries, plan)[0] ?? null
+}
+
+function collectDiscoveryCandidates(
+  entries: HomeDiscoveryEntry[],
+  plan: HomeDiscoveryPlan,
+): Candidate[] {
   const days = aggregateByDay(entries)
   const activeDays = days.length
-  if (activeDays < 3) return null
+  if (activeDays < 3) return []
 
   const candidates: Candidate[] = []
 
@@ -315,12 +348,5 @@ export function buildHomeDiscovery(
     }
   }
 
-  return candidates.sort((a, b) => {
-    const status = Number(b.status === 'ready') - Number(a.status === 'ready')
-    if (status !== 0) return status
-    if (b.matchedDays !== a.matchedDays) return b.matchedDays - a.matchedDays
-    if (Math.abs(b.ratio - a.ratio) > 0.0001) return b.ratio - a.ratio
-    if (a.priority !== b.priority) return a.priority - b.priority
-    return a.id.localeCompare(b.id, 'pt-BR')
-  })[0] ?? null
+  return candidates
 }

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import {
-  Home, NotebookPen, LineChart, BookOpen, ClipboardList, Sprout, MessageCircle, CreditCard,
+  Home, NotebookPen, LineChart, Sprout, CreditCard,
   BarChart3, History, Menu, X, User as UserIcon, LogOut, Shield, ChevronDown,
-  LifeBuoy, Leaf, Bell,
+  LifeBuoy, Leaf, Bell, Compass, MoreHorizontal,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../types'
@@ -34,33 +34,48 @@ interface NavGroup {
   items: NavItem[]
 }
 
-// Fase 1 da nova experiência (Ideia 1): reorganiza o que JÁ existe sem criar
-// destinos vazios. Cada novo destino entra apenas quando sua fase funcional existe.
+// Fase 19R.1 (Ideia 1): a navegação deixa de ser uma lista de funcionalidades e
+// passa a contar a jornada. Os seis primeiros itens são o caminho do usuário;
+// depois de uma separação visual ficam "Cuidar" (o que posso fazer por mim agora)
+// e "Mais" (conta e ferramentas secundárias). Nenhum destino existente foi
+// removido — Questionários, Perfil, Meu Plano, Orientação, Suporte e Notificações
+// continuam acessíveis dentro de "Cuidar"/"Mais".
 const PRIMARY_NAV: NavItem[] = [
-  { id: 'home',             label: 'Hoje',                 Icon: Home,          match: ['home'] },
-  { id: 'diary',            label: 'Diário',               Icon: NotebookPen,   match: ['diary'] },
-  { id: 'my-evolution',     label: 'Mapa Emocional',       Icon: LineChart,     match: ['my-evolution'] },
-  { id: 'my-report',        label: 'Relatórios',           Icon: BarChart3,     match: ['my-report'] },
-  { id: 'my-history',       label: 'Minha História',       Icon: History,       match: ['my-history'] },
-  { id: 'articles',         label: 'Conteúdos Guiados',    Icon: BookOpen,      match: ['articles', 'article', 'content'] },
-  { id: 'questionarios',    label: 'Questionários',        Icon: ClipboardList, match: ['questionarios', 'questionnaire'] },
-  { id: 'self-care',        label: 'Plano de Autocuidado', Icon: Sprout,        match: ['self-care'], matchPath: ['/plano-de-autocuidado'] },
-  { id: 'monthly-guidance', label: 'Orientação',           Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
-  { id: 'my-plan',          label: 'Meu Plano',            Icon: CreditCard,    match: ['my-plan'] },
-  { id: 'profile',          label: 'Perfil',               Icon: UserIcon,      match: ['profile'] },
-  { id: 'support',          label: 'Suporte',               Icon: LifeBuoy,      match: ['support', 'support-ticket'] },
+  { id: 'home',         label: 'Hoje',           Icon: Home,           match: ['home'] },
+  { id: 'diary',        label: 'Diário',         Icon: NotebookPen,    match: ['diary'] },
+  { id: 'descobertas',  label: 'Descobertas',    Icon: Compass,        match: ['descobertas'] },
+  { id: 'my-evolution', label: 'Mapa Emocional', Icon: LineChart,      match: ['my-evolution'] },
+  { id: 'my-report',    label: 'Relatórios',     Icon: BarChart3,      match: ['my-report'] },
+  { id: 'my-history',   label: 'Minha História', Icon: History,        match: ['my-history'] },
+  { id: 'cuidar',       label: 'Cuidar',         Icon: Sprout,         match: ['cuidar', 'self-care', 'articles', 'article', 'content'], matchPath: ['/plano-de-autocuidado'] },
+  { id: 'mais',         label: 'Mais',           Icon: MoreHorizontal, match: ['mais', 'questionarios', 'questionnaire', 'questionarios-evolucao', 'monthly-guidance', 'professional-comments', 'my-plan', 'profile', 'support', 'support-ticket', 'notifications'] },
 ]
 
 const NAV_GROUPS: NavGroup[] = [
-  { label: 'Seu espaço', items: PRIMARY_NAV.filter(item => ['home', 'diary'].includes(item.id)) },
-  { label: 'Entender', items: PRIMARY_NAV.filter(item => ['my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'].includes(item.id)) },
-  { label: 'Cuidar', items: PRIMARY_NAV.filter(item => ['self-care', 'monthly-guidance'].includes(item.id)) },
-  { label: 'Conta', items: PRIMARY_NAV.filter(item => ['my-plan', 'profile', 'support'].includes(item.id)) },
+  { label: 'Sua jornada', items: PRIMARY_NAV.filter(item => ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history'].includes(item.id)) },
+  { label: 'Cuidado e conta', items: PRIMARY_NAV.filter(item => ['cuidar', 'mais'].includes(item.id)) },
 ]
 
-// No mobile, quatro destinos de uso frequente ficam sempre acessíveis. O botão
+// Nomes de página para o cabeçalho quando a view é secundária (dentro de "Mais").
+const HEADER_LABELS: Record<string, string> = {
+  notifications: 'Notificações',
+  questionarios: 'Questionários',
+  questionnaire: 'Questionários',
+  'questionarios-evolucao': 'Questionários',
+  profile: 'Perfil',
+  'my-plan': 'Meu Plano',
+  support: 'Suporte',
+  'support-ticket': 'Suporte',
+  'self-care': 'Plano de Autocuidado',
+  articles: 'Conteúdos Guiados',
+  article: 'Conteúdos Guiados',
+  'monthly-guidance': 'Orientação',
+  'professional-comments': 'Orientação',
+}
+
+// No mobile, os quatro passos mais frequentes da jornada ficam sempre acessíveis.
 // "Mais" abre os demais recursos sem remover nenhum fluxo já existente.
-const MOBILE_PRIMARY_IDS = ['home', 'diary', 'my-evolution', 'articles'] as const
+const MOBILE_PRIMARY_IDS = ['home', 'diary', 'descobertas', 'my-evolution'] as const
 
 function displayName(profile: Profile | null, user: SupabaseUser | null) {
   return profile?.preferred_name || profile?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'você'
@@ -105,13 +120,11 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
   const isActive = (item: NavItem) => {
     const path = typeof window !== 'undefined' ? window.location.pathname : ''
     if (item.matchPath?.includes(path)) return true
-    // Mapa Emocional não fica ativo quando estamos na rota do Plano de Autocuidado.
-    if (item.id === 'my-evolution' && path === '/plano-de-autocuidado') return false
     return item.match.includes(currentView)
   }
 
   const currentItem = PRIMARY_NAV.find(isActive)
-  const currentLabel = currentView === 'notifications' ? 'Notificações' : (currentItem?.label ?? 'Seu espaço')
+  const currentLabel = HEADER_LABELS[currentView] ?? currentItem?.label ?? 'Seu espaço'
   const mobileMoreActive = !PRIMARY_NAV.some(item => MOBILE_PRIMARY_IDS.includes(item.id as typeof MOBILE_PRIMARY_IDS[number]) && isActive(item))
   const go = (id: string) => { onNavigate(id); setMobileOpen(false); setProfileOpen(false) }
 
@@ -418,7 +431,7 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
 
 function MobileNavButton({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
   const { Icon } = item
-  const label = item.id === 'my-evolution' ? 'Mapa' : item.id === 'articles' ? 'Conteúdos' : item.label
+  const label = item.id === 'my-evolution' ? 'Mapa' : item.label
   return (
     <button
       type="button"
