@@ -3,13 +3,13 @@ import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 // ============================================================================
 // estudio-generate-image — gera uma imagem para o Estúdio de Conteúdo.
 // ----------------------------------------------------------------------------
-// Recebe { prompt, aspect? } e devolve { dataUrl } (base64 PNG/JPEG).
-// Usa a API do Gemini. Tenta uma cadeia de modelos (Imagen via :predict e
-// Gemini Image via :generateContent) até um funcionar — assim não depende de
-// um único modelo estar liberado no tier do projeto.
+// Recebe { prompt, aspect? } e devolve { dataUrl } (base64).
+// Descobre os modelos de imagem disponíveis para a chave via ListModels e
+// tenta cada um (Imagen via :predict, Gemini Image via :generateContent) até
+// um funcionar. Assim não depende de um nome de modelo fixo.
 //
 // A chave GEMINI_API_KEY fica SÓ no servidor. Apenas admin AAL2 chama.
-// Falha → { error, detail } (o cliente segue com o template sem imagem).
+// Falha → { error, detail, disponiveis } (o cliente segue sem imagem).
 // NÃO toca em generate-content (proxy de texto). É uma função isolada.
 // ============================================================================
 
@@ -27,51 +27,62 @@ const ASPECTS = new Set(['1:1', '9:16', '3:4', '4:3', '16:9'])
 const TIMEOUT_MS = 45_000
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-// Ordem de tentativa. O modelo do secret (se houver) vai na frente.
-const FALLBACK_MODELS = [
-  'imagen-3.0-generate-002',
-  'imagen-4.0-generate-001',
-  'gemini-2.5-flash-image-preview',
-  'gemini-2.0-flash-preview-image-generation',
-]
+// Candidatos conhecidos, usados se o ListModels não achar nada útil.
+const FALLBACK_IMAGEN = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001', 'imagen-4.0-generate-001']
+const FALLBACK_GEMINI = ['gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation', 'gemini-2.0-flash-exp']
 
+interface ModelInfo { name?: string; supportedGenerationMethods?: string[] }
 interface Attempt { dataUrl?: string; detail?: string }
+
+async function discover(key: string, signal: AbortSignal): Promise<{ imagen: string[]; gemini: string[]; all: string[] }> {
+  try {
+    const res = await fetch(`${BASE}?key=${key}&pageSize=200`, { signal })
+    if (!res.ok) return { imagen: [], gemini: [], all: [] }
+    const data = await res.json()
+    const models: ModelInfo[] = Array.isArray(data?.models) ? data.models : []
+    const id = (m: ModelInfo) => (m.name ?? '').replace(/^models\//, '')
+    const imagen = models.filter(m => /imagen/i.test(m.name ?? '') && (m.supportedGenerationMethods ?? []).includes('predict')).map(id)
+    const gemini = models
+      .filter(m => (m.supportedGenerationMethods ?? []).includes('generateContent') && /image|imagen|nano/i.test(m.name ?? ''))
+      .map(id)
+    return { imagen, gemini, all: models.map(id) }
+  } catch {
+    return { imagen: [], gemini: [], all: [] }
+  }
+}
 
 async function tryImagen(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal): Promise<Attempt> {
   const res = await fetch(`${BASE}/${model}:predict?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
-    body: JSON.stringify({
-      instances: [{ prompt }],
-      parameters: { sampleCount: 1, aspectRatio: aspect },
-    }),
+    body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: aspect } }),
   })
-  if (!res.ok) return { detail: `${model} ${res.status}: ${(await res.text()).slice(0, 300)}` }
+  if (!res.ok) return { detail: `${model} ${res.status}: ${(await res.text()).slice(0, 200)}` }
   const data = await res.json()
   const pred = Array.isArray(data?.predictions) ? data.predictions[0] : null
   const b64: string | undefined = pred?.bytesBase64Encoded
-  const mime: string = pred?.mimeType || 'image/png'
-  if (!b64) return { detail: `${model}: sem imagem na resposta` }
-  return { dataUrl: `data:${mime};base64,${b64}` }
+  if (!b64) return { detail: `${model}: resposta sem imagem` }
+  return { dataUrl: `data:${pred?.mimeType || 'image/png'};base64,${b64}` }
 }
 
-async function tryGeminiImage(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal): Promise<Attempt> {
+async function tryGemini(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal): Promise<Attempt> {
   const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `${prompt}\n\nProporção da imagem: ${aspect}.` }] }],
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+      contents: [{ parts: [{ text: `${prompt}\n\nGere a imagem na proporção ${aspect}.` }] }],
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
     }),
   })
-  if (!res.ok) return { detail: `${model} ${res.status}: ${(await res.text()).slice(0, 300)}` }
+  if (!res.ok) return { detail: `${model} ${res.status}: ${(await res.text()).slice(0, 200)}` }
   const data = await res.json()
   const parts = data?.candidates?.[0]?.content?.parts
-  const img = Array.isArray(parts) ? parts.find((p: Record<string, unknown>) => p?.inlineData) : null
-  const inline = (img as { inlineData?: { data?: string; mimeType?: string } })?.inlineData
-  if (!inline?.data) return { detail: `${model}: sem imagem na resposta` }
+  const inline = Array.isArray(parts)
+    ? (parts.find((p: Record<string, unknown>) => p?.inlineData) as { inlineData?: { data?: string; mimeType?: string } })?.inlineData
+    : undefined
+  if (!inline?.data) return { detail: `${model}: resposta sem imagem` }
   return { dataUrl: `data:${inline.mimeType || 'image/png'};base64,${inline.data}` }
 }
 
@@ -96,27 +107,36 @@ Deno.serve(async (req: Request) => {
   const key = Deno.env.get('GEMINI_API_KEY')
   if (!key) return json({ error: 'no_key', message: 'GEMINI_API_KEY não configurada no servidor' })
 
-  const configured = (Deno.env.get('GEMINI_IMAGE_MODEL') || '').trim()
-  const models = [configured, ...FALLBACK_MODELS].filter((m, i, a) => m && a.indexOf(m) === i)
-
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   const tried: string[] = []
   try {
-    for (const model of models) {
-      try {
-        const run = model.startsWith('imagen') ? tryImagen : tryGeminiImage
-        const r = await run(model, key, prompt, aspect, controller.signal)
-        if (r.dataUrl) return json({ dataUrl: r.dataUrl, model, aspect })
-        if (r.detail) tried.push(r.detail)
-      } catch (e) {
-        tried.push(`${model}: ${(e as Error).message}`)
-      }
+    const found = await discover(key, controller.signal)
+    const configured = (Deno.env.get('GEMINI_IMAGE_MODEL') || '').trim()
+
+    // ordem: modelo do secret → descobertos → candidatos conhecidos
+    const imagenModels = [...new Set([...(configured ? [configured] : []), ...found.imagen, ...FALLBACK_IMAGEN])]
+    const geminiModels = [...new Set([...found.gemini, ...FALLBACK_GEMINI])]
+
+    for (const model of imagenModels) {
+      const r = await tryImagen(model, key, prompt, aspect, controller.signal)
+      if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
+      if (r.detail) tried.push(r.detail)
     }
-    const detail = tried.join(' | ').slice(0, 600)
-    const quota = /\b429\b|RESOURCE_EXHAUSTED|quota/i.test(detail)
-    const permission = /\b403\b|PERMISSION_DENIED|not.*allow/i.test(detail)
-    return json({ error: quota ? 'quota' : permission ? 'permission' : 'gemini_error', detail })
+    for (const model of geminiModels) {
+      const r = await tryGemini(model, key, prompt, aspect, controller.signal)
+      if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
+      if (r.detail) tried.push(r.detail)
+    }
+
+    const detail = tried.join(' | ').slice(0, 700)
+    const quota = /\b429\b|RESOURCE_EXHAUSTED/i.test(detail)
+    const permission = /\b403\b|PERMISSION_DENIED/i.test(detail)
+    return json({
+      error: quota ? 'quota' : permission ? 'permission' : 'sem_modelo_de_imagem',
+      detail,
+      disponiveis: found.all.filter(n => /image|imagen|vision|flash/i.test(n)).slice(0, 20),
+    })
   } catch (e) {
     const msg = (e as Error).message || String(e)
     return json({ error: msg.includes('abort') ? 'timeout' : 'exception', detail: msg.slice(0, 300) })

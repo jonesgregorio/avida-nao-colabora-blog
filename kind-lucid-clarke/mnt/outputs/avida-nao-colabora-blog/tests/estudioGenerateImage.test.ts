@@ -12,28 +12,29 @@ test('a Edge Function é admin-AAL2, usa a chave só no servidor e não toca gen
   assert.doesNotMatch(fn, /invoke\(['"]generate-content|functions\/generate-content/)
 })
 
-test('tenta uma cadeia de modelos (Imagen :predict e Gemini :generateContent) até funcionar', () => {
-  assert.match(fn, /const FALLBACK_MODELS = \[/)
-  assert.match(fn, /'imagen-3\.0-generate-002'/)
-  assert.match(fn, /'gemini-2\.0-flash-preview-image-generation'/)
-  assert.match(fn, /model\.startsWith\('imagen'\) \? tryImagen : tryGeminiImage/)
+test('descobre os modelos de imagem via ListModels antes de tentar', () => {
+  assert.match(fn, /async function discover\(/)
+  assert.match(fn, /pageSize=200/)
+  assert.match(fn, /supportedGenerationMethods \?\? \[\]\)\.includes\('predict'\)/)
+  assert.match(fn, /supportedGenerationMethods \?\? \[\]\)\.includes\('generateContent'\)/)
+})
+
+test('tenta Imagen (:predict) e Gemini Image (:generateContent); secret vai na frente', () => {
   assert.match(fn, /:predict\?key=/)
   assert.match(fn, /:generateContent\?key=/)
-  // o modelo do secret vai na frente
-  assert.match(fn, /\[configured, \.\.\.FALLBACK_MODELS\]/)
+  assert.match(fn, /responseModalities: \['IMAGE', 'TEXT'\]/)
+  assert.match(fn, /\[\.\.\.new Set\(\[\.\.\.\(configured \? \[configured\] : \[\]\), \.\.\.found\.imagen/)
 })
 
-test('classifica quota / permissão e devolve o detalhe do erro', () => {
-  assert.match(fn, /RESOURCE_EXHAUSTED|quota/)
-  assert.match(fn, /PERMISSION_DENIED/)
-  assert.match(fn, /const detail = tried\.join/)
-  assert.match(fn, /return json\(\{ error: quota \? 'quota' : permission \? 'permission' : 'gemini_error', detail \}\)/)
+test('em caso de falha devolve o detalhe e os modelos disponíveis no projeto', () => {
+  assert.match(fn, /error: quota \? 'quota' : permission \? 'permission' : 'sem_modelo_de_imagem'/)
+  assert.match(fn, /disponiveis: found\.all\.filter/)
 })
 
-test('estudioAi.generateImage mapeia formato -> aspecto e mostra o detalhe do erro', () => {
+test('estudioAi.generateImage mapeia formato e mostra os modelos disponíveis no erro', () => {
   assert.match(ai, /functions\.invoke\('estudio-generate-image'/)
   assert.match(ai, /'feed-45': '3:4'/)
-  assert.match(ai, /'reel-capa': '9:16'/)
-  assert.match(ai, /d\.detail/)
+  assert.match(ai, /d\?\.disponiveis/)
+  assert.match(ai, /sem_modelo_de_imagem/)
   assert.doesNotMatch(ai, /GEMINI_API_KEY/)
 })
