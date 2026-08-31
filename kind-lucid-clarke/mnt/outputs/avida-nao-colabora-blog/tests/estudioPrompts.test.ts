@@ -10,14 +10,31 @@ const brief = {
   artigoTitulo: 'Quando descansar vira culpa',
 }
 
-test('prompt de imagem inclui ideia, artigo, objetivo e paleta da marca', () => {
+test('prompt de imagem traz o "prompt base" da marca sempre, com paleta em hex e negativos', () => {
   const p = buildImagePromptRequest(brief)
   assert.match(p, /não precisar dar conta de tudo/)
   assert.match(p, /Quando descansar vira culpa/)
   assert.match(p, /salvarem o post/)
+  assert.match(p, /IDENTIDADE VISUAL OBRIGATÓRIA/)
   assert.match(p, /#FBFAF7/)
-  assert.match(p, /TEMPLATE da marca/)
+  assert.match(p, /#1A4A3A/)
+  assert.match(p, /NÃO incluir de jeito nenhum/)
+  assert.match(p, /rostos deformados/)
+  assert.match(p, /clichês de terapia/)
   assert.match(p, /SOMENTE um JSON/)
+  assert.match(p, /"precisa_gerar"/)
+})
+
+test('prompt de imagem se adapta ao tipo de arte e ao formato', () => {
+  const frase = buildImagePromptRequest({ ...brief, tipoArte: 'frase', formato: 'story' })
+  assert.match(frase, /TEMPLATE "com frase"/)
+  assert.match(frase, /9:16/)
+  assert.match(frase, /interface cobre topo e base/)
+
+  const pessoa = buildImagePromptRequest({ ...brief, tipoArte: 'pessoa', formato: 'feed-45' })
+  assert.match(pessoa, /TEMPLATE "com pessoa"/)
+  assert.match(pessoa, /você NÃO gera a pessoa/)
+  assert.match(pessoa, /precisa_gerar": false/)
 })
 
 test('prompt de imagem muda a instrução conforme o estilo escolhido', () => {

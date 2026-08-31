@@ -117,7 +117,12 @@ function loadDraft(): Draft {
 const STEPS = ['Ideia', 'Visual', 'Formatos', 'Textos', 'Pacote'] as const
 
 function toBrief(d: Draft): EstudioBrief {
-  return { ideia: d.ideia.trim(), objetivos: d.objetivos, estilo: d.estilo }
+  return {
+    ideia: d.ideia.trim(),
+    objetivos: d.objetivos,
+    estilo: d.estilo,
+    formato: d.formatos.find(f => FORMAT_SPECS[f]),
+  }
 }
 
 function draftToInput(d: Draft): PublicacaoInput {
@@ -1223,8 +1228,15 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
     setBusy(true); setErr(''); setRacional('')
     try {
       const r = await generateImagePrompt(toBrief(draft))
-      patch({ prompt: r.prompt, ...(r.tituloSugerido && !draft.titulo ? { titulo: r.tituloSugerido } : {}) })
-      setRacional([r.racional, r.tituloSugerido && `Título sugerido: “${r.tituloSugerido}”`].filter(Boolean).join(' · '))
+      const prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
+      patch({ prompt, ...(r.tituloSugerido && !draft.titulo ? { titulo: r.tituloSugerido } : {}) })
+      setRacional(
+        [
+          r.racional,
+          r.tituloSugerido && `Título sugerido: “${r.tituloSugerido}”`,
+          !r.precisaGerar && 'A IA acha que este formato não precisa de imagem gerada — a cor sólida do template já resolve.',
+        ].filter(Boolean).join(' · '),
+      )
     } catch (e) {
       setErr(estudioAiMessage(e))
     } finally {

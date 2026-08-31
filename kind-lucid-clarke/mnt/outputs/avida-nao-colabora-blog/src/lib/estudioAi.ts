@@ -13,6 +13,8 @@ import { buildCommentRequest } from './estudioCommunity'
 
 export interface ImagePromptResult {
   prompt: string
+  negativos: string
+  precisaGerar: boolean
   racional: string
   tituloSugerido: string
 }
@@ -56,6 +58,8 @@ export async function generateImagePrompt(brief: EstudioBrief): Promise<ImagePro
   const j = extractJson(data)
   return {
     prompt: String(j.prompt ?? '').trim(),
+    negativos: String(j.negativos ?? '').trim(),
+    precisaGerar: j.precisa_gerar !== false,
     racional: String(j.racional ?? '').trim(),
     tituloSugerido: String(j.titulo_sugerido ?? '').trim(),
   }
