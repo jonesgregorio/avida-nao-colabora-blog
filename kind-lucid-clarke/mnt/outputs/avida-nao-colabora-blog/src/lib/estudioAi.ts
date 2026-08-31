@@ -3,6 +3,7 @@ import { buildCaptionRequest, buildImagePromptRequest, type EstudioBrief } from 
 import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } from './estudioPlan'
 import { buildPerfReadingRequest, type PerfRow } from './estudioPerformance'
 import { buildReelScriptRequest, parseReelScript, type ReelScript } from './estudioReel'
+import { buildInspirationAnalysisRequest } from './estudioInspiration'
 
 // Chamadas de IA do Estúdio. Reusa o proxy admin `generate-content` (mesmo
 // endpoint da Fábrica de IA e do criador de e-mails) — nenhuma Edge Function
@@ -92,9 +93,9 @@ export async function generateReelScript(brief: EstudioBrief): Promise<ReelScrip
   return script
 }
 
-export async function generatePerformanceReading(rows: PerfRow[]): Promise<string> {
+async function callGenerateContentText(prompt: string, contentType: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('generate-content', {
-    body: { prompt: buildPerfReadingRequest(rows), contentType: 'estudio-performance', responseFormat: 'text' },
+    body: { prompt, contentType, responseFormat: 'text' },
   })
   if (error) throw new EstudioAiError(error.message)
   const txt =
@@ -103,8 +104,16 @@ export async function generatePerformanceReading(rows: PerfRow[]): Promise<strin
       : ((data as { text?: string; content?: string; error?: string })?.text ??
          (data as { content?: string })?.content ?? '')
   const errMsg = (data as { error?: string })?.error
-  if (!txt.trim()) throw new EstudioAiError(errMsg || 'A IA não retornou uma análise. Tente de novo.')
+  if (!txt.trim()) throw new EstudioAiError(errMsg || 'A IA não retornou um texto. Tente de novo.')
   return txt.trim()
+}
+
+export function generatePerformanceReading(rows: PerfRow[]): Promise<string> {
+  return callGenerateContentText(buildPerfReadingRequest(rows), 'estudio-performance')
+}
+
+export function generateInspirationAnalysis(handle: string, tema: string, legendas: string): Promise<string> {
+  return callGenerateContentText(buildInspirationAnalysisRequest(handle, tema, legendas), 'estudio-inspiration')
 }
 
 export function estudioAiMessage(e: unknown): string {
