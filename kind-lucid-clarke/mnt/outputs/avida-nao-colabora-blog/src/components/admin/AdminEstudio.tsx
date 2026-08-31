@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Megaphone, Sparkles, CalendarDays, Grid3x3, Bookmark, Users2,
-  BarChart3, ArrowRight, ArrowLeft, Save, Info,
+  BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
+import type { EstudioBrief } from '../../lib/estudioPrompts'
+import { generateCaptions, generateImagePrompt, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estúdio de Conteúdo — área de marketing do admin (mockup estudio-conteudo.html).
@@ -57,6 +59,7 @@ interface Draft {
   formatos: string[]
   legenda: string
   hashtags: string
+  primeiroComentario: string
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -67,6 +70,7 @@ const EMPTY_DRAFT: Draft = {
   formatos: ['feed-45', 'carrossel', 'story', 'reel-capa'],
   legenda: '',
   hashtags: '',
+  primeiroComentario: '',
 }
 
 function loadDraft(): Draft {
@@ -78,6 +82,10 @@ function loadDraft(): Draft {
 }
 
 const STEPS = ['Ideia', 'Visual', 'Formatos', 'Textos', 'Pacote'] as const
+
+function toBrief(d: Draft): EstudioBrief {
+  return { ideia: d.ideia.trim(), objetivos: d.objetivos, estilo: d.estilo }
+}
 
 // ─── shell ───────────────────────────────────────────────────────────────────
 
@@ -287,6 +295,24 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
     { id: 'ia', label: 'IA generativa de imagem', hint: 'Flexível, custa por imagem, às vezes com “cara de IA”.' },
     { id: 'hibrido', label: 'Híbrido', hint: 'Fundo gerado por IA + tipografia da marca por cima.' },
   ]
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [racional, setRacional] = useState('')
+  const podeGerar = draft.ideia.trim().length >= 8
+
+  async function sugerir() {
+    setBusy(true); setErr(''); setRacional('')
+    try {
+      const r = await generateImagePrompt(toBrief(draft))
+      patch({ prompt: r.prompt })
+      setRacional([r.racional, r.tituloSugerido && `Título sugerido: “${r.tituloSugerido}”`].filter(Boolean).join(' · '))
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -310,18 +336,31 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
         </div>
       </div>
       <div>
-        <Field>Prompt de imagem (editável)</Field>
+        <div className="mb-1.5 flex items-center justify-between">
+          <Field>Prompt de imagem (editável)</Field>
+          <button
+            onClick={sugerir}
+            disabled={busy || !podeGerar}
+            title={podeGerar ? undefined : 'Descreva a ideia no passo anterior'}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {draft.prompt ? 'Refazer com a IA' : 'Sugerir com a IA'}
+          </button>
+        </div>
         <textarea
           value={draft.prompt}
           onChange={e => patch({ prompt: e.target.value })}
           rows={3}
-          placeholder="A IA propõe um primeiro prompt a partir da sua ideia e ajusta conversando com você. (chega na próxima etapa)"
+          placeholder="Descreva a imagem, ou peça uma sugestão à IA a partir da sua ideia."
           className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
         />
+        {racional && <p className="mt-1.5 text-xs text-ink-soft">{racional}</p>}
+        {err && <p className="mt-1.5 text-xs text-red-600">{err}</p>}
       </div>
       <NextPhaseNote>
-        A conversa com a IA para fechar o prompt e a geração da prévia entram na <b>Fase 1c</b>. Por ora, o prompt é livre
-        e fica salvo no rascunho.
+        A geração da <b>prévia da imagem</b> (motor de template → PNG no formato exato) entra na <b>Fase 1d</b>. Aqui a IA
+        já ajuda a escrever e ajustar o prompt.
       </NextPhaseNote>
     </div>
   )
@@ -360,16 +399,67 @@ function StepFormatos({ draft, toggle }: { draft: Draft; toggle: (k: 'objetivos'
 }
 
 function StepTextos({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>) => void }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [res, setRes] = useState<CaptionResult | null>(null)
+  const [pick, setPick] = useState(0)
+  const podeGerar = draft.ideia.trim().length >= 8
+
+  async function gerar() {
+    setBusy(true); setErr('')
+    try {
+      const r = await generateCaptions(toBrief(draft))
+      setRes(r); setPick(0)
+      patch({ legenda: r.legendas[0].texto, hashtags: r.hashtags, primeiroComentario: r.primeiroComentario })
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function usar(i: number) {
+    if (!res) return
+    setPick(i)
+    patch({ legenda: res.legendas[i].texto })
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <div className="space-y-4">
+        <button
+          onClick={gerar}
+          disabled={busy || !podeGerar}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+          {res ? 'Gerar de novo' : 'Gerar 3 legendas + hashtags'}
+        </button>
+        {err && <p className="text-xs text-red-600">{err}</p>}
+
+        {res && res.legendas.length > 1 && (
+          <div className="flex flex-wrap gap-1">
+            {res.legendas.map((l, i) => (
+              <button
+                key={i}
+                onClick={() => usar(i)}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                  pick === i ? 'border-forest-900 bg-forest-900 text-white' : 'border-line bg-white text-ink-soft hover:border-forest-300'
+                }`}
+              >
+                {l.rotulo || `Variação ${i + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div>
           <Field>Legenda</Field>
           <textarea
             value={draft.legenda}
             onChange={e => patch({ legenda: e.target.value })}
-            rows={5}
-            placeholder="A IA vai gerar 3 variações (acolhedora, direta, pergunta). Você escolhe e ajusta. (chega na Fase 1c)"
+            rows={6}
+            placeholder="Escreva a legenda, ou gere 3 variações com a IA e escolha uma."
             className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
           />
           <span className="text-xs text-stone-400">{draft.legenda.length} / 2.200 caracteres</span>
@@ -384,12 +474,23 @@ function StepTextos({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
             className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
           />
         </div>
+        {draft.primeiroComentario && (
+          <div>
+            <Field>Comentário com o CTA para o blog</Field>
+            <textarea
+              value={draft.primeiroComentario}
+              onChange={e => patch({ primeiroComentario: e.target.value })}
+              rows={2}
+              className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
+            />
+          </div>
+        )}
       </div>
       <div className="rounded-xl bg-mint/50 p-4">
         <h3 className="font-serif text-base text-forest-900">Regra fixa</h3>
         <p className="mt-2 text-xs leading-relaxed text-ink">
-          O texto do post é do marketing. <b>Nada aqui vem do Diário dos usuários</b> — a IA usará só artigos publicados,
-          temas das categorias e o histórico de desempenho dos próprios posts.
+          O texto do post é do marketing. <b>Nada aqui vem do Diário dos usuários</b> — a IA usa só a sua ideia, artigos
+          publicados e temas das categorias. A geração roda server-side (chaves só no Supabase).
         </p>
       </div>
     </div>
