@@ -108,7 +108,7 @@ export default function DiaryDetailsDrawer({
 
           {isPlus && (
             <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4">
-              <button type="button" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={plusDetailsOpen}>
+              <button type="button" aria-label="Outros detalhes — quero refletir mais sobre este registro" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={plusDetailsOpen}>
                 <div><p className="text-sm font-semibold text-forest-900">Outros detalhes</p><p className="mt-0.5 text-xs text-ink-soft">Sinais mais específicos, se forem úteis para você.</p></div>
                 {plusDetailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
