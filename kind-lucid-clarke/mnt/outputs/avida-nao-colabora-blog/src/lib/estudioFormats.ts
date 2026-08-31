@@ -33,6 +33,8 @@ export const FORMAT_SPECS: Record<string, FormatSpec> = {
   story: { id: 'story', label: 'Story', width: 1080, height: 1920, ratio: 9 / 16, ratioTolerance: 0.02, safeTop: 0.13, safeBottom: 0.13, maxBytes: PHOTO_MAX_BYTES },
   'reel-capa': { id: 'reel-capa', label: 'Reel · capa', width: 1080, height: 1920, ratio: 9 / 16, ratioTolerance: 0.02, safeBottom: 0.22, gridCenterCrop: true, maxBytes: PHOTO_MAX_BYTES },
   quiz: { id: 'quiz', label: 'Quiz "mito ou verdade"', width: 1080, height: 1350, ratio: 4 / 5, ratioTolerance: 0.02, maxBytes: PHOTO_MAX_BYTES, slides: 2 },
+  // Capa de destaque: mesma proporção de story; o perfil só mostra o círculo central.
+  destaque: { id: 'destaque', label: 'Capa de destaque', width: 1080, height: 1920, ratio: 9 / 16, ratioTolerance: 0.02, maxBytes: PHOTO_MAX_BYTES },
 }
 
 export const FORMAT_ORDER = ['feed-45', 'feed-11', 'carrossel', 'story', 'reel-capa', 'quiz'] as const

@@ -11,7 +11,9 @@ import { summarize as summarizeComunidade, type Interacao } from '../../lib/estu
 import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
 import { renderSlideshow, slideshowSupported, slideshowFilename } from '../../lib/estudioSlideshow'
+import { DEFAULT_HIGHLIGHTS, newHighlight, highlightFilename, type HighlightCover } from '../../lib/estudioHighlights'
 import OverlayTemplate from './estudio/OverlayTemplate'
+import HighlightCoverTemplate from './estudio/HighlightCoverTemplate'
 
 interface ReelVideo { blob: Blob; url: string; filename: string }
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
@@ -190,6 +192,7 @@ export default function AdminEstudio() {
         : tab === 'desempenho' ? <Desempenho />
         : tab === 'inspiracao' ? <Inspiracao />
         : tab === 'comunidade' ? <Comunidade />
+        : tab === 'destaques' ? <Destaques />
         : <EmBreve tab={tab} />}
     </div>
   )
@@ -517,6 +520,115 @@ function PerfilCard({ perfil, onChange }: { perfil: PerfilInspiracao; onChange: 
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── aba: Destaques (Fase 4c — jogo de capas on-brand) ──────────────────────
+
+function Destaques() {
+  const [covers, setCovers] = useState<HighlightCover[]>(DEFAULT_HIGHLIGHTS)
+  const [assets, setAssets] = useState<RenderedAsset[]>([])
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const stageRef = useRef<HTMLDivElement>(null)
+  useEffect(() => () => releaseAssets(assets), [assets])
+
+  const patch = (id: string, p: Partial<HighlightCover>) =>
+    setCovers(cs => cs.map(c => (c.id === id ? { ...c, ...p } : c)))
+
+  async function gerar() {
+    if (!stageRef.current) return
+    setBusy(true); setErr('')
+    releaseAssets(assets)
+    const spec = FORMAT_SPECS['destaque']
+    const out: RenderedAsset[] = []
+    try {
+      for (const c of covers) {
+        const node = stageRef.current.querySelector<HTMLElement>(`[data-hl="${c.id}"]`)
+        if (!node) continue
+        out.push(await snapshot(node, spec, highlightFilename(c)))
+      }
+      setAssets(out)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao gerar as capas.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function baixarTodas() {
+    if (assets.length === 0) return
+    setBusy(true); setErr('')
+    try {
+      const { default: JSZip } = await import('jszip')
+      const zip = new JSZip()
+      for (const a of assets) zip.file(a.filename, await a.blob.arrayBuffer())
+      downloadBlob(await zip.generateAsync({ type: 'blob' }), 'destaques-a-vida-nao-colabora.zip')
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao montar o .zip.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const assetByLabel = new Map(assets.map(a => [a.filename, a]))
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-soft">
+        Jogo de capas on-brand — uma por destaque. Baixe e defina no app. Salvar o story em cada destaque continua sendo 1 toque no Instagram.
+      </p>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+
+      <div className="space-y-2">
+        {covers.map(c => {
+          const asset = assetByLabel.get(highlightFilename(c))
+          return (
+            <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2">
+              <span
+                className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-full border border-line text-2xl"
+                style={{ background: 'radial-gradient(circle at 50% 42%, #FBFAF7, #E8F0EB)', backgroundImage: asset ? `url(${asset.url})` : undefined, backgroundSize: 'cover' }}
+              >
+                {!asset && (c.emoji || '✨')}
+              </span>
+              <input value={c.emoji} onChange={e => patch(c.id, { emoji: e.target.value })} maxLength={4} className="w-14 rounded-lg border border-line bg-paper px-2 py-1.5 text-center text-sm" aria-label="Emoji do destaque" />
+              <input value={c.label} onChange={e => patch(c.id, { label: e.target.value })} className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs" aria-label="Nome do destaque" />
+              {asset && (
+                <button onClick={() => downloadAsset(asset)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 text-[11px] font-medium text-forest-800 hover:border-forest-300">
+                  <Download className="h-3.5 w-3.5" /> Baixar
+                </button>
+              )}
+              <button onClick={() => setCovers(cs => cs.filter(x => x.id !== c.id))} className="text-xs text-ink-soft hover:text-red-600">remover</button>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => setCovers(cs => [...cs, newHighlight()])} className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">+ Destaque</button>
+        <button onClick={gerar} disabled={busy || covers.length === 0} className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Gerar {covers.length} capa{covers.length === 1 ? '' : 's'}
+        </button>
+        {assets.length > 0 && (
+          <button onClick={baixarTodas} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-4 py-2 text-sm font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+            <Download className="h-4 w-4" /> Baixar todas (.zip)
+          </button>
+        )}
+      </div>
+
+      <NextPhaseNote>
+        Formato <b>1080 × 1920</b>, arte no círculo central (o que o perfil mostra). A organização de quais stories entram
+        em cada destaque é feita no app.
+      </NextPhaseNote>
+
+      <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+        {covers.map(c => (
+          <div key={c.id} data-hl={c.id}>
+            <HighlightCoverTemplate cover={c} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
