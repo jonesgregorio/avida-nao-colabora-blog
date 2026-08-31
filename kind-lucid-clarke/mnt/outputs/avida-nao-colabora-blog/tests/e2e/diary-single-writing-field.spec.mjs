@@ -94,7 +94,7 @@ async function openEveryOptionalLayer(page) {
   await expect(page.getByText('Quais sentimentos apareceram?')).toBeVisible()
   await page.getByRole('button', { name: /Quer acrescentar contexto/i }).click()
   await expect(page.getByText('Onde isso apareceu?')).toBeVisible()
-  await page.getByRole('button', { name: /Outros detalhes/i }).click()
+  await page.getByRole('button', { name: /Sinais mais específicos/i }).click()
   await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
 }
 
