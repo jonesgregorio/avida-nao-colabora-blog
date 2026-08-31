@@ -73,9 +73,8 @@ const FORMATO_HINT: Record<string, string> = {
 function tipoArteHint(tipo: EstudioBrief['tipoArte']): string {
   if (tipo === 'pessoa') {
     return [
-      'TEMPLATE "com pessoa": a foto da pessoa é REAL e o editor sobe manualmente à direita — você NÃO gera a pessoa.',
-      'A metade esquerda é cor sólida da marca com o título. Se nada mais é necessário, retorne "precisa_gerar": false e explique no racional.',
-      'Se fizer sentido um fundo/ambiente atrás da foto, descreva só um cenário suave e desfocado, coerente com a paleta.',
+      'TEMPLATE "com pessoa": a imagem entra num CÍRCULO à direita; o título fica à esquerda.',
+      'Prefira um retrato real do editor — mas se ele pedir imagem gerada, descreva uma CENA ou OBJETO simbólico simples (mãos, uma xícara, uma janela, uma planta), enquadramento centrado, NUNCA um rosto de pessoa inventado.',
     ].join(' ')
   }
   return [
