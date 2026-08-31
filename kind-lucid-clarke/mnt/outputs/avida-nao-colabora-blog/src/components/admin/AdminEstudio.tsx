@@ -1436,8 +1436,8 @@ function StepVisual({
         {err && <p className="mt-1.5 text-xs text-red-600">{err}</p>}
       </div>
       <NextPhaseNote>
-        A geração da <b>prévia da imagem</b> (motor de template → PNG no formato exato) entra na <b>Fase 1d</b>. Aqui a IA
-        já ajuda a escrever e ajustar o prompt.
+        No estilo <b>Template da marca</b> a arte é a moldura + a sua frase. No tipo <b>Arte com pessoa</b>, o prompt
+        acima também guia a <b>imagem gerada por IA</b> que vai no círculo. As artes finais saem no passo Formatos.
       </NextPhaseNote>
     </div>
   )
