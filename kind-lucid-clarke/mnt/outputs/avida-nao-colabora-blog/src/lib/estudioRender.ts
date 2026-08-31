@@ -13,7 +13,7 @@ export interface RenderedAsset {
   check: ValidationResult
 }
 
-async function toCanvas(node: HTMLElement, spec: FormatSpec, transparent = false): Promise<HTMLCanvasElement> {
+async function toCanvas(node: HTMLElement, spec: FormatSpec, transparent = false, scale = 1): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import('html2canvas')
   // As fontes da marca precisam estar prontas antes do snapshot.
   if (document.fonts?.ready) {
@@ -22,7 +22,7 @@ async function toCanvas(node: HTMLElement, spec: FormatSpec, transparent = false
   return html2canvas(node, {
     width: spec.width,
     height: spec.height,
-    scale: 1,
+    scale,
     backgroundColor: transparent ? null : '#FBFAF7',
     useCORS: true,
     logging: false,
@@ -39,11 +39,17 @@ export async function snapshot(
   node: HTMLElement,
   spec: FormatSpec,
   filename: string,
-  opts: { transparent?: boolean } = {},
+  opts: { transparent?: boolean; scale?: number } = {},
 ): Promise<RenderedAsset> {
-  const canvas = await toCanvas(node, spec, opts.transparent)
+  const scale = opts.scale && opts.scale > 1 ? opts.scale : 1
+  const canvas = await toCanvas(node, spec, opts.transparent, scale)
   const blob = await canvasToBlob(canvas)
-  const check = validateAsset(spec, { width: canvas.width, height: canvas.height, bytes: blob.size })
+  // Em alta (scale > 1) o arquivo é maior de propósito — valida contra a
+  // dimensão esperada já multiplicada.
+  const check = validateAsset(
+    { ...spec, width: spec.width * scale, height: spec.height * scale, maxBytes: spec.maxBytes * scale * scale },
+    { width: canvas.width, height: canvas.height, bytes: blob.size },
+  )
   return {
     filename,
     blob,

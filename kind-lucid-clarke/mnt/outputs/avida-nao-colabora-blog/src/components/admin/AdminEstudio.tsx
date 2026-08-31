@@ -1237,15 +1237,21 @@ function StepVisual({
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setFotoUrl(typeof reader.result === 'string' ? reader.result : null)
+    reader.onload = () => setFotoManual(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(file)
   }
   const [err, setErr] = useState('')
   const [racional, setRacional] = useState('')
   const [imgBusy, setImgBusy] = useState(false)
+  const [fotoIA, setFotoIA] = useState(false)
   const podeGerar = draft.ideia.trim().length >= 8
 
-  async function gerarFotoIA() {
+  function setFotoManual(u: string | null) {
+    setFotoIA(false)
+    setFotoUrl(u)
+  }
+
+  async function gerarFotoIA(maisNitida = false) {
     setImgBusy(true); setErr('')
     try {
       let prompt = draft.prompt
@@ -1253,7 +1259,9 @@ function StepVisual({
         const r = await generateImagePrompt(toBrief(draft))
         prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
       }
+      if (maisNitida) prompt += '\n\nAlta resolução, foco nítido, detalhes finos, iluminação bem definida, qualidade profissional.'
       const dataUrl = await generateImage(prompt, { formato: 'feed-11' })
+      setFotoIA(true)
       setFotoUrl(dataUrl)
     } catch (e) {
       setErr(estudioAiMessage(e))
@@ -1308,29 +1316,46 @@ function StepVisual({
         </div>
       </div>
 
+      <div>
+        <Field>Frase da arte</Field>
+        <textarea
+          value={draft.titulo}
+          onChange={e => patch({ titulo: e.target.value })}
+          rows={2}
+          placeholder={draft.tipoArte === 'pessoa' ? 'A frase que vai à esquerda, ao lado da foto.' : 'A frase grande que vai no centro da arte.'}
+          className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
+        />
+        <span className="text-[11px] text-stone-400">{draft.titulo.length} caracteres · aparece igual em todos os formatos escolhidos</span>
+      </div>
+
       {draft.tipoArte === 'pessoa' && (
         <div className="rounded-xl border border-line bg-white p-3">
-          <Field>Foto da pessoa</Field>
+          <Field>Imagem da pessoa</Field>
           <div className="flex flex-wrap items-center gap-3">
             {fotoUrl
               ? <img src={fotoUrl} alt="" className="h-16 w-16 rounded-full border border-line object-cover" />
-              : <span className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem foto</span>}
+              : <span className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem imagem</span>}
             <label className="cursor-pointer rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">
               {fotoUrl ? 'Trocar foto' : 'Escolher foto'}
               <input type="file" accept="image/*" onChange={onFoto} className="hidden" />
             </label>
             <button
-              onClick={gerarFotoIA}
+              onClick={() => gerarFotoIA(false)}
               disabled={imgBusy || !podeGerar}
               className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
             >
-              {imgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Gerar com IA
+              {imgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} {fotoIA ? 'Gerar outra' : 'Gerar com IA'}
             </button>
-            {fotoUrl && <button onClick={() => setFotoUrl(null)} className="text-xs text-ink-soft hover:text-red-600">remover</button>}
+            {fotoIA && (
+              <button onClick={() => gerarFotoIA(true)} disabled={imgBusy} className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                Melhorar nitidez
+              </button>
+            )}
+            {fotoUrl && <button onClick={() => setFotoManual(null)} className="text-xs text-ink-soft hover:text-red-600">apagar imagem</button>}
           </div>
           <p className="mt-1.5 text-[11px] text-ink-soft">
-            A imagem entra no círculo à direita, recortada por formato. Fica só no seu navegador até você baixar o pacote.
-            Gerar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> (cena/objeto, nunca um rosto inventado).
+            Entra no círculo à direita, recortada por formato. Fica só no seu navegador até você baixar o pacote.
+            Gerar/melhorar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> (cena ou objeto, nunca um rosto inventado).
           </p>
         </div>
       )}
@@ -1537,10 +1562,15 @@ function StepFormatos({
   )
   const totalArtes = plan.reduce((n, p) => n + p.slides.length, 0)
 
+  // filename → onde no palco (para re-renderizar em alta ou refazer)
+  const nodeInfo = useRef<Map<string, { id: string; slide: number; spec: FormatSpec }>>(new Map())
+  const [hiRes, setHiRes] = useState('')
+
   async function gerar() {
     if (!stageRef.current) return
     setBusy(true); setErr('')
     releaseAssets(assets)
+    nodeInfo.current.clear()
     const out: RenderedAsset[] = []
     try {
       for (const p of plan) {
@@ -1548,7 +1578,9 @@ function StepFormatos({
           const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${p.id}"][data-slide="${i}"]`)
           if (!node) continue
           const suffix = p.slides.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : ''
-          out.push(await snapshot(node, p.spec, `${p.id}${suffix}-${p.spec.width}x${p.spec.height}.png`))
+          const filename = `${p.id}${suffix}-${p.spec.width}x${p.spec.height}.png`
+          nodeInfo.current.set(filename, { id: p.id, slide: i, spec: p.spec })
+          out.push(await snapshot(node, p.spec, filename))
         }
       }
       setAssets(out)
@@ -1556,6 +1588,29 @@ function StepFormatos({
       setErr(e instanceof Error ? e.message : 'Falha ao gerar as artes.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  function remover(filename: string) {
+    const alvo = assets.find(a => a.filename === filename)
+    if (alvo) { try { URL.revokeObjectURL(alvo.url) } catch { /* noop */ } }
+    setAssets(assets.filter(a => a.filename !== filename))
+  }
+
+  async function baixarAlta(a: RenderedAsset) {
+    const info = nodeInfo.current.get(a.filename)
+    if (!info || !stageRef.current) { downloadAsset(a); return }
+    setHiRes(a.filename); setErr('')
+    try {
+      const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${info.id}"][data-slide="${info.slide}"]`)
+      if (!node) { downloadAsset(a); return }
+      const hi = await snapshot(node, info.spec, a.filename.replace(/\.png$/, '@2x.png'), { scale: 2 })
+      downloadAsset(hi)
+      setTimeout(() => { try { URL.revokeObjectURL(hi.url) } catch { /* noop */ } }, 4000)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao gerar a versão em alta.')
+    } finally {
+      setHiRes('')
     }
   }
 
@@ -1600,13 +1655,20 @@ function StepFormatos({
           {assets.map(a => (
             <figure key={a.filename} className="overflow-hidden rounded-xl border border-line bg-white">
               <img src={a.url} alt={a.filename} className="w-full" style={{ aspectRatio: `${a.width}/${a.height}` }} />
-              <figcaption className="flex items-center justify-between gap-2 px-3 py-2 text-[11px]">
-                <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>
-                {a.check.ok ? (
-                  <span className="inline-flex items-center gap-1 text-forest-700"><Check className="h-3.5 w-3.5" /> formato ok</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-amber-600" title={a.check.problems.join('; ')}><AlertTriangle className="h-3.5 w-3.5" /> revisar</span>
-                )}
+              <figcaption className="space-y-1.5 px-3 py-2 text-[11px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>
+                  {a.check.ok
+                    ? <span className="inline-flex items-center gap-1 text-forest-700"><Check className="h-3.5 w-3.5" /> formato ok</span>
+                    : <span className="inline-flex items-center gap-1 text-amber-600" title={a.check.problems.join('; ')}><AlertTriangle className="h-3.5 w-3.5" /> revisar</span>}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button onClick={() => downloadAsset(a)} className="rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300">baixar</button>
+                  <button onClick={() => baixarAlta(a)} disabled={hiRes === a.filename} className="inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                    {hiRes === a.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : null} alta (2×)
+                  </button>
+                  <button onClick={() => remover(a.filename)} className="ml-auto text-ink-soft hover:text-red-600">remover</button>
+                </div>
               </figcaption>
             </figure>
           ))}
