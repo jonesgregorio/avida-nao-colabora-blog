@@ -81,14 +81,24 @@ const BrandTemplate = forwardRef<
   const leafColor = variant === 'pessoa' ? LEAF_PESSOA : LEAF_FRASE
   const leafOpacity = variant === 'pessoa' ? 0.85 : 0.55
 
-  // círculo da foto (variante "pessoa")
-  const circleR = Math.round(Math.min(W, H) * (isTall ? 0.34 : 0.4))
-  const circleCx = Math.round(W - circleR - W * 0.04)
-  const circleCy = Math.round(H * (isTall ? 0.44 : 0.46))
+  // ── variante "pessoa": FRASE à esquerda, IMAGEM (círculo) à direita ──────────
+  const circleR = Math.round(W * (isTall ? 0.24 : 0.26))
+  const circleCx = Math.round(W - circleR - W * 0.05)
+  const circleCy = Math.round(H * 0.5)
+  const circleLeft = circleCx - circleR
 
-  const titleSize = Math.round(W * (isTall ? 0.078 : variant === 'pessoa' ? 0.07 : 0.09))
-  const titleTop = Math.round(H * (isTall ? 0.2 + safeTop : 0.26))
   const titleLeft = Math.round(pad + (variant === 'frase' ? W * 0.02 : 0))
+  // largura útil da frase: até a borda esquerda do círculo (pessoa) ou quase toda (frase)
+  const titleRight = variant === 'pessoa' ? Math.round(W - circleLeft + W * 0.03) : pad
+  const titleWidth = W - titleLeft - titleRight
+  const titleSize =
+    variant === 'pessoa'
+      ? Math.round(Math.min(titleWidth * 0.16, W * 0.062))
+      : Math.round(W * (isTall ? 0.078 : 0.09))
+  const titleTop = variant === 'pessoa'
+    ? Math.round(H * (safeTop + 0.16))
+    : Math.round(H * (isTall ? 0.2 + safeTop : 0.26))
+  const titleMaxHeight = variant === 'pessoa' ? Math.round(H * 0.6) : undefined
 
   return (
     <div ref={ref} style={root}>
@@ -159,16 +169,18 @@ const BrandTemplate = forwardRef<
         <span style={{ fontWeight: 600, fontSize: W * 0.036, color: FOREST }}>A Vida Não Colabora</span>
       </div>
 
-      {/* título */}
+      {/* título — frase da arte (à esquerda no template "pessoa") */}
       <div
         style={{
           position: 'absolute',
           left: titleLeft,
           top: titleTop,
-          right: variant === 'pessoa' ? W - (circleCx - circleR) + W * 0.02 : pad,
+          right: titleRight,
+          maxHeight: titleMaxHeight,
+          overflow: 'hidden',
           fontWeight: 600,
           fontSize: titleSize,
-          lineHeight: 1.14,
+          lineHeight: 1.16,
           color: FOREST,
           maxWidth: variant === 'pessoa' ? undefined : '14ch',
         }}

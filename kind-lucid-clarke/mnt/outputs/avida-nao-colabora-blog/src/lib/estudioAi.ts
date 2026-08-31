@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { buildCaptionRequest, buildImagePromptRequest, type EstudioBrief } from './estudioPrompts'
+import { buildCaptionRequest, buildImagePromptRequest, buildPhraseRequest, type EstudioBrief } from './estudioPrompts'
 import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } from './estudioPlan'
 import { buildPerfReadingRequest, type PerfRow } from './estudioPerformance'
 import { buildReelScriptRequest, parseReelScript, type ReelScript } from './estudioReel'
@@ -63,6 +63,22 @@ export async function generateImagePrompt(brief: EstudioBrief): Promise<ImagePro
     racional: String(j.racional ?? '').trim(),
     tituloSugerido: String(j.titulo_sugerido ?? '').trim(),
   }
+}
+
+export interface PhraseResult {
+  frase: string
+  alternativas: string[]
+}
+
+export async function generatePhrase(brief: EstudioBrief): Promise<PhraseResult> {
+  const data = await callGenerateContent(buildPhraseRequest(brief), 'estudio-phrase')
+  const j = extractJson(data)
+  const frase = String(j.frase ?? '').trim()
+  if (!frase) throw new EstudioAiError('A IA não retornou uma frase. Tente de novo.')
+  const alternativas = Array.isArray(j.alternativas)
+    ? (j.alternativas as unknown[]).map(a => String(a ?? '').trim()).filter(Boolean)
+    : []
+  return { frase, alternativas }
 }
 
 export async function generateCaptions(brief: EstudioBrief): Promise<CaptionResult> {

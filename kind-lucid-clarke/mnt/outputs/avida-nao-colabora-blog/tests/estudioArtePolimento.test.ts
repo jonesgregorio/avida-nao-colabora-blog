@@ -19,7 +19,7 @@ test('cada arte gerada tem baixar, alta 2x e remover', () => {
 })
 
 test('há campo manual para a frase da arte, usado nos dois tipos', () => {
-  assert.match(estudio, /<Field>Frase da arte<\/Field>/)
+  assert.match(estudio, /<Field>Frase da arte/)
   assert.match(estudio, /value=\{draft\.titulo\}/)
   assert.match(estudio, /onChange=\{e => patch\(\{ titulo: e\.target\.value \}\)\}/)
 })

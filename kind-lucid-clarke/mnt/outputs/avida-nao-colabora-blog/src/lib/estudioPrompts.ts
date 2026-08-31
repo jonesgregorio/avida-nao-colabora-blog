@@ -123,6 +123,22 @@ export function buildImagePromptRequest(brief: EstudioBrief): string {
   ].filter(Boolean).join('\n')
 }
 
+// ── frase da arte (o texto grande dentro da imagem) ─────────────────────────
+
+export function buildPhraseRequest(brief: EstudioBrief): string {
+  return [
+    'Você escreve a FRASE que vai dentro de uma arte de Instagram de uma marca de saúde emocional.',
+    MARCA,
+    `Ideia do post: "${brief.ideia}".`,
+    brief.artigoTitulo ? `Contexto do artigo: "${brief.artigoTitulo}".` : '',
+    'A frase é curta (no máximo 12 palavras), forte na primeira palavra, sem ponto final obrigatório.',
+    'Não é legenda nem hashtag — é o título visual. Sem aspas, sem emoji, sem "clique aqui".',
+    '',
+    'Retorne SOMENTE um JSON válido, sem markdown:',
+    '{ "frase": "a frase", "alternativas": ["outra opção", "mais uma"] }',
+  ].filter(Boolean).join('\n')
+}
+
 // ── legendas + hashtags ─────────────────────────────────────────────────────
 
 export function buildCaptionRequest(brief: EstudioBrief): string {
