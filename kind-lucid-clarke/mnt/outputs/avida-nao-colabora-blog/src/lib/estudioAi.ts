@@ -147,17 +147,18 @@ const IMAGE_ASPECT: Record<string, string> = {
 }
 
 /** Gera uma imagem via Edge Function isolada (Gemini/Imagen). Custo por imagem. */
-export async function generateImage(prompt: string, opts: { negativos?: string; formato?: string } = {}): Promise<string> {
+export async function generateImage(prompt: string, opts: { formato?: string } = {}): Promise<string> {
   const aspect = opts.formato ? IMAGE_ASPECT[opts.formato] ?? '1:1' : '1:1'
   const { data, error } = await supabase.functions.invoke('estudio-generate-image', {
-    body: { prompt, negativos: opts.negativos ?? '', aspect },
+    body: { prompt, aspect },
   })
   if (error) throw new EstudioAiError(error.message)
   const d = data as { dataUrl?: string; error?: string; message?: string; detail?: string }
   if (d?.dataUrl) return d.dataUrl
   if (d?.error === 'no_key') throw new EstudioAiError('Geração de imagem não está configurada no servidor.')
   if (d?.error === 'quota') throw new EstudioAiError('Cota de imagem do Gemini atingida. Tente mais tarde.')
-  throw new EstudioAiError(d?.message || d?.error || 'Não foi possível gerar a imagem.')
+  if (d?.error === 'permission') throw new EstudioAiError(`O projeto Gemini não tem acesso aos modelos de imagem. ${d.detail ?? ''}`.trim())
+  throw new EstudioAiError(`Não foi possível gerar a imagem. ${d?.detail ?? d?.message ?? d?.error ?? ''}`.trim())
 }
 
 export function estudioAiMessage(e: unknown): string {
