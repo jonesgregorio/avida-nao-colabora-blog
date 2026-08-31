@@ -12,6 +12,7 @@ export interface PackageDraft {
   publishMode: 'manual' | 'agendar'
   scheduledFor?: string
   reelRoteiro?: string
+  reelVideo?: { filename: string; blob: Blob }
 }
 
 const STICKER_HINTS: Record<string, string> = {
@@ -71,6 +72,7 @@ export async function buildZip(assets: RenderedAsset[], draft: PackageDraft): Pr
   zip.file('primeiro-comentario.txt', firstComment(draft))
   zip.file('instrucoes.txt', buildInstructions(draft))
   if (draft.reelRoteiro) zip.file('reel-roteiro.txt', draft.reelRoteiro)
+  if (draft.reelVideo) zip.folder('video')?.file(draft.reelVideo.filename, await draft.reelVideo.blob.arrayBuffer())
 
   return zip.generateAsync({ type: 'blob' })
 }
