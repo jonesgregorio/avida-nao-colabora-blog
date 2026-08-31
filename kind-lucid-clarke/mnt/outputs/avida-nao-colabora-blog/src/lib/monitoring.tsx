@@ -157,6 +157,62 @@ export function captureExternalException(error: unknown, context?: Record<string
   if (pendingErrors.length < 5) pendingErrors.push({ error, context })
 }
 
+const STALE_CHUNK_FLAG = 'avnc-stale-chunk-reload'
+const STALE_CHUNK_WINDOW_MS = 30_000
+
+/**
+ * Detecta falhas de carregamento de módulo/chunk dinâmico. Acontece quando o
+ * navegador tem um index.html/chunk em cache que referencia um hash de asset que
+ * um deploy mais novo já removeu (ou que ainda não propagou em todos os edges da
+ * Vercel). A mensagem varia entre navegadores.
+ */
+export function isModuleLoadError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? `${error.name} ${error.message}`
+      : typeof error === 'string'
+        ? error
+        : ''
+  return (
+    /Failed to fetch dynamically imported module/i.test(message) ||
+    /error loading dynamically imported module/i.test(message) ||
+    /Importing a module script failed/i.test(message) ||
+    /ChunkLoadError/i.test(message)
+  )
+}
+
+/**
+ * Recarrega a página uma única vez para buscar o index.html novo e os hashes de
+ * asset atuais. O guarda em sessionStorage evita loop de reload quando o
+ * problema não é cache velho.
+ */
+export function recoverFromStaleChunk(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const last = Number(window.sessionStorage.getItem(STALE_CHUNK_FLAG) || '0')
+    if (Number.isFinite(last) && Date.now() - last < STALE_CHUNK_WINDOW_MS) {
+      return false
+    }
+    window.sessionStorage.setItem(STALE_CHUNK_FLAG, String(Date.now()))
+  } catch {
+    // sessionStorage indisponível: segue para o reload mesmo assim.
+  }
+  window.location.reload()
+  return true
+}
+
+export function installStaleChunkRecovery() {
+  if (typeof window === 'undefined') return
+  window.addEventListener('vite:preloadError', (event) => {
+    const payload = (event as Event & { payload?: unknown }).payload
+    if (recoverFromStaleChunk()) event.preventDefault()
+    else captureExternalException(payload ?? new Error('vite:preloadError'))
+  })
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isModuleLoadError(event.reason)) recoverFromStaleChunk()
+  })
+}
+
 interface MonitoringErrorBoundaryProps {
   children: ReactNode
 }
@@ -173,6 +229,7 @@ export class MonitoringErrorBoundary extends Component<MonitoringErrorBoundaryPr
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    if (isModuleLoadError(error) && recoverFromStaleChunk()) return
     captureExternalException(error, {
       contexts: {
         react: {
