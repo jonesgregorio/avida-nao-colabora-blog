@@ -1239,12 +1239,14 @@ function StepVisual({
   const [racional, setRacional] = useState('')
   const [imgBusy, setImgBusy] = useState(false)
   const [fotoIA, setFotoIA] = useState(false)
+  const [fotoModelo, setFotoModelo] = useState('')
   const [fraseBusy, setFraseBusy] = useState(false)
   const [fraseAlt, setFraseAlt] = useState<string[]>([])
   const podeGerar = draft.ideia.trim().length >= 8
 
   function setFotoManual(u: string | null) {
     setFotoIA(false)
+    setFotoModelo('')
     setFotoUrl(u)
   }
 
@@ -1262,17 +1264,19 @@ function StepVisual({
   }
 
   async function gerarFotoIA(maisNitida = false) {
-    setImgBusy(true); setErr('')
+    setImgBusy(true); setErr(''); setFotoModelo('')
     try {
-      let prompt = draft.prompt
-      if (!prompt.trim()) {
-        const r = await generateImagePrompt(toBrief(draft))
-        prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
-      }
-      if (maisNitida) prompt += '\n\nAlta resolução, foco nítido, detalhes finos, iluminação bem definida, qualidade profissional.'
-      const dataUrl = await generateImage(prompt, { formato: 'feed-11' })
+      // SEMPRE gera um prompt novo a partir da ideia — não reusa draft.prompt
+      // (que pode ser antigo / de outra ideia / de estilo ilustração).
+      const r = await generateImagePrompt(toBrief(draft))
+      let prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
+      patch({ prompt })
+      if (maisNitida) prompt += '\n\nAlta resolução, foco nítido, textura de pele natural, luz bem definida, qualidade de fotografia profissional.'
+      if (fotoIA) prompt += `\n\nComposição, ângulo e cenário diferentes desta vez (variação ${Math.floor(Math.random() * 900 + 100)}).`
+      const img = await generateImage(prompt, { formato: 'feed-11' })
       setFotoIA(true)
-      setFotoUrl(dataUrl)
+      setFotoModelo(img.model)
+      setFotoUrl(img.dataUrl)
     } catch (e) {
       setErr(estudioAiMessage(e))
     } finally {
@@ -1380,6 +1384,7 @@ function StepVisual({
             )}
             {fotoUrl && <button onClick={() => setFotoManual(null)} className="text-xs text-ink-soft hover:text-red-600">apagar imagem</button>}
           </div>
+          {fotoModelo && <p className="mt-1 text-[11px] text-forest-700">gerada com <code>{fotoModelo}</code></p>}
           <p className="mt-1.5 text-[11px] text-ink-soft">
             Entra no círculo à direita, recortada por formato. Fica só no seu navegador até você baixar o pacote.
             Gerar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> — <b>foto realista de pessoa real</b> num
@@ -1594,13 +1599,10 @@ function StepFormatos({
         feito.push('frase escrita pela IA')
       }
       if (autoIA && precisaImagem) {
-        let prompt = draft.prompt
-        if (!prompt.trim()) {
-          const p = await generateImagePrompt(toBrief(draft))
-          prompt = p.negativos ? `${p.prompt}\n\nEvitar: ${p.negativos}` : p.prompt
-        }
-        const dataUrl = await generateImage(prompt, { formato: 'feed-11' })
-        setFotoUrl(dataUrl)
+        const p = await generateImagePrompt(toBrief(draft))
+        const prompt = p.negativos ? `${p.prompt}\n\nEvitar: ${p.negativos}` : p.prompt
+        const img = await generateImage(prompt, { formato: 'feed-11' })
+        setFotoUrl(img.dataUrl)
         feito.push('imagem gerada pela IA (~US$ 0,04)')
       }
       if (feito.length) {
