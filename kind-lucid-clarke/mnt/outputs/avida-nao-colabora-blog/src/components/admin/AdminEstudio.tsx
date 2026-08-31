@@ -27,7 +27,7 @@ import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../.
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
 import type { Publicacao, PublicacaoInput } from '../../lib/estudioPublications'
 import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao, setPublicacaoStatus, savePublicacaoMetrics } from '../../lib/estudioPublicationsStore'
-import BrandTemplate, { type TemplateContent } from './estudio/BrandTemplate'
+import BrandTemplate, { type TemplateContent, type PhotoAdjust, type PhotoShape, type TitleAdjust, type TitlePlacement } from './estudio/BrandTemplate'
 
 const BUSINESS_SUITE_URL = 'https://business.facebook.com/latest/composer'
 
@@ -233,6 +233,52 @@ const FORMATOS_LEAN = [
   { id: 'quiz', label: 'Quiz', spec: '2 slides' },
 ] as const
 
+const PREVIEW_W = 360
+
+const SHAPES: { id: PhotoShape; label: string }[] = [
+  { id: 'circle', label: 'Círculo' },
+  { id: 'rounded', label: 'Arredondado' },
+  { id: 'rect', label: 'Retângulo' },
+  { id: 'full', label: 'Cheia' },
+]
+const TITLE_COLORS: { id: string; label: string; hex: string }[] = [
+  { id: 'verde', label: 'Verde', hex: '#1A4A3A' },
+  { id: 'creme', label: 'Creme', hex: '#FBFAF7' },
+  { id: 'escuro', label: 'Escuro', hex: '#0F2F25' },
+]
+const PLACEMENTS: { id: TitlePlacement; label: string }[] = [
+  { id: 'top', label: 'Topo' },
+  { id: 'middle', label: 'Meio' },
+  { id: 'bottom', label: 'Base' },
+]
+
+function Seg<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map(o => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+            value === o.id ? 'border-forest-900 bg-forest-900 text-white' : 'border-line bg-white text-ink-soft hover:border-forest-300'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Range({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-ink-soft">
+      <span className="w-16 flex-shrink-0">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className="flex-1 accent-forest-700" />
+    </label>
+  )
+}
+
 function ComporArte() {
   const [tipoArte, setTipoArte] = useState<'frase' | 'pessoa'>('frase')
   const [formatos, setFormatos] = useState<string[]>(['feed-45'])
@@ -244,6 +290,14 @@ function ComporArte() {
   const [hashtags, setHashtags] = useState('')
   const [assets, setAssets] = useState<RenderedAsset[]>([])
   useEffect(() => () => releaseAssets(assets), [assets])
+
+  const [photoAdj, setPhotoAdj] = useState<PhotoAdjust>({ shape: 'circle', zoom: 1, offsetX: 0, offsetY: 0, size: 1 })
+  const [titleAdj, setTitleAdj] = useState<TitleAdjust>({ scale: 1, placement: 'middle', onPhoto: false })
+  const pj = (p: Partial<PhotoAdjust>) => setPhotoAdj(s => ({ ...s, ...p }))
+  const tj = (p: Partial<TitleAdjust>) => setTitleAdj(s => ({ ...s, ...p }))
+  useEffect(() => {
+    setTitleAdj(s => ({ ...s, placement: tipoArte === 'pessoa' ? 'top' : 'middle', onPhoto: false }))
+  }, [tipoArte])
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -497,7 +551,66 @@ function ComporArte() {
         </div>
       )}
 
-      {/* 6 · gerar */}
+      {/* 6 · prévia grande + ajustes ao vivo */}
+      {plan[0] && (
+        <div className="border-t border-line pt-4">
+          <Field>Prévia — ajuste antes de baixar</Field>
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div
+              className="mx-auto shrink-0 overflow-hidden rounded-xl border border-line bg-paper lg:mx-0"
+              style={{ width: PREVIEW_W, height: PREVIEW_W * (plan[0].spec.height / plan[0].spec.width) }}
+            >
+              <div style={{ transformOrigin: 'top left', transform: `scale(${PREVIEW_W / plan[0].spec.width})` }}>
+                <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} photo={photoAdj} title={titleAdj} spec={plan[0].spec} content={plan[0].slides[0]} />
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-4 text-sm">
+              {plan.length > 1 && <p className="text-[11px] text-ink-soft">Prévia do 1º formato. Os ajustes valem para todos os {totalArtes}.</p>}
+
+              {tipoArte === 'pessoa' && fotoUrl && (
+                <div className="space-y-2 rounded-xl border border-line p-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Foto</span>
+                  <Seg value={(photoAdj.shape ?? 'circle') as PhotoShape} options={SHAPES} onChange={v => pj({ shape: v })} />
+                  <Range label="Zoom" value={photoAdj.zoom ?? 1} min={1} max={3} step={0.05} onChange={v => pj({ zoom: v })} />
+                  <Range label="Tamanho" value={photoAdj.size ?? 1} min={0.7} max={1.35} step={0.05} onChange={v => pj({ size: v })} />
+                  <Range label="Horizontal" value={photoAdj.offsetX ?? 0} min={-1} max={1} step={0.04} onChange={v => pj({ offsetX: v })} />
+                  <Range label="Vertical" value={photoAdj.offsetY ?? 0} min={-1} max={1} step={0.04} onChange={v => pj({ offsetY: v })} />
+                </div>
+              )}
+
+              <div className="space-y-2 rounded-xl border border-line p-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Frase</span>
+                <Range label="Tamanho" value={titleAdj.scale ?? 1} min={0.6} max={1.6} step={0.05} onChange={v => tj({ scale: v })} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-ink-soft">Posição</span>
+                  <Seg value={(titleAdj.placement ?? 'middle') as TitlePlacement} options={PLACEMENTS} onChange={v => tj({ placement: v })} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-ink-soft">Cor</span>
+                  {TITLE_COLORS.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => tj({ color: c.hex })}
+                      title={c.label}
+                      className={`h-6 w-6 rounded-full border-2 ${(titleAdj.color ?? '#1A4A3A') === c.hex ? 'border-forest-700' : 'border-line'}`}
+                      style={{ background: c.hex }}
+                    />
+                  ))}
+                </div>
+                {tipoArte === 'pessoa' && fotoUrl && (
+                  <label className="flex items-center gap-2 text-xs text-ink">
+                    <input type="checkbox" checked={!!titleAdj.onPhoto} onChange={e => tj({ onPhoto: e.target.checked })} className="h-4 w-4 rounded border-stone-300 text-forest-700" />
+                    Sobrepor a frase à foto
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7 · gerar */}
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <button
           onClick={gerar}
@@ -555,7 +668,7 @@ function ComporArte() {
       <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
         {plan.map(p => p.slides.map((content, i) => (
           <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
-            <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} spec={p.spec} content={content} />
+            <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} photo={photoAdj} title={titleAdj} spec={p.spec} content={content} />
           </div>
         )))}
       </div>

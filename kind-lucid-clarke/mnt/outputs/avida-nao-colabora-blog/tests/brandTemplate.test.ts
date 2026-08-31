@@ -13,29 +13,32 @@ test('BrandTemplate tem as duas variantes e a moldura da marca', () => {
   assert.match(brand, /#1A4A3A/) // floresta
   assert.match(brand, /A Vida Não Colabora/)
   assert.match(brand, /Seu espaço de cuidado/)
-  // onda inferior + blob superior + círculos + sprig
   assert.match(brand, /onda verde inferior/)
-  assert.match(brand, /blob verde canto superior direito/)
-  assert.match(brand, /sprig botânico/)
+  assert.match(brand, /sombra de folhas/) // folhagem desfocada à esquerda
 })
 
-test('variante "pessoa" compõe a foto real num círculo e mostra placeholder sem foto', () => {
+test('variante "pessoa": recorte grande da foto, ajustável, com contorno fino', () => {
   assert.match(brand, /variant === 'pessoa'/)
-  assert.match(brand, /borderRadius: '50%'/)
   assert.match(brand, /suba uma foto/)
-  assert.match(brand, /objectFit: 'cover'/)
+  // recorte configurável, não travado no círculo
+  assert.match(brand, /export type PhotoShape = 'circle' \| 'rounded' \| 'rect' \| 'full'/)
+  assert.match(brand, /backgroundSize: `\$\{baseCover \* zoom\}%`/)
+  assert.match(brand, /backgroundPosition: `\$\{50 \+ offX \* 50\}% \$\{50 \+ offY \* 50\}%`/)
+  assert.match(brand, /contorno fino verde/)
+})
+
+test('a frase tem ajustes de tamanho, posição, cor e sobrepor', () => {
+  assert.match(brand, /export interface TitleAdjust/)
+  assert.match(brand, /onPhoto\?: boolean/)
+  assert.match(brand, /const tScale = clamp\(title\.scale/)
+  assert.match(brand, /placement: TitlePlacement/)
 })
 
 test('o Estúdio usa BrandTemplate (não o FormatTemplate antigo) e oferece a escolha de tipo', () => {
   assert.match(estudio, /import BrandTemplate/)
   assert.doesNotMatch(estudio, /FormatTemplate/)
-  assert.match(estudio, /Tipo de arte/)
-  assert.match(estudio, /Arte com frase/)
-  assert.match(estudio, /Arte com pessoa/)
   assert.match(estudio, /tipoArte: 'frase' \| 'pessoa'/)
-  // foto fica só no navegador
   assert.match(estudio, /readAsDataURL/)
-  assert.match(estudio, /Fica só no seu navegador/)
 })
 
 test('o tipo de arte vai no brief da IA de imagem', () => {
