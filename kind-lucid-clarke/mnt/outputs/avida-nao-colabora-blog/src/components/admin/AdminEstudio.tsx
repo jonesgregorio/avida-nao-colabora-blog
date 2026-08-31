@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
   Megaphone, Sparkles, CalendarDays, Grid3x3, Bookmark, Users2,
   BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2, Download, Check, AlertTriangle,
@@ -26,7 +26,7 @@ import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../.
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
 import type { Publicacao, PublicacaoInput } from '../../lib/estudioPublications'
 import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao, setPublicacaoStatus, savePublicacaoMetrics } from '../../lib/estudioPublicationsStore'
-import FormatTemplate, { type TemplateContent } from './estudio/FormatTemplate'
+import BrandTemplate, { type TemplateContent } from './estudio/BrandTemplate'
 
 const BUSINESS_SUITE_URL = 'https://business.facebook.com/latest/composer'
 
@@ -78,6 +78,7 @@ interface Draft {
   ideia: string
   objetivos: string[]
   estilo: 'template' | 'ia' | 'hibrido'
+  tipoArte: 'frase' | 'pessoa'
   prompt: string
   titulo: string
   formatos: string[]
@@ -94,6 +95,7 @@ const EMPTY_DRAFT: Draft = {
   ideia: '',
   objetivos: [],
   estilo: 'template',
+  tipoArte: 'frase',
   prompt: '',
   titulo: '',
   formatos: ['feed-45', 'carrossel', 'story', 'reel-capa'],
@@ -121,6 +123,7 @@ function toBrief(d: Draft): EstudioBrief {
     ideia: d.ideia.trim(),
     objetivos: d.objetivos,
     estilo: d.estilo,
+    tipoArte: d.tipoArte,
     formato: d.formatos.find(f => FORMAT_SPECS[f]),
   }
 }
@@ -1028,6 +1031,7 @@ function NovaPublicacao() {
   const [assets, setAssets] = useState<RenderedAsset[]>([])
   useEffect(() => () => releaseAssets(assets), [assets])
   const [reelRoteiro, setReelRoteiro] = useState('')
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [reelVideo, setReelVideo] = useState<ReelVideo | null>(null)
   useEffect(() => () => { if (reelVideo) URL.revokeObjectURL(reelVideo.url) }, [reelVideo])
 
@@ -1064,6 +1068,7 @@ function NovaPublicacao() {
     releaseAssets(assets)
     setAssets([])
     setReelRoteiro('')
+    setFotoUrl(null)
     setReelVideo(null)
     setDraft(EMPTY_DRAFT)
     setPubId(null)
@@ -1115,8 +1120,8 @@ function NovaPublicacao() {
 
       <div className="rounded-2xl border border-line bg-white p-5">
         {step === 0 && <StepIdeia draft={draft} patch={patch} toggle={toggle} />}
-        {step === 1 && <StepVisual draft={draft} patch={patch} />}
-        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} reelVideo={reelVideo} setReelVideo={setReelVideo} />}
+        {step === 1 && <StepVisual draft={draft} patch={patch} fotoUrl={fotoUrl} setFotoUrl={setFotoUrl} />}
+        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} reelVideo={reelVideo} setReelVideo={setReelVideo} fotoUrl={fotoUrl} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
         {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} reelRoteiro={reelRoteiro} reelVideo={reelVideo} />}
       </div>
@@ -1213,13 +1218,28 @@ function StepIdeia({
   )
 }
 
-function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>) => void }) {
+function StepVisual({
+  draft, patch, fotoUrl, setFotoUrl,
+}: {
+  draft: Draft
+  patch: (p: Partial<Draft>) => void
+  fotoUrl: string | null
+  setFotoUrl: (u: string | null) => void
+}) {
   const opts: { id: Draft['estilo']; label: string; hint: string }[] = [
     { id: 'template', label: 'Template da marca', hint: 'Playfair + paleta do blog. Previsível e barato — recomendado.' },
     { id: 'ia', label: 'IA generativa de imagem', hint: 'Flexível, custa por imagem, às vezes com “cara de IA”.' },
     { id: 'hibrido', label: 'Híbrido', hint: 'Fundo gerado por IA + tipografia da marca por cima.' },
   ]
   const [busy, setBusy] = useState(false)
+
+  function onFoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setFotoUrl(typeof reader.result === 'string' ? reader.result : null)
+    reader.readAsDataURL(file)
+  }
   const [err, setErr] = useState('')
   const [racional, setRacional] = useState('')
   const podeGerar = draft.ideia.trim().length >= 8
@@ -1246,6 +1266,47 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
 
   return (
     <div className="space-y-4">
+      <div>
+        <Field>Tipo de arte</Field>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {([
+            { id: 'frase', label: 'Arte com frase', hint: 'Moldura da marca + um grande título tipográfico no centro.' },
+            { id: 'pessoa', label: 'Arte com pessoa', hint: 'A mesma moldura + uma foto real num círculo à direita.' },
+          ] as const).map(o => {
+            const on = draft.tipoArte === o.id
+            return (
+              <button
+                key={o.id}
+                onClick={() => patch({ tipoArte: o.id })}
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  on ? 'border-forest-600 ring-1 ring-forest-200' : 'border-line hover:border-forest-300'
+                }`}
+              >
+                <span className="block text-sm font-medium text-forest-900">{o.label}</span>
+                <span className="mt-1 block text-xs text-ink-soft">{o.hint}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {draft.tipoArte === 'pessoa' && (
+        <div className="rounded-xl border border-line bg-white p-3">
+          <Field>Foto da pessoa</Field>
+          <div className="flex flex-wrap items-center gap-3">
+            {fotoUrl
+              ? <img src={fotoUrl} alt="" className="h-16 w-16 rounded-full border border-line object-cover" />
+              : <span className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem foto</span>}
+            <label className="cursor-pointer rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">
+              {fotoUrl ? 'Trocar foto' : 'Escolher foto'}
+              <input type="file" accept="image/*" onChange={onFoto} className="hidden" />
+            </label>
+            {fotoUrl && <button onClick={() => setFotoUrl(null)} className="text-xs text-ink-soft hover:text-red-600">remover</button>}
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-soft">A foto entra no círculo à direita, recortada no formato de cada rede. Fica só no seu navegador até você baixar o pacote.</p>
+        </div>
+      )}
+
       <div>
         <Field>Estilo visual</Field>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -1344,7 +1405,7 @@ function slidesFor(id: string, spec: FormatSpec, draft: Draft): TemplateContent[
 }
 
 function StepFormatos({
-  draft, toggle, assets, setAssets, setReelRoteiro, reelVideo, setReelVideo,
+  draft, toggle, assets, setAssets, setReelRoteiro, reelVideo, setReelVideo, fotoUrl,
 }: {
   draft: Draft
   toggle: (k: 'objetivos' | 'formatos', v: string) => void
@@ -1353,12 +1414,15 @@ function StepFormatos({
   setReelRoteiro: (s: string) => void
   reelVideo: ReelVideo | null
   setReelVideo: (v: ReelVideo | null) => void
+  fotoUrl: string | null
 }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const overlayStageRef = useRef<HTMLDivElement>(null)
   const frameStageRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const variant = draft.tipoArte
+  const photoUrl = fotoUrl
   const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
   const temReel = selected.includes('reel-capa')
 
@@ -1583,7 +1647,7 @@ function StepFormatos({
       <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
         {plan.map(p => p.slides.map((content, i) => (
           <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
-            <FormatTemplate spec={p.spec} content={content} />
+            <BrandTemplate variant={variant} photoUrl={photoUrl} spec={p.spec} content={content} />
           </div>
         )))}
       </div>
@@ -1597,7 +1661,7 @@ function StepFormatos({
       <div ref={frameStageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
         {frames.map((content, i) => (
           <div key={i} data-frame={i}>
-            <FormatTemplate spec={FORMAT_SPECS['reel-capa']} content={content} />
+            <BrandTemplate variant={variant} photoUrl={photoUrl} spec={FORMAT_SPECS['reel-capa']} content={content} />
           </div>
         ))}
       </div>

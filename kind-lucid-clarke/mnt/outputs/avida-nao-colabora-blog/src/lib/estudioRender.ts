@@ -1,6 +1,6 @@
 import { validateAsset, type FormatSpec, type ValidationResult } from './estudioFormats'
 
-// Captura um nó do DOM (um FormatTemplate já renderizado no tamanho exato) em
+// Captura um nó do DOM (um BrandTemplate já renderizado no tamanho exato) em
 // PNG. html2canvas é carregado sob demanda — mesmo padrão de exportPdf.ts.
 
 export interface RenderedAsset {
