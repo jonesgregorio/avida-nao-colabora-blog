@@ -45,19 +45,20 @@ function objetivosFrase(objetivos: string[]): string {
 
 const IMAGEM_BASE = [
   'IDENTIDADE VISUAL OBRIGATÓRIA da marca "A Vida Não Colabora" (respeitar em toda imagem):',
-  '- Meio: ilustração editorial minimalista OU fotografia natural com luz de janela difusa e suave. Sem 3D, sem cartoon, sem vetor chapado, sem render de IA óbvio.',
-  '- Paleta dessaturada: base papel quente #FBFAF7; verde floresta profundo #1A4A3A; menta #E8F0EB; acentos discretos em céu #E4EEF7, coral #F7D8CE, lilás #E9E1F3. Cores nunca vibrantes.',
-  '- Clima: calmo, acolhedor, adulto, respirável — sensação de pausa, não de urgência.',
-  '- Composição: muito espaço negativo, sujeito descentralizado, um único ponto de interesse, enquadramento limpo. Textura sutil de papel é bem-vinda.',
+  '- Meio: SEMPRE fotografia realista, estilo lifestyle editorial. Pessoas e ambientes REAIS, pele real, fotorrealista. NUNCA ilustração, desenho, cartoon, 3D, pintura, arte digital ou aparência de IA.',
+  '- Luz: natural e quente — luz de janela dourada de fim de tarde OU luz suave de abajur à noite. Profundidade de campo rasa, foco na pessoa, fundo levemente desfocado.',
+  '- Ambiente: interior aconchegante e habitado — mesa de madeira, plantas, prateleira de livros, xícara de cerâmica, caderno aberto, notebook. Nada de estúdio branco.',
+  '- Paleta: tons terrosos e naturais — bege, cru, madeira, verde-oliva, verde floresta profundo. Cores dessaturadas, quentes, nunca vibrantes nem saturadas.',
+  '- Clima: momento íntimo e cotidiano, honesto, calmo. Sem pose forçada, sem sorriso de propaganda.',
 ].join('\n')
 
 const IMAGEM_NEGATIVOS = [
-  'NÃO incluir de jeito nenhum:',
+  'ilustração, desenho, cartoon, anime, 3D render, pintura, arte digital, vetor, aparência de IA;',
   'qualquer texto, letra, número, marca d\'água ou logo na imagem;',
-  'rostos deformados, olhos tortos, mãos com dedos errados;',
-  'foto de banco de imagem genérica ou pessoa sorrindo forçado olhando para a câmera;',
-  'clichês de terapia (divã, cabeça entre as mãos, pessoa encolhida no canto, chuva triste na janela);',
-  'excesso de elementos, colagem, alto contraste, HDR, saturação alta, filtro dramático.',
+  'rosto deformado, olhos tortos, mãos com dedos errados, pele plástica;',
+  'foto de banco de imagem genérica, pessoa sorrindo forçado olhando fixo para a câmera, estúdio branco;',
+  'clichês de terapia (divã, pessoa encolhida chorando no canto, chuva triste na janela);',
+  'cores saturadas, alto contraste, HDR, filtro dramático, colagem, excesso de elementos.',
 ].join(' ')
 
 const FORMATO_HINT: Record<string, string> = {
@@ -73,14 +74,17 @@ const FORMATO_HINT: Record<string, string> = {
 function tipoArteHint(tipo: EstudioBrief['tipoArte']): string {
   if (tipo === 'pessoa') {
     return [
-      'TEMPLATE "com pessoa": a imagem entra num CÍRCULO à direita; o título fica à esquerda.',
-      'Prefira um retrato real do editor — mas se ele pedir imagem gerada, descreva uma CENA ou OBJETO simbólico simples (mãos, uma xícara, uma janela, uma planta), enquadramento centrado, NUNCA um rosto de pessoa inventado.',
+      'TEMPLATE "com pessoa": a foto entra num CÍRCULO — precisa de um retrato que funcione num recorte circular.',
+      'Descreva UMA PESSOA REAL adulta (foto, fotorrealista), do peito para cima ou de meio corpo, num momento emocional autêntico coerente com o tema:',
+      'por exemplo pensativa com a mão na testa diante do notebook, escrevendo num caderno com a mão apoiando a cabeça, de olhos fechados respirando fundo na cadeira, ou olhando o celular à noite sob a luz do abajur.',
+      'A pessoa NÃO olha fixo para a câmera (olhar baixo, para o lado, ou olhos fechados). Idade 30-45, roupa casual em tom terroso (verde-oliva, cru, bege).',
+      'Enquadramento centrado na pessoa, com o rosto e as mãos nítidos e bem formados.',
     ].join(' ')
   }
   return [
-    'TEMPLATE "com frase": a imagem é APENAS fundo/cena — sem pessoas, sem texto.',
-    'Deixe a zona do título (conforme o formato) totalmente livre e limpa.',
-    'Boas escolhas: um objeto simbólico simples (xícara pousada, folha, janela entreaberta, mão relaxando o punho), textura orgânica abstrata, ou paisagem mínima.',
+    'TEMPLATE "com frase": a imagem é fundo — o título tipográfico entra por cima.',
+    'Pode ser uma pessoa real num momento cotidiano (como nas artes da marca) OU uma cena de interior aconchegante sem ninguém (xícara na mesa, caderno aberto, planta na janela).',
+    'Deixe a metade que vai receber o título (esquerda ou topo, conforme o formato) mais limpa e com o fundo mais uniforme.',
   ].join(' ')
 }
 
@@ -90,14 +94,8 @@ export function buildImagePromptRequest(brief: EstudioBrief): string {
     ? FORMATO_HINT[brief.formato]
     : 'proporção vertical, com uma zona limpa para o título.'
 
-  const estiloHint = brief.estilo === 'hibrido'
-    ? 'Fundo gerado por IA + tipografia da marca por cima — descreva só o fundo.'
-    : brief.estilo === 'ia'
-      ? 'Imagem gerada inteiramente por IA — pode compor a cena, mantendo o respiro para o texto.'
-      : 'A arte final é um template da marca — descreva só o fundo/ilustração.'
-
   return [
-    'Você é diretor de arte de uma marca de saúde emocional. Transforme a ideia solta abaixo em UM prompt de imagem de qualidade de produção, pronto para colar em gerador de imagem (gpt-image, Midjourney, Imagen, Flux).',
+    'Você é diretor de fotografia de uma marca de saúde emocional. Transforme a ideia abaixo em UM prompt de FOTOGRAFIA de qualidade de produção, pronto para colar em gerador de imagem (Imagen, gpt-image, Midjourney).',
     '',
     IMAGEM_BASE,
     '',
@@ -106,11 +104,10 @@ export function buildImagePromptRequest(brief: EstudioBrief): string {
     `Objetivo do post: ${objetivosFrase(brief.objetivos)}.`,
     `Formato: ${formatoHint}`,
     tipoArteHint(tipo),
-    estiloHint,
     '',
-    IMAGEM_NEGATIVOS,
+    `EVITAR (negativos): ${IMAGEM_NEGATIVOS}`,
     '',
-    'O prompt final deve seguir esta ordem: [meio e estilo] + [sujeito e ação] + [composição e enquadramento] + [paleta e luz] + [clima]. Uma frase para negativos. Em português, 1 parágrafo, concreto e visual (nada de abstrações tipo "sensação de calma" — mostre COMO).',
+    'Comece o prompt SEMPRE com "Fotografia realista, estilo lifestyle editorial,". Depois: [sujeito e ação concreta] + [enquadramento] + [luz e ambiente] + [paleta terrosa] + [clima íntimo]. Em português, 1 parágrafo, visual e concreto (nada de "sensação de calma" — mostre COMO).',
     '',
     'Retorne SOMENTE um JSON válido, sem markdown:',
     '{',

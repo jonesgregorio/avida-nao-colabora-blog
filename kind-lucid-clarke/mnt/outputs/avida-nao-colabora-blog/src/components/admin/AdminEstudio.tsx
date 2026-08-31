@@ -1226,11 +1226,6 @@ function StepVisual({
   fotoUrl: string | null
   setFotoUrl: (u: string | null) => void
 }) {
-  const opts: { id: Draft['estilo']; label: string; hint: string }[] = [
-    { id: 'template', label: 'Template da marca', hint: 'Playfair + paleta do blog. Previsível e barato — recomendado.' },
-    { id: 'ia', label: 'IA generativa de imagem', hint: 'Flexível, custa por imagem, às vezes com “cara de IA”.' },
-    { id: 'hibrido', label: 'Híbrido', hint: 'Fundo gerado por IA + tipografia da marca por cima.' },
-  ]
   const [busy, setBusy] = useState(false)
 
   function onFoto(e: ChangeEvent<HTMLInputElement>) {
@@ -1387,31 +1382,12 @@ function StepVisual({
           </div>
           <p className="mt-1.5 text-[11px] text-ink-soft">
             Entra no círculo à direita, recortada por formato. Fica só no seu navegador até você baixar o pacote.
-            Gerar/melhorar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> (cena ou objeto, nunca um rosto inventado).
+            Gerar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> — <b>foto realista de pessoa real</b> num
+            momento cotidiano (luz de janela, ambiente aconchegante), no estilo das artes da marca. Nunca desenho.
           </p>
         </div>
       )}
 
-      <div>
-        <Field>Estilo visual</Field>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {opts.map(o => {
-            const on = draft.estilo === o.id
-            return (
-              <button
-                key={o.id}
-                onClick={() => patch({ estilo: o.id })}
-                className={`rounded-xl border p-3 text-left transition-colors ${
-                  on ? 'border-forest-600 ring-1 ring-forest-200' : 'border-line hover:border-forest-300'
-                }`}
-              >
-                <span className="block text-sm font-medium text-forest-900">{o.label}</span>
-                <span className="mt-1 block text-xs text-ink-soft">{o.hint}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <Field>Prompt de imagem (editável)</Field>

@@ -10,36 +10,33 @@ const brief = {
   artigoTitulo: 'Quando descansar vira culpa',
 }
 
-test('prompt de imagem traz o "prompt base" da marca sempre, com paleta em hex e negativos', () => {
+test('prompt de imagem exige FOTOGRAFIA realista, nunca desenho/ilustração', () => {
   const p = buildImagePromptRequest(brief)
   assert.match(p, /não precisar dar conta de tudo/)
   assert.match(p, /Quando descansar vira culpa/)
   assert.match(p, /salvarem o post/)
   assert.match(p, /IDENTIDADE VISUAL OBRIGATÓRIA/)
-  assert.match(p, /#FBFAF7/)
-  assert.match(p, /#1A4A3A/)
-  assert.match(p, /NÃO incluir de jeito nenhum/)
-  assert.match(p, /rostos deformados/)
-  assert.match(p, /clichês de terapia/)
+  assert.match(p, /SEMPRE fotografia realista/)
+  assert.match(p, /NUNCA ilustração, desenho, cartoon/)
+  assert.match(p, /Comece o prompt SEMPRE com "Fotografia realista/)
+  assert.match(p, /ilustração, desenho, cartoon, anime, 3D render/) // negativos
   assert.match(p, /SOMENTE um JSON/)
-  assert.match(p, /"precisa_gerar"/)
 })
 
-test('prompt de imagem se adapta ao tipo de arte e ao formato', () => {
-  const frase = buildImagePromptRequest({ ...brief, tipoArte: 'frase', formato: 'story' })
-  assert.match(frase, /TEMPLATE "com frase"/)
-  assert.match(frase, /9:16/)
-  assert.match(frase, /interface cobre topo e base/)
-
+test('tipo "pessoa" pede uma PESSOA REAL adulta num momento cotidiano, não olhando fixo pra câmera', () => {
   const pessoa = buildImagePromptRequest({ ...brief, tipoArte: 'pessoa', formato: 'feed-45' })
   assert.match(pessoa, /TEMPLATE "com pessoa"/)
-  assert.match(pessoa, /CÍRCULO à direita/)
-  assert.match(pessoa, /NUNCA um rosto de pessoa inventado/)
+  assert.match(pessoa, /UMA PESSOA REAL adulta \(foto, fotorrealista\)/)
+  assert.match(pessoa, /recorte circular/)
+  assert.match(pessoa, /NÃO olha fixo para a câmera/)
+  assert.match(pessoa, /tom terroso/)
 })
 
-test('prompt de imagem muda a instrução conforme o estilo escolhido', () => {
-  assert.match(buildImagePromptRequest({ ...brief, estilo: 'ia' }), /gerada inteiramente por IA/)
-  assert.match(buildImagePromptRequest({ ...brief, estilo: 'hibrido' }), /Fundo gerado por IA \+ tipografia/)
+test('tipo "frase" também pode ser foto de pessoa, e mantém uma zona limpa para o título', () => {
+  const frase = buildImagePromptRequest({ ...brief, tipoArte: 'frase', formato: 'story' })
+  assert.match(frase, /TEMPLATE "com frase"/)
+  assert.match(frase, /pode ser uma pessoa real/i)
+  assert.match(frase, /mais limpa/)
 })
 
 test('prompt de legenda pede 3 variações rotuladas e hashtags no 1º comentário', () => {
