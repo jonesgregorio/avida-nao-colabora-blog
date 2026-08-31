@@ -4,6 +4,7 @@ import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } 
 import { buildPerfReadingRequest, type PerfRow } from './estudioPerformance'
 import { buildReelScriptRequest, parseReelScript, type ReelScript } from './estudioReel'
 import { buildInspirationAnalysisRequest } from './estudioInspiration'
+import { buildCommentRequest } from './estudioCommunity'
 
 // Chamadas de IA do Estúdio. Reusa o proxy admin `generate-content` (mesmo
 // endpoint da Fábrica de IA e do criador de e-mails) — nenhuma Edge Function
@@ -114,6 +115,10 @@ export function generatePerformanceReading(rows: PerfRow[]): Promise<string> {
 
 export function generateInspirationAnalysis(handle: string, tema: string, legendas: string): Promise<string> {
   return callGenerateContentText(buildInspirationAnalysisRequest(handle, tema, legendas), 'estudio-inspiration')
+}
+
+export function generateCommunityComment(alvo: string, descricaoPost: string): Promise<string> {
+  return callGenerateContentText(buildCommentRequest(alvo, descricaoPost), 'estudio-community')
 }
 
 export function estudioAiMessage(e: unknown): string {
