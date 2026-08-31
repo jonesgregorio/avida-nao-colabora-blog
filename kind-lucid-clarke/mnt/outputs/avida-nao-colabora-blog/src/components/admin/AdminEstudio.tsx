@@ -10,6 +10,8 @@ import { generateCaptions, generateImagePrompt, estudioAiMessage, type CaptionRe
 import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
 import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
+import { statusLabel, type Publicacao, type PublicacaoInput } from '../../lib/estudioPublications'
+import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao } from '../../lib/estudioPublicationsStore'
 import FormatTemplate, { type TemplateContent } from './estudio/FormatTemplate'
 
 const BUSINESS_SUITE_URL = 'https://business.facebook.com/latest/composer'
@@ -104,6 +106,24 @@ function toBrief(d: Draft): EstudioBrief {
   return { ideia: d.ideia.trim(), objetivos: d.objetivos, estilo: d.estilo }
 }
 
+function draftToInput(d: Draft): PublicacaoInput {
+  return {
+    status: d.status === 'pronto' ? 'pronto' : 'rascunho',
+    titulo: d.titulo,
+    ideia: d.ideia,
+    objetivos: d.objetivos,
+    estilo: d.estilo,
+    promptImagem: d.prompt,
+    legenda: d.legenda,
+    hashtags: d.hashtags,
+    primeiroComentario: d.primeiroComentario,
+    formatos: d.formatos,
+    publishMode: d.publishMode,
+    scheduledFor: d.scheduledFor || null,
+    postUrl: d.postUrl || null,
+  }
+}
+
 // ─── shell ───────────────────────────────────────────────────────────────────
 
 export default function AdminEstudio() {
@@ -152,7 +172,88 @@ export default function AdminEstudio() {
         })}
       </div>
 
-      {tab === 'novo' ? <NovaPublicacao /> : <EmBreve tab={tab} />}
+      {tab === 'novo' ? <NovaPublicacao />
+        : tab === 'calendario' ? <Calendario />
+        : <EmBreve tab={tab} />}
+    </div>
+  )
+}
+
+// ─── aba: Calendário (Fase 2a — lista; a grade mensal vem na Fase 2b) ────────
+
+function Calendario() {
+  const [rows, setRows] = useState<Publicacao[] | null>(null)
+  const [err, setErr] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setErr('')
+    try {
+      setRows(await listPublicacoes())
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao carregar as publicações.')
+      setRows([])
+    }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  async function remover(id: string) {
+    setBusyId(id)
+    try {
+      await deletePublicacao(id)
+      setRows(r => (r ?? []).filter(p => p.id !== id))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao excluir.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (rows === null) {
+    return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-ink-soft">Publicações criadas no Estúdio. A grade mensal e o plano da semana pela IA chegam na próxima etapa.</p>
+        <button onClick={() => void load()} className="text-xs text-forest-700 underline">Atualizar</button>
+      </div>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-12 text-center text-sm text-ink-soft">
+          Nenhuma publicação salva ainda. Crie uma em <b>Nova publicação</b> e clique em “Salvar publicação”.
+        </div>
+      ) : (
+        <ul className="divide-y divide-stone-100 rounded-2xl border border-line bg-white">
+          {rows.map(p => (
+            <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                p.status === 'publicado' ? 'bg-mint text-forest-800'
+                : p.status === 'pronto' ? 'bg-forest-100 text-forest-800'
+                : 'bg-amber-100 text-amber-700'
+              }`}>{statusLabel(p.status)}</span>
+              <span className="min-w-0 flex-1 truncate text-forest-900">{p.titulo || p.ideia || 'Sem título'}</span>
+              {p.scheduledFor && (
+                <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {new Date(p.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <span className="text-xs text-stone-400">{p.formatos.length} formato{p.formatos.length === 1 ? '' : 's'}</span>
+              {p.postUrl && <a href={p.postUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-forest-700 underline">post</a>}
+              <button
+                onClick={() => remover(p.id)}
+                disabled={busyId === p.id}
+                className="text-xs text-ink-soft hover:text-red-600 disabled:opacity-40"
+              >
+                excluir
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -167,6 +268,12 @@ function NovaPublicacao() {
   const [assets, setAssets] = useState<RenderedAsset[]>([])
   useEffect(() => () => releaseAssets(assets), [assets])
 
+  // Persistência no banco (Fase 2a). O localStorage segue como retomada rápida;
+  // a linha em estudio_publicacoes é a fonte de verdade do histórico.
+  const [pubId, setPubId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('')
+
   const patch = useCallback((p: Partial<Draft>) => setDraft(d => ({ ...d, ...p })), [])
 
   const save = useCallback(() => {
@@ -175,6 +282,29 @@ function NovaPublicacao() {
       setSavedAt(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
     } catch { /* noop */ }
   }, [draft])
+
+  const persist = useCallback(async () => {
+    setSaving(true); setSaveErr('')
+    try {
+      const input = draftToInput(draft)
+      const row = pubId ? await updatePublicacao(pubId, input) : await createPublicacao(input)
+      setPubId(row.id)
+      setSavedAt(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Falha ao salvar a publicação.')
+    } finally {
+      setSaving(false)
+    }
+  }, [draft, pubId])
+
+  function novaPublicacao() {
+    releaseAssets(assets)
+    setAssets([])
+    setDraft(EMPTY_DRAFT)
+    setPubId(null)
+    setStep(0)
+    try { localStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
+  }
 
   // Autosave leve — o rascunho não se perde ao trocar de aba ou recarregar.
   useEffect(() => {
@@ -245,12 +375,21 @@ function NovaPublicacao() {
           </button>
         )}
         <button
-          onClick={save}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-4 py-2 text-sm text-forest-800 hover:border-forest-300"
+          onClick={() => { save(); void persist() }}
+          disabled={saving || draft.ideia.trim().length < 8}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-4 py-2 text-sm text-forest-800 hover:border-forest-300 disabled:opacity-40"
         >
-          <Save className="h-4 w-4" /> Salvar rascunho
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {pubId ? 'Salvar alterações' : 'Salvar publicação'}
         </button>
-        {savedAt && <span className="text-xs text-stone-400">rascunho salvo às {savedAt}</span>}
+        <button
+          onClick={novaPublicacao}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink-soft hover:border-forest-300"
+        >
+          Nova
+        </button>
+        {saveErr && <span className="text-xs text-red-600">{saveErr}</span>}
+        {!saveErr && savedAt && <span className="text-xs text-stone-400">salvo às {savedAt}</span>}
       </div>
     </div>
   )
