@@ -6,7 +6,9 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
+import OverlayTemplate from './estudio/OverlayTemplate'
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
 import { offsetToDate, type PlanItem } from '../../lib/estudioPlan'
 import { toPerfRows, summarize, type PerfRow } from '../../lib/estudioPerformance'
@@ -649,6 +651,7 @@ function NovaPublicacao() {
   // Artes renderizadas (blobs) — vivem só na sessão; não serializam no rascunho.
   const [assets, setAssets] = useState<RenderedAsset[]>([])
   useEffect(() => () => releaseAssets(assets), [assets])
+  const [reelRoteiro, setReelRoteiro] = useState('')
 
   // Persistência no banco (Fase 2a). O localStorage segue como retomada rápida;
   // a linha em estudio_publicacoes é a fonte de verdade do histórico.
@@ -682,6 +685,7 @@ function NovaPublicacao() {
   function novaPublicacao() {
     releaseAssets(assets)
     setAssets([])
+    setReelRoteiro('')
     setDraft(EMPTY_DRAFT)
     setPubId(null)
     setStep(0)
@@ -733,9 +737,9 @@ function NovaPublicacao() {
       <div className="rounded-2xl border border-line bg-white p-5">
         {step === 0 && <StepIdeia draft={draft} patch={patch} toggle={toggle} />}
         {step === 1 && <StepVisual draft={draft} patch={patch} />}
-        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} />}
+        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
-        {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} />}
+        {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} reelRoteiro={reelRoteiro} />}
       </div>
 
       {/* navegação */}
@@ -954,17 +958,58 @@ function slidesFor(id: string, spec: FormatSpec, draft: Draft): TemplateContent[
 }
 
 function StepFormatos({
-  draft, toggle, assets, setAssets,
+  draft, toggle, assets, setAssets, setReelRoteiro,
 }: {
   draft: Draft
   toggle: (k: 'objetivos' | 'formatos', v: string) => void
   assets: RenderedAsset[]
   setAssets: (a: RenderedAsset[]) => void
+  setReelRoteiro: (s: string) => void
 }) {
   const stageRef = useRef<HTMLDivElement>(null)
+  const overlayStageRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
+  const temReel = selected.includes('reel-capa')
+
+  const [reelScript, setReelScript] = useState<ReelScript | null>(null)
+  const [reelBusy, setReelBusy] = useState(false)
+  const [reelErr, setReelErr] = useState('')
+  const overlays = temReel && reelScript ? overlayTexts(reelScript) : []
+
+  async function gerarRoteiro() {
+    setReelBusy(true); setReelErr('')
+    try {
+      const s = await generateReelScript(toBrief(draft))
+      setReelScript(s)
+      setReelRoteiro(reelScriptToText(s))
+    } catch (e) {
+      setReelErr(estudioAiMessage(e))
+    } finally {
+      setReelBusy(false)
+    }
+  }
+
+  async function gerarOverlays() {
+    if (!overlayStageRef.current) return
+    setReelBusy(true); setReelErr('')
+    const spec = FORMAT_SPECS['reel-capa']
+    const semOverlay = assets.filter(a => !a.filename.startsWith('overlay-'))
+    const novos: RenderedAsset[] = []
+    try {
+      for (let i = 0; i < overlays.length; i++) {
+        const node = overlayStageRef.current.querySelector<HTMLElement>(`[data-ov="${i}"]`)
+        if (!node) continue
+        novos.push(await snapshot(node, spec, `overlay-${String(i + 1).padStart(2, '0')}-${spec.width}x${spec.height}.png`, { transparent: true }))
+      }
+      setAssets([...semOverlay, ...novos])
+    } catch (e) {
+      setReelErr(e instanceof Error ? e.message : 'Falha ao gerar os overlays.')
+    } finally {
+      setReelBusy(false)
+    }
+  }
 
   const plan = useMemo(
     () => selected.map(id => ({ id, spec: FORMAT_SPECS[id], slides: slidesFor(id, FORMAT_SPECS[id], draft) })),
@@ -1048,9 +1093,45 @@ function StepFormatos({
         </div>
       )}
 
+      {temReel && (
+        <div className="space-y-3 rounded-xl border border-line bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-serif text-sm text-forest-900">Roteiro do reel</h4>
+              <p className="text-xs text-ink-soft">O Estúdio não grava vídeo — entrega o roteiro e os textos de tela como PNG transparente para o CapCut.</p>
+            </div>
+            <button onClick={gerarRoteiro} disabled={reelBusy || draft.ideia.trim().length < 8} className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40">
+              {reelBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {reelScript ? 'Refazer' : 'Gerar roteiro'}
+            </button>
+          </div>
+          {reelErr && <p className="text-xs text-red-600">{reelErr}</p>}
+          {reelScript && (
+            <>
+              <div className="rounded-lg bg-stone-50 p-3 text-xs">
+                <p className="font-medium text-forest-900">Gancho: <span className="font-normal text-ink">{reelScript.gancho}</span></p>
+                <ol className="mt-2 space-y-1">
+                  {reelScript.blocos.map((b, i) => (
+                    <li key={i} className="text-ink-soft"><b className="text-forest-700">{b.tempo || `bloco ${i + 1}`}</b> — {b.fala}{b.textoNaTela && <span className="text-ink"> · tela: “{b.textoNaTela}”</span>}</li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-ink-soft">Áudio: {reelScript.audioSugestao} · CTA: {reelScript.cta}</p>
+              </div>
+              <button onClick={gerarOverlays} disabled={reelBusy || overlays.length === 0} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                {reelBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Gerar {overlays.length} overlay{overlays.length === 1 ? '' : 's'} (PNG transparente)
+              </button>
+              {assets.some(a => a.filename.startsWith('overlay-')) && (
+                <p className="text-[11px] text-forest-700">Overlays adicionados às artes — vão no pacote junto com o roteiro.</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <NextPhaseNote>
-        Estilo <b>template da marca</b> — carrossel e quiz saem com todos os slides (capa, conteúdo, CTA). A
-        <b> IA generativa de imagem</b> fica para uma fase futura.
+        Estilo <b>template da marca</b> — carrossel e quiz saem com todos os slides. O reel entrega <b>roteiro + textos de
+        tela</b>; a montagem em vídeo (slideshow MP4) e a IA generativa de imagem ficam para depois.
       </NextPhaseNote>
 
       {/* palco de render fora da tela — dimensão real, capturado pelo html2canvas */}
@@ -1060,6 +1141,13 @@ function StepFormatos({
             <FormatTemplate spec={p.spec} content={content} />
           </div>
         )))}
+      </div>
+      <div ref={overlayStageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+        {overlays.map((texto, i) => (
+          <div key={i} data-ov={i}>
+            <OverlayTemplate spec={FORMAT_SPECS['reel-capa']} texto={texto} />
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1185,11 +1273,12 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 }
 
 function StepPacote({
-  draft, assets, patch,
+  draft, assets, patch, reelRoteiro,
 }: {
   draft: Draft
   assets: RenderedAsset[]
   patch: (p: Partial<Draft>) => void
+  reelRoteiro: string
 }) {
   const fmtLabels = FORMATS.filter(f => draft.formatos.includes(f.id)).map(f => f.label)
   const [zipping, setZipping] = useState(false)
@@ -1201,6 +1290,7 @@ function StepPacote({
     ideia: draft.ideia, legenda: draft.legenda, hashtags: draft.hashtags,
     primeiroComentario: draft.primeiroComentario, formatos: draft.formatos,
     publishMode: draft.publishMode, scheduledFor: draft.scheduledFor || undefined,
+    reelRoteiro: reelRoteiro || undefined,
   }
 
   async function baixarZip() {
@@ -1235,6 +1325,9 @@ function StepPacote({
         <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Hashtags (1º comentário)</span><CopyBtn text={draft.hashtags} label="Copiar hashtags" /></div>
         {draft.primeiroComentario && (
           <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Comentário com CTA</span><CopyBtn text={draft.primeiroComentario} label="Copiar comentário" /></div>
+        )}
+        {reelRoteiro && (
+          <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Roteiro do reel</span><CopyBtn text={reelRoteiro} label="Copiar roteiro" /></div>
         )}
       </div>
 
