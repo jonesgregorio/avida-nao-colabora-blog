@@ -68,9 +68,9 @@ export default function DiaryDetailsDrawer({
 
         <div className="space-y-4 pb-3">
           {isEssential && (fieldOn('energy') || fieldOn('sleep_quality')) && (
-            <section className="rounded-2xl border border-line bg-linen/25 p-4">
+            <section className="rounded-2xl border border-line/70 bg-linen/15 p-4">
               <h3 className="text-sm font-semibold text-forest-900">Como esse momento apareceu em você?</h3>
-              <p className="mt-1 text-xs text-ink-soft">Se ajudar, registre alguns sinais do momento.</p>
+              <p className="mt-1 text-xs text-ink-soft">Se for útil, você pode registrar estes sinais.</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {fieldOn('energy') && <SliderField label="Energia" value={values.energy} touched={touched.has('energy')} onChange={value => onScaleChange('energy', value)} onClear={() => onScaleClear('energy')} />}
                 {fieldOn('sleep_quality') && <SliderField label="Sono" value={values.sleep} touched={touched.has('sleep')} onChange={value => onScaleChange('sleep', value)} onClear={() => onScaleClear('sleep')} />}
@@ -108,8 +108,8 @@ export default function DiaryDetailsDrawer({
 
           {isPlus && (
             <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4">
-              <button type="button" aria-label="Outros detalhes — quero refletir mais sobre este registro" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={plusDetailsOpen}>
-                <div><p className="text-sm font-semibold text-forest-900">Outros detalhes</p><p className="mt-0.5 text-xs text-ink-soft">Sinais mais específicos, se forem úteis para você.</p></div>
+              <button type="button" aria-label="Sinais mais específicos — quero refletir mais sobre este registro" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={plusDetailsOpen}>
+                <div><p className="text-sm font-semibold text-forest-900">Sinais mais específicos</p><p className="mt-0.5 text-xs text-ink-soft">Se forem úteis, você pode acrescentar estes sinais.</p></div>
                 {plusDetailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
               {plusDetailsOpen && (

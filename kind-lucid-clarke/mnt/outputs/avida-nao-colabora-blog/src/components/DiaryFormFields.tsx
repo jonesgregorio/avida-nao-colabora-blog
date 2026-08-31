@@ -41,7 +41,7 @@ export function QuickScaleField({ label, value, touched, labels, onChange, onCle
 
 export function TagGroup({ title, description, options, selected, onToggle, category }: { title: string; description?: string; options: string[]; selected: string[]; onToggle: (tag: string) => void; category?: TagCategory }) {
   const [open, setOpen] = useState(false)
-  const visible = open ? options : unique([...options.slice(0, 7), ...selected])
+  const visible = open ? options : unique([...options.slice(0, 6), ...selected])
   return (
     <div className="rounded-2xl border border-line bg-white p-4">
       <p className="text-sm font-semibold text-forest-900">{title}</p>
@@ -49,7 +49,7 @@ export function TagGroup({ title, description, options, selected, onToggle, cate
       <div className="flex flex-wrap gap-2">
         {visible.map(tag => <DiaryTagChip key={tag} label={tag} category={category} selected={selected.includes(tag)} onClick={() => onToggle(tag)} />)}
       </div>
-      {options.length > 7 && <button type="button" onClick={() => setOpen(v => !v)} className="text-xs text-forest-700 font-medium mt-3">{open ? 'Mostrar menos' : 'Ver mais opções'}</button>}
+      {options.length > 6 && <button type="button" onClick={() => setOpen(v => !v)} className="text-xs text-forest-700 font-medium mt-3">{open ? 'Mostrar menos' : 'Ver mais opções'}</button>}
     </div>
   )
 }
