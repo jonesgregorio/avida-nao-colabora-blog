@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, generateImage, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generatePhrase, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, generateImage, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 import { summarize as summarizeComunidade, type Interacao } from '../../lib/estudioCommunity'
 import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
@@ -1121,7 +1121,7 @@ function NovaPublicacao() {
       <div className="rounded-2xl border border-line bg-white p-5">
         {step === 0 && <StepIdeia draft={draft} patch={patch} toggle={toggle} />}
         {step === 1 && <StepVisual draft={draft} patch={patch} fotoUrl={fotoUrl} setFotoUrl={setFotoUrl} />}
-        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} reelVideo={reelVideo} setReelVideo={setReelVideo} fotoUrl={fotoUrl} />}
+        {step === 2 && <StepFormatos draft={draft} toggle={toggle} patch={patch} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} reelVideo={reelVideo} setReelVideo={setReelVideo} fotoUrl={fotoUrl} setFotoUrl={setFotoUrl} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
         {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} reelRoteiro={reelRoteiro} reelVideo={reelVideo} />}
       </div>
@@ -1244,11 +1244,26 @@ function StepVisual({
   const [racional, setRacional] = useState('')
   const [imgBusy, setImgBusy] = useState(false)
   const [fotoIA, setFotoIA] = useState(false)
+  const [fraseBusy, setFraseBusy] = useState(false)
+  const [fraseAlt, setFraseAlt] = useState<string[]>([])
   const podeGerar = draft.ideia.trim().length >= 8
 
   function setFotoManual(u: string | null) {
     setFotoIA(false)
     setFotoUrl(u)
+  }
+
+  async function escreverFrase() {
+    setFraseBusy(true); setErr(''); setFraseAlt([])
+    try {
+      const r = await generatePhrase(toBrief(draft))
+      patch({ titulo: r.frase })
+      setFraseAlt(r.alternativas)
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setFraseBusy(false)
+    }
   }
 
   async function gerarFotoIA(maisNitida = false) {
@@ -1317,15 +1332,32 @@ function StepVisual({
       </div>
 
       <div>
-        <Field>Frase da arte</Field>
+        <div className="mb-1.5 flex items-center justify-between">
+          <Field>Frase da arte <span className="font-normal normal-case tracking-normal text-stone-400">— opcional, a IA preenche se você deixar em branco</span></Field>
+          <button
+            onClick={escreverFrase}
+            disabled={fraseBusy || !podeGerar}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+          >
+            {fraseBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {draft.titulo ? 'Reescrever' : 'Escrever com a IA'}
+          </button>
+        </div>
         <textarea
           value={draft.titulo}
           onChange={e => patch({ titulo: e.target.value })}
           rows={2}
-          placeholder={draft.tipoArte === 'pessoa' ? 'A frase que vai à esquerda, ao lado da foto.' : 'A frase grande que vai no centro da arte.'}
+          placeholder={draft.tipoArte === 'pessoa' ? 'A frase que vai à esquerda, ao lado da imagem.' : 'A frase grande que vai no centro da arte.'}
           className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
         />
-        <span className="text-[11px] text-stone-400">{draft.titulo.length} caracteres · aparece igual em todos os formatos escolhidos</span>
+        {fraseAlt.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {fraseAlt.map((f, i) => (
+              <button key={i} onClick={() => patch({ titulo: f })} className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] text-ink-soft hover:border-forest-300">{f}</button>
+            ))}
+          </div>
+        )}
+        <span className="mt-0.5 block text-[11px] text-stone-400">{draft.titulo.length} caracteres · aparece igual em todos os formatos</span>
       </div>
 
       {draft.tipoArte === 'pessoa' && (
@@ -1458,26 +1490,32 @@ function slidesFor(id: string, spec: FormatSpec, draft: Draft): TemplateContent[
 }
 
 function StepFormatos({
-  draft, toggle, assets, setAssets, setReelRoteiro, reelVideo, setReelVideo, fotoUrl,
+  draft, toggle, patch, assets, setAssets, setReelRoteiro, reelVideo, setReelVideo, fotoUrl, setFotoUrl,
 }: {
   draft: Draft
   toggle: (k: 'objetivos' | 'formatos', v: string) => void
+  patch: (p: Partial<Draft>) => void
   assets: RenderedAsset[]
   setAssets: (a: RenderedAsset[]) => void
   setReelRoteiro: (s: string) => void
   reelVideo: ReelVideo | null
   setReelVideo: (v: ReelVideo | null) => void
   fotoUrl: string | null
+  setFotoUrl: (u: string | null) => void
 }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const overlayStageRef = useRef<HTMLDivElement>(null)
   const frameStageRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [autoIA, setAutoIA] = useState(true)
+  const [autoNota, setAutoNota] = useState('')
   const variant = draft.tipoArte
   const photoUrl = fotoUrl
   const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
   const temReel = selected.includes('reel-capa')
+  const precisaFrase = !draft.titulo.trim()
+  const precisaImagem = variant === 'pessoa' && !fotoUrl
 
   const [reelScript, setReelScript] = useState<ReelScript | null>(null)
   const [reelBusy, setReelBusy] = useState(false)
@@ -1566,13 +1604,37 @@ function StepFormatos({
   const nodeInfo = useRef<Map<string, { id: string; slide: number; spec: FormatSpec }>>(new Map())
   const [hiRes, setHiRes] = useState('')
 
+  const doisFrames = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
   async function gerar() {
     if (!stageRef.current) return
-    setBusy(true); setErr('')
-    releaseAssets(assets)
-    nodeInfo.current.clear()
-    const out: RenderedAsset[] = []
+    setBusy(true); setErr(''); setAutoNota('')
+    const feito: string[] = []
     try {
+      // A IA completa o que ficou em branco (frase sempre; imagem só no tipo "pessoa").
+      if (autoIA && precisaFrase) {
+        const r = await generatePhrase(toBrief(draft))
+        patch({ titulo: r.frase })
+        feito.push('frase escrita pela IA')
+      }
+      if (autoIA && precisaImagem) {
+        let prompt = draft.prompt
+        if (!prompt.trim()) {
+          const p = await generateImagePrompt(toBrief(draft))
+          prompt = p.negativos ? `${p.prompt}\n\nEvitar: ${p.negativos}` : p.prompt
+        }
+        const dataUrl = await generateImage(prompt, { formato: 'feed-11' })
+        setFotoUrl(dataUrl)
+        feito.push('imagem gerada pela IA (~US$ 0,04)')
+      }
+      if (feito.length) {
+        setAutoNota(feito.join(' · '))
+        await doisFrames() // deixa o React aplicar o novo estado no palco antes do snapshot
+      }
+
+      releaseAssets(assets)
+      nodeInfo.current.clear()
+      const out: RenderedAsset[] = []
       for (const p of plan) {
         for (let i = 0; i < p.slides.length; i++) {
           const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${p.id}"][data-slide="${i}"]`)
@@ -1585,7 +1647,7 @@ function StepFormatos({
       }
       setAssets(out)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Falha ao gerar as artes.')
+      setErr(e instanceof Error ? estudioAiMessage(e) : 'Falha ao gerar as artes.')
     } finally {
       setBusy(false)
     }
@@ -1638,6 +1700,18 @@ function StepFormatos({
         })}
       </div>
 
+      {(precisaFrase || precisaImagem) && (
+        <label className="flex items-start gap-2 rounded-xl border border-line bg-mint/20 p-3 text-xs text-ink">
+          <input type="checkbox" checked={autoIA} onChange={e => setAutoIA(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-stone-300 text-forest-700" />
+          <span>
+            <b>Deixar a IA completar o que faltar</b> ao gerar:
+            {precisaFrase && ' a frase'}{precisaFrase && precisaImagem && ' e'}
+            {precisaImagem && ' a imagem da pessoa (~US$ 0,04)'}.
+            <span className="block text-ink-soft">Desmarque se quiser preencher tudo à mão no passo anterior.</span>
+          </span>
+        </label>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={gerar}
@@ -1647,6 +1721,7 @@ function StepFormatos({
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Gerar {totalArtes} {totalArtes === 1 ? 'arte' : 'artes'}
         </button>
+        {autoNota && <span className="text-xs text-forest-700">{autoNota}</span>}
         {err && <span className="text-xs text-red-600">{err}</span>}
       </div>
 
