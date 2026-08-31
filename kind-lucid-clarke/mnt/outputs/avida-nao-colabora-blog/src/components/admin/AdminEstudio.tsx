@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Megaphone, Sparkles, CalendarDays, Grid3x3, Bookmark, Users2,
   BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2, Download, Check, AlertTriangle,
@@ -1171,6 +1172,32 @@ function Field({ children }: { children: ReactNode }) {
   return <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{children}</span>
 }
 
+// Imagem que abre em tela cheia ao clicar, para o admin analisar de perto.
+function ZoomableImg({ src, alt, className, style }: { src: string; alt?: string; className?: string; style?: CSSProperties }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [open])
+  return (
+    <>
+      <img src={src} alt={alt ?? ''} className={className} style={{ ...style, cursor: 'zoom-in' }} onClick={() => setOpen(true)} />
+      {open && createPortal(
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,47,37,0.88)', display: 'grid', placeItems: 'center', padding: 24 }}
+        >
+          <img src={src} alt={alt ?? ''} style={{ maxWidth: '92vw', maxHeight: '92vh', borderRadius: 12, boxShadow: '0 24px 70px rgba(0,0,0,0.55)', cursor: 'zoom-out' }} />
+          <span style={{ position: 'fixed', top: 16, right: 20, color: '#FBFAF7', fontSize: 13 }}>clique ou Esc para fechar</span>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 function StepIdeia({
   draft, patch, toggle,
 }: {
@@ -1364,8 +1391,8 @@ function StepVisual({
           <Field>Imagem da pessoa</Field>
           <div className="flex flex-wrap items-center gap-3">
             {fotoUrl
-              ? <img src={fotoUrl} alt="" className="h-16 w-16 rounded-full border border-line object-cover" />
-              : <span className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem imagem</span>}
+              ? <ZoomableImg src={fotoUrl} className="h-28 w-28 rounded-full border border-line object-cover" />
+              : <span className="grid h-28 w-28 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem imagem</span>}
             <label className="cursor-pointer rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">
               {fotoUrl ? 'Trocar foto' : 'Escolher foto'}
               <input type="file" accept="image/*" onChange={onFoto} className="hidden" />
@@ -1704,10 +1731,10 @@ function StepFormatos({
       </div>
 
       {assets.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {assets.map(a => (
             <figure key={a.filename} className="overflow-hidden rounded-xl border border-line bg-white">
-              <img src={a.url} alt={a.filename} className="w-full" style={{ aspectRatio: `${a.width}/${a.height}` }} />
+              <ZoomableImg src={a.url} alt={a.filename} className="w-full" style={{ aspectRatio: `${a.width}/${a.height}` }} />
               <figcaption className="space-y-1.5 px-3 py-2 text-[11px]">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>

@@ -162,6 +162,7 @@ export async function generateImage(prompt: string, opts: { formato?: string } =
   if (d?.dataUrl) return { dataUrl: d.dataUrl, model: d.model ?? '' }
   if (d?.error === 'no_key') throw new EstudioAiError('Geração de imagem não está configurada no servidor.')
   if (d?.error === 'quota') throw new EstudioAiError('Cota de imagem do Gemini atingida. Tente mais tarde.')
+  if (d?.error === 'timeout') throw new EstudioAiError('A geração demorou demais e foi cancelada. Tente de novo.')
   const disp = d?.disponiveis?.length ? ` Modelos de imagem no seu projeto: ${d.disponiveis.join(', ')}.` : ''
   if (d?.error === 'permission') throw new EstudioAiError(`O projeto Gemini não tem acesso aos modelos de imagem.${disp} ${d.detail ?? ''}`.trim())
   if (d?.error === 'sem_modelo_de_imagem') throw new EstudioAiError(`Nenhum modelo de imagem funcionou.${disp} Defina GEMINI_IMAGE_MODEL no Supabase com um deles.`.trim())

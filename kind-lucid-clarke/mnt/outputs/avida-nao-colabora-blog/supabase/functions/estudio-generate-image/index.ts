@@ -24,7 +24,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 const ASPECTS = new Set(['1:1', '9:16', '3:4', '4:3', '16:9'])
-const TIMEOUT_MS = 45_000
+const TIMEOUT_MS = 110_000 // Edge Function tem folga; geração de imagem pode levar ~30s
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 // Candidatos conhecidos, usados se o ListModels não achar nada útil.
@@ -120,17 +120,16 @@ Deno.serve(async (req: Request) => {
     const found = await discover(key, controller.signal)
     const configured = (Deno.env.get('GEMINI_IMAGE_MODEL') || '').trim()
 
-    // ordem: modelo do secret → descobertos → candidatos conhecidos
-    const imagenModels = [...new Set([...(configured ? [configured] : []), ...found.imagen, ...FALLBACK_IMAGEN])]
-    const geminiModels = [...new Set([...found.gemini, ...FALLBACK_GEMINI])]
+    // Se o secret define um modelo, usa só ele. Senão: Gemini Image primeiro
+    // (é o que costuma funcionar nesse projeto), Imagen depois. Máx 5 tentativas
+    // pra não estourar o tempo.
+    const order = configured
+      ? [configured]
+      : [...new Set([...found.gemini, ...FALLBACK_GEMINI, ...found.imagen, ...FALLBACK_IMAGEN])].slice(0, 5)
 
-    for (const model of imagenModels) {
-      const r = await tryImagen(model, key, prompt, aspect, controller.signal)
-      if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
-      if (r.detail) tried.push(r.detail)
-    }
-    for (const model of geminiModels) {
-      const r = await tryGemini(model, key, prompt, aspect, controller.signal)
+    for (const model of order) {
+      const run = model.startsWith('imagen') ? tryImagen : tryGemini
+      const r = await run(model, key, prompt, aspect, controller.signal)
       if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
       if (r.detail) tried.push(r.detail)
     }
