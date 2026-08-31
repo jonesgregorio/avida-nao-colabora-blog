@@ -2,13 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Megaphone, Sparkles, CalendarDays, Grid3x3, Bookmark, Users2,
   BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2, Download, Check, AlertTriangle,
+  Copy, ExternalLink, PackageCheck, CalendarClock,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
 import { generateCaptions, generateImagePrompt, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
-import { FORMAT_SPECS } from '../../lib/estudioFormats'
+import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
 import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
-import FormatTemplate from './estudio/FormatTemplate'
+import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
+import FormatTemplate, { type TemplateContent } from './estudio/FormatTemplate'
+
+const BUSINESS_SUITE_URL = 'https://business.facebook.com/latest/composer'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estúdio de Conteúdo — área de marketing do admin (mockup estudio-conteudo.html).
@@ -64,6 +68,10 @@ interface Draft {
   legenda: string
   hashtags: string
   primeiroComentario: string
+  publishMode: 'manual' | 'agendar'
+  scheduledFor: string
+  status: 'rascunho' | 'pronto'
+  postUrl: string
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -76,6 +84,10 @@ const EMPTY_DRAFT: Draft = {
   legenda: '',
   hashtags: '',
   primeiroComentario: '',
+  publishMode: 'agendar',
+  scheduledFor: '',
+  status: 'rascunho',
+  postUrl: '',
 }
 
 function loadDraft(): Draft {
@@ -211,7 +223,7 @@ function NovaPublicacao() {
         {step === 1 && <StepVisual draft={draft} patch={patch} />}
         {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
-        {step === 4 && <StepPacote draft={draft} assets={assets} />}
+        {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} />}
       </div>
 
       {/* navegação */}
@@ -379,6 +391,47 @@ const FMT_KICKER: Record<string, string> = {
   carrossel: 'Carrossel', story: 'No story de hoje', 'reel-capa': 'Novo reel', quiz: 'Mito ou verdade',
 }
 
+// Divide a legenda em frases utilizáveis como slides.
+function legendaEmFrases(legenda: string): string[] {
+  return legenda
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 12)
+}
+
+// Conteúdo de cada arte de um formato. Formatos simples = 1; carrossel/quiz = vários.
+function slidesFor(id: string, spec: FormatSpec, draft: Draft): TemplateContent[] {
+  const titulo = draft.titulo || draft.ideia.slice(0, 60)
+  const frases = legendaEmFrases(draft.legenda)
+
+  if (id === 'quiz') {
+    return [
+      { titulo: 'Mito ou verdade?', kicker: 'Quiz', corpo: titulo },
+      { titulo: 'A resposta', kicker: 'Quiz', corpo: frases[0] || draft.legenda.slice(0, 160) },
+    ]
+  }
+
+  if (spec.slides && spec.slides > 1) {
+    const total = spec.slides
+    const capa: TemplateContent = { titulo, kicker: FMT_KICKER[id] }
+    const meio = frases.slice(0, total - 2).map((f, i) => ({
+      titulo: f, kicker: `${i + 2}/${total}`,
+    }))
+    const cta: TemplateContent = {
+      titulo: 'Continue no blog',
+      kicker: `${total}/${total}`,
+      corpo: draft.primeiroComentario || 'Link do artigo na bio.',
+    }
+    return [capa, ...meio, cta].slice(0, total)
+  }
+
+  return [{
+    titulo,
+    kicker: FMT_KICKER[id],
+    corpo: id.startsWith('feed') ? undefined : frases[0] || undefined,
+  }]
+}
+
 function StepFormatos({
   draft, toggle, assets, setAssets,
 }: {
@@ -391,7 +444,12 @@ function StepFormatos({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
-  const titulo = draft.titulo || draft.ideia.slice(0, 60)
+
+  const plan = useMemo(
+    () => selected.map(id => ({ id, spec: FORMAT_SPECS[id], slides: slidesFor(id, FORMAT_SPECS[id], draft) })),
+    [selected, draft],
+  )
+  const totalArtes = plan.reduce((n, p) => n + p.slides.length, 0)
 
   async function gerar() {
     if (!stageRef.current) return
@@ -399,10 +457,13 @@ function StepFormatos({
     releaseAssets(assets)
     const out: RenderedAsset[] = []
     try {
-      for (const id of selected) {
-        const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${id}"]`)
-        if (!node) continue
-        out.push(await snapshot(node, FORMAT_SPECS[id], `${id}-${FORMAT_SPECS[id].width}x${FORMAT_SPECS[id].height}.png`))
+      for (const p of plan) {
+        for (let i = 0; i < p.slides.length; i++) {
+          const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${p.id}"][data-slide="${i}"]`)
+          if (!node) continue
+          const suffix = p.slides.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : ''
+          out.push(await snapshot(node, p.spec, `${p.id}${suffix}-${p.spec.width}x${p.spec.height}.png`))
+        }
       }
       setAssets(out)
     } catch (e) {
@@ -443,7 +504,7 @@ function StepFormatos({
           className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          Gerar {selected.length} {selected.length === 1 ? 'arte' : 'artes'}
+          Gerar {totalArtes} {totalArtes === 1 ? 'arte' : 'artes'}
         </button>
         {err && <span className="text-xs text-red-600">{err}</span>}
       </div>
@@ -467,20 +528,17 @@ function StepFormatos({
       )}
 
       <NextPhaseNote>
-        Estilo <b>template da marca</b>. Carrossel e quiz saem por ora só com a capa — os slides internos e a IA generativa
-        de imagem entram na <b>Fase 1e</b>. O pacote .zip também.
+        Estilo <b>template da marca</b> — carrossel e quiz saem com todos os slides (capa, conteúdo, CTA). A
+        <b> IA generativa de imagem</b> fica para uma fase futura.
       </NextPhaseNote>
 
       {/* palco de render fora da tela — dimensão real, capturado pelo html2canvas */}
       <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
-        {selected.map(id => (
-          <div key={id} data-fmt={id}>
-            <FormatTemplate
-              spec={FORMAT_SPECS[id]}
-              content={{ titulo, kicker: FMT_KICKER[id], corpo: id.startsWith('feed') ? undefined : draft.legenda.split('\n')[0] || undefined }}
-            />
+        {plan.map(p => p.slides.map((content, i) => (
+          <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
+            <FormatTemplate spec={p.spec} content={content} />
           </div>
-        ))}
+        )))}
       </div>
     </div>
   )
@@ -585,47 +643,181 @@ function StepTextos({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
   )
 }
 
-function StepPacote({ draft, assets }: { draft: Draft; assets: RenderedAsset[] }) {
-  const fmtLabels = FORMATS.filter(f => draft.formatos.includes(f.id)).map(f => f.label)
+function CopyBtn({ text, label }: { text: string; label: string }) {
+  const [done, setDone] = useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setDone(true)
+      setTimeout(() => setDone(false), 1500)
+    } catch { /* clipboard indisponível */ }
+  }
   return (
-    <div className="space-y-4">
+    <button
+      onClick={copy}
+      disabled={!text}
+      className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 text-[11px] font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40"
+    >
+      {done ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {done ? 'Copiado' : label}
+    </button>
+  )
+}
+
+function StepPacote({
+  draft, assets, patch,
+}: {
+  draft: Draft
+  assets: RenderedAsset[]
+  patch: (p: Partial<Draft>) => void
+}) {
+  const fmtLabels = FORMATS.filter(f => draft.formatos.includes(f.id)).map(f => f.label)
+  const [zipping, setZipping] = useState(false)
+  const [zipErr, setZipErr] = useState('')
+  const allOk = assets.length > 0 && assets.every(a => a.check.ok)
+  const podePublicar = allOk && draft.legenda.trim().length > 0
+
+  const pkgDraft: PackageDraft = {
+    ideia: draft.ideia, legenda: draft.legenda, hashtags: draft.hashtags,
+    primeiroComentario: draft.primeiroComentario, formatos: draft.formatos,
+    publishMode: draft.publishMode, scheduledFor: draft.scheduledFor || undefined,
+  }
+
+  async function baixarZip() {
+    setZipping(true); setZipErr('')
+    try {
+      downloadBlob(await buildZip(assets, pkgDraft), slugForZip(draft.ideia))
+    } catch (e) {
+      setZipErr(e instanceof Error ? e.message : 'Falha ao montar o .zip.')
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
       <div className="flex items-center gap-2">
         <span className="block h-5 w-5 text-forest-700"><LogoIcon className="h-full w-full" /></span>
-        <h3 className="font-serif text-lg text-forest-900">Resumo do rascunho</h3>
+        <h3 className="font-serif text-lg text-forest-900">Pacote da publicação</h3>
+        <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          draft.status === 'pronto' ? 'bg-forest-100 text-forest-800' : 'bg-amber-100 text-amber-700'
+        }`}>{draft.status === 'pronto' ? 'Pronto para publicar' : 'Rascunho'}</span>
       </div>
+
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Ideia</dt><dd className="mt-0.5 text-ink">{draft.ideia || '—'}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Objetivos</dt><dd className="mt-0.5 text-ink">{draft.objetivos.length ? draft.objetivos.join(', ') : '—'}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Estilo visual</dt><dd className="mt-0.5 text-ink">{draft.estilo}</dd></div>
         <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Formatos</dt><dd className="mt-0.5 text-ink">{fmtLabels.length ? fmtLabels.join(', ') : '—'}</dd></div>
       </dl>
 
+      {/* textos com copiar */}
+      <div className="space-y-2 rounded-xl border border-line bg-white p-3">
+        <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Legenda</span><CopyBtn text={draft.legenda} label="Copiar legenda" /></div>
+        <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Hashtags (1º comentário)</span><CopyBtn text={draft.hashtags} label="Copiar hashtags" /></div>
+        {draft.primeiroComentario && (
+          <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Comentário com CTA</span><CopyBtn text={draft.primeiroComentario} label="Copiar comentário" /></div>
+        )}
+      </div>
+
+      {/* artes + zip */}
       <div>
         <Field>Artes geradas</Field>
         {assets.length === 0 ? (
           <p className="text-xs text-ink-soft">Nenhuma arte gerada ainda — volte ao passo <b>Formatos</b> e clique em “Gerar artes”.</p>
         ) : (
-          <ul className="divide-y divide-stone-100 rounded-xl border border-line">
-            {assets.map(a => (
-              <li key={a.filename} className="flex items-center gap-3 px-3 py-2 text-xs">
-                <span className={`h-2 w-2 flex-shrink-0 rounded-full ${a.check.ok ? 'bg-forest-500' : 'bg-amber-400'}`} />
-                <span className="flex-1 truncate font-mono text-ink-soft">{a.filename}</span>
-                <span className="text-stone-400">{(a.bytes / 1024).toFixed(0)} KB</span>
-                <button
-                  onClick={() => downloadAsset(a)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 font-medium text-forest-800 hover:border-forest-300"
-                >
-                  <Download className="h-3.5 w-3.5" /> Baixar
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-stone-100 rounded-xl border border-line">
+              {assets.map(a => (
+                <li key={a.filename} className="flex items-center gap-3 px-3 py-2 text-xs">
+                  <span className={`h-2 w-2 flex-shrink-0 rounded-full ${a.check.ok ? 'bg-forest-500' : 'bg-amber-400'}`} />
+                  <span className="flex-1 truncate font-mono text-ink-soft">{a.filename}</span>
+                  <span className="text-stone-400">{(a.bytes / 1024).toFixed(0)} KB</span>
+                  <button onClick={() => downloadAsset(a)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 font-medium text-forest-800 hover:border-forest-300">
+                    <Download className="h-3.5 w-3.5" /> Baixar
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button onClick={baixarZip} disabled={zipping} className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40">
+                {zipping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Baixar pacote (.zip)
+              </button>
+              {zipErr && <span className="text-xs text-red-600">{zipErr}</span>}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* publicação */}
+      <div className="space-y-3 rounded-xl border border-line bg-white p-4">
+        <Field>Como vai publicar</Field>
+        <div className="flex flex-wrap gap-2">
+          {(['agendar', 'manual'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => patch({ publishMode: m })}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                draft.publishMode === m ? 'border-forest-900 bg-forest-900 text-white' : 'border-line bg-white text-ink-soft hover:border-forest-300'
+              }`}
+            >
+              {m === 'agendar' ? 'Agendar no Business Suite' : 'Postar manual pelo app'}
+            </button>
+          ))}
+        </div>
+        {draft.publishMode === 'agendar' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-xs text-ink-soft">
+              <CalendarClock className="h-4 w-4" />
+              <input
+                type="datetime-local"
+                value={draft.scheduledFor}
+                onChange={e => patch({ scheduledFor: e.target.value })}
+                className="rounded-lg border border-line bg-paper px-2 py-1 text-xs text-ink"
+              />
+            </label>
+            <a href={BUSINESS_SUITE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir Meta Business Suite
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* aprovação humana */}
+      <div className="space-y-3 rounded-xl border-l-2 border-forest-400 bg-stone-50 p-4">
+        {draft.status === 'rascunho' ? (
+          <>
+            <p className="text-xs text-ink-soft">
+              Revise as artes e os textos. Nada sai do Estúdio sozinho — publicar é sempre manual.
+            </p>
+            <button
+              onClick={() => patch({ status: 'pronto' })}
+              disabled={!podePublicar}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40"
+              title={podePublicar ? undefined : 'Gere as artes (todas no formato ok) e escreva a legenda'}
+            >
+              <PackageCheck className="h-4 w-4" /> Marcar como pronto para publicar
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 text-sm text-forest-800">
+              <Check className="h-4 w-4" /> Aprovado — pode publicar
+              <button onClick={() => patch({ status: 'rascunho' })} className="ml-2 text-xs text-ink-soft underline">voltar a rascunho</button>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Depois de publicar — link do post</span>
+              <input
+                type="url"
+                value={draft.postUrl}
+                onChange={e => patch({ postUrl: e.target.value })}
+                placeholder="https://www.instagram.com/p/…"
+                className="w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink"
+              />
+            </label>
+          </>
         )}
       </div>
 
       <NextPhaseNote>
-        O <b>pacote .zip</b> (artes + textos + instruções de sticker), o agendamento no Business Suite e a
-        <b> aprovação humana</b> antes de marcar como pronto para publicar entram na <b>Fase 1e</b>. Publicar via API do
+        Persistir a publicação num histórico (tabela) e puxar métricas ficam para a <b>Fase 2</b>. Publicar via API do
         Instagram e automatizar interação continuam fora de escopo.
       </NextPhaseNote>
     </div>
