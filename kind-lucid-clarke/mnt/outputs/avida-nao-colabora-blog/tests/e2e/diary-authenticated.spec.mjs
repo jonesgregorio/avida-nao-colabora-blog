@@ -120,6 +120,11 @@ async function openWritingMode(page) {
   await expect(page.getByRole('button', { name: 'Adicionar detalhes opcionais' })).toBeVisible()
 }
 
+async function openEmotionalContext(page) {
+  await page.getByRole('button', { name: /Quer acrescentar algo sobre este momento/i }).click()
+  await expect(page.getByText('Como você está se sentindo?')).toBeVisible()
+}
+
 async function installVoiceMocks(page, { permissionState = 'granted', denyMicrophone = false } = {}) {
   await page.addInitScript(({ state, deny }) => {
     window.__e2eMicRequests = 0
@@ -170,7 +175,6 @@ async function installVoiceMocks(page, { permissionState = 'granted', denyMicrop
 test('A escrita abre primeiro; o check-in rápido continua a um toque sem duplicar emoções', async ({ page }) => {
   await openDiary(page, 'plus', { width: 1440, height: 900 })
 
-  // Abre escrevendo.
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
 
   await openCheckin(page)
@@ -213,7 +217,7 @@ test('Gratuito mantém check-in simples, limite visível no diário e histórico
   await expect(page.getByText('Plano Gratuito')).toBeVisible()
   await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Histórico' }).click()
+  await page.getByRole('button', { name: 'Histórico', exact: true }).click()
   await expect(page.getByRole('heading', { name: /Sua história deste mês/i })).toBeVisible()
   await expect(page.getByRole('button', { name: /Exportar PDF/i })).toHaveCount(0)
 })
@@ -239,6 +243,7 @@ test('Diário completo abre minimalista e revela ajuda somente sob demanda', asy
 test('Essencial respeita opt-out integral, preserva o original e mantém organização recolhida', async ({ page }) => {
   await openDiary(page, 'essential', { width: 1440, height: 900 })
   await openWritingMode(page)
+  await openEmotionalContext(page)
   await page.getByRole('button', { name: /Bem-estar/i }).click()
   const editor = page.getByRole('textbox', { name: 'Texto do diário' })
   const original = 'Hoje foi um dia cheio, mas consegui terminar uma tarefa importante e quero registrar isso.'
