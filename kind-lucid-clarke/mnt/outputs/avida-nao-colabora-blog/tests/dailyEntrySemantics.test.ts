@@ -6,13 +6,14 @@ const home = fs.readFileSync(new URL('../src/components/LoggedHome.tsx', import.
 const diaryMood = fs.readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', import.meta.url), 'utf8')
 const legacyHome = fs.readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8')
 
-const expected = ['Nem um pouco', 'Quase nada', 'Mais ou menos', 'Até que sim', 'Colaborou']
+const expected = ['Nem um pouco', 'Fez o mínimo', 'Sobrevivemos', 'Até que tentou', 'Colaborou']
 
 test('Home separa avaliação do dia de estado emocional', () => {
   assert.match(home, /E aí, a vida colaborou hoje\?/)
   for (const label of expected) assert.match(home, new RegExp(label))
   assert.match(home, /daily_life_collaboration/)
-  assert.match(home, /Quer dizer como isso apareceu em você\? É opcional\./)
+  assert.match(home, /Como isso apareceu em você\?/ )
+  assert.match(home, /Opcional\. Escolha apenas se ajudar a dar contexto ao seu momento\./)
 })
 
 test('Diário e check-in continuam usando estados emocionais, não a escala da Home', () => {
