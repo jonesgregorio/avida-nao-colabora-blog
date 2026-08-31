@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react'
+import { useState } from 'react'
 import { useModalA11y } from '../hooks/useModalA11y'
 import { SliderField, TagGroup } from './DiaryFormFields'
 
@@ -36,38 +37,18 @@ interface DiaryDetailsDrawerProps {
 }
 
 export default function DiaryDetailsDrawer({
-  isEssential,
-  isPlus,
-  isFree,
-  fieldOn,
-  touched,
-  values,
-  onScaleChange,
-  onScaleClear,
-  emotions,
-  contexts,
-  needs,
-  careActions,
-  triggers,
-  onToggleEmotion,
-  onToggleContext,
-  onToggleNeed,
-  onToggleCareAction,
-  onToggleTrigger,
-  plusDetailsOpen,
-  onTogglePlusDetails,
-  onClose,
+  isEssential, isPlus, isFree, fieldOn, touched, values,
+  onScaleChange, onScaleClear, emotions, contexts, needs, careActions, triggers,
+  onToggleEmotion, onToggleContext, onToggleNeed, onToggleCareAction, onToggleTrigger,
+  plusDetailsOpen, onTogglePlusDetails, onClose,
 }: DiaryDetailsDrawerProps) {
   const dialogRef = useModalA11y(onClose)
+  const [contextOpen, setContextOpen] = useState(false)
+  const [careOpen, setCareOpen] = useState(false)
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Fechar detalhes opcionais"
-        className="fixed inset-0 z-40 cursor-default bg-forest-950/20 backdrop-blur-[1px]"
-        onClick={onClose}
-      />
+      <button type="button" aria-label="Fechar detalhes opcionais" className="fixed inset-0 z-40 cursor-default bg-forest-950/20 backdrop-blur-[1px]" onClick={onClose} />
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -78,43 +59,57 @@ export default function DiaryDetailsDrawer({
       >
         <div className="sticky top-0 z-10 -mx-1 mb-5 flex items-start justify-between gap-4 bg-white/95 px-1 pb-3 backdrop-blur">
           <div>
-            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-forest-600">
-              <SlidersHorizontal className="h-3.5 w-3.5" /> Opcional
-            </p>
+            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-forest-600"><SlidersHorizontal className="h-3.5 w-3.5" /> Opcional</p>
             <h2 id="diary-details-title" className="mt-1 font-serif text-2xl text-forest-900">Detalhes do seu registro</h2>
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">Preencha somente o que ajudar. Seu texto continua sendo a parte principal.</p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft">Preencha apenas o que ajudar. Nada aqui é obrigatório e seu texto continua sendo a parte principal.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-xl border border-line p-2 text-ink-soft hover:text-forest-900">
-            <X className="h-4 w-4" />
-          </button>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-xl border border-line p-2 text-ink-soft hover:text-forest-900"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="space-y-4 pb-3">
-          {isEssential && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SliderField label="Humor" value={values.moodScore} touched={touched.has('moodScore')} onChange={value => onScaleChange('moodScore', value)} onClear={() => onScaleClear('moodScore')} />
-              {fieldOn('energy') && <SliderField label="Energia" value={values.energy} touched={touched.has('energy')} onChange={value => onScaleChange('energy', value)} onClear={() => onScaleClear('energy')} />}
-              {fieldOn('anxiety_level') && <SliderField label="Ansiedade" value={values.anxiety} touched={touched.has('anxiety')} onChange={value => onScaleChange('anxiety', value)} onClear={() => onScaleClear('anxiety')} />}
-              {fieldOn('sleep_quality') && <SliderField label="Sono" value={values.sleep} touched={touched.has('sleep')} onChange={value => onScaleChange('sleep', value)} onClear={() => onScaleClear('sleep')} />}
-            </div>
+          {isEssential && (fieldOn('energy') || fieldOn('sleep_quality')) && (
+            <section className="rounded-2xl border border-line bg-linen/25 p-4">
+              <h3 className="text-sm font-semibold text-forest-900">Como esse momento apareceu em você?</h3>
+              <p className="mt-1 text-xs text-ink-soft">Se ajudar, registre alguns sinais do momento.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {fieldOn('energy') && <SliderField label="Energia" value={values.energy} touched={touched.has('energy')} onChange={value => onScaleChange('energy', value)} onClear={() => onScaleClear('energy')} />}
+                {fieldOn('sleep_quality') && <SliderField label="Sono" value={values.sleep} touched={touched.has('sleep')} onChange={value => onScaleChange('sleep', value)} onClear={() => onScaleClear('sleep')} />}
+              </div>
+            </section>
           )}
 
           <TagGroup title="Quais sentimentos apareceram?" description="Só marque se fizer sentido." options={isFree ? freeEmotionalTags : emotionalTags} selected={emotions} onToggle={onToggleEmotion} />
+
           {isEssential && (
-            <>
-              <TagGroup title="Onde isso apareceu?" options={contextTags} selected={contexts} onToggle={onToggleContext} category="context" />
-              <TagGroup title="O que você sente que precisa agora?" options={needTags} selected={needs} onToggle={onToggleNeed} category="need" />
-              <TagGroup title="O que pode ajudar um pouco?" description="Possibilidades, não obrigações." options={careTags} selected={careActions} onToggle={onToggleCareAction} category="care_action" />
-            </>
+            <section className="rounded-2xl border border-line bg-white p-4">
+              <button type="button" onClick={() => setContextOpen(value => !value)} className="flex w-full items-center justify-between gap-3 text-left" aria-expanded={contextOpen}>
+                <div>
+                  <p className="text-sm font-semibold text-forest-900">Quer acrescentar contexto?</p>
+                  <p className="mt-0.5 text-xs text-ink-soft">Onde isso apareceu e o que pode estar fazendo falta agora.</p>
+                </div>
+                {contextOpen ? <ChevronUp className="h-4 w-4 text-forest-600" /> : <ChevronDown className="h-4 w-4 text-forest-600" />}
+              </button>
+              {contextOpen && <div className="mt-4 space-y-3"><TagGroup title="Onde isso apareceu?" options={contextTags} selected={contexts} onToggle={onToggleContext} category="context" /><TagGroup title="O que você sente que precisa agora?" options={needTags} selected={needs} onToggle={onToggleNeed} category="need" /></div>}
+            </section>
+          )}
+
+          {isEssential && (
+            <section className="rounded-2xl border border-line bg-white p-4">
+              <button type="button" onClick={() => setCareOpen(value => !value)} className="flex w-full items-center justify-between gap-3 text-left" aria-expanded={careOpen}>
+                <div>
+                  <p className="text-sm font-semibold text-forest-900">O que pode ajudar um pouco?</p>
+                  <p className="mt-0.5 text-xs text-ink-soft">Possibilidades de cuidado, não uma lista de tarefas.</p>
+                </div>
+                {careOpen ? <ChevronUp className="h-4 w-4 text-forest-600" /> : <ChevronDown className="h-4 w-4 text-forest-600" />}
+              </button>
+              {careOpen && <div className="mt-4"><TagGroup title="Possibilidades para este momento" description="Escolha somente se alguma delas fizer sentido." options={careTags} selected={careActions} onToggle={onToggleCareAction} category="care_action" /></div>}
+            </section>
           )}
 
           {isPlus && (
             <div className="rounded-2xl border border-forest-100 bg-linen/40 p-4">
-              <button type="button" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left">
-                <div>
-                  <p className="text-sm font-semibold text-forest-900">Quero refletir mais sobre este registro</p>
-                  <p className="mt-0.5 text-xs text-ink-soft">Aprofundamento opcional do plano Plus.</p>
-                </div>
+              <button type="button" onClick={onTogglePlusDetails} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={plusDetailsOpen}>
+                <div><p className="text-sm font-semibold text-forest-900">Outros detalhes</p><p className="mt-0.5 text-xs text-ink-soft">Sinais mais específicos, se forem úteis para você.</p></div>
                 {plusDetailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
               {plusDetailsOpen && (
@@ -132,9 +127,7 @@ export default function DiaryDetailsDrawer({
           )}
         </div>
 
-        <div className="sticky bottom-0 -mx-1 mt-5 bg-white/95 px-1 pt-3 backdrop-blur">
-          <button type="button" onClick={onClose} className="w-full rounded-2xl bg-forest-900 px-4 py-3 text-sm font-medium text-white">Concluir detalhes</button>
-        </div>
+        <div className="sticky bottom-0 -mx-1 mt-5 bg-white/95 px-1 pt-3 backdrop-blur"><button type="button" onClick={onClose} className="w-full rounded-2xl bg-forest-900 px-4 py-3 text-sm font-medium text-white">Concluir detalhes</button></div>
       </div>
     </>
   )
