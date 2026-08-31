@@ -52,13 +52,13 @@ const STATUS_LABEL: Record<string, string> = {
   closed: 'Fechado',
 }
 const STATUS_COLOR: Record<string, string> = {
-  open: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-orange-100 text-orange-700',
-  waiting_client: 'bg-purple-100 text-purple-700',
-  awaiting_admin: 'bg-yellow-100 text-yellow-700',
-  awaiting_user: 'bg-purple-100 text-purple-700',
-  resolved: 'bg-green-100 text-green-700',
-  closed: 'bg-stone-100 text-stone-500',
+  open: 'bg-mint text-forest-700',
+  in_progress: 'bg-coral/25 text-[#8a3b23]',
+  waiting_client: 'bg-amber-100 text-amber-800',
+  awaiting_admin: 'bg-amber-100 text-amber-800',
+  awaiting_user: 'bg-coral/20 text-[#8a3b23]',
+  resolved: 'bg-mint text-forest-700',
+  closed: 'bg-paper-soft text-ink-soft',
 }
 const PRIORITY_LABEL: Record<string, string> = {
   low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente',
@@ -174,7 +174,6 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
     if (messages.length > lastCountRef.current - 1) scrollToBottom()
   }, [messages.length, scrollToBottom])
 
-  // Polling every 4s for non-closed tickets
   useEffect(() => {
     if (!ticket) return
     if (ticket.status === 'closed' || ticket.status === 'resolved') return
@@ -241,17 +240,13 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
       return
     }
 
-    // Replace optimistic with real message
     setMessages(prev => prev.map(m =>
       m.id === optimisticId
         ? { ...newMsg, sender_name: null, attachments: normalizeSupportAttachments(newMsg.attachments) }
         : m
     ))
 
-    // O trigger do banco é a fonte de verdade para status/unread/timestamps.
-    // Recarrega o ticket após o INSERT em vez de tentar UPDATE direto pelo usuário.
     await fetchData(true)
-
     setSending(false)
   }
 
@@ -261,14 +256,14 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
 
   if (loading) return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
-      {[1, 2, 3].map(i => <div key={i} className="h-16 bg-stone-100 rounded-xl animate-pulse" />)}
+      {[1, 2, 3].map(i => <div key={i} className="h-16 bg-paper-soft border border-line rounded-2xl animate-pulse" />)}
     </div>
   )
 
   if (notFound || !ticket) return (
     <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-      <p className="text-stone-500">Ticket não encontrado.</p>
-      <button onClick={onBack} className="mt-4 text-sm text-emerald-600 hover:underline">Voltar</button>
+      <p className="text-ink-soft">Ticket não encontrado.</p>
+      <button onClick={onBack} className="mt-4 text-sm text-forest-700 hover:underline">Voltar</button>
     </div>
   )
 
@@ -276,26 +271,24 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 flex flex-col" style={{ height: 'calc(100vh - 5rem)' }}>
-      {/* Header */}
       <div className="flex items-center gap-3 py-4 flex-shrink-0">
-        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500">
+        <button onClick={onBack} className="p-1.5 rounded-xl hover:bg-mint/30 text-ink-soft" aria-label="Voltar para suporte">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-stone-400 font-mono">#{ticket.ticket_number}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[ticket.status] ?? 'bg-stone-100 text-stone-500'}`}>
+            <span className="text-xs text-ink-soft font-mono">#{ticket.ticket_number}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[ticket.status] ?? 'bg-paper-soft text-ink-soft'}`}>
               {STATUS_LABEL[ticket.status] ?? ticket.status}
             </span>
-            <span className="text-xs border border-stone-200 text-stone-500 px-2 py-0.5 rounded-full">
+            <span className="text-xs border border-line text-ink-soft px-2 py-0.5 rounded-full">
               {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
             </span>
           </div>
-          <p className="font-semibold text-sm text-stone-800 leading-snug truncate">{ticket.subject}</p>
+          <p className="font-serif text-base text-forest-900 leading-snug truncate mt-0.5">{ticket.subject}</p>
         </div>
       </div>
 
-      {/* Meta cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 flex-shrink-0">
         {(
           [
@@ -305,26 +298,25 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
             ...(ticket.closed_at ? [['Fechado em', ticket.closed_at]] : []),
           ] as [string, string][]
         ).map(([label, date]) => (
-          <div key={label} className="bg-stone-50 border border-stone-100 rounded-lg px-3 py-2">
-            <p className="text-[10px] text-stone-400">{label}</p>
-            <p className="text-xs font-medium text-stone-700">{formatDate(date)}</p>
+          <div key={label} className="bg-paper-soft border border-line rounded-xl px-3 py-2">
+            <p className="text-[10px] text-ink-soft">{label}</p>
+            <p className="text-xs font-medium text-forest-800">{formatDate(date)}</p>
           </div>
         ))}
       </div>
 
-      {/* Messages */}
-      <div ref={messagesRef} className="flex-1 overflow-y-auto bg-stone-50 rounded-xl border border-stone-100 p-4 space-y-3 min-h-0">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto bg-paper-soft rounded-2xl border border-line p-4 space-y-3 min-h-0">
         {messages.map(msg => {
           const isUser = msg.sender_role === 'user'
           return (
             <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[78%] rounded-2xl px-4 py-3 shadow-sm ${isUser ? 'bg-emerald-600 text-white' : 'bg-white border border-stone-100 text-stone-800'}`}>
+              <div className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${isUser ? 'bg-forest-900 text-white' : 'bg-white border border-line text-forest-900'}`}>
                 {!isUser && (
-                  <p className="text-[10px] font-semibold text-emerald-600 mb-1">Suporte</p>
+                  <p className="text-[10px] font-semibold text-forest-600 mb-1">Suporte</p>
                 )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 <SupportAttachmentList attachments={msg.attachments} inverse={isUser} />
-                <div className={`flex items-center justify-end gap-1 mt-1.5 ${isUser ? 'text-emerald-100' : 'text-stone-300'}`}>
+                <div className={`flex items-center justify-end gap-1 mt-1.5 ${isUser ? 'text-white/65' : 'text-ink-soft/60'}`}>
                   <span className="text-[10px]">{formatDateTime(msg.created_at)}</span>
                   {isUser && <CheckCheck className="w-3 h-3" />}
                 </div>
@@ -335,13 +327,12 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
         <div />
       </div>
 
-      {/* Input */}
       <div className="flex-shrink-0 pt-3 pb-4">
         {sendError && (
-          <p className="text-xs text-red-600 mb-2">{sendError}</p>
+          <p className="text-xs text-coral mb-2">{sendError}</p>
         )}
         {isClosed ? (
-          <div className="flex items-center gap-2 text-sm text-stone-400 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-ink-soft bg-paper-soft border border-line rounded-xl px-4 py-3">
             <Lock className="w-4 h-4 flex-shrink-0" />
             Ticket encerrado — abra um novo ticket se precisar de mais ajuda.
           </div>
@@ -356,12 +347,13 @@ export default function SupportTicketDetail({ ticketId, user, onBack }: Props) {
                 onKeyDown={handleKeyDown}
                 rows={2}
                 disabled={sending}
-                className="flex-1 resize-none px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                className="flex-1 resize-none px-3 py-2.5 border border-line rounded-xl text-sm text-forest-900 placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-forest-200 bg-white"
               />
               <button
                 onClick={handleSend}
                 disabled={sending || (!content.trim() && files.length === 0)}
                 className="flex-shrink-0 w-10 h-10 bg-forest-900 hover:bg-forest-800 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors"
+                aria-label="Enviar mensagem"
               >
                 <Send className="w-4 h-4" />
               </button>

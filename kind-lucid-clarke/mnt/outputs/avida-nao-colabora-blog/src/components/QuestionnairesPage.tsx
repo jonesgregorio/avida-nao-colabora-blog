@@ -9,8 +9,8 @@ interface QItem {
   id: string
   title: string
   slug: string
-  description: string        // campo real salvo pelo admin
-  short_description?: string // fallback
+  description: string
+  short_description?: string
   category: string
   plan_required: string
   estimated_time: string | number
@@ -47,7 +47,7 @@ export default function QuestionnairesPage({
   const [completed, setCompleted] = useState<Set<string>>(new Set())
   const [inProgress, setInProgress] = useState<Set<string>>(new Set())
 
-  // Progresso real do usuário a partir de questionnaire_responses.
+  // Histórico real do usuário a partir de questionnaire_responses.
   useEffect(() => {
     if (!user) { setCompleted(new Set()); setInProgress(new Set()); return }
     supabase
@@ -68,8 +68,6 @@ export default function QuestionnairesPage({
 
   useEffect(() => {
     async function load() {
-      // O catálogo é público, mas o RPC devolve SOMENTE metadados dos cards.
-      // Perguntas/resultados ficam na tabela protegida por RLS de plano.
       const { data, error } = await supabase.rpc('get_questionnaire_catalog')
       if (error || !data) { setLoading(false); return }
       setItems(data as unknown as QItem[])
@@ -96,7 +94,6 @@ export default function QuestionnairesPage({
   }
 
   function handleStart(item: QItem) {
-    // Visitante: guarda a intenção e vai ao login, voltando a ESTE questionário (§13).
     if (!user) { onStartAuth(item.id); return }
     if (!hasPlanAccess(profile?.plan, item.plan_required)) { setLockedModal(item); return }
     onStart(item.id)
@@ -108,13 +105,11 @@ export default function QuestionnairesPage({
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
           Questionários <Sprout className="w-6 h-6 text-forest-400" />
         </h1>
-        <p className="mt-2 text-ink-soft max-w-xl">Se conhecer é o primeiro passo para transformar. Responda com calma e acolha cada descoberta.</p>
+        <p className="mt-2 text-ink-soft max-w-xl">Use estas avaliações quando fizer sentido olhar com mais calma para algum aspecto do seu momento.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6">
-        {/* ─── Coluna principal ─── */}
         <div className="space-y-5 min-w-0">
-          {/* Intro */}
           <div className="grid sm:grid-cols-[1fr_1.4fr] bg-paper-soft border border-line rounded-3xl overflow-hidden">
             <div className="hidden sm:block bg-mint min-h-[150px]">
               <img
@@ -125,15 +120,14 @@ export default function QuestionnairesPage({
               />
             </div>
             <div className="p-6 flex flex-col justify-center">
-              <h2 className="font-serif text-xl sm:text-2xl text-forest-900">Aqui, cada resposta é um ato de cuidado com você.</h2>
+              <h2 className="font-serif text-xl sm:text-2xl text-forest-900">Um espaço para observar, não para completar.</h2>
               <p className="text-sm text-ink-soft mt-2 leading-relaxed">
-                Nossos questionários ajudam você a olhar para dentro com mais clareza, entender o que sente e descobrir caminhos possíveis para o seu bem-estar.
+                Cada questionário pode registrar um retrato daquele momento. Você pode responder, retomar ou revisitar sem transformar isso em meta.
               </p>
-              <p className="text-xs text-forest-600 mt-3 flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5" /> Não existe certo ou errado. Existe você, do seu jeito.</p>
+              <p className="text-xs text-forest-600 mt-3 flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5" /> Não existe frequência certa. Escolha o que for útil para você agora.</p>
             </div>
           </div>
 
-          {/* Filtros por categoria + ordenação */}
           <div className="flex flex-wrap items-center gap-2">
             {categories.length > 1 && categories.map(cat => {
               const active = selectedCategory === cat
@@ -162,12 +156,11 @@ export default function QuestionnairesPage({
             </label>
           </div>
 
-          {/* Recomendado */}
           {!loading && recommended && (
             <div className="bg-mint/50 border border-forest-100 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
               <span className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><Sprout className="w-5 h-5" /></span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-forest-600 font-medium">Recomendado para você</p>
+                <p className="text-xs text-forest-600 font-medium">Pode fazer sentido agora</p>
                 <p className="font-serif text-lg text-forest-900 leading-snug">{recommended.title}</p>
                 <p className="text-sm text-ink-soft line-clamp-1">{recommended.short_description || recommended.description}</p>
               </div>
@@ -175,12 +168,11 @@ export default function QuestionnairesPage({
                 onClick={() => handleStart(recommended)}
                 className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-4 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors flex-shrink-0"
               >
-                Responder agora <ArrowRight className="w-4 h-4" />
+                Ver questionário <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {/* Grade de questionários */}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(i => <div key={i} className="h-44 bg-paper-soft border border-line rounded-2xl animate-pulse" />)}
@@ -212,9 +204,9 @@ export default function QuestionnairesPage({
                             <Lock className="w-3 h-3" /> {PLAN_LABELS[item.plan_required] ?? 'Plus'}
                           </span>
                         ) : isDone ? (
-                          <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3" /> Concluído</span>
+                          <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3" /> Respondido antes</span>
                         ) : isProg ? (
-                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Em andamento</span>
+                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Para continuar</span>
                         ) : (
                           <span className="text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full">Disponível</span>
                         )}
@@ -232,7 +224,7 @@ export default function QuestionnairesPage({
                           </button>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-sm font-medium text-forest-700">
-                            {isDone ? 'Refazer' : isProg ? 'Continuar' : 'Responder'} <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                            {isDone ? 'Responder novamente' : isProg ? 'Retomar' : 'Responder'} <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                           </span>
                         )}
                       </div>
@@ -244,34 +236,39 @@ export default function QuestionnairesPage({
           )}
         </div>
 
-        {/* ─── Coluna lateral ─── */}
         <aside className="space-y-5">
           <div className="bg-paper-soft border border-line rounded-3xl p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h2 className="font-serif text-lg text-forest-900">Seu progresso</h2>
+              <h2 className="font-serif text-lg text-forest-900">Suas avaliações</h2>
               {user && (
                 <button onClick={onNavigateReport} className="text-xs text-forest-700 hover:underline flex items-center gap-1">Ver relatório <ArrowRight className="w-3 h-3" /></button>
               )}
             </div>
             {user && onNavigateEvolution && doneCount > 0 && (
-              <button onClick={onNavigateEvolution} className="mb-3 text-xs text-forest-700 hover:underline flex items-center gap-1">Ver minha evolução <ArrowRight className="w-3 h-3" /></button>
+              <button onClick={onNavigateEvolution} className="mb-3 text-xs text-forest-700 hover:underline flex items-center gap-1">Ver registros ao longo do tempo <ArrowRight className="w-3 h-3" /></button>
             )}
             {totalQ === 0 ? (
               <p className="text-sm text-ink-soft">Novos questionários aparecerão aqui.</p>
             ) : (
               <>
-                <div className="flex items-center gap-4">
-                  <Ring done={doneCount} total={totalQ} />
-                  <p className="text-sm text-ink-soft leading-snug">
-                    <span className="font-semibold text-forest-900">{doneCount} de {totalQ}</span><br />questionários concluídos
-                  </p>
+                <p className="text-sm text-ink-soft leading-relaxed">
+                  Este é apenas um histórico do que você já respondeu ou deixou para retomar. Não existe objetivo de completar todos.
+                </p>
+                <div className="space-y-2 mt-4">
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Respondidos anteriormente</span>
+                    <span className="font-serif text-lg text-forest-900">{doneCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Para retomar, se quiser</span>
+                    <span className="font-serif text-lg text-forest-900">{progCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Disponíveis para você</span>
+                    <span className="font-serif text-lg text-forest-900">{availCount}</span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                  <div><p className="font-serif text-lg text-forest-900">{doneCount}</p><p className="text-[11px] text-ink-soft">Concluídos</p></div>
-                  <div><p className="font-serif text-lg text-forest-900">{progCount}</p><p className="text-[11px] text-ink-soft">Em andamento</p></div>
-                  <div><p className="font-serif text-lg text-forest-900">{availCount}</p><p className="text-[11px] text-ink-soft">Disponíveis</p></div>
-                </div>
-                <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">Cada reflexão te aproxima de mais leveza e equilíbrio.</p>
+                <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">Volte a uma avaliação quando ela puder ajudar a entender melhor o seu momento.</p>
               </>
             )}
           </div>
@@ -301,7 +298,6 @@ export default function QuestionnairesPage({
         </aside>
       </div>
 
-      {/* Locked modal */}
       {lockedModal && (
         <div className="fixed inset-0 z-50 bg-forest-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLockedModal(null)}>
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -330,25 +326,6 @@ export default function QuestionnairesPage({
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// Anel de progresso dos questionários concluídos.
-function Ring({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? done / total : 0
-  const r = 30
-  const circ = 2 * Math.PI * r
-  return (
-    <div className="relative w-[84px] h-[84px] flex-shrink-0">
-      <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="#E8F0EB" strokeWidth="6" />
-        <circle cx="36" cy="36" r={r} fill="none" stroke="#1c4a37" strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-serif text-2xl text-forest-900 leading-none">{done}</span>
-        <span className="text-[9px] text-ink-soft">de {total}</span>
-      </div>
     </div>
   )
 }

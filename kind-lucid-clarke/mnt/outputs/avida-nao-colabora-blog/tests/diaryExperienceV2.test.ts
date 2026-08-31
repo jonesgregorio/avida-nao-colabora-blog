@@ -34,7 +34,8 @@ test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom
   assert.match(moodSelector, /'ansiedade'/)
   assert.match(moodSelector, /'tristeza'/)
   assert.match(moodSelector, /showAll/)
-  assert.match(moodSelector, /expanded \? 'Menos' : 'Mais'/)
+  assert.match(moodSelector, /expanded \? 'Menos estados' : 'Outros sentimentos'/)
+  assert.match(moodSelector, /Quer acrescentar algo sobre este momento\?/)
   assert.match(detailsDrawer, /role="dialog"/)
   assert.match(detailsDrawer, /aria-modal="true"/)
   assert.match(detailsDrawer, /bottom-0/)
@@ -57,9 +58,34 @@ test('mobile mantém ações essenciais próximas do polegar', () => {
   assert.match(diary, /Guardar meu registro/)
 })
 
-test('check-in rápido é a entrada principal e coleta sinais complementares sem formulário longo', () => {
-  assert.match(diary, /useState<EntryMode>\('quick'\)/)
-  assert.match(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+test('a escrita é a entrada principal do Diário; o check-in rápido continua a um toque (Fase 19R.3)', () => {
+  assert.match(diary, /useState<EntryMode>\(initialMood \? 'quick' : 'diary'\)/)
+  assert.match(diary, /Quero escrever no diário/)
+  assert.match(diary, /Prefiro só um Check-in rápido hoje/)
+  assert.doesNotMatch(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+  assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)
+})
+
+test('Diário guarda texto sem exigir humor; check-in continua exigindo humor (Fase 19R.B)', () => {
+  assert.match(diary, /if \(isCheckin && !moodChip\)/)
+  assert.match(diary, /mood: meta\?\.label \?\? null/)
+  assert.match(diary, /mood_score: meta \?/)
+  assert.match(diary, /mode === 'quick' && !moodChip/)
+  assert.match(diary, /<DiaryMoodSelector optional/)
+  assert.match(diary, /Humor e outros detalhes ficam opcionais para depois/)
+  assert.match(moodSelector, /optional\?: boolean/)
+  assert.match(moodSelector, /\(opcional\)/)
+})
+
+test('pós-registro mostra uma ajuda por vez e deixa conteúdo extra sob escolha (Fase 19R.B)', () => {
+  assert.match(savedReflection, /showExtras/)
+  assert.match(savedReflection, /Ver outras sugestões/)
+  assert.match(savedReflection, /!hasTagSuggestions \|\| showExtras/)
+  assert.match(savedReflection, /showExtras && onOpenArticle/)
+  assert.match(savedReflection, /não transformar o pós-registro em uma lista de tarefas/)
+})
+
+test('o check-in rápido continua coletando sinais complementares sem formulário longo', () => {
   assert.match(diary, /Tensão\/estresse/)
   assert.match(diary, /Intensidade da ansiedade/)
   assert.match(diary, /mood === 'ansiedade'/)
@@ -183,9 +209,10 @@ test('ditado e organização preservam o texto original intacto', () => {
   assert.match(migration, /nunca é\n-- substituído automaticamente/)
 })
 
-test('devolutiva de reflexão não quebra quando o humor é "Outro"', () => {
+test('devolutiva de reflexão não quebra quando o humor é "Outro" ou não foi marcado', () => {
   assert.equal(diary.includes('algo ligado a ${mood.toLowerCase()'), false)
   assert.equal(edge.includes('algo relacionado a ${mood.toLowerCase()'), false)
-  assert.match(diary, /if \(!m \|\| m === 'outro'\)/)
+  assert.match(diary, /m === 'outro'/)
+  assert.match(diary, /m === 'seu momento'/)
   assert.match(edge, /if \(!m \|\| m === 'outro'\)/)
 })

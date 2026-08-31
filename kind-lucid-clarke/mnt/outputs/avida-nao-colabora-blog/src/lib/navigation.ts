@@ -7,7 +7,8 @@ export const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
   'about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','admin','contact','success','faq',
-  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','self-care',
+  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','self-care',
+  'descobertas','cuidar','mais',
   'notifications',
 ]
 
@@ -36,6 +37,10 @@ const URL_TO_VIEW: Record<string, View> = {
   '/comentarios-profissional':   'professional-comments',
   '/mapa-emocional':             'my-evolution',
   '/meu-relatorio':              'my-report',
+  '/minha-historia':             'my-history',
+  '/descobertas':                'descobertas',
+  '/cuidar':                     'cuidar',
+  '/mais':                       'mais',
   '/plano-de-autocuidado':       'self-care',
   '/meu-plano':                  'my-plan',
 }

@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
       notifications,
       emailPreferences,
       notificationPreferences,
+      privacyPreferences,
       aiSummaries,
       contentHistory,
       planHistory,
@@ -152,6 +153,7 @@ Deno.serve(async (req) => {
       fetchAll('notifications', 'id,title,body,type,is_read,read_at,created_at,message,action_url,destination_path,priority,email_sent_at,email_status'),
       fetchAll('email_preferences', '*'),
       fetchAll('user_notification_preferences', '*'),
+      fetchAll('user_privacy_preferences', 'history_personalization_enabled,updated_at'),
       fetchAll('user_ai_summaries', 'id,summary,data_snapshot,provider,status,created_at'),
       fetchAll('user_content_history', '*'),
       fetchAll('user_plan_history', 'id,old_plan,new_plan,reason,created_at'),
@@ -186,6 +188,7 @@ Deno.serve(async (req) => {
         last_sign_in_at: user.last_sign_in_at ?? null,
         email_confirmed_at: user.email_confirmed_at ?? null,
         profile,
+        privacy_preferences: privacyPreferences,
       },
       emotional_journey: {
         diary_entries: diaryEntries,

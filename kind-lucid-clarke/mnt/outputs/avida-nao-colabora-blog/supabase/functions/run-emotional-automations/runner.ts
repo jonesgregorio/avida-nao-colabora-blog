@@ -165,7 +165,7 @@ function energyAnxietySleepRelationship(rows: Record<string, unknown>[]) {
   const anxietyLow = average(low.map(d => d.anxiety)); const anxietyRest = rest.length ? average(rest.map(d => d.anxiety)) : anxietyLow
   if (anxietyLow > anxietyRest + 0.4) return 'Nos dias em que a energia apareceu mais baixa, a ansiedade também apareceu com mais frequência.'
   if (anxietyLow < anxietyRest - 0.4) return 'Nos dias de energia mais baixa, a ansiedade percebida apareceu mais suave — talvez tenham sido dias de mais pausa.'
-  return 'Energia e ansiedade variaram sem uma relação muito marcada neste mês. Continuar registrando ajuda a perceber conexões mais claras.'
+  return 'Energia e ansiedade variaram sem uma relação muito marcada neste mês. Se fizer sentido para você, novos registros podem ajudar a contextualizar mudanças ao longo do tempo.'
 }
 function compareSummaries(curr: Summary, prev: Summary | null): { available: boolean; message: string; changes: string[] } {
   if (!prev || prev.total_entries === 0) return { available: false, message: 'Ainda não há mês anterior com registros suficientes para comparar.', changes: [] }

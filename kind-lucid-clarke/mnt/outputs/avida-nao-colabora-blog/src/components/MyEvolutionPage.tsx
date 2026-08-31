@@ -20,14 +20,11 @@ import {
 import { explainEmotionalMap, type ExplainMapResult } from '../lib/explainEmotionalMap'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
+import EmotionalDrilldownPanel from './EmotionalDrilldownPanel'
 import { getTagCategory, type TagCategory } from '../lib/tagCategories'
-
-// ─── Constantes e helpers ──────────────────────────────────────────────────────
 
 const DISCLAIMER = EMOTIONAL_SUPPORT_DISCLAIMER
 
-// Mapa Emocional é SÓ visualização (§10): Resumo + Gráficos. As demais funções
-// (Relatórios, Plano de Autocuidado, Orientação, Comentário) ficam nos seus menus.
 export type Tab = 'resumo' | 'graficos'
 
 function monthLabel(key: string) {
@@ -35,12 +32,9 @@ function monthLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-// Delega para a fonte única (normaliza legados e reconhece 'plus' corretamente).
 function hasPlan(userPlan: string, required: string) {
   return hasPlanAccess(userPlan, required)
 }
-
-// ─── Subcomponentes utilitários ────────────────────────────────────────────────
 
 function LockedSection({ requiredPlan, onNavigatePricing, message }: {
   requiredPlan: string
@@ -63,11 +57,6 @@ function LockedSection({ requiredPlan, onNavigatePricing, message }: {
   )
 }
 
-
-// §8 do audit: "Conexões do mês" extraído em componente reutilizável pra viver
-// como card premium na aba Resumo (visível de cara) em vez de só nos Gráficos.
-// context_tags/emotional_tags/need_tags/care_action_tags — nunca trigger_tags
-// (gatilhos reais ficam numa seção própria, só com dados de trigger_tags).
 function MonthlyConnectionsCard({ connections }: { connections: MonthlyConnection[] }) {
   return (
     <section className="bg-gradient-to-br from-mint/50 to-white border border-forest-200 rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -109,8 +98,6 @@ function MonthlyConnectionsTeaser({ onNavigatePricing }: { onNavigatePricing: ()
   )
 }
 
-// ─── Props principal ───────────────────────────────────────────────────────────
-
 interface Props {
   user: User | null
   profile: Profile | null
@@ -121,8 +108,6 @@ interface Props {
   onOpenArticle?: (slug: string) => void
   initialTab?: Tab
 }
-
-// ─── Dados do diário ──────────────────────────────────────────────────────────
 
 interface DiaryStats {
   totalEntries: number
@@ -151,8 +136,6 @@ const MOOD_LABELS: Record<number, string> = {
   1: 'Muito baixo', 2: 'Baixo', 3: 'Neutro', 4: 'Bom', 5: 'Muito bom',
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-
 export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavigatePricing, onNavigateDiary, onNavigate, onOpenArticle, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'resumo')
   const plan = profile?.plan ?? 'free'
@@ -162,26 +145,24 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
   }, [initialTab])
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; minPlan: string }[] = [
-    { id: 'resumo', label: 'Resumo', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
-    { id: 'graficos', label: 'Gráficos', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
+    { id: 'resumo', label: 'Panorama', icon: <TrendingUp className="w-4 h-4" />, minPlan: 'free' },
+    { id: 'graficos', label: 'Explorar', icon: <BarChart2 className="w-4 h-4" />, minPlan: 'essential' },
   ]
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header */}
       <header className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-              Mapa emocional <Leaf className="w-6 h-6 text-forest-400" />
+              Mapa Emocional <Leaf className="w-6 h-6 text-forest-400" />
             </h1>
-            <p className="mt-2 text-ink-soft">Uma forma visual de perceber o que vem aparecendo nos seus registros.</p>
+            <p className="mt-2 text-ink-soft">O que vem aparecendo com você ao longo do tempo — quando, com o quê e como muda. Toque numa emoção para explorar.</p>
           </div>
           <PlanBadge plan={plan} member size="sm" className="mt-1" />
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-6 -mx-1 px-1">
         {tabs.map(t => {
           const locked = !hasPlan(plan, t.minPlan)
@@ -205,14 +186,11 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         })}
       </div>
 
-      {/* Tab content — SÓ visualização */}
       <div>
         {tab === 'resumo' && <TabResumo plan={plan} user={user} onNavigatePricing={onNavigatePricing} onNavigateDiary={onNavigateDiary} />}
         {tab === 'graficos' && <TabGraficos plan={plan} user={user} onNavigatePricing={onNavigatePricing} />}
       </div>
 
-      {/* Conteúdos relacionados aos seus padrões recentes (§9.4) — bloco discreto,
-          personalizado (Essencial+). Some sozinho quando não há dados/relação. */}
       {onOpenArticle && hasPlan(plan, 'essential') && (
         <section className="mt-8 border-t border-line pt-6">
           <RecommendedContent
@@ -227,7 +205,6 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
         </section>
       )}
 
-      {/* Próximos passos — atalhos discretos (§10.4). Cada função tem a sua própria área no menu. */}
       {onNavigate && (
         <section className="mt-8 border-t border-line pt-6">
           <h2 className="font-serif text-lg text-forest-900 mb-1">Próximos passos</h2>
@@ -245,8 +222,6 @@ export default function MyEvolutionPage({ user, profile, onBack: _onBack, onNavi
     </div>
   )
 }
-
-// ─── Hook compartilhado: carrega stats do diário ──────────────────────────────
 
 function useDiaryStats(userId: string | undefined, selectedMonth: string) {
   const [stats, setStats] = useState<DiaryStats>(emptyStats)
@@ -267,8 +242,6 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
     const prevEnd = start
 
     Promise.all([
-      // `date` é o dia emocional escolhido pela pessoa. Horário, fuso ou uma
-      // edição tardia não devem mover um registro de mês.
       supabase.from('diary_entries').select('mood_score,energy,sleep_quality,anxiety_level,self_esteem,stress_level,emotional_tags,date,created_at').eq('user_id', userId).gte('date', start).lt('date', end),
       supabase.from('diary_entries').select('mood,mood_score,energy,sleep_quality,date,created_at').eq('user_id', userId).gte('date', prevStart).lt('date', prevEnd),
     ]).then(([curr, prev]) => {
@@ -278,17 +251,11 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
       const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
       type DiaryRow = { mood?: number | string; mood_score?: number; energy?: number; sleep_quality?: number; anxiety_level?: number; self_esteem?: number; stress_level?: number; emotional_tags?: string[] | string; date?: string; created_at: string }
       const entryDay = (e: DiaryRow) => new Date(e.date || e.created_at).getDate()
-      // `mood` guarda o RÓTULO em texto ("Bem-estar") e `mood_score` o número na
-      // escala oficial 1–5 (Bem-estar=5, Outro=3, Sobrecarga=1). Dados antigos em
-      // 1–10 foram normalizados para 1–5 pela migration 080, então aqui só validamos
-      // a faixa. (Não dividir por 2: mood_score já vem em 1–5.)
       const moodTo5 = (e: DiaryRow): number => {
         const s = Number(e.mood_score)
         if (!Number.isFinite(s) || s <= 0) return 0
         return Math.min(5, Math.max(1, Math.round(s)))
       }
-      // §8: com check-in ILIMITADO, um dia com muitos check-ins não pode distorcer as
-      // médias do mês. Cada métrica é a MÉDIA DAS MÉDIAS DIÁRIAS (um valor por dia).
       const avgByDay = (rows: DiaryRow[], getVal: (e: DiaryRow) => number): number => {
         const byDay = new Map<number, number[]>()
         rows.forEach((e) => {
@@ -323,10 +290,6 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
         weeklyEntries[weekIdx]++
       })
 
-      // Agrega por DIA do calendário (média do humor do dia). O usuário pode ter
-      // vários registros no mesmo dia (check-ins + diário completo), então isso mantém
-      // 1 ponto por dia: deixa o "% dos dias" honesto e evita pontos/células duplicados
-      // no gráfico de evolução e no heatmap.
       const moodByDay = new Map<number, number[]>()
       ;(entries as DiaryRow[]).forEach((e) => {
         const m = moodTo5(e)
@@ -363,8 +326,6 @@ function useDiaryStats(userId: string | undefined, selectedMonth: string) {
   return { stats, loading }
 }
 
-// ─── Sinais estruturados de questionários ────────────────────────────────────
-
 type QuestionnaireSignalView = {
   questionnaireId: string
   title: string
@@ -400,7 +361,6 @@ function useQuestionnaireSignals(userId: string | undefined, selectedMonth: stri
     const start = `${selectedMonth}-01T00:00:00-03:00`
     const end = `${nextMonth}-01T00:00:00-03:00`
 
-    // PRIVACIDADE: não seleciona `answers`; respostas abertas não entram no Mapa.
     supabase.from('questionnaire_responses')
       .select('questionnaire_id,total_score,generated_tags,result_id,completed_at')
       .eq('user_id', userId)
@@ -475,8 +435,6 @@ function QuestionnaireSignalsCard({ summary }: { summary: QuestionnaireSignalSum
   )
 }
 
-// ─── ABA: Resumo ─────────────────────────────────────────────────────────────
-
 const Y_LABELS: Record<number, string> = { 1: 'Muito difícil', 2: 'Difícil', 3: 'Neutro', 4: 'Bem', 5: 'Ótimo' }
 
 function heatColor(mood: number) {
@@ -536,8 +494,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   const { stats, loading } = useDiaryStats(user?.id, selectedMonth)
   const questionnaireSignals = useQuestionnaireSignals(user?.id, selectedMonth)
   const isPlus = hasPlan(plan, 'plus')
-  // Só busca entries pra Conexões do mês quando o plano realmente usa o card
-  // (Plus renderiza completo; useMonthAnalysis já tem seu próprio loading interno).
   const { entries: connectionEntries } = useMonthAnalysis(isPlus ? user?.id : undefined, selectedMonth)
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
@@ -551,15 +507,14 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-ink-soft">Mês do resumo:</label>
-        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+        <label htmlFor="map-summary-month" className="text-sm text-ink-soft">Mês do resumo:</label>
+        <select id="map-summary-month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
-      {/* Visão geral: anel + gráfico */}
       <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
-        <h3 className="font-serif text-lg sm:text-xl text-forest-900">Visão geral da sua evolução emocional</h3>
-        <p className="text-sm text-ink-soft mt-1 mb-5">Como você se sentiu em {monthLabel(selectedMonth)}.</p>
+        <h3 className="font-serif text-lg sm:text-xl text-forest-900">Como você vem se sentindo</h3>
+        <p className="text-sm text-ink-soft mt-1 mb-5">O que apareceu nos seus registros de {monthLabel(selectedMonth)}.</p>
         <div className="grid md:grid-cols-[auto_1fr] gap-6 items-center">
           <div className="flex flex-col items-center">
             <BigRing pct={positivePct} />
@@ -578,11 +533,7 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E6E1D8" vertical={false} />
                   <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#5F6661' }} axisLine={false} tickLine={false} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tickFormatter={(v: number) => Y_LABELS[v] ?? String(v)} tick={{ fontSize: 10, fill: '#5F6661' }} axisLine={false} tickLine={false} width={78} />
-                  <Tooltip
-                    formatter={(v: number) => [Y_LABELS[Math.round(v)] ?? v, 'Humor']}
-                    labelFormatter={(l) => `Dia ${l}`}
-                    contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }}
-                  />
+                  <Tooltip formatter={(v: number) => [Y_LABELS[Math.round(v)] ?? v, 'Humor']} labelFormatter={(l) => `Dia ${l}`} contentStyle={{ borderRadius: 12, border: '1px solid #E6E1D8', fontSize: 12 }} />
                   <Area type="monotone" dataKey="humor" stroke="#1c4a37" strokeWidth={2} fill="url(#humorFill)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -593,7 +544,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       </div>
 
-      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <MetricTile icon={<Smile className="w-4 h-4" />} label="Humor médio" value={stats.avgMood > 0 ? `${stats.avgMood.toFixed(1)}/5` : '—'} trend={trend(stats.avgMood, stats.prevMonthAvgMood)} />
         {isEssential ? (
@@ -602,8 +552,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
             <MetricTile icon={<Moon className="w-4 h-4" />} label="Sono" value={stats.avgSleep > 0 ? `${stats.avgSleep.toFixed(1)}/5` : '—'} trend={trend(stats.avgSleep, stats.prevMonthAvgSleep)} />
             <MetricTile icon={<Waves className="w-4 h-4" />} label="Ansiedade" value={stats.avgAnxiety > 0 ? `${stats.avgAnxiety.toFixed(1)}/5` : '—'} goodDown />
             <MetricTile icon={<AlertCircle className="w-4 h-4" />} label="Marcadores emocionais" value={stats.topTags[0] ?? '—'} sub={stats.topTags.slice(0, 3).join(' · ') || undefined} />
-            {/* Autoestima e estresse são campos avançados do Plus (diaryConfig.ts) — só
-                existem no diário do Plus, então só aparecem como métrica do Plus aqui. */}
             {isPlus && <MetricTile icon={<Heart className="w-4 h-4" />} label="Autoestima" value={stats.avgSelfEsteem > 0 ? `${stats.avgSelfEsteem.toFixed(1)}/5` : '—'} />}
             {isPlus && <MetricTile icon={<Flame className="w-4 h-4" />} label="Estresse" value={stats.avgStress > 0 ? `${stats.avgStress.toFixed(1)}/5` : '—'} goodDown />}
           </>
@@ -616,7 +564,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         )}
       </div>
 
-      {/* Marcadores */}
       {isEssential && stats.topTags.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5">
           <h3 className="font-serif text-base text-forest-900 mb-3">Marcadores mais registrados por você</h3>
@@ -630,7 +577,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
 
       <QuestionnaireSignalsCard summary={questionnaireSignals} />
 
-      {/* Linha do tempo emocional */}
       {chartData.length > 0 && (
         <div className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
           <h3 className="font-serif text-base sm:text-lg text-forest-900">Seu período em cores</h3>
@@ -650,13 +596,10 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
-      {/* Conexões do mês — card premium Plus, visível já na aba Resumo (§8 do
-          audit). Essencial vê teaser bloqueado; Gratuito não vê (sem Mapa completo). */}
       {isPlus
         ? <MonthlyConnectionsCard connections={monthlyConnections(connectionEntries)} />
         : isEssential && <MonthlyConnectionsTeaser onNavigatePricing={onNavigatePricing} />}
 
-      {/* Resumo da jornada */}
       <div className="rounded-3xl border border-line bg-mint/40 p-5 sm:p-6">
         <h3 className="font-serif text-base sm:text-lg text-forest-900 flex items-center gap-2"><Leaf className="w-4 h-4 text-forest-500" /> Resumo da sua jornada</h3>
         <p className="text-sm text-forest-800 mt-2 leading-relaxed">
@@ -669,7 +612,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </button>
       </div>
 
-      {/* Gratuito: CTA para o Mapa completo */}
       {!isEssential && (
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
@@ -678,7 +620,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
         </div>
       )}
 
-      {/* Plus: como o Mapa se conecta às demais funções */}
       {isPlus && (
         <div className="rounded-3xl border border-line bg-paper-soft px-6 py-5 flex items-start gap-3">
           <span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Leaf className="w-4 h-4" /></span>
@@ -693,9 +634,6 @@ function TabResumo({ plan, user, onNavigatePricing, onNavigateDiary }: {
   )
 }
 
-// ─── ABA: Gráficos ────────────────────────────────────────────────────────────
-
-// Carrega os registros brutos do mês (e do anterior) para a análise emocional.
 function useMonthAnalysis(userId: string | undefined, selectedMonth: string) {
   const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
   const [entries, setEntries] = useState<DiaryRowLite[]>([])
@@ -742,7 +680,6 @@ function monthlyConnections(entries: DiaryRowLite[]): MonthlyConnection[] {
   return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5)
 }
 
-// Gráfico de linha compacto (recharts) para energia/ansiedade por dia.
 function LineChartCard({ title, subtitle, data, color, yLabels }: {
   title: string; subtitle: string; data: { day: number; value: number }[]; color: string; yLabels: Record<number, string>
 }) {
@@ -775,8 +712,6 @@ function LineChartCard({ title, subtitle, data, color, yLabels }: {
   )
 }
 
-// Frequência de uma categoria de tag (contexto/necessidade/cuidado) — chips
-// coloridos por categoria em vez de barra, já que aqui a cor É a leitura.
 function TagFreqPanel({ title, items, category }: { title: string; items: { tag: string; count: number }[]; category: TagCategory }) {
   return (
     <div className="bg-paper-soft border border-line rounded-2xl p-5">
@@ -795,11 +730,6 @@ function TagFreqPanel({ title, items, category }: { title: string; items: { tag:
   )
 }
 
-// "Entender meu mapa com IA" (MISSÃO GERAL, PARTE 3): botão que envia SÓ o
-// resumo estruturado (buildEmotionalSummary + sinais de questionário) para a
-// Edge Function explain-emotional-map. Nunca envia diário bruto, respostas
-// abertas de questionário, orientação ou mensagens privadas — código já
-// calculou tudo; a IA só interpreta o que já está pronto.
 function ExplainMapCard({ summary, previous, questionnaireSignals }: {
   summary: EmotionalSummary
   previous: { period_start: string; period_end: string; active_days: number; total_entries: number; dominant_emotions: EmotionalSummary['dominant_emotions']; averages: EmotionalSummary['averages'] } | null
@@ -941,10 +871,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   const maxMarker = Math.max(...a.emotionalMarkers.map(t => t.count), 1)
   const moodTrend = a.prev.mood > 0 && a.avg.mood > 0 ? +(a.avg.mood - a.prev.mood).toFixed(1) : null
 
-  // Resumo estruturado para "Entender meu mapa com IA" — mesma fonte que
-  // alimenta relatórios/plano/orientação (§16 da MISSÃO GERAL: código calcula,
-  // IA só interpreta). "previous" carrega só o necessário pra comparação
-  // narrativa, reaproveitando a.prev já calculado por computeEmotionalAnalysis.
   const mapSummary = period ? buildEmotionalSummary(entries, period.start, period.end, plan, prevEntries) : null
   const previousPeriodSummary = period && prevEntries.length ? {
     period_start: period.prevStart, period_end: period.start,
@@ -957,8 +883,8 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-ink-soft">Mês:</label>
-        <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
+        <label htmlFor="map-charts-month" className="text-sm text-ink-soft">Mês:</label>
+        <select id="map-charts-month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border border-line rounded-lg px-3 py-1.5 text-sm bg-paper-soft focus:outline-none">
           {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
       </div>
@@ -971,20 +897,20 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
         </div>
       ) : (
         <>
-          {/* Contagens do período (§9): check-in mede frequência emocional, diário
-              mede reflexão — separados para não confundir os dois. */}
           <div className="grid grid-cols-3 gap-3">
             <MetricTile icon={<CheckCircle2 className="w-4 h-4" />} label="Check-ins no período" value={a.checkinCount} />
             <MetricTile icon={<BookOpen className="w-4 h-4" />} label="Diários no período" value={a.diaryCount} />
             <MetricTile icon={<CalendarDays className="w-4 h-4" />} label="Dias ativos" value={a.activeDays} />
           </div>
 
-          {/* Entender meu mapa com IA (MISSÃO GERAL, PARTE 3) */}
+          {/* Fase 19R.5: a exploração por emoção vem primeiro — antes dos gráficos
+              gerais — para o Mapa ser "o que vem acontecendo comigo", não um painel. */}
+          <EmotionalDrilldownPanel entries={entries} plan={plan} periodEnd={period?.end ?? null} />
+
           {mapSummary && (
             <ExplainMapCard summary={mapSummary} previous={previousPeriodSummary} questionnaireSignals={questionnaireSignals} />
           )}
 
-          {/* Insights automáticos */}
           {insights.length > 0 && (
             <div className="bg-paper-soft border border-line rounded-3xl p-5">
               <h3 className="font-serif text-lg text-forest-900 flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-forest-500" /> O que seus registros mostram</h3>
@@ -998,21 +924,16 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
           )}
 
-          {/* Linhas: energia e ansiedade */}
           <div className="grid md:grid-cols-2 gap-4">
             <LineChartCard title="Energia" subtitle="Média por dia (1 = muito baixa · 5 = alta)" data={a.energyByDay} color="#2f9e6f" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'boa', 5: 'alta' }} />
             <LineChartCard title="Ansiedade percebida" subtitle="Média por dia (1 = muito baixa · 5 = muito alta)" data={a.anxietyByDay} color="#d98b3c" yLabels={{ 1: 'muito baixa', 2: 'baixa', 3: 'média', 4: 'alta', 5: 'muito alta' }} />
           </div>
 
-          {/* Relação energia × ansiedade */}
           <div className="rounded-2xl border border-line bg-mint/30 p-5">
             <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><Waves className="w-4 h-4 text-forest-500" /> Energia e ansiedade</h3>
             <p className="text-sm text-forest-800 leading-relaxed">{a.energyAnxiety.text}</p>
           </div>
 
-          {/* Emoções mais registradas × emoção predominante por dia (§10): a 1ª conta
-              todo registro (check-ins incluídos); a 2ª vota só 1x por dia ativo, então
-              muitos check-ins da mesma emoção no mesmo dia não dominam a leitura. */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-paper-soft border border-line rounded-2xl p-5">
               <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Smile className="w-4 h-4 text-forest-500" /> Emoções mais registradas</h3>
@@ -1048,9 +969,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
           </div>
           <p className="text-xs text-ink-soft px-1 -mt-2">Quando há muitos check-ins no mesmo dia, o mapa também considera a emoção predominante do dia para evitar distorções.</p>
 
-          {/* §13.1: a fonte aqui é emotional_tags (sentimentos marcados), não um
-              gatilho real — "Gatilhos" seria conceitualmente errado (ansiedade,
-              tristeza etc. não são gatilhos, são emoções). */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Flame className="w-4 h-4 text-forest-500" /> Marcadores emocionais mais frequentes</h3>
             {a.emotionalMarkers.length > 0 ? (
@@ -1066,25 +984,16 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             ) : <p className="text-xs text-ink-soft py-4 text-center">Quanto mais você registra, mais claros ficam os marcadores que mais aparecem.</p>}
           </div>
 
-          {/* Conexões do mês agora vive na aba Resumo (MonthlyConnectionsCard),
-              logo após "Seu período em cores" — visível de cara, sem duplicar
-              o mesmo card aqui nos Gráficos (§8 do audit). */}
-
-          {/* Contextos, necessidades e ações de cuidado — as novas tags do diário
-              completo (§14), pra não ficarem ignoradas no Mapa. */}
           <div className="grid md:grid-cols-2 gap-4">
             <TagFreqPanel title="Contextos mais frequentes" items={a.contexts} category="context" />
             <TagFreqPanel title="Necessidades mais frequentes" items={a.needs} category="need" />
           </div>
           <TagFreqPanel title="Ações de cuidado mais escolhidas" items={a.careActions} category="care_action" />
 
-          {/* Gatilhos reais (§13.1) — Plus. Diferente do bloco "Marcadores
-              emocionais" acima, que é sentimento, não gatilho. */}
           {hasPlan(plan, 'plus') && (
             <TagFreqPanel title="Gatilhos mais citados" items={a.realTriggers} category="advanced" />
           )}
 
-          {/* Mapa por período do dia */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-forest-500" /> Por período do dia</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1104,7 +1013,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
           </div>
 
-          {/* Comparativo semanal */}
           {a.weekly.hasData && (
             <div className="rounded-2xl border border-line bg-paper-soft p-5">
               <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-forest-500" /> Semana atual x anterior</h3>
@@ -1114,7 +1022,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
           )}
 
-          {/* Calendário emocional */}
           {a.calendar.length > 0 && (
             <div className="bg-paper-soft border border-line rounded-2xl p-5">
               <h3 className="font-serif text-base text-forest-900 flex items-center gap-2 mb-1"><BarChart2 className="w-4 h-4 text-forest-500" /> Calendário emocional</h3>
@@ -1130,7 +1037,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
             </div>
           )}
 
-          {/* Comparativo mensal do humor */}
           <div className="bg-paper-soft border border-line rounded-2xl p-5">
             <h3 className="font-serif text-base text-forest-900 mb-3">Humor: comparação com o mês anterior</h3>
             {a.prev.mood > 0 ? (
@@ -1149,8 +1055,6 @@ function TabGraficos({ plan, user, onNavigatePricing }: {
   )
 }
 
-
-// ─── Atalho de "Próximos passos" (§10.4) ─────────────────────────────────────
 function ShortcutCard({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button

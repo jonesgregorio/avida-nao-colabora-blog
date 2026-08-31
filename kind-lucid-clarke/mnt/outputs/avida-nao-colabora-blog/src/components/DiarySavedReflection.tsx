@@ -1,8 +1,13 @@
+import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { CheckCircle2, Home, Loader2, PenLine, Sparkles } from 'lucide-react'
 import type { Plan } from '../types'
 import type { DiaryMirror } from '../lib/diaryCompanion'
+import { fetchDiaryPatternInsight, type DiaryPatternEntry, type DiaryPatternInsight } from '../lib/diaryPatternInsight'
 import type { Signal } from '../lib/contentRecommendation'
+import { hasPlanAccess } from '../lib/officialPlans'
+import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
+import { trackRetentionEvent } from '../lib/retentionAnalytics'
 import RecommendedContent from './RecommendedContent'
 import DiaryTagChip from './DiaryTagChip'
 
@@ -11,7 +16,7 @@ import DiaryTagChip from './DiaryTagChip'
 // componente principal — recebe só o que já foi calculado/decidido pelo pai,
 // sem nenhuma lógica própria de estado, então sai sem alterar comportamento.
 
-export interface SavedState<TEntry extends { mood: string | number }> {
+export interface SavedState<TEntry extends { mood?: string | number | null }> {
   entry: TEntry
   signal: Signal
   mirror: DiaryMirror | null
@@ -19,7 +24,7 @@ export interface SavedState<TEntry extends { mood: string | number }> {
   kind: 'diary' | 'checkin'
 }
 
-export default function DiarySavedReflection<TEntry extends { mood: string | number }>({
+export default function DiarySavedReflection<TEntry extends { mood?: string | number | null }>({
   saved, user, plan, isEssential, todayDeepened, suggestionsApplied, onOpenArticle,
   moodMeta, onApplySuggestions, onAskFollowUp, onFinishCheckin, onContinueFromCheckin, onViewHistory, onBack,
 }: {
@@ -30,7 +35,7 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
   todayDeepened: boolean
   suggestionsApplied: boolean
   onOpenArticle?: (slug: string) => void
-  moodMeta: (value: string | number | undefined) => { emoji: string; label: string }
+  moodMeta: (value: string | number | null | undefined) => { emoji: string; label: string }
   onApplySuggestions: () => void
   onAskFollowUp: () => void
   onFinishCheckin: () => void
@@ -38,8 +43,71 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
   onViewHistory: () => void
   onBack: () => void
 }) {
-  const meta = moodMeta(saved.entry.mood)
+  const [patternInsight, setPatternInsight] = useState<DiaryPatternInsight | null>(null)
+  const [patternDismissed, setPatternDismissed] = useState(false)
+  const [patternExploring, setPatternExploring] = useState(false)
+  const [showExtras, setShowExtras] = useState(false)
+  const rawMood = saved.entry.mood
+  const meta = rawMood == null || !String(rawMood).trim() ? null : moodMeta(rawMood)
   const suggestedCount = saved.mirror ? Object.values(saved.mirror.suggested_tags).reduce((sum, arr) => sum + arr.length, 0) : 0
+  const hasTagSuggestions = suggestedCount > 0 && Boolean(saved.mirror)
+  const plusAccess = hasPlanAccess(plan, 'plus')
+  const retentionEntry = saved.entry as { id?: string; created_at?: string; date?: string }
+  const retentionEntryKey = retentionEntry.id ?? retentionEntry.created_at ?? `${saved.kind}:${retentionEntry.date ?? 'current'}`
+  const patternSourceKey = JSON.stringify({
+    id: (saved.entry as DiaryPatternEntry).id ?? null,
+    date: (saved.entry as DiaryPatternEntry).date ?? null,
+    created_at: (saved.entry as DiaryPatternEntry).created_at ?? null,
+    emotional_tags: (saved.entry as DiaryPatternEntry).emotional_tags ?? [],
+    context_tags: (saved.entry as DiaryPatternEntry).context_tags ?? [],
+    need_tags: (saved.entry as DiaryPatternEntry).need_tags ?? [],
+    trigger_tags: (saved.entry as DiaryPatternEntry).trigger_tags ?? [],
+  })
+  const hasHiddenExtras = saved.kind === 'diary' && Boolean(
+    onOpenArticle || (hasTagSuggestions && patternInsight && !patternDismissed),
+  )
+
+  useEffect(() => {
+    if (!user) return
+    trackRetentionEvent(saved.kind === 'checkin' ? 'checkin_complete' : 'diary_entry', {
+      userId: user.id,
+      dedupeKey: retentionEntryKey,
+      metadata: { surface: 'diary' },
+    })
+  }, [retentionEntryKey, saved.kind, user])
+
+  useEffect(() => {
+    if (!user || !patternInsight) return
+    trackRetentionEvent('diary_pattern_view', {
+      userId: user.id,
+      dedupeKey: retentionEntryKey,
+      metadata: { surface: 'diary' },
+    })
+  }, [patternInsight, retentionEntryKey, user])
+
+  useEffect(() => {
+    if (saved.kind !== 'diary' || !user || !plusAccess || todayDeepened) {
+      setPatternInsight(null)
+      return
+    }
+    let active = true
+    const source = JSON.parse(patternSourceKey) as DiaryPatternEntry
+    void (async () => {
+      try {
+        const historyEnabled = await fetchHistoryPersonalizationEnabled(user.id)
+        if (!active) return
+        if (!historyEnabled) {
+          setPatternInsight(null)
+          return
+        }
+        const insight = await fetchDiaryPatternInsight(user.id, source)
+        if (active) setPatternInsight(insight)
+      } catch {
+        if (active) setPatternInsight(null)
+      }
+    })()
+    return () => { active = false }
+  }, [patternSourceKey, plusAccess, saved.kind, todayDeepened, user])
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
@@ -47,7 +115,7 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
         <div className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto"><CheckCircle2 className="w-7 h-7 text-forest-700" /></div>
         <h1 className="font-serif text-3xl text-forest-900 mt-5">{saved.kind === 'checkin' ? 'Check-in registrado' : 'Seu registro ficou guardado'}</h1>
         <p className="text-ink-soft mt-2">{saved.kind === 'checkin' ? 'Você registrou como está agora. Quer deixar assim ou escrever um pouco mais?' : 'Você não precisava resolver nada. Colocar em palavras já foi suficiente por hoje.'}</p>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm"><span>{meta.emoji}</span><span>{meta.label}</span></div>
+        {meta && <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm"><span>{meta.emoji}</span><span>{meta.label}</span></div>}
       </div>
 
       {saved.kind === 'diary' && saved.processing && (
@@ -62,17 +130,15 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo para observar</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.observation}</p></div>
             <div className="rounded-2xl bg-white/80 border border-line p-4"><p className="text-xs font-semibold text-forest-700">Algo que você fez por si</p><p className="text-sm text-ink mt-2 leading-relaxed">{saved.mirror.strength}</p></div>
           </div>
-          {saved.mirror.pattern && <div className="mt-3 rounded-2xl border border-line bg-white/70 p-4"><p className="text-xs font-semibold text-forest-700">Recorrência para observar</p><p className="text-sm text-ink-soft mt-1">{saved.mirror.pattern}</p></div>}
           <div className="mt-4 rounded-2xl bg-forest-900 text-white p-5"><p className="text-xs text-forest-100">Uma pergunta para levar com você</p><p className="font-serif text-xl mt-1">{saved.mirror.question}</p></div>
           <p className="text-[11px] text-ink-soft mt-3">Leitura de autopercepção. Não é diagnóstico nem substitui acompanhamento profissional.</p>
         </section>
       )}
 
-      {saved.kind === 'diary' && !saved.processing && !saved.mirror && <div className="mt-8 rounded-2xl border border-line bg-paper-soft p-5 text-sm text-ink-soft">Este registro foi salvo sem leitura complementar, como você escolheu.</div>}
-
       {suggestedCount > 0 && saved.mirror && (
         <section className="mt-5 rounded-3xl border border-line bg-white p-5">
-          <h3 className="font-serif text-xl text-forest-900">Algumas marcações podem combinar com seu registro</h3>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forest-600">Um próximo passo, se fizer sentido</p>
+          <h3 className="font-serif text-xl text-forest-900 mt-1">Algumas marcações podem combinar com seu registro</h3>
           <p className="text-sm text-ink-soft mt-1">Elas só entram no seu mapa e nos relatórios se você confirmar.</p>
           <div className="flex flex-wrap gap-2 mt-4">
             {saved.mirror.suggested_tags.emotions.map(t => <DiaryTagChip key={`e-${t}`} label={t} selected />)}
@@ -85,7 +151,48 @@ export default function DiarySavedReflection<TEntry extends { mood: string | num
         </section>
       )}
 
-      {onOpenArticle && <div className="mt-6"><RecommendedContent user={user ? { id: user.id } : null} profile={{ plan }} signal={saved.signal} source={saved.kind === 'checkin' ? 'checkin' : 'diary'} limit={2} variant="compact" title="Conteúdos que podem fazer sentido agora" description="Sugestões relacionadas ao que você acabou de registrar." onOpen={onOpenArticle} /></div>}
+      {saved.kind === 'diary' && patternInsight && !patternDismissed && (!hasTagSuggestions || showExtras) && (
+        <section className="mt-5 rounded-3xl border border-forest-100 bg-white p-5 sm:p-6" aria-label="Recorrência do histórico">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-forest-600">{patternInsight.eyebrow}</p>
+          <h2 className="mt-1 font-serif text-2xl text-forest-900">{patternInsight.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink">{patternInsight.description}</p>
+          <div className="mt-4 rounded-2xl bg-linen/55 px-4 py-3">
+            <p className="text-xs leading-relaxed text-ink-soft">{patternInsight.evidence}</p>
+          </div>
+
+          {patternExploring ? (
+            <div className="mt-4 rounded-2xl bg-forest-900 p-5 text-white">
+              <p className="text-xs text-forest-100">Uma pergunta para olhar com mais calma</p>
+              <p className="mt-1 font-serif text-xl">{patternInsight.question}</p>
+              <button type="button" onClick={() => setPatternExploring(false)} className="mt-3 text-xs font-medium text-forest-100 underline underline-offset-4">Fechar pergunta</button>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPatternExploring(true)} className="rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Explorar isso</button>
+              <button type="button" onClick={() => setPatternDismissed(true)} className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900">Agora não</button>
+            </div>
+          )}
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">A comparação usa somente marcadores estruturados que você escolheu nos seus registros. O texto livre de dias anteriores não é relido para criar esta observação.</p>
+        </section>
+      )}
+
+      {saved.kind === 'diary' && !saved.processing && !saved.mirror && <div className="mt-8 rounded-2xl border border-line bg-paper-soft p-5 text-sm text-ink-soft">Este registro foi salvo sem leitura complementar, como você escolheu.</div>}
+
+      {hasHiddenExtras && (
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={() => setShowExtras(value => !value)}
+            className="text-sm font-medium text-forest-700 underline underline-offset-4"
+            aria-expanded={showExtras}
+          >
+            {showExtras ? 'Mostrar menos sugestões' : 'Ver outras sugestões'}
+          </button>
+          {!showExtras && <p className="mt-1 text-xs text-ink-soft">O restante fica escondido para não transformar o pós-registro em uma lista de tarefas.</p>}
+        </div>
+      )}
+
+      {showExtras && onOpenArticle && <div className="mt-6"><RecommendedContent user={user ? { id: user.id } : null} profile={{ plan }} signal={saved.signal} source={saved.kind === 'checkin' ? 'checkin' : 'diary'} limit={2} variant="compact" title="Conteúdos que podem fazer sentido agora" description="Sugestões relacionadas ao que você acabou de registrar." onOpen={onOpenArticle} /></div>}
 
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         {saved.kind === 'checkin' && <><button onClick={onFinishCheckin} className="rounded-2xl border border-line bg-white px-5 py-2.5 text-sm font-medium text-forest-900">Concluir</button><button onClick={onContinueFromCheckin} className="rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium inline-flex items-center gap-2"><PenLine className="w-4 h-4" /> Quero escrever sobre isso</button></>}

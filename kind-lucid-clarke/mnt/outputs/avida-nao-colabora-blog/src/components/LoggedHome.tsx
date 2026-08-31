@@ -1,318 +1,58 @@
-import { useState, useEffect } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import {
-  NotebookPen, LineChart, BookOpen, Sprout, MessageCircle, CreditCard,
-  BarChart3, TrendingUp, ClipboardList, ArrowRight, Sparkles, CheckCircle2, HeartHandshake, Leaf, Lock,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
-import { normalizePlan, hasPlanAccess, type PlanKey } from '../lib/officialPlans'
-import { fetchDiaryConfig } from '../lib/diaryConfig'
-import { ymd } from '../lib/reportPeriods'
-import { MoodChip } from './user/ui'
+import { CalendarDays, Check, Leaf } from 'lucide-react'
+import LoggedHomeLegacy from './LoggedHomeLegacy'
 import { MOODS } from './user/moods'
+import { MoodChip } from './user/ui'
 
-interface LoggedHomeProps {
-  user: User | null
-  profile: Profile | null
-  onNavigate: (section: string) => void
+interface LoggedHomeProps { user: User | null; profile: Profile | null; onNavigate: (section: string, articleSlug?: string) => void }
+const COLLABORATION = [{ score: 1, emoji: '😣', label: 'Nem um pouco' }, { score: 2, emoji: '😕', label: 'Quase nada' }, { score: 3, emoji: '😐', label: 'Mais ou menos' }, { score: 4, emoji: '🙂', label: 'Até que sim' }, { score: 5, emoji: '😄', label: 'Colaborou' }] as const
+function todayKey() {
+  const date = new Date()
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
 }
-
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Bom dia'
-  if (h < 18) return 'Boa tarde'
-  return 'Boa noite'
-}
-
-interface QuickItem {
-  title: string
-  desc: string
-  to: string
-  Icon: LucideIcon
-  /** Ausente = disponível em todos os planos (§3). */
-  requiredPlan?: 'essential' | 'plus'
-  /** Card com dica contextual própria (contador do diário / prévia do mapa). */
-  hintKind?: 'diary' | 'mapa'
-}
-
-// Atalhos — SOMENTE funções que existem nos planos oficiais. Relatório semanal
-// e mensal viram cards separados (mesma página my-report) porque respondem
-// perguntas diferentes e têm disponibilidade diferente por plano (§1/§3).
-const QUICK: QuickItem[] = [
-  { title: 'Diário',               desc: 'Escreva, desabafe e registre seus sentimentos.', to: 'diary',            Icon: NotebookPen,   hintKind: 'diary' },
-  { title: 'Questionários',        desc: 'Autopercepção guiada, no seu tempo.',            to: 'questionarios',    Icon: ClipboardList },
-  { title: 'Mapa Emocional',       desc: 'Visualize seus padrões e emoções.',              to: 'my-evolution',     Icon: LineChart,     hintKind: 'mapa' },
-  { title: 'Conteúdos Guiados',    desc: 'Práticas e leituras para o seu momento.',        to: 'articles',         Icon: BookOpen },
-  { title: 'Relatório semanal',    desc: 'Resumo leve do que sua semana mostrou.',         to: 'my-report',        Icon: BarChart3,     requiredPlan: 'essential' },
-  { title: 'Relatório mensal',     desc: 'Leitura mais profunda dos padrões do mês.',      to: 'my-report',        Icon: TrendingUp,    requiredPlan: 'plus' },
-  { title: 'Plano de Autocuidado', desc: 'Ações práticas para cuidar de você.',            to: 'self-care',        Icon: Sprout,        requiredPlan: 'plus' },
-  { title: 'Orientação',           desc: 'Orientação mensal por mensagem.',                to: 'monthly-guidance', Icon: MessageCircle, requiredPlan: 'plus' },
-  { title: 'Meu Plano',            desc: 'Veja seu plano e o que cada um inclui.',         to: 'my-plan',          Icon: CreditCard },
-]
-
-interface HomeStats { presence: number; checkins: number; reflections: number; diaryThisMonth: number; diaryLimit: number | null; loaded: boolean }
-
-// Dica contextual por card: bloqueio por plano tem prioridade; senão, cards com
-// hintKind mostram contador (diário) ou nível de acesso (mapa). null = sem dica.
-function quickHint(item: QuickItem, plan: PlanKey, stats: HomeStats): { text: string; locked: boolean } | null {
-  if (item.requiredPlan && !hasPlanAccess(plan, item.requiredPlan)) {
-    return { text: item.requiredPlan === 'plus' ? 'Disponível no Plus' : 'Disponível no Essencial', locked: true }
-  }
-  if (item.hintKind === 'diary') {
-    if (plan !== 'free') return { text: 'Ilimitado', locked: false }
-    return stats.diaryLimit != null ? { text: `${stats.diaryThisMonth}/${stats.diaryLimit} este mês`, locked: false } : null
-  }
-  if (item.hintKind === 'mapa' && plan === 'free') return { text: 'Prévia', locked: false }
-  return null
-}
+function todayLabel() { return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()) }
+function greeting() { const hour = new Date().getHours(); return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite' }
+type CollaborationRow = { score: number }
 
 export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProps) {
-  const plan = normalizePlan(profile?.plan)
   const name = profile?.preferred_name || profile?.display_name || profile?.full_name?.split(' ')[0] || 'você'
-  const [stats, setStats] = useState<HomeStats>({ presence: 0, checkins: 0, reflections: 0, diaryThisMonth: 0, diaryLimit: null, loaded: false })
-
+  const [score, setScore] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [showFeelings, setShowFeelings] = useState(false)
   useEffect(() => {
     if (!user) return
     let active = true
-    ;(async () => {
-      const since = new Date(Date.now() - 30 * 864e5).toISOString()
-      const [{ data }, diaryCfg] = await Promise.all([
-        supabase.from('diary_entries').select('created_at,entry_type,diary_kind,date').eq('user_id', user.id).gte('created_at', since),
-        fetchDiaryConfig(profile?.plan ?? 'free'),
-      ])
-      if (!active) return
-      const entries = (data ?? []) as { created_at?: string; entry_type?: string; diary_kind?: string; date?: string }[]
-      const days = new Set(entries.map(e => String(e.created_at ?? '').slice(0, 10)))
-      // Separa check-ins rápidos de reflexões completas (§8) para os números baterem
-      // com o que cada registro realmente é.
-      const checkins = entries.filter(e => e.entry_type === 'checkin').length
-      const reflections = entries.filter(e => (e.entry_type ?? 'diary') === 'diary').length
-      // Mesma regra de mês-calendário usada no Diário: para o Gratuito, o
-      // contador considera exclusivamente registros básicos; check-ins e
-      // complementos nunca consomem a franquia.
-      const monthKey = ymd(new Date()).slice(0, 7)
-      const diaryThisMonth = entries.filter(e =>
-        (e.entry_type ?? 'diary') === 'diary' && e.diary_kind === 'basic' && String(e.date ?? '').startsWith(monthKey),
-      ).length
-      setStats({
-        presence: Math.min(100, Math.round((days.size / 30) * 100)),
-        checkins,
-        reflections,
-        diaryThisMonth,
-        diaryLimit: diaryCfg.entriesPerMonth,
-        loaded: true,
-      })
-    })()
+    void supabase.from('daily_life_collaboration').select('score').eq('user_id', user.id).eq('date', todayKey()).maybeSingle().then(({ data }) => {
+      const row = data as unknown as CollaborationRow | null
+      if (active) setScore(typeof row?.score === 'number' ? row.score : null)
+    })
     return () => { active = false }
-  }, [user, profile?.plan])
-
-  const upgrade =
-    plan === 'free'
-      ? { text: 'Desbloqueie o Mapa emocional completo, os conteúdos guiados e o relatório semanal.', cta: 'Conhecer o Essencial' }
-      : plan === 'essential'
-        ? { text: 'Ative o Plano de autocuidado, o Relatório aprofundado e a Orientação profissional.', cta: 'Conhecer o Plus' }
-        : null
-
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 lg:gap-6">
-        {/* ─── Coluna principal ─── */}
-        <div className="space-y-5 min-w-0">
-          {/* Boas-vindas */}
-          <div className="grid sm:grid-cols-2 bg-paper-soft border border-line rounded-3xl overflow-hidden">
-            <div className="p-6 sm:p-7 flex flex-col justify-center">
-              <h1 className="font-serif text-2xl sm:text-3xl text-forest-900 flex items-center gap-2">
-                {greeting()}, <span className="capitalize">{name}</span>! <Leaf className="w-5 h-5 text-forest-400" />
-              </h1>
-              <p className="mt-2 text-sm text-ink-soft leading-relaxed">
-                Que bom ter você aqui. Que tal reservar alguns minutos hoje para cuidar de você com gentileza e presença?
-              </p>
-              <button
-                onClick={() => onNavigate('diary')}
-                className="mt-5 self-start inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors"
-              >
-                Começar meu momento <Sparkles className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="hidden sm:block bg-mint min-h-[200px]">
-              <img
-                src="https://images.unsplash.com/photo-1495197359483-d092478c170a?w=700&q=80"
-                alt=""
-                className="w-full h-full object-cover"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
-          </div>
-
-          {/* Check-in */}
-          <section className="bg-paper-soft border border-line rounded-3xl p-5 sm:p-6">
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900">Como você está se sentindo hoje?</h2>
-            <p className="text-sm text-ink-soft mt-1 mb-4">Faça um check-in rápido e registre como está se sentindo agora.</p>
-            <div className="flex flex-wrap gap-2">
-              {MOODS.map(m => (
-                <MoodChip key={m.key} mood={m} active={false} onClick={() => onNavigate(`diary?mood=${m.key}`)} />
-              ))}
-            </div>
-          </section>
-
-          {/* Jornada emocional: cada atalho explica seu papel no cuidado. */}
-          <section>
-            <h2 className="font-serif text-lg sm:text-xl text-forest-900 px-1">Minha rotina emocional</h2>
-            <p className="text-sm text-ink-soft mt-1 mb-3 px-1">Registre, perceba seus padrões e escolha pequenos próximos passos no seu tempo.</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {QUICK.map(q => {
-                const hint = quickHint(q, plan, stats)
-                return (
-                  <button
-                    key={q.title}
-                    onClick={() => onNavigate(q.to)}
-                    className="group text-left bg-paper-soft border border-line rounded-2xl p-4 hover:shadow-md hover:border-forest-200 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-                  >
-                    <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 mb-3">
-                      <q.Icon className="w-5 h-5" />
-                    </span>
-                    <p className="font-serif text-base text-forest-900 leading-tight">{q.title}</p>
-                    <p className="text-xs text-ink-soft mt-1 leading-snug line-clamp-2">{q.desc}</p>
-                    {hint && (
-                      <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${hint.locked ? 'bg-stone-100 text-stone-500' : 'bg-mint text-forest-700'}`}>
-                        {hint.locked && <Lock className="w-2.5 h-2.5" />} {hint.text}
-                      </span>
-                    )}
-                    <ArrowRight className="w-4 h-4 text-ink-soft mt-2 group-hover:translate-x-0.5 group-hover:text-forest-700 transition-all" />
-                  </button>
-                )
-              })}
-              {/* Novo check-in — destaque */}
-              <button
-                onClick={() => onNavigate('diary')}
-                className="group text-left bg-forest-900 text-white rounded-2xl p-4 hover:bg-forest-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
-              >
-                <span className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center mb-3">
-                  <NotebookPen className="w-5 h-5" />
-                </span>
-                <p className="font-serif text-base leading-tight">Novo check-in</p>
-                <p className="text-xs text-white/70 mt-1 leading-snug">Como você está agora? Registre e acompanhe.</p>
-                <ArrowRight className="w-4 h-4 text-white/80 mt-2 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-          </section>
-
-          {/* Convite de upgrade */}
-          {upgrade && (
-            <div className="bg-forest-900 rounded-3xl px-6 py-6 text-white flex flex-col sm:flex-row sm:items-center gap-4">
-              <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </span>
-              <p className="flex-1 text-sm leading-relaxed text-forest-50">{upgrade.text}</p>
-              <button
-                onClick={() => onNavigate('pricing')}
-                className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors whitespace-nowrap"
-              >
-                {upgrade.cta} <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ─── Coluna lateral ─── */}
-        <aside className="space-y-5">
-          {/* Sua evolução emocional */}
-          <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-serif text-lg text-forest-900">Sua evolução emocional</h2>
-              <button onClick={() => onNavigate('my-report')} className="text-xs text-forest-700 hover:underline flex items-center gap-1">
-                Ver relatório <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="flex items-center gap-4">
-              <ProgressRing value={stats.presence} />
-              <div className="space-y-2 text-sm">
-                <StatLine icon={<CheckCircle2 className="w-4 h-4" />} value={stats.checkins} label="Check-ins" />
-                <StatLine icon={<NotebookPen className="w-4 h-4" />} value={stats.reflections} label="Reflexões no diário" />
-              </div>
-            </div>
-            <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">
-              {stats.loaded && stats.checkins > 0
-                ? 'Você está evoluindo com consistência e isso já faz toda a diferença. 🌿'
-                : 'Um pequeno registro por dia já é um ato de cuidado. Comece quando quiser. 🌿'}
-            </p>
-          </div>
-
-          {/* Frase */}
-          <div className="bg-paper-soft border border-line rounded-3xl p-5">
-            <p className="font-serif text-lg text-forest-900 leading-snug">
-              "Você não precisa dar conta de tudo hoje. Um passo de cada vez já é progresso."
-            </p>
-            <p className="text-xs text-ink-soft mt-3">A Vida Não Colabora</p>
-          </div>
-
-          {/* Sugestão */}
-          <button
-            onClick={() => onNavigate('articles')}
-            className="group block w-full text-left bg-paper-soft border border-line rounded-3xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all"
-          >
-            <div className="aspect-[16/9] bg-mint overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=600&q=80"
-                alt=""
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
-            <div className="p-5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-forest-600">Sugestão para você</span>
-              <p className="font-serif text-lg text-forest-900 mt-1 leading-snug">Conteúdos que acolhem o seu momento</p>
-              <p className="text-sm text-ink-soft mt-1 leading-relaxed">Práticas e leituras curtas para atravessar o dia com mais leveza.</p>
-              <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-700">
-                Explorar conteúdos <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </div>
-          </button>
-        </aside>
-      </div>
-
-      {/* Banner acolhedor */}
-      <div className="mt-6 rounded-3xl border border-line bg-mint/40 px-5 sm:px-6 py-4 flex items-center gap-4">
-        <span className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0 text-forest-600">
-          <HeartHandshake className="w-5 h-5" />
-        </span>
-        <p className="text-sm text-forest-800 leading-relaxed">
-          <strong className="font-medium">Você encontra apoio aqui.</strong> Este é um espaço seguro para você se ouvir, se cuidar e seguir no seu tempo.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function StatLine({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-forest-500 flex-shrink-0">{icon}</span>
-      <span className="font-semibold text-forest-900">{value}</span>
-      <span className="text-ink-soft text-xs">{label}</span>
-    </div>
-  )
-}
-
-function ProgressRing({ value }: { value: number }) {
-  const r = 34
-  const circ = 2 * Math.PI * r
-  const offset = circ * (1 - Math.min(100, Math.max(0, value)) / 100)
-  return (
-    <div className="relative w-[92px] h-[92px] flex-shrink-0">
-      <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="#E8F0EB" strokeWidth="7" />
-        <circle
-          cx="40" cy="40" r={r} fill="none" stroke="#1c4a37" strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-serif text-xl text-forest-900 leading-none">{value}%</span>
-        <span className="text-[9px] text-ink-soft mt-0.5">presença</span>
-      </div>
-    </div>
-  )
+  }, [user])
+  async function chooseScore(nextScore: number) {
+    if (!user || saving) return
+    const previous = score
+    setScore(nextScore)
+    setSaving(true)
+    const payload = { user_id: user.id, date: todayKey(), score: nextScore, updated_at: new Date().toISOString() } as never
+    const { error } = await supabase.from('daily_life_collaboration').upsert(payload, { onConflict: 'user_id,date' })
+    if (error) setScore(previous)
+    else setShowFeelings(true)
+    setSaving(false)
+  }
+  const selected = COLLABORATION.find(item => item.score === score)
+  const featuredMoodKeys = new Set(['bem_estar', 'tranquilidade', 'cansaco', 'ansiedade', 'sobrecarga', 'tristeza', 'irritacao'])
+  const featuredMoods = MOODS.filter(mood => featuredMoodKeys.has(mood.key))
+  return <>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 lg:pt-8"><section className="relative overflow-hidden rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-5 sm:p-7 lg:p-8"><div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/50 blur-2xl" aria-hidden /><div className="relative">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft mb-4"><span className="inline-flex items-center gap-1.5 bg-white/70 border border-line rounded-full px-3 py-1.5 capitalize"><CalendarDays className="w-3.5 h-3.5 text-forest-600" /> {todayLabel()}</span><span className="inline-flex items-center gap-1.5"><Leaf className="w-3.5 h-3.5 text-forest-500" /> Seu espaço de hoje</span></div>
+      <p className="text-sm font-medium text-forest-700">{greeting()}, <span className="capitalize">{name}</span>.</p><h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] leading-[1.08] text-forest-900 mt-1.5">E aí, a vida colaborou hoje?</h1><p className="text-sm sm:text-base text-ink-soft mt-3 max-w-2xl leading-relaxed">Pense no dia como um todo. Não é uma emoção e não precisa estar tudo bem — escolha apenas a resposta que chega mais perto.</p>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-6" aria-label="Quanto a vida colaborou hoje">{COLLABORATION.map(item => { const active = score === item.score; return <button key={item.score} type="button" disabled={saving} onClick={() => void chooseScore(item.score)} aria-pressed={active} className={`relative rounded-2xl border px-3 py-4 text-center transition-all ${active ? 'border-forest-900 bg-forest-900 text-white shadow-sm' : 'border-line bg-white/80 text-forest-900 hover:border-forest-300 hover:bg-white'} disabled:opacity-60`}>{active && <Check className="absolute right-2 top-2 w-3.5 h-3.5" />}<span className="block text-2xl" aria-hidden>{item.emoji}</span><span className="block text-sm font-medium mt-1.5">{item.label}</span></button> })}</div>
+      {selected && <div className="mt-6 rounded-3xl border border-white bg-white/70 p-4 sm:p-5"><p className="text-sm font-semibold text-forest-900">Você marcou: {selected.emoji} {selected.label}</p><p className="text-sm text-ink-soft mt-1">Quer dizer como isso apareceu em você? É opcional.</p>{showFeelings && <div className="flex flex-wrap gap-2 mt-4">{featuredMoods.map(mood => <MoodChip key={mood.key} mood={mood} active={false} onClick={() => onNavigate(`diary?mood=${mood.key}`)} />)}</div>}<div className="flex flex-wrap gap-2 mt-4"><button type="button" onClick={() => onNavigate('diary')} className="rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Quero escrever</button><button type="button" onClick={() => setShowFeelings(value => !value)} className="rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-800">{showFeelings ? 'Ocultar sentimentos' : 'Registrar como estou'}</button></div></div>}
+    </div></section></div>
+    <style>{`.avnc-legacy-home > div > section:first-child { display: none !important; } .avnc-legacy-home > div { padding-top: 0 !important; }`}</style><div className="avnc-legacy-home"><LoggedHomeLegacy user={user} profile={profile} onNavigate={onNavigate} /></div>
+  </>
 }

@@ -128,7 +128,7 @@ function WeeklySummaryHero({ summary }: { summary: string }) {
         <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Sprout className="w-5 h-5" /></span>
         <div>
           <h3 className="font-serif text-lg text-forest-900">Resumo da semana</h3>
-          <p className="text-sm text-stone-600 leading-relaxed mt-1">{summary}</p>
+          <p className="text-sm text-ink-soft leading-relaxed mt-1">{summary}</p>
         </div>
       </div>
       <HeroDecoration />
@@ -190,7 +190,7 @@ function EnergyAnxietyPanel({ data, bestEnergy, lowAnx, labels, title = 'Energia
           </div>
         </div>
       ) : (
-        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Gráfico indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período. Continue registrando para acompanhar sua semana.</p>
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Gráfico indisponível: são necessários registros com energia/ansiedade em pelo menos 2 dias do período. Se houver novos registros quando fizer sentido para você, esta leitura pode ganhar mais contexto.</p>
       )}
     </div>
   )
@@ -218,14 +218,14 @@ function EmotionDonut({ emotions }: { emotions: { label: string; count: number }
             {emotions.slice(0, 6).map((e, i) => (
               <li key={e.label} className="flex items-center gap-2 text-sm">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                <span className="text-stone-700 truncate flex-1">{e.label}</span>
+                <span className="text-ink truncate flex-1">{e.label}</span>
                 <span className="text-ink-soft text-xs">{Math.round((e.count / total) * 100)}%</span>
               </li>
             ))}
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com emoções neste período. Continue registrando para ver seu panorama emocional.</p>
+        <p className="text-sm text-ink-soft bg-mint/30 border border-line rounded-lg px-3 py-2.5">Ainda não há check-ins com emoções neste período. Se você registrar outros momentos quando quiser, este panorama poderá ganhar mais contexto.</p>
       )}
     </div>
   )
@@ -244,7 +244,7 @@ function TriggerRanking({ triggers, title = 'Marcadores emocionais mais frequent
           {triggers.slice(0, 5).map((t, i) => (
             <div key={t.tag} className="flex items-center gap-3">
               <span className="w-5 h-5 rounded-full bg-mint text-forest-700 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-              <span className="text-sm text-stone-700 w-24 sm:w-32 flex-shrink-0 truncate">{t.tag}</span>
+              <span className="text-sm text-ink w-24 sm:w-32 flex-shrink-0 truncate">{t.tag}</span>
               <div className="flex-1 h-2 rounded-full bg-mint overflow-hidden"><div className="h-full rounded-full bg-[#e8a87c]" style={{ width: `${(t.count / max) * 100}%` }} /></div>
               <span className="text-xs text-ink-soft w-9 text-right">{Math.round((t.count / total) * 100)}%</span>
             </div>
@@ -281,7 +281,7 @@ function WeeklyNextSteps({ steps }: { steps: string[] }) {
           return (
             <div key={i} className="flex items-start gap-2.5">
               <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Icon className="w-4 h-4" /></span>
-              <span className="text-sm text-stone-700 leading-snug">{s}</span>
+              <span className="text-sm text-ink leading-snug">{s}</span>
             </div>
           )
         })}
@@ -343,6 +343,36 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
       <div className="space-y-4">
         <WeeklySummaryHero summary={c.summary} />
 
+        {/* Fase 19R.6: a narrativa vem primeiro — "o que aconteceu comigo nesta
+            semana" antes dos indicadores e gráficos. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que a semana mostrou">
+            <p className="text-sm text-ink leading-relaxed">{c.interpretation}</p>
+          </InsightCard>
+          <InsightCard icon={<TrendingUp className="w-4 h-4" />} title="O que mudou desde a semana passada">
+            {c.comparison.length > 0
+              ? <ul className="space-y-1.5">{c.comparison.map((l, i) => <li key={i} className="text-sm text-ink flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
+              : <p className="text-sm text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>}
+          </InsightCard>
+          {c.improvementMoments && (
+            <InsightCard icon={<Heart className="w-4 h-4" />} title="O que ajudou">
+              <p className="text-sm text-ink leading-relaxed">{c.improvementMoments}</p>
+            </InsightCard>
+          )}
+          {(c.patterns?.length ?? 0) > 0 && (
+            <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Padrão da semana">
+              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-ink flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+          {(c.attentionPoints?.length ?? 0) > 0 && (
+            <InsightCard icon={<AlertCircle className="w-4 h-4" />} title="Algo para observar" tone="coral">
+              <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-ink flex gap-2"><span className="text-[#d98b3c] mt-0.5">•</span>{p}</li>)}</ul>
+            </InsightCard>
+          )}
+        </div>
+
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 pt-1">As evidências abaixo</p>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <MetricTile icon={<Smile className="w-4 h-4" />} label="Emoção + frequente" value={c.dominantEmotion ?? '—'} />
           <MetricTile icon={<Zap className="w-4 h-4" />} label="Energia média" value={c.avgEnergy || '—'} unit={c.avgEnergy ? '/5' : ''} />
@@ -362,32 +392,6 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
         {c.topContexts && c.topContexts.length > 0 && (
           <TriggerRanking triggers={c.topContexts} title="Contextos que mais apareceram" emptyText="Ainda não há contextos marcados nesta semana." />
         )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <InsightCard icon={<Sprout className="w-4 h-4" />} title="O que seus registros parecem indicar">
-            <p className="text-sm text-stone-700 leading-relaxed">{c.interpretation}</p>
-          </InsightCard>
-          <InsightCard icon={<TrendingUp className="w-4 h-4" />} title="Comparação com a semana anterior">
-            {c.comparison.length > 0
-              ? <ul className="space-y-1.5">{c.comparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
-              : <p className="text-sm text-ink-soft">Ainda não há uma semana anterior suficiente para comparação.</p>}
-          </InsightCard>
-          {(c.attentionPoints?.length ?? 0) > 0 && (
-            <InsightCard icon={<AlertCircle className="w-4 h-4" />} title="Pontos de atenção da semana" tone="coral">
-              <ul className="space-y-1.5">{c.attentionPoints.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-[#d98b3c] mt-0.5">•</span>{p}</li>)}</ul>
-            </InsightCard>
-          )}
-          {c.improvementMoments && (
-            <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
-              <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments}</p>
-            </InsightCard>
-          )}
-          {(c.patterns?.length ?? 0) > 0 && (
-            <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões da semana">
-              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
-            </InsightCard>
-          )}
-        </div>
 
         {!forPdf && recs.length > 0 && (
           <div><p className="text-[11px] font-semibold text-forest-700 uppercase tracking-wide mb-1.5">Conteúdos guiados recomendados</p>
@@ -429,7 +433,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600"><Sprout className="w-5 h-5" /></span>
             <h3 className="font-serif text-xl text-forest-900">Seu mês em perspectiva</h3>
           </div>
-          <p className="text-sm text-stone-600 leading-relaxed">{c.summary}</p>
+          <p className="text-sm text-ink-soft leading-relaxed">{c.summary}</p>
         </div>
         <div className="flex flex-wrap gap-2 px-5 sm:px-6 pb-5">
           {MICRO_INSIGHTS.map((mi, i) => (
@@ -459,7 +463,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <AlertCircle className="w-5 h-5 text-[#c2673f] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-[#9a3b26]">Relatório com poucos registros</p>
-            <p className="text-sm text-stone-700 leading-relaxed mt-1">Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Continue registrando check-ins e diários para que os próximos relatórios tragam insights mais precisos.</p>
+            <p className="text-sm text-ink leading-relaxed mt-1">Este relatório foi gerado com poucos registros no período. Por isso, algumas análises aparecem como iniciais ou indisponíveis. Se fizer sentido para você, novos registros podem trazer mais contexto para observar mudanças ao longo do tempo.</p>
           </div>
         </div>
       )}
@@ -502,7 +506,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
                 {c.attentionDays.slice(0, 5).map((d, i) => (
                   <div key={d.day} className="flex items-center gap-3">
                     <span className="w-6 h-6 rounded-full bg-coral/40 text-[#9a3b26] text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                    <span className="text-sm text-stone-700"><strong className="text-forest-900">Dia {d.day}</strong> — {d.reason}</span>
+                    <span className="text-sm text-ink"><strong className="text-forest-900">Dia {d.day}</strong> — {d.reason}</span>
                   </div>
                 ))}
               </div>
@@ -521,27 +525,27 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <InsightCard icon={<Sprout className="w-4 h-4" />} title="Resumo geral do mês">
-            <p className="text-sm text-stone-700 leading-relaxed">{c.summary}</p>
-            {c.energyAnxietySleep && <p className="text-sm text-stone-600 leading-relaxed mt-2">{c.energyAnxietySleep}</p>}
+            <p className="text-sm text-ink leading-relaxed">{c.summary}</p>
+            {c.energyAnxietySleep && <p className="text-sm text-ink-soft leading-relaxed mt-2">{c.energyAnxietySleep}</p>}
           </InsightCard>
 
           <InsightCard icon={<BarChart2 className="w-4 h-4" />} title="Principais padrões emocionais">
-            <p className="text-sm text-stone-700 leading-relaxed mb-2">{c.predominantEmotions}</p>
+            <p className="text-sm text-ink leading-relaxed mb-2">{c.predominantEmotions}</p>
             {c.patterns.length > 0 && (
-              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-stone-600 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
+              <ul className="space-y-1.5">{c.patterns.map((p, i) => <li key={i} className="text-sm text-ink-soft flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{p}</li>)}</ul>
             )}
           </InsightCard>
 
           <InsightCard icon={<Activity className="w-4 h-4" />} title="Relações percebidas">
             {(c.relations?.length ?? 0) > 0 ? (
-              <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul>
+              <ul className="space-y-1.5">{c.relations.map((r, i) => <li key={i} className="text-sm text-ink flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{r}</li>)}</ul>
             ) : (
               <p className="text-sm text-ink-soft">Ainda não há dados suficientes para identificar relações claras entre seus registros.</p>
             )}
           </InsightCard>
 
           <InsightCard icon={<Heart className="w-4 h-4" />} title="Momentos de melhora">
-            <p className="text-sm text-stone-700 leading-relaxed">{c.improvementMoments || 'Continue registrando para que seus momentos de melhora fiquem mais visíveis.'}</p>
+            <p className="text-sm text-ink leading-relaxed">{c.improvementMoments || 'Ainda não há registros suficientes para destacar momentos de melhora neste período.'}</p>
           </InsightCard>
 
           <div className="lg:col-span-2 bg-paper-soft border border-line rounded-2xl p-4 sm:p-5">
@@ -551,7 +555,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
             </div>
             {c.monthlyComparison.length > 0 ? (
               <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                <ul className="flex-1 space-y-1.5">{c.monthlyComparison.map((l, i) => <li key={i} className="text-sm text-stone-700 flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
+                <ul className="flex-1 space-y-1.5">{c.monthlyComparison.map((l, i) => <li key={i} className="text-sm text-ink flex gap-2"><ArrowRight className="w-3.5 h-3.5 text-forest-400 mt-0.5 flex-shrink-0" />{l}</li>)}</ul>
                 <MonthlyDeltas avgEnergy={c.avgEnergy} avgAnxiety={c.avgAnxiety} />
               </div>
             ) : (
@@ -570,7 +574,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <div className="space-y-3">{c.narrative.map((n, i) => (
             <div key={i} className="flex gap-3 items-start">
               <span className="text-xs font-semibold text-forest-700 bg-mint rounded-lg px-2 py-1 flex-shrink-0 mt-0.5">{n.phase}</span>
-              <span className="text-sm text-stone-700 leading-relaxed">{n.text}</span>
+              <span className="text-sm text-ink leading-relaxed">{n.text}</span>
             </div>
           ))}</div>
         </div>
@@ -585,7 +589,7 @@ function ReportBody({ report, plan, onOpenArticle, onNavigateDiary, onNavigateSe
           <h4 className="text-sm font-semibold text-forest-900 mb-4">Leve estas perguntas no seu tempo</h4>
           {c.reflectionQuestions.length > 0 ? (
             <ul className="space-y-3">{c.reflectionQuestions.map((q, i) => (
-              <li key={i} className="text-sm text-stone-700 flex gap-2.5 leading-relaxed">
+              <li key={i} className="text-sm text-ink flex gap-2.5 leading-relaxed">
                 <span className="text-forest-500 mt-0.5 flex-shrink-0">•</span>{q}
               </li>
             ))}</ul>
@@ -818,7 +822,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
         </header>
         <div className="rounded-3xl bg-forest-900 text-white px-6 py-6 flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
           <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5" /></span>
-          <p className="flex-1 text-sm leading-relaxed text-forest-50">Continue registrando no diário. Ao assinar o Essencial, você recebe relatórios semanais fechados aos domingos, com resumo, emoções, energia, ansiedade e conteúdos recomendados.</p>
+          <p className="flex-1 text-sm leading-relaxed text-forest-50">Ao assinar o Essencial, seus registros disponíveis podem compor relatórios semanais fechados aos domingos, com resumo, emoções, energia, ansiedade e conteúdos recomendados.</p>
           <button onClick={onNavigatePricing} className="inline-flex items-center gap-2 bg-white text-forest-900 hover:bg-mint text-sm font-medium px-5 py-2.5 rounded-2xl whitespace-nowrap">Conhecer o Essencial</button>
         </div>
         <div className="space-y-4">
@@ -933,7 +937,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
               <FilterSelect label="Período" value={periodFilter} onChange={v => { setPeriodFilter(v); setPlusVisible(5) }}
                 options={[['all', 'Todos os períodos'], ...periodOptions.map(p => [p, cap(monthTitle(p + '-01'))] as [string, string])]} />
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-soft" />
                 <input value={search} onChange={e => { setSearch(e.target.value); setPlusVisible(5) }} placeholder="Buscar relatórios…"
                   className="w-full sm:w-56 pl-9 pr-3 py-2 border border-line rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-300" />
               </div>
@@ -1011,14 +1015,14 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <MetricCard icon={<Heart className="w-5 h-5" />} label="Check-ins nesta semana" value={weeklyPreview.checkinCount ?? 0} sub="de 7 dias" />
+        <MetricCard icon={<Heart className="w-5 h-5" />} label="Check-ins nesta semana" value={weeklyPreview.checkinCount ?? 0} sub="registros na semana" />
         <MetricCard icon={<BookOpen className="w-5 h-5" />} label="Diários" value={weeklyPreview.diaryCount ?? 0} sub="registros" />
         <MetricCard icon={<Zap className="w-5 h-5" />} label="Energia média" value={essEnergy > 0 ? essEnergy : '—'} sub={essEnergy > 0 ? 'de 5' : 'sem dados'} />
         <MetricCard icon={<Activity className="w-5 h-5" />} label="Ansiedade média" value={essAnx > 0 ? essAnx : '—'} sub={essAnx > 0 ? 'de 5' : 'sem dados'} />
       </div>
       <div className="flex items-start gap-2 text-xs text-ink-soft bg-mint/30 border border-line rounded-xl px-3 py-2 mb-8">
         <Info className="w-3.5 h-3.5 text-forest-500 flex-shrink-0 mt-0.5" />
-        Complete seus check-ins e registros para que seus relatórios tragam insights mais precisos sobre você.
+        Os registros que você escolher fazer podem dar mais contexto às leituras, sem meta de frequência ou obrigação de completar a semana.
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -1033,9 +1037,9 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <div className="min-w-0">
             <h3 className="font-serif text-xl text-forest-900">Relatório semanal — {formatPeriodShort(curWeek)}</h3>
             <p className="text-sm text-ink-soft mt-0.5">Período em andamento · Fecha em <strong className="text-forest-700">{formatDateBR(curWeek.end)}</strong> (sábado)</p>
-            <p className="text-sm text-stone-600 mt-2 leading-relaxed">Continue registrando seus check-ins e diários para que seu relatório fique ainda mais completo.</p>
+            <p className="text-sm text-ink-soft mt-2 leading-relaxed">O relatório usa o que estiver registrado no período; você não precisa completar uma quantidade de dias.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-              <StatPill label="Check-ins" value={`${weeklyPreview.checkinCount ?? 0}/7`} />
+              <StatPill label="Check-ins" value={weeklyPreview.checkinCount ?? 0} />
               <StatPill label="Diários" value={weeklyPreview.diaryCount ?? 0} />
               <StatPill label="Energia média" value={essEnergy > 0 ? essEnergy : '—'} unit={essEnergy > 0 ? '/5' : ''} />
               <StatPill label="Ansiedade média" value={essAnx > 0 ? essAnx : '—'} unit={essAnx > 0 ? '/5' : ''} />
@@ -1044,7 +1048,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           <div className="lg:w-64 flex flex-col gap-3 flex-shrink-0">
             <div className="bg-mint/40 border border-forest-100 rounded-xl p-3">
               <p className="text-xs font-semibold text-forest-800 flex items-center gap-1.5 mb-1"><Sprout className="w-3.5 h-3.5" /> Dica para esta semana</p>
-              <p className="text-xs text-forest-700/90 leading-snug">Pequenos registros diários geram grandes clarezas. Continue um passo de cada vez.</p>
+              <p className="text-xs text-forest-700/90 leading-snug">Um registro pode ser útil quando fizer sentido para você — sem obrigação de manter uma sequência.</p>
             </div>
             <div className="flex flex-col gap-2">
               <button onClick={openWeeklyPreview} className="inline-flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl"><BarChart2 className="w-4 h-4" /> Ver relatório</button>
@@ -1081,7 +1085,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
                     <span className="text-[10px] bg-forest-100 text-forest-800 px-1.5 py-0.5 rounded-full font-medium">Em andamento</span>
                   </td>
                   <td className="py-3 pr-3 align-middle text-ink-soft hidden md:table-cell">Fecha em {formatDateBR(curWeek.end)}</td>
-                  <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.checkinCount ?? 0}/7</td>
+                  <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.checkinCount ?? 0}</td>
                   <td className="py-3 pr-3 align-middle hidden sm:table-cell">{weeklyPreview.diaryCount ?? 0}</td>
                   <td className="py-3 pl-3 align-middle text-right">
                     <button onClick={openWeeklyPreview} className="text-xs font-medium text-forest-700 border border-forest-200 px-3 py-1.5 rounded-lg hover:bg-mint/50 inline-flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Ver relatório</button>
@@ -1217,7 +1221,7 @@ function MiniReportCard({ accent, title, subtitle, badge, locked, lockedLabel, o
   if (locked) {
     return (
       <button onClick={onView} className={`text-left flex-shrink-0 w-40 rounded-xl border border-dashed ${ring} bg-mint/20 p-3 hover:bg-mint/30 transition-colors`}>
-        <div className="flex items-center justify-between mb-1"><span className="text-xs font-medium text-forest-900 truncate">{title}</span><Lock className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" /></div>
+        <div className="flex items-center justify-between mb-1"><span className="text-xs font-medium text-forest-900 truncate">{title}</span><Lock className="w-3.5 h-3.5 text-ink-soft flex-shrink-0" /></div>
         <p className="text-[11px] text-ink-soft">{lockedLabel ?? 'Em andamento'}</p>
       </button>
     )
@@ -1274,11 +1278,11 @@ function WeeklyTableHead() {
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
     <label className="relative block">
-      <span className="absolute left-3 top-1 text-[9px] uppercase tracking-wide text-stone-400">{label}</span>
+      <span className="absolute left-3 top-1 text-[9px] uppercase tracking-wide text-ink-soft">{label}</span>
       <select value={value} onChange={e => onChange(e.target.value)} className="appearance-none bg-white border border-line rounded-xl pl-3 pr-8 pt-4 pb-1.5 text-sm text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-300 min-w-[9rem]">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
-      <ChevronDown className="w-4 h-4 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className="w-4 h-4 text-ink-soft absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
     </label>
   )
 }
@@ -1288,7 +1292,7 @@ function EmptyState({ onNavigateDiary, weekly }: { onNavigateDiary: () => void; 
     <div className="text-center py-12 px-4">
       <span className="w-12 h-12 rounded-full bg-mint/60 flex items-center justify-center text-forest-500 mx-auto mb-3"><Sprout className="w-6 h-6" /></span>
       <p className="text-sm font-medium text-forest-900">Ainda não há relatórios {weekly ? 'semanais ' : ''}por aqui</p>
-      <p className="text-sm text-ink-soft max-w-sm mx-auto mt-1">Continue registrando seus check-ins e diário para que o próximo relatório tenha mais informações.</p>
+      <p className="text-sm text-ink-soft max-w-sm mx-auto mt-1">Quando houver registros no período, o próximo relatório poderá usar essas informações como contexto.</p>
       <button onClick={onNavigateDiary} className="mt-4 inline-flex items-center gap-1.5 text-sm text-forest-700 font-medium border border-forest-200 px-4 py-2 rounded-xl hover:bg-mint/50"><BookOpen className="w-4 h-4" /> Abrir meu diário</button>
     </div>
   )
@@ -1327,7 +1331,7 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
               {pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar PDF
             </button>
           )}
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 flex-shrink-0"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 text-ink-soft hover:text-ink rounded-lg hover:bg-mint flex-shrink-0"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-4 sm:p-5 overflow-y-auto">
           {isReport
@@ -1352,11 +1356,11 @@ function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userI
       {comment ? (
         <div className="space-y-2">
           <p className="text-sm text-forest-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
-          {comment.professional_name && <p className="text-[10px] text-stone-400">{comment.professional_name}</p>}
+          {comment.professional_name && <p className="text-[10px] text-ink-soft">{comment.professional_name}</p>}
           <button onClick={onNavigateDiary} className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium mt-1"><BookOpen className="w-3.5 h-3.5" /> Responder no diário</button>
         </div>
       ) : (
-        <p className="text-sm text-stone-500">Seu comentário profissional sobre o relatório ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
+        <p className="text-sm text-ink-soft">Seu comentário profissional sobre o relatório ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
       )}
     </Section>
   )

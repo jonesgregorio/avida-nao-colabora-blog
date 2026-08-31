@@ -49,7 +49,11 @@ const ProfessionalCommentsSection = lazy(() => import('./components/Professional
 const MyPlanPage = lazy(() => import('./components/MyPlanPage'))
 const MyReportPage = lazy(() => import('./components/MyReportPage'))
 const MyEvolutionPage = lazy(() => import('./components/MyEvolutionPage'))
+const MyHistoryPage = lazy(() => import('./components/MyHistoryPage'))
 const SelfCarePlanPage = lazy(() => import('./components/SelfCarePlanPage'))
+const DescobertasPage = lazy(() => import('./components/DescobertasPage'))
+const CuidarPage = lazy(() => import('./components/CuidarPage'))
+const MaisPage = lazy(() => import('./components/MaisPage'))
 
 // AdminPanel carregado sob demanda — o maior chunk do bundle.
 const AdminPanel = lazy(() => import('./components/admin'))
@@ -193,7 +197,8 @@ export default function App() {
       'home', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios', 'questionarios-evolucao',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
-      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'self-care',
+      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'self-care',
+      'descobertas', 'cuidar', 'mais',
       'notifications',
     ]
     if (directViews.includes(section as View)) {
@@ -618,6 +623,32 @@ export default function App() {
     )
   }
 
+  if (view === 'descobertas') {
+    if (!user) { goAuth('descobertas'); return null }
+    return appShell(
+      <DescobertasPage user={user} profile={accessProfile} onNavigate={navigate} />
+    )
+  }
+
+  if (view === 'cuidar') {
+    if (!user) { goAuth('cuidar'); return null }
+    return appShell(
+      <CuidarPage
+        user={user}
+        profile={accessProfile}
+        onNavigate={navigate}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+      />
+    )
+  }
+
+  if (view === 'mais') {
+    if (!user) { goAuth('mais'); return null }
+    return appShell(
+      <MaisPage profile={accessProfile} onNavigate={navigate} />
+    )
+  }
+
   if (view === 'my-report') {
     if (!user) { goAuth('my-report'); return null }
     return appShell(
@@ -630,6 +661,20 @@ export default function App() {
         onNavigateGuidance={() => navigate('monthly-guidance')}
         onNavigateSelfCare={() => navigate('self-care')}
         onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+      />
+    )
+  }
+
+  if (view === 'my-history') {
+    if (!user) { goAuth('my-history'); return null }
+    return appShell(
+      <MyHistoryPage
+        user={user}
+        profile={accessProfile}
+        onNavigatePricing={() => navigate('pricing')}
+        onNavigateDiary={() => navigate('diary')}
+        onNavigateReport={() => navigate('my-report')}
+        onNavigateMap={() => navigate('my-evolution')}
       />
     )
   }

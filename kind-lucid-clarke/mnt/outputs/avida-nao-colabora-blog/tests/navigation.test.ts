@@ -52,3 +52,14 @@ test('não restaura navegação persistida quando o path específico é inválid
   const storage = { getItem: () => JSON.stringify({ view: 'diary', articleSlug: null, ticketId: null }) }
   assert.equal(restoreNavFrom('/rota-inexistente', '', storage), null)
 })
+
+test('rotas da jornada da Ideia 1 (Fase 19R.1) resolvem para suas views', () => {
+  assert.equal(parseNavLocation('/descobertas')?.view, 'descobertas')
+  assert.equal(parseNavLocation('/cuidar')?.view, 'cuidar')
+  assert.equal(parseNavLocation('/mais')?.view, 'mais')
+  assert.equal(urlForView('descobertas'), '/descobertas')
+  assert.equal(urlForView('cuidar'), '/cuidar')
+  assert.equal(urlForView('mais'), '/mais')
+  // Já são canônicas — não devem ser reescritas.
+  assert.equal(canonicalPathForLocation('/descobertas'), null)
+})

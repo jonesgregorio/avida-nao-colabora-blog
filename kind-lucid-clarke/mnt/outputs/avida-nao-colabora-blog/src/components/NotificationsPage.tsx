@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { NOTIF_DESTINATION, resolveNotifDestination } from '../lib/notifications'
 import {
   Bell, MessageCircle, BarChart3, Sprout, BookOpen, Crown, CheckCheck, Sparkles,
+  RotateCcw, NotebookPen,
 } from 'lucide-react'
 
 interface Notif {
@@ -14,6 +15,7 @@ interface Notif {
   type: string
   is_read: boolean
   action_url?: string | null
+  action_data?: Record<string, unknown> | null
   created_at: string
 }
 
@@ -27,11 +29,14 @@ const TYPE_META: Record<string, { Icon: typeof Bell; color: string; bg: string }
   support_reply:        { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
   monthly_guidance:     { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
   professional_comment: { Icon: Crown,         color: 'text-[#8a6d1f]', bg: 'bg-amber-100' },
+  weekly_report:        { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
   monthly_report:       { Icon: BarChart3,     color: 'text-[#3d6ea5]', bg: 'bg-sky' },
   self_care_review:     { Icon: Sprout,        color: 'text-forest-700', bg: 'bg-mint' },
   content:              { Icon: BookOpen,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
   personalized_content: { Icon: Sparkles,      color: 'text-[#c05f3c]', bg: 'bg-coral/30' },
+  reminder:             { Icon: NotebookPen,   color: 'text-forest-700', bg: 'bg-mint' },
 }
+const WEEKLY_FOCUS_META = { Icon: RotateCcw, color: 'text-forest-700', bg: 'bg-lilac/60' }
 const DEFAULT_META = { Icon: Bell, color: 'text-forest-700', bg: 'bg-mint' }
 
 function timeAgo(iso: string): string {
@@ -111,17 +116,17 @@ export default function NotificationsPage({ user, navigate }: Props) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
+      <header className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-            Notificações <Bell className="w-6 h-6 text-forest-400" />
+            Notificações <Bell className="w-6 h-6 text-forest-400 flex-shrink-0" />
           </h1>
-          <p className="mt-2 text-ink-soft">Acompanhe respostas, comentários, relatórios e novidades num só lugar.</p>
+          <p className="mt-2 text-ink-soft">Respostas, relatórios e convites úteis para retomar sua experiência ficam reunidos aqui.</p>
         </div>
         {unreadOwn.length > 0 && (
           <button
             onClick={markAll}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 text-sm text-forest-700 border border-line rounded-xl px-3 py-2 hover:bg-mint/40 transition-colors"
+            className="self-start sm:flex-shrink-0 inline-flex items-center gap-1.5 text-sm text-forest-700 border border-line rounded-xl px-3 py-2 hover:bg-mint/40 transition-colors"
           >
             <CheckCheck className="w-4 h-4" /> Marcar todas como lidas
           </button>
@@ -130,7 +135,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
 
       {/* Filtros */}
       {!loading && !loadError && items.length > 0 && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
           {([['todas', 'Todas'], ['nao_lidas', 'Não lidas'], ['lidas', 'Lidas']] as const).map(([key, label]) => {
             const active = filter === key
             const count = key === 'nao_lidas' ? unreadOwn.length : undefined
@@ -138,7 +143,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-colors ${
                   active ? 'bg-forest-900 text-white border-forest-900' : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'
                 }`}
               >
@@ -161,7 +166,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
         <div className="bg-paper-soft border border-line rounded-3xl p-10 text-center">
           <Bell className="w-10 h-10 text-forest-300 mx-auto mb-3" />
           <p className="font-serif text-lg text-forest-900">Você ainda não tem notificações.</p>
-          <p className="text-sm text-ink-soft mt-1">Quando algo novo acontecer — uma resposta, um relatório ou um novo conteúdo — você vê por aqui.</p>
+          <p className="text-sm text-ink-soft mt-1">Quando houver uma resposta, um relatório ou algo útil para retomar, você vê por aqui.</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-paper-soft border border-line rounded-3xl p-10 text-center">
@@ -172,7 +177,8 @@ export default function NotificationsPage({ user, navigate }: Props) {
       ) : (
         <ul className="space-y-2">
           {visible.map(n => {
-            const meta = TYPE_META[n.type] ?? DEFAULT_META
+            const isWeeklyFocusReflection = n.type === 'reminder' && n.action_data?.kind === 'weekly_focus_reflection'
+            const meta = isWeeklyFocusReflection ? WEEKLY_FOCUS_META : (TYPE_META[n.type] ?? DEFAULT_META)
             const unread = !n.is_read && !!n.user_id
             const text = n.message || n.body || ''
             const clickable = !!n.action_url || !!NOTIF_DESTINATION[n.type]
@@ -191,7 +197,7 @@ export default function NotificationsPage({ user, navigate }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm text-forest-900 ${unread ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
                     {text && <p className="text-sm text-ink-soft leading-snug mt-0.5 line-clamp-2">{text}</p>}
-                    <p className="text-[11px] text-ink-soft/70 mt-1">{timeAgo(n.created_at)}</p>
+                    <p className="text-[11px] text-ink-soft mt-1">{timeAgo(n.created_at)}</p>
                   </div>
                   {unread && <span className="w-2.5 h-2.5 rounded-full bg-[#c05f3c] flex-shrink-0 mt-1.5" aria-label="Não lida" />}
                 </button>
