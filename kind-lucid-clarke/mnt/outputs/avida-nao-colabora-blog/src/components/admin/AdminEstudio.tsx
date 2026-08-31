@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Megaphone, Sparkles, CalendarDays, Grid3x3, Bookmark, Users2,
-  BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2,
+  BarChart3, ArrowRight, ArrowLeft, Save, Info, Loader2, Wand2, Download, Check, AlertTriangle,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
 import { generateCaptions, generateImagePrompt, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { FORMAT_SPECS } from '../../lib/estudioFormats'
+import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
+import FormatTemplate from './estudio/FormatTemplate'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estúdio de Conteúdo — área de marketing do admin (mockup estudio-conteudo.html).
@@ -56,6 +59,7 @@ interface Draft {
   objetivos: string[]
   estilo: 'template' | 'ia' | 'hibrido'
   prompt: string
+  titulo: string
   formatos: string[]
   legenda: string
   hashtags: string
@@ -67,6 +71,7 @@ const EMPTY_DRAFT: Draft = {
   objetivos: [],
   estilo: 'template',
   prompt: '',
+  titulo: '',
   formatos: ['feed-45', 'carrossel', 'story', 'reel-capa'],
   legenda: '',
   hashtags: '',
@@ -146,6 +151,9 @@ function NovaPublicacao() {
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState<Draft>(loadDraft)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  // Artes renderizadas (blobs) — vivem só na sessão; não serializam no rascunho.
+  const [assets, setAssets] = useState<RenderedAsset[]>([])
+  useEffect(() => () => releaseAssets(assets), [assets])
 
   const patch = useCallback((p: Partial<Draft>) => setDraft(d => ({ ...d, ...p })), [])
 
@@ -201,9 +209,9 @@ function NovaPublicacao() {
       <div className="rounded-2xl border border-line bg-white p-5">
         {step === 0 && <StepIdeia draft={draft} patch={patch} toggle={toggle} />}
         {step === 1 && <StepVisual draft={draft} patch={patch} />}
-        {step === 2 && <StepFormatos draft={draft} toggle={toggle} />}
+        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
-        {step === 4 && <StepPacote draft={draft} />}
+        {step === 4 && <StepPacote draft={draft} assets={assets} />}
       </div>
 
       {/* navegação */}
@@ -304,7 +312,7 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
     setBusy(true); setErr(''); setRacional('')
     try {
       const r = await generateImagePrompt(toBrief(draft))
-      patch({ prompt: r.prompt })
+      patch({ prompt: r.prompt, ...(r.tituloSugerido && !draft.titulo ? { titulo: r.tituloSugerido } : {}) })
       setRacional([r.racional, r.tituloSugerido && `Título sugerido: “${r.tituloSugerido}”`].filter(Boolean).join(' · '))
     } catch (e) {
       setErr(estudioAiMessage(e))
@@ -366,7 +374,44 @@ function StepVisual({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
   )
 }
 
-function StepFormatos({ draft, toggle }: { draft: Draft; toggle: (k: 'objetivos' | 'formatos', v: string) => void }) {
+const FMT_KICKER: Record<string, string> = {
+  'feed-45': 'A vida não colabora', 'feed-11': 'A vida não colabora',
+  carrossel: 'Carrossel', story: 'No story de hoje', 'reel-capa': 'Novo reel', quiz: 'Mito ou verdade',
+}
+
+function StepFormatos({
+  draft, toggle, assets, setAssets,
+}: {
+  draft: Draft
+  toggle: (k: 'objetivos' | 'formatos', v: string) => void
+  assets: RenderedAsset[]
+  setAssets: (a: RenderedAsset[]) => void
+}) {
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
+  const titulo = draft.titulo || draft.ideia.slice(0, 60)
+
+  async function gerar() {
+    if (!stageRef.current) return
+    setBusy(true); setErr('')
+    releaseAssets(assets)
+    const out: RenderedAsset[] = []
+    try {
+      for (const id of selected) {
+        const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${id}"]`)
+        if (!node) continue
+        out.push(await snapshot(node, FORMAT_SPECS[id], `${id}-${FORMAT_SPECS[id].width}x${FORMAT_SPECS[id].height}.png`))
+      }
+      setAssets(out)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao gerar as artes.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Field>O que gerar desta ideia</Field>
@@ -390,10 +435,53 @@ function StepFormatos({ draft, toggle }: { draft: Draft; toggle: (k: 'objetivos'
           )
         })}
       </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={gerar}
+          disabled={busy || selected.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          Gerar {selected.length} {selected.length === 1 ? 'arte' : 'artes'}
+        </button>
+        {err && <span className="text-xs text-red-600">{err}</span>}
+      </div>
+
+      {assets.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {assets.map(a => (
+            <figure key={a.filename} className="overflow-hidden rounded-xl border border-line bg-white">
+              <img src={a.url} alt={a.filename} className="w-full" style={{ aspectRatio: `${a.width}/${a.height}` }} />
+              <figcaption className="flex items-center justify-between gap-2 px-3 py-2 text-[11px]">
+                <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>
+                {a.check.ok ? (
+                  <span className="inline-flex items-center gap-1 text-forest-700"><Check className="h-3.5 w-3.5" /> formato ok</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-amber-600" title={a.check.problems.join('; ')}><AlertTriangle className="h-3.5 w-3.5" /> revisar</span>
+                )}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+
       <NextPhaseNote>
-        A geração das artes no pixel exato (motor de template → PNG) e o <b>validador de formato</b> entram na
-        <b> Fase 1d</b>. Cada arte passará por conferência de dimensão, proporção, peso e zona segura antes de liberar.
+        Estilo <b>template da marca</b>. Carrossel e quiz saem por ora só com a capa — os slides internos e a IA generativa
+        de imagem entram na <b>Fase 1e</b>. O pacote .zip também.
       </NextPhaseNote>
+
+      {/* palco de render fora da tela — dimensão real, capturado pelo html2canvas */}
+      <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+        {selected.map(id => (
+          <div key={id} data-fmt={id}>
+            <FormatTemplate
+              spec={FORMAT_SPECS[id]}
+              content={{ titulo, kicker: FMT_KICKER[id], corpo: id.startsWith('feed') ? undefined : draft.legenda.split('\n')[0] || undefined }}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -497,12 +585,12 @@ function StepTextos({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>)
   )
 }
 
-function StepPacote({ draft }: { draft: Draft }) {
+function StepPacote({ draft, assets }: { draft: Draft; assets: RenderedAsset[] }) {
   const fmtLabels = FORMATS.filter(f => draft.formatos.includes(f.id)).map(f => f.label)
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <LogoIcon className="h-5 w-5 text-forest-700" />
+        <span className="block h-5 w-5 text-forest-700"><LogoIcon className="h-full w-full" /></span>
         <h3 className="font-serif text-lg text-forest-900">Resumo do rascunho</h3>
       </div>
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -511,10 +599,34 @@ function StepPacote({ draft }: { draft: Draft }) {
         <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Estilo visual</dt><dd className="mt-0.5 text-ink">{draft.estilo}</dd></div>
         <div><dt className="text-[11px] uppercase tracking-wide text-ink-soft">Formatos</dt><dd className="mt-0.5 text-ink">{fmtLabels.length ? fmtLabels.join(', ') : '—'}</dd></div>
       </dl>
+
+      <div>
+        <Field>Artes geradas</Field>
+        {assets.length === 0 ? (
+          <p className="text-xs text-ink-soft">Nenhuma arte gerada ainda — volte ao passo <b>Formatos</b> e clique em “Gerar artes”.</p>
+        ) : (
+          <ul className="divide-y divide-stone-100 rounded-xl border border-line">
+            {assets.map(a => (
+              <li key={a.filename} className="flex items-center gap-3 px-3 py-2 text-xs">
+                <span className={`h-2 w-2 flex-shrink-0 rounded-full ${a.check.ok ? 'bg-forest-500' : 'bg-amber-400'}`} />
+                <span className="flex-1 truncate font-mono text-ink-soft">{a.filename}</span>
+                <span className="text-stone-400">{(a.bytes / 1024).toFixed(0)} KB</span>
+                <button
+                  onClick={() => downloadAsset(a)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 font-medium text-forest-800 hover:border-forest-300"
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <NextPhaseNote>
-        O pacote pronto (arquivos .zip no formato exato, textos com botão copiar, instruções de sticker, agendamento no
-        Business Suite e a <b>aprovação humana</b> antes de marcar como pronto para publicar) entra na <b>Fase 1e</b>.
-        Publicar via API do Instagram e automatizar interação continuam fora de escopo.
+        O <b>pacote .zip</b> (artes + textos + instruções de sticker), o agendamento no Business Suite e a
+        <b> aprovação humana</b> antes de marcar como pronto para publicar entram na <b>Fase 1e</b>. Publicar via API do
+        Instagram e automatizar interação continuam fora de escopo.
       </NextPhaseNote>
     </div>
   )
