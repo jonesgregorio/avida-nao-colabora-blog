@@ -6,7 +6,9 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { summarize as summarizeComunidade, type Interacao } from '../../lib/estudioCommunity'
+import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
 import OverlayTemplate from './estudio/OverlayTemplate'
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
@@ -184,6 +186,7 @@ export default function AdminEstudio() {
         : tab === 'grade' ? <Grade />
         : tab === 'desempenho' ? <Desempenho />
         : tab === 'inspiracao' ? <Inspiracao />
+        : tab === 'comunidade' ? <Comunidade />
         : <EmBreve tab={tab} />}
     </div>
   )
@@ -510,6 +513,134 @@ function PerfilCard({ perfil, onChange }: { perfil: PerfilInspiracao; onChange: 
             {perfil.analise ? 'Reanalisar' : 'Analisar padrão'}
           </button>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── aba: Comunidade (Fase 4b — 15 min/dia, humano no loop) ─────────────────
+
+const INT_PILL: Record<Interacao['status'], string> = {
+  sugerido: 'bg-amber-100 text-amber-700',
+  feito: 'bg-forest-100 text-forest-800',
+  respondeu: 'bg-mint text-forest-800',
+}
+
+function Comunidade() {
+  const [rows, setRows] = useState<Interacao[] | null>(null)
+  const [err, setErr] = useState('')
+  const [alvo, setAlvo] = useState('')
+  const [postUrl, setPostUrl] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [sugestao, setSugestao] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try { setRows(await listInteracoes()) } catch (e) { setErr(e instanceof Error ? e.message : 'Falha ao carregar.'); setRows([]) }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  async function sugerir() {
+    setBusy(true); setErr('')
+    try {
+      setSugestao(await generateCommunityComment(alvo.trim(), descricao.trim()))
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function salvar() {
+    if (!alvo.trim()) return
+    setBusy(true); setErr('')
+    try {
+      await createInteracao({
+        alvo: alvo.trim(),
+        postUrl: postUrl.trim() || null,
+        descricaoPost: descricao.trim() || null,
+        comentarioSugerido: sugestao || null,
+        status: 'sugerido',
+      })
+      setAlvo(''); setPostUrl(''); setDescricao(''); setSugestao('')
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao salvar.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function mudarStatus(id: string, status: Interacao['status']) {
+    try {
+      await setInteracaoStatus(id, status)
+      setRows(r => (r ?? []).map(i => (i.id === id ? { ...i, status } : i)))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao atualizar.')
+    }
+  }
+
+  async function remover(id: string) {
+    try { await deleteInteracao(id); setRows(r => (r ?? []).filter(i => i.id !== id)) } catch (e) { setErr(e instanceof Error ? e.message : 'Falha ao excluir.') }
+  }
+
+  if (rows === null) return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
+
+  const s = summarizeComunidade(rows)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Kpi label="Feito na semana" value={String(s.semana)} />
+        <Kpi label="Responderam" value={String(s.responderam)} />
+        <Kpi label="Sequência (dias)" value={String(s.sequencia)} />
+      </div>
+
+      <div className="space-y-2 rounded-2xl border border-line bg-white p-4">
+        <h3 className="font-serif text-base text-forest-900">Nova interação</h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input value={alvo} onChange={e => setAlvo(e.target.value)} placeholder="@perfil ou #hashtag" className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs" />
+          <input value={postUrl} onChange={e => setPostUrl(e.target.value)} placeholder="Link do post (opcional)" className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs" />
+        </div>
+        <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} placeholder="Sobre o que é o post — 1 frase basta." className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-xs" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={sugerir} disabled={busy || !alvo.trim()} className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Sugerir comentário
+          </button>
+          <button onClick={salvar} disabled={busy || !alvo.trim()} className="rounded-lg bg-forest-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-800 disabled:opacity-40">Adicionar à fila</button>
+        </div>
+        {sugestao && <p className="rounded-lg bg-stone-50 p-3 text-xs italic text-ink">“{sugestao}”</p>}
+        {err && <p className="text-xs text-red-600">{err}</p>}
+      </div>
+
+      <div className="rounded-xl border-l-2 border-forest-400 bg-stone-50 px-4 py-3 text-xs text-ink-soft">
+        <b className="text-ink">A ferramenta nunca curte ou comenta por você.</b> Ela lista e sugere; você comenta na mão e marca aqui. É assim que a conta cresce sem violar os Termos do Instagram.
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-10 text-center text-sm text-ink-soft">Fila vazia.</div>
+      ) : (
+        <ul className="divide-y divide-stone-100 rounded-2xl border border-line bg-white">
+          {rows.map(i => (
+            <li key={i.id} className="flex flex-wrap items-center gap-2 px-4 py-3 text-xs">
+              <select
+                value={i.status}
+                onChange={e => void mudarStatus(i.id, e.target.value as Interacao['status'])}
+                className={`rounded-full border-0 px-2 py-0.5 text-[11px] font-medium ${INT_PILL[i.status]}`}
+                aria-label="Status da interação"
+              >
+                <option value="sugerido">Sugerido</option>
+                <option value="feito">Feito</option>
+                <option value="respondeu">Respondeu</option>
+              </select>
+              <span className="font-medium text-forest-900">{i.alvo}</span>
+              {i.descricaoPost && <span className="min-w-0 flex-1 truncate text-ink-soft">{i.descricaoPost}</span>}
+              {i.comentarioSugerido && <span className="truncate text-stone-400" title={i.comentarioSugerido}>“{i.comentarioSugerido}”</span>}
+              {i.postUrl && <a href={i.postUrl} target="_blank" rel="noopener noreferrer" className="text-forest-700 underline">abrir post ↗</a>}
+              <button onClick={() => remover(i.id)} className="ml-auto text-ink-soft hover:text-red-600">excluir</button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
