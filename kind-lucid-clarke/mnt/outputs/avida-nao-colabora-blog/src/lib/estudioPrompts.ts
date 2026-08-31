@@ -13,6 +13,10 @@ export interface EstudioBrief {
   objetivos: string[]
   estilo: 'template' | 'ia' | 'hibrido'
   artigoTitulo?: string
+  /** 'frase' = arte só com título; 'pessoa' = foto real à direita + texto à esquerda. */
+  tipoArte?: 'frase' | 'pessoa'
+  /** id de FORMAT_SPECS (feed-45, story, reel-capa…) para ajustar proporção e zona de texto. */
+  formato?: string
 }
 
 const OBJETIVO_LABEL: Record<string, string> = {
@@ -34,32 +38,88 @@ function objetivosFrase(objetivos: string[]): string {
   return nomes.length ? nomes.join('; ') : 'engajamento e salvamento'
 }
 
-const PALETA = 'papel (#FBFAF7), verde floresta (#1A4A3A), menta (#E8F0EB); tipografia serifada elegante para títulos'
-
 // ── prompt de imagem ────────────────────────────────────────────────────────
+//
+// "Prompt base" — a identidade visual que SEMPRE entra, seja qual for a ideia.
+// É o que faz a imagem sair condizente e on-brand em vez de genérica.
+
+const IMAGEM_BASE = [
+  'IDENTIDADE VISUAL OBRIGATÓRIA da marca "A Vida Não Colabora" (respeitar em toda imagem):',
+  '- Meio: ilustração editorial minimalista OU fotografia natural com luz de janela difusa e suave. Sem 3D, sem cartoon, sem vetor chapado, sem render de IA óbvio.',
+  '- Paleta dessaturada: base papel quente #FBFAF7; verde floresta profundo #1A4A3A; menta #E8F0EB; acentos discretos em céu #E4EEF7, coral #F7D8CE, lilás #E9E1F3. Cores nunca vibrantes.',
+  '- Clima: calmo, acolhedor, adulto, respirável — sensação de pausa, não de urgência.',
+  '- Composição: muito espaço negativo, sujeito descentralizado, um único ponto de interesse, enquadramento limpo. Textura sutil de papel é bem-vinda.',
+].join('\n')
+
+const IMAGEM_NEGATIVOS = [
+  'NÃO incluir de jeito nenhum:',
+  'qualquer texto, letra, número, marca d\'água ou logo na imagem;',
+  'rostos deformados, olhos tortos, mãos com dedos errados;',
+  'foto de banco de imagem genérica ou pessoa sorrindo forçado olhando para a câmera;',
+  'clichês de terapia (divã, cabeça entre as mãos, pessoa encolhida no canto, chuva triste na janela);',
+  'excesso de elementos, colagem, alto contraste, HDR, saturação alta, filtro dramático.',
+].join(' ')
+
+const FORMATO_HINT: Record<string, string> = {
+  'feed-45': 'proporção vertical 4:5; deixe o terço superior limpo para o título.',
+  'feed-11': 'proporção quadrada 1:1; deixe o topo ou a lateral esquerda limpos.',
+  carrossel: 'proporção vertical 4:5; topo limpo para o título de cada slide.',
+  story: 'proporção vertical 9:16; muito respiro no centro-alto, longe das bordas (a interface cobre topo e base).',
+  'reel-capa': 'proporção vertical 9:16; o conteúdo-chave no quadrado central (é o que aparece na grade do perfil).',
+  quiz: 'proporção vertical 4:5; topo limpo para a pergunta.',
+  destaque: 'proporção vertical 9:16, mas só um círculo central pequeno aparece: cena simples, centrada, um objeto ou textura.',
+}
+
+function tipoArteHint(tipo: EstudioBrief['tipoArte']): string {
+  if (tipo === 'pessoa') {
+    return [
+      'TEMPLATE "com pessoa": a foto da pessoa é REAL e o editor sobe manualmente à direita — você NÃO gera a pessoa.',
+      'A metade esquerda é cor sólida da marca com o título. Se nada mais é necessário, retorne "precisa_gerar": false e explique no racional.',
+      'Se fizer sentido um fundo/ambiente atrás da foto, descreva só um cenário suave e desfocado, coerente com a paleta.',
+    ].join(' ')
+  }
+  return [
+    'TEMPLATE "com frase": a imagem é APENAS fundo/cena — sem pessoas, sem texto.',
+    'Deixe a zona do título (conforme o formato) totalmente livre e limpa.',
+    'Boas escolhas: um objeto simbólico simples (xícara pousada, folha, janela entreaberta, mão relaxando o punho), textura orgânica abstrata, ou paisagem mínima.',
+  ].join(' ')
+}
 
 export function buildImagePromptRequest(brief: EstudioBrief): string {
-  const estiloHint = brief.estilo === 'template'
-    ? 'A arte final é um TEMPLATE da marca: fundo/ilustração simples com muito espaço negativo no topo para um título tipográfico. Descreva só o fundo/ilustração, sem texto na imagem.'
-    : brief.estilo === 'hibrido'
-      ? 'Fundo gerado por IA + tipografia da marca por cima. Descreva o fundo; o título entra depois.'
-      : 'Imagem gerada inteiramente por IA. Pode compor a cena toda, mas mantenha área de respiro para legenda curta.'
+  const tipo = brief.tipoArte ?? 'frase'
+  const formatoHint = brief.formato && FORMATO_HINT[brief.formato]
+    ? FORMATO_HINT[brief.formato]
+    : 'proporção vertical, com uma zona limpa para o título.'
+
+  const estiloHint = brief.estilo === 'hibrido'
+    ? 'Fundo gerado por IA + tipografia da marca por cima — descreva só o fundo.'
+    : brief.estilo === 'ia'
+      ? 'Imagem gerada inteiramente por IA — pode compor a cena, mantendo o respiro para o texto.'
+      : 'A arte final é um template da marca — descreva só o fundo/ilustração.'
 
   return [
-    'Você é diretor de arte de uma marca de saúde emocional.',
-    MARCA,
+    'Você é diretor de arte de uma marca de saúde emocional. Transforme a ideia solta abaixo em UM prompt de imagem de qualidade de produção, pronto para colar em gerador de imagem (gpt-image, Midjourney, Imagen, Flux).',
+    '',
+    IMAGEM_BASE,
+    '',
     `Ideia do post: "${brief.ideia}".`,
-    brief.artigoTitulo ? `Baseado no artigo: "${brief.artigoTitulo}".` : '',
-    `Objetivo: ${objetivosFrase(brief.objetivos)}.`,
-    `Paleta e estilo visual da marca: ${PALETA}.`,
+    brief.artigoTitulo ? `Contexto do artigo: "${brief.artigoTitulo}".` : '',
+    `Objetivo do post: ${objetivosFrase(brief.objetivos)}.`,
+    `Formato: ${formatoHint}`,
+    tipoArteHint(tipo),
     estiloHint,
-    'Evite: rostos olhando para a câmera, textos na imagem, bancos de imagem genéricos, excesso de elementos.',
+    '',
+    IMAGEM_NEGATIVOS,
+    '',
+    'O prompt final deve seguir esta ordem: [meio e estilo] + [sujeito e ação] + [composição e enquadramento] + [paleta e luz] + [clima]. Uma frase para negativos. Em português, 1 parágrafo, concreto e visual (nada de abstrações tipo "sensação de calma" — mostre COMO).',
     '',
     'Retorne SOMENTE um JSON válido, sem markdown:',
     '{',
-    '  "prompt": "prompt de imagem em português, 1 parágrafo, pronto para um gerador de imagem",',
-    '  "racional": "1-2 frases explicando a escolha visual",',
-    '  "titulo_sugerido": "frase curta (até 60 caracteres) para ir sobre a imagem"',
+    '  "prompt": "o prompt de imagem, 1 parágrafo",',
+    '  "negativos": "lista curta do que evitar, separada por vírgula",',
+    '  "precisa_gerar": true,',
+    '  "racional": "1-2 frases sobre a escolha visual",',
+    '  "titulo_sugerido": "frase curta (até 60 caracteres) para ir sobre a arte"',
     '}',
   ].filter(Boolean).join('\n')
 }
