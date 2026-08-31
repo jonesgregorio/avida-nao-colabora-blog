@@ -24,12 +24,14 @@ function json(body: unknown, status = 200): Response {
 }
 
 const ASPECTS = new Set(['1:1', '9:16', '3:4', '4:3', '16:9'])
-const TIMEOUT_MS = 110_000 // Edge Function tem folga; geração de imagem pode levar ~30s
+const TIMEOUT_MS = 150_000 // teto total (limite de parede da Edge Function)
+const PER_TRY_MS = 70_000 // teto por modelo — um modelo travado não consome tudo
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 // Candidatos conhecidos, usados se o ListModels não achar nada útil.
-const FALLBACK_IMAGEN = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001', 'imagen-4.0-generate-001']
-const FALLBACK_GEMINI = ['gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation']
+// gemini-2.5-flash-image é o que funciona neste projeto — vem primeiro.
+// Imagen (tryImagen) só entra se GEMINI_IMAGE_MODEL apontar pra um imagen-*.
+const FALLBACK_GEMINI = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation']
 
 interface ModelInfo { name?: string; supportedGenerationMethods?: string[] }
 interface Attempt { dataUrl?: string; detail?: string }
@@ -120,18 +122,31 @@ Deno.serve(async (req: Request) => {
     const found = await discover(key, controller.signal)
     const configured = (Deno.env.get('GEMINI_IMAGE_MODEL') || '').trim()
 
-    // Se o secret define um modelo, usa só ele. Senão: Gemini Image primeiro
-    // (é o que costuma funcionar nesse projeto), Imagen depois. Máx 5 tentativas
-    // pra não estourar o tempo.
+    // Se o secret define um modelo, usa só ele. Senão: só Gemini Image (os
+    // modelos Imagen dão 404/travam neste projeto e consomem o tempo). Máx 4.
     const order = configured
       ? [configured]
-      : [...new Set([...found.gemini, ...FALLBACK_GEMINI, ...found.imagen, ...FALLBACK_IMAGEN])].slice(0, 5)
+      : [...new Set([...found.gemini, ...FALLBACK_GEMINI])].slice(0, 4)
 
     for (const model of order) {
-      const run = model.startsWith('imagen') ? tryImagen : tryGemini
-      const r = await run(model, key, prompt, aspect, controller.signal)
-      if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
-      if (r.detail) tried.push(r.detail)
+      const isImagen = model.startsWith('imagen')
+      const run = isImagen ? tryImagen : tryGemini
+      // aborta só esta tentativa se ela travar, sem matar as próximas
+      const perTry = new AbortController()
+      const abortThis = () => perTry.abort()
+      controller.signal.addEventListener('abort', abortThis)
+      const perTimer = setTimeout(() => perTry.abort(), PER_TRY_MS)
+      try {
+        const r = await run(model, key, prompt, aspect, perTry.signal)
+        if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
+        if (r.detail) tried.push(r.detail)
+      } catch (err) {
+        tried.push(`${model}: ${(err as Error).message || 'falhou'}`.slice(0, 200))
+        if (controller.signal.aborted) throw err // teto total estourou → sai
+      } finally {
+        clearTimeout(perTimer)
+        controller.signal.removeEventListener('abort', abortThis)
+      }
     }
 
     const detail = tried.join(' | ').slice(0, 700)

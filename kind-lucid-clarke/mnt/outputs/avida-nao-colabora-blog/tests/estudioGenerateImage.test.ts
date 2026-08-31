@@ -24,7 +24,7 @@ test('tenta Imagen (:predict) e Gemini Image (:generateContent); secret define m
   assert.match(fn, /:generateContent\?key=/)
   assert.match(fn, /responseModalities: \['IMAGE', 'TEXT'\]/)
   assert.match(fn, /const order = configured\s*\n?\s*\? \[configured\]/)
-  assert.match(fn, /model\.startsWith\('imagen'\) \? tryImagen : tryGemini/)
+  assert.match(fn, /const isImagen = model\.startsWith\('imagen'\)/)
 })
 
 test('em caso de falha devolve o detalhe e os modelos disponíveis no projeto', () => {

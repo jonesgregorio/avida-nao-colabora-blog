@@ -150,59 +150,415 @@ function draftToInput(d: Draft): PublicacaoInput {
 // ─── shell ───────────────────────────────────────────────────────────────────
 
 export default function AdminEstudio() {
+  const [avancado, setAvancado] = useState(false)
   const [tab, setTab] = useState<TabId>(() => {
     try {
       const saved = localStorage.getItem(TAB_KEY)
-      if (saved && TABS.some(t => t.id === saved)) return saved as TabId
+      if (saved && TABS.some(t => t.id === saved) && saved !== 'novo') return saved as TabId
     } catch { /* noop */ }
-    return 'novo'
+    return 'calendario'
   })
 
   useEffect(() => {
     try { localStorage.setItem(TAB_KEY, tab) } catch { /* noop */ }
   }, [tab])
 
+  const ferramentas: { id: TabId; label: string; icon: typeof Megaphone }[] = [
+    ...TABS.filter(t => t.id !== 'novo'),
+    { id: 'novo', label: 'Assistente completo', icon: Sparkles },
+  ]
+
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
-        <div>
-          <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-forest-600" /> Estúdio de Conteúdo
-          </h1>
-          <p className="text-sm text-ink-soft mt-1 max-w-2xl">
-            A IA ajuda a criar posts, carrosséis, stories, reels e destaques para o Instagram, cada formato no tamanho
-            exato. A publicação é sua — manual pelo app ou agendada no Meta Business Suite.
-          </p>
+    <div className="max-w-5xl mx-auto px-6 py-8">
+      <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2 mb-1">
+        <Megaphone className="w-6 h-6 text-forest-600" /> Estúdio de Conteúdo
+      </h1>
+      <p className="text-sm text-ink-soft mb-6">Crie a arte do post no tamanho certo do Instagram. Você publica pelo app ou pelo Business Suite.</p>
+
+      <ComporArte />
+
+      <div className="mt-10 border-t border-line pt-4">
+        <button
+          onClick={() => setAvancado(v => !v)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-forest-800"
+        >
+          {avancado ? '▾' : '▸'} Ferramentas avançadas
+          <span className="font-normal text-stone-400">calendário, grade, destaques, inspiração, comunidade, desempenho</span>
+        </button>
+
+        {avancado && (
+          <div className="mt-4">
+            <div className="flex flex-wrap gap-1 border-b border-line mb-6">
+              {ferramentas.map(t => {
+                const Icon = t.icon
+                const on = tab === t.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      on ? 'border-forest-600 text-forest-900' : 'border-transparent text-ink-soft hover:text-forest-800'
+                    }`}
+                    aria-current={on ? 'page' : undefined}
+                  >
+                    <Icon className="w-4 h-4" /> {t.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {tab === 'novo' ? <NovaPublicacao />
+              : tab === 'calendario' ? <Calendario />
+              : tab === 'grade' ? <Grade />
+              : tab === 'desempenho' ? <Desempenho />
+              : tab === 'inspiracao' ? <Inspiracao />
+              : tab === 'comunidade' ? <Comunidade />
+              : tab === 'destaques' ? <Destaques />
+              : <EmBreve tab={tab} />}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Compor arte — tela única (substitui o assistente de 5 passos) ───────────
+
+const FORMATOS_LEAN = [
+  { id: 'feed-45', label: 'Feed retrato', spec: '1080×1350' },
+  { id: 'feed-11', label: 'Feed quadrado', spec: '1080×1080' },
+  { id: 'story', label: 'Story', spec: '1080×1920' },
+  { id: 'carrossel', label: 'Carrossel', spec: '6 slides' },
+  { id: 'reel-capa', label: 'Capa de reel', spec: '1080×1920' },
+  { id: 'quiz', label: 'Quiz', spec: '2 slides' },
+] as const
+
+function ComporArte() {
+  const [tipoArte, setTipoArte] = useState<'frase' | 'pessoa'>('frase')
+  const [formatos, setFormatos] = useState<string[]>(['feed-45'])
+  const [assunto, setAssunto] = useState('')
+  const [frase, setFrase] = useState('')
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
+  const [fotoModelo, setFotoModelo] = useState('')
+  const [legenda, setLegenda] = useState('')
+  const [hashtags, setHashtags] = useState('')
+  const [assets, setAssets] = useState<RenderedAsset[]>([])
+  useEffect(() => () => releaseAssets(assets), [assets])
+
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [fraseBusy, setFraseBusy] = useState(false)
+  const [fotoBusy, setFotoBusy] = useState(false)
+  const [fotoErr, setFotoErr] = useState('')
+  const [legendaBusy, setLegendaBusy] = useState(false)
+  const [hiRes, setHiRes] = useState('')
+  const [zipping, setZipping] = useState(false)
+
+  const stageRef = useRef<HTMLDivElement>(null)
+  const nodeInfo = useRef<Map<string, { id: string; slide: number; spec: FormatSpec }>>(new Map())
+
+  const contexto = (assunto.trim() || frase.trim())
+  const podeIA = contexto.length >= 8
+
+  const draftLike = {
+    ideia: assunto.trim() || frase.trim(), objetivos: [], estilo: 'template', tipoArte,
+    prompt: '', titulo: frase, formatos, legenda, hashtags, primeiroComentario: '',
+    publishMode: 'manual', scheduledFor: '', status: 'rascunho', postUrl: '',
+  } as Draft
+
+  const plan = useMemo(
+    () => formatos.filter(id => FORMAT_SPECS[id]).map(id => ({
+      id, spec: FORMAT_SPECS[id], slides: slidesFor(id, FORMAT_SPECS[id], draftLike),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [formatos, frase, assunto, legenda, hashtags],
+  )
+  const totalArtes = plan.reduce((n, p) => n + p.slides.length, 0)
+
+  function toggleFormato(id: string) {
+    setFormatos(f => f.includes(id) ? f.filter(x => x !== id) : [...f, id])
+  }
+
+  function onFoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { setFotoModelo(''); setFotoUrl(typeof reader.result === 'string' ? reader.result : null) }
+    reader.readAsDataURL(file)
+  }
+
+  async function escreverFrase() {
+    if (!podeIA) { setErr('Escreva antes “sobre o que é” para a IA ter contexto.'); return }
+    setFraseBusy(true); setErr('')
+    try {
+      const r = await generatePhrase(toBrief(draftLike))
+      setFrase(r.frase)
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setFraseBusy(false)
+    }
+  }
+
+  async function gerarFoto() {
+    if (!podeIA) { setFotoErr('Escreva antes “sobre o que é” para a IA ter contexto.'); return }
+    setFotoBusy(true); setFotoErr('')
+    try {
+      const r = await generateImagePrompt(toBrief(draftLike))
+      const prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
+      const img = await generateImage(prompt, { formato: 'feed-11' })
+      setFotoModelo(img.model)
+      setFotoUrl(img.dataUrl)
+    } catch (e) {
+      setFotoErr(estudioAiMessage(e))
+    } finally {
+      setFotoBusy(false)
+    }
+  }
+
+  async function gerarLegenda() {
+    if (!podeIA) { setErr('Escreva antes “sobre o que é” para a IA ter contexto.'); return }
+    setLegendaBusy(true); setErr('')
+    try {
+      const r = await generateCaptions(toBrief(draftLike))
+      setLegenda(r.legendas[0]?.texto ?? '')
+      setHashtags(r.hashtags)
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setLegendaBusy(false)
+    }
+  }
+
+  const doisFrames = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+  async function gerar() {
+    if (!stageRef.current || plan.length === 0) return
+    if (!frase.trim()) { setErr('Escreva a frase da arte (ou gere com a IA).'); return }
+    setBusy(true); setErr('')
+    try {
+      await doisFrames()
+      releaseAssets(assets)
+      nodeInfo.current.clear()
+      const out: RenderedAsset[] = []
+      for (const p of plan) {
+        for (let i = 0; i < p.slides.length; i++) {
+          const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${p.id}"][data-slide="${i}"]`)
+          if (!node) continue
+          const suffix = p.slides.length > 1 ? `-${String(i + 1).padStart(2, '0')}` : ''
+          const filename = `${p.id}${suffix}-${p.spec.width}x${p.spec.height}.png`
+          nodeInfo.current.set(filename, { id: p.id, slide: i, spec: p.spec })
+          out.push(await snapshot(node, p.spec, filename))
+        }
+      }
+      setAssets(out)
+    } catch (e) {
+      setErr(e instanceof Error ? estudioAiMessage(e) : 'Falha ao gerar as artes.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function remover(filename: string) {
+    const alvo = assets.find(a => a.filename === filename)
+    if (alvo) { try { URL.revokeObjectURL(alvo.url) } catch { /* noop */ } }
+    setAssets(assets.filter(a => a.filename !== filename))
+  }
+
+  async function baixarAlta(a: RenderedAsset) {
+    const info = nodeInfo.current.get(a.filename)
+    if (!info || !stageRef.current) { downloadAsset(a); return }
+    setHiRes(a.filename); setErr('')
+    try {
+      const node = stageRef.current.querySelector<HTMLElement>(`[data-fmt="${info.id}"][data-slide="${info.slide}"]`)
+      if (!node) { downloadAsset(a); return }
+      const hi = await snapshot(node, info.spec, a.filename.replace(/\.png$/, '@2x.png'), { scale: 2 })
+      downloadAsset(hi)
+      setTimeout(() => { try { URL.revokeObjectURL(hi.url) } catch { /* noop */ } }, 4000)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao gerar a versão em alta.')
+    } finally {
+      setHiRes('')
+    }
+  }
+
+  async function baixarZip() {
+    setZipping(true); setErr('')
+    try {
+      const pkg: PackageDraft = { ideia: assunto.trim() || frase.trim(), legenda, hashtags, primeiroComentario: '', formatos, publishMode: 'manual' }
+      downloadBlob(await buildZip(assets, pkg), slugForZip(assunto.trim() || frase.trim() || 'arte'))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao montar o .zip.')
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5 rounded-2xl border border-line bg-white p-5">
+      {/* 1 · tipo */}
+      <div>
+        <Field>Tipo de arte</Field>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {([['frase', 'Só frase'], ['pessoa', 'Frase + foto de pessoa']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTipoArte(id)}
+              className={`rounded-xl border p-2.5 text-sm font-medium transition-colors ${
+                tipoArte === id ? 'border-forest-600 bg-mint/30 text-forest-900' : 'border-line text-ink-soft hover:border-forest-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-line mb-6">
-        {TABS.map(t => {
-          const Icon = t.icon
-          const on = tab === t.id
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                on ? 'border-forest-600 text-forest-900' : 'border-transparent text-ink-soft hover:text-forest-800'
-              }`}
-              aria-current={on ? 'page' : undefined}
-            >
-              <Icon className="w-4 h-4" /> {t.label}
-            </button>
-          )
-        })}
+      {/* 2 · formatos */}
+      <div>
+        <Field>Formatos</Field>
+        <div className="flex flex-wrap gap-1.5">
+          {FORMATOS_LEAN.map(f => {
+            const on = formatos.includes(f.id)
+            return (
+              <button
+                key={f.id}
+                onClick={() => toggleFormato(f.id)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  on ? 'border-forest-900 bg-forest-900 text-white' : 'border-line bg-white text-ink-soft hover:border-forest-300'
+                }`}
+                title={f.spec}
+              >
+                {f.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {tab === 'novo' ? <NovaPublicacao />
-        : tab === 'calendario' ? <Calendario />
-        : tab === 'grade' ? <Grade />
-        : tab === 'desempenho' ? <Desempenho />
-        : tab === 'inspiracao' ? <Inspiracao />
-        : tab === 'comunidade' ? <Comunidade />
-        : tab === 'destaques' ? <Destaques />
-        : <EmBreve tab={tab} />}
+      {/* 3 · sobre o que é (contexto da IA) */}
+      <div>
+        <Field>Sobre o que é <span className="font-normal normal-case tracking-normal text-stone-400">— opcional, só pra IA ter contexto</span></Field>
+        <input
+          value={assunto}
+          onChange={e => setAssunto(e.target.value)}
+          placeholder="Ex.: não precisar dar conta de tudo ao mesmo tempo"
+          className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
+        />
+      </div>
+
+      {/* 4 · frase */}
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <Field>Frase da arte</Field>
+          <button
+            onClick={escreverFrase}
+            disabled={fraseBusy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+          >
+            {fraseBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {frase ? 'Reescrever com IA' : 'Escrever com IA'}
+          </button>
+        </div>
+        <textarea
+          value={frase}
+          onChange={e => setFrase(e.target.value)}
+          rows={2}
+          placeholder="A frase que aparece grande na arte."
+          className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
+        />
+      </div>
+
+      {/* 5 · foto (só pessoa) */}
+      {tipoArte === 'pessoa' && (
+        <div className="rounded-xl border border-line bg-paper/50 p-3">
+          <Field>Foto da pessoa</Field>
+          <div className="flex flex-wrap items-center gap-3">
+            {fotoUrl
+              ? <ZoomableImg src={fotoUrl} className="h-24 w-24 rounded-full border border-line object-cover" />
+              : <span className="grid h-24 w-24 place-items-center rounded-full border border-dashed border-line text-[10px] text-ink-soft">sem foto</span>}
+            <label className="cursor-pointer rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300">
+              {fotoUrl ? 'Trocar' : 'Escolher do computador'}
+              <input type="file" accept="image/*" onChange={onFoto} className="hidden" />
+            </label>
+            <button
+              onClick={gerarFoto}
+              disabled={fotoBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+            >
+              {fotoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {fotoUrl && fotoModelo ? 'Gerar outra' : 'Gerar com IA'}
+            </button>
+            {fotoUrl && <button onClick={() => { setFotoUrl(null); setFotoModelo('') }} className="text-xs text-ink-soft hover:text-red-600">apagar</button>}
+          </div>
+          {fotoModelo && <p className="mt-1 text-[11px] text-forest-700">gerada com <code>{fotoModelo}</code></p>}
+          {fotoErr && <p className="mt-1 text-[11px] text-red-600">{fotoErr}</p>}
+          <p className="mt-1 text-[11px] text-ink-soft">A foto por IA custa ~US$ 0,04 e pode demorar até 2 min. Se falhar, é só usar uma foto do computador — a arte sai igual.</p>
+        </div>
+      )}
+
+      {/* 6 · gerar */}
+      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+        <button
+          onClick={gerar}
+          disabled={busy || totalArtes === 0}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          Gerar {totalArtes} {totalArtes === 1 ? 'arte' : 'artes'}
+        </button>
+        {err && <span className="text-xs text-red-600">{err}</span>}
+      </div>
+
+      {/* resultados */}
+      {assets.length > 0 && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {assets.map(a => (
+              <figure key={a.filename} className="overflow-hidden rounded-xl border border-line bg-white">
+                <ZoomableImg src={a.url} alt={a.filename} className="w-full" style={{ aspectRatio: `${a.width}/${a.height}` }} />
+                <figcaption className="flex flex-wrap items-center gap-1.5 px-3 py-2 text-[11px]">
+                  <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>
+                  {!a.check.ok && <span className="inline-flex items-center gap-1 text-amber-600" title={a.check.problems.join('; ')}><AlertTriangle className="h-3.5 w-3.5" /> revisar</span>}
+                  <button onClick={() => downloadAsset(a)} className="rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300">baixar</button>
+                  <button onClick={() => baixarAlta(a)} disabled={hiRes === a.filename} className="inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                    {hiRes === a.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : null} alta 2×
+                  </button>
+                  <button onClick={() => remover(a.filename)} className="ml-auto text-ink-soft hover:text-red-600">remover</button>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          <button onClick={baixarZip} disabled={zipping} className="inline-flex items-center gap-1.5 rounded-xl border border-forest-200 bg-mint/40 px-4 py-2 text-sm font-medium text-forest-800 hover:bg-mint disabled:opacity-40">
+            {zipping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Baixar tudo (.zip com legenda)
+          </button>
+        </>
+      )}
+
+      {/* legenda opcional */}
+      <details className="rounded-xl border border-line bg-paper/40 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-forest-900">Legenda e hashtags <span className="font-normal text-stone-400">— entram no .zip</span></summary>
+        <div className="mt-3 space-y-3">
+          <button
+            onClick={gerarLegenda}
+            disabled={legendaBusy}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+          >
+            {legendaBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Escrever com IA
+          </button>
+          <textarea value={legenda} onChange={e => setLegenda(e.target.value)} rows={4} placeholder="Legenda do post." className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300" />
+          <textarea value={hashtags} onChange={e => setHashtags(e.target.value)} rows={2} placeholder="#saudeemocional #autocuidado …" className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300" />
+        </div>
+      </details>
+
+      {/* palco de render fora da tela */}
+      <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+        {plan.map(p => p.slides.map((content, i) => (
+          <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
+            <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} spec={p.spec} content={content} />
+          </div>
+        )))}
+      </div>
     </div>
   )
 }
