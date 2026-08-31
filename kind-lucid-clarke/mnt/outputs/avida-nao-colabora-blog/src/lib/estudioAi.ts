@@ -146,15 +146,20 @@ const IMAGE_ASPECT: Record<string, string> = {
   'feed-45': '3:4', carrossel: '3:4', quiz: '3:4',
 }
 
+export interface GeneratedImage {
+  dataUrl: string
+  model: string
+}
+
 /** Gera uma imagem via Edge Function isolada (Gemini/Imagen). Custo por imagem. */
-export async function generateImage(prompt: string, opts: { formato?: string } = {}): Promise<string> {
+export async function generateImage(prompt: string, opts: { formato?: string } = {}): Promise<GeneratedImage> {
   const aspect = opts.formato ? IMAGE_ASPECT[opts.formato] ?? '1:1' : '1:1'
   const { data, error } = await supabase.functions.invoke('estudio-generate-image', {
     body: { prompt, aspect },
   })
   if (error) throw new EstudioAiError(error.message)
-  const d = data as { dataUrl?: string; error?: string; message?: string; detail?: string; disponiveis?: string[] }
-  if (d?.dataUrl) return d.dataUrl
+  const d = data as { dataUrl?: string; model?: string; error?: string; message?: string; detail?: string; disponiveis?: string[] }
+  if (d?.dataUrl) return { dataUrl: d.dataUrl, model: d.model ?? '' }
   if (d?.error === 'no_key') throw new EstudioAiError('Geração de imagem não está configurada no servidor.')
   if (d?.error === 'quota') throw new EstudioAiError('Cota de imagem do Gemini atingida. Tente mais tarde.')
   const disp = d?.disponiveis?.length ? ` Modelos de imagem no seu projeto: ${d.disponiveis.join(', ')}.` : ''
