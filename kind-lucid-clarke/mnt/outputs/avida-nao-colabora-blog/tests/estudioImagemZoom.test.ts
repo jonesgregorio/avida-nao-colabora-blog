@@ -6,12 +6,13 @@ const estudio = readFileSync(new URL('../src/components/admin/AdminEstudio.tsx',
 const fn = readFileSync(new URL('../supabase/functions/estudio-generate-image/index.ts', import.meta.url), 'utf8')
 const ai = readFileSync(new URL('../src/lib/estudioAi.ts', import.meta.url), 'utf8')
 
-test('a Edge Function tem mais folga de tempo e tenta menos modelos', () => {
-  assert.match(fn, /const TIMEOUT_MS = 110_000/)
-  assert.match(fn, /\.slice\(0, 5\)/)
-  // Gemini Image antes de Imagen quando não há modelo fixo
-  assert.match(fn, /\[\.\.\.new Set\(\[\.\.\.found\.gemini, \.\.\.FALLBACK_GEMINI, \.\.\.found\.imagen, \.\.\.FALLBACK_IMAGEN\]\)\]/)
-  assert.match(fn, /model\.startsWith\('imagen'\) \? tryImagen : tryGemini/)
+test('a Edge Function tem mais folga de tempo e teto por tentativa', () => {
+  assert.match(fn, /const TIMEOUT_MS = 150_000/)
+  assert.match(fn, /const PER_TRY_MS = 70_000/)
+  assert.match(fn, /\.slice\(0, 4\)/)
+  // só Gemini Image quando não há modelo fixo (Imagen trava neste projeto)
+  assert.match(fn, /\[\.\.\.new Set\(\[\.\.\.found\.gemini, \.\.\.FALLBACK_GEMINI\]\)\]/)
+  assert.match(fn, /setTimeout\(\(\) => perTry\.abort\(\), PER_TRY_MS\)/)
   assert.match(ai, /d\?\.error === 'timeout'/)
 })
 
