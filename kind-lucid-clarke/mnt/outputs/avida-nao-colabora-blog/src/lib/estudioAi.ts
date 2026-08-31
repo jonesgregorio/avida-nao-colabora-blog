@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { buildCaptionRequest, buildImagePromptRequest, type EstudioBrief } from './estudioPrompts'
+import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } from './estudioPlan'
 
 // Chamadas de IA do Estúdio. Reusa o proxy admin `generate-content` (mesmo
 // endpoint da Fábrica de IA e do criador de e-mails) — nenhuma Edge Function
@@ -73,6 +74,13 @@ export async function generateCaptions(brief: EstudioBrief): Promise<CaptionResu
     hashtags: String(j.hashtags ?? '').trim(),
     primeiroComentario: String(j.primeiro_comentario_cta ?? '').trim(),
   }
+}
+
+export async function generateWeekPlan(ctx: BlogContext): Promise<PlanItem[]> {
+  const data = await callGenerateContent(buildWeekPlanRequest(ctx), 'estudio-week-plan')
+  const items = parseWeekPlan(extractJson(data))
+  if (!items.length) throw new EstudioAiError('A IA não retornou um plano utilizável. Tente de novo.')
+  return items
 }
 
 export function estudioAiMessage(e: unknown): string {

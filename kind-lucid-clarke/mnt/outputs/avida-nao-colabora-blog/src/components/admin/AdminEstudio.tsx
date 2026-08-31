@@ -6,7 +6,9 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
+import { offsetToDate, type PlanItem } from '../../lib/estudioPlan'
 import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
 import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
@@ -179,12 +181,21 @@ export default function AdminEstudio() {
   )
 }
 
-// ─── aba: Calendário (Fase 2a — lista; a grade mensal vem na Fase 2b) ────────
+// ─── aba: Calendário (Fase 2b — lista + grade mensal + plano da semana) ──────
+
+const STATUS_PILL: Record<Publicacao['status'], string> = {
+  publicado: 'bg-mint text-forest-800',
+  pronto: 'bg-forest-100 text-forest-800',
+  rascunho: 'bg-amber-100 text-amber-700',
+}
+const DOW = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
 
 function Calendario() {
   const [rows, setRows] = useState<Publicacao[] | null>(null)
   const [err, setErr] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [view, setView] = useState<'lista' | 'mes'>('lista')
+  const [monthCursor, setMonthCursor] = useState(() => { const d = new Date(); d.setDate(1); return d })
 
   const load = useCallback(async () => {
     setErr('')
@@ -214,27 +225,34 @@ function Calendario() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <WeekPlanner onAdded={() => void load()} />
+
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-soft">Publicações criadas no Estúdio. A grade mensal e o plano da semana pela IA chegam na próxima etapa.</p>
+        <div className="inline-flex overflow-hidden rounded-lg border border-line text-xs">
+          {(['lista', 'mes'] as const).map(v => (
+            <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 font-medium ${view === v ? 'bg-forest-900 text-white' : 'bg-white text-ink-soft hover:text-forest-800'}`}>
+              {v === 'lista' ? 'Lista' : 'Mês'}
+            </button>
+          ))}
+        </div>
         <button onClick={() => void load()} className="text-xs text-forest-700 underline">Atualizar</button>
       </div>
       {err && <p className="text-xs text-red-600">{err}</p>}
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-12 text-center text-sm text-ink-soft">
-          Nenhuma publicação salva ainda. Crie uma em <b>Nova publicação</b> e clique em “Salvar publicação”.
+          Nenhuma publicação salva ainda. Crie uma em <b>Nova publicação</b>, ou peça um plano à IA acima.
         </div>
-      ) : (
+      )}
+
+      {rows.length > 0 && view === 'lista' && (
         <ul className="divide-y divide-stone-100 rounded-2xl border border-line bg-white">
           {rows.map(p => (
             <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                p.status === 'publicado' ? 'bg-mint text-forest-800'
-                : p.status === 'pronto' ? 'bg-forest-100 text-forest-800'
-                : 'bg-amber-100 text-amber-700'
-              }`}>{statusLabel(p.status)}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_PILL[p.status]}`}>{statusLabel(p.status)}</span>
               <span className="min-w-0 flex-1 truncate text-forest-900">{p.titulo || p.ideia || 'Sem título'}</span>
+              {p.temaCategoria && <span className="rounded bg-mint/60 px-1.5 py-0.5 text-[10px] text-forest-700">{p.temaCategoria}</span>}
               {p.scheduledFor && (
                 <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
                   <CalendarClock className="h-3.5 w-3.5" />
@@ -243,16 +261,151 @@ function Calendario() {
               )}
               <span className="text-xs text-stone-400">{p.formatos.length} formato{p.formatos.length === 1 ? '' : 's'}</span>
               {p.postUrl && <a href={p.postUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-forest-700 underline">post</a>}
-              <button
-                onClick={() => remover(p.id)}
-                disabled={busyId === p.id}
-                className="text-xs text-ink-soft hover:text-red-600 disabled:opacity-40"
-              >
-                excluir
-              </button>
+              <button onClick={() => remover(p.id)} disabled={busyId === p.id} className="text-xs text-ink-soft hover:text-red-600 disabled:opacity-40">excluir</button>
             </li>
           ))}
         </ul>
+      )}
+
+      {rows.length > 0 && view === 'mes' && (
+        <MonthGrid rows={rows} cursor={monthCursor} onMove={delta => setMonthCursor(c => { const d = new Date(c); d.setMonth(d.getMonth() + delta); return d })} />
+      )}
+    </div>
+  )
+}
+
+function MonthGrid({ rows, cursor, onMove }: { rows: Publicacao[]; cursor: Date; onMove: (d: number) => void }) {
+  const year = cursor.getFullYear()
+  const month = cursor.getMonth()
+  const first = new Date(year, month, 1)
+  const startDow = (first.getDay() + 6) % 7 // segunda = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const byDay = new Map<number, Publicacao[]>()
+  for (const p of rows) {
+    if (!p.scheduledFor) continue
+    const d = new Date(p.scheduledFor)
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const arr = byDay.get(d.getDate()) ?? []
+      arr.push(p); byDay.set(d.getDate(), arr)
+    }
+  }
+
+  const cells: (number | null)[] = [
+    ...Array.from({ length: startDow }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+  const semData = rows.filter(p => !p.scheduledFor).length
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <button onClick={() => onMove(-1)} className="rounded-lg border border-line px-2 py-1 text-xs hover:border-forest-300">←</button>
+        <span className="font-serif text-sm text-forest-900">{cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
+        <button onClick={() => onMove(1)} className="rounded-lg border border-line px-2 py-1 text-xs hover:border-forest-300">→</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {DOW.map(d => <div key={d} className="pb-1 text-center text-[10px] uppercase tracking-wide text-ink-soft">{d}</div>)}
+        {cells.map((day, i) => (
+          <div key={i} className={`min-h-[64px] rounded-lg border p-1 text-[10px] ${day ? 'border-line bg-white' : 'border-transparent'}`}>
+            {day && <span className="text-ink-soft">{day}</span>}
+            <div className="mt-0.5 space-y-0.5">
+              {(byDay.get(day ?? -1) ?? []).map(p => (
+                <div key={p.id} className={`truncate rounded px-1 py-0.5 ${STATUS_PILL[p.status]}`} title={p.titulo || p.ideia || ''}>
+                  {p.titulo || p.ideia || 'post'}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {semData > 0 && <p className="text-[11px] text-stone-400">{semData} publicação(ões) sem data agendada não aparecem na grade.</p>}
+    </div>
+  )
+}
+
+function WeekPlanner({ onAdded }: { onAdded: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [plan, setPlan] = useState<PlanItem[] | null>(null)
+  const [ctx, setCtx] = useState<BlogContext | null>(null)
+  const [addedIdx, setAddedIdx] = useState<Set<number>>(new Set())
+
+  async function planejar() {
+    setBusy(true); setErr(''); setPlan(null); setAddedIdx(new Set())
+    try {
+      const context = await fetchBlogContext()
+      setCtx(context)
+      setPlan(await generateWeekPlan(context))
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function adicionar(item: PlanItem, idx: number) {
+    try {
+      await createPublicacao({
+        status: 'rascunho',
+        titulo: '',
+        ideia: item.ideia,
+        objetivos: [item.objetivo].filter(Boolean),
+        estilo: 'template',
+        promptImagem: '',
+        legenda: '',
+        hashtags: '',
+        primeiroComentario: '',
+        formatos: [item.formato],
+        temaCategoria: item.temaCategoria || null,
+        publishMode: 'agendar',
+        scheduledFor: offsetToDate(item.diaOffset),
+      })
+      setAddedIdx(s => new Set(s).add(idx))
+      onAdded()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao adicionar ao calendário.')
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-serif text-base text-forest-900">Plano da semana</h3>
+          <p className="text-xs text-ink-soft">A IA lê a cobertura de temas do blog e propõe 4–5 posts.</p>
+        </div>
+        <button onClick={planejar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Planejar semana
+        </button>
+      </div>
+      {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+
+      {ctx && plan && (
+        <div className="mt-3 space-y-2">
+          {ctx.cobertura.filter(c => c.diasSemPost === null || c.diasSemPost >= 30).length > 0 && (
+            <p className="rounded-lg bg-mint/40 px-3 py-2 text-[11px] text-ink">
+              Temas há 30+ dias sem post: {ctx.cobertura.filter(c => c.diasSemPost === null || c.diasSemPost >= 30).map(c => c.categoria).join(', ') || '—'}
+            </p>
+          )}
+          <ul className="space-y-1.5">
+            {plan.map((item, idx) => (
+              <li key={idx} className="flex flex-wrap items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs">
+                <span className="rounded bg-forest-100 px-1.5 py-0.5 font-medium text-forest-800">dia +{item.diaOffset}</span>
+                <span className="rounded bg-lilac/70 px-1.5 py-0.5 text-ink">{FORMAT_SPECS[item.formato]?.label ?? item.formato}</span>
+                {item.temaCategoria && <span className="rounded bg-mint/60 px-1.5 py-0.5 text-forest-700">{item.temaCategoria}</span>}
+                <span className="min-w-0 flex-1 text-ink">{item.ideia}</span>
+                <button
+                  onClick={() => adicionar(item, idx)}
+                  disabled={addedIdx.has(idx)}
+                  className="rounded-lg border border-line bg-white px-2 py-1 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40"
+                >
+                  {addedIdx.has(idx) ? 'adicionado' : 'adicionar'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )
