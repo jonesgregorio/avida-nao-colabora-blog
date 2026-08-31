@@ -125,6 +125,25 @@ export function generateCommunityComment(alvo: string, descricaoPost: string): P
   return callGenerateContentText(buildCommentRequest(alvo, descricaoPost), 'estudio-community')
 }
 
+const IMAGE_ASPECT: Record<string, string> = {
+  'feed-11': '1:1', destaque: '9:16', story: '9:16', 'reel-capa': '9:16',
+  'feed-45': '3:4', carrossel: '3:4', quiz: '3:4',
+}
+
+/** Gera uma imagem via Edge Function isolada (Gemini/Imagen). Custo por imagem. */
+export async function generateImage(prompt: string, opts: { negativos?: string; formato?: string } = {}): Promise<string> {
+  const aspect = opts.formato ? IMAGE_ASPECT[opts.formato] ?? '1:1' : '1:1'
+  const { data, error } = await supabase.functions.invoke('estudio-generate-image', {
+    body: { prompt, negativos: opts.negativos ?? '', aspect },
+  })
+  if (error) throw new EstudioAiError(error.message)
+  const d = data as { dataUrl?: string; error?: string; message?: string; detail?: string }
+  if (d?.dataUrl) return d.dataUrl
+  if (d?.error === 'no_key') throw new EstudioAiError('Geração de imagem não está configurada no servidor.')
+  if (d?.error === 'quota') throw new EstudioAiError('Cota de imagem do Gemini atingida. Tente mais tarde.')
+  throw new EstudioAiError(d?.message || d?.error || 'Não foi possível gerar a imagem.')
+}
+
 export function estudioAiMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Não foi possível gerar agora. Tente novamente.'
 }

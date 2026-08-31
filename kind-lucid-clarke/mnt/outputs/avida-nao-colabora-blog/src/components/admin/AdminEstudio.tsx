@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, generateImage, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 import { summarize as summarizeComunidade, type Interacao } from '../../lib/estudioCommunity'
 import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
@@ -1242,7 +1242,25 @@ function StepVisual({
   }
   const [err, setErr] = useState('')
   const [racional, setRacional] = useState('')
+  const [imgBusy, setImgBusy] = useState(false)
   const podeGerar = draft.ideia.trim().length >= 8
+
+  async function gerarFotoIA() {
+    setImgBusy(true); setErr('')
+    try {
+      let prompt = draft.prompt
+      if (!prompt.trim()) {
+        const r = await generateImagePrompt(toBrief(draft))
+        prompt = r.negativos ? `${r.prompt}\n\nEvitar: ${r.negativos}` : r.prompt
+      }
+      const dataUrl = await generateImage(prompt, { formato: 'feed-11' })
+      setFotoUrl(dataUrl)
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setImgBusy(false)
+    }
+  }
 
   async function sugerir() {
     setBusy(true); setErr(''); setRacional('')
@@ -1301,9 +1319,19 @@ function StepVisual({
               {fotoUrl ? 'Trocar foto' : 'Escolher foto'}
               <input type="file" accept="image/*" onChange={onFoto} className="hidden" />
             </label>
+            <button
+              onClick={gerarFotoIA}
+              disabled={imgBusy || !podeGerar}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+            >
+              {imgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Gerar com IA
+            </button>
             {fotoUrl && <button onClick={() => setFotoUrl(null)} className="text-xs text-ink-soft hover:text-red-600">remover</button>}
           </div>
-          <p className="mt-1.5 text-[11px] text-ink-soft">A foto entra no círculo à direita, recortada no formato de cada rede. Fica só no seu navegador até você baixar o pacote.</p>
+          <p className="mt-1.5 text-[11px] text-ink-soft">
+            A imagem entra no círculo à direita, recortada por formato. Fica só no seu navegador até você baixar o pacote.
+            Gerar com IA usa o Gemini e <b>custa ~US$&nbsp;0,04 por imagem</b> (cena/objeto, nunca um rosto inventado).
+          </p>
         </div>
       )}
 

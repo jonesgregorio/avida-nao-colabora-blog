@@ -33,8 +33,8 @@ test('prompt de imagem se adapta ao tipo de arte e ao formato', () => {
 
   const pessoa = buildImagePromptRequest({ ...brief, tipoArte: 'pessoa', formato: 'feed-45' })
   assert.match(pessoa, /TEMPLATE "com pessoa"/)
-  assert.match(pessoa, /você NÃO gera a pessoa/)
-  assert.match(pessoa, /precisa_gerar": false/)
+  assert.match(pessoa, /CÍRCULO à direita/)
+  assert.match(pessoa, /NUNCA um rosto de pessoa inventado/)
 })
 
 test('prompt de imagem muda a instrução conforme o estilo escolhido', () => {
