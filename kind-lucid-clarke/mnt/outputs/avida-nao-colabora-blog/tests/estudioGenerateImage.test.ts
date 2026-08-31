@@ -19,11 +19,12 @@ test('descobre os modelos de imagem via ListModels antes de tentar', () => {
   assert.match(fn, /supportedGenerationMethods \?\? \[\]\)\.includes\('generateContent'\)/)
 })
 
-test('tenta Imagen (:predict) e Gemini Image (:generateContent); secret vai na frente', () => {
+test('tenta Imagen (:predict) e Gemini Image (:generateContent); secret define modelo único', () => {
   assert.match(fn, /:predict\?key=/)
   assert.match(fn, /:generateContent\?key=/)
   assert.match(fn, /responseModalities: \['IMAGE', 'TEXT'\]/)
-  assert.match(fn, /\[\.\.\.new Set\(\[\.\.\.\(configured \? \[configured\] : \[\]\), \.\.\.found\.imagen/)
+  assert.match(fn, /const order = configured\s*\n?\s*\? \[configured\]/)
+  assert.match(fn, /model\.startsWith\('imagen'\) \? tryImagen : tryGemini/)
 })
 
 test('em caso de falha devolve o detalhe e os modelos disponíveis no projeto', () => {
