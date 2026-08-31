@@ -43,7 +43,6 @@ type DiaryEntryV2 = DiaryEntry & {
 
 type EntryMode = 'diary' | 'quick' | 'main-saved'
 type PageTab = 'write' | 'history'
-
 type ScaleName = 'moodScore' | 'energy' | 'anxiety' | 'sleep' | 'stress' | 'selfEsteem' | 'irritability' | 'overload'
 
 const moodOptions = [
@@ -65,7 +64,6 @@ const CHIP_TO_MOOD: Record<string, string> = {
 }
 const quickContextTags = ['trabalho','família','relacionamento','saúde','dinheiro','sono','rotina','estudos','outro']
 const PAGE_SIZE = 30
-
 const normalizeScale = (value: number) => Math.min(5, Math.max(1, Math.round(value)))
 const unique = (items: string[]) => [...new Set(items.filter(Boolean))]
 
@@ -84,7 +82,6 @@ function hasStoredMood(value: unknown): value is string | number {
   const normalized = String(value ?? '').trim().toLowerCase()
   return Boolean(normalized && normalized !== 'null' && normalized !== 'undefined')
 }
-
 function localStartPrompt(mood: string) {
   const m = mood.toLowerCase()
   if (m.includes('ansied')) return 'O que está ocupando mais espaço na sua cabeça agora?'
@@ -99,7 +96,6 @@ function moodWeightSentence(mood: string): string {
   if (!m || m === 'outro' || m === 'seu momento') return 'Seu registro colocou em palavras algo deste momento.'
   return `Seu registro colocou em palavras algo ligado a ${m}.`
 }
-
 function localMirror(text: string, mood: string): DiaryMirror {
   const clean = text.replace(/\s+/g, ' ').trim()
   const first = clean.split(/[.!?]/)[0] || clean
@@ -125,7 +121,6 @@ interface RecognitionLike {
   start: () => void; stop: () => void
 }
 type RecognitionCtor = new () => RecognitionLike
-
 function voiceErrorMessage(code?: string) {
   const normalized = String(code || '').toLowerCase()
   if (normalized === 'not-allowed' || normalized === 'service-not-allowed') return 'O acesso ao microfone foi bloqueado. Autorize o microfone nas configurações do navegador e tente novamente.'
@@ -136,12 +131,9 @@ function voiceErrorMessage(code?: string) {
   return 'O ditado foi interrompido. Verifique o microfone e tente novamente. Seu texto digitado continua salvo nesta tela.'
 }
 
-export default function DiaryExperience({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
+export default function DiaryExperienceRefined({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
   const [tab, setTab] = useState<PageTab>('write')
-  // Fase 19R.3: o Diário abre pela ESCRITA. Só começa no check-in rápido quando a
-  // pessoa chega da Home já tendo escolhido um humor (intenção explícita de
-  // check-in). O check-in continua a um toque dentro da tela.
   const [mode, setMode] = useState<EntryMode>(initialMood ? 'quick' : 'diary')
   const [entries, setEntries] = useState<DiaryEntryV2[]>([])
   const [monthRows, setMonthRows] = useState<DiaryEntryV2[]>([])
@@ -172,7 +164,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const [exporting, setExporting] = useState(false)
   const historyRef = useRef<HTMLElement>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
-
   const [mood, setMood] = useState('outro')
   const [moodChip, setMoodChip] = useState<string | null>(null)
   const [moodOtherLabel, setMoodOtherLabel] = useState('')
@@ -207,7 +198,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
   const fieldOn = (key: string) => cfg.fields[key] !== false
 
   useEffect(() => { fetchDiaryConfig(plan).then(setCfg) }, [plan])
-
   const fetchEntries = useCallback(async (reset = true) => {
     if (!user) return
     if (reset) setLoading(true); else setLoadingMore(true)
@@ -223,53 +213,38 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     setHasMore(rows.length === PAGE_SIZE)
     setLoading(false); setLoadingMore(false)
   }, [user, entries.length, filter, periodFilter, today])
-
   const fetchMonthPresence = useCallback(async () => {
     if (!user) return
     const start = `${today.slice(0, 7)}-01`
     const { data } = await supabase.from('diary_entries').select('*').eq('user_id', user.id).gte('date', start).lte('date', today).order('date', { ascending: true })
     setMonthRows((data || []) as DiaryEntryV2[])
   }, [user, today])
-
   const fetchTodayMain = useCallback(async () => {
     if (!user) return
     const { data } = await supabase.from('diary_entries').select('*').eq('user_id', user.id).eq('entry_type', 'diary').eq('date', today).or('diary_kind.in.(basic,main),diary_kind.is.null').order('created_at', { ascending: false }).limit(1).maybeSingle()
     setTodayMain((data as DiaryEntryV2 | null) || null)
   }, [user, today])
-
   const fetchFreeCount = useCallback(async () => {
     if (!user || !isFree) { setMonthDiaryCount(0); return }
     const { count } = await supabase.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('entry_type', 'diary').eq('diary_kind', 'basic').gte('date', `${today.slice(0, 7)}-01`)
     setMonthDiaryCount(count || 0)
   }, [user, isFree, today])
-
   useEffect(() => { void fetchEntries(true) }, [filter, periodFilter]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void fetchMonthPresence(); void fetchTodayMain(); void fetchFreeCount() }, [fetchMonthPresence, fetchTodayMain, fetchFreeCount])
-
   useEffect(() => {
-    if (initialMood && CHIP_TO_MOOD[initialMood]) {
-      setMoodChip(initialMood); setMood(CHIP_TO_MOOD[initialMood])
-    }
+    if (initialMood && CHIP_TO_MOOD[initialMood]) { setMoodChip(initialMood); setMood(CHIP_TO_MOOD[initialMood]) }
   }, [initialMood])
   useEffect(() => {
-    if (promptContext && !todayMain && !atLimit) {
-      setMode('diary'); setDraft(promptContext.prompt); setHelperPrompt(promptContext.prompt)
-    }
+    if (promptContext && !todayMain && !atLimit) { setMode('diary'); setDraft(promptContext.prompt); setHelperPrompt(promptContext.prompt) }
   }, [promptContext, todayMain, atLimit])
-
-  // Se a pessoa já escreveu hoje, abrir na retomada do registro do dia em vez de
-  // um compositor em branco. Só ajusta o estado inicial (sem rascunho, sem edição).
   useEffect(() => {
-    if (todayMain && mode === 'diary' && !draft.trim() && !editingEntryId && !promptContext) {
-      setMode('main-saved')
-    }
+    if (todayMain && mode === 'diary' && !draft.trim() && !editingEntryId && !promptContext) setMode('main-saved')
   }, [todayMain, mode, draft, editingEntryId, promptContext])
 
   const toggle = (items: string[], setter: (v: string[]) => void, value: string) => setter(items.includes(value) ? items.filter(x => x !== value) : [...items, value])
   const touch = (key: string, setter: (v: number) => void, value: number) => { setter(value); setTouched(prev => new Set(prev).add(key)) }
   const clearTouch = (key: string, setter: (v: number) => void) => { setter(3); setTouched(prev => { const n = new Set(prev); n.delete(key); return n }) }
   const chooseMood = (key: string) => { setMoodChip(key); setMood(CHIP_TO_MOOD[key] || 'outro') }
-
   const handleScaleChange = (name: ScaleName, value: number) => {
     if (name === 'moodScore') touch(name, setMoodScore, value)
     else if (name === 'energy') touch(name, setEnergy, value)
@@ -290,21 +265,17 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     else if (name === 'irritability') clearTouch(name, setIrritability)
     else clearTouch(name, setOverload)
   }
-
   const resetComposer = () => {
     setDraft(''); setQuickNote(''); setQuickContextOpen(false); setQuickContext(null); setHelperPrompt(''); setStarterOpen(false); setDetailsOpen(false); setPlusDetailsOpen(false); setOrganizedCandidate('')
     setMood('outro'); setMoodChip(null); setMoodOtherLabel(''); setEnergy(3); setAnxiety(3); setSleep(3); setMoodScore(3); setStress(3); setSelfEsteem(3); setIrritability(3); setOverload(3); setTouched(new Set())
     setEmotions([]); setContexts([]); setNeeds([]); setCareActions([]); setTriggers([])
     setAiAllowed(true); setError(''); setEditingEntryId(null)
   }
-
   const hydrateForDeepening = (entry: DiaryEntryV2, question?: string) => {
     if (hasStoredMood(entry.mood)) {
       const meta = moodMeta(entry.mood)
       setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null)
-    } else {
-      setMood('outro'); setMoodChip(null)
-    }
+    } else { setMood('outro'); setMoodChip(null) }
     setMoodOtherLabel(entry.mood_other_label || '')
     setDraft(`${entry.text || ''}${question ? `\n\n${question}\n` : ''}`)
     setEnergy(entry.energy || 3); setAnxiety(entry.anxiety_level || 3); setSleep(entry.sleep_quality || 3); setMoodScore(entry.mood_score || 3); setStress(entry.stress_level || 3); setSelfEsteem(entry.self_esteem || 3); setIrritability(entry.irritability || 3); setOverload(entry.overload || 3)
@@ -313,28 +284,22 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     setAiAllowed(entry.ai_disabled !== true); setEditingEntryId(entry.id); setMode('diary'); setTab('write'); setDetailsOpen(Boolean(entry.energy || entry.anxiety_level || entry.emotional_tags?.length || question)); setError('')
     setTimeout(() => editorRef.current?.focus(), 80)
   }
-
   const startDeepening = async (question?: string) => {
     const entry = todayMain
     if (!entry) return
     if (entry.deepened_at) { setError('Você já aprofundou seu registro de hoje. Amanhã um novo diário fica disponível.'); return }
     hydrateForDeepening(entry, question)
   }
-
   const requestStartHelp = async () => {
     setHelperLoading(true); setStarterOpen(false); setError('')
     const fallback = localStartPrompt(moodForAi)
-    if (!aiAllowed) {
-      setHelperPrompt(fallback); setHelperLoading(false); setMode('diary'); setTimeout(() => editorRef.current?.focus(), 60)
-      return
-    }
+    if (!aiAllowed) { setHelperPrompt(fallback); setHelperLoading(false); setMode('diary'); setTimeout(() => editorRef.current?.focus(), 60); return }
     try {
       const response = await askDiaryCompanion({ action: 'start', mood: moodForAi, hour: new Date().getHours() })
       setHelperPrompt(response.prompt || fallback)
     } catch { setHelperPrompt(fallback) }
     setHelperLoading(false); setMode('diary'); setTimeout(() => editorRef.current?.focus(), 60)
   }
-
   const starterChoice = (kind: string) => {
     const prompts: Record<string, string> = {
       crowded: 'Se eu pudesse tirar uma coisa da minha cabeça agora, seria…',
@@ -345,7 +310,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     }
     setHelperPrompt(prompts[kind] || localStartPrompt(moodForAi)); setStarterOpen(false); setTimeout(() => editorRef.current?.focus(), 50)
   }
-
   const organizeWriting = async () => {
     if (!aiAllowed) { setOrganizedCandidate(''); setError('A leitura complementar está desativada para este registro. Seu texto permanece salvo normalmente.'); return }
     if (!draft.trim() || organizing) return
@@ -356,7 +320,6 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível organizar a escrita agora.') }
     setOrganizing(false)
   }
-
   const toggleVoice = () => {
     if (voiceActive) { recognitionRef.current?.stop(); setVoiceActive(false); return }
     const w = window as typeof window & { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor }
@@ -369,58 +332,37 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       if (addition.trim()) setDraft(prev => `${prev}${prev && !prev.endsWith(' ') ? ' ' : ''}${addition.trim()}`)
     }
     recognition.onend = () => { setVoiceActive(false); recognitionRef.current = null }
-    recognition.onerror = event => {
-      setVoiceActive(false); recognitionRef.current = null
-      if (event.error === 'aborted') return
-      setError(voiceErrorMessage(event.error))
-    }
+    recognition.onerror = event => { setVoiceActive(false); recognitionRef.current = null; if (event.error === 'aborted') return; setError(voiceErrorMessage(event.error)) }
     recognitionRef.current = recognition
-    try {
-      recognition.start(); setVoiceActive(true); setError('')
-    } catch {
-      recognitionRef.current = null; setVoiceActive(false)
-      setError('Não foi possível iniciar o ditado. Verifique a permissão do microfone e tente novamente.')
-    }
+    try { recognition.start(); setVoiceActive(true); setError('') }
+    catch { recognitionRef.current = null; setVoiceActive(false); setError('Não foi possível iniciar o ditado. Verifique a permissão do microfone e tente novamente.') }
   }
-
   async function persistAiMetadata(entryId: string, mirror: DiaryMirror | null, disabled: boolean) {
     const payload = disabled
       ? { ai_disabled: true, ai_title: null, ai_reflection: null, ai_suggested_tags: null, ai_processed_at: null }
       : { ai_disabled: false, ai_title: mirror?.title || null, ai_reflection: mirror, ai_suggested_tags: mirror?.suggested_tags || null, ai_processed_at: new Date().toISOString() }
     await supabase.from('diary_entries').update(payload).eq('id', entryId)
   }
-
   const runMirror = async (entry: DiaryEntryV2) => {
-    if (!aiAllowed || !String(entry.text || '').trim()) {
-      void persistAiMetadata(entry.id, null, true)
-      setSaved(prev => prev ? { ...prev, mirror: null, processing: false } : prev)
-      return
-    }
+    if (!aiAllowed || !String(entry.text || '').trim()) { void persistAiMetadata(entry.id, null, true); setSaved(prev => prev ? { ...prev, mirror: null, processing: false } : prev); return }
     const moodText = effectiveMoodLabel(entry.mood, entry.mood_other_label) || 'seu momento'
     const fallback = localMirror(String(entry.text || ''), moodText)
     let mirror = fallback
     try {
       const response = await askDiaryCompanion({ action: 'mirror', mood: moodText, text: String(entry.text || ''), entry_id: entry.id })
       if (response.mirror) mirror = response.mirror
-    } catch { /* fallback local mantém a recompensa pós-escrita */ }
+    } catch { /* fallback local */ }
     void persistAiMetadata(entry.id, mirror, false)
     const enriched = { ...entry, ai_title: mirror.title, ai_reflection: mirror, ai_suggested_tags: mirror.suggested_tags, ai_processed_at: new Date().toISOString() }
     setEntries(prev => prev.map(e => e.id === entry.id ? enriched : e)); setMonthRows(prev => prev.map(e => e.id === entry.id ? enriched : e)); setTodayMain(prev => prev?.id === entry.id ? enriched : prev)
     setSaved(prev => prev ? { ...prev, entry: enriched, mirror, processing: false } : prev)
   }
-
   async function savePayload(payload: Record<string, unknown>, editingId: string | null) {
-    const write = (p: Record<string, unknown>) => editingId
-      ? supabase.from('diary_entries').update(p).eq('id', editingId).select().single()
-      : supabase.from('diary_entries').insert(p).select().single()
+    const write = (p: Record<string, unknown>) => editingId ? supabase.from('diary_entries').update(p).eq('id', editingId).select().single() : supabase.from('diary_entries').insert(p).select().single()
     let result = await write(payload)
-    if (result.error && /ai_disabled|schema cache|column/i.test(`${result.error.message} ${result.error.details || ''}`)) {
-      const compatible = { ...payload }; delete compatible.ai_disabled
-      result = await write(compatible)
-    }
+    if (result.error && /ai_disabled|schema cache|column/i.test(`${result.error.message} ${result.error.details || ''}`)) { const compatible = { ...payload }; delete compatible.ai_disabled; result = await write(compatible) }
     return result
   }
-
   const handleSave = async () => {
     if (!user) return
     const isCheckin = mode === 'quick'
@@ -471,102 +413,58 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
       setSaving(false); return
     }
     const entry = data as DiaryEntryV2
-    setEntries(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev])
-    setMonthRows(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [...prev, entry])
+    setEntries(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev]); setMonthRows(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [...prev, entry])
     if (!isCheckin) {
       const main = wasEditing ? { ...entry, deepened_at: entry.deepened_at || new Date().toISOString() } : entry
       setTodayMain(main)
       if (isFree && !wasEditing) {
         const next = monthDiaryCount + 1; setMonthDiaryCount(next)
-        if (entryLimit != null) {
-          const monthKey = today.slice(0, 7)
-          if (next === entryLimit - 1) void emailDiaryLimitWarningForUser(user.id, monthKey)
-          else if (next >= entryLimit) void emailDiaryLimitReachedForUser(user.id, monthKey)
-        }
+        if (entryLimit != null) { const monthKey = today.slice(0, 7); if (next === entryLimit - 1) void emailDiaryLimitWarningForUser(user.id, monthKey); else if (next >= entryLimit) void emailDiaryLimitReachedForUser(user.id, monthKey) }
       }
     }
     const signal = signalFromEntry(payload)
-    setSaved({ entry, signal, mirror: null, processing: !isCheckin && aiAllowed, kind: isCheckin ? 'checkin' : 'diary' })
-    setSuggestionsApplied(false)
+    setSaved({ entry, signal, mirror: null, processing: !isCheckin && aiAllowed, kind: isCheckin ? 'checkin' : 'diary' }); setSuggestionsApplied(false)
     if (!isCheckin) void runMirror(entry)
     resetComposer(); setSaving(false); if (onClearPromptContext) onClearPromptContext()
   }
-
   const applySuggestions = async () => {
     const current = saved?.entry; const tags = saved?.mirror?.suggested_tags
     if (!current || !tags) return
-    const update = {
-      emotional_tags: unique([...(current.emotional_tags || []), ...tags.emotions]),
-      context_tags: unique([...(current.context_tags || []), ...tags.contexts]),
-      need_tags: unique([...(current.need_tags || []), ...tags.needs]),
-      care_action_tags: unique([...(current.care_action_tags || []), ...tags.care_actions]),
-      trigger_tags: isPlus ? unique([...(current.trigger_tags || []), ...tags.triggers]) : current.trigger_tags,
-    }
+    const update = { emotional_tags: unique([...(current.emotional_tags || []), ...tags.emotions]), context_tags: unique([...(current.context_tags || []), ...tags.contexts]), need_tags: unique([...(current.need_tags || []), ...tags.needs]), care_action_tags: unique([...(current.care_action_tags || []), ...tags.care_actions]), trigger_tags: isPlus ? unique([...(current.trigger_tags || []), ...tags.triggers]) : current.trigger_tags }
     const { data } = await supabase.from('diary_entries').update(update).eq('id', current.id).select().single()
-    if (data) {
-      const row = data as DiaryEntryV2; setSaved(prev => prev ? { ...prev, entry: row } : prev); setEntries(prev => prev.map(e => e.id === row.id ? row : e)); setMonthRows(prev => prev.map(e => e.id === row.id ? row : e)); setTodayMain(prev => prev?.id === row.id ? row : prev); setSuggestionsApplied(true)
-    }
+    if (data) { const row = data as DiaryEntryV2; setSaved(prev => prev ? { ...prev, entry: row } : prev); setEntries(prev => prev.map(e => e.id === row.id ? row : e)); setMonthRows(prev => prev.map(e => e.id === row.id ? row : e)); setTodayMain(prev => prev?.id === row.id ? row : prev); setSuggestionsApplied(true) }
   }
-
   const askFollowUp = async () => {
     const entry = saved?.entry
     if (!entry || !isEssential) return
     let question = saved?.mirror?.question || 'O que neste registro você sente que ainda ficou sem palavras?'
     if (entry.ai_disabled !== true) {
-      try {
-        const response = await askDiaryCompanion({ action: 'continue', mood: effectiveMoodLabel(entry.mood, entry.mood_other_label) || 'seu momento', text: String(entry.text || '') })
-        if (response.prompt) question = response.prompt
-      } catch { /* usa pergunta já gerada */ }
+      try { const response = await askDiaryCompanion({ action: 'continue', mood: effectiveMoodLabel(entry.mood, entry.mood_other_label) || 'seu momento', text: String(entry.text || '') }); if (response.prompt) question = response.prompt } catch { /* usa pergunta */ }
     }
     setSaved(null); await startDeepening(question)
   }
-
   const continueFromCheckin = () => {
     const entry = saved?.kind === 'checkin' ? saved.entry : null
     if (!entry) return
     setSaved(null)
-    if (todayMain) {
-      setMode('main-saved'); setTab('write'); setError('')
-      return
-    }
+    if (todayMain) { setMode('main-saved'); setTab('write'); setError(''); return }
     resetComposer()
     const meta = moodMeta(entry.mood)
     setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null); setMoodOtherLabel(entry.mood_other_label || '')
     setEnergy(entry.energy || 3); setStress(entry.stress_level || 3); setAnxiety(entry.anxiety_level || 3)
     const carried = new Set<string>(); if (entry.energy) carried.add('energy'); if (entry.stress_level) carried.add('stress'); if (entry.anxiety_level) carried.add('anxiety'); setTouched(carried)
     setContexts(entry.context_tags || [])
-    const note = String(entry.text || '').trim()
-    const moodWord = effectiveMoodLabel(entry.mood, entry.mood_other_label).toLowerCase()
+    const note = String(entry.text || '').trim(); const moodWord = effectiveMoodLabel(entry.mood, entry.mood_other_label).toLowerCase()
     setHelperPrompt(note ? `No seu check-in você anotou: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Se quiser, conte um pouco mais sobre isso.` : `Você marcou ${moodWord}. O que está por trás deste momento?`)
-    setMode('diary'); setTab('write'); setError('')
-    setTimeout(() => editorRef.current?.focus(), 80)
+    setMode('diary'); setTab('write'); setError(''); setTimeout(() => editorRef.current?.focus(), 80)
   }
-
   async function exportHistory() {
     if (!historyRef.current || exporting) return
-    setExporting(true)
-    try { await exportElementToPdf(historyRef.current, `diario-${today.slice(0, 7)}.pdf`) } finally { setExporting(false) }
+    setExporting(true); try { await exportElementToPdf(historyRef.current, `diario-${today.slice(0, 7)}.pdf`) } finally { setExporting(false) }
   }
 
   if (saved) {
-    return (
-      <DiarySavedReflection
-        saved={saved}
-        user={user}
-        plan={plan}
-        isEssential={isEssential}
-        todayDeepened={todayDeepened}
-        suggestionsApplied={suggestionsApplied}
-        onOpenArticle={onOpenArticle}
-        moodMeta={moodMeta}
-        onApplySuggestions={() => void applySuggestions()}
-        onAskFollowUp={() => void askFollowUp()}
-        onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }}
-        onContinueFromCheckin={continueFromCheckin}
-        onViewHistory={() => { setSaved(null); setTab('history') }}
-        onBack={onBack}
-      />
-    )
+    return <DiarySavedReflection saved={saved} user={user} plan={plan} isEssential={isEssential} todayDeepened={todayDeepened} suggestionsApplied={suggestionsApplied} onOpenArticle={onOpenArticle} moodMeta={moodMeta} onApplySuggestions={() => void applySuggestions()} onAskFollowUp={() => void askFollowUp()} onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }} onContinueFromCheckin={continueFromCheckin} onViewHistory={() => { setSaved(null); setTab('history') }} onBack={onBack} />
   }
 
   const shell = focusMode ? 'fixed inset-0 z-50 bg-[#f8f5ef] overflow-y-auto' : ''
@@ -579,171 +477,48 @@ export default function DiaryExperience({ user, plan, onBack, onNavigatePricing,
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</p>
             <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. {mode === 'quick' ? 'Como você está agora?' : 'O que você quer colocar para fora hoje?'}</h1>
-            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Comece pelo texto. Humor e outros detalhes ficam opcionais para depois.' : mode === 'quick' ? 'Um check-in rápido é suficiente. Se quiser, escreva um pouco depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
+            {!focusMode && <p className="text-sm text-ink-soft mt-2 max-w-2xl">{mode === 'diary' ? 'Comece pelo texto. Se quiser, acrescente contexto depois.' : mode === 'quick' ? 'Um check-in rápido é suficiente. Se quiser, escreva um pouco depois.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>}
           </div>
           <button onClick={() => setFocusMode(v => !v)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title={focusMode ? 'Sair do modo foco' : 'Modo foco'} aria-label={focusMode ? 'Sair do modo foco' : 'Ativar modo foco'}>{focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</button>
         </header>
 
-        {!focusMode && (
-          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-            <div className="inline-flex rounded-full border border-line bg-white p-1">
-              <button onClick={() => setTab('write')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'write' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Escrever</button>
-              <button onClick={() => setTab('history')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'history' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Histórico</button>
-            </div>
-            <button onClick={onBack} className="text-sm text-ink-soft hover:text-forest-900 inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button>
-          </div>
-        )}
+        {!focusMode && <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><div className="inline-flex rounded-full border border-line bg-white p-1"><button onClick={() => setTab('write')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'write' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Escrever</button><button onClick={() => setTab('history')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'history' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Histórico</button></div><button onClick={onBack} className="text-sm text-ink-soft hover:text-forest-900 inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button></div>}
 
         {tab === 'write' ? (
-          <div className={focusMode ? '' : 'mx-auto max-w-3xl'}>
-            <main className="min-w-0">
-              {/* Fase 19R.3: a escrita é a experiência padrão. O check-in rápido
-                  continua a um toque, como opção — não como estado inicial. */}
-              {!focusMode && mode !== 'main-saved' && (
-                <div className="mb-4">
-                  {mode === 'quick' ? (
-                    <button
-                      type="button"
-                      onClick={() => setMode(todayMain ? 'main-saved' : 'diary')}
-                      className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900"
-                    >
-                      <span aria-hidden>←</span> Quero escrever no diário
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setMode('quick')}
-                      className="text-sm text-forest-700 underline underline-offset-2 hover:text-forest-900"
-                    >
-                      Prefiro só um Check-in rápido hoje
-                    </button>
-                  )}
-                </div>
-              )}
+          <div className={focusMode ? '' : 'mx-auto max-w-3xl'}><main className="min-w-0">
+            {!focusMode && mode !== 'main-saved' && <div className="mb-4">{mode === 'quick' ? <button type="button" onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900"><span aria-hidden>←</span> Quero escrever no diário</button> : <button type="button" onClick={() => setMode('quick')} className="text-sm text-forest-700 underline underline-offset-2 hover:text-forest-900">Prefiro só um Check-in rápido hoje</button>}</div>}
 
-              {mode === 'main-saved' && todayMain ? (
-                <section className="rounded-3xl border border-line bg-paper-soft p-6 sm:p-8">
-                  <p className="text-xs uppercase tracking-[0.14em] text-forest-600">Registro de hoje</p>
-                  <h2 className="font-serif text-2xl text-forest-900 mt-1">Você já colocou algo no papel hoje.</h2>
-                  <p className="text-sm text-ink-soft mt-2 leading-relaxed">{todayDeepened ? 'Seu registro já foi aprofundado uma vez hoje. Seus check-ins continuam disponíveis, e amanhã começa uma nova página.' : 'Se algo ainda ficou sem palavras, você pode aprofundar este mesmo registro uma única vez hoje.'}</p>
-                  <blockquote className="mt-5 border-l-2 border-forest-300 pl-4 text-sm text-ink-soft whitespace-pre-line line-clamp-5">{todayMain.text || 'Registro sem texto.'}</blockquote>
-                  <div className="flex flex-wrap gap-2 mt-5">
-                    {!todayDeepened && <button onClick={() => void startDeepening()} className="rounded-xl bg-forest-900 text-white px-4 py-2.5 text-sm font-medium">Aprofundar meu registro</button>}
-                    <button onClick={() => setMode('quick')} className="rounded-xl border border-line bg-white text-forest-900 px-4 py-2.5 text-sm">Fazer check-in rápido</button>
-                  </div>
-                </section>
-              ) : (
-                <section className={`${focusMode ? 'bg-transparent' : 'bg-paper-soft border border-line rounded-[2rem]'} p-4 sm:p-7`}>
-                  {promptContext && mode === 'diary' && <div className="mb-5 rounded-2xl bg-mint/50 border border-forest-100 p-4"><p className="text-xs text-forest-600">Pergunta do conteúdo “{promptContext.articleTitle}”</p><p className="text-sm text-forest-900 mt-1">{promptContext.prompt}</p></div>}
+            {mode === 'main-saved' && todayMain ? (
+              <section className="rounded-3xl border border-line bg-paper-soft p-6 sm:p-8"><p className="text-xs uppercase tracking-[0.14em] text-forest-600">Registro de hoje</p><h2 className="font-serif text-2xl text-forest-900 mt-1">Você já colocou algo no papel hoje.</h2><p className="text-sm text-ink-soft mt-2 leading-relaxed">{todayDeepened ? 'Seu registro já foi aprofundado uma vez hoje. Seus check-ins continuam disponíveis, e amanhã começa uma nova página.' : 'Se algo ainda ficou sem palavras, você pode aprofundar este mesmo registro uma única vez hoje.'}</p><blockquote className="mt-5 border-l-2 border-forest-300 pl-4 text-sm text-ink-soft whitespace-pre-line line-clamp-5">{todayMain.text || 'Registro sem texto.'}</blockquote><div className="flex flex-wrap gap-2 mt-5">{!todayDeepened && <button onClick={() => void startDeepening()} className="rounded-xl bg-forest-900 text-white px-4 py-2.5 text-sm font-medium">Aprofundar meu registro</button>}<button onClick={() => setMode('quick')} className="rounded-xl border border-line bg-white text-forest-900 px-4 py-2.5 text-sm">Fazer check-in rápido</button></div></section>
+            ) : (
+              <section className={`${focusMode ? 'bg-transparent' : 'bg-paper-soft border border-line rounded-[2rem]'} p-4 sm:p-7`}>
+                {promptContext && mode === 'diary' && <div className="mb-5 rounded-2xl bg-mint/50 border border-forest-100 p-4"><p className="text-xs text-forest-600">Pergunta do conteúdo “{promptContext.articleTitle}”</p><p className="text-sm text-forest-900 mt-1">{promptContext.prompt}</p></div>}
+                {mode === 'quick' ? <>
+                  <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
+                  <p className="text-sm text-ink-soft mb-4">Leva menos de um minuto. Escolha uma emoção e, se quiser, acrescente alguns sinais deste momento.</p>
+                  {isEssential && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"><QuickScaleField label="Energia" value={energy} touched={touched.has('energy')} labels={['Muito baixa','Baixa','Média','Boa','Alta']} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><QuickScaleField label="Tensão/estresse" value={stress} touched={touched.has('stress')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} />{mood === 'ansiedade' && <QuickScaleField label="Intensidade da ansiedade" value={anxiety} touched={touched.has('anxiety')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}</div>}
+                  {isEssential && <div className="mb-4"><button type="button" onClick={() => setQuickContextOpen(v => !v)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-800"><SlidersHorizontal className="w-4 h-4" /> Quero contar um pouco mais {quickContextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{quickContextOpen && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><p className="text-sm font-semibold text-forest-900">O que mais está influenciando você agora?</p><p className="text-xs text-ink-soft mt-1">Escolha só uma opção, se fizer sentido.</p><div className="flex flex-wrap gap-2 mt-3">{quickContextTags.map(tag => <button key={tag} type="button" onClick={() => setQuickContext(prev => prev === tag ? null : tag)} className={`rounded-full border px-3 py-1.5 text-xs ${quickContext === tag ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>)}</div></div>}</div>}
+                  <label className="text-sm font-semibold text-forest-900">Quer deixar uma nota rápida? <span className="font-normal text-ink-soft">(opcional)</span></label><textarea value={quickNote} onChange={e => setQuickNote(e.target.value)} rows={3} placeholder="Uma frase já basta…" aria-label="Nota rápida do check-in" className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-4 text-base resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
+                </> : <>
+                  {helperPrompt && <div className="mb-4 rounded-2xl border border-forest-100 bg-mint/45 p-4 flex gap-3"><Sparkles className="w-4 h-4 text-forest-600 mt-0.5 flex-shrink-0" /><div className="flex-1"><p className="text-sm text-forest-900">{helperPrompt}</p><button type="button" onClick={() => void requestStartHelp()} className="text-xs text-forest-700 mt-2">Quero outra pergunta</button></div><button onClick={() => setHelperPrompt('')} className="text-ink-soft" aria-label="Fechar pergunta"><X className="w-4 h-4" /></button></div>}
+                  <div className={`${focusMode ? 'min-h-[58vh]' : ''}`}><textarea ref={editorRef} value={draft} onChange={e => setDraft(e.target.value)} rows={focusMode ? 18 : 13} placeholder="Escreva do seu jeito. Pode ser uma frase, um desabafo ou tudo que estiver na sua cabeça…" aria-label="Texto do diário" className={`w-full bg-transparent px-1 py-3 font-serif text-lg sm:text-xl leading-relaxed resize-none focus:outline-none placeholder:text-ink-soft/55 ${focusMode ? 'min-h-[55vh]' : 'min-h-[320px] sm:min-h-[380px]'}`} /><div className="border-t border-line/70 pt-3 flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><button type="button" onClick={toggleVoice} className={`hidden sm:inline-flex rounded-xl px-3 py-2 text-xs items-center gap-1.5 ${voiceActive ? 'bg-coral/50 text-[#8a3b23]' : 'bg-white border border-line text-forest-800'}`}><Mic className="w-3.5 h-3.5" /> {voiceActive ? 'Parar ditado' : 'Prefiro falar'}</button>{!editingEntryId && <button type="button" onClick={() => setStarterOpen(v => !v)} className={`rounded-xl border px-3 py-2 text-xs inline-flex items-center gap-1.5 ${starterOpen ? 'bg-mint border-forest-100 text-forest-900' : 'bg-white border-line text-forest-800'}`}><Sparkles className="w-3.5 h-3.5" /> Preciso de ajuda para começar</button>}</div><span className="text-[11px] text-ink-soft">{draft.length} caracteres</span></div></div>
+                  {starterOpen && !editingEntryId && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-forest-900">Ajuda para começar</p><p className="text-xs text-ink-soft mt-0.5">Escolha só uma ajuda. Seu espaço de escrita continua sendo o principal.</p></div><button type="button" onClick={() => setStarterOpen(false)} className="text-ink-soft" aria-label="Fechar ajuda para começar"><X className="w-4 h-4" /></button></div><div className="flex flex-wrap gap-2 mt-3"><button type="button" onClick={() => void requestStartHelp()} disabled={helperLoading} className="rounded-xl bg-mint border border-forest-100 px-3 py-2 text-xs text-forest-900 inline-flex items-center gap-1.5 disabled:opacity-60">{helperLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Sugira uma pergunta</button>{[['crowded','Minha cabeça está cheia'],['happened','Aconteceu alguma coisa hoje'],['worried','Estou preocupado com algo'],['good','Estou bem e quero registrar'],['unclear','Nem sei explicar']].map(([key,label]) => <button key={key} type="button" onClick={() => starterChoice(key)} className="rounded-full border border-line px-3 py-1.5 text-xs text-forest-800 hover:bg-mint/40">{label}</button>)}</div>{isEssential && aiAllowed && draft.trim().length >= 10 && <button type="button" onClick={() => void organizeWriting()} disabled={organizing} className="mt-3 rounded-xl border border-line bg-white px-3 py-2 text-xs text-forest-800 inline-flex items-center gap-1.5 disabled:opacity-60">{organizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Organizar o que já escrevi</button>}</div>}
+                  {organizedCandidate && <div className="mt-4 rounded-2xl border border-forest-100 bg-mint/35 p-4"><p className="text-xs font-semibold text-forest-700">Uma versão organizada para consultar</p><p className="text-xs text-ink-soft mt-1">Seu texto original permanece intacto no editor. Esta versão não substitui nem altera o que você escreveu.</p><p className="text-sm text-ink mt-3 whitespace-pre-line leading-relaxed">{organizedCandidate}</p><div className="flex gap-2 mt-3"><button onClick={() => setOrganizedCandidate('')} className="rounded-xl border border-line bg-white px-3 py-2 text-xs">Fechar versão organizada</button></div></div>}
 
-                  {mode === 'quick' ? (
-                    <>
-                      <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
-                      <p className="text-sm text-ink-soft mb-4">Leva menos de um minuto. Escolha uma emoção e, se quiser, acrescente alguns sinais deste momento.</p>
-                      {isEssential && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"><QuickScaleField label="Energia" value={energy} touched={touched.has('energy')} labels={['Muito baixa','Baixa','Média','Boa','Alta']} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><QuickScaleField label="Tensão/estresse" value={stress} touched={touched.has('stress')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} />{mood === 'ansiedade' && <QuickScaleField label="Intensidade da ansiedade" value={anxiety} touched={touched.has('anxiety')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}</div>}
-                      {isEssential && <div className="mb-4"><button type="button" onClick={() => setQuickContextOpen(v => !v)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-800"><SlidersHorizontal className="w-4 h-4" /> Quero contar um pouco mais {quickContextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{quickContextOpen && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><p className="text-sm font-semibold text-forest-900">O que mais está influenciando você agora?</p><p className="text-xs text-ink-soft mt-1">Escolha só uma opção, se fizer sentido.</p><div className="flex flex-wrap gap-2 mt-3">{quickContextTags.map(tag => <button key={tag} type="button" onClick={() => setQuickContext(prev => prev === tag ? null : tag)} className={`rounded-full border px-3 py-1.5 text-xs ${quickContext === tag ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>)}</div></div>}</div>}
-                      <label className="text-sm font-semibold text-forest-900">Quer deixar uma nota rápida? <span className="font-normal text-ink-soft">(opcional)</span></label>
-                      <textarea value={quickNote} onChange={e => setQuickNote(e.target.value)} rows={3} placeholder="Uma frase já basta…" aria-label="Nota rápida do check-in" className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-4 text-base resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
-                    </>
-                  ) : (
-                    <>
-                      {helperPrompt && <div className="mb-4 rounded-2xl border border-forest-100 bg-mint/45 p-4 flex gap-3"><Sparkles className="w-4 h-4 text-forest-600 mt-0.5 flex-shrink-0" /><div className="flex-1"><p className="text-sm text-forest-900">{helperPrompt}</p><button type="button" onClick={() => void requestStartHelp()} className="text-xs text-forest-700 mt-2">Quero outra pergunta</button></div><button onClick={() => setHelperPrompt('')} className="text-ink-soft" aria-label="Fechar pergunta"><X className="w-4 h-4" /></button></div>}
+                  <div className="mt-5 border-t border-line/70 pt-4"><DiaryMoodSelector optional selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} /></div>
+                  <div className="mt-1 border-t border-line/70 pt-4"><button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> Adicionar mais detalhes</button></div>
 
-                      <div className={`${focusMode ? 'min-h-[58vh]' : ''}`}>
-                        <textarea ref={editorRef} value={draft} onChange={e => setDraft(e.target.value)} rows={focusMode ? 18 : 13} placeholder="Escreva do seu jeito. Pode ser uma frase, um desabafo ou tudo que estiver na sua cabeça…" aria-label="Texto do diário" className={`w-full bg-transparent px-1 py-3 font-serif text-lg sm:text-xl leading-relaxed resize-none focus:outline-none placeholder:text-ink-soft/55 ${focusMode ? 'min-h-[55vh]' : 'min-h-[320px] sm:min-h-[380px]'}`} />
-                        <div className="border-t border-line/70 pt-3 flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={toggleVoice} className={`hidden sm:inline-flex rounded-xl px-3 py-2 text-xs items-center gap-1.5 ${voiceActive ? 'bg-coral/50 text-[#8a3b23]' : 'bg-white border border-line text-forest-800'}`}><Mic className="w-3.5 h-3.5" /> {voiceActive ? 'Parar ditado' : 'Prefiro falar'}</button>
-                            {!editingEntryId && <button type="button" onClick={() => setStarterOpen(v => !v)} className={`rounded-xl border px-3 py-2 text-xs inline-flex items-center gap-1.5 ${starterOpen ? 'bg-mint border-forest-100 text-forest-900' : 'bg-white border-line text-forest-800'}`}><Sparkles className="w-3.5 h-3.5" /> Preciso de ajuda para começar</button>}
-                          </div>
-                          <span className="text-[11px] text-ink-soft">{draft.length} caracteres</span>
-                        </div>
-                      </div>
+                  {detailsOpen && <DiaryDetailsDrawer isEssential={isEssential} isPlus={isPlus} isFree={isFree} fieldOn={fieldOn} touched={touched} values={{ moodScore, energy, anxiety, sleep, stress, selfEsteem, irritability, overload }} onScaleChange={handleScaleChange} onScaleClear={handleScaleClear} emotions={emotions} contexts={contexts} needs={needs} careActions={careActions} triggers={triggers} onToggleEmotion={tag => toggle(emotions, setEmotions, tag)} onToggleContext={tag => toggle(contexts, setContexts, tag)} onToggleNeed={tag => toggle(needs, setNeeds, tag)} onToggleCareAction={tag => toggle(careActions, setCareActions, tag)} onToggleTrigger={tag => toggle(triggers, setTriggers, tag)} plusDetailsOpen={plusDetailsOpen} onTogglePlusDetails={() => setPlusDetailsOpen(value => !value)} onClose={() => setDetailsOpen(false)} />}
 
-                      {starterOpen && !editingEntryId && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-forest-900">Ajuda para começar</p><p className="text-xs text-ink-soft mt-0.5">Escolha só uma ajuda. Seu espaço de escrita continua sendo o principal.</p></div><button type="button" onClick={() => setStarterOpen(false)} className="text-ink-soft" aria-label="Fechar ajuda para começar"><X className="w-4 h-4" /></button></div><div className="flex flex-wrap gap-2 mt-3"><button type="button" onClick={() => void requestStartHelp()} disabled={helperLoading} className="rounded-xl bg-mint border border-forest-100 px-3 py-2 text-xs text-forest-900 inline-flex items-center gap-1.5 disabled:opacity-60">{helperLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Sugira uma pergunta</button>{[['crowded','Minha cabeça está cheia'],['happened','Aconteceu alguma coisa hoje'],['worried','Estou preocupado com algo'],['good','Estou bem e quero registrar'],['unclear','Nem sei explicar']].map(([key,label]) => <button key={key} type="button" onClick={() => starterChoice(key)} className="rounded-full border border-line px-3 py-1.5 text-xs text-forest-800 hover:bg-mint/40">{label}</button>)}</div>{isEssential && aiAllowed && draft.trim().length >= 10 && <button type="button" onClick={() => void organizeWriting()} disabled={organizing} className="mt-3 rounded-xl border border-line bg-white px-3 py-2 text-xs text-forest-800 inline-flex items-center gap-1.5 disabled:opacity-60">{organizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Organizar o que já escrevi</button>}</div>}
+                  <div className="mt-4 rounded-2xl border border-line/70 bg-white/55 px-4 py-3 flex flex-col items-start gap-1"><label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer"><input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" /><span className="font-medium text-forest-800">Usar este texto só como diário</span></label><p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Se marcar, ele não será usado para personalizar reflexões ou sugestões.' : 'Este texto será salvo normalmente e não será usado para personalizar reflexões ou sugestões.'}</p>{isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês. Check-ins continuam ilimitados.</p>}</div>
+                </>}
 
-                      {organizedCandidate && <div className="mt-4 rounded-2xl border border-forest-100 bg-mint/35 p-4"><p className="text-xs font-semibold text-forest-700">Uma versão organizada para consultar</p><p className="text-xs text-ink-soft mt-1">Seu texto original permanece intacto no editor. Esta versão não substitui nem altera o que você escreveu.</p><p className="text-sm text-ink mt-3 whitespace-pre-line leading-relaxed">{organizedCandidate}</p><div className="flex gap-2 mt-3"><button onClick={() => setOrganizedCandidate('')} className="rounded-xl border border-line bg-white px-3 py-2 text-xs">Fechar versão organizada</button></div></div>}
-
-                      <div className="mt-5 border-t border-line/70 pt-4">
-                        <p className="text-xs text-ink-soft mb-3">Se quiser, marque como está agora. Isso ajuda a organizar seu histórico, mas não é necessário para guardar o texto.</p>
-                        <DiaryMoodSelector optional selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
-                      </div>
-
-                      <div className="mt-2 border-t border-line/70 pt-4">
-                        <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 text-sm text-forest-800 font-medium"><SlidersHorizontal className="w-4 h-4" /> Adicionar detalhes opcionais <ChevronUp className="hidden w-4 h-4" /></button>
-                      </div>
-
-                      {detailsOpen && (
-                        <DiaryDetailsDrawer
-                          isEssential={isEssential}
-                          isPlus={isPlus}
-                          isFree={isFree}
-                          fieldOn={fieldOn}
-                          touched={touched}
-                          values={{ moodScore, energy, anxiety, sleep, stress, selfEsteem, irritability, overload }}
-                          onScaleChange={handleScaleChange}
-                          onScaleClear={handleScaleClear}
-                          emotions={emotions}
-                          contexts={contexts}
-                          needs={needs}
-                          careActions={careActions}
-                          triggers={triggers}
-                          onToggleEmotion={tag => toggle(emotions, setEmotions, tag)}
-                          onToggleContext={tag => toggle(contexts, setContexts, tag)}
-                          onToggleNeed={tag => toggle(needs, setNeeds, tag)}
-                          onToggleCareAction={tag => toggle(careActions, setCareActions, tag)}
-                          onToggleTrigger={tag => toggle(triggers, setTriggers, tag)}
-                          plusDetailsOpen={plusDetailsOpen}
-                          onTogglePlusDetails={() => setPlusDetailsOpen(value => !value)}
-                          onClose={() => setDetailsOpen(false)}
-                        />
-                      )}
-
-                      <div className="mt-4 flex flex-col items-start gap-1">
-                        <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer">
-                          <input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" />
-                          <span className="font-medium text-forest-800">Salvar sem leitura complementar</span>
-                        </label>
-                        <p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Opcional. Seu registro continua salvo normalmente.' : 'Leitura complementar desativada: seu registro será salvo normalmente.'}</p>
-                        {isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês. Check-ins continuam ilimitados.</p>}
-                      </div>
-                    </>
-                  )}
-
-                  {error && <div className="mt-4 rounded-xl bg-coral/30 px-4 py-3 text-sm text-[#8a3b23]">{error}</div>}
-                  <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line/70 bg-[#f8f5ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-                    {!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}
-                    {mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}
-                    {mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir detalhes opcionais" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}
-                    <button onClick={() => void handleSave()} disabled={saving || (mode === 'quick' && !moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button>
-                  </div>
-                </section>
-              )}
-            </main>
-          </div>
-        ) : (
-          <DiaryHistorySection
-            sectionRef={historyRef}
-            entries={entries}
-            monthRows={monthRows}
-            today={today}
-            exportPdfEnabled={cfg.exportPDF}
-            exporting={exporting}
-            filter={filter}
-            periodFilter={periodFilter}
-            expandedId={expanded}
-            loading={loading}
-            loadingMore={loadingMore}
-            hasMore={hasMore}
-            getMoodMeta={moodMeta}
-            onExport={() => void exportHistory()}
-            onFilterChange={setFilter}
-            onPeriodFilterChange={setPeriodFilter}
-            onExpandedChange={setExpanded}
-            onRefresh={() => void fetchEntries(true)}
-            onLoadMore={() => void fetchEntries(false)}
-          />
-        )}
+                {error && <div className="mt-4 rounded-xl bg-coral/30 px-4 py-3 text-sm text-[#8a3b23]">{error}</div>}
+                <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line/70 bg-[#f8f5ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">{!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}{mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}{mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir mais detalhes" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}<button onClick={() => void handleSave()} disabled={saving || (mode === 'quick' && !moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button></div>
+              </section>
+            )}
+          </main></div>
+        ) : <DiaryHistorySection sectionRef={historyRef} entries={entries} monthRows={monthRows} today={today} exportPdfEnabled={cfg.exportPDF} exporting={exporting} filter={filter} periodFilter={periodFilter} expandedId={expanded} loading={loading} loadingMore={loadingMore} hasMore={hasMore} getMoodMeta={moodMeta} onExport={() => void exportHistory()} onFilterChange={setFilter} onPeriodFilterChange={setPeriodFilter} onExpandedChange={setExpanded} onRefresh={() => void fetchEntries(true)} onLoadMore={() => void fetchEntries(false)} />}
       </div>
     </div>
   )

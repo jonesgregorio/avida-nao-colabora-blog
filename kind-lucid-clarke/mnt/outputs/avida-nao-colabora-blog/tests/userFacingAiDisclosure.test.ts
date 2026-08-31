@@ -68,14 +68,13 @@ test('experiência usa linguagem de produto enquanto metadados técnicos permane
   const map = read('src/components/MyEvolutionPage.tsx')
   const guidance = read('src/components/MonthlyGuidancePage.tsx')
 
-  assert.match(diary, /Salvar sem leitura complementar/)
+  assert.match(diary, /Usar este texto só como diário/)
   assert.match(saved, /Algumas marcações podem combinar com seu registro/)
   assert.match(map, /Entender melhor meu mapa/)
   assert.match(map, /Esta leitura considera apenas os dados resumidos deste mapa/)
   assert.match(guidance, /Análise cuidadosa antes da resposta/)
   assert.match(guidance, /Seu pedido está em análise/)
 
-  // Compatibilidade/proveniência técnica não é removida: apenas fica fora da linguagem visível.
   assert.match(diary, /ai_disabled/)
   assert.match(guidance, /ai_draft_json/)
 })
