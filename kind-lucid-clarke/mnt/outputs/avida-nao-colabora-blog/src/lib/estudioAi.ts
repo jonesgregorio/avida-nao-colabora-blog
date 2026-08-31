@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { buildCaptionRequest, buildImagePromptRequest, type EstudioBrief } from './estudioPrompts'
 import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } from './estudioPlan'
+import { buildPerfReadingRequest, type PerfRow } from './estudioPerformance'
 
 // Chamadas de IA do Estúdio. Reusa o proxy admin `generate-content` (mesmo
 // endpoint da Fábrica de IA e do criador de e-mails) — nenhuma Edge Function
@@ -81,6 +82,21 @@ export async function generateWeekPlan(ctx: BlogContext): Promise<PlanItem[]> {
   const items = parseWeekPlan(extractJson(data))
   if (!items.length) throw new EstudioAiError('A IA não retornou um plano utilizável. Tente de novo.')
   return items
+}
+
+export async function generatePerformanceReading(rows: PerfRow[]): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('generate-content', {
+    body: { prompt: buildPerfReadingRequest(rows), contentType: 'estudio-performance', responseFormat: 'text' },
+  })
+  if (error) throw new EstudioAiError(error.message)
+  const txt =
+    typeof data === 'string'
+      ? data
+      : ((data as { text?: string; content?: string; error?: string })?.text ??
+         (data as { content?: string })?.content ?? '')
+  const errMsg = (data as { error?: string })?.error
+  if (!txt.trim()) throw new EstudioAiError(errMsg || 'A IA não retornou uma análise. Tente de novo.')
+  return txt.trim()
 }
 
 export function estudioAiMessage(e: unknown): string {

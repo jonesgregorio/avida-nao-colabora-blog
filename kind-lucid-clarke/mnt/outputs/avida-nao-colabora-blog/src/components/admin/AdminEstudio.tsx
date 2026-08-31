@@ -6,14 +6,15 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
 import { offsetToDate, type PlanItem } from '../../lib/estudioPlan'
+import { toPerfRows, summarize, type PerfRow } from '../../lib/estudioPerformance'
 import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
 import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
-import { statusLabel, type Publicacao, type PublicacaoInput } from '../../lib/estudioPublications'
-import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao } from '../../lib/estudioPublicationsStore'
+import type { Publicacao, PublicacaoInput } from '../../lib/estudioPublications'
+import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao, setPublicacaoStatus, savePublicacaoMetrics } from '../../lib/estudioPublicationsStore'
 import FormatTemplate, { type TemplateContent } from './estudio/FormatTemplate'
 
 const BUSINESS_SUITE_URL = 'https://business.facebook.com/latest/composer'
@@ -176,7 +177,213 @@ export default function AdminEstudio() {
 
       {tab === 'novo' ? <NovaPublicacao />
         : tab === 'calendario' ? <Calendario />
+        : tab === 'grade' ? <Grade />
+        : tab === 'desempenho' ? <Desempenho />
         : <EmBreve tab={tab} />}
+    </div>
+  )
+}
+
+// ─── aba: Grade (Fase 2c — mosaico 3 colunas das próximas publicações) ───────
+
+function Grade() {
+  const [rows, setRows] = useState<Publicacao[] | null>(null)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    listPublicacoes()
+      .then(setRows)
+      .catch(e => { setErr(e instanceof Error ? e.message : 'Falha ao carregar.'); setRows([]) })
+  }, [])
+
+  if (rows === null) return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
+
+  const proximas = [...rows]
+    .filter(p => p.status !== 'publicado')
+    .sort((a, b) => (a.scheduledFor ?? '9999').localeCompare(b.scheduledFor ?? '9999'))
+    .slice(0, 9)
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink-soft">Como as próximas 9 publicações ficam juntas no feed. Só prévia — a ordem real vem do calendário e do que você agenda.</p>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+      {proximas.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-12 text-center text-sm text-ink-soft">
+          Nenhuma publicação pendente. Crie ou planeje uma na aba anterior.
+        </div>
+      ) : (
+        <div className="grid max-w-sm grid-cols-3 gap-1 overflow-hidden rounded-xl border border-line">
+          {proximas.map((p, i) => (
+            <div
+              key={p.id}
+              className="flex aspect-square flex-col justify-between p-2"
+              style={{ background: i % 3 === 2 ? 'linear-gradient(150deg,#F7D8CE,#E9E1F3)' : 'linear-gradient(150deg,#E8F0EB,#E4EEF7)' }}
+              title={p.titulo || p.ideia || ''}
+            >
+              <span className="text-[8px] font-mono uppercase text-forest-700">{FORMAT_SPECS[p.formatos[0] ?? '']?.label ?? p.formatos[0] ?? '—'}</span>
+              <span className="line-clamp-3 font-serif text-[10px] leading-tight text-forest-900">{p.titulo || p.ideia || 'post'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── aba: Desempenho (Fase 2d — métricas manuais + leitura da IA) ────────────
+
+const FMT_METRICAS: { key: keyof PerfRow; label: string }[] = [
+  { key: 'alcance', label: 'Alcance' },
+  { key: 'salvos', label: 'Salvos' },
+  { key: 'compartilhamentos', label: 'Compart.' },
+  { key: 'cliquesBlog', label: 'Cliques blog' },
+  { key: 'cadastros', label: 'Cadastros' },
+]
+
+function Desempenho() {
+  const [pubs, setPubs] = useState<Publicacao[] | null>(null)
+  const [rows, setRows] = useState<Record<string, Partial<Record<keyof PerfRow, string>>>>({})
+  const [err, setErr] = useState('')
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [reading, setReading] = useState('')
+  const [busyRead, setBusyRead] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      setPubs(await listPublicacoes())
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao carregar.')
+      setPubs([])
+    }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  if (pubs === null) return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
+
+  const perfRows = toPerfRows(pubs)
+  const summary = summarize(perfRows)
+
+  function edit(id: string, key: keyof PerfRow, value: string) {
+    setRows(r => ({ ...r, [id]: { ...r[id], [key]: value } }))
+  }
+
+  async function salvar(row: PerfRow) {
+    setSavingId(row.id); setErr('')
+    const draft = rows[row.id] ?? {}
+    const num = (k: keyof PerfRow, cur: number | null) => {
+      const raw = draft[k]
+      if (raw === undefined) return cur
+      const n = parseInt(raw, 10)
+      return Number.isFinite(n) && n >= 0 ? n : cur
+    }
+    try {
+      await savePublicacaoMetrics(row.id, {
+        alcance: num('alcance', row.alcance),
+        salvos: num('salvos', row.salvos),
+        compartilhamentos: num('compartilhamentos', row.compartilhamentos),
+        cliquesBlog: num('cliquesBlog', row.cliquesBlog),
+        cadastros: num('cadastros', row.cadastros),
+      })
+      setRows(r => { const c = { ...r }; delete c[row.id]; return c })
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao salvar métricas.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function analisar() {
+    setBusyRead(true); setErr('')
+    try {
+      setReading(await generatePerformanceReading(perfRows))
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusyRead(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-soft">Sem API do Instagram, os números são digitados à mão — poucos campos, 2 minutos por semana. É o suficiente para a IA entender o que converte.</p>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+
+      {perfRows.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-12 text-center text-sm text-ink-soft">
+          Nenhuma publicação pronta ou publicada ainda.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Kpi label="Posts medidos" value={String(summary.medidos)} />
+            <Kpi label="Alcance total" value={summary.totalAlcance.toLocaleString('pt-BR')} />
+            <Kpi label="Taxa de salvamento" value={summary.taxaSalvamento == null ? '—' : `${(summary.taxaSalvamento * 100).toFixed(1)}%`} />
+            <Kpi label="Cadastros" value={String(summary.totalCadastros)} />
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+            <table className="w-full text-xs">
+              <thead className="border-b border-line bg-stone-50 text-[10px] uppercase text-ink-soft">
+                <tr>
+                  <th className="px-3 py-2 text-left">Post</th>
+                  {FMT_METRICAS.map(m => <th key={m.key} className="px-2 py-2 text-left">{m.label}</th>)}
+                  <th className="px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {perfRows.map(row => (
+                  <tr key={row.id}>
+                    <td className="max-w-[200px] px-3 py-2">
+                      <p className="truncate font-medium text-forest-900">{row.titulo}</p>
+                      <p className="font-mono text-[10px] text-stone-400">{FORMAT_SPECS[row.formatoPrincipal]?.label ?? row.formatoPrincipal}</p>
+                    </td>
+                    {FMT_METRICAS.map(m => (
+                      <td key={m.key} className="px-2 py-2">
+                        <input
+                          type="number" min={0}
+                          value={rows[row.id]?.[m.key] ?? (row[m.key] ?? '')}
+                          onChange={e => edit(row.id, m.key, e.target.value)}
+                          className="w-16 rounded border border-line bg-paper px-1.5 py-1 text-xs"
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2">
+                      <button
+                        onClick={() => salvar(row)}
+                        disabled={savingId === row.id || !rows[row.id]}
+                        className="rounded-lg border border-line bg-white px-2 py-1 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40"
+                      >
+                        {savingId === row.id ? '…' : 'salvar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-2xl border-l-2 border-forest-400 bg-stone-50 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-base text-forest-900">Leitura da IA</h3>
+              <button onClick={analisar} disabled={busyRead || summary.medidos === 0} className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40">
+                {busyRead ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Analisar
+              </button>
+            </div>
+            {reading && <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-ink">{reading}</p>}
+            {!reading && <p className="mt-2 text-xs text-ink-soft">Preencha alguns posts e clique em Analisar.</p>}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Kpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-white p-3">
+      <p className="text-[10px] uppercase tracking-wide text-ink-soft">{label}</p>
+      <p className="mt-0.5 font-serif text-xl text-forest-900">{value}</p>
     </div>
   )
 }
@@ -220,6 +427,18 @@ function Calendario() {
     }
   }
 
+  async function mudarStatus(id: string, status: Publicacao['status']) {
+    setBusyId(id)
+    try {
+      await setPublicacaoStatus(id, status)
+      setRows(r => (r ?? []).map(p => (p.id === id ? { ...p, status } : p)))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao mudar o status.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (rows === null) {
     return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
   }
@@ -250,7 +469,17 @@ function Calendario() {
         <ul className="divide-y divide-stone-100 rounded-2xl border border-line bg-white">
           {rows.map(p => (
             <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_PILL[p.status]}`}>{statusLabel(p.status)}</span>
+              <select
+                value={p.status}
+                onChange={e => void mudarStatus(p.id, e.target.value as Publicacao['status'])}
+                disabled={busyId === p.id}
+                className={`rounded-full border-0 px-2 py-0.5 text-[11px] font-medium ${STATUS_PILL[p.status]}`}
+                aria-label="Status da publicação"
+              >
+                <option value="rascunho">Rascunho</option>
+                <option value="pronto">Pronto</option>
+                <option value="publicado">Publicado</option>
+              </select>
               <span className="min-w-0 flex-1 truncate text-forest-900">{p.titulo || p.ideia || 'Sem título'}</span>
               {p.temaCategoria && <span className="rounded bg-mint/60 px-1.5 py-0.5 text-[10px] text-forest-700">{p.temaCategoria}</span>}
               {p.scheduledFor && (
