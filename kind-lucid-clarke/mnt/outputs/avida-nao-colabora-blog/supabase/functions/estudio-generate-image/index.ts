@@ -30,7 +30,7 @@ const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 // Candidatos conhecidos, usados se o ListModels não achar nada útil.
 // gemini-2.5-flash-image é o que funciona neste projeto — vem primeiro.
-const FALLBACK_IMAGEN = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001', 'imagen-4.0-generate-001']
+// Imagen (tryImagen) só entra se GEMINI_IMAGE_MODEL apontar pra um imagen-*.
 const FALLBACK_GEMINI = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation']
 
 interface ModelInfo { name?: string; supportedGenerationMethods?: string[] }
