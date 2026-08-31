@@ -15,7 +15,7 @@
     { "source": "/privacidade", "destination": "/api/page?route=privacy" },
     { "source": "/termos", "destination": "/api/page?route=terms" },
     { "source": "/aviso-de-responsabilidade", "destination": "/api/page?route=responsibility" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

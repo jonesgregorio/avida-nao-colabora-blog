@@ -8,12 +8,15 @@ Ordem autorizada: P1 restante → P2 → P3 → validações live/documentação
 Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequenos e só mesclar com gates verdes.
 
 ## Última `main` conhecida
-- Commit: `82cced1`
-- Merge: PR #183 — `feat(questionarios): evolução longitudinal sem linguagem clínica`
+- Commit: `b555ed1`
+- Merge: PR #185 — `feat(conteudos): personalização negativa reversível`
 - Data: 2026-08-28 (America/Sao_Paulo)
 - Sincronizada e validada nesta sessão: `npm test`/`typecheck`/`lint`/`build` limpos
   (mesmas 3 falhas pré-existentes de sempre, sem novas). Deploy de produção
   confirmado via API do GitHub logo após o merge.
+- Migration `20260828040000_content_theme_preferences.sql` inclusa neste
+  merge — segue o fluxo padrão de auto-apply do projeto (não aplicada
+  manualmente por esta sessão).
 
 ## Regras invariáveis
 - Planos comerciais: somente `free`, `essential`, `plus`.
@@ -74,8 +77,12 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
    - sem tabela nova, sem migration — reaproveita `questionnaire_responses` (RLS já restringe a auth.uid()) e a RPC `get_questionnaire_catalog` já existente.
    - adicionada à lista de superfícies protegidas por `tests/userFacingAiDisclosure.test.ts`.
 
+17. ✅ Personalização negativa reversível para conteúdos — PR #185, merge `b555ed1`.
+   - "Mostrar menos conteúdos assim" (card) / "Temas reduzidos" (Perfil, "Voltar a mostrar") — silencia um TEMA, nunca um conteúdo isolado, nunca permanente.
+   - migration `20260828040000_content_theme_preferences.sql`: tabela `user_muted_content_themes`, RLS `auth.uid()=user_id`, grants mínimos.
+   - `contentRecommendation.ts`: `scoreCatalog` filtra o tema silenciado do ranking do usuário antes de pontuar (sem lista de exclusão de conteúdo separada).
+
 ## P2 restante
-17. Personalização negativa reversível para conteúdos.
 18. Padronizar senha mínima em 8 caracteres após auditar código real.
 19. Exportação de dados mais legível, preservando JSON.
 
@@ -92,14 +99,14 @@ Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequ
 - Auditoria final das 40 áreas com nota 0–10.
 
 ## Histórico útil
-PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179, #180, #181, #183.
+PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179, #180, #181, #183, #185.
 PRs relevantes da missão anterior: #157 (SLA), #158 (limpeza + IA invisível), #159 (Base deste plano), #163 (previsão da Orientação).
 
 ## PRÓXIMA AÇÃO A EXECUTAR
-1. Item 17 (P2) — personalização negativa reversível para conteúdos ("Mostrar menos conteúdos assim" / "Não quero ver este tema agora", com "Voltar a mostrar" em Preferências).
-2. Depois, itens 18-19 (P2).
+1. Item 18 (P2) — auditar o código real de senha mínima (cadastro/perfil/troca obrigatória) e padronizar em 8 caracteres, frontend + backend onde aplicável.
+2. Depois, item 19 (P2) — exportação de dados mais legível (CSV/PDF/ZIP, preservando o JSON atual).
 3. Depois, P3 (itens 20-22).
 4. Por último, validações fora do código (Supabase live, Stripe estrutural, Vercel, docs, auditoria final de 40 áreas).
 
 ## STATUS
-**P0 ✅ completo | P1 ✅ completo | P2: itens 11-16 ✅ completos, restam 17-19 | Incidente de produção (loading infinito) ✅ resolvido e verificado ao vivo.**
+**P0 ✅ completo | P1 ✅ completo | P2: itens 11-17 ✅ completos, restam 18-19 | Incidente de produção (loading infinito) ✅ resolvido e verificado ao vivo.**
