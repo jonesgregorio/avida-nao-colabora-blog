@@ -32,6 +32,6 @@ test('mobile preserva barra de ações essenciais', () => {
   const diary = read('src/components/DiaryExperience.tsx')
   assert.match(diary, /sticky bottom-0/)
   assert.match(diary, /Usar microfone/)
-  assert.match(diary, /Abrir detalhes opcionais/)
+  assert.match(diary, /Abrir mais detalhes/)
   assert.match(diary, /Guardar meu registro/)
 })

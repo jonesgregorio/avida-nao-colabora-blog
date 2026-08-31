@@ -7,7 +7,7 @@ const mood = readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', imp
 
 test('Fase 21.2 mantém a escrita como entrada principal', () => {
   assert.match(diary, /O que você quer colocar para fora hoje\?/)
-  assert.match(diary, /Comece pelo texto\. Humor e outros detalhes ficam opcionais para depois\./)
+  assert.match(diary, /Comece pelo texto\. Se quiser, acrescente contexto depois\./)
   assert.match(diary, /Guardar meu registro/)
 })
 

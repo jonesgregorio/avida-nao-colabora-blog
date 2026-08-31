@@ -15,7 +15,7 @@ const config = readFileSync(new URL('../src/lib/diaryConfig.ts', import.meta.url
 test('diário v2 prioriza escrita em coluna única, foco e detalhes progressivos', () => {
   assert.match(diary, /Modo foco/)
   assert.match(diary, /Preciso de ajuda para começar/)
-  assert.match(diary, /Adicionar detalhes opcionais/)
+  assert.match(diary, /Adicionar mais detalhes/)
   assert.match(diary, /Escreva do seu jeito/)
   assert.match(diary, /mx-auto max-w-3xl/)
   assert.doesNotMatch(diary, /lg:grid-cols-\[minmax\(0,1fr\)_280px\]/)
@@ -54,7 +54,7 @@ test('ajuda e organização ficam recolhidas para não competir com a escrita', 
 test('mobile mantém ações essenciais próximas do polegar', () => {
   assert.match(diary, /sticky bottom-0/)
   assert.match(diary, /aria-label=\{voiceActive \? 'Parar ditado' : 'Usar microfone'\}/)
-  assert.match(diary, /aria-label="Abrir detalhes opcionais"/)
+  assert.match(diary, /aria-label="Abrir mais detalhes"/)
   assert.match(diary, /Guardar meu registro/)
 })
 
@@ -72,7 +72,7 @@ test('Diário guarda texto sem exigir humor; check-in continua exigindo humor (F
   assert.match(diary, /mood_score: meta \?/)
   assert.match(diary, /mode === 'quick' && !moodChip/)
   assert.match(diary, /<DiaryMoodSelector optional/)
-  assert.match(diary, /Humor e outros detalhes ficam opcionais para depois/)
+  assert.match(diary, /Comece pelo texto\. Se quiser, acrescente contexto depois\./)
   assert.match(moodSelector, /optional\?: boolean/)
   assert.match(moodSelector, /\(opcional\)/)
 })
@@ -107,7 +107,7 @@ test('jornada deixa de punir ausência com streak e mantém presença apenas no 
 })
 
 test('leitura complementar é opcional, não clínica e devolve recompensa depois de escrever', () => {
-  assert.match(diary, /Salvar sem leitura complementar/)
+  assert.match(diary, /Usar este texto só como diário/)
   assert.match(savedReflection, /O que apareceu no seu registro/)
   assert.match(savedReflection, /Uma pergunta para levar com você/)
   assert.match(savedReflection, /Não é diagnóstico/)
@@ -125,8 +125,8 @@ test('opt-out impede envio do registro ao processamento complementar em início,
   assert.match(diary, /isEssential && aiAllowed && draft\.trim\(\)\.length >= 10/)
   assert.match(diary, /if \(!aiAllowed \|\| !String\(entry\.text \|\| ''\)\.trim\(\)\)/)
   assert.match(diary, /if \(entry\.ai_disabled !== true\)/)
-  assert.match(diary, /Leitura complementar desativada/)
-  assert.match(diary, /Seu registro continua salvo normalmente/i)
+  assert.match(diary, /Leitura complementar está desativada|não será usado para personalizar reflexões ou sugestões/)
+  assert.match(diary, /Este texto será salvo normalmente/)
   assert.doesNotMatch(diary, /não será enviado à IA/i)
   assert.match(diary, /aria-describedby="diary-ai-privacy-help"/)
 })
