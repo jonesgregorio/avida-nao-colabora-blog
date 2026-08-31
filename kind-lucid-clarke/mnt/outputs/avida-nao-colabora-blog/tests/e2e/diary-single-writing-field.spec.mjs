@@ -88,11 +88,13 @@ async function openEveryOptionalLayer(page) {
   await page.getByRole('button', { name: /Bem-estar/i }).click()
   await page.getByRole('textbox', { name: 'Texto do diário' }).fill('Hoje eu quero registrar este momento sem preencher vários formulários.')
   await page.getByRole('button', { name: /Adicionar detalhes opcionais/i }).click()
-  await expect(page.getByLabel('Humor')).toBeVisible()
+  await expect(page.getByLabel('Humor')).toHaveCount(0)
   await expect(page.getByLabel('Energia')).toBeVisible()
+  await expect(page.getByLabel('Sono')).toBeVisible()
   await expect(page.getByText('Quais sentimentos apareceram?')).toBeVisible()
+  await page.getByRole('button', { name: /Quer acrescentar contexto/i }).click()
   await expect(page.getByText('Onde isso apareceu?')).toBeVisible()
-  await page.getByRole('button', { name: /Quero refletir mais sobre este registro/i }).click()
+  await page.getByRole('button', { name: /Outros detalhes/i }).click()
   await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
 }
 
