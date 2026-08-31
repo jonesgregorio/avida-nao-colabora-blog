@@ -6,12 +6,14 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
 import OverlayTemplate from './estudio/OverlayTemplate'
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
 import { offsetToDate, type PlanItem } from '../../lib/estudioPlan'
 import { toPerfRows, summarize, type PerfRow } from '../../lib/estudioPerformance'
+import { normalizeHandle, type PerfilInspiracao } from '../../lib/estudioInspiration'
+import { listPerfis, createPerfil, updatePerfil, deletePerfil } from '../../lib/estudioInspirationStore'
 import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
 import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
@@ -181,6 +183,7 @@ export default function AdminEstudio() {
         : tab === 'calendario' ? <Calendario />
         : tab === 'grade' ? <Grade />
         : tab === 'desempenho' ? <Desempenho />
+        : tab === 'inspiracao' ? <Inspiracao />
         : <EmBreve tab={tab} />}
     </div>
   )
@@ -386,6 +389,128 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-line bg-white p-3">
       <p className="text-[10px] uppercase tracking-wide text-ink-soft">{label}</p>
       <p className="mt-0.5 font-serif text-xl text-forest-900">{value}</p>
+    </div>
+  )
+}
+
+// ─── aba: Inspiração (Fase 4a — perfis de referência, sem raspar dados) ──────
+
+function Inspiracao() {
+  const [perfis, setPerfis] = useState<PerfilInspiracao[] | null>(null)
+  const [err, setErr] = useState('')
+  const [novoHandle, setNovoHandle] = useState('')
+  const [novoTema, setNovoTema] = useState('')
+
+  const load = useCallback(async () => {
+    try { setPerfis(await listPerfis()) } catch (e) { setErr(e instanceof Error ? e.message : 'Falha ao carregar.'); setPerfis([]) }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  async function adicionar() {
+    const handle = normalizeHandle(novoHandle)
+    if (!handle) return
+    try {
+      await createPerfil({ handle, tema: novoTema || null })
+      setNovoHandle(''); setNovoTema('')
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao adicionar.')
+    }
+  }
+
+  if (perfis === null) return <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin text-forest-500" /></div>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-soft">
+        Cadastre perfis de referência. Uma vez por mês, cole algumas legendas recentes deles e a IA extrai o padrão.
+        Sem raspagem — o texto é colado por você.
+      </p>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+
+      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-white p-3">
+        <label className="text-xs">
+          <span className="mb-1 block font-medium text-ink-soft">Perfil</span>
+          <input value={novoHandle} onChange={e => setNovoHandle(e.target.value)} placeholder="@perfil" className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs" />
+        </label>
+        <label className="text-xs">
+          <span className="mb-1 block font-medium text-ink-soft">Tema (opcional)</span>
+          <input value={novoTema} onChange={e => setNovoTema(e.target.value)} placeholder="Ansiedade, rotina…" className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs" />
+        </label>
+        <button onClick={adicionar} disabled={!normalizeHandle(novoHandle)} className="rounded-lg bg-forest-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-800 disabled:opacity-40">Adicionar</button>
+      </div>
+
+      {perfis.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/60 px-6 py-10 text-center text-sm text-ink-soft">Nenhum perfil cadastrado ainda.</div>
+      ) : (
+        <div className="space-y-3">
+          {perfis.map(p => <PerfilCard key={p.id} perfil={p} onChange={load} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PerfilCard({ perfil, onChange }: { perfil: PerfilInspiracao; onChange: () => void }) {
+  const [legendas, setLegendas] = useState(perfil.legendasColadas ?? '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [open, setOpen] = useState(!perfil.analise)
+
+  async function analisar() {
+    setBusy(true); setErr('')
+    try {
+      const analise = await generateInspirationAnalysis(perfil.handle, perfil.tema ?? '', legendas)
+      await updatePerfil(perfil.id, {
+        handle: perfil.handle, tema: perfil.tema, notas: perfil.notas,
+        legendasColadas: legendas, analise, analisadoEm: new Date().toISOString(),
+      })
+      onChange()
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remover() {
+    try { await deletePerfil(perfil.id); onChange() } catch (e) { setErr(e instanceof Error ? e.message : 'Falha ao excluir.') }
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-serif text-sm text-forest-900">{perfil.handle}</span>
+        {perfil.tema && <span className="rounded bg-mint/60 px-1.5 py-0.5 text-[10px] text-forest-700">{perfil.tema}</span>}
+        {perfil.analisadoEm && <span className="text-[11px] text-stone-400">analisado {new Date(perfil.analisadoEm).toLocaleDateString('pt-BR')}</span>}
+        <button onClick={() => setOpen(o => !o)} className="ml-auto text-xs text-forest-700 underline">{open ? 'fechar' : 'colar legendas'}</button>
+        <button onClick={remover} className="text-xs text-ink-soft hover:text-red-600">excluir</button>
+      </div>
+
+      {perfil.analise && (
+        <p className="mt-2 whitespace-pre-wrap rounded-lg bg-stone-50 p-3 text-xs leading-relaxed text-ink">{perfil.analise}</p>
+      )}
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={legendas}
+            onChange={e => setLegendas(e.target.value)}
+            rows={4}
+            placeholder="Cole 3–5 legendas recentes desse perfil, uma embaixo da outra."
+            className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-xs"
+          />
+          {err && <p className="text-xs text-red-600">{err}</p>}
+          <button
+            onClick={analisar}
+            disabled={busy || legendas.trim().length < 40}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-3 py-1.5 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {perfil.analise ? 'Reanalisar' : 'Analisar padrão'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
