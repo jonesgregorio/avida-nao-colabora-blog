@@ -10,7 +10,10 @@ import { generateCaptions, generateImagePrompt, generateWeekPlan, generatePerfor
 import { summarize as summarizeComunidade, type Interacao } from '../../lib/estudioCommunity'
 import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
+import { renderSlideshow, slideshowSupported, slideshowFilename } from '../../lib/estudioSlideshow'
 import OverlayTemplate from './estudio/OverlayTemplate'
+
+interface ReelVideo { blob: Blob; url: string; filename: string }
 import { fetchBlogContext, type BlogContext } from '../../lib/estudioBlogContext'
 import { offsetToDate, type PlanItem } from '../../lib/estudioPlan'
 import { toPerfRows, summarize, type PerfRow } from '../../lib/estudioPerformance'
@@ -908,6 +911,8 @@ function NovaPublicacao() {
   const [assets, setAssets] = useState<RenderedAsset[]>([])
   useEffect(() => () => releaseAssets(assets), [assets])
   const [reelRoteiro, setReelRoteiro] = useState('')
+  const [reelVideo, setReelVideo] = useState<ReelVideo | null>(null)
+  useEffect(() => () => { if (reelVideo) URL.revokeObjectURL(reelVideo.url) }, [reelVideo])
 
   // Persistência no banco (Fase 2a). O localStorage segue como retomada rápida;
   // a linha em estudio_publicacoes é a fonte de verdade do histórico.
@@ -942,6 +947,7 @@ function NovaPublicacao() {
     releaseAssets(assets)
     setAssets([])
     setReelRoteiro('')
+    setReelVideo(null)
     setDraft(EMPTY_DRAFT)
     setPubId(null)
     setStep(0)
@@ -993,9 +999,9 @@ function NovaPublicacao() {
       <div className="rounded-2xl border border-line bg-white p-5">
         {step === 0 && <StepIdeia draft={draft} patch={patch} toggle={toggle} />}
         {step === 1 && <StepVisual draft={draft} patch={patch} />}
-        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} />}
+        {step === 2 && <StepFormatos draft={draft} toggle={toggle} assets={assets} setAssets={setAssets} setReelRoteiro={setReelRoteiro} reelVideo={reelVideo} setReelVideo={setReelVideo} />}
         {step === 3 && <StepTextos draft={draft} patch={patch} />}
-        {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} reelRoteiro={reelRoteiro} />}
+        {step === 4 && <StepPacote draft={draft} assets={assets} patch={patch} reelRoteiro={reelRoteiro} reelVideo={reelVideo} />}
       </div>
 
       {/* navegação */}
@@ -1214,16 +1220,19 @@ function slidesFor(id: string, spec: FormatSpec, draft: Draft): TemplateContent[
 }
 
 function StepFormatos({
-  draft, toggle, assets, setAssets, setReelRoteiro,
+  draft, toggle, assets, setAssets, setReelRoteiro, reelVideo, setReelVideo,
 }: {
   draft: Draft
   toggle: (k: 'objetivos' | 'formatos', v: string) => void
   assets: RenderedAsset[]
   setAssets: (a: RenderedAsset[]) => void
   setReelRoteiro: (s: string) => void
+  reelVideo: ReelVideo | null
+  setReelVideo: (v: ReelVideo | null) => void
 }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const overlayStageRef = useRef<HTMLDivElement>(null)
+  const frameStageRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const selected = draft.formatos.filter(id => FORMAT_SPECS[id])
@@ -1232,7 +1241,46 @@ function StepFormatos({
   const [reelScript, setReelScript] = useState<ReelScript | null>(null)
   const [reelBusy, setReelBusy] = useState(false)
   const [reelErr, setReelErr] = useState('')
+  const [slideBusy, setSlideBusy] = useState(false)
   const overlays = temReel && reelScript ? overlayTexts(reelScript) : []
+  // quadros do slideshow: gancho + cada bloco
+  const frames = reelScript
+    ? [{ titulo: reelScript.gancho, kicker: 'A vida não colabora' } as TemplateContent,
+       ...reelScript.blocos.map(b => ({ titulo: b.textoNaTela || b.fala, kicker: b.tempo } as TemplateContent))]
+    : []
+
+  function segundosDoBloco(tempo: string, fallback: number): number {
+    const m = tempo.match(/(\d+)\s*-\s*(\d+)/)
+    if (m) return Math.max(2, Number(m[2]) - Number(m[1]))
+    const s = tempo.match(/(\d+)/)
+    return s ? Math.max(2, Number(s[1])) : fallback
+  }
+
+  async function montarSlideshow() {
+    if (!frameStageRef.current || !reelScript) return
+    setSlideBusy(true); setReelErr('')
+    const spec = FORMAT_SPECS['reel-capa']
+    const urls: string[] = []
+    try {
+      const slideFrames: { url: string; seconds: number }[] = []
+      for (let i = 0; i < frames.length; i++) {
+        const node = frameStageRef.current.querySelector<HTMLElement>(`[data-frame="${i}"]`)
+        if (!node) continue
+        const a = await snapshot(node, spec, `frame-${i}.png`)
+        urls.push(a.url)
+        const seconds = i === 0 ? 2.5 : segundosDoBloco(reelScript.blocos[i - 1]?.tempo ?? '', 3)
+        slideFrames.push({ url: a.url, seconds })
+      }
+      const video = await renderSlideshow(slideFrames)
+      if (reelVideo) URL.revokeObjectURL(reelVideo.url)
+      setReelVideo({ blob: video.blob, url: video.url, filename: slideshowFilename(video.mime) })
+    } catch (e) {
+      setReelErr(e instanceof Error ? e.message : 'Falha ao montar o slideshow.')
+    } finally {
+      urls.forEach(u => URL.revokeObjectURL(u))
+      setSlideBusy(false)
+    }
+  }
 
   async function gerarRoteiro() {
     setReelBusy(true); setReelErr('')
@@ -1380,14 +1428,31 @@ function StepFormatos({
               {assets.some(a => a.filename.startsWith('overlay-')) && (
                 <p className="text-[11px] text-forest-700">Overlays adicionados às artes — vão no pacote junto com o roteiro.</p>
               )}
+
+              <div className="border-t border-line pt-3">
+                {slideshowSupported() ? (
+                  <>
+                    <button onClick={montarSlideshow} disabled={slideBusy || frames.length < 2} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                      {slideBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                      {reelVideo ? 'Refazer slideshow' : 'Montar slideshow (vídeo)'}
+                    </button>
+                    <p className="mt-1 text-[11px] text-ink-soft">Imagens em sequência num vídeo 9:16. Sai em WebM — o CapCut/InShot importam e exportam como MP4. O áudio você adiciona no app.</p>
+                    {reelVideo && (
+                      <video src={reelVideo.url} controls playsInline className="mt-2 w-40 rounded-lg border border-line" style={{ aspectRatio: '9/16' }} />
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[11px] text-ink-soft">O slideshow em vídeo precisa do Chrome ou Edge no computador.</p>
+                )}
+              </div>
             </>
           )}
         </div>
       )}
 
       <NextPhaseNote>
-        Estilo <b>template da marca</b> — carrossel e quiz saem com todos os slides. O reel entrega <b>roteiro + textos de
-        tela</b>; a montagem em vídeo (slideshow MP4) e a IA generativa de imagem ficam para depois.
+        Estilo <b>template da marca</b> — carrossel e quiz saem com todos os slides. O reel entrega <b>roteiro, textos de
+        tela e um slideshow em vídeo</b>. Gravar você mesmo continua opcional; a IA generativa de imagem fica para depois.
       </NextPhaseNote>
 
       {/* palco de render fora da tela — dimensão real, capturado pelo html2canvas */}
@@ -1402,6 +1467,13 @@ function StepFormatos({
         {overlays.map((texto, i) => (
           <div key={i} data-ov={i}>
             <OverlayTemplate spec={FORMAT_SPECS['reel-capa']} texto={texto} />
+          </div>
+        ))}
+      </div>
+      <div ref={frameStageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+        {frames.map((content, i) => (
+          <div key={i} data-frame={i}>
+            <FormatTemplate spec={FORMAT_SPECS['reel-capa']} content={content} />
           </div>
         ))}
       </div>
@@ -1529,12 +1601,13 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 }
 
 function StepPacote({
-  draft, assets, patch, reelRoteiro,
+  draft, assets, patch, reelRoteiro, reelVideo,
 }: {
   draft: Draft
   assets: RenderedAsset[]
   patch: (p: Partial<Draft>) => void
   reelRoteiro: string
+  reelVideo: ReelVideo | null
 }) {
   const fmtLabels = FORMATS.filter(f => draft.formatos.includes(f.id)).map(f => f.label)
   const [zipping, setZipping] = useState(false)
@@ -1547,6 +1620,7 @@ function StepPacote({
     primeiroComentario: draft.primeiroComentario, formatos: draft.formatos,
     publishMode: draft.publishMode, scheduledFor: draft.scheduledFor || undefined,
     reelRoteiro: reelRoteiro || undefined,
+    reelVideo: reelVideo ? { filename: reelVideo.filename, blob: reelVideo.blob } : undefined,
   }
 
   async function baixarZip() {
@@ -1584,6 +1658,14 @@ function StepPacote({
         )}
         {reelRoteiro && (
           <div className="flex items-center justify-between"><span className="text-xs font-medium text-forest-900">Roteiro do reel</span><CopyBtn text={reelRoteiro} label="Copiar roteiro" /></div>
+        )}
+        {reelVideo && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-forest-900">Slideshow do reel ({reelVideo.filename.endsWith('mp4') ? 'MP4' : 'WebM'})</span>
+            <button onClick={() => downloadBlob(reelVideo.blob, reelVideo.filename)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 text-[11px] font-medium text-forest-800 hover:border-forest-300">
+              <Download className="h-3.5 w-3.5" /> Baixar vídeo
+            </button>
+          </div>
         )}
       </div>
 
