@@ -18,6 +18,7 @@ const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
 const AdminAreaEmocional = lazy(() => import('./AdminAreaEmocional'))
 const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
 const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
+const AdminEstudio = lazy(() => import('./AdminEstudio'))
 const AdminAreaComunicacao = lazy(() => import('./AdminAreaComunicacao'))
 const AdminAreaSistema = lazy(() => import('./AdminAreaSistema'))
 const AdminMapaArea = lazy(() => import('./AdminMapaArea'))
@@ -39,7 +40,7 @@ const ADMIN_KEY = 'avida_admin_view'
 // "visao-geral" — por isso adicionar um item no menu exige registrá-lo AQUI
 // também, senão ele existe mas não abre.
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'analytics', 'financeiro',
+  'visao-geral', 'usuarios', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'estudio', 'analytics', 'financeiro',
   'mapa', 'emocional', 'comunicacao', 'suporte', 'sistema',
 ]
 
@@ -205,6 +206,7 @@ export default function AdminPanel() {
           }}
         />
       )
+      case 'estudio': return <AdminEstudio />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'financeiro': return <AdminFinanceiro />
       case 'mapa': return <AdminMapaArea />

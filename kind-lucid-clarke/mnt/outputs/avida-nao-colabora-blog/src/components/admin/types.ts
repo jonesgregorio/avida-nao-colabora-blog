@@ -6,6 +6,7 @@ export type AdminAreaView =
   | 'planos'
   | 'cancelamentos'
   | 'conteudos'
+  | 'estudio'
   | 'fabrica-ia'
   | 'calendario'
   | 'automacoes-blog'
