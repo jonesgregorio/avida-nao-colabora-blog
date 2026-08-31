@@ -13,7 +13,7 @@ export interface RenderedAsset {
   check: ValidationResult
 }
 
-async function toCanvas(node: HTMLElement, spec: FormatSpec): Promise<HTMLCanvasElement> {
+async function toCanvas(node: HTMLElement, spec: FormatSpec, transparent = false): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import('html2canvas')
   // As fontes da marca precisam estar prontas antes do snapshot.
   if (document.fonts?.ready) {
@@ -23,7 +23,7 @@ async function toCanvas(node: HTMLElement, spec: FormatSpec): Promise<HTMLCanvas
     width: spec.width,
     height: spec.height,
     scale: 1,
-    backgroundColor: '#FBFAF7',
+    backgroundColor: transparent ? null : '#FBFAF7',
     useCORS: true,
     logging: false,
   })
@@ -35,8 +35,13 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-export async function snapshot(node: HTMLElement, spec: FormatSpec, filename: string): Promise<RenderedAsset> {
-  const canvas = await toCanvas(node, spec)
+export async function snapshot(
+  node: HTMLElement,
+  spec: FormatSpec,
+  filename: string,
+  opts: { transparent?: boolean } = {},
+): Promise<RenderedAsset> {
+  const canvas = await toCanvas(node, spec, opts.transparent)
   const blob = await canvasToBlob(canvas)
   const check = validateAsset(spec, { width: canvas.width, height: canvas.height, bytes: blob.size })
   return {
