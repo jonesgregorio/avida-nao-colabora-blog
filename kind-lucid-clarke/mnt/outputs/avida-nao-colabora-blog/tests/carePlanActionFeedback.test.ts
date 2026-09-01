@@ -6,7 +6,7 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 const migration = read('supabase/migrations/20260828013500_care_plan_action_feedback.sql')
 const grantFix = read('supabase/migrations/20260828015000_care_plan_feedback_minimum_grants.sql')
 const component = read('src/components/CarePlanActionFeedback.tsx')
-const page = read('src/components/SelfCarePlanPage.tsx')
+const page = read('src/components/SelfCarePlanPageLegacy.tsx')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
 const contracts = read('supabase/functions/_shared/emotionalPromptContracts.ts')
 
