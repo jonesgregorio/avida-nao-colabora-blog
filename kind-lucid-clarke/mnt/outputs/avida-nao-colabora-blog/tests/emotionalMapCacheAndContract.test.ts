@@ -8,7 +8,7 @@ const fn = read('supabase/functions/explain-emotional-map/index.ts')
 const baseMigration = read('supabase/migrations/20260825210000_emotional_map_insights_cache.sql')
 const contractMigration = read('supabase/migrations/20260826000124_emotional_map_cache_contract.sql')
 const clientLib = read('src/lib/explainEmotionalMap.ts')
-const page = read('src/components/MyEvolutionPage.tsx')
+const page = read('src/components/MyEvolutionPageLegacy.tsx')
 
 test('explain-emotional-map retorna o contrato JSON exato da Etapa 3', () => {
   for (const field of ['title', 'summary', 'what_stood_out', 'possible_connection', 'something_to_observe', 'positive_resource', 'reflection_question', 'data_quality_notice']) {
