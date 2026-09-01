@@ -6,6 +6,7 @@ import { monthKey } from '../lib/dateUtils'
 import { hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import PlanBadge from './PlanBadge'
+import FreeMapComparison from './FreeMapComparison'
 import LegacyMyEvolutionPage from './MyEvolutionPageLegacy'
 
 export type Tab = 'resumo' | 'graficos'
@@ -163,6 +164,11 @@ export default function MyEvolutionPage(props: Props) {
             <ChevronLeft className="w-4 h-4" /> Voltar ao resumo do mês
           </button>
         </div>
+        {isEssential && user && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5">
+            <FreeMapComparison userId={user.id} />
+          </div>
+        )}
         <LegacyMyEvolutionPage {...props} />
       </div>
     )
