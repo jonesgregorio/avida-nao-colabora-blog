@@ -1,112 +1,110 @@
 # CLAUDE_EXECUTION_CHECKPOINT.md
 
-> Memória operacional das missões de finalização/hardening do projeto.
-> Ler este arquivo primeiro ao retomar. Não repetir etapas marcadas ✅.
+> Memória operacional da missão de finalização/hardening do projeto.
+> Estado consolidado em 01/09/2026. Não repetir etapas marcadas como concluídas.
 
-## Missão atual — continuação ZIP 76
-Ordem autorizada: P1 restante → P2 → P3 → validações live/documentação/auditoria final.
-Regra principal: auditar a `main` real antes de cada item, trabalhar em PRs pequenos e só mesclar com gates verdes.
+## Missão concluída
 
-## Última `main` conhecida
-- Commit: `b555ed1`
-- Merge: PR #185 — `feat(conteudos): personalização negativa reversível`
-- Data: 2026-08-28 (America/Sao_Paulo)
-- Sincronizada e validada nesta sessão: `npm test`/`typecheck`/`lint`/`build` limpos
-  (mesmas 3 falhas pré-existentes de sempre, sem novas). Deploy de produção
-  confirmado via API do GitHub logo após o merge.
-- Migration `20260828040000_content_theme_preferences.sql` inclusa neste
-  merge — segue o fluxo padrão de auto-apply do projeto (não aplicada
-  manualmente por esta sessão).
+Ordem executada: P0 → P1 → P2 → P3 → validações live/documentação/auditoria final.
+
+Regra preservada durante a execução: auditar a `main` real antes de cada item, trabalhar em PRs pequenos, não alterar cobrança como efeito colateral e só mesclar com gates verdes.
+
+## Última `main` validada
+
+- Commit: `56d0b6649bf42ce43bf7e6440546700e9c5656ad`
+- Merge: PR #274 — P3.22 AdminUsers escalável
+- Data: 01/09/2026
+- Production Vercel: READY
+- Domínio oficial: HTTP 200
+- Runtime final auditado: sem `error/fatal`
+- Migration P3.22 aplicada automaticamente e confirmada no Supabase live.
 
 ## Regras invariáveis
+
 - Planos comerciais: somente `free`, `essential`, `plus`.
 - `unlimited_access` é entitlement administrativo, não plano.
 - `emotional_tags` e `trigger_tags` nunca são equivalentes.
-- IA pode existir internamente, mas não é exposta ao usuário final.
+- IA pode existir internamente, mas não é exposta como diagnóstico ou fonte de números.
 - Stripe/cobrança não pode ser refatorado como efeito colateral.
 - PR que alterar fluxo real de cobrança/Stripe exige confirmação explícita do usuário antes do merge.
 - Migration destrutiva/ação irreversível exige confirmação explícita antes de executar.
 
 ## P0 — CONCLUÍDO
-1. ✅ Fonte canônica de preço — `src/lib/planPricing.ts`; Home, Pricing, Meu Plano e Admin usam a mesma fonte. PR #165.
-2. ✅ Campo de preço textual livre removido/tornado somente leitura. PR #164.
-3. ✅ Plano inativo bloqueia checkout e troca no backend e UI, preservando assinante atual. PR #167.
-4. ✅ Permissões técnicas do Admin são honestas/read-only; runtime continua governado pelas regras oficiais. PR #168.
+
+- fonte canônica de preço;
+- preço textual livre removido/read-only;
+- plano inativo bloqueia novas mudanças sem expulsar assinante atual;
+- permissões técnicas do Admin honestas/read-only onde aplicável.
 
 ## P1 — CONCLUÍDO
-7. ✅ Sincronização não destrutiva — PR #172, merge `daf1bb17f56bbc4fe3069a12fca310e63fea4baf`.
-8/9. ✅ Verificador de consistência e Stripe Audit dinâmico — PR #170.
-10. ✅ Superfícies do catálogo + correção da mutação global real de Meu Plano — PR #173, merge `d8d63965e82ef99c4079954212ba12295ad54eea`.
 
-## P2 — EM ANDAMENTO
-11. ✅ Templates do Suporte com preços dinâmicos — PR #175, merge `daf468c5ffb1ec3ebd331589cd97d8da84c5a36f`.
-12. ✅ Suporte com anexos privados + RLS — PR #176, merge `38d4d636eeaf043cfbe8ae9947eaab2111dda551`.
-13. ✅ Categorias oficiais de Suporte — PR #177, merge `9bee222df6c14af76ef3a783dc004c07569b5bb8`.
+- sincronização não destrutiva;
+- verificador de consistência e Stripe Audit dinâmico;
+- superfícies do catálogo e remoção de mutação global indevida de Meu Plano.
 
-14. ✅ Feedback estruturado por ação do Plano de Autocuidado, sem gamificação.
-   - PR #178, merge `035c605edd60f4a85e13eeb45642d6ec67d90e8c`.
-   - tabela `care_plan_action_feedback` com RLS, trigger e feedback reversível por microação.
-   - opções: `helpful` = Fez sentido; `later` = Talvez depois; `not_for_me` = Não combinou comigo.
-   - sem conclusão, pontos, streak, ranking ou meta de produtividade.
-   - próximo roteiro usa somente feedback estruturado do último plano enviado como preferência, nunca como eficácia/progresso.
-   - `self_care_plan_v3` ativo no runner `run-emotional-automations` v65.
-   - migration aplicada live e Vercel produção READY.
-   - validação live detectou grants excessivos herdados em `authenticated`; corrigidos no PR #179, merge `ee2059d4d8a03e8ed487b7e8483e5e592b14d078`.
-   - banco live confirmado: `authenticated` possui somente SELECT/INSERT/UPDATE/DELETE; `anon` sem acesso; RLS/policies/trigger ativos.
-   - `main` CI verde; domínio oficial HTTP 200; sem error/fatal recente no Vercel.
+## P2 — CONCLUÍDO
 
-15. ✅ Feedback da Orientação Mensal, sem virar chat infinito — PR #180, merge `adf244509f723ef5f4404540664a3360fe2006d2`.
-   - `monthly_guidance_requests` já limita o produto a uma solicitação mensal e uma resposta final revisada.
-   - nova tabela `monthly_guidance_feedback` guarda uma única avaliação por orientação respondida.
-   - avaliação reversível e estruturada: `helpful`, `partial`, `not_for_me` + até 3 tags permitidas.
-   - sem textarea, mensagem livre, réplica ou reabertura do atendimento.
-   - UI só aparece depois de `answered` e deixa explícito que o retorno não abre nova conversa.
-   - grants mínimos definidos na migration: authenticated somente CRUD; anon sem acesso.
-   - correção associada: aviso do mês deixa de dizer “em análise” quando a orientação já está respondida.
-   - CI verde, merge confirmado, produção deployada.
+- templates de Suporte com preços dinâmicos;
+- anexos privados + RLS;
+- categorias oficiais de Suporte;
+- feedback estruturado do Plano de Autocuidado;
+- feedback da Orientação Mensal sem chat infinito;
+- evolução longitudinal dos questionários com linguagem não clínica;
+- personalização negativa reversível de conteúdos;
+- P2.18: senha mínima em 8 caracteres — PR #270, merge `b24cc04b43bf8fb3620f04975e10f1d793f74648`;
+- P2.19: exportação legível preservando JSON — PR #271, merge `78d6f1827ac72b3df137d268baaa2f8c4c184005`.
 
-## Incidente resolvido nesta sessão (fora da lista de etapas, prioridade máxima)
-**Loading infinito no bootstrap de autenticação** — usuário reportou blog e Admin travados em “Carregando...” sem conseguir logar. Diagnóstico: chamadas de sessão/token do Supabase Auth com latência anormal, e `useAuth()` mantinha `loading=true` indefinidamente até `getSession()`+perfil terminarem, sem timeout algum.
-- Correção: PR #181, merge `5f937d4827779a4e79658a7048aefea67081d225`. Timeout defensivo de 8s libera o shell mesmo se o Auth travar; quando a sessão já é conhecida, o perfil termina de carregar em segundo plano sem bloquear a tela.
-- Doc do incidente: `docs/incident-auth-loading-20260827.md`.
-- Verificado ao vivo nesta sessão (Browser): `/diario` e `/admin` carregam normalmente, telas de login renderizam, zero erro no console, todas as requisições 200. **Confirmado resolvido.**
+## P3 — CONCLUÍDO
 
-16. ✅ Evolução longitudinal dos questionários com linguagem não clínica — PR #183, merge `82cced1`.
-   - tela "Minha evolução" (`QuestionnaireEvolutionPage.tsx`), link a partir do 1º questionário concluído.
-   - `src/lib/questionnaireEvolution.ts`: comparação de resultado/pontuação com limiar de 10% (ruído normal vs. mudança real); nunca "melhorou/piorou clinicamente".
-   - sem tabela nova, sem migration — reaproveita `questionnaire_responses` (RLS já restringe a auth.uid()) e a RPC `get_questionnaire_catalog` já existente.
-   - adicionada à lista de superfícies protegidas por `tests/userFacingAiDisclosure.test.ts`.
+- P3.20: MFA TOTP opcional para usuário comum, sem afetar MFA Admin — PR #272, merge `65f54f8c474ab9f6aec3533e1792149d12eece82`;
+- P3.21: comparação livre no Mapa Emocional + resumo textual acessível — PR #273, merge `cf65f72b41bffba40af74b504f5d1cd46b7e5be2`;
+- P3.22: AdminUsers escalável com agregados server-side, paginação real e atividade agregada — PR #274, merge `56d0b6649bf42ce43bf7e6440546700e9c5656ad`.
 
-17. ✅ Personalização negativa reversível para conteúdos — PR #185, merge `b555ed1`.
-   - "Mostrar menos conteúdos assim" (card) / "Temas reduzidos" (Perfil, "Voltar a mostrar") — silencia um TEMA, nunca um conteúdo isolado, nunca permanente.
-   - migration `20260828040000_content_theme_preferences.sql`: tabela `user_muted_content_themes`, RLS `auth.uid()=user_id`, grants mínimos.
-   - `contentRecommendation.ts`: `scoreCatalog` filtra o tema silenciado do ranking do usuário antes de pontuar (sem lista de exclusão de conteúdo separada).
+## Validações finais
 
-## P2 restante
-18. Padronizar senha mínima em 8 caracteres após auditar código real.
-19. Exportação de dados mais legível, preservando JSON.
+### Supabase live
 
-## P3
-20. MFA opcional para usuário comum via Supabase, sem afetar MFA Admin.
-21. Comparação livre no Mapa Emocional + resumo textual acessível.
-22. AdminUsers escalável: agregados server-side + paginação real + atividade agregada; NÃO adicionar `.limit()` simples. Modularização somente depois.
+- RLS habilitado em todas as tabelas `public`;
+- `SECURITY DEFINER` auditadas com `search_path` fixado;
+- crons ativos e execuções recentes observadas como `succeeded`;
+- RPCs e índice do P3.22 confirmados live;
+- grants históricos amplos permanecem em tabelas antigas, mas estão contidos por RLS/policies. Hardening de grants deve ser missão separada e incremental.
 
-## Validações finais fora do código
-- Supabase live: migrations/RLS/índices/functions/triggers/crons.
-- Stripe estrutural: checkout/upgrade/downgrade/pró-rata/cancelamento/reativação/webhook/idempotência sem cobrança real.
-- Vercel: produção READY + domínio oficial HTTP 200 + runtime error/fatal.
-- Atualizar `docs/ARQUITETURA_ATUAL.md`.
-- Auditoria final das 40 áreas com nota 0–10.
+### Stripe estrutural
 
-## Histórico útil
-PRs desta missão já concluídos: #164, #165, #167, #168, #170, #172, #173, #175, #176, #177, #178, #179, #180, #181, #183, #185.
-PRs relevantes da missão anterior: #157 (SLA), #158 (limpeza + IA invisível), #159 (Base deste plano), #163 (previsão da Orientação).
+Validação somente leitura, sem criar cobrança:
 
-## PRÓXIMA AÇÃO A EXECUTAR
-1. Item 18 (P2) — auditar o código real de senha mínima (cadastro/perfil/troca obrigatória) e padronizar em 8 caracteres, frontend + backend onde aplicável.
-2. Depois, item 19 (P2) — exportação de dados mais legível (CSV/PDF/ZIP, preservando o JSON atual).
-3. Depois, P3 (itens 20-22).
-4. Por último, validações fora do código (Supabase live, Stripe estrutural, Vercel, docs, auditoria final de 40 áreas).
+- produtos/preços live: Essencial R$19,90 e Plus R$39,90;
+- webhook live habilitado com seis eventos oficiais;
+- Checkout e invoices existentes coerentes;
+- upgrade com `always_invoice`;
+- downgrade via Subscription Schedule;
+- cancelamento via `cancel_at_period_end`;
+- reativação desfaz cancelamento/schedule quando aplicável;
+- webhook idempotente por `event.id`/`stripe_webhook_events`.
+
+### Vercel
+
+- Production READY;
+- domínio oficial HTTP 200;
+- sem `error/fatal` no recorte final.
+
+### Documentação
+
+- `docs/ARQUITETURA_ATUAL.md` atualizado;
+- `docs/AUDITORIA_FINAL_40_AREAS_2026-09-01.md` criado.
 
 ## STATUS
-**P0 ✅ completo | P1 ✅ completo | P2: itens 11-17 ✅ completos, restam 18-19 | Incidente de produção (loading infinito) ✅ resolvido e verificado ao vivo.**
+
+**P0 ✅ | P1 ✅ | P2 ✅ | P3 ✅ | validações live ✅ | documentação/auditoria final ✅**
+
+## Próxima ação
+
+Não existe P3.23 autorizado neste checkpoint.
+
+A próxima missão deve começar com um novo roadmap explícito. Recomendações para esse roadmap, sem execução automática:
+
+1. hardening incremental de grants legados do Supabase;
+2. consolidação de policies duplicadas antigas;
+3. modularização seletiva do Admin onde houver ganho mensurável;
+4. novas melhorias de produto priorizadas por uso/feedback real.
