@@ -94,12 +94,15 @@ export default function MyEvolutionPage(props: Props) {
         if (error) {
           setFailed(true)
           setEntries([])
-          return
+        } else {
+          setEntries((data ?? []) as MapEntry[])
         }
-        setEntries((data ?? []) as MapEntry[])
-      })
-      .finally(() => {
-        if (active) setLoading(false)
+        setLoading(false)
+      }, () => {
+        if (!active) return
+        setFailed(true)
+        setEntries([])
+        setLoading(false)
       })
 
     return () => { active = false }
