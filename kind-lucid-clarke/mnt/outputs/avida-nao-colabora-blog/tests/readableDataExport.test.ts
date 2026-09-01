@@ -17,7 +17,7 @@ test('CSV preserva UTF-8 e escapa vírgula, aspas, quebra de linha e objeto anin
   assert.ok(csv.startsWith('\uFEFF'))
   assert.match(csv, /"Ana, Maria"/)
   assert.match(csv, /"Disse ""oi""\ne voltou"/)
-  assert.match(csv, /"\{\"\"sono\"\":\"\"difícil\"\"\}"/)
+  assert.ok(csv.includes('"{""sono"":""difícil""}"'))
   assert.match(csv, /"true"/)
 })
 
