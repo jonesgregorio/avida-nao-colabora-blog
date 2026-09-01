@@ -77,7 +77,7 @@ function Garden({ chapterKey }: { chapterKey: JourneyChapterKey }) {
           <span className="w-10 h-10 rounded-2xl border border-line bg-white text-forest-700 flex items-center justify-center"><Leaf className="w-5 h-5" /></span>
         </div>
 
-        <div className="mt-7 min-h-32 flex items-end justify-center gap-5 sm:gap-8" aria-label="Representação visual do crescimento da sua jornada">
+        <div className="mt-7 min-h-32 flex items-end justify-center gap-5 sm:gap-8">
           <div className="flex flex-col items-center gap-2 text-forest-500">
             <Sprout className="w-9 h-9" strokeWidth={1.7} />
             <span className="w-10 h-2 rounded-full bg-forest-100" aria-hidden />
