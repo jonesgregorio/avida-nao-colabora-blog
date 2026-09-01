@@ -16,6 +16,14 @@ import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 import AdminSendUserEmail from './AdminSendUserEmail'
 import AdminUsersOverview from './AdminUsersOverview'
 import {
+  EMPTY_STATS,
+  loadAdminUsersPage,
+  loadAdminUsersStats,
+  loadAllAdminUsersForExport,
+  type AdminUsersFilters,
+  type AdminUsersServerStats,
+} from './adminUsersServer'
+import {
   ACCOUNT_STATUS_COLORS,
   DRAWER_TABS,
   NOTE_PRIORITY_COLORS,
@@ -25,7 +33,6 @@ import {
   STATUS_LABELS,
   TYPE_LABELS,
   buildAdminUsersCsv,
-  filterAdminUsers,
   resolveTabFilter,
   timeSince,
   type AdminSubscription,
@@ -40,14 +47,20 @@ import {
   type ViewMode,
 } from './adminUsersModel'
 
+const PAGE_SIZE = 40
+
 export default function AdminUsers({ initialUserId }: { initialUserId?: string | null }) {
   const { user: adminUser } = useAuth()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterPlan, setFilterPlan] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAccess, setFilterAccess] = useState('all') // discount / unlimited / tickets…
+  const [page, setPage] = useState(1)
+  const [filteredTotal, setFilteredTotal] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [activeTab, setActiveTab] = useState('all')
@@ -73,12 +86,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
   const [showEmailModal, setShowEmailModal] = useState(false)
 
-  // Summary stats
-  const [stats, setStats] = useState({
-    total: 0, newThisMonth: 0, paying: 0, blocked: 0,
-    withDiscount: 0, unlimitedAccess: 0, openTickets: 0,
-    plus: 0, essential: 0, free: 0, cancelled: 0,
-  })
+  // Summary stats — agora calculados no servidor sobre a base completa.
+  const [stats, setStats] = useState<AdminUsersServerStats>(EMPTY_STATS)
 
   // Notes form
   const [newNote, setNewNote] = useState('')
@@ -139,98 +148,81 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [msgResult, setMsgResult] = useState<string | null>(null)
   const [showMsgModal, setShowMsgModal] = useState(false)
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true)
-    // §21 (performance): busca todos os `profiles` de propósito, sem `.limit()`.
-    // Os cards de resumo (novos no mês, pagantes, bloqueados, por plano — ver
-    // abaixo) são calculados no cliente a partir deste array completo; um
-    // limite aqui deixaria essas contagens erradas (undercounting), o que é
-    // pior do que uma query maior. Se a base crescer muito, a correção certa é
-    // mover os agregados para uma contagem no servidor (`count: 'exact', head:
-    // true`) e paginar só a lista renderizada — não um limite simples aqui.
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('id, user_id, full_name, email, plan, role, created_at, account_status, unlimited_access, unlimited_access_until, unlimited_access_reason, discount_percent, discount_fixed, admin_tags, last_seen_at')
-      .order('created_at', { ascending: false })
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
-    if (!profileData) { setLoading(false); return }
+  useEffect(() => { setPage(1) }, [debouncedSearch, filterPlan, filterStatus, filterAccess])
 
-    const userIds = profileData.map((p: UserRow) => p.user_id)
-    const [ticketRes, notifRes, openTicketCountRes, lastDiaryRes] = await Promise.all([
-      userIds.length > 0
-        ? supabase.from('support_tickets').select('user_id').in('user_id', userIds).not('status', 'in', '("closed","resolved")')
-        : Promise.resolve({ data: [] }),
-      userIds.length > 0
-        ? supabase.from('notifications').select('user_id').in('user_id', userIds).eq('is_read', false)
-        : Promise.resolve({ data: [] }),
-      supabase.from('support_tickets').select('id', { count: 'exact', head: true }).not('status', 'in', '("closed","resolved")'),
-      userIds.length > 0
-        ? supabase.from('diary_entries').select('user_id, created_at').in('user_id', userIds).order('created_at', { ascending: false }).limit(1000)
-        : Promise.resolve({ data: [] }),
-    ])
+  const currentFilters: AdminUsersFilters = {
+    search: debouncedSearch,
+    plan: filterPlan,
+    status: filterStatus,
+    access: filterAccess,
+  }
 
-    const ticketData = ticketRes.data || []
-    const notifData = notifRes.data || []
-
-    const ticketMap = new Map<string, number>()
-    for (const t of ticketData) ticketMap.set(t.user_id, (ticketMap.get(t.user_id) ?? 0) + 1)
-    const notifMap = new Map<string, number>()
-    for (const n of notifData) notifMap.set(n.user_id, (notifMap.get(n.user_id) ?? 0) + 1)
-    const lastDiaryMap = new Map<string, string>()
-    for (const e of lastDiaryRes.data ?? []) {
-      if (!lastDiaryMap.has(e.user_id)) lastDiaryMap.set(e.user_id, e.created_at)
+  const loadStats = useCallback(async () => {
+    try {
+      setStats(await loadAdminUsersStats())
+    } catch {
+      // A lista continua utilizável mesmo se um card agregado falhar temporariamente.
     }
-
-    // Atividade = o mais recente entre "esteve no site" (last_seen_at, tocado a
-    // cada login/boot) e "escreveu no diário". Só olhar diary_entries deixava
-    // "Sem registros" pra quase todo mundo — a maioria acessa (lê conteúdo, vê
-    // o mapa emocional) sem necessariamente escrever no diário naquele dia.
-    const rows: UserRow[] = profileData.map((p: UserRow) => {
-      const seen = p.last_seen_at ? new Date(p.last_seen_at).getTime() : 0
-      const diary = lastDiaryMap.has(p.user_id) ? new Date(lastDiaryMap.get(p.user_id)!).getTime() : 0
-      const latest = Math.max(seen, diary)
-      return {
-        ...p,
-        open_tickets: ticketMap.get(p.user_id) ?? 0,
-        unread_notifs: notifMap.get(p.user_id) ?? 0,
-        last_activity: latest > 0 ? new Date(latest).toISOString() : null,
-      }
-    })
-
-    setUsers(rows)
-
-    const now = new Date()
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    setStats({
-      total: rows.length,
-      newThisMonth: rows.filter(r => r.created_at >= thisMonthStart).length,
-      paying: rows.filter(r => r.plan !== 'free').length,
-      blocked: rows.filter(r => r.account_status === 'blocked').length,
-      withDiscount: rows.filter(r => (r.discount_percent ?? 0) > 0 || (r.discount_fixed ?? 0) > 0).length,
-      unlimitedAccess: rows.filter(r => r.unlimited_access === true).length,
-      openTickets: openTicketCountRes.count ?? 0,
-      plus: rows.filter(r => r.plan === 'plus' || r.plan === 'therapeutic-plus' || r.plan === 'therapeutic').length,
-      essential: rows.filter(r => r.plan === 'essential').length,
-      free: rows.filter(r => r.plan === 'free').length,
-      cancelled: rows.filter(r => r.account_status === 'cancelled').length,
-    })
-
-    setLoading(false)
   }, [])
 
-  useEffect(() => { loadUsers() }, [loadUsers])
+  const loadUsers = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const result = await loadAdminUsersPage({
+        search: debouncedSearch,
+        plan: filterPlan,
+        status: filterStatus,
+        access: filterAccess,
+      }, page, PAGE_SIZE)
+      setUsers(result.items)
+      setFilteredTotal(result.total)
 
-  // Abre drawer automaticamente quando vindo de outra página (ex: "Ver perfil" no Suporte)
+      if (result.total > 0 && result.items.length === 0 && page > 1) {
+        setPage(Math.max(1, Math.ceil(result.total / PAGE_SIZE)))
+      }
+    } catch {
+      setUsers([])
+      setFilteredTotal(0)
+      setLoadError('Não foi possível carregar os usuários agora. Tente novamente em instantes.')
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedSearch, filterPlan, filterStatus, filterAccess, page])
+
+  useEffect(() => { void loadStats() }, [loadStats])
+  useEffect(() => { void loadUsers() }, [loadUsers])
+
+  // Abre drawer automaticamente quando vindo de outra página (ex: "Ver perfil" no Suporte).
+  // Com paginação real o usuário pode não estar na página atual, então buscamos pelo ID
+  // no servidor em vez de voltar a carregar toda a base.
   const pendingOpenRef = useRef<string | null>(null)
   useEffect(() => {
     if (initialUserId) pendingOpenRef.current = initialUserId
   }, [initialUserId])
   useEffect(() => {
-    if (!loading && pendingOpenRef.current && users.length > 0) {
-      const target = users.find(u => u.user_id === pendingOpenRef.current)
-      if (target) { openDrawer(target); pendingOpenRef.current = null }
+    const userId = pendingOpenRef.current
+    if (!userId || loading) return
+    const local = users.find(u => u.user_id === userId)
+    if (local) {
+      openDrawer(local)
+      pendingOpenRef.current = null
+      return
     }
-  // openDrawer é estável (não é useCallback); users e loading são as dependências reais
+    void loadAdminUsersPage({ search: userId, plan: 'all', status: 'all', access: 'all' }, 1, 1)
+      .then(result => {
+        if (pendingOpenRef.current !== userId) return
+        const target = result.items.find(u => u.user_id === userId)
+        if (target) openDrawer(target)
+        pendingOpenRef.current = null
+      })
+      .catch(() => { pendingOpenRef.current = null })
+  // openDrawer é estável para este fluxo; reagimos apenas à página carregada.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, users])
 
@@ -410,6 +402,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: planReason || 'admin_change', created_at: new Date().toISOString() }, ...prev])
     setAdminSubMsg({ type: 'ok', text: `Plano alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.` })
     loadAdminSub(userId)
+    void loadStats()
     setAdminSubActing(false)
   }
 
@@ -450,7 +443,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       until: u.unlimited_access_until ? u.unlimited_access_until.slice(0, 10) : '',
       reason: u.unlimited_access_reason ?? '',
     })
-    setDiscountMsg(null) // resultado é por usuário: não pode vazar para o próximo
+    setDiscountMsg(null)
     setDiscountForm({
       discount_percent: u.discount_percent ?? 0,
       discount_fixed: u.discount_fixed ?? 0,
@@ -507,6 +500,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: newPlan, reason: planReason || null, created_at: new Date().toISOString() }, ...prev])
       setChangingPlan(false)
       setPlanReason('')
+      void loadStats()
     }
     setSavingPlan(false)
   }
@@ -533,14 +527,13 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       }
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, ...accessPatch } : r))
       setSelectedUser(s => s ? { ...s, ...accessPatch } : s)
+      void loadStats()
     }
     setSavingUnlimited(false)
   }
 
   // O desconto NÃO é gravado direto no banco: quem manda é a Edge Function
   // admin-discount, que cria o Coupon no Stripe e aplica na assinatura/cliente.
-  // Escrever só nas colunas discount_* (como era antes) não descontava nada — o
-  // usuário seguia pagando o valor cheio.
   async function saveDiscount() {
     if (!selectedUser) return
     setSavingDiscount(true)
@@ -565,6 +558,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         ? { ...r, discount_percent: Number(discountForm.discount_percent) || 0, discount_fixed: Number(discountForm.discount_fixed) || 0 }
         : r
       ))
+      void loadStats()
     } catch (e) {
       setDiscountMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao aplicar desconto' })
     } finally {
@@ -586,6 +580,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       setDiscountForm({ discount_percent: 0, discount_fixed: 0, discount_code: '', discount_until: '', discount_reason: '' })
       setDiscountMsg({ ok: true, text: 'Desconto removido do Stripe e do cadastro. As próximas faturas voltam ao valor cheio.' })
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, discount_percent: 0, discount_fixed: 0 } : r))
+      void loadStats()
     } catch (e) {
       setDiscountMsg({ ok: false, text: e instanceof Error ? e.message : 'Erro ao remover desconto' })
     } finally {
@@ -606,6 +601,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, account_status: 'blocked' } : r))
       setSelectedUser(s => s ? { ...s, account_status: 'blocked' } : s)
       setShowBlockForm(false)
+      void loadStats()
     }
     setBlockingUser(false)
   }
@@ -620,6 +616,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     if (!error) {
       setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, account_status: 'active' } : r))
       setSelectedUser(s => s ? { ...s, account_status: 'active' } : s)
+      void loadStats()
     }
     setBlockingUser(false)
   }
@@ -751,18 +748,11 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     }
   }
 
-  const filtered = filterAdminUsers(users, {
-    search,
-    plan: filterPlan,
-    status: filterStatus,
-    access: filterAccess,
-  })
-
-  // Exporta os usuários FILTRADOS para CSV (abre no Excel).
-  function exportarCSV() {
+  async function exportarCSV() {
     setExporting(true)
     try {
-      const csv = buildAdminUsersCsv(filtered)
+      const rows = await loadAllAdminUsersForExport(currentFilters)
+      const csv = buildAdminUsersCsv(rows)
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
@@ -779,14 +769,15 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setActiveTab(next.activeTab)
     setFilterPlan(next.filterPlan)
     setFilterStatus(next.filterStatus)
+    setPage(1)
   }
 
   return (
     <div className="flex h-full overflow-hidden">
       <AdminUsersOverview
         users={users}
-        filteredUsers={filtered}
-        filteredCount={filtered.length}
+        filteredUsers={users}
+        filteredCount={filteredTotal}
         stats={stats}
         loading={loading}
         search={search}
@@ -797,23 +788,32 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         viewMode={viewMode}
         activeTab={activeTab}
         selectedUserId={selectedUser?.user_id ?? null}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={filteredTotal}
         onSearchChange={setSearch}
-        onPlanChange={setFilterPlan}
-        onStatusChange={setFilterStatus}
-        onAccessChange={setFilterAccess}
-        onExport={exportarCSV}
+        onPlanChange={value => { setFilterPlan(value); setPage(1) }}
+        onStatusChange={value => { setFilterStatus(value); setPage(1) }}
+        onAccessChange={value => { setFilterAccess(value); setPage(1) }}
+        onExport={() => void exportarCSV()}
         onViewModeChange={setViewMode}
         onTabFilter={setTabFilter}
         onShowNotifications={() => { setTabFilter('all'); setFilterAccess('all'); setSearch('') }}
-        onShowTickets={() => { setTabFilter('all'); setFilterAccess('tickets'); setSearch('') }}
+        onShowTickets={() => { setTabFilter('all'); setFilterAccess('tickets'); setSearch(''); setPage(1) }}
         onShowCancelled={() => setTabFilter('cancelled')}
+        onPageChange={nextPage => setPage(Math.max(1, nextPage))}
         onOpenUser={openDrawer}
       />
+
+      {loadError && !loading && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2.5 rounded-xl shadow-lg" role="alert">
+          {loadError}
+        </div>
+      )}
 
       {/* Drawer */}
       {selectedUser && (
         <div className="flex flex-col w-full lg:w-[560px] border-l border-line bg-white flex-shrink-0 overflow-hidden">
-          {/* Drawer header */}
           <div className="px-5 py-4 border-b border-line flex-shrink-0">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
@@ -840,7 +840,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                 <X className="w-4 h-4" />
               </button>
             </div>
-            {/* Tabs */}
             <div className="flex gap-1 flex-wrap">
               {DRAWER_TABS.map(t => (
                 <button
@@ -854,7 +853,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
             </div>
           </div>
 
-          {/* Drawer content */}
           <div className="flex-1 overflow-y-auto p-5">
             {loadingDrawer ? (
               <div className="space-y-3">
@@ -862,7 +860,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
               </div>
             ) : (
               <>
-                {/* Tab: Resumo */}
                 {drawerTab === 'resumo' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
@@ -873,8 +870,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         ['Perfil', selectedUser.role === 'admin' ? 'Admin' : 'Usuário'],
                         ['Cadastro', new Date(selectedUser.created_at).toLocaleDateString('pt-BR')],
                         ['Desde', timeSince(selectedUser.created_at)],
-                        // §13: calculado em load() (esteve no site OU escreveu no diário,
-                        // o que for mais recente) mas nunca era exibido no resumo.
                         ['Último acesso', selectedUser.last_activity ? timeSince(selectedUser.last_activity) : 'Sem registros'],
                         ['Status', selectedUser.account_status ?? 'active'],
                       ].map(([label, value]) => (
@@ -885,7 +880,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       ))}
                     </div>
 
-                    {/* Benefit badges */}
                     <div className="flex flex-wrap gap-2">
                       {selectedUser.unlimited_access && (
                         <span className="text-xs px-2 py-1 rounded-full bg-mint text-forest-800 font-medium">Acesso ilimitado</span>
@@ -898,7 +892,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       )}
                     </div>
 
-                    {/* Admin tags */}
                     <div>
                       <p className="text-xs text-stone-500 mb-2 flex items-center gap-1"><Tag className="w-3 h-3" /> Tags administrativas</p>
                       <div className="flex flex-wrap gap-1.5 mb-2">
@@ -923,7 +916,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       </select>
                     </div>
 
-                    {/* Admin toggle */}
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -939,7 +931,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Plano */}
                 {drawerTab === 'plano' && (
                   <div className="space-y-4">
                     <div className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full font-medium ${PLAN_COLORS[selectedUser.plan] ?? 'bg-stone-100'}`}>
@@ -960,9 +951,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         <div>
                           <label className="block text-xs text-stone-500 mb-1">Novo plano</label>
                           <select value={newPlan} onChange={e => setNewPlan(e.target.value)} className={inputCls}>
-                            {/* Só planos oficiais: PLAN_LABELS mantém os legados
-                                (therapeutic/-plus) para EXIBIR "Plus", mas eles não
-                                devem ser ATRIBUÍVEIS — senão apareciam 3 "Plus". */}
                             {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                           </select>
                         </div>
@@ -1001,7 +989,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Mapa emocional */}
                 {drawerTab === 'mapa' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
@@ -1023,7 +1010,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Orientações */}
                 {drawerTab === 'orientacoes' && (
                   <div className="space-y-3">
                     {loadingDrawer ? (
@@ -1049,7 +1035,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Assinatura */}
                 {drawerTab === 'assinatura' && (
                   <div className="space-y-4">
                     {adminSubMsg && (
@@ -1057,9 +1042,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         {adminSubMsg.text}
                       </div>
                     )}
-                    {/* Visão completa (§1): dados da assinatura, pagamento, motivos e
-                        linha do tempo. Vive em AdminSubscriptionPanel para não inchar
-                        ainda mais este arquivo. */}
                     {selectedUser && (
                       <AdminSubscriptionPanel userId={selectedUser.user_id} plan={selectedUser.plan} />
                     )}
@@ -1072,9 +1054,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                           onChange={e => setAdminSubPlan(e.target.value)}
                           className={inputCls}
                         >
-                          {/* Só planos oficiais (free/essential/plus). Os legados
-                              therapeutic/-plus continuam em PLAN_LABELS para exibir
-                              "Plus", mas não são atribuíveis. */}
                           {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                         </select>
                         <button
@@ -1110,7 +1089,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Acesso */}
                 {drawerTab === 'acesso' && (
                   <div className="space-y-4">
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
@@ -1153,7 +1131,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Suporte */}
                 {drawerTab === 'suporte' && (
                   <div className="space-y-3">
                     <div className="flex gap-2">
@@ -1188,7 +1165,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Notificações */}
                 {drawerTab === 'notificacoes' && (
                   <div className="space-y-3">
                     <button
@@ -1219,7 +1195,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Comunicação — enviar e-mail + histórico */}
                 {drawerTab === 'comunicacao' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
@@ -1297,7 +1272,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Uso */}
                 {drawerTab === 'uso' && (
                   <div className="grid grid-cols-1 gap-3">
                     {[
@@ -1318,7 +1292,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Descontos */}
                 {drawerTab === 'descontos' && (
                   <div className="space-y-4">
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
@@ -1376,7 +1349,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Notas */}
                 {drawerTab === 'notas' && (
                   <div className="space-y-4">
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
@@ -1448,16 +1420,13 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Resumo Inteligente */}
                 {drawerTab === 'resumo-inteligente' && (
                   <div className="space-y-4">
-                    {/* Aviso */}
                     <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                       <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-amber-700">Resumo administrativo de apoio. Não representa avaliação clínica ou diagnóstico.</p>
                     </div>
 
-                    {/* Dados agregados */}
                     {!aiExtraLoaded ? (
                       <div className="bg-stone-50 border border-line rounded-xl p-4">
                         <p className="text-xs text-stone-500 mb-3 font-semibold">Dados de uso para o resumo</p>
@@ -1517,7 +1486,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       </div>
                     )}
 
-                    {/* Gerar resumo com IA */}
                     <div className="bg-white border border-line rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold text-stone-700 flex items-center gap-1.5">
@@ -1581,7 +1549,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       )}
                     </div>
 
-                    {/* Histórico de resumos */}
                     {aiSummaries.length > 0 && (
                       <div>
                         <p className="text-xs font-semibold text-stone-600 mb-2">Histórico de resumos salvos</p>
@@ -1604,7 +1571,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {/* Tab: Segurança */}
                 {drawerTab === 'seguranca' && (
                   <div className="space-y-4">
                     <div className="bg-stone-50 border border-line rounded-xl p-4">
@@ -1670,14 +1636,12 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       )}
                     </div>
 
-                    {/* Auth ops result */}
                     {authOpResult && (
                       <div className={`text-sm px-3 py-2 rounded-lg ${authOpResult.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                         {authOpResult.msg}
                       </div>
                     )}
 
-                    {/* Reset / change password */}
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Redefinir senha</p>
                       <p className="text-xs text-stone-400">Define uma nova senha temporária para o usuário. O usuário deverá alterar no próximo acesso.</p>
@@ -1700,7 +1664,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       </div>
                     </div>
 
-                    {/* Change email */}
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Alterar e-mail</p>
                       <p className="text-xs text-stone-400">Atualiza o e-mail de login do usuário imediatamente, sem necessidade de confirmação.</p>
@@ -1730,7 +1693,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         </div>
       )}
 
-      {/* Send message modal */}
       {showEmailModal && selectedUser && (
         <AdminSendUserEmail
           user={{ user_id: selectedUser.user_id, full_name: selectedUser.full_name, email: selectedUser.email, plan: selectedUser.plan }}
