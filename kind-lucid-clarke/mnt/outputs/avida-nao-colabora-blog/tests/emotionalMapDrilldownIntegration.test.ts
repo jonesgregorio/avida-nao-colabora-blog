@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const map = readFileSync(new URL('../src/components/MyEvolutionPage.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+const map = readFileSync(new URL('../src/components/MyEvolutionPageLegacy.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const panel = readFileSync(new URL('../src/components/EmotionalDrilldownPanel.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const engine = readFileSync(new URL('../src/lib/emotionalDrilldown.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 

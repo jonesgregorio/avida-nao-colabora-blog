@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const fn = readFileSync(new URL('../supabase/functions/explain-emotional-map/index.ts', import.meta.url), 'utf8')
-const page = readFileSync(new URL('../src/components/MyEvolutionPage.tsx', import.meta.url), 'utf8')
+const page = readFileSync(new URL('../src/components/MyEvolutionPageLegacy.tsx', import.meta.url), 'utf8')
 const client = readFileSync(new URL('../src/lib/explainEmotionalMap.ts', import.meta.url), 'utf8')
 
 test('Edge Function nunca lê o diário bruto nem respostas abertas — recebe dados estruturados', () => {

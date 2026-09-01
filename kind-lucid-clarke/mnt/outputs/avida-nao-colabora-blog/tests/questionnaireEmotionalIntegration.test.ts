@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 const root = process.cwd()
 const runner = readFileSync(join(root, 'supabase/functions/run-emotional-automations/runner.ts'), 'utf8')
-const map = readFileSync(join(root, 'src/components/MyEvolutionPage.tsx'), 'utf8')
+const map = readFileSync(join(root, 'src/components/MyEvolutionPageLegacy.tsx'), 'utf8')
 const report = readFileSync(join(root, 'src/components/MyReportPageContent.tsx'), 'utf8')
 
 test('automação emocional usa apenas sinais estruturados dos questionários', () => {
