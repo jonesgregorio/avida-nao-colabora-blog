@@ -3,6 +3,7 @@ import { Download, Loader2, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
+import { buildReadableUserDataExport } from '../lib/userDataExport'
 import HistoryPersonalizationControl from './HistoryPersonalizationControl'
 
 interface Props {
@@ -60,17 +61,20 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
       if (error) {
         throw new Error(await functionErrorMessage(error, 'Não foi possível preparar seus dados agora.'))
       }
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+
+      // A coleta permanece exatamente a mesma. A transformação acontece apenas
+      // no navegador e mantém o JSON original dentro do pacote legível.
+      const blob = await buildReadableUserDataExport(data)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       const date = new Date().toISOString().slice(0, 10)
       a.href = url
-      a.download = `a-vida-nao-colabora-meus-dados-${date}.json`
+      a.download = `a-vida-nao-colabora-meus-dados-${date}.zip`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      setExportMsg('Exportação preparada e baixada com sucesso.')
+      setExportMsg('Pacote preparado: JSON completo, CSVs para planilha e PDF-resumo.')
     } catch (error) {
       setExportMsg((error as Error).message || 'Não foi possível exportar seus dados agora.')
     } finally {
@@ -131,7 +135,7 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
             <div>
               <p className="font-medium text-forest-900 text-sm">Exportar meus dados</p>
               <p className="text-xs text-ink-soft mt-1 leading-relaxed">
-                Gera um arquivo JSON com perfil, diário, check-ins, questionários, relatórios, planos, orientações, preferências, suporte, histórico de uso e cobrança relacionados à sua conta.
+                Gera um pacote ZIP com o JSON completo original, tabelas CSV para abrir em planilhas, um PDF-resumo e instruções de leitura. Os dados coletados continuam sendo exatamente os mesmos da exportação atual.
               </p>
             </div>
             <button
@@ -140,10 +144,10 @@ export default function AccountPrivacyControls({ user, profile }: Props) {
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-forest-200 text-forest-800 bg-mint/30 hover:bg-mint/60 text-sm font-medium disabled:opacity-50 flex-shrink-0"
             >
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {exporting ? 'Preparando…' : 'Baixar meus dados'}
+              {exporting ? 'Preparando…' : 'Baixar pacote dos meus dados'}
             </button>
           </div>
-          {exportMsg && <p className="text-xs text-ink-soft mt-3">{exportMsg}</p>}
+          {exportMsg && <p className="text-xs text-ink-soft mt-3" role="status">{exportMsg}</p>}
         </div>
 
         <div className="rounded-2xl border border-red-200 bg-red-50/40 p-4">
