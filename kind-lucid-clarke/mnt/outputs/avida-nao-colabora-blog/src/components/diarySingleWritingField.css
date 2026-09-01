@@ -1,14 +1,91 @@
 /*
- * Diário com um único campo aberto de escrita.
- *
- * Os campos legados de texto livre (gratidão, pequena conquista, gatilho
- * descritivo, pensamentos recorrentes, necessidade emocional,
- * relacionamentos, hábitos) pararam de ser renderizados na fonte
- * (DiaryExperience.tsx) -- não é mais preciso escondê-los por CSS. Registros
- * antigos continuam com essas colunas no banco para leitura/compatibilidade
- * histórica; só a experiência de escrita de um novo registro foi
- * simplificada para um único campo principal + escalas/tags estruturadas.
+ * Diário — Fase 22.2
+ * A escrita é a superfície principal; contexto, ajuda e detalhes ficam em
+ * segundo plano visual sem remover comportamento, persistência ou histórico.
  */
-.diary-single-writing-field input[type="range"] {
-  cursor: pointer;
+.diary-single-writing-field input[type="range"] { cursor: pointer; }
+
+.diary-phase22 {
+  --diary-paper: #fffdfa;
+}
+
+/* O título da rota fica fora da "folha"; o cabeçalho interno vira contexto. */
+.diary-phase22-experience > div > div > header {
+  margin-bottom: 1rem;
+  padding-inline: .25rem;
+}
+.diary-phase22-experience > div > div > header > div > p:first-child {
+  display: none;
+}
+.diary-phase22-experience > div > div > header h1 {
+  max-width: 42rem;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.22;
+}
+.diary-phase22-experience > div > div > header h1 + p {
+  max-width: 40rem;
+  margin-top: .45rem;
+  font-size: .82rem;
+}
+
+/* A navegação Escrever/Histórico continua disponível, mas perde peso. */
+.diary-phase22-experience > div > div > header + div {
+  margin-bottom: 1rem;
+}
+
+/* A área de escrita se comporta como uma folha editorial única. */
+.diary-phase22-experience section:has(textarea[aria-label="Texto do diário"]) {
+  background: var(--diary-paper) !important;
+  border-color: color-mix(in srgb, var(--line) 78%, transparent) !important;
+  box-shadow: 0 1px 2px rgba(15,47,37,.03), 0 18px 45px rgba(15,47,37,.045);
+}
+.diary-phase22-experience textarea[aria-label="Texto do diário"] {
+  min-height: 420px;
+  padding-top: 1.1rem;
+  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+  line-height: 1.75;
+}
+.diary-phase22-experience textarea[aria-label="Texto do diário"]::placeholder {
+  color: color-mix(in srgb, var(--ink-soft) 54%, transparent);
+}
+
+/* Ditado e ajuda continuam a um toque, mas não parecem CTAs principais. */
+.diary-phase22-experience textarea[aria-label="Texto do diário"] + div button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.diary-phase22-experience textarea[aria-label="Texto do diário"] + div button:hover {
+  background: color-mix(in srgb, var(--mint) 42%, transparent);
+}
+.diary-phase22-experience textarea[aria-label="Texto do diário"] + div > span {
+  opacity: .7;
+}
+
+/* Continuidade existe, mas visualmente não deve competir com a escrita. */
+.diary-phase22-continuity section > div {
+  padding: .9rem 1rem;
+  border-color: color-mix(in srgb, var(--forest) 10%, var(--line));
+  background: color-mix(in srgb, var(--mint) 38%, white);
+  box-shadow: none;
+}
+.diary-phase22-continuity section h2 { font-size: 1.05rem; }
+.diary-phase22-continuity section p { line-height: 1.45; }
+.diary-phase22-continuity section > div > div > span { width: 2rem; height: 2rem; border-radius: .75rem; }
+
+/* Privacidade continua explícita, sem virar outro card grande. */
+.diary-phase22-experience div:has(> label > input[aria-describedby="diary-ai-privacy-help"]) {
+  background: transparent !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+@media (max-width: 640px) {
+  .diary-phase22-heading { padding-top: 1.25rem; }
+  .diary-phase22-experience textarea[aria-label="Texto do diário"] { min-height: 360px; }
+  .diary-phase22-continuity section { padding-top: .75rem; }
 }
