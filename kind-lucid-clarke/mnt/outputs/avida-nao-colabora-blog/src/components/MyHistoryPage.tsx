@@ -1,39 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import {
-  ArrowRight, BarChart3, CalendarDays, History, LineChart, Loader2, Lock,
-  NotebookPen, Sparkles,
-} from 'lucide-react'
-import type { Profile } from '../types'
+import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { ArrowLeft, ArrowRight, Leaf, Loader2, Sparkles, Sprout, TreePine } from 'lucide-react'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import { loadReportHistory } from '../lib/reportGeneration'
-import { buildTemporalComparison } from '../lib/temporalComparison'
-import { buildJourneyChapter } from '../lib/journeyChapter'
-import { fetchDiscoveryMemories, type DiscoveryMemory } from '../lib/discoveryMemoryStore'
-import {
-  buildMyHistory,
-  type MyHistoryEntry,
-  type MyHistoryReport,
-} from '../lib/myHistory'
-import TemporalComparisonPanel from './history/TemporalComparisonPanel'
-import JourneyChapterCard from './history/JourneyChapterCard'
+import { buildJourneyChapter, type JourneyChapterKey } from '../lib/journeyChapter'
+import { buildMyHistory, type MyHistoryEntry, type MyHistoryReport } from '../lib/myHistory'
+import MyHistoryPageLegacy from './MyHistoryPageLegacy'
 
-interface Props {
-  user: User | null
-  profile: Profile | null
-  onNavigatePricing: () => void
-  onNavigateDiary: () => void
-  onNavigateReport: () => void
-  onNavigateMap: () => void
+type Props = ComponentProps<typeof MyHistoryPageLegacy>
+
+type JourneyStep = {
+  label: string
+  state: 'past' | 'current' | 'future'
 }
 
 const PAGE_SIZE = 500
 const MAX_PAGES = 10
 
-async function loadStructuredHistory(userId: string): Promise<{ entries: MyHistoryEntry[]; truncated: boolean }> {
+async function loadStructuredJourney(userId: string): Promise<MyHistoryEntry[]> {
   const entries: MyHistoryEntry[] = []
-  let truncated = false
 
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE
@@ -48,116 +33,126 @@ async function loadStructuredHistory(userId: string): Promise<{ entries: MyHisto
     if (error) throw error
     const batch = (data ?? []) as MyHistoryEntry[]
     entries.push(...batch)
-    if (batch.length < PAGE_SIZE) return { entries, truncated: false }
+    if (batch.length < PAGE_SIZE) break
   }
 
-  truncated = true
-  return { entries, truncated }
+  return entries
 }
 
-function firstDateLabel(value: string | null) {
-  if (!value) return '—'
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' })
-    .format(new Date(year, month - 1, day, 12))
-    .replace('.', '')
+function journeyStageIndex(key: JourneyChapterKey, activeDays: number) {
+  if (activeDays === 0) return 0
+  if (key === 'starting') return 1
+  if (key === 'forming') return 2
+  if (key === 'reflecting') return 3
+  return 4
 }
 
-function discoveryDateLabel(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+function journeySteps(currentIndex: number, hasStarted: boolean): JourneyStep[] {
+  const labels = [
+    hasStarted ? 'Você começou a registrar' : 'Seu primeiro registro abre a jornada',
+    'Começando a se observar',
+    'Algumas coisas começaram a se repetir',
+    'Percebendo padrões',
+    'Aprendendo o que ajuda',
+  ]
+
+  return labels.map((label, index) => ({
+    label,
+    state: index < currentIndex ? 'past' : index === currentIndex ? 'current' : 'future',
+  }))
 }
 
-function MemoryCard({ memory }: { memory: ReturnType<typeof buildMyHistory>['memories'][number] }) {
-  const chips = [
-    ...(memory.mood ? [{ label: memory.mood, kind: 'estado' }] : []),
-    ...memory.emotions.map(label => ({ label, kind: 'emoção' })),
-    ...memory.contexts.map(label => ({ label, kind: 'contexto' })),
-    ...memory.needs.map(label => ({ label, kind: 'necessidade' })),
-    ...memory.triggers.map(label => ({ label, kind: 'gatilho' })),
-  ].slice(0, 6)
+function Garden({ chapterKey }: { chapterKey: JourneyChapterKey }) {
+  const growth = chapterKey === 'starting' ? 0 : chapterKey === 'forming' ? 1 : chapterKey === 'reflecting' ? 2 : 3
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-4 sm:p-5">
-      <div className="flex items-center gap-2 text-xs text-ink-soft">
-        <CalendarDays className="w-4 h-4 text-forest-500" />
-        {memory.dateLabel}
+    <section className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-b from-mint/45 via-paper-soft to-sand-50 p-5 sm:p-6" aria-labelledby="journey-garden-heading">
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-forest-50/70" aria-hidden />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu jardim</p>
+            <h2 id="journey-garden-heading" className="font-serif text-2xl text-forest-900 mt-1">O que já cresceu na sua história</h2>
+          </div>
+          <span className="w-10 h-10 rounded-2xl border border-line bg-white text-forest-700 flex items-center justify-center"><Leaf className="w-5 h-5" /></span>
+        </div>
+
+        <div className="mt-7 min-h-32 flex items-end justify-center gap-5 sm:gap-8" aria-label="Representação visual do crescimento da sua jornada">
+          <div className="flex flex-col items-center gap-2 text-forest-500">
+            <Sprout className="w-9 h-9" strokeWidth={1.7} />
+            <span className="w-10 h-2 rounded-full bg-forest-100" aria-hidden />
+          </div>
+          {growth >= 1 && (
+            <div className="flex flex-col items-center gap-2 text-forest-600">
+              <Leaf className="w-11 h-11" strokeWidth={1.6} />
+              <span className="w-12 h-2 rounded-full bg-forest-100" aria-hidden />
+            </div>
+          )}
+          {growth >= 2 && (
+            <div className="flex flex-col items-center gap-2 text-forest-700">
+              <TreePine className="w-14 h-14" strokeWidth={1.5} />
+              <span className="w-14 h-2 rounded-full bg-forest-100" aria-hidden />
+            </div>
+          )}
+          {growth >= 3 && (
+            <div className="relative flex flex-col items-center gap-2 text-forest-800">
+              <Sparkles className="absolute -right-4 -top-3 w-5 h-5 text-forest-400" aria-hidden />
+              <TreePine className="w-16 h-16" strokeWidth={1.45} />
+              <span className="w-16 h-2 rounded-full bg-forest-100" aria-hidden />
+            </div>
+          )}
+        </div>
+
+        <p className="mt-5 text-xs leading-relaxed text-ink-soft max-w-2xl">Este jardim representa apenas o caminho que já existe. Ele não diminui, zera ou morre se você passar um tempo sem registrar. Sua história continua daqui.</p>
       </div>
-      <p className="font-serif text-lg text-forest-900 mt-2">Um ponto da sua história</p>
-      <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-        Estes são apenas marcadores que você registrou naquele dia. O texto escrito no Diário não é reproduzido aqui.
-      </p>
-      <div className="flex flex-wrap gap-2 mt-4">
-        {chips.map((chip, index) => (
-          <span key={`${chip.kind}:${chip.label}:${index}`} className="rounded-full bg-mint/60 px-3 py-1.5 text-xs text-forest-800">
-            {chip.label}
-          </span>
-        ))}
-      </div>
-    </article>
+    </section>
   )
 }
 
-function DiscoveryMemoryCard({ memory }: { memory: DiscoveryMemory }) {
-  return (
-    <article className="rounded-2xl border border-line bg-white p-4 sm:p-5">
-      <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-forest-600">Reconhecida por você</p>
-      <h3 className="font-serif text-lg text-forest-900 mt-1">{memory.title}</h3>
-      <p className="text-sm text-ink-soft mt-2 leading-relaxed">{memory.description}</p>
-      <div className="rounded-xl bg-paper-soft border border-line mt-3 px-3.5 py-3">
-        <p className="text-[11px] font-semibold text-forest-700">O que sustentou essa percepção</p>
-        <p className="text-xs text-ink-soft mt-1 leading-relaxed">{memory.evidence}</p>
-      </div>
-      <p className="text-[11px] text-ink-soft mt-3 capitalize">Fez sentido para você em {discoveryDateLabel(memory.recognized_at)}</p>
-    </article>
-  )
-}
-
-export default function MyHistoryPage({
-  user, profile, onNavigatePricing, onNavigateDiary, onNavigateReport, onNavigateMap,
-}: Props) {
+export default function MyHistoryPage(props: Props) {
+  const { user, profile } = props
   const plan = normalizePlan(profile?.plan)
   const hasHistory = hasPlanAccess(plan, 'essential')
   const isPlus = plan === 'plus'
-  const includeTriggers = isPlus
   const [entries, setEntries] = useState<MyHistoryEntry[]>([])
   const [reports, setReports] = useState<MyHistoryReport[]>([])
-  const [discoveryMemories, setDiscoveryMemories] = useState<DiscoveryMemory[]>([])
   const [loading, setLoading] = useState(hasHistory)
-  const [error, setError] = useState(false)
-  const [truncated, setTruncated] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
-    if (!user || !hasHistory) { setLoading(false); return }
+    if (!user || !hasHistory || showDetails) {
+      setLoading(false)
+      return
+    }
+
     let active = true
+    setLoading(true)
+    setFailed(false)
+
     ;(async () => {
       try {
-        const [history, storedReports, storedDiscoveryMemories] = await Promise.all([
-          loadStructuredHistory(user.id),
+        const [structuredEntries, storedReports] = await Promise.all([
+          loadStructuredJourney(user.id),
           loadReportHistory(user.id),
-          fetchDiscoveryMemories(user.id),
         ])
         if (!active) return
-        setEntries(history.entries)
+        setEntries(structuredEntries)
         setReports(storedReports as unknown as MyHistoryReport[])
-        setDiscoveryMemories(storedDiscoveryMemories)
-        setTruncated(history.truncated)
-        setError(false)
       } catch {
-        if (active) setError(true)
+        if (active) setFailed(true)
       } finally {
         if (active) setLoading(false)
       }
     })()
+
     return () => { active = false }
-  }, [user, hasHistory])
+  }, [hasHistory, showDetails, user])
 
   const history = useMemo(() => {
     const visibleReports = isPlus ? reports : reports.filter(report => report.report_type === 'weekly')
-    return buildMyHistory(entries, visibleReports, { includeTriggers, memoryLimit: 4 })
-  }, [entries, reports, includeTriggers, isPlus])
+    return buildMyHistory(entries, visibleReports, { includeTriggers: isPlus, memoryLimit: 4 })
+  }, [entries, isPlus, reports])
 
   const chapter = useMemo(() => buildJourneyChapter({
     activeDays: history.totals.activeDays,
@@ -167,128 +162,83 @@ export default function MyHistoryPage({
     hasSteadyMonth: history.milestones.some(milestone => milestone.kind === 'first_steady_month'),
   }), [history])
 
-  const comparison = useMemo(
-    () => buildTemporalComparison(entries, { includeTriggers }),
-    [entries, includeTriggers],
-  )
+  const currentIndex = journeyStageIndex(chapter.key, history.totals.activeDays)
+  const steps = journeySteps(currentIndex, history.totals.activeDays > 0)
 
-  const rememberedDiscoveries = useMemo(() => discoveryMemories.slice(0, 3), [discoveryMemories])
+  if (!hasHistory || failed) return <MyHistoryPageLegacy {...props} />
 
-  if (!hasHistory) {
+  if (showDetails) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-7 sm:py-9">
-        <section className="rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-6 sm:p-8 text-center">
-          <span className="w-14 h-14 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center mx-auto"><Lock className="w-6 h-6" /></span>
-          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 mt-5">Minha História</p>
-          <h1 className="font-serif text-3xl text-forest-900 mt-1">Seu histórico completo começa no Essencial</h1>
-          <p className="text-sm text-ink-soft mt-3 max-w-xl mx-auto leading-relaxed">O Essencial reúne seus dias registrados e relatórios em uma linha do tempo para você olhar o caminho com mais distância, sem transformar cada registro em uma conclusão.</p>
-          <button onClick={onNavigatePricing} className="mt-6 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">Conhecer o Essencial <ArrowRight className="w-4 h-4" /></button>
-        </section>
+      <div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+          <button type="button" onClick={() => setShowDetails(false)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Voltar à jornada
+          </button>
+        </div>
+        <MyHistoryPageLegacy {...props} />
       </div>
     )
   }
 
+  if (loading) {
+    return <div className="flex items-center justify-center py-24" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /><span className="ml-3 text-sm text-ink-soft">Organizando sua jornada…</span></div>
+  }
+
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-      <header className="rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-5 sm:p-7 lg:p-8">
-        <div className="max-w-3xl">
-          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Minha História</p>
-          <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">O que você registra também forma uma trajetória</h1>
-          <p className="text-sm sm:text-base text-ink-soft mt-3 leading-relaxed">Aqui, seus registros e relatórios aparecem como uma linha do tempo. Nada novo é criado para preencher lacunas: esta página apenas organiza fatos que já existem na sua conta.</p>
-          <div className="flex flex-wrap gap-2.5 mt-5">
-            <button onClick={onNavigateDiary} className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-4 py-2.5 rounded-2xl transition-colors"><NotebookPen className="w-4 h-4" /> Registrar hoje</button>
-            <button onClick={onNavigateMap} className="inline-flex items-center gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-4 py-2.5 rounded-2xl transition-colors"><LineChart className="w-4 h-4" /> Ver Mapa Emocional</button>
-          </div>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-7">
+      <header className="max-w-3xl">
+        <div className="flex items-center gap-2 text-forest-600">
+          <Leaf className="w-5 h-5" />
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Minha História</p>
         </div>
+        <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">Sua jornada</h1>
+        <p className="text-sm sm:text-base text-ink-soft mt-3 leading-relaxed">O que você viveu não precisa virar uma pontuação. Aqui, sua trajetória aparece como memória, marcos e mudanças que foram ganhando forma com o tempo.</p>
       </header>
 
-      {loading ? (
-        <div className="rounded-3xl border border-line bg-paper-soft py-16 flex items-center justify-center" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /><span className="ml-3 text-sm text-ink-soft">Organizando sua história…</span></div>
-      ) : error ? (
-        <div className="rounded-3xl border border-line bg-paper-soft p-7 text-center"><p className="font-medium text-forest-900">Não conseguimos carregar sua história agora.</p><p className="text-sm text-ink-soft mt-1">Seus registros continuam salvos. Tente abrir esta página novamente mais tarde.</p></div>
-      ) : (
-        <>
-          <section className="grid sm:grid-cols-3 gap-3" aria-label="Resumo da sua história">
-            <div className="rounded-2xl border border-line bg-paper-soft p-4"><p className="text-xs text-ink-soft">Dias com registro</p><p className="font-serif text-3xl text-forest-900 mt-1">{history.totals.activeDays}</p></div>
-            <div className="rounded-2xl border border-line bg-paper-soft p-4"><p className="text-xs text-ink-soft">Relatórios fechados</p><p className="font-serif text-3xl text-forest-900 mt-1">{history.totals.reports}</p></div>
-            <div className="rounded-2xl border border-line bg-paper-soft p-4"><p className="text-xs text-ink-soft">Primeiro ponto carregado</p><p className="font-serif text-xl text-forest-900 mt-2 capitalize">{firstDateLabel(history.totals.firstDate)}</p></div>
-          </section>
+      <section className="rounded-3xl border border-forest-100 bg-gradient-to-br from-forest-50 via-mint/40 to-paper-soft p-5 sm:p-7" aria-labelledby="current-journey-heading">
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu momento agora</p>
+        <h2 id="current-journey-heading" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">{chapter.title}</h2>
+        <p className="text-sm sm:text-[15px] text-ink-soft mt-2 max-w-3xl leading-relaxed">{chapter.description}</p>
+        <p className="text-xs text-ink-soft mt-4 max-w-3xl">{chapter.note}</p>
+      </section>
 
-          <JourneyChapterCard chapter={chapter} />
-          <TemporalComparisonPanel comparison={comparison} />
+      <section aria-labelledby="trajectory-heading">
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Trajetória</p>
+        <h2 id="trajectory-heading" className="font-serif text-2xl text-forest-900 mt-1">O caminho que já começou a aparecer</h2>
+        <p className="text-sm text-ink-soft mt-1 max-w-2xl">Não é uma lista para completar. É apenas uma forma de enxergar onde sua história já deixou sinais.</p>
 
-          {rememberedDiscoveries.length > 0 && (
-            <section className="rounded-3xl border border-line bg-sand-50 p-5 sm:p-6" aria-labelledby="recognized-discoveries-heading">
-              <div className="flex items-start gap-3 mb-4">
-                <span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5" /></span>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Percepções reconhecidas</p>
-                  <h2 id="recognized-discoveries-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Coisas que já fizeram sentido na sua história</h2>
-                  <p className="text-sm text-ink-soft mt-1">Aqui aparecem apenas descobertas que você escolheu reconhecer. Elas não viram pontuação, meta ou obrigação de continuidade.</p>
-                </div>
+        <ol className="mt-5 max-w-2xl">
+          {steps.map((step, index) => (
+            <li key={step.label} className="relative flex gap-4 pb-5 last:pb-0">
+              {index < steps.length - 1 && <span className="absolute left-[9px] top-5 bottom-0 w-px bg-line" aria-hidden />}
+              <span className={`relative z-10 mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                step.state === 'current'
+                  ? 'border-forest-700 bg-mint ring-4 ring-mint/50'
+                  : step.state === 'past'
+                    ? 'border-forest-500 bg-forest-500'
+                    : 'border-line bg-paper-soft'
+              }`} aria-hidden>
+                {step.state === 'current' && <Leaf className="w-3 h-3 text-forest-800" />}
+              </span>
+              <div className={step.state === 'future' ? 'text-ink-soft' : 'text-forest-900'}>
+                <p className={`text-sm ${step.state === 'current' ? 'font-semibold' : 'font-medium'}`}>{step.label}</p>
+                {step.state === 'current' && <p className="text-xs text-forest-600 mt-0.5">É onde a sua história parece estar agora.</p>}
               </div>
-              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">{rememberedDiscoveries.map(memory => <DiscoveryMemoryCard key={memory.id} memory={memory} />)}</div>
-            </section>
-          )}
+            </li>
+          ))}
+        </ol>
+      </section>
 
-          {history.milestones.length > 0 && (
-            <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6" aria-labelledby="milestones-heading">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Acontecimentos</p>
-              <h2 id="milestones-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Momentos da sua trajetória</h2>
-              <p className="text-sm text-ink-soft mt-1">Marcos reais do seu percurso — cada um vem de algo que aconteceu de verdade nos seus registros.</p>
-              <ol className="mt-4 relative border-l border-line ml-1.5 space-y-4">
-                {history.milestones.map((milestone, index) => {
-                  const isLatest = index === history.milestones.length - 1
-                  return (
-                    <li key={milestone.id} className="pl-5">
-                      <span className={`absolute -left-[7px] mt-1.5 w-3 h-3 rounded-full border-2 border-paper-soft ${isLatest ? 'bg-forest-700 ring-4 ring-mint/70' : 'bg-forest-400'}`} aria-hidden />
-                      <div className={isLatest ? 'rounded-2xl border border-forest-100 bg-mint/35 px-4 py-3.5' : ''}>
-                        <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] text-ink-soft capitalize">{milestone.dateLabel}</p>{isLatest && <span className="rounded-full bg-white border border-line px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">Mais recente</span>}</div>
-                        <p className="font-serif text-lg text-forest-900 leading-snug mt-0.5">{milestone.title}</p>
-                        <p className="text-sm text-ink-soft mt-1 leading-relaxed">{milestone.description}</p>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ol>
-            </section>
-          )}
+      <Garden chapterKey={chapter.key} />
 
-          {history.memories.length > 0 && (
-            <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6" aria-labelledby="memories-heading">
-              <div className="flex items-start gap-3 mb-4"><span className="w-10 h-10 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5" /></span><div><p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Memórias</p><h2 id="memories-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Alguns dias antigos para revisitar</h2><p className="text-sm text-ink-soft mt-1">No máximo um dia por mês aparece aqui, sempre a partir de marcadores estruturados.</p></div></div>
-              <div className="grid md:grid-cols-2 gap-3">{history.memories.map(memory => <MemoryCard key={memory.id} memory={memory} />)}</div>
-            </section>
-          )}
+      <section className="border-t border-line pt-5">
+        <button type="button" onClick={() => setShowDetails(true)} className="inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors">
+          Explorar minha história <ArrowRight className="w-4 h-4" />
+        </button>
+        <p className="mt-2 text-xs text-ink-soft max-w-2xl">Comparações, marcos detalhados, memórias reconhecidas, meses anteriores e os registros estruturados continuam disponíveis na visão completa.</p>
+      </section>
 
-          <section aria-labelledby="timeline-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4 px-1">
-              <div><p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Linha do tempo</p><h2 id="timeline-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Sua história por mês</h2></div>
-              {history.totals.reports > 0 && <button onClick={onNavigateReport} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900">Ver todos os relatórios <ArrowRight className="w-4 h-4" /></button>}
-            </div>
-
-            {history.months.length === 0 ? (
-              <div className="rounded-3xl border border-line bg-paper-soft p-8 text-center"><History className="w-8 h-8 text-forest-300 mx-auto" /><p className="font-medium text-forest-900 mt-3">Sua linha do tempo começa com o próximo registro.</p><p className="text-sm text-ink-soft mt-1">Não é preciso preencher dias anteriores nem manter sequência.</p><button onClick={onNavigateDiary} className="mt-4 text-sm font-medium text-forest-700 underline underline-offset-4">Registrar como estou hoje</button></div>
-            ) : (
-              <div className="relative space-y-4 before:absolute before:left-[19px] sm:before:left-[23px] before:top-3 before:bottom-3 before:w-px before:bg-line">
-                {history.months.map(month => (
-                  <article key={month.key} className="relative pl-12 sm:pl-14">
-                    <span className="absolute left-2 sm:left-3 top-5 w-6 h-6 rounded-full bg-paper border-4 border-mint ring-1 ring-forest-100" aria-hidden />
-                    <div className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-6">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"><div><h3 className="font-serif text-2xl text-forest-900 capitalize">{month.label}</h3><p className="text-sm text-ink-soft mt-1 leading-relaxed">{month.summary}</p></div><span className="text-xs bg-white border border-line rounded-full px-3 py-1.5 text-forest-700 self-start">{month.activeDays} {month.activeDays === 1 ? 'dia' : 'dias'}</span></div>
-                      <div className="flex flex-wrap gap-2 mt-4">{month.topEmotion && <span className="text-xs rounded-full bg-mint px-3 py-1.5 text-forest-800">Estado: {month.topEmotion.label}</span>}{month.topContext && <span className="text-xs rounded-full bg-sand-100 px-3 py-1.5 text-forest-800">Contexto: {month.topContext.label}</span>}{month.topNeed && <span className="text-xs rounded-full bg-white border border-line px-3 py-1.5 text-forest-800">Necessidade: {month.topNeed.label}</span>}{month.topTrigger && <span className="text-xs rounded-full bg-coral/35 px-3 py-1.5 text-forest-800">Gatilho: {month.topTrigger.label}</span>}</div>
-                      <div className="grid grid-cols-3 gap-2 mt-4 text-center"><div className="rounded-xl bg-white border border-line px-2 py-2.5"><p className="text-[10px] text-ink-soft">Registros</p><p className="text-sm font-semibold text-forest-900">{month.entryCount}</p></div><div className="rounded-xl bg-white border border-line px-2 py-2.5"><p className="text-[10px] text-ink-soft">Check-ins</p><p className="text-sm font-semibold text-forest-900">{month.checkinCount}</p></div><div className="rounded-xl bg-white border border-line px-2 py-2.5"><p className="text-[10px] text-ink-soft">Diário</p><p className="text-sm font-semibold text-forest-900">{month.diaryCount}</p></div></div>
-                      {month.reports.length > 0 && <div className="mt-5 pt-4 border-t border-line space-y-2"><p className="text-xs font-semibold text-forest-700 flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Marcos fechados do período</p>{month.reports.map(report => <button key={report.id} onClick={onNavigateReport} className="w-full text-left rounded-2xl bg-white border border-line px-4 py-3 hover:bg-mint/30 transition-colors"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium text-forest-900">{report.title}</p><ArrowRight className="w-4 h-4 text-forest-500 flex-shrink-0" /></div>{report.summary && <p className="text-xs text-ink-soft mt-1 line-clamp-2 leading-relaxed">{report.summary}</p>}</button>)}</div>}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <div className="rounded-2xl border border-line bg-sand-50 px-4 sm:px-5 py-4 text-xs text-ink-soft leading-relaxed">Esta página usa datas, humor, energia, ansiedade, sono e marcadores estruturados dos seus registros. As percepções reconhecidas vêm somente das Descobertas que você marcou como “Fez sentido para mim”. Nenhum trecho do texto livre do Diário é exibido na linha do tempo, na comparação temporal, no capítulo da jornada ou nas Memórias.{truncated ? ' Para manter a página leve, esta visualização carregou os 5.000 registros estruturados mais recentes.' : ''}</div>
-        </>
-      )}
+      <p className="text-xs text-ink-soft border-t border-line pt-4">Nenhum trecho do texto livre do Diário é exibido nesta jornada. Ela usa apenas sinais estruturados e fatos que já existem na sua conta.</p>
     </div>
   )
 }
