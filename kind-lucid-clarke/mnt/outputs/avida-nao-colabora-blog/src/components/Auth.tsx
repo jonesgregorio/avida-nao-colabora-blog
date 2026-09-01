@@ -154,6 +154,7 @@ export default function Auth({ onBack }: AuthProps) {
     setSuccess('')
 
     if (isSignup) {
+      if (password.length < 8) { setError('A senha deve ter pelo menos 8 caracteres.'); return }
       if (password !== confirmPassword) { setError('As senhas não coincidem.'); return }
       if (!agreedTerms) { setError('É preciso aceitar os Termos de Uso e a Política de Privacidade.'); return }
     }
@@ -342,10 +343,10 @@ export default function Auth({ onBack }: AuthProps) {
                             type={showPass ? 'text' : 'password'}
                             value={password}
                             onChange={e => setPassword(e.target.value)}
-                            placeholder="Mínimo 6 caracteres"
+                            placeholder={isSignup ? 'Mínimo 8 caracteres' : 'Sua senha'}
                             className={inputCls + ' pr-10'}
                             required
-                            minLength={6}
+                            minLength={isSignup ? 8 : undefined}
                           />
                           <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-2.5 text-ink-soft" aria-label="Mostrar senha">
                             {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -355,7 +356,7 @@ export default function Auth({ onBack }: AuthProps) {
                     )}
                     {isSignup && (
                       <Field label="Confirmar senha" htmlFor="auth-confirm-password">
-                        <input id="auth-confirm-password" type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Digite novamente sua senha" className={inputCls} required minLength={6} />
+                        <input id="auth-confirm-password" type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Digite novamente sua senha" className={inputCls} required minLength={8} />
                       </Field>
                     )}
 
