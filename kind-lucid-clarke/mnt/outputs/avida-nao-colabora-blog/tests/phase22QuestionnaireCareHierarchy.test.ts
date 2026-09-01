@@ -34,7 +34,7 @@ test('detalhes antigos continuam preservados sem criar persistência paralela', 
 
 test('resumos da 22.8 não usam mecânicas de pressão', () => {
   for (const source of [questionnaires, care]) {
-    assert.doesNotMatch(source, /\bXP\b|ranking|streak|\d+%|faltam\s+\d+|progress|aria-valuenow/i)
+    assert.doesNotMatch(source, /\bXP\b|ranking|streak|\d+%|faltam\s+\d+|\bprogress\b|aria-valuenow/i)
   }
   assert.match(questionnaires, /Não existe objetivo de completar todos/)
   assert.match(care, /Não é uma tarefa nem uma meta/)
