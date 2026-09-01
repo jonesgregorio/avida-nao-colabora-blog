@@ -275,7 +275,7 @@ export default function MyEvolutionPage(props: Props) {
         <p className="text-xs text-ink-soft mt-2 max-w-2xl">Em “Explorar detalhes”, métricas, comparações, padrões e a opção “Entender melhor meu mapa” continuam disponíveis conforme o seu plano.</p>
       </section>
 
-      <p className="text-xs text-ink-soft border-t border-line pt-4">Esta visão usa apenas dados estruturados do seu mapa, não o texto completo do seu Diário. Ela não é diagnóstico.</p>
+      <p className="text-xs text-ink-soft border-t border-line pt-4">Esta leitura considera apenas os dados resumidos deste mapa, formados por sinais estruturados — não o texto completo do seu Diário. Ela não é diagnóstico.</p>
     </div>
   )
 }
