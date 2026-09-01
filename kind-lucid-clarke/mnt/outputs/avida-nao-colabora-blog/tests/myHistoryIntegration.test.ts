@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const navigation = readFileSync(new URL('../src/lib/navigation.ts', import.meta.url), 'utf8')
 const layout = readFileSync(new URL('../src/components/user/UserLayout.tsx', import.meta.url), 'utf8')
-const page = readFileSync(new URL('../src/components/MyHistoryPage.tsx', import.meta.url), 'utf8')
+const page = readFileSync(new URL('../src/components/MyHistoryPageLegacy.tsx', import.meta.url), 'utf8')
 const temporalPanel = readFileSync(new URL('../src/components/history/TemporalComparisonPanel.tsx', import.meta.url), 'utf8')
 
 test('Minha História possui rota canônica própria e entra no shell logado', () => {

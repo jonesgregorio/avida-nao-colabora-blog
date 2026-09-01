@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const page = readFileSync(new URL('../src/components/MyHistoryPage.tsx', import.meta.url), 'utf8')
+const page = readFileSync(new URL('../src/components/MyHistoryPageLegacy.tsx', import.meta.url), 'utf8')
 const card = readFileSync(new URL('../src/components/history/JourneyChapterCard.tsx', import.meta.url), 'utf8')
 
 test('Minha História conecta o capítulo real da jornada ao modelo existente', () => {
