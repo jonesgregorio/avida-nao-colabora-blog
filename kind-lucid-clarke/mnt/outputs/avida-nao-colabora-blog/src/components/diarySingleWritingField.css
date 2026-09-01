@@ -59,7 +59,8 @@
   background: color-mix(in srgb, var(--mint) 42%, transparent);
 }
 .diary-phase22-experience textarea[aria-label="Texto do diário"] + div > span {
-  opacity: .7;
+  opacity: 1;
+  color: var(--ink-soft);
 }
 
 /* Continuidade existe, mas visualmente não deve competir com a escrita. */
