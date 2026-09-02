@@ -136,7 +136,7 @@ export default function DiaryHistorySection(p: Props) {
       setSelectedDate(today)
       return
     }
-    setSelectedDate(dates.at(-1) || `${viewMonth}-01`)
+    setSelectedDate(dates[dates.length - 1] || `${viewMonth}-01`)
   }, [currentMonth, groupedHistory, today, viewMonth])
 
   const moodByDay = useMemo(() => {
