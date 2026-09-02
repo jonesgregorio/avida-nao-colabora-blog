@@ -79,7 +79,7 @@ export default function DiaryDetailsDrawer({
   plusDetailsOpen, onTogglePlusDetails, onClose,
 }: DiaryDetailsDrawerProps) {
   const dialogRef = useModalA11y(onClose)
-  const [signalsOpen, setSignalsOpen] = useState(false)
+  const [signalsOpen, setSignalsOpen] = useState(true)
   const [feelingsOpen, setFeelingsOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const [careOpen, setCareOpen] = useState(false)
@@ -130,7 +130,7 @@ export default function DiaryDetailsDrawer({
           {isEssential && (fieldOn('energy') || fieldOn('sleep_quality')) && (
             <Disclosure
               title="Como esse momento apareceu em você?"
-              description="Energia e sono ficam recolhidos até você decidir registrar esses sinais."
+              description="Energia e sono ficam disponíveis primeiro; os demais sinais continuam recolhidos até você decidir aprofundar."
               open={signalsOpen}
               count={signalCount}
               onToggle={() => setSignalsOpen(value => !value)}
@@ -143,13 +143,13 @@ export default function DiaryDetailsDrawer({
           )}
 
           <Disclosure
-            title="Sentimentos"
-            description="Só abra se quiser nomear algo que apareceu neste momento."
+            title="Quais sentimentos apareceram?"
+            description="Abra somente se quiser nomear algo que apareceu neste momento."
             open={feelingsOpen}
             count={emotions.length}
             onToggle={() => setFeelingsOpen(value => !value)}
           >
-            <TagGroup title="Quais sentimentos apareceram?" description="Só marque se fizer sentido." options={isFree ? freeEmotionalTags : emotionalTags} selected={emotions} onToggle={onToggleEmotion} />
+            <TagGroup title="Sentimentos do momento" description="Só marque se fizer sentido." options={isFree ? freeEmotionalTags : emotionalTags} selected={emotions} onToggle={onToggleEmotion} />
           </Disclosure>
 
           {isEssential && (
