@@ -143,8 +143,10 @@ const BrandTemplate = forwardRef<
   const bigR = W * 0.40 * psize
   const bigCx = W * 0.76
   const bigCy = H * (isTall ? 0.48 : 0.54)
+  // "cheia": o Tamanho controla quanto da largura a foto ocupa
+  const fullLeft = W * (0.52 - (psize - 0.7) * 0.34)
   const frame = shape === 'full'
-    ? { left: W * 0.42, top: -2, w: W * 0.60 + 2, h: H + 4, radius: 0 }
+    ? { left: fullLeft, top: -2, w: W - fullLeft + 2, h: H + 4, radius: 0 }
     : {
         left: bigCx - bigR,
         top: bigCy - bigR,
@@ -167,7 +169,7 @@ const BrandTemplate = forwardRef<
 
   if (variant === 'pessoa' && !onPhoto) {
     // canto superior esquerdo, sem tocar na curva do círculo
-    const circleLeftEdge = shape === 'full' ? W * 0.42 : bigCx - bigR
+    const circleLeftEdge = shape === 'full' ? fullLeft : bigCx - bigR
     boxRight = Math.round(W - circleLeftEdge + W * 0.03)
     boxTop = Math.round(topInset + H * 0.135)
     boxHeight = Math.round(H * 0.34)
