@@ -37,7 +37,7 @@
     content: 'Deslize para o lado para escrever  →';
     position: absolute;
     left: 50%;
-    bottom: 18px;
+    bottom: 96px;
     transform: translateX(-50%);
     width: max-content;
     max-width: calc(100% - 32px);
