@@ -30,6 +30,44 @@
     scroll-snap-stop: always;
   }
 
+  /* The first mobile page explicitly teaches the horizontal gesture. It is a
+     visual-only cue and never exists at desktop widths. */
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child::after,
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child::after {
+    content: 'Deslize para o lado para escrever  →';
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 9px 14px;
+    border: 1px solid rgba(44, 86, 67, .18);
+    border-radius: 999px;
+    background: rgba(255, 253, 248, .94);
+    box-shadow: 0 8px 22px rgba(53, 69, 54, .12);
+    color: #315c49;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    text-align: center;
+    pointer-events: none;
+    z-index: 35;
+    animation: diary-swipe-cue 1.8s ease-in-out infinite;
+  }
+
+  @keyframes diary-swipe-cue {
+    0%, 100% { transform: translateX(-50%); }
+    50% { transform: translateX(calc(-50% + 8px)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child::after,
+    div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child::after {
+      animation: none;
+    }
+  }
+
   /* A subtle inner spine keeps the physical-diary metaphor without consuming
      half of a phone screen. */
   div.relative.overflow-hidden:has(textarea[aria-label="Texto do diário"]),
