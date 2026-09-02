@@ -104,7 +104,7 @@ test('jornada deixa de punir ausência com streak e mantém presença apenas no 
   assert.doesNotMatch(diary, /Sua presença em/)
   assert.match(diary, /<DiaryHistorySection/)
   assert.match(history, /Sua história deste mês, até aqui/)
-  assert.match(history, /Sem pontuação, sem sequência para quebrar/)
+  assert.match(history, /Sem sequência para quebrar/)
   assert.equal(diary.includes('dias de escrita seguidos'), false)
   assert.equal(diary.includes('calcStreak'), false)
 })

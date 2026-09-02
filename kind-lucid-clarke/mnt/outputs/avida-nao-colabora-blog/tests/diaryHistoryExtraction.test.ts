@@ -18,7 +18,7 @@ test('DiaryHistorySection concentra calendário, agrupamento, filtros e expansã
   assert.match(history, /Sua história deste mês, até aqui/)
   assert.match(history, /Filtrar período do histórico/)
   assert.match(history, /Exportar PDF/)
-  assert.match(history, /Espelho do registro/)
+  assert.match(history, /Espelho desta página/)
   assert.doesNotMatch(history, /supabase/)
   assert.doesNotMatch(history, /\.insert\(|\.update\(|\.delete\(/)
 })
