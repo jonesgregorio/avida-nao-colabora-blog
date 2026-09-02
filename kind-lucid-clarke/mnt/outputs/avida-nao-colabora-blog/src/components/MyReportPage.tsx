@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentProps, type MouseEvent } from 'react'
-import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Download, Eye, FileText, History, Leaf, Loader2, Sparkles, TrendingUp } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Download, Eye, History, Leaf, Loader2, Sparkles, TrendingUp } from 'lucide-react'
 import MyReportPageContent from './MyReportPageContent'
 import { supabase } from '../lib/supabase'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
