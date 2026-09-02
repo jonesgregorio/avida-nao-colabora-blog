@@ -244,16 +244,17 @@ test('Essencial respeita opt-out integral, preserva o original e mantém organiz
   await expect(page.getByText(/Este texto será salvo normalmente e não será usado para personalizar reflexões ou sugestões/i)).toBeVisible()
 })
 
-test('Plus mantém detalhes e reflexão avançada em dois níveis progressivos', async ({ page }) => {
+test('Plus mantém os mesmos detalhes essenciais sem bloco extra de aprofundamento', async ({ page }) => {
   await openDiary(page, 'plus', { width: 1440, height: 900 })
   await openWritingMode(page)
-  await expect(page.getByText('Sinais mais específicos')).toHaveCount(0)
   await page.getByRole('button', { name: /Adicionar mais detalhes/i }).click()
-  await expect(page.getByText('Quais sentimentos apareceram?')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Sinais mais específicos/i })).toBeVisible()
+  await expect(page.getByText('Sentimentos principais')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Contexto do dia/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /O que você precisa agora/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /O que pode ajudar um pouco/i })).toBeVisible()
+  await expect(page.getByText('Aprofundar sinais')).toHaveCount(0)
+  await expect(page.getByText('Sinais mais específicos')).toHaveCount(0)
   await expect(page.getByText('Gatilhos que você reconhece')).toHaveCount(0)
-  await page.getByRole('button', { name: /Sinais mais específicos/i }).click()
-  await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
 })
 
 test('microfone já concedido inicia SpeechRecognition sem reabrir getUserMedia', async ({ page }) => {
