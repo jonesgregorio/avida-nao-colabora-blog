@@ -10,6 +10,12 @@ test('snapshot aceita scale para render em alta e valida contra a dimensão mult
   assert.match(render, /width: spec\.width \* scale, height: spec\.height \* scale/)
 })
 
+test('assetFromImage converte data:URL sem fetch (a CSP do site bloqueia fetch de data:)', () => {
+  assert.match(render, /function dataUrlToBlob/)
+  assert.match(render, /const blob = dataUrlToBlob\(dataUrl\)/)
+  assert.doesNotMatch(render, /await fetch\(dataUrl\)/)
+})
+
 test('cada arte gerada tem baixar, alta 2x e remover', () => {
   assert.match(estudio, /onClick=\{\(\) => downloadAsset\(a\)\}/)
   assert.match(estudio, /onClick=\{\(\) => baixarAlta\(a\)\}/)

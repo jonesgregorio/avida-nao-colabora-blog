@@ -61,9 +61,23 @@ export async function snapshot(
   }
 }
 
+/** data:URL → Blob sem usar fetch (a CSP do site bloqueia fetch de data:). */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const comma = dataUrl.indexOf(',')
+  const header = dataUrl.slice(0, comma)
+  const mime = header.match(/data:([^;]+)/)?.[1] || 'image/png'
+  const isB64 = /;base64/i.test(header)
+  const data = dataUrl.slice(comma + 1)
+  if (!isB64) return new Blob([decodeURIComponent(data)], { type: mime })
+  const bin = atob(data)
+  const arr = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
+
 /** Embrulha uma imagem pronta (ex.: arte completa gerada por IA) como RenderedAsset. */
 export async function assetFromImage(dataUrl: string, filename: string, spec: FormatSpec): Promise<RenderedAsset> {
-  const blob = await (await fetch(dataUrl)).blob()
+  const blob = dataUrlToBlob(dataUrl)
   const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
