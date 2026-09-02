@@ -5,6 +5,7 @@ import { initExternalMonitoring, installStaleChunkRecovery, MonitoringErrorBound
 import { installSensitiveDraftStorageGuard } from './lib/sensitiveDraftStorage'
 import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognitionPermission'
 import './index.css'
+import './diary-mobile.css'
 
 initExternalMonitoring()
 installStaleChunkRecovery()

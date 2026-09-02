@@ -1,0 +1,65 @@
+/* Mobile-only diary presentation. Desktop (lg and above) is intentionally untouched. */
+@media (max-width: 1023px) {
+  /* The writing book becomes one physical page at a time. The existing two-page
+     desktop DOM stays intact; mobile scrolls horizontally between its pages. */
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]),
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"])::-webkit-scrollbar,
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"])::-webkit-scrollbar {
+    display: none;
+  }
+
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div,
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > main,
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div,
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > main {
+    width: 100%;
+    min-width: 100%;
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  /* A subtle inner spine keeps the physical-diary metaphor without consuming
+     half of a phone screen. */
+  div.relative.overflow-hidden:has(textarea[aria-label="Texto do diário"]),
+  div.relative.overflow-hidden:has(textarea[aria-label="Nota rápida do check-in"]) {
+    box-shadow: inset 9px 0 18px -18px rgba(71, 55, 34, .65), inset -9px 0 18px -18px rgba(71, 55, 34, .45);
+  }
+
+  div.relative.overflow-hidden:has(textarea[aria-label="Texto do diário"])::after,
+  div.relative.overflow-hidden:has(textarea[aria-label="Nota rápida do check-in"])::after {
+    content: '';
+    position: absolute;
+    inset: 14px auto 14px 0;
+    width: 5px;
+    border-radius: 0 999px 999px 0;
+    background: linear-gradient(90deg, rgba(96, 75, 45, .22), rgba(255, 255, 255, .72));
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  /* Keep the editor calm and notebook-like on narrow screens. */
+  textarea[aria-label="Texto do diário"] {
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, rgba(112, 98, 74, .10) 32px);
+    background-attachment: local;
+    line-height: 32px;
+    min-height: 52vh !important;
+  }
+
+  /* Mobile controls need thumb-sized targets while retaining the current palette. */
+  [data-diary-mobile-page] button,
+  [data-diary-mobile-page] select {
+    min-height: 40px;
+  }
+}
