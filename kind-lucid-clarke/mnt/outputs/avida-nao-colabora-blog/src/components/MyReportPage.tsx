@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentProps, type MouseEvent } from 'react'
-import { ArrowLeft, ArrowRight, CalendarDays, FileText, Leaf, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Download, FileText, History, Leaf, Loader2, Sparkles } from 'lucide-react'
 import MyReportPageContent from './MyReportPageContent'
 import { supabase } from '../lib/supabase'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
@@ -78,10 +78,18 @@ function NarrativeCard({ block }: { block: NarrativeBlock }) {
   )
 }
 
+const detailAreas = [
+  { icon: BarChart3, label: 'Gráficos e sinais' },
+  { icon: Sparkles, label: 'Padrões e comparações' },
+  { icon: History, label: 'Histórico' },
+  { icon: Download, label: 'PDF e exportação' },
+]
+
 /**
- * Fase 22.5: a primeira leitura de um relatório fechado é narrativa.
- * O painel completo permanece intacto atrás de “Explorar detalhes”, onde ficam
- * métricas, gráficos, histórico, PDF e todos os recursos já existentes.
+ * A leitura principal continua narrativa. O aprofundamento preserva todas as
+ * funções do painel de relatórios, mas agora entra por uma segunda camada
+ * visual coerente com a retrospectiva em vez de parecer uma navegação para
+ * outra geração da interface.
  */
 export default function MyReportPage(props: Props) {
   const { user, profile } = props
@@ -164,17 +172,33 @@ export default function MyReportPage(props: Props) {
 
   if (showDetails) {
     return (
-      <div onClickCapture={handleClickCapture}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8" onClickCapture={handleClickCapture}>
+        <header className="relative overflow-hidden rounded-[2rem] border border-line bg-mint/30 p-5 sm:p-7 mb-6">
           <button
             type="button"
             onClick={() => setShowDetails(false)}
             className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Voltar à leitura principal
+            <ArrowLeft className="w-4 h-4" /> Voltar à retrospectiva
           </button>
-        </div>
-        <MyReportPageContent {...props} />
+          <div className="mt-5 max-w-3xl">
+            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Leitura aprofundada</p>
+            <h1 className="mt-1 font-serif text-3xl md:text-4xl text-forest-900">Detalhes da sua retrospectiva</h1>
+            <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-ink-soft">Aqui ficam os dados que complementam a leitura principal. Você pode explorar gráficos, padrões, comparações, histórico e exportação sem sair da mesma experiência.</p>
+          </div>
+          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-2.5" aria-label="O que você encontra nos detalhes">
+            {detailAreas.map(({ icon: Icon, label }) => (
+              <div key={label} className="rounded-2xl border border-line bg-white/75 px-3 py-3 flex items-center gap-2 text-xs font-medium text-forest-800">
+                <span className="w-8 h-8 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><Icon className="w-4 h-4" /></span>
+                {label}
+              </div>
+            ))}
+          </div>
+        </header>
+
+        <section data-report-details-surface className="overflow-hidden rounded-[2rem] border border-line bg-white shadow-sm">
+          <MyReportPageContent {...props} onBack={() => setShowDetails(false)} />
+        </section>
       </div>
     )
   }
