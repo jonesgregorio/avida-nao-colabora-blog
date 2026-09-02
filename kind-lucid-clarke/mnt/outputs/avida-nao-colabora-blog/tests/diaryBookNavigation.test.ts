@@ -16,7 +16,7 @@ test('escrita e histórico usam livro aberto com vinco central real', () => {
 
 test('calendário é a navegação principal do histórico e abre só o dia escolhido', () => {
   assert.match(history, /const \[selectedDate, setSelectedDate\]/)
-  assert.match(history, /onClick=\{\(\) => setSelectedDate\(date\)\}/)
+  assert.match(history, /setSelectedDate\(date\)/)
   assert.match(history, /const selectedRows = groupedHistory\.get\(selectedDate\) \|\| \[\]/)
   assert.match(history, /Página deste dia/)
   assert.doesNotMatch(history, /Folhear registros anteriores/)
