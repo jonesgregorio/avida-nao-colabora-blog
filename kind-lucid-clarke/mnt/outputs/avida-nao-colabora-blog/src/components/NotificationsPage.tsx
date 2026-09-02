@@ -24,7 +24,6 @@ interface Props {
   navigate: (section: string, articleSlug?: string) => void
 }
 
-// Ícone + cores por tipo de notificação (paleta da marca).
 const TYPE_META: Record<string, { Icon: typeof Bell; color: string; bg: string }> = {
   support_reply:        { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
   monthly_guidance:     { Icon: MessageCircle, color: 'text-forest-700', bg: 'bg-mint' },
@@ -61,8 +60,6 @@ export default function NotificationsPage({ user, navigate }: Props) {
     let active = true
     ;(async () => {
       setLoading(true); setLoadError(false)
-      // Escopo EXPLÍCITO: só as próprias (user_id = eu) + broadcasts (user_id NULL).
-      // Não confiar só no RLS — o admin tem policy FOR ALL e veria as de todos.
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -77,7 +74,6 @@ export default function NotificationsPage({ user, navigate }: Props) {
     return () => { active = false }
   }, [user])
 
-  // Só as notificações pessoais têm estado de leitura por usuário (broadcasts são compartilhados).
   const unreadOwn = items.filter(n => !n.is_read && n.user_id)
   const visible = items.filter(n =>
     filter === 'todas' ? true : filter === 'nao_lidas' ? (!n.is_read && !!n.user_id) : n.is_read,
@@ -86,9 +82,21 @@ export default function NotificationsPage({ user, navigate }: Props) {
   async function openNotif(n: Notif) {
     if (!n.is_read && n.user_id) {
       setItems(prev => prev.map(x => (x.id === n.id ? { ...x, is_read: true } : x)))
-      void supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', n.id)
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', n.id)
+        .eq('user_id', n.user_id)
+
+      if (error) {
+        setItems(prev => prev.map(x => (x.id === n.id ? { ...x, is_read: false } : x)))
+        console.warn('[notifications] não foi possível marcar como lida', error.message)
+      }
     }
-    // Destino corrigido pela matriz (conserta action_urls legados errados).
+
+    // A navegação acontece somente depois da persistência da leitura terminar.
+    // Assim o contador do cabeçalho, que recarrega ao trocar de view, já consulta
+    // o estado atualizado e o card não reaparece como pendente ao voltar.
     const dest = resolveNotifDestination(n.type, n.action_url)
     if (dest.startsWith('article:')) navigate('article', dest.slice('article:'.length))
     else if (dest) navigate(dest)
@@ -133,7 +141,6 @@ export default function NotificationsPage({ user, navigate }: Props) {
         )}
       </header>
 
-      {/* Filtros */}
       {!loading && !loadError && items.length > 0 && (
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
           {([['todas', 'Todas'], ['nao_lidas', 'Não lidas'], ['lidas', 'Lidas']] as const).map(([key, label]) => {
