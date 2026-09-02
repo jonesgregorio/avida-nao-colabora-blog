@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { EstudioBrief } from '../../lib/estudioPrompts'
-import { generateCaptions, generatePhrase, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, generateImage, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
+import { generateCaptions, generatePhrase, generateImagePrompt, generateWeekPlan, generatePerformanceReading, generateReelScript, generateInspirationAnalysis, generateCommunityComment, generateImage, generateFullArt, estudioAiMessage, type CaptionResult } from '../../lib/estudioAi'
 import { summarize as summarizeComunidade, type Interacao } from '../../lib/estudioCommunity'
 import { listInteracoes, createInteracao, setInteracaoStatus, deleteInteracao } from '../../lib/estudioCommunityStore'
 import { reelScriptToText, overlayTexts, type ReelScript } from '../../lib/estudioReel'
@@ -23,7 +23,7 @@ import { toPerfRows, summarize, type PerfRow } from '../../lib/estudioPerformanc
 import { normalizeHandle, type PerfilInspiracao } from '../../lib/estudioInspiration'
 import { listPerfis, createPerfil, updatePerfil, deletePerfil } from '../../lib/estudioInspirationStore'
 import { FORMAT_SPECS, type FormatSpec } from '../../lib/estudioFormats'
-import { snapshot, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
+import { snapshot, assetFromImage, downloadAsset, releaseAssets, type RenderedAsset } from '../../lib/estudioRender'
 import { buildZip, downloadBlob, slugForZip, type PackageDraft } from '../../lib/estudioPackage'
 import type { Publicacao, PublicacaoInput } from '../../lib/estudioPublications'
 import { createPublicacao, deletePublicacao, listPublicacoes, updatePublicacao, setPublicacaoStatus, savePublicacaoMetrics } from '../../lib/estudioPublicationsStore'
@@ -280,15 +280,19 @@ function Range({ label, value, min, max, step, onChange }: { label: string; valu
 }
 
 function ComporArte() {
-  const [tipoArte, setTipoArte] = useState<'frase' | 'pessoa'>('frase')
+  const [tipoArte, setTipoArte] = useState<'ia' | 'frase' | 'pessoa'>('ia')
   const [formatos, setFormatos] = useState<string[]>(['feed-45'])
   const [assunto, setAssunto] = useState('')
   const [frase, setFrase] = useState('')
+  const [comPessoa, setComPessoa] = useState(true)
   const [fotoUrl, setFotoUrl] = useState<string | null>(null)
   const [fotoModelo, setFotoModelo] = useState('')
   const [legenda, setLegenda] = useState('')
   const [hashtags, setHashtags] = useState('')
   const [assets, setAssets] = useState<RenderedAsset[]>([])
+  const [assetsFromIA, setAssetsFromIA] = useState(false)
+  const [iaProg, setIaProg] = useState('')
+  const [iaModelo, setIaModelo] = useState('')
   useEffect(() => () => releaseAssets(assets), [assets])
 
   const [photoAdj, setPhotoAdj] = useState<PhotoAdjust>({ shape: 'circle', zoom: 1, offsetX: 0, offsetY: 0, size: 1 })
@@ -315,7 +319,8 @@ function ComporArte() {
   const podeIA = contexto.length >= 8
 
   const draftLike = {
-    ideia: assunto.trim() || frase.trim(), objetivos: [], estilo: 'template', tipoArte,
+    ideia: assunto.trim() || frase.trim(), objetivos: [], estilo: 'template',
+    tipoArte: tipoArte === 'pessoa' ? 'pessoa' : 'frase',
     prompt: '', titulo: frase, formatos, legenda, hashtags, primeiroComentario: '',
     publishMode: 'manual', scheduledFor: '', status: 'rascunho', postUrl: '',
   } as Draft
@@ -386,7 +391,38 @@ function ComporArte() {
 
   const doisFrames = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
+  const podeGerarIA = assunto.trim().length >= 8
+  const iaCount = plan.length // 1 arte por formato
+  const custoIA = (iaCount * 0.04).toFixed(2)
+
+  async function gerarIA() {
+    if (!podeGerarIA) { setErr('Descreva em “O que a arte comunica” (pelo menos uma frase).'); return }
+    if (plan.length === 0) return
+    setBusy(true); setErr(''); setIaModelo('')
+    try {
+      releaseAssets(assets)
+      nodeInfo.current.clear()
+      const out: RenderedAsset[] = []
+      let idx = 0
+      for (const p of plan) {
+        idx += 1
+        setIaProg(`gerando ${idx}/${plan.length}… (pode levar até 2 min cada)`)
+        const img = await generateFullArt({ assunto: assunto.trim(), frase: frase.trim() || undefined, formato: p.id, comPessoa })
+        setIaModelo(img.model)
+        out.push(await assetFromImage(img.dataUrl, `${p.id}-ia-${Date.now()}.png`, p.spec))
+        setAssets([...out])
+      }
+      setAssetsFromIA(true)
+    } catch (e) {
+      setErr(estudioAiMessage(e))
+    } finally {
+      setIaProg('')
+      setBusy(false)
+    }
+  }
+
   async function gerar() {
+    setAssetsFromIA(false)
     if (!stageRef.current || plan.length === 0) return
     if (!frase.trim()) { setErr('Escreva a frase da arte (ou gere com a IA).'); return }
     setBusy(true); setErr('')
@@ -453,16 +489,21 @@ function ComporArte() {
       {/* 1 · tipo */}
       <div>
         <Field>Tipo de arte</Field>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {([['frase', 'Só frase'], ['pessoa', 'Frase + foto de pessoa']] as const).map(([id, label]) => (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {([
+            ['ia', 'Arte completa (IA)', 'A IA cria a peça inteira no padrão da marca'],
+            ['frase', 'Só frase', 'Moldura + título, texto sempre nítido'],
+            ['pessoa', 'Frase + foto', 'Moldura + foto no recorte, ajustável'],
+          ] as const).map(([id, label, hint]) => (
             <button
               key={id}
               onClick={() => setTipoArte(id)}
-              className={`rounded-xl border p-2.5 text-sm font-medium transition-colors ${
+              className={`rounded-xl border p-2.5 text-left transition-colors ${
                 tipoArte === id ? 'border-forest-600 bg-mint/30 text-forest-900' : 'border-line text-ink-soft hover:border-forest-300'
               }`}
             >
-              {label}
+              <span className="block text-sm font-medium">{label}</span>
+              <span className="mt-0.5 block text-[11px] text-ink-soft">{hint}</span>
             </button>
           ))}
         </div>
@@ -492,7 +533,11 @@ function ComporArte() {
 
       {/* 3 · sobre o que é (contexto da IA) */}
       <div>
-        <Field>Sobre o que é <span className="font-normal normal-case tracking-normal text-stone-400">— opcional, só pra IA ter contexto</span></Field>
+        <Field>
+          {tipoArte === 'ia'
+            ? <>O que a arte comunica <span className="font-normal normal-case tracking-normal text-stone-400">— obrigatório</span></>
+            : <>Sobre o que é <span className="font-normal normal-case tracking-normal text-stone-400">— opcional, só pra IA ter contexto</span></>}
+        </Field>
         <input
           value={assunto}
           onChange={e => setAssunto(e.target.value)}
@@ -501,18 +546,24 @@ function ComporArte() {
         />
       </div>
 
-      {/* 4 · frase */}
+      {/* 4 · frase / título */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <Field>Frase da arte</Field>
-          <button
-            onClick={escreverFrase}
-            disabled={fraseBusy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
-          >
-            {fraseBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-            {frase ? 'Reescrever com IA' : 'Escrever com IA'}
-          </button>
+          <Field>
+            {tipoArte === 'ia'
+              ? <>Título na arte <span className="font-normal normal-case tracking-normal text-stone-400">— opcional, a IA cria um se vazio</span></>
+              : 'Frase da arte'}
+          </Field>
+          {tipoArte !== 'ia' && (
+            <button
+              onClick={escreverFrase}
+              disabled={fraseBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-forest-200 bg-mint/40 px-2.5 py-1 text-xs font-medium text-forest-800 hover:bg-mint disabled:opacity-40"
+            >
+              {fraseBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {frase ? 'Reescrever com IA' : 'Escrever com IA'}
+            </button>
+          )}
         </div>
         <textarea
           value={frase}
@@ -522,6 +573,21 @@ function ComporArte() {
           className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-300"
         />
       </div>
+
+      {/* 4b · opções da arte por IA */}
+      {tipoArte === 'ia' && (
+        <div className="space-y-2 rounded-xl border border-line bg-paper/50 p-3 text-sm">
+          <label className="flex items-center gap-2 text-ink">
+            <input type="checkbox" checked={comPessoa} onChange={e => setComPessoa(e.target.checked)} className="h-4 w-4 rounded border-stone-300 text-forest-700" />
+            Incluir uma pessoa real na cena
+          </label>
+          <p className="text-[11px] text-ink-soft">
+            A IA monta a peça inteira (logo, título, mockup, cards, rodapé verde) no padrão oficial da marca.
+            Cada formato é uma imagem separada — <b>~US$ 0,04 por arte</b>, pode levar até 2 min cada. Comece com 1 ou 2 formatos.
+            O título e a logo podem sair imperfeitos (limite do gerador) — dá pra refazer.
+          </p>
+        </div>
+      )}
 
       {/* 5 · foto (só pessoa) */}
       {tipoArte === 'pessoa' && (
@@ -551,8 +617,8 @@ function ComporArte() {
         </div>
       )}
 
-      {/* 6 · prévia grande + ajustes ao vivo */}
-      {plan[0] && (
+      {/* 6 · prévia grande + ajustes ao vivo (só templates) */}
+      {tipoArte !== 'ia' && plan[0] && (
         <div className="border-t border-line pt-4">
           <Field>Prévia — ajuste antes de baixar</Field>
           <div className="flex flex-col gap-4 lg:flex-row">
@@ -613,13 +679,17 @@ function ComporArte() {
       {/* 7 · gerar */}
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <button
-          onClick={gerar}
-          disabled={busy || totalArtes === 0}
+          onClick={tipoArte === 'ia' ? gerarIA : gerar}
+          disabled={busy || plan.length === 0 || (tipoArte === 'ia' && !podeGerarIA)}
           className="inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-40"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          Gerar {totalArtes} {totalArtes === 1 ? 'arte' : 'artes'}
+          {tipoArte === 'ia'
+            ? `Gerar ${iaCount} ${iaCount === 1 ? 'arte' : 'artes'} com IA (~US$ ${custoIA})`
+            : `Gerar ${totalArtes} ${totalArtes === 1 ? 'arte' : 'artes'}`}
         </button>
+        {iaProg && <span className="text-xs text-forest-700">{iaProg}</span>}
+        {!iaProg && iaModelo && assetsFromIA && <span className="text-[11px] text-ink-soft">gerada com <code>{iaModelo}</code></span>}
         {err && <span className="text-xs text-red-600">{err}</span>}
       </div>
 
@@ -634,9 +704,11 @@ function ComporArte() {
                   <span className="font-mono text-ink-soft">{a.width}×{a.height}</span>
                   {!a.check.ok && <span className="inline-flex items-center gap-1 text-amber-600" title={a.check.problems.join('; ')}><AlertTriangle className="h-3.5 w-3.5" /> revisar</span>}
                   <button onClick={() => downloadAsset(a)} className="rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300">baixar</button>
-                  <button onClick={() => baixarAlta(a)} disabled={hiRes === a.filename} className="inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
-                    {hiRes === a.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : null} alta 2×
-                  </button>
+                  {!assetsFromIA && (
+                    <button onClick={() => baixarAlta(a)} disabled={hiRes === a.filename} className="inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-0.5 font-medium text-forest-800 hover:border-forest-300 disabled:opacity-40">
+                      {hiRes === a.filename ? <Loader2 className="h-3 w-3 animate-spin" /> : null} alta 2×
+                    </button>
+                  )}
                   <button onClick={() => remover(a.filename)} className="ml-auto text-ink-soft hover:text-red-600">remover</button>
                 </figcaption>
               </figure>
@@ -664,14 +736,16 @@ function ComporArte() {
         </div>
       </details>
 
-      {/* palco de render fora da tela */}
-      <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
-        {plan.map(p => p.slides.map((content, i) => (
-          <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
-            <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} photo={photoAdj} title={titleAdj} spec={p.spec} content={content} />
-          </div>
-        )))}
-      </div>
+      {/* palco de render fora da tela (só templates) */}
+      {tipoArte !== 'ia' && (
+        <div ref={stageRef} aria-hidden style={{ position: 'fixed', left: -100000, top: 0, opacity: 0, pointerEvents: 'none' }}>
+          {plan.map(p => p.slides.map((content, i) => (
+            <div key={`${p.id}-${i}`} data-fmt={p.id} data-slide={i}>
+              <BrandTemplate variant={tipoArte} photoUrl={fotoUrl} photo={photoAdj} title={titleAdj} spec={p.spec} content={content} />
+            </div>
+          )))}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { buildCaptionRequest, buildImagePromptRequest, buildPhraseRequest, type EstudioBrief } from './estudioPrompts'
+import { buildCaptionRequest, buildFullArtRequest, buildImagePromptRequest, buildPhraseRequest, type EstudioBrief, type FullArtOptions } from './estudioPrompts'
 import { buildWeekPlanRequest, parseWeekPlan, type BlogContext, type PlanItem } from './estudioPlan'
 import { buildPerfReadingRequest, type PerfRow } from './estudioPerformance'
 import { buildReelScriptRequest, parseReelScript, type ReelScript } from './estudioReel'
@@ -152,10 +152,10 @@ export interface GeneratedImage {
 }
 
 /** Gera uma imagem via Edge Function isolada (Gemini/Imagen). Custo por imagem. */
-export async function generateImage(prompt: string, opts: { formato?: string } = {}): Promise<GeneratedImage> {
+export async function generateImage(prompt: string, opts: { formato?: string; mode?: 'photo' | 'art' } = {}): Promise<GeneratedImage> {
   const aspect = opts.formato ? IMAGE_ASPECT[opts.formato] ?? '1:1' : '1:1'
   const { data, error } = await supabase.functions.invoke('estudio-generate-image', {
-    body: { prompt, aspect },
+    body: { prompt, aspect, mode: opts.mode ?? 'photo' },
   })
   if (error) throw new EstudioAiError(error.message)
   const d = data as { dataUrl?: string; model?: string; error?: string; message?: string; detail?: string; disponiveis?: string[] }
@@ -167,6 +167,11 @@ export async function generateImage(prompt: string, opts: { formato?: string } =
   if (d?.error === 'permission') throw new EstudioAiError(`O projeto Gemini não tem acesso aos modelos de imagem.${disp} ${d.detail ?? ''}`.trim())
   if (d?.error === 'sem_modelo_de_imagem') throw new EstudioAiError(`Nenhum modelo de imagem funcionou.${disp} Defina GEMINI_IMAGE_MODEL no Supabase com um deles.`.trim())
   throw new EstudioAiError(`Não foi possível gerar a imagem. ${d?.detail ?? d?.message ?? d?.error ?? ''}`.trim())
+}
+
+/** Arte completa pela IA (COMANDO MESTRE): a peça final, não só a foto. */
+export function generateFullArt(opts: FullArtOptions): Promise<GeneratedImage> {
+  return generateImage(buildFullArtRequest(opts), { formato: opts.formato, mode: 'art' })
 }
 
 export function estudioAiMessage(e: unknown): string {

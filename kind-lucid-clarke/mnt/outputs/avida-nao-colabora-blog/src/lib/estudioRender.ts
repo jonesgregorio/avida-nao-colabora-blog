@@ -61,6 +61,23 @@ export async function snapshot(
   }
 }
 
+/** Embrulha uma imagem pronta (ex.: arte completa gerada por IA) como RenderedAsset. */
+export async function assetFromImage(dataUrl: string, filename: string, spec: FormatSpec): Promise<RenderedAsset> {
+  const blob = await (await fetch(dataUrl)).blob()
+  const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => reject(new Error('imagem inválida'))
+    img.src = dataUrl
+  })
+  // A IA não devolve exatamente a dimensão pedida — valida só proporção e peso.
+  const check = validateAsset(
+    { ...spec, width: dims.w, height: dims.h },
+    { width: dims.w, height: dims.h, bytes: blob.size },
+  )
+  return { filename, blob, url: URL.createObjectURL(blob), width: dims.w, height: dims.h, bytes: blob.size, check }
+}
+
 export function downloadAsset(asset: RenderedAsset) {
   const a = document.createElement('a')
   a.href = asset.url

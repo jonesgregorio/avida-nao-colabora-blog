@@ -32,6 +32,14 @@ test('em caso de falha devolve o detalhe e os modelos disponíveis no projeto', 
   assert.match(fn, /disponiveis: found\.all\.filter/)
 })
 
+test('modo "art" muda o lead do Gemini (peça gráfica, não fotografia)', () => {
+  assert.match(fn, /const mode: Mode = body\.mode === 'art' \? 'art' : 'photo'/)
+  assert.match(fn, /mode === 'art'/)
+  assert.match(fn, /peça gráfica editorial completa/)
+  assert.match(ai, /generateFullArt/)
+  assert.match(ai, /mode: 'art'/)
+})
+
 test('estudioAi.generateImage mapeia formato e mostra os modelos disponíveis no erro', () => {
   assert.match(ai, /functions\.invoke\('estudio-generate-image'/)
   assert.match(ai, /'feed-45': '3:4'/)

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildImagePromptRequest, buildCaptionRequest } from '../src/lib/estudioPrompts.ts'
+import { buildImagePromptRequest, buildCaptionRequest, buildFullArtRequest, COMANDO_MESTRE } from '../src/lib/estudioPrompts.ts'
 
 const brief = {
   ideia: 'não precisar dar conta de tudo ao mesmo tempo',
@@ -53,6 +53,19 @@ test('nenhum prompt do Estúdio menciona Diário, humor ou marcadores emocionais
   assert.match(src, /NUNCA inclui trecho do Diário/)
   const p = buildCaptionRequest(brief) + buildImagePromptRequest(brief)
   assert.doesNotMatch(p, /diário|humor médio|marcador emocional/i)
+})
+
+test('arte completa por IA aplica o COMANDO MESTRE + o assunto e o formato', () => {
+  assert.match(COMANDO_MESTRE, /PADRÃO OFICIAL DE ARTES DO INSTAGRAM/)
+  assert.match(COMANDO_MESTRE, /Menos cobrança, mais escuta/) // referência de qualidade
+  const p = buildFullArtRequest({ assunto: 'não dar conta de tudo', frase: 'Menos cobrança', formato: 'feed-45', comPessoa: true })
+  assert.ok(p.startsWith(COMANDO_MESTRE))
+  assert.match(p, /proporção 4:5/)
+  assert.match(p, /não dar conta de tudo/)
+  assert.match(p, /"Menos cobrança"/)
+  assert.match(p, /Incluir uma pessoa real/)
+  const semPessoa = buildFullArtRequest({ assunto: 'x y z', comPessoa: false })
+  assert.match(semPessoa, /Sem pessoas/)
 })
 
 test('estudioAi reusa generate-content e não expõe chave no front', () => {

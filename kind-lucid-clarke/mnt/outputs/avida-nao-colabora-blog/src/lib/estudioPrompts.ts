@@ -120,6 +120,86 @@ export function buildImagePromptRequest(brief: EstudioBrief): string {
   ].filter(Boolean).join('\n')
 }
 
+// ── arte completa pela IA (COMANDO MESTRE — padrão oficial da marca) ────────
+//
+// Fixo no código, aplicado SEMPRE que o usuário pede "arte completa com IA".
+// A IA devolve a peça final (logo, título, mockup, cards, rodapé verde), no
+// estilo das artes oficiais ("Menos cobrança, mais escuta" etc.).
+
+export const COMANDO_MESTRE = `COMANDO MESTRE — PADRÃO OFICIAL DE ARTES DO INSTAGRAM | A VIDA NÃO COLABORA
+Crie uma arte para o Instagram da marca A Vida Não Colabora, seguindo rigorosamente o padrão visual oficial da marca e das artes de referência já aprovadas.
+
+IDENTIDADE VISUAL
+- Usar a logo oficial de A Vida Não Colabora, com o coração/folha correto; nome "A Vida Não Colabora" integrado à composição; "BLOG" pode aparecer quando combinar.
+- Paleta: verde-floresta profundo, creme, off-white, bege quente, tons naturais complementares. Nunca cores vibrantes ou que destoem da identidade.
+
+ESTÉTICA
+Editorial premium, elegante, contemporânea, humana, acolhedora. Emocional sem parecer clínica. Minimalista mas visualmente rica. Aparência de campanha de uma marca consolidada de bem-estar e autocuidado. Não pode parecer template genérico, estética Canva básica nem página motivacional.
+
+FOTOGRAFIA COM PESSOAS
+Pessoas reais e extremamente fotorrealistas quando o conceito pedir presença humana. Homens e mulheres adultos. Expressões naturais coerentes com o assunto — evitar poses artificiais e sorrisos forçados. Situações cotidianas: trabalhando, descansando, escrevendo, usando celular, tomando café, refletindo, respirando, no sofá, diante do computador. Ambientes domésticos aconchegantes. Iluminação natural, quente e cinematográfica. Tons de pele naturais. Roupas neutras e sofisticadas. Madeira, plantas, cadernos, livros, café e luz residencial ajudam a criar atmosfera.
+
+COMPOSIÇÃO
+Não fazer só "foto + texto": fotografia, textos, elementos gráficos e interfaces formam UMA composição editorial integrada. Recursos: divisões orgânicas entre foto e conteúdo, degradês sutis, áreas claras para legibilidade, sobreposição controlada, curvas, faixas, blocos, cards, mockups de celular, elementos de interface, ícones minimalistas, sombras suaves. O layout varia entre publicações — não repetir sempre a mesma disposição.
+
+TIPOGRAFIA
+Títulos grandes em serifada editorial elegante, verde-escuro predominante; palavras específicas podem ganhar itálico ou peso diferente. Textos secundários menores e muito legíveis. Hierarquia forte: 1) marca; 2) título; 3) mensagem complementar; 4) recursos/benefícios; 5) assinatura institucional.
+
+ELEMENTOS DE PRODUTO (quando a publicação mostrar uma funcionalidade)
+Smartphone realista com interface coerente com A Vida Não Colabora; cards de funcionalidades; pequenos gráficos; relatórios; diário emocional; check-in; mapa emocional; conteúdos; recomendações. A interface deve parecer um produto digital real e profissional, não futurista nem genérico.
+
+CARDS
+Fundo creme/off-white, cantos arredondados, sombra muito suave, ícone branco/claro sobre bloco verde, pequeno título e descrição curta.
+
+RODAPÉ / ASSINATURA
+Quando adequado, área verde-floresta profunda na parte inferior (ondulada, curva, orgânica ou bloco editorial) com a identidade da marca e uma assinatura curta como "Seu espaço de cuidado".
+
+LINGUAGEM VISUAL
+Transmitir acolhimento + vida real + autocuidado + reflexão + organização emocional + tecnologia humana. Não parecer hospital, clínica psicológica nem app médico; não parecer página motivacional genérica.
+
+EVITAR ABSOLUTAMENTE
+Templates genéricos; áreas vazias sem propósito; estética Canva; excesso de elementos; cores fora da identidade; pessoas com aparência artificial; interfaces futuristas; ícones aleatórios; excesso de texto; fontes decorativas; degradês coloridos; visual corporativo frio; visual hospitalar; clichês motivacionais; redesenhar a logo oficial.
+
+REFERÊNCIA DE QUALIDADE
+O resultado precisa parecer da mesma coleção de: "Menos cobrança, mais escuta"; "Seu cuidado pode começar hoje"; "Seus padrões também contam uma história"; "Quando o dia pesa demais"; "Tem dias em que até o simples pesa". Mesma marca + mesma paleta + mesma sofisticação + mesma linguagem fotográfica + mesma hierarquia editorial + mesma sensação de acolhimento, com composição nova e adequada ao assunto.`
+
+const ART_FORMATO: Record<string, string> = {
+  'feed-45': 'Arte vertical para Feed do Instagram, proporção 4:5.',
+  carrossel: 'Slide de carrossel vertical para Feed, proporção 4:5.',
+  quiz: 'Slide de quiz vertical para Feed, proporção 4:5.',
+  'feed-11': 'Arte quadrada para Feed do Instagram, proporção 1:1.',
+  story: 'Arte vertical para Stories, proporção 9:16 — respiro no topo e na base (a interface cobre essas faixas).',
+  'reel-capa': 'Capa de Reels vertical, proporção 9:16 — informação principal no quadrado central.',
+  destaque: 'Capa de destaque vertical, proporção 9:16.',
+}
+
+export interface FullArtOptions {
+  assunto: string
+  frase?: string
+  formato?: string
+  comPessoa?: boolean
+}
+
+/** Monta o pedido de imagem para "arte completa com IA": COMANDO MESTRE + o assunto específico. */
+export function buildFullArtRequest(opts: FullArtOptions): string {
+  const formato = (opts.formato && ART_FORMATO[opts.formato]) || 'Arte vertical para Feed do Instagram, proporção 4:5.'
+  return [
+    COMANDO_MESTRE,
+    '',
+    'FORMATO DESTA ARTE',
+    `- ${formato}`,
+    '- Composição para redes sociais, leitura clara no celular. Peça final de campanha, não template.',
+    '',
+    'ASSUNTO DESTA ARTE',
+    `- Comunicar: ${opts.assunto.trim()}`,
+    opts.frase?.trim() ? `- Título/frase a exibir na arte (grande, serifada, verde-escuro): "${opts.frase.trim()}"` : '- Definir um título curto e editorial coerente com o assunto.',
+    opts.comPessoa
+      ? '- Incluir uma pessoa real fotorrealista numa situação cotidiana coerente com o assunto.'
+      : '- Sem pessoas: usar cena de interior aconchegante e/ou mockup de celular com a interface da marca.',
+    '- Variar enquadramento, posição da pessoa/mockup, cards e cenário em relação às artes anteriores, mantendo a identidade constante.',
+  ].join('\n')
+}
+
 // ── frase da arte (o texto grande dentro da imagem) ─────────────────────────
 
 export function buildPhraseRequest(brief: EstudioBrief): string {

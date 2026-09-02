@@ -2314,7 +2314,10 @@
         "npm:tailwindcss@^3.4.4",
         "npm:typescript@^5.5.3",
         "npm:vite@^6.4.3"
-      ]
+      ],
+      "overrides": {
+        "browserslist": "^4.28.7"
+      }
     }
   }
 }

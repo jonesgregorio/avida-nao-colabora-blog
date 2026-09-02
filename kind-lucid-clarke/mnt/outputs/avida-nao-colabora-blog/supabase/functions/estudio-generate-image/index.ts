@@ -35,6 +35,7 @@ const FALLBACK_GEMINI = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-previ
 
 interface ModelInfo { name?: string; supportedGenerationMethods?: string[] }
 interface Attempt { dataUrl?: string; detail?: string }
+type Mode = 'photo' | 'art'
 
 async function discover(key: string, signal: AbortSignal): Promise<{ imagen: string[]; gemini: string[]; all: string[] }> {
   try {
@@ -53,7 +54,7 @@ async function discover(key: string, signal: AbortSignal): Promise<{ imagen: str
   }
 }
 
-async function tryImagen(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal): Promise<Attempt> {
+async function tryImagen(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal, _mode: Mode): Promise<Attempt> {
   const res = await fetch(`${BASE}/${model}:predict?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,19 +69,16 @@ async function tryImagen(model: string, key: string, prompt: string, aspect: str
   return { dataUrl: `data:${pred?.mimeType || 'image/png'};base64,${b64}` }
 }
 
-async function tryGemini(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal): Promise<Attempt> {
+async function tryGemini(model: string, key: string, prompt: string, aspect: string, signal: AbortSignal, mode: Mode): Promise<Attempt> {
+  const lead = mode === 'art'
+    ? `Crie a imagem final descrita a seguir (peça gráfica editorial completa, com tipografia e elementos de layout). Proporção ${aspect}.\n\n`
+    : `Gere UMA FOTOGRAFIA realista (não desenho, não ilustração, não cartoon, não 3D). Proporção ${aspect}.\n\n`
   const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text:
-            'Gere UMA FOTOGRAFIA realista (não desenho, não ilustração, não cartoon, não 3D). ' +
-            `Proporção ${aspect}.\n\n${prompt}`,
-        }],
-      }],
+      contents: [{ parts: [{ text: lead + prompt }] }],
       generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
     }),
   })
@@ -101,7 +99,7 @@ Deno.serve(async (req: Request) => {
   const auth = await requireAdminAal2(req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
-  let body: { prompt?: string; aspect?: string }
+  let body: { prompt?: string; aspect?: string; mode?: string }
   try {
     body = await req.json()
   } catch {
@@ -111,6 +109,7 @@ Deno.serve(async (req: Request) => {
   const prompt = (body.prompt ?? '').trim()
   if (prompt.length < 8) return json({ error: 'prompt vazio' }, 400)
   const aspect = ASPECTS.has(body.aspect ?? '') ? body.aspect! : '1:1'
+  const mode: Mode = body.mode === 'art' ? 'art' : 'photo'
 
   const key = Deno.env.get('GEMINI_API_KEY')
   if (!key) return json({ error: 'no_key', message: 'GEMINI_API_KEY não configurada no servidor' })
@@ -137,7 +136,7 @@ Deno.serve(async (req: Request) => {
       controller.signal.addEventListener('abort', abortThis)
       const perTimer = setTimeout(() => perTry.abort(), PER_TRY_MS)
       try {
-        const r = await run(model, key, prompt, aspect, perTry.signal)
+        const r = await run(model, key, prompt, aspect, perTry.signal, mode)
         if (r.dataUrl) return json({ dataUrl: r.dataUrl, model })
         if (r.detail) tried.push(r.detail)
       } catch (err) {
