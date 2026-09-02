@@ -307,9 +307,9 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
         description: continuity
           ? 'Há um ponto do seu histórico recente que pode ajudar a começar sem partir do zero. Você também pode ignorá-lo e registrar qualquer outra coisa.'
           : 'Comece pelo que está acontecendo agora. Não precisa explicar tudo nem chegar a nenhuma conclusão.',
-        action: 'Fazer check-in',
+        action: null,
         target: 'diary',
-        secondary: 'Quero escrever',
+        secondary: 'Quero escrever no diário',
       }
     : stats.todayReflections === 0
       ? {
@@ -462,9 +462,11 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               <h2 className="font-serif text-2xl text-forest-900 mt-1">{nextStep.title}</h2>
               <p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-2xl">{nextStep.description}</p>
               <div className="mt-5 flex flex-wrap gap-2.5">
-                <button onClick={() => onNavigate(nextStep.target)} className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">
-                  {nextStep.action} <ArrowRight className="w-4 h-4" />
-                </button>
+                {nextStep.action && (
+                  <button onClick={() => onNavigate(nextStep.target)} className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">
+                    {nextStep.action} <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
                 <button onClick={() => onNavigate(nextSecondaryTarget)} className="inline-flex items-center gap-2 border border-line bg-white hover:bg-mint/40 text-forest-900 text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">
                   {nextStep.secondary}
                 </button>
