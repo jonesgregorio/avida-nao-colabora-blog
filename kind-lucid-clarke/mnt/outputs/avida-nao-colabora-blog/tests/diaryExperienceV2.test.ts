@@ -26,7 +26,7 @@ test('diário v2 prioriza escrita em coluna única, foco e detalhes progressivos
   assert.equal(diary.includes('Que bom ter você aqui.'), false)
 })
 
-test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom sheet', () => {
+test('emoções começam compactas e detalhes opcionais abrem em camada responsiva', () => {
   assert.match(diary, /<DiaryMoodSelector/)
   assert.match(diary, /<DiaryDetailsDrawer/)
   assert.match(moodSelector, /FEATURED_MOOD_KEYS/)
@@ -38,9 +38,12 @@ test('emoções começam compactas e detalhes opcionais abrem como drawer/bottom
   assert.match(moodSelector, /Quer acrescentar algo sobre este momento\?/)
   assert.match(detailsDrawer, /role="dialog"/)
   assert.match(detailsDrawer, /aria-modal="true"/)
-  assert.match(detailsDrawer, /bottom-0/)
-  assert.match(detailsDrawer, /md:right-0/)
-  assert.match(detailsDrawer, /Concluir detalhes/)
+  assert.match(detailsDrawer, /fixed inset-x-3 bottom-3/)
+  assert.match(detailsDrawer, /md:left-1\/2/)
+  assert.match(detailsDrawer, /md:-translate-x-1\/2/)
+  assert.doesNotMatch(detailsDrawer, /md:right-0/)
+  assert.match(detailsDrawer, /Informações do registro/)
+  assert.match(detailsDrawer, /Voltar ao meu registro/)
 })
 
 test('ajuda e organização ficam recolhidas para não competir com a escrita', () => {
