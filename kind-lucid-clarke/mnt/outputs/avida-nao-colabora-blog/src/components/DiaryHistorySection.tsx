@@ -17,13 +17,20 @@ function filterLabel(filter: DiaryHistoryFilter){ return filter==='all'?'Tudo':f
 export default function DiaryHistorySection(p: Props){
  const {sectionRef,entries,monthRows,today,exportPdfEnabled,exporting,filter,periodFilter,expandedId,loading,loadingMore,hasMore,getMoodMeta,onExport,onFilterChange,onPeriodFilterChange,onExpandedChange,onRefresh,onLoadMore}=p
  const monthKey=today.slice(0,7); const activeDays=new Set(monthRows.map(e=>String(e.date||'').slice(0,10)).filter(Boolean)).size; const monthMoments=monthRows.length; const monthCheckins=monthRows.filter(e=>e.entry_type==='checkin').length; const daysInMonth=new Date(Number(monthKey.slice(0,4)),Number(monthKey.slice(5,7)),0).getDate(); const firstWeekday=new Date(`${monthKey}-01T12:00:00`).getDay(); const monthTitle=new Date(`${monthKey}-01T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
- const moodByDay=useMemo(()=>{const map=new Map<string,string>(); for(const row of monthRows){if(hasMoodValue(row.mood))map.set(String(row.date||'').slice(0,10),getMoodMeta(row.mood).emoji)} return map},[monthRows,getMoodMeta])
- const groupedHistory=useMemo(()=>{const map=new Map<string,DiaryHistoryEntry[]>(); for(const entry of entries){const date=String(entry.date||'').slice(0,10);map.set(date,[...(map.get(date)||[]),entry])}return[...map.entries()]},[entries])
+ const moodByDay = useMemo(() => {
+   const map = new Map<string, string>()
+   for (const row of monthRows) {
+     if (!hasMoodValue(row.mood)) continue
+     map.set(String(row.date || '').slice(0, 10), getMoodMeta(row.mood).emoji)
+   }
+   return map
+ }, [monthRows, getMoodMeta])
+ const groupedHistory = useMemo(()=>{const map=new Map<string,DiaryHistoryEntry[]>(); for(const entry of entries){const date=String(entry.date||'').slice(0,10);map.set(date,[...(map.get(date)||[]),entry])}return[...map.entries()]},[entries])
  return <section ref={sectionRef}>
   <div className="rounded-[2rem] border border-[#d8cfbd] bg-[#efe8d8] p-3 sm:p-5 shadow-[0_18px_45px_rgba(53,69,54,0.08)] mb-5">
    <div className="rounded-[1.5rem] border border-[#e3dac8] bg-[#fffdf8] overflow-hidden">
     <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-     <div className="p-5 sm:p-7 lg:border-r border-[#ddd3bf] relative"><span className="hidden lg:block absolute -right-2 top-10 bottom-10 w-4 rounded-full border border-[#b9aa8c] bg-[#ded2b8]"/><p className="text-xs uppercase tracking-[0.14em] text-forest-600 capitalize">Agenda do diário · {monthTitle}</p><h2 className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Folheie seus dias com calma.</h2><p className="text-sm text-ink-soft mt-2">{activeDays} dias com presença · {monthMoments} registros · {monthCheckins} check-ins. Sem sequência para quebrar.</p>
+     <div className="p-5 sm:p-7 lg:border-r border-[#ddd3bf] relative"><span className="hidden lg:block absolute -right-2 top-10 bottom-10 w-4 rounded-full border border-[#b9aa8c] bg-[#ded2b8]"/><p className="text-xs uppercase tracking-[0.14em] text-forest-600 capitalize">Agenda do diário · {monthTitle}</p><h2 className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Sua história deste mês, até aqui</h2><p className="text-sm text-ink-soft mt-2">Folheie seus dias com calma. {activeDays} dias com presença · {monthMoments} registros · {monthCheckins} check-ins. Sem sequência para quebrar.</p>
       <div className="mt-5 grid grid-cols-7 gap-1.5">{['D','S','T','Q','Q','S','S'].map((d,i)=><span key={`${d}-${i}`} className="text-[9px] text-center text-ink-soft">{d}</span>)}{Array.from({length:firstWeekday}).map((_,i)=><span key={`b-${i}`}/>)}{Array.from({length:daysInMonth}).map((_,i)=>{const day=i+1,date=`${monthKey}-${String(day).padStart(2,'0')}`,emoji=moodByDay.get(date),future=date>today;return <div key={date} className={`aspect-square rounded-full flex flex-col items-center justify-center text-[10px] ${date===today?'bg-forest-900 text-white':future?'opacity-25 text-ink-soft':emoji?'bg-mint/70 text-forest-900':'text-ink-soft hover:bg-paper-soft'}`}><span>{day}</span>{emoji&&date!==today&&<span className="text-xs leading-none">{emoji}</span>}</div>})}</div>
       <div className="mt-6 rounded-2xl border border-[#e8dfcf] bg-[#faf6ec] p-4"><p className="font-serif text-lg text-forest-900">“Não é sobre ter um dia perfeito.”</p><p className="text-sm text-ink-soft mt-1">É sobre conseguir voltar e reconhecer o que você viveu.</p></div>
      </div>
