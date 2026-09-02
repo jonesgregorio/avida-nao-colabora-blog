@@ -30,40 +30,50 @@
     scroll-snap-stop: always;
   }
 
-  /* The first mobile page explicitly teaches the horizontal gesture. It is a
-     visual-only cue and never exists at desktop widths. */
+  /* The old page-bottom cue is explicitly disabled. The live cue below is now
+     attached to the "Meu diário" row, so it follows that label on every phone. */
   div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child::after,
   div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child::after {
+    content: none;
+  }
+
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child > p:nth-of-type(2),
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child > p:nth-of-type(2) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child > p:nth-of-type(2)::after,
+  div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child > p:nth-of-type(2)::after {
     content: 'Deslize para o lado para escrever  →';
-    position: absolute;
-    left: 50%;
-    bottom: 96px;
-    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
     width: max-content;
-    max-width: calc(100% - 32px);
-    padding: 9px 14px;
+    max-width: 100%;
+    padding: 6px 10px;
     border: 1px solid rgba(44, 86, 67, .18);
     border-radius: 999px;
     background: rgba(255, 253, 248, .94);
-    box-shadow: 0 8px 22px rgba(53, 69, 54, .12);
+    box-shadow: 0 6px 16px rgba(53, 69, 54, .10);
     color: #315c49;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: .01em;
-    text-align: center;
+    text-transform: none;
     pointer-events: none;
-    z-index: 35;
     animation: diary-swipe-cue 1.8s ease-in-out infinite;
   }
 
   @keyframes diary-swipe-cue {
-    0%, 100% { transform: translateX(-50%); }
-    50% { transform: translateX(calc(-50% + 8px)); }
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(7px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child::after,
-    div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child::after {
+    div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child > p:nth-of-type(2)::after,
+    div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child > p:nth-of-type(2)::after {
       animation: none;
     }
   }
