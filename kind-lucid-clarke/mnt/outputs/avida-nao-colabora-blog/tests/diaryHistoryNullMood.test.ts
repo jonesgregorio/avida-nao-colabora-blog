@@ -7,7 +7,8 @@ const history = readFileSync(new URL('../src/components/DiaryHistorySection.tsx'
 test('histórico não inventa humor para Diário salvo sem marcador (Fase 19R.B)', () => {
   assert.match(history, /function hasMoodValue/)
   assert.match(history, /if \(!hasMoodValue\(row\.mood\)\) continue/)
-  assert.match(history, /meta=hasMoodValue\(entry\.mood\)\?getMoodMeta\(entry\.mood\):null/)
-  assert.match(history, /meta\?\.emoji\|\|'✎'/)
-  assert.match(history, /return mood\?`Registro · \$\{mood\}`:'Registro'/)
+  assert.match(history, /const hasMood = hasMoodValue\(entry\.mood\)/)
+  assert.match(history, /const meta = hasMood \? getMoodMeta\(entry\.mood\) : null/)
+  assert.match(history, /meta\?\.emoji \|\| '✎'/)
+  assert.match(history, /return mood \? `Registro · \$\{mood\}` : 'Registro'/)
 })
