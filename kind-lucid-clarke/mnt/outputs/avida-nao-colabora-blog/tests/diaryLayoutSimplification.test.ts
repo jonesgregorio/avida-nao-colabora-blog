@@ -11,10 +11,13 @@ test('escrita do diário não volta a ter sidebar ou grid de duas colunas', () =
   assert.doesNotMatch(diary, /lg:grid-cols-\[minmax\(0,1fr\)_280px\]/)
 })
 
-test('detalhes ficam fora do fluxo principal em drawer responsivo', () => {
+test('detalhes ficam fora do fluxo principal em camada responsiva', () => {
   const drawer = read('src/components/DiaryDetailsDrawer.tsx')
-  assert.match(drawer, /fixed inset-x-0 bottom-0/)
-  assert.match(drawer, /md:right-0/)
+  assert.match(drawer, /fixed inset-x-3 bottom-3/)
+  assert.match(drawer, /md:left-1\/2/)
+  assert.match(drawer, /md:top-1\/2/)
+  assert.match(drawer, /md:-translate-x-1\/2/)
+  assert.doesNotMatch(drawer, /md:right-0/)
   assert.match(drawer, /role="dialog"/)
   assert.match(drawer, /useModalA11y/)
 })
