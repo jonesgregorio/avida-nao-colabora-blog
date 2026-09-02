@@ -91,11 +91,15 @@ async function openEveryOptionalLayer(page) {
   await expect(page.getByLabel('Humor')).toHaveCount(0)
   await expect(page.getByLabel('Energia')).toBeVisible()
   await expect(page.getByLabel('Sono')).toBeVisible()
-  await expect(page.getByText('Quais sentimentos apareceram?')).toBeVisible()
-  await page.getByRole('button', { name: /Quer acrescentar contexto/i }).click()
+  await expect(page.getByText('Sentimentos principais')).toBeVisible()
+  await page.getByRole('button', { name: /Contexto do dia/i }).click()
   await expect(page.getByText('Onde isso apareceu?')).toBeVisible()
-  await page.getByRole('button', { name: /Sinais mais específicos/i }).click()
-  await expect(page.getByText('Gatilhos que você reconhece')).toBeVisible()
+  await page.getByRole('button', { name: /O que você precisa agora/i }).click()
+  await expect(page.getByText('O que faria sentido agora?')).toBeVisible()
+  await page.getByRole('button', { name: /O que pode ajudar um pouco/i }).click()
+  await expect(page.getByText('Possibilidades para este momento')).toBeVisible()
+  await expect(page.getByText('Aprofundar sinais')).toHaveCount(0)
+  await expect(page.getByText('Gatilhos que você reconhece')).toHaveCount(0)
 }
 
 test('Diário Plus mantém somente um campo aberto de escrita mesmo com todos os detalhes abertos', async ({ page }) => {
