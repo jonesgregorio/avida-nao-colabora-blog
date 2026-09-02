@@ -13,7 +13,7 @@ test('detalhes do relatório continuam dentro da mesma linguagem visual da retro
   assert.match(report, /Histórico/)
   assert.match(report, /PDF e exportação/)
   assert.match(report, /data-report-details-surface/)
-  assert.match(report, /Voltar à retrospectiva/)
+  assert.match(report, /Voltar ao resumo/)
   assert.match(report, /onBack=\{\(\) => setShowDetails\(false\)\}/)
 })
 
