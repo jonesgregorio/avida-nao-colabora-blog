@@ -6,14 +6,15 @@ const estudio = readFileSync(new URL('../src/components/admin/AdminEstudio.tsx',
 const fn = readFileSync(new URL('../supabase/functions/estudio-generate-image/index.ts', import.meta.url), 'utf8')
 const ai = readFileSync(new URL('../src/lib/estudioAi.ts', import.meta.url), 'utf8')
 
-test('a Edge Function tem mais folga de tempo e teto por tentativa', () => {
-  assert.match(fn, /const TIMEOUT_MS = 150_000/)
-  assert.match(fn, /const PER_TRY_MS = 70_000/)
-  assert.match(fn, /\.slice\(0, 4\)/)
-  // só Gemini Image quando não há modelo fixo (Imagen trava neste projeto)
+test('a Edge Function cabe no tempo do proxy (~100s) e tem teto por tentativa', () => {
+  assert.match(fn, /const TIMEOUT_MS = 92_000/)
+  assert.match(fn, /const PER_TRY_MS = 88_000/)
+  // modo "art" tenta 1 modelo só; "photo" pode tentar mais
+  assert.match(fn, /mode === 'art' \? 1 : 4/)
   assert.match(fn, /\[\.\.\.new Set\(\[\.\.\.found\.gemini, \.\.\.FALLBACK_GEMINI\]\)\]/)
   assert.match(fn, /setTimeout\(\(\) => perTry\.abort\(\), PER_TRY_MS\)/)
   assert.match(ai, /d\?\.error === 'timeout'/)
+  assert.match(ai, /failed to fetch/i) // mensagem amigável quando o proxy corta
 })
 
 test('as imagens geradas abrem em tela cheia ao clicar (ZoomableImg)', () => {

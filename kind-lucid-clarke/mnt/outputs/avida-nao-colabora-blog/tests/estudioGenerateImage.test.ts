@@ -28,7 +28,7 @@ test('tenta Imagen (:predict) e Gemini Image (:generateContent); secret define m
 })
 
 test('em caso de falha devolve o detalhe e os modelos disponíveis no projeto', () => {
-  assert.match(fn, /error: quota \? 'quota' : permission \? 'permission' : 'sem_modelo_de_imagem'/)
+  assert.match(fn, /error: quota \? 'quota' : permission \? 'permission' : noImage \? 'no_image' : 'sem_modelo_de_imagem'/)
   assert.match(fn, /disponiveis: found\.all\.filter/)
 })
 

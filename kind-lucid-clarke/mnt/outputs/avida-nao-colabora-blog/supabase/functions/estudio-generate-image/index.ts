@@ -24,8 +24,12 @@ function json(body: unknown, status = 200): Response {
 }
 
 const ASPECTS = new Set(['1:1', '9:16', '3:4', '4:3', '16:9'])
-const TIMEOUT_MS = 150_000 // teto total (limite de parede da Edge Function)
-const PER_TRY_MS = 70_000 // teto por modelo — um modelo travado não consome tudo
+// O proxy (Cloudflare) na frente da Edge Function corta a conexão perto de
+// 100s com um 524 SEM cabeçalho CORS — o navegador vê "Failed to fetch". Por
+// isso o teto total fica abaixo disso: assim a função devolve um JSON de
+// timeout limpo antes do corte.
+const TIMEOUT_MS = 92_000
+const PER_TRY_MS = 88_000 // teto por modelo
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 // Candidatos conhecidos, usados se o ListModels não achar nada útil.
@@ -122,10 +126,12 @@ Deno.serve(async (req: Request) => {
     const configured = (Deno.env.get('GEMINI_IMAGE_MODEL') || '').trim()
 
     // Se o secret define um modelo, usa só ele. Senão: só Gemini Image (os
-    // modelos Imagen dão 404/travam neste projeto e consomem o tempo). Máx 4.
+    // modelos Imagen dão 404/travam neste projeto e consomem o tempo).
+    // No modo "art" a peça é pesada — 1 tentativa só, pra caber no tempo do
+    // proxy (~100s). No modo "photo" pode tentar mais modelos.
     const order = configured
       ? [configured]
-      : [...new Set([...found.gemini, ...FALLBACK_GEMINI])].slice(0, 4)
+      : [...new Set([...found.gemini, ...FALLBACK_GEMINI])].slice(0, mode === 'art' ? 1 : 4)
 
     for (const model of order) {
       const isImagen = model.startsWith('imagen')
@@ -151,8 +157,10 @@ Deno.serve(async (req: Request) => {
     const detail = tried.join(' | ').slice(0, 700)
     const quota = /\b429\b|RESOURCE_EXHAUSTED/i.test(detail)
     const permission = /\b403\b|PERMISSION_DENIED/i.test(detail)
+    // modelo respondeu, mas só com texto (recusou montar a imagem)
+    const noImage = /resposta sem imagem/i.test(detail) && !quota && !permission
     return json({
-      error: quota ? 'quota' : permission ? 'permission' : 'sem_modelo_de_imagem',
+      error: quota ? 'quota' : permission ? 'permission' : noImage ? 'no_image' : 'sem_modelo_de_imagem',
       detail,
       disponiveis: found.all.filter(n => /image|imagen|vision|flash/i.test(n)).slice(0, 20),
     })

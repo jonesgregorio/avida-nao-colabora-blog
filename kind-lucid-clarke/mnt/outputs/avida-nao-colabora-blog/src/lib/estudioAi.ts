@@ -157,12 +157,19 @@ export async function generateImage(prompt: string, opts: { formato?: string; mo
   const { data, error } = await supabase.functions.invoke('estudio-generate-image', {
     body: { prompt, aspect, mode: opts.mode ?? 'photo' },
   })
-  if (error) throw new EstudioAiError(error.message)
+  if (error) {
+    const m = error.message || ''
+    if (/failed to fetch|networkerror|load failed/i.test(m)) {
+      throw new EstudioAiError('A conexão caiu durante a geração (a arte completa é pesada e pode estourar o tempo do servidor). Tente de novo, um formato por vez.')
+    }
+    throw new EstudioAiError(m || 'Falha ao chamar a geração de imagem.')
+  }
   const d = data as { dataUrl?: string; model?: string; error?: string; message?: string; detail?: string; disponiveis?: string[] }
   if (d?.dataUrl) return { dataUrl: d.dataUrl, model: d.model ?? '' }
   if (d?.error === 'no_key') throw new EstudioAiError('Geração de imagem não está configurada no servidor.')
   if (d?.error === 'quota') throw new EstudioAiError('Cota de imagem do Gemini atingida. Tente mais tarde.')
-  if (d?.error === 'timeout') throw new EstudioAiError('A geração demorou demais e foi cancelada. Tente de novo.')
+  if (d?.error === 'timeout') throw new EstudioAiError('A geração demorou demais e foi cancelada. Tente de novo (arte completa: um formato por vez).')
+  if (d?.error === 'no_image') throw new EstudioAiError('O Gemini respondeu sem imagem — ele costuma travar em artes com muito texto/layout. Tente de novo, simplifique o assunto, ou use o tipo “Frase + foto”.')
   const disp = d?.disponiveis?.length ? ` Modelos de imagem no seu projeto: ${d.disponiveis.join(', ')}.` : ''
   if (d?.error === 'permission') throw new EstudioAiError(`O projeto Gemini não tem acesso aos modelos de imagem.${disp} ${d.detail ?? ''}`.trim())
   if (d?.error === 'sem_modelo_de_imagem') throw new EstudioAiError(`Nenhum modelo de imagem funcionou.${disp} Defina GEMINI_IMAGE_MODEL no Supabase com um deles.`.trim())
