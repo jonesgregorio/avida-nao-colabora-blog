@@ -85,8 +85,9 @@ export function useAuth() {
     if (waitForProfile) {
       await profilePromise
     } else {
-      // O perfil complementa a sessão, mas não pode bloquear o shell inteiro.
-      // Uma lentidão no PostgREST/Auth não deve deixar o blog preso no loader.
+      // Usado apenas em fluxos que já possuem shell estável. No bootstrap da
+      // aplicação o perfil precisa ser resolvido antes de liberar `loading`,
+      // senão App.tsx confunde profile=null temporário com perfil inexistente.
       void profilePromise.catch(() => setProfile(null))
     }
     return true
@@ -116,9 +117,10 @@ export function useAuth() {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         if (!active) return
-        // Assim que a sessão é conhecida, libera o shell; o perfil termina em
-        // segundo plano e continua sendo atualizado normalmente.
-        const accepted = await acceptConfirmedUser(session?.user ?? null, false)
+        // Sessão autenticada e perfil precisam formar um único estado de boot.
+        // Só liberamos o shell depois que fetchProfile termina; assim nunca há
+        // um frame com user presente + profile null apenas por carregamento.
+        const accepted = await acceptConfirmedUser(session?.user ?? null)
         if (accepted) {
           // Registra o acesso (096). A RPC ignora se foi tocado há < 1h e nunca
           // quebra o boot — o motor de lembretes usa isso para não e-mailar quem
