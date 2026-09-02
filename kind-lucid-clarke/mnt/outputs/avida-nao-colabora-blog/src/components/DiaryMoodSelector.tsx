@@ -21,25 +21,22 @@ export default function DiaryMoodSelector({ selectedKey, otherLabel, onSelect, o
   const moods = useMemo(() => expanded ? MOODS : MOODS.filter(mood => FEATURED_MOOD_KEYS.has(mood.key)), [expanded])
 
   if (optional && !optionalOpen && !selectedKey) {
-    return <div className="mb-5">
+    return <div className="mb-0">
       <button
         type="button"
         onClick={() => setOptionalOpen(true)}
-        className="w-full rounded-2xl border border-line bg-white/70 px-4 py-3.5 text-left hover:border-forest-200 hover:bg-white transition-colors"
+        className="inline-flex items-center gap-1.5 py-2 text-sm text-forest-700 hover:text-forest-900 transition-colors"
         aria-expanded="false"
       >
-        <span className="flex items-center justify-between gap-3">
-          <span>
-            <span className="block text-sm font-medium text-forest-900">Quer acrescentar algo sobre este momento?</span>
-            <span className="mt-0.5 block text-xs text-ink-soft">Opcional — só se isso ajudar a dar contexto ao que você escreveu.</span>
-          </span>
-          <ChevronDown className="h-4 w-4 flex-shrink-0 text-forest-600" />
-        </span>
+        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+        <span>Quer acrescentar algo sobre este momento?</span>
+        <span className="text-xs text-ink-soft">(opcional)</span>
       </button>
+      <span className="sr-only">Opcional — só se isso ajudar a dar contexto ao que você escreveu.</span>
     </div>
   }
 
-  return <div className="mb-5">
+  return <div className="w-full basis-full rounded-2xl bg-paper-soft/70 px-4 py-4">
     {optional && <button type="button" onClick={() => setOptionalOpen(false)} className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-forest-800" aria-expanded="true"><ChevronUp className="h-4 w-4" /> Ocultar contexto emocional</button>}
     <p className="text-sm font-semibold text-forest-900 mb-1">Como você está se sentindo? {optional && <span className="font-normal text-ink-soft">(opcional)</span>}</p>
     <p className="text-xs text-ink-soft mb-3">Escolha apenas se isso ajudar a dar contexto ao que você escreveu.</p>

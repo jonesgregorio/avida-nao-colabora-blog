@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Aplica a configuração de Auth do projeto (Site URL, allow-list e exigência de
-# confirmação de e-mail) a partir de supabase/auth-config.json via Management API.
+# Aplica a configuração de Auth do projeto (Site URL, allow-list, confirmação de
+# e-mail e senha mínima) a partir de supabase/auth-config.json via Management API.
 #
 # Estas configurações NÃO ficam em migration (não são SQL) — são config do painel
 # de Authentication. Este script é a forma versionada/reprodutível de aplicá-las.
@@ -28,7 +28,7 @@ if [ "$http" -ge 300 ]; then
   exit 1
 fi
 
-# Confirma somente os três campos gerenciados por este arquivo. Não imprimimos a
+# Confirma somente os quatro campos gerenciados por este arquivo. Não imprimimos a
 # resposta completa do endpoint porque ela pode conter configuração SMTP sensível.
 verify_http=$(curl -sS -o "$VERIFY" -w '%{http_code}' \
   "https://api.supabase.com/v1/projects/$REF/config/auth" \
@@ -40,11 +40,11 @@ if [ "$verify_http" -ge 300 ]; then
   exit 1
 fi
 
-expected=$(jq -c '{site_url,uri_allow_list,mailer_autoconfirm}' "$CONFIG")
-actual=$(jq -c '{site_url,uri_allow_list,mailer_autoconfirm}' "$VERIFY")
+expected=$(jq -c '{site_url,uri_allow_list,mailer_autoconfirm,password_min_length}' "$CONFIG")
+actual=$(jq -c '{site_url,uri_allow_list,mailer_autoconfirm,password_min_length}' "$VERIFY")
 if [ "$actual" != "$expected" ]; then
   echo "A configuração retornada pelo Supabase não corresponde ao auth-config.json."
   exit 1
 fi
 
-echo "Config de Auth aplicada e verificada: confirmação de e-mail obrigatória."
+echo "Config de Auth aplicada e verificada: confirmação de e-mail obrigatória e senha mínima de 8 caracteres."

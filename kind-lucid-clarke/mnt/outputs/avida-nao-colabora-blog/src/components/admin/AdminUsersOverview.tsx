@@ -1,5 +1,6 @@
 import {
   Bell,
+  ChevronLeft,
   ChevronRight,
   Columns,
   Crown,
@@ -29,6 +30,7 @@ export interface AdminUsersStats {
   withDiscount: number
   unlimitedAccess: number
   openTickets: number
+  usersWithUnreadNotifications: number
   plus: number
   essential: number
   free: number
@@ -60,7 +62,6 @@ interface AdminUsersHeaderProps {
 }
 
 export function AdminUsersHeader({
-  users,
   filteredCount,
   stats,
   loading,
@@ -120,9 +121,7 @@ export function AdminUsersHeader({
                   <Bell className="w-3.5 h-3.5 text-red-400" />
                   <span className="text-[10px] font-medium text-red-500 uppercase tracking-wide leading-tight">Notificações pendentes</span>
                 </div>
-                <p className="text-xl font-serif text-red-700 leading-none">
-                  {users.filter(u => (u.unread_notifs ?? 0) > 0).length}
-                </p>
+                <p className="text-xl font-serif text-red-700 leading-none">{stats.usersWithUnreadNotifications}</p>
                 <p className="text-[10px] text-red-400 mt-0.5">usuários com não lidas</p>
               </button>
 
@@ -360,7 +359,7 @@ export function AdminUsersKanban({ users, selectedUserId, onOpenUser }: AdminUse
             </div>
             <div className="flex flex-col gap-2 p-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
               {colUsers.length === 0 ? (
-                <p className="text-[11px] text-stone-400 text-center py-4">Nenhum usuário</p>
+                <p className="text-[11px] text-stone-400 text-center py-4">Nenhum usuário nesta página</p>
               ) : colUsers.map(u => {
                 const isBlocked = u.account_status === 'blocked'
                 const isSuspended = u.account_status === 'suspended'
@@ -415,22 +414,33 @@ export function AdminUsersKanban({ users, selectedUserId, onOpenUser }: AdminUse
 interface AdminUsersOverviewProps extends AdminUsersHeaderProps {
   filteredUsers: UserRow[]
   selectedUserId: string | null
+  page: number
+  pageSize: number
+  total: number
+  onPageChange: (page: number) => void
   onOpenUser: (user: UserRow) => void
 }
 
 export default function AdminUsersOverview({
   filteredUsers,
   selectedUserId,
+  page,
+  pageSize,
+  total,
+  onPageChange,
   onOpenUser,
   viewMode,
   ...headerProps
 }: AdminUsersOverviewProps) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const to = total === 0 ? 0 : Math.min(page * pageSize, total)
+
   return (
     <div className={`flex flex-col flex-1 min-w-0 ${selectedUserId ? 'hidden lg:flex' : 'flex'}`}>
       <AdminUsersHeader
         {...headerProps}
         viewMode={viewMode}
-        filteredCount={filteredUsers.length}
       />
 
       <div className="flex-1 overflow-auto">
@@ -444,6 +454,34 @@ export default function AdminUsersOverview({
           <AdminUsersKanban users={filteredUsers} selectedUserId={selectedUserId} onOpenUser={onOpenUser} />
         )}
       </div>
+
+      {!headerProps.loading && total > 0 && (
+        <div className="flex-shrink-0 border-t border-line bg-white px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-ink-soft" aria-live="polite">
+            Mostrando {from}–{to} de {total} usuários · Página {page} de {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page <= 1}
+              aria-label="Página anterior"
+              className="inline-flex items-center gap-1 border border-line rounded-lg px-3 py-2 text-xs text-forest-800 hover:bg-mint/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page >= totalPages}
+              aria-label="Próxima página"
+              className="inline-flex items-center gap-1 border border-line rounded-lg px-3 py-2 text-xs text-forest-800 hover:bg-mint/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Próxima <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --avnc-page-gutter: clamp(1rem, 2vw, 2rem);
+  --avnc-text-measure: 68ch;
+  --avnc-surface-radius: 1.5rem;
+  --avnc-surface-shadow: 0 10px 30px rgba(15, 47, 37, 0.045);
+  --avnc-surface-shadow-hover: 0 14px 34px rgba(15, 47, 37, 0.07);
+  --avnc-focus-ring: #8fb5a1;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -10,9 +19,82 @@
     font-family: 'Inter', system-ui, sans-serif;
     background-color: #FBFAF7;
     color: #0F2F25;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', Georgia, serif;
+    text-wrap: balance;
+  }
+  p, li {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: #DCEBE2;
+    color: #0F2F25;
+  }
+}
+
+@layer components {
+  /*
+   * Fase 22.10 — sistema visual global.
+   * A maioria das páginas da jornada já usa as mesmas primitivas Tailwind.
+   * Estes seletores dão o mesmo acabamento às superfícies sem reescrever
+   * componentes nem alterar sua arquitetura, persistência ou navegação.
+   */
+  main :where(.rounded-3xl.border.border-line),
+  main :where(.rounded-3xl.border.border-forest-100) {
+    box-shadow: var(--avnc-surface-shadow);
+  }
+
+  main :where(button.rounded-3xl.border, a.rounded-3xl.border) {
+    transition-property: transform, box-shadow, border-color, background-color, color;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    main :where(button.rounded-3xl.border, a.rounded-3xl.border):hover {
+      box-shadow: var(--avnc-surface-shadow-hover);
+      transform: translateY(-1px);
+    }
+  }
+
+  main :where(.border-dashed.rounded-2xl, .border-dashed.rounded-3xl) {
+    background: rgba(232, 240, 235, 0.24);
+  }
+
+  main :where(header) > :where(p, div) + h1,
+  main :where(header) > :where(p, div) + h2 {
+    letter-spacing: -0.015em;
+  }
+
+  main :where(header p, section > p) {
+    max-width: var(--avnc-text-measure);
+  }
+
+  main :where(details) > summary {
+    border-radius: 0.75rem;
+    outline-offset: 4px;
+  }
+
+  main :where(button, a, input, textarea, select, summary, [role='button']):focus-visible {
+    outline: 2px solid var(--avnc-focus-ring);
+    outline-offset: 3px;
+  }
+
+  main :where(button, [role='button']):disabled,
+  main :where(input, textarea, select):disabled {
+    cursor: not-allowed;
+  }
+
+  main :where(button, a, summary) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Mantém a largura escolhida por cada experiência, mas elimina encolhimento
+     acidental dentro do shell. Hoje pode continuar mais larga que as demais. */
+  main > :where(.max-w-4xl, .max-w-5xl, .max-w-6xl) {
+    width: 100%;
   }
 }
 

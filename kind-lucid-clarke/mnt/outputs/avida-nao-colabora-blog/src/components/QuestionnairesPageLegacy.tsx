@@ -1,0 +1,331 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { Clock, Lock, ChevronRight, HelpCircle, Sprout, ArrowRight, Crown, Check, CheckCircle2 } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
+import type { Profile } from '../types'
+import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
+
+interface QItem {
+  id: string
+  title: string
+  slug: string
+  description: string
+  short_description?: string
+  category: string
+  plan_required: string
+  estimated_time: string | number
+  status: string
+  show_on_questionnaires_page: boolean
+  question_count?: number
+}
+
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
+  therapeutic: 'Plus', 'therapeutic-plus': 'Plus',
+}
+
+interface Props {
+  user: User | null
+  profile: Profile | null
+  onStart: (id: string) => void
+  /** Visitante sem login → guarda a intenção e leva ao login, retornando a ESTE questionário (§13). */
+  onStartAuth: (id: string) => void
+  onBack: () => void
+  onNavigatePricing: () => void
+  onNavigateReport: () => void
+  onNavigateEvolution?: () => void
+}
+
+export default function QuestionnairesPage({
+  user, profile, onStart, onStartAuth, onBack, onNavigatePricing, onNavigateReport, onNavigateEvolution,
+}: Props) {
+  const [items, setItems] = useState<QItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos')
+  const [sortBy, setSortBy] = useState<'recent' | 'name'>('recent')
+  const [lockedModal, setLockedModal] = useState<QItem | null>(null)
+  const [completed, setCompleted] = useState<Set<string>>(new Set())
+  const [inProgress, setInProgress] = useState<Set<string>>(new Set())
+
+  // Histórico real do usuário a partir de questionnaire_responses.
+  useEffect(() => {
+    if (!user) { setCompleted(new Set()); setInProgress(new Set()); return }
+    supabase
+      .from('questionnaire_responses')
+      .select('questionnaire_id,status')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        const done = new Set<string>()
+        const prog = new Set<string>()
+        for (const r of (data ?? []) as { questionnaire_id: string; status: string }[]) {
+          if (r.status === 'completed') done.add(r.questionnaire_id)
+          else prog.add(r.questionnaire_id)
+        }
+        setCompleted(done)
+        setInProgress(prog)
+      })
+  }, [user])
+
+  useEffect(() => {
+    async function load() {
+      const { data, error } = await supabase.rpc('get_questionnaire_catalog')
+      if (error || !data) { setLoading(false); return }
+      setItems(data as unknown as QItem[])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const categories = ['Todos', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))]
+  const filtered = (selectedCategory === 'Todos' ? items : items.filter(i => i.category === selectedCategory))
+    .slice()
+    .sort((a, b) => (sortBy === 'name' ? a.title.localeCompare(b.title, 'pt-BR') : 0))
+  const recommended = filtered.find(i => !isLocked(i) && !completed.has(i.id)) ?? filtered.find(i => !isLocked(i)) ?? filtered[0]
+  const isPlus = normalizePlan(profile?.plan) === 'plus'
+
+  const totalQ = items.length
+  const doneCount = items.filter(i => completed.has(i.id)).length
+  const progCount = items.filter(i => !completed.has(i.id) && inProgress.has(i.id)).length
+  const availCount = Math.max(0, totalQ - doneCount - progCount)
+
+  function isLocked(item: QItem) {
+    const requiresPaid = normalizePlan(item.plan_required) !== 'free'
+    return !hasPlanAccess(profile?.plan, item.plan_required) || (requiresPaid && !user)
+  }
+
+  function handleStart(item: QItem) {
+    if (!user) { onStartAuth(item.id); return }
+    if (!hasPlanAccess(profile?.plan, item.plan_required)) { setLockedModal(item); return }
+    onStart(item.id)
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <header className="mb-6">
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
+          Questionários <Sprout className="w-6 h-6 text-forest-400" />
+        </h1>
+        <p className="mt-2 text-ink-soft max-w-xl">Use estas avaliações quando fizer sentido olhar com mais calma para algum aspecto do seu momento.</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6">
+        <div className="space-y-5 min-w-0">
+          <div className="grid sm:grid-cols-[1fr_1.4fr] bg-paper-soft border border-line rounded-3xl overflow-hidden">
+            <div className="hidden sm:block bg-mint min-h-[150px]">
+              <img
+                src="https://images.unsplash.com/photo-1494178270175-e96de2971df9?w=600&q=80"
+                alt=""
+                className="w-full h-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            </div>
+            <div className="p-6 flex flex-col justify-center">
+              <h2 className="font-serif text-xl sm:text-2xl text-forest-900">Um espaço para observar, não para completar.</h2>
+              <p className="text-sm text-ink-soft mt-2 leading-relaxed">
+                Cada questionário pode registrar um retrato daquele momento. Você pode responder, retomar ou revisitar sem transformar isso em meta.
+              </p>
+              <p className="text-xs text-forest-600 mt-3 flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5" /> Não existe frequência certa. Escolha o que for útil para você agora.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {categories.length > 1 && categories.map(cat => {
+              const active = selectedCategory === cat
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  aria-pressed={active}
+                  className={`px-3.5 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+            <label className="ml-auto flex items-center gap-1.5 text-sm bg-paper-soft border border-line rounded-full px-3 py-1.5">
+              <span className="text-ink-soft">Ordenar:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as 'recent' | 'name')}
+                aria-label="Ordenar questionários"
+                className="bg-transparent text-forest-800 focus:outline-none cursor-pointer"
+              >
+                <option value="recent">Mais recentes</option>
+                <option value="name">Nome (A-Z)</option>
+              </select>
+            </label>
+          </div>
+
+          {!loading && recommended && (
+            <div className="bg-mint/50 border border-forest-100 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <span className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-forest-600 flex-shrink-0"><Sprout className="w-5 h-5" /></span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-forest-600 font-medium">Pode fazer sentido agora</p>
+                <p className="font-serif text-lg text-forest-900 leading-snug">{recommended.title}</p>
+                <p className="text-sm text-ink-soft line-clamp-1">{recommended.short_description || recommended.description}</p>
+              </div>
+              <button
+                onClick={() => handleStart(recommended)}
+                className="inline-flex items-center gap-2 bg-forest-900 text-white text-sm font-medium px-4 py-2.5 rounded-2xl hover:bg-forest-800 transition-colors flex-shrink-0"
+              >
+                Ver questionário <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-44 bg-paper-soft border border-line rounded-2xl animate-pulse" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 text-ink-soft">
+              <HelpCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium text-forest-900 mb-2">Ainda não há questionários publicados por aqui.</p>
+              <p className="text-xs mb-6">Enquanto isso, explore os conteúdos guiados ou registre como está se sentindo hoje.</p>
+              <button onClick={onBack} className="px-4 py-2 bg-forest-900 text-white rounded-xl text-sm hover:bg-forest-800">Voltar ao início</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filtered.map(item => {
+                const locked = isLocked(item)
+                const isDone = completed.has(item.id)
+                const isProg = !isDone && inProgress.has(item.id)
+                return (
+                  <div
+                    key={item.id}
+                    className={`group bg-paper-soft rounded-2xl border transition-all flex flex-col ${locked ? 'border-line opacity-95' : 'border-line hover:border-forest-200 hover:shadow-md cursor-pointer'}`}
+                    onClick={() => !locked && handleStart(item)}
+                  >
+                    <div className="p-5 flex flex-col flex-1">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-forest-600 flex-shrink-0"><HelpCircle className="w-5 h-5" /></span>
+                        {locked ? (
+                          <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full">
+                            <Lock className="w-3 h-3" /> {PLAN_LABELS[item.plan_required] ?? 'Plus'}
+                          </span>
+                        ) : isDone ? (
+                          <span className="flex items-center gap-1 text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3" /> Respondido antes</span>
+                        ) : isProg ? (
+                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Para continuar</span>
+                        ) : (
+                          <span className="text-[11px] text-forest-700 bg-mint px-2 py-0.5 rounded-full">Disponível</span>
+                        )}
+                      </div>
+                      <h3 className="font-serif text-lg text-forest-900 leading-snug mb-1.5 group-hover:text-forest-700 transition-colors">{item.title}</h3>
+                      <p className="text-ink-soft text-sm leading-relaxed mb-4 line-clamp-2">{item.short_description || item.description}</p>
+                      <div className="mt-auto flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-3 text-xs text-ink-soft">
+                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {item.estimated_time}</span>
+                          {item.category && <span className="text-forest-700 bg-mint px-2 py-0.5 rounded-full">{item.category}</span>}
+                        </span>
+                        {locked ? (
+                          <button onClick={e => { e.stopPropagation(); setLockedModal(item) }} className="inline-flex items-center gap-1.5 text-xs text-ink-soft hover:text-forest-700">
+                            <Lock className="w-3 h-3" /> Ver planos
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-sm font-medium text-forest-700">
+                            {isDone ? 'Responder novamente' : isProg ? 'Retomar' : 'Responder'} <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-5">
+          <div className="bg-paper-soft border border-line rounded-3xl p-5">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-serif text-lg text-forest-900">Suas avaliações</h2>
+              {user && (
+                <button onClick={onNavigateReport} className="text-xs text-forest-700 hover:underline flex items-center gap-1">Ver relatório <ArrowRight className="w-3 h-3" /></button>
+              )}
+            </div>
+            {user && onNavigateEvolution && doneCount > 0 && (
+              <button onClick={onNavigateEvolution} className="mb-3 text-xs text-forest-700 hover:underline flex items-center gap-1">Ver registros ao longo do tempo <ArrowRight className="w-3 h-3" /></button>
+            )}
+            {totalQ === 0 ? (
+              <p className="text-sm text-ink-soft">Novos questionários aparecerão aqui.</p>
+            ) : (
+              <>
+                <p className="text-sm text-ink-soft leading-relaxed">
+                  Este é apenas um histórico do que você já respondeu ou deixou para retomar. Não existe objetivo de completar todos.
+                </p>
+                <div className="space-y-2 mt-4">
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Respondidos anteriormente</span>
+                    <span className="font-serif text-lg text-forest-900">{doneCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Para retomar, se quiser</span>
+                    <span className="font-serif text-lg text-forest-900">{progCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white/60 px-3 py-2.5">
+                    <span className="text-xs text-ink-soft">Disponíveis para você</span>
+                    <span className="font-serif text-lg text-forest-900">{availCount}</span>
+                  </div>
+                </div>
+                <p className="mt-4 text-xs text-ink-soft bg-mint/50 rounded-xl px-3 py-2.5 leading-relaxed">Volte a uma avaliação quando ela puder ajudar a entender melhor o seu momento.</p>
+              </>
+            )}
+          </div>
+
+          {!isPlus && (
+            <div className="rounded-3xl bg-forest-900 text-white p-5">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-serif text-lg">Aprofunde seu processo</h2>
+                <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full flex items-center gap-1"><Crown className="w-3 h-3" /> Plus</span>
+              </div>
+              <p className="text-sm text-forest-50/90 leading-relaxed">Desbloqueie questionários avançados e conteúdos exclusivos com o Plus.</p>
+              <ul className="mt-3 space-y-1.5 text-sm text-forest-50/90">
+                {['Questionários exclusivos', 'Análises personalizadas', 'Acompanhamento de evolução'].map(t => (
+                  <li key={t} className="flex items-center gap-2"><Check className="w-4 h-4 text-mint flex-shrink-0" /> {t}</li>
+                ))}
+              </ul>
+              <button onClick={onNavigatePricing} className="mt-4 inline-flex items-center gap-2 bg-white text-forest-900 text-sm font-medium px-4 py-2 rounded-xl hover:bg-mint transition-colors">
+                Conhecer o Plus <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="bg-paper-soft border border-line rounded-3xl p-5">
+            <p className="font-serif text-lg text-forest-900 leading-snug">"Você não precisa ter todas as respostas agora. Só precisa se permitir ouvir o que sente."</p>
+            <p className="text-xs text-ink-soft mt-3">A Vida Não Colabora</p>
+          </div>
+        </aside>
+      </div>
+
+      {lockedModal && (
+        <div className="fixed inset-0 z-50 bg-forest-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLockedModal(null)}>
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <div className="w-12 h-12 bg-mint rounded-full flex items-center justify-center mx-auto mb-3">
+                <Lock className="w-5 h-5 text-forest-600" />
+              </div>
+              <h3 className="font-serif text-lg text-forest-900 mb-1">{lockedModal.title}</h3>
+              <p className="text-ink-soft text-sm">
+                {!user
+                  ? 'Crie uma conta gratuita para acessar este questionário.'
+                  : `Este questionário está disponível no plano ${PLAN_LABELS[lockedModal.plan_required] ?? 'Plus'}.`}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => { const id = lockedModal.id; setLockedModal(null); if (user) onNavigatePricing(); else onStartAuth(id) }}
+                className="w-full bg-forest-900 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800 transition-colors"
+              >
+                {user ? 'Ver planos' : 'Criar conta gratuita'}
+              </button>
+              <button onClick={() => setLockedModal(null)} className="w-full border border-line text-ink-soft py-2.5 rounded-xl text-sm hover:bg-mint/40 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

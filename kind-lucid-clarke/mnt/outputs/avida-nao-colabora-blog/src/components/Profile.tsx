@@ -122,8 +122,8 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   }
 
   const handleChangePassword = async () => {
-    if (newPassword.length < 6) {
-      setPasswordMsg('A senha deve ter pelo menos 6 caracteres.')
+    if (newPassword.length < 8) {
+      setPasswordMsg('A senha deve ter pelo menos 8 caracteres.')
       return
     }
     const { error } = await supabase.auth.updateUser({ password: newPassword })
@@ -256,7 +256,8 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Nova senha (mínimo 6 caracteres)"
+                  placeholder="Nova senha (mínimo 8 caracteres)"
+                  minLength={8}
                   className={inputCls}
                 />
                 <button onClick={handleChangePassword} className="bg-forest-800 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-forest-900 transition-colors">

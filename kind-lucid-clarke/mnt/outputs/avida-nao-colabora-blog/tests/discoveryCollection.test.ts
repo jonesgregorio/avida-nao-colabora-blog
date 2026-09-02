@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs'
 const page = readFileSync(new URL('../src/components/DescobertasPage.tsx', import.meta.url), 'utf8')
 
 test('Descobertas separa a coleção pessoal das observações em andamento', () => {
-  assert.match(page, /Fez sentido para mim/)
-  assert.match(page, /Sua coleção pessoal/)
+  assert.match(page, /Minha coleção/)
+  assert.match(page, /Coisas que já fizeram sentido para mim/)
   assert.match(page, /feedback\[d\.stableKey\] === 'made_sense'/)
   assert.match(page, /feedback\[d\.stableKey\] !== 'made_sense'/)
   assert.match(page, /Reconhecida por você/)

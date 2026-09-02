@@ -9,7 +9,7 @@ const migration = readFileSync(new URL('../supabase/migrations/20260830154500_di
 
 test('Descobertas integra a memória histórica real', () => {
   assert.match(page, /DiscoveryMemoryArchive/)
-  assert.match(page, /snap(?:shot)?/i)
+  assert.match(archive, /snap(?:shot)?/i)
   assert.match(archive, /O que já fez sentido antes/)
   assert.match(archive, /Volt(?:ou|a) a aparecer/)
   assert.match(archive, /Remover da memória/)

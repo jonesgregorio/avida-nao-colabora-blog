@@ -10,6 +10,8 @@ import type { Profile } from '../../types'
 import { useModalA11y } from '../../hooks/useModalA11y'
 import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
+import { useUserMfaGate } from './UserMfaGate'
+import UserMfaSettings from './UserMfaSettings'
 
 interface UserLayoutProps {
   user: SupabaseUser | null
@@ -109,6 +111,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
   const [profileOpen, setProfileOpen] = useState(false)
   const [unread, setUnread] = useState(0)
   const profileRef = useRef<HTMLDivElement>(null)
+  const mfaGate = useUserMfaGate(user, onSignOut)
 
   const name = displayName(profile, user)
   const isAdmin = profile?.role === 'admin'
@@ -147,6 +150,8 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
   const currentLabel = HEADER_LABELS[currentView] ?? currentItem?.label ?? 'Seu espaço'
   const mobileMoreActive = !PRIMARY_NAV.some(item => MOBILE_PRIMARY_IDS.includes(item.id as typeof MOBILE_PRIMARY_IDS[number]) && isActive(item))
   const go = (id: string) => { onNavigate(id); setMobileOpen(false); setProfileOpen(false) }
+
+  if (mfaGate) return <>{mfaGate}</>
 
   return (
     <div className="min-h-screen bg-paper flex">
@@ -238,7 +243,14 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
           </div>
         </header>
 
-        <main className="flex-1 min-w-0 pb-24 lg:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 pb-24 lg:pb-0">
+          {children}
+          {currentView === 'profile' && user && (
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10">
+              <UserMfaSettings user={user} />
+            </div>
+          )}
+        </main>
       </div>
 
       <nav

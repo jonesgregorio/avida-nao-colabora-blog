@@ -52,6 +52,6 @@ test('Admin mostra "Base deste plano" e usuário mostra frase resumida sem termo
   assert.match(admin, /Base deste plano/)
   assert.match(admin, /normalizeCarePlanBasis/)
 
-  const user = read('src/components/SelfCarePlanPage.tsx')
+  const user = read('src/components/SelfCarePlanPageLegacy.tsx')
   assert.match(user, /describeCarePlanBasis/)
 })

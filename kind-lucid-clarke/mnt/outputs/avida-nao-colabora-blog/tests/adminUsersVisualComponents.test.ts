@@ -41,8 +41,13 @@ test('fluxos administrativos sensíveis continuam no orquestrador', () => {
   }
 })
 
-test('filtro e exportação permanecem orquestrados pelo AdminUsersImpl', () => {
-  assert.match(impl, /filterAdminUsers\(users,/)
-  assert.match(impl, /buildAdminUsersCsv\(filtered\)/)
+test('filtro paginado e exportação permanecem orquestrados pelo AdminUsersImpl', () => {
+  assert.match(impl, /loadAdminUsersPage\(/)
+  assert.match(impl, /loadAllAdminUsersForExport\(currentFilters\)/)
+  assert.match(impl, /buildAdminUsersCsv\(rows\)/)
   assert.match(impl, /resolveTabFilter\(tab\)/)
+
+  assert.doesNotMatch(overview, /loadAdminUsersPage/)
+  assert.doesNotMatch(overview, /loadAllAdminUsersForExport/)
+  assert.doesNotMatch(overview, /buildAdminUsersCsv/)
 })

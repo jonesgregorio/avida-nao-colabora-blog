@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { Compass, ArrowRight, EyeOff, Heart, LineChart, Loader2, RotateCcw, Sparkles } from 'lucide-react'
+import { Compass, ArrowRight, ChevronDown, EyeOff, Heart, LineChart, Loader2, RotateCcw, Sparkles } from 'lucide-react'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 import { normalizePlan } from '../lib/officialPlans'
@@ -36,6 +36,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   const [feedback, setFeedback] = useState<DiscoveryFeedbackMap>({})
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [showCollection, setShowCollection] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
 
   useEffect(() => {
@@ -125,16 +126,15 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   }, [user, feedback])
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-7">
       <header>
         <div className="flex items-center gap-2 text-forest-600">
           <Compass className="w-5 h-5" />
-          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Sua jornada</p>
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold">O que estou percebendo</p>
         </div>
         <h1 className="font-serif text-3xl md:text-4xl text-forest-900 mt-1.5">Descobertas</h1>
-        <p className="mt-2 text-ink-soft max-w-2xl leading-relaxed">
-          Pequenos padrões que aparecem ao longo do tempo, montados só a partir dos seus próprios registros.
-          Quando algo fizer sentido para você, essa percepção passa a ter um lugar próprio nesta página.
+        <p className="mt-2 text-ink-soft max-w-xl leading-relaxed">
+          Algumas coisas começam a se repetir nos seus registros. Aqui você vê primeiro o que merece atenção agora — e aprofunda só se quiser.
         </p>
       </header>
 
@@ -166,13 +166,14 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
           <span className="w-11 h-11 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </span>
-          <h2 className="font-serif text-2xl text-forest-900 mt-4">
-            {hiddenCount > 0 ? 'Nenhuma descoberta em acompanhamento' : 'Ainda não há descobertas'}
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 mt-4">Aparecendo agora</p>
+          <h2 className="font-serif text-2xl text-forest-900 mt-1">
+            {hiddenCount > 0 ? 'Nada pedindo atenção agora' : 'Ainda não apareceu algo para destacar'}
           </h2>
           <p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-2xl">
             {hiddenCount > 0
-              ? 'As descobertas que você pediu para não acompanhar ficam guardadas e podem ser restauradas quando quiser.'
-              : 'As descobertas aparecem sozinhas conforme seus registros criam contexto suficiente. Não existe meta de frequência para isso.'}
+              ? 'O que você preferiu não acompanhar continua guardado e pode ser restaurado quando quiser.'
+              : 'Conforme seus registros criam contexto suficiente, alguns sinais podem aparecer aqui. Não existe meta de frequência para isso.'}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -194,57 +195,65 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
         </section>
       ) : (
         <div className="space-y-8">
-          {madeSenseDiscoveries.length > 0 && (
-            <section className="rounded-3xl border border-forest-100 bg-gradient-to-br from-mint/45 via-paper-soft to-sand-50 p-5 sm:p-6" aria-labelledby="made-sense-heading">
-              <div className="flex items-start gap-3">
-                <span className="w-11 h-11 rounded-2xl border border-forest-100 bg-white text-forest-700 flex items-center justify-center flex-shrink-0">
-                  <Heart className="w-5 h-5" />
-                </span>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Sua coleção pessoal</p>
-                  <h2 id="made-sense-heading" className="font-serif text-2xl text-forest-900 mt-0.5">Fez sentido para mim</h2>
-                  <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                    Aqui ficam as descobertas atuais que você mesmo reconheceu como relevantes. Elas não valem pontos e não viram meta: servem só como memória do que já chamou sua atenção.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 space-y-3">
-                {madeSenseDiscoveries.map(discovery => (
-                  <DiscoveryCard
-                    key={discovery.id}
-                    discovery={discovery}
-                    feedback={feedback}
-                    onChoose={choose}
-                    onOpenMap={() => onNavigate('my-evolution')}
-                    collected
-                  />
-                ))}
-              </div>
-              <p className="text-[11px] text-ink-soft mt-4 leading-relaxed">
-                Quando uma descoberta reconhecida deixa de aparecer na janela recente, o snapshot que você reconheceu continua disponível em “O que já fez sentido antes”.
-              </p>
-            </section>
-          )}
-
           {forming.length > 0 && (
             <Section
-              title="Em formação"
-              description="Sinais que já se repetiram, mas ainda precisam de mais contexto para virar uma observação mais firme."
+              eyebrow="Aparecendo agora"
+              title="Algo começou a se repetir"
+              description="Sinais recentes que ainda estão ganhando contexto. Você não precisa decidir nada sobre eles agora."
               discoveries={forming}
               feedback={feedback}
               onChoose={choose}
               onOpenMap={() => onNavigate('my-evolution')}
+              emerging
             />
           )}
+
           {ready.length > 0 && (
             <Section
-              title="Para observar"
-              description="Padrões com repetição suficiente nos seus registros para valer uma observação mais atenta. Quando algum fizer sentido, você pode guardá-lo na sua coleção pessoal."
+              eyebrow="Descobertas"
+              title="Talvez valha observar"
+              description="Padrões que apareceram vezes suficientes para merecer um olhar mais atento. Se fizer sentido para você, pode guardar essa percepção."
               discoveries={ready}
               feedback={feedback}
               onChoose={choose}
               onOpenMap={() => onNavigate('my-evolution')}
             />
+          )}
+
+          {madeSenseDiscoveries.length > 0 && (
+            <section className="border-t border-line pt-5" aria-labelledby="made-sense-heading">
+              <button
+                type="button"
+                onClick={() => setShowCollection(current => !current)}
+                className="w-full flex items-center justify-between gap-4 text-left"
+                aria-expanded={showCollection}
+              >
+                <span>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Minha coleção</span>
+                  <span id="made-sense-heading" className="block font-serif text-2xl text-forest-900 mt-0.5">Coisas que já fizeram sentido para mim</span>
+                  <span className="block text-sm text-ink-soft mt-1">{madeSenseDiscoveries.length} {madeSenseDiscoveries.length === 1 ? 'percepção reconhecida' : 'percepções reconhecidas'} agora.</span>
+                </span>
+                <ChevronDown className={`w-5 h-5 text-forest-600 flex-shrink-0 transition-transform ${showCollection ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showCollection && (
+                <div className="mt-5 space-y-3">
+                  {madeSenseDiscoveries.map(discovery => (
+                    <DiscoveryCard
+                      key={discovery.id}
+                      discovery={discovery}
+                      feedback={feedback}
+                      onChoose={choose}
+                      onOpenMap={() => onNavigate('my-evolution')}
+                      collected
+                    />
+                  ))}
+                  <p className="text-[11px] text-ink-soft leading-relaxed">
+                    Quando uma percepção deixa de aparecer na janela recente, ela continua disponível em “O que já fez sentido antes”.
+                  </p>
+                </div>
+              )}
+            </section>
           )}
         </div>
       )}
@@ -258,7 +267,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       )}
 
       {personalizationEnabled && !loading && hiddenCount > 0 && (
-        <section className="rounded-2xl border border-line bg-paper-soft p-4 sm:p-5">
+        <section className="border-t border-line pt-4">
           <button
             type="button"
             onClick={() => setShowHidden(current => !current)}
@@ -267,14 +276,14 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
           >
             <span className="flex items-center gap-2 text-sm font-medium text-forest-900">
               <EyeOff className="w-4 h-4 text-forest-600" />
-              Descobertas ocultas ({hiddenCount})
+              Ocultadas ({hiddenCount})
             </span>
             <span className="text-xs text-ink-soft">{showHidden ? 'Ocultar lista' : 'Ver e restaurar'}</span>
           </button>
           {showHidden && (
-            <div className="mt-4 pt-4 border-t border-line space-y-2">
+            <div className="mt-4 space-y-2">
               {hiddenDiscoveries.map(discovery => (
-                <div key={discovery.stableKey} className="rounded-2xl border border-line bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div key={discovery.stableKey} className="rounded-2xl bg-paper-soft px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">{discovery.eyebrow}</p>
                     <p className="font-serif text-base text-forest-900 mt-0.5">{discovery.title}</p>
@@ -282,7 +291,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
                   <button
                     type="button"
                     onClick={() => choose(discovery.stableKey, 'not_following')}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-paper-soft px-3 py-2 text-xs font-medium text-forest-800 hover:bg-mint/50 transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-medium text-forest-800 hover:bg-mint/50 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" /> Voltar a acompanhar
                   </button>
@@ -293,28 +302,33 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
         </section>
       )}
 
-      <p className="text-xs text-ink-soft border-l-2 border-forest-300 pl-3 leading-relaxed">
-        Essas são observações dos seus próprios registros e não representam diagnóstico. Coocorrência não significa que
-        um sinal cause o outro. Nenhum trecho do texto do seu diário é usado nesta área.
-      </p>
+      <details className="border-t border-line pt-4 text-xs text-ink-soft">
+        <summary className="cursor-pointer font-medium text-forest-700">Como estas descobertas são formadas</summary>
+        <p className="mt-2 max-w-2xl leading-relaxed">
+          São observações dos dados estruturados dos seus próprios registros, não diagnósticos. Coocorrência não significa que um sinal cause o outro. Nenhum trecho do texto livre do seu diário é usado nesta área.
+        </p>
+      </details>
     </div>
   )
 }
 
 function Section({
-  title, description, discoveries, feedback, onChoose, onOpenMap,
+  eyebrow, title, description, discoveries, feedback, onChoose, onOpenMap, emerging = false,
 }: {
+  eyebrow: string
   title: string
   description: string
   discoveries: HomeDiscovery[]
   feedback: DiscoveryFeedbackMap
   onChoose: (key: string, value: DiscoveryFeedbackValue) => void
   onOpenMap: () => void
+  emerging?: boolean
 }) {
   return (
     <section>
-      <h2 className="font-serif text-2xl text-forest-900">{title}</h2>
-      <p className="text-sm text-ink-soft mt-1">{description}</p>
+      <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{eyebrow}</p>
+      <h2 className="font-serif text-2xl text-forest-900 mt-0.5">{title}</h2>
+      <p className="text-sm text-ink-soft mt-1 max-w-2xl">{description}</p>
       <div className="mt-4 space-y-3">
         {discoveries.map(discovery => (
           <DiscoveryCard
@@ -323,6 +337,7 @@ function Section({
             feedback={feedback}
             onChoose={onChoose}
             onOpenMap={onOpenMap}
+            emerging={emerging}
           />
         ))}
       </div>
@@ -331,38 +346,44 @@ function Section({
 }
 
 function DiscoveryCard({
-  discovery, feedback, onChoose, onOpenMap, collected = false,
+  discovery, feedback, onChoose, onOpenMap, collected = false, emerging = false,
 }: {
   discovery: HomeDiscovery
   feedback: DiscoveryFeedbackMap
   onChoose: (key: string, value: DiscoveryFeedbackValue) => void
   onOpenMap: () => void
   collected?: boolean
+  emerging?: boolean
 }) {
   return (
-    <article className={`rounded-3xl border p-5 sm:p-6 ${collected ? 'border-forest-100 bg-white/85' : 'border-line bg-paper-soft'}`}>
+    <article className={`rounded-3xl p-5 sm:p-6 ${collected ? 'bg-mint/25' : emerging ? 'bg-paper-soft' : 'border border-line bg-white/80'}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{discovery.eyebrow}</p>
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">
+          {emerging ? 'Começando a aparecer' : collected ? 'Guardada por você' : discovery.eyebrow}
+        </p>
         {collected && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-mint px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">
             <Heart className="w-3 h-3" /> Reconhecida por você
           </span>
         )}
       </div>
       <h3 className="font-serif text-xl text-forest-900 mt-1">{discovery.title}</h3>
       <p className="text-sm text-ink-soft mt-2 leading-relaxed">{discovery.description}</p>
-      <p className="text-xs text-ink-soft mt-2">{discovery.evidence}</p>
-      <p className="text-sm text-forest-800 mt-3">Para observar: {discovery.question}</p>
 
-      <button
-        onClick={onOpenMap}
-        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 hover:bg-mint/40 transition-colors"
-      >
-        <LineChart className="w-4 h-4" /> Ver no Mapa Emocional
-      </button>
+      <details className="mt-3 text-xs text-ink-soft">
+        <summary className="cursor-pointer font-medium text-forest-700">Entender melhor</summary>
+        <p className="mt-2">{discovery.evidence}</p>
+        <p className="text-sm text-forest-800 mt-2">Para observar: {discovery.question}</p>
+        <button
+          onClick={onOpenMap}
+          className="mt-3 inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-medium text-forest-900 hover:bg-mint/40 transition-colors"
+        >
+          <LineChart className="w-4 h-4" /> Ver no Mapa Emocional
+        </button>
+      </details>
 
-      <div className="mt-4 pt-4 border-t border-line">
-        <p className="text-[11px] text-ink-soft mb-1.5">Essa descoberta fez sentido para você?</p>
+      <div className="mt-4 pt-4 border-t border-line/80">
+        <p className="text-[11px] text-ink-soft mb-1.5">Isso fez sentido para você?</p>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sua percepção sobre esta descoberta">
           {DISCOVERY_FEEDBACK_OPTIONS.map(option => {
             const active = feedback[discovery.stableKey] === option.value
@@ -385,7 +406,7 @@ function DiscoveryCard({
         </div>
         {collected && (
           <p className="mt-2 text-[11px] text-forest-700">
-            Esta percepção está guardada em “Fez sentido para mim”. Você pode mudar de ideia quando quiser.
+            Esta percepção está na sua coleção. Você pode mudar de ideia quando quiser.
           </p>
         )}
       </div>

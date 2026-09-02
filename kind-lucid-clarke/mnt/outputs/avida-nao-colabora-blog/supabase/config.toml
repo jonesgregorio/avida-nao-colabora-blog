@@ -32,9 +32,11 @@ site_url = "https://avidanaocolabora.com"
 additional_redirect_urls = ["https://www.avidanaocolabora.com", "https://avida-nao-colabora-blog.vercel.app"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
+minimum_password_length = 8
 
 # Paridade para desenvolvimento/self-hosted. Em produção hosted, a mesma regra é
-# aplicada pelo auth-config.json via Management API (mailer_autoconfirm=false).
+# aplicada pelo auth-config.json via Management API (mailer_autoconfirm=false e
+# password_min_length=8).
 [auth.email]
 enable_confirmations = true
 

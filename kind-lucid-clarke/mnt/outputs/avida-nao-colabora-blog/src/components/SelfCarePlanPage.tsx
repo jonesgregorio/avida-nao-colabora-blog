@@ -1,385 +1,139 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState, type ComponentProps } from 'react'
+import { ArrowLeft, ArrowRight, Loader2, Sprout } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { User } from '@supabase/supabase-js'
-import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
-import { getContentTypeLabel } from '../lib/personalizedContentLabels'
-import { Sprout, Loader2, Download, ArrowRight, Sparkles, ShieldCheck, ChevronDown, BookOpen, HelpCircle, Heart } from 'lucide-react'
-import PlanBadge from './PlanBadge'
-import RecommendedContent from './RecommendedContent'
-import CarePlanActionFeedback from './CarePlanActionFeedback'
-import { signalFromTags, fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
-import { CARE_PLAN_DISCLAIMER, type CareSummary, type CarePlanContent } from '../lib/careePlanAI'
-import { normalizeCarePlanBasis, describeCarePlanBasis } from '../lib/carePlanBasis'
-import { formatPeriodShort, formatDateBR, monthTitle } from '../lib/reportPeriods'
+import SelfCarePlanPageLegacy from './SelfCarePlanPageLegacy'
 
-interface Props {
-  user: User | null
-  profile: Profile | null
-  onNavigatePricing: () => void
-  onNavigate?: (v: string) => void
-  onOpenArticle?: (slug: string) => void
+type Props = ComponentProps<typeof SelfCarePlanPageLegacy>
+
+type CarePlanSummary = {
+  title?: string
+  main_focus?: string
+  monthly_priority?: string
+  why_this_focus?: string
+  main_care?: string
+  three_care_priorities?: Array<{ priority?: string; small_actions?: string[] }>
+  suggested_micro_actions?: string[]
+  practical_tips?: string[]
 }
 
-interface SentPlan {
+type CurrentPlan = {
   id: string
   month_reference: string
-  period_start: string
-  period_end: string
-  sent_at: string | null
-  ai_summary: string | null
-  ai_summary_json: CareSummary | null
-  care_plan: CarePlanContent | null
-  recommended_content_ids: string[] | null
-  records_summary: Record<string, unknown> | null
-}
-interface Review {
-  id: string; month_key: string; summary: string | null
-  suggested_adjustments: string | null; next_focus: string | null
-  pdf_url: string | null; created_at: string
-}
-interface Extra {
-  id: string; title: string; body: string; content_type: string | null; sent_at: string | null
+  care_plan: CarePlanSummary | null
 }
 
 function monthLabel(key: string) {
-  const [y, m] = String(key).split('-')
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+  const [year, month] = key.split('-').map(Number)
+  const value = new Date(year, month - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-function focusOf(c: CarePlanContent | null) {
-  return c?.main_focus || c?.monthly_priority || ''
+function mainFocus(plan: CarePlanSummary | null) {
+  return plan?.main_focus || plan?.monthly_priority || plan?.main_care || ''
 }
 
-function whyOf(c: CarePlanContent | null) {
-  return c?.why_this_focus || c?.main_care || ''
+function firstAction(plan: CarePlanSummary | null) {
+  return plan?.three_care_priorities?.flatMap(item => item.small_actions ?? [])[0]
+    || plan?.suggested_micro_actions?.[0]
+    || plan?.practical_tips?.[0]
+    || ''
 }
 
-function prioritiesOf(c: CarePlanContent | null) {
-  if (c?.three_care_priorities?.length) return c.three_care_priorities
-  const actions = c?.suggested_micro_actions?.length ? c.suggested_micro_actions : (c?.practical_tips ?? [])
-  return [
-    c?.main_care ? { priority: 'Cuidado principal', why_it_matters: c.main_care, small_actions: c.recommended_practice ? [c.recommended_practice] : [] } : null,
-    c?.attention_point ? { priority: 'O que vale observar', why_it_matters: c.attention_point, small_actions: c.small_commitment ? [c.small_commitment] : [] } : null,
-    actions[0] ? { priority: 'Uma ação possível', why_it_matters: 'Escolha apenas o que fizer sentido para o seu momento.', small_actions: actions.slice(0, 2) } : null,
-  ].filter(Boolean) as Array<{ priority: string; why_it_matters: string; small_actions: string[] }>
-}
-
-function rhythmOf(c: CarePlanContent | null) {
-  const r = c?.weekly_rhythm
-  if (r && [r.week_1, r.week_2, r.week_3, r.week_4].some(Boolean)) return [r.week_1, r.week_2, r.week_3, r.week_4].filter(Boolean) as string[]
-  return (c?.practical_tips ?? []).slice(0, 4)
-}
-
-// Área PRÓPRIA do Plano de Autocuidado — exclusiva do Plus. Cada plano é um
-// cartão sanfona: fechado por padrão (só cabeçalho + prioridade), abre para ver
-// o plano de ação completo — assim a página não fica enorme.
-export default function SelfCarePlanPage({ user, profile, onNavigatePricing, onNavigate, onOpenArticle }: Props) {
-  const plan = normalizePlan(profile?.plan)
-  const isPlus = plan === 'plus'
-  const [sentPlans, setSentPlans] = useState<SentPlan[]>([])
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [extras, setExtras] = useState<Extra[]>([])
-  const [catalog, setCatalog] = useState<Map<string, CatalogItem>>(new Map())
+export default function SelfCarePlanPage(props: Props) {
+  const { user, profile } = props
+  const isPlus = normalizePlan(profile?.plan) === 'plus'
+  const [current, setCurrent] = useState<CurrentPlan | null>(null)
   const [loading, setLoading] = useState(isPlus)
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const [failed, setFailed] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
-    if (!user || !isPlus) { setLoading(false); return }
-    let active = true
-    Promise.all([
-      // RLS: só devolve os PRÓPRIOS planos já ENVIADOS (nunca draft, nunca de outro).
-      supabase.from('monthly_care_plans').select('id, month_reference, period_start, period_end, sent_at, ai_summary, ai_summary_json, care_plan, recommended_content_ids, records_summary')
-        .eq('user_id', user.id).eq('status', 'sent').order('month_reference', { ascending: false }).limit(120),
-      supabase.from('self_care_plan_reviews').select('id, month_key, summary, suggested_adjustments, next_focus, pdf_url, created_at')
-        .eq('user_id', user.id).order('month_key', { ascending: false }).limit(120),
-      supabase.from('personalized_content_deliveries')
-        .select('id, title, body, content_type, sent_at')
-        .eq('user_id', user.id).eq('status', 'sent').eq('target_area', 'self_care_plan')
-        .order('sent_at', { ascending: false }).limit(10),
-      fetchGuidedCatalog(),
-    ]).then(([mp, r, d, cat]) => {
-      if (!active) return
-      const plans = (mp.data ?? []) as SentPlan[]
-      setSentPlans(plans)
-      setReviews((r.data ?? []) as Review[])
-      setExtras((d.data ?? []) as Extra[])
-      setCatalog(new Map((cat ?? []).map(c => [c.id, c])))
-      // Todos os planos começam FECHADOS; o usuário abre manualmente.
-      setOpenIds(new Set())
+    if (!user || !isPlus || showDetails) {
       setLoading(false)
-    })
+      return
+    }
+
+    let active = true
+    setLoading(true)
+    setFailed(false)
+
+    supabase
+      .from('monthly_care_plans')
+      .select('id,month_reference,care_plan')
+      .eq('user_id', user.id)
+      .eq('status', 'sent')
+      .order('month_reference', { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          setFailed(true)
+          setLoading(false)
+          return
+        }
+        setCurrent(((data ?? [])[0] as CurrentPlan | undefined) ?? null)
+        setLoading(false)
+      }, () => {
+        if (!active) return
+        setFailed(true)
+        setLoading(false)
+      })
+
     return () => { active = false }
-  }, [user, isPlus])
+  }, [isPlus, showDetails, user])
 
-  const toggle = (id: string) => setOpenIds(prev => {
-    const n = new Set(prev)
-    if (n.has(id)) n.delete(id); else n.add(id)
-    return n
-  })
+  if (!isPlus || !user || failed || (!loading && !current)) return <SelfCarePlanPageLegacy {...props} />
 
-  const current = sentPlans[0] ?? null
-
-  // Sinal para conteúdos ligados à prioridade do mês (usa o plano novo; se não
-  // houver, cai para a revisão legada).
-  const focusText = current
-    ? [focusOf(current.care_plan), ...(current.ai_summary_json?.recurring_emotional_markers ?? current.ai_summary_json?.recurring_triggers ?? []), ...(current.ai_summary_json?.main_emotions ?? [])].filter(Boolean).join(' ')
-    : reviews[0] ? [reviews[0].next_focus, reviews[0].summary].filter(Boolean).join(' ') : ''
-  const focusSignal = focusText ? signalFromTags([focusText]) : null
-  const careSignal = focusSignal && focusSignal.hasData ? focusSignal : undefined
-
-  return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 flex items-center gap-2">
-            Plano de Autocuidado <Sprout className="w-6 h-6 text-forest-400" />
-          </h1>
-          <p className="mt-2 text-ink-soft">Com base nos seus registros, este roteiro propõe pequenas ações possíveis para o próximo ciclo.</p>
-        </div>
-        <PlanBadge plan={profile?.plan} member size="sm" className="mt-1" />
-      </header>
-
-      {!isPlus ? (
-        <div className="bg-paper-soft border border-line rounded-3xl p-6 sm:p-8 text-center">
-          <span className="w-14 h-14 rounded-full bg-mint flex items-center justify-center mx-auto text-forest-600 mb-4"><Sprout className="w-7 h-7" /></span>
-          <h2 className="font-serif text-xl text-forest-900">Disponível no plano Plus</h2>
-          <p className="text-sm text-ink-soft mt-2 max-w-md mx-auto leading-relaxed">
-            O Plano de Autocuidado mensal organiza o que você escolhe registrar no diário, nos questionários e no
-            Mapa Emocional em prioridades e possibilidades de cuidado para o seu mês.
-          </p>
-          <button onClick={onNavigatePricing} className="mt-5 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">
-            Conhecer o Plus <ArrowRight className="w-4 h-4" />
+  if (showDetails) {
+    return (
+      <div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5">
+          <button type="button" onClick={() => setShowDetails(false)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900">
+            <ArrowLeft className="w-4 h-4" /> Voltar ao resumo do plano
           </button>
         </div>
-      ) : loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-forest-400" /></div>
-      ) : sentPlans.length === 0 && reviews.length === 0 ? (
-        // Nenhum plano enviado ainda (§14).
-        <div className="bg-paper-soft border border-line rounded-3xl p-8 text-center space-y-3">
-          <Sparkles className="w-9 h-9 text-forest-300 mx-auto" />
-          <p className="text-ink-soft text-sm">Seu Plano de Autocuidado deste mês ainda está sendo preparado.</p>
-          <p className="text-xs text-ink-soft/70">Os registros que você fizer quando quiser podem ajudar a contextualizar seu próximo plano. Ele fica disponível após a revisão da equipe.</p>
-          {onNavigate && (
-            <div className="flex flex-wrap justify-center gap-2 pt-1">
-              <button onClick={() => onNavigate('diary')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Se quiser, registrar</button>
-              <button onClick={() => onNavigate('questionarios')} className="text-xs font-medium text-forest-700 border border-line rounded-full px-3 py-1.5 hover:bg-mint/40">Explorar questionários</button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Lista sanfona: cada plano abre para mostrar o plano de ação. */}
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h2 className="font-serif text-lg text-forest-900">Seus roteiros de cuidado</h2>
-              <p className="text-xs text-ink-soft">Toque em um roteiro para ver ações possíveis, sem pressa.</p>
-            </div>
-            <div className="space-y-3">
-              {sentPlans.map(p => (
-                <PlanCard key={p.id} userId={user!.id} plan={p} catalog={catalog} onOpenArticle={onOpenArticle} open={openIds.has(p.id)} onToggle={() => toggle(p.id)} />
-              ))}
-              {reviews.map(r => (
-                <LegacyReviewCard key={r.id} r={r} open={openIds.has(r.id)} onToggle={() => toggle(r.id)} />
-              ))}
-            </div>
-          </div>
+        <SelfCarePlanPageLegacy {...props} />
+      </div>
+    )
+  }
 
-          {/* Conteúdos guiados ligados à prioridade do mês (§8.6/§19). */}
-          {onOpenArticle && (
-            <RecommendedContent
-              user={user ? { id: user.id } : null}
-              profile={{ plan: profile?.plan }}
-              signal={careSignal}
-              source="care_plan"
-              limit={3}
-              title="Mais conteúdos para o seu momento"
-              description="Selecionados a partir do foco do seu plano e dos seus registros."
-              onOpen={onOpenArticle}
-            />
-          )}
+  if (loading) {
+    return <div className="flex items-center justify-center py-24" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /><span className="ml-3 text-sm text-ink-soft">Organizando seu cuidado…</span></div>
+  }
 
-          {extras.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-serif text-lg text-forest-900">Conteúdos personalizados</h3>
-              {extras.map(e => (
-                <div key={e.id} className="bg-paper-soft border border-line rounded-3xl p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-forest-900 text-sm">{e.title}</p>
-                    {e.content_type && <span className="text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full flex-shrink-0">{getContentTypeLabel(e.content_type)}</span>}
-                  </div>
-                  <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed">{e.body}</p>
-                  <p className="text-xs text-ink-soft/70">{e.sent_at ? new Date(e.sent_at).toLocaleDateString('pt-BR') : ''}</p>
-                </div>
-              ))}
-            </div>
-          )}
+  const focus = mainFocus(current?.care_plan ?? null)
+  const action = firstAction(current?.care_plan ?? null)
 
-          <p className="text-xs text-ink-soft/80 flex items-start gap-2 pt-1">
-            <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-forest-400" /> {CARE_PLAN_DISCLAIMER}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Cartão sanfona do plano mensal ────────────────────────────────────────────
-function PlanCard({ userId, plan, catalog, onOpenArticle, open, onToggle }: {
-  userId: string; plan: SentPlan; catalog: Map<string, CatalogItem>; onOpenArticle?: (slug: string) => void; open: boolean; onToggle: () => void
-}) {
-  const c = plan.care_plan
-  const s = plan.ai_summary_json
-  const recs = (plan.recommended_content_ids ?? []).map(id => catalog.get(id)).filter(Boolean) as CatalogItem[]
-  const focus = focusOf(c)
-  const why = whyOf(c)
-  const priorities = prioritiesOf(c)
-  const rhythm = rhythmOf(c)
-  const microActions = c?.suggested_micro_actions?.length ? c.suggested_micro_actions : (c?.practical_tips ?? [])
-  const basis = normalizeCarePlanBasis(plan.records_summary)
-  const basisText = basis ? describeCarePlanBasis(basis, monthTitle(plan.month_reference)) : null
   return (
-    <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
-      <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
-        <div className="min-w-0">
-          <h3 className="font-serif text-lg text-forest-900 capitalize">{c?.title || `Plano de ${monthTitle(plan.month_reference)}`}</h3>
-          <p className="text-xs text-ink-soft mt-0.5">
-            {formatPeriodShort({ start: plan.period_start, end: plan.period_end })}
-            {plan.sent_at ? ` · enviado ${formatDateBR(plan.sent_at.slice(0, 10))}` : ''}
-          </p>
-          {!open && focus && (
-            <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Foco: </span>{focus}</p>
-          )}
-        </div>
-        <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-7">
+      <header className="max-w-2xl">
+        <div className="flex items-center gap-2 text-forest-600"><Sprout className="w-5 h-5" /><p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Plano de Autocuidado</p></div>
+        <h1 className="font-serif text-3xl md:text-4xl text-forest-900 mt-1.5">Seu cuidado deste mês</h1>
+        <p className="mt-2 text-ink-soft leading-relaxed">Primeiro, veja só o essencial. O roteiro completo continua disponível quando você quiser aprofundar.</p>
+      </header>
 
-      {open && (
-        <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4 border-t border-line/60">
-          {basisText && <p className="text-xs text-ink-soft/80">{basisText}</p>}
-          {focus && <Field label="Seu foco de cuidado para este mês" value={focus} strong />}
-          {why && <Field label="Por que este foco" value={why} />}
+      <section className="rounded-3xl border border-forest-100 bg-gradient-to-br from-mint/45 via-paper-soft to-sand-50 p-5 sm:p-7" aria-labelledby="care-plan-focus-heading">
+        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{monthLabel(current!.month_reference)}</p>
+        <h2 id="care-plan-focus-heading" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">{focus || current?.care_plan?.title || 'Um cuidado possível para este ciclo'}</h2>
+        {current?.care_plan?.why_this_focus && <p className="text-sm text-ink-soft mt-2 max-w-2xl leading-relaxed">{current.care_plan.why_this_focus}</p>}
+      </section>
 
-          {priorities.length > 0 && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {priorities.slice(0, 3).map((item, i) => (
-                <div key={`${item.priority}-${i}`} className="rounded-2xl border border-line bg-white/70 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-forest-500 mb-1">Possibilidade {i + 1}</p>
-                  <p className="text-sm font-medium text-forest-900">{item.priority}</p>
-                  <p className="text-xs text-ink-soft mt-1 leading-relaxed">{item.why_it_matters}</p>
-                  {item.small_actions.length > 0 && <p className="text-xs text-forest-700 mt-2 leading-relaxed">{item.small_actions[0]}</p>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {c?.what_not_to_force && <Field label="O que não forçar agora" value={c.what_not_to_force} />}
-          {c?.light_emotional_goal && <Field label="Uma intenção emocional possível" value={c.light_emotional_goal} />}
-          {c?.checkin_suggestion && <Field label="Sugestão de check-in, se fizer sentido" value={c.checkin_suggestion} />}
-          {c?.when_to_seek_more_support && <Field label="Quando buscar mais apoio" value={c.when_to_seek_more_support} />}
-
-          {rhythm.length > 0 && (
-            <div className="rounded-2xl border border-forest-100 bg-mint/25 p-4">
-              <p className="text-xs font-medium text-forest-800 mb-3">Possibilidades para experimentar ao longo do mês</p>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {rhythm.map((tip, i) => (
-                  <div key={tip} className="bg-white/80 rounded-xl px-3 py-2.5 text-sm text-forest-800 leading-relaxed">
-                    <span className="block text-[10px] uppercase tracking-wide text-forest-500 mb-0.5">Ideia {i + 1}</span>
-                    {tip}
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-ink-soft mt-3">Você pode testar nenhuma, uma ou várias delas, na ordem que fizer sentido para você.</p>
-            </div>
-          )}
-
-          {microActions.length > 0 && (
-            <CarePlanActionFeedback userId={userId} carePlanId={plan.id} actions={microActions} />
-          )}
-
-          {(c?.gentle_reminders?.length ?? 0) > 0 && (
-            <div className="rounded-2xl bg-mint/25 border border-forest-100 p-3.5">
-              <p className="text-xs font-medium text-forest-800 mb-1">Lembretes gentis</p>
-              <ul className="space-y-1">{c!.gentle_reminders!.map((item, i) => <li key={i} className="text-sm text-forest-800 leading-relaxed">{item}</li>)}</ul>
-            </div>
-          )}
-
-          {(c?.reflection_questions?.length ?? 0) > 0 && (
-            <div>
-              <p className="text-xs text-ink-soft font-medium mb-1 flex items-center gap-1.5"><HelpCircle className="w-3.5 h-3.5" /> Perguntas para reflexão</p>
-              <ul className="space-y-1.5">
-                {c!.reflection_questions.map((q, i) => <li key={i} className="text-sm text-ink leading-relaxed flex gap-2"><span className="text-forest-400 mt-0.5">•</span>{q}</li>)}
-              </ul>
-            </div>
-          )}
-
-          {recs.length > 0 && (
-            <div>
-              <p className="text-xs text-ink-soft font-medium mb-2 flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> Conteúdos guiados recomendados</p>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {recs.map(rc => (
-                  <button key={rc.id} onClick={() => rc.slug && onOpenArticle?.(rc.slug)} className="text-left border border-line rounded-xl p-3 hover:border-forest-200 hover:bg-white transition-colors">
-                    <p className="text-sm font-medium text-forest-900 line-clamp-2">{rc.title}</p>
-                    <p className="text-xs text-ink-soft mt-0.5">{rc.category}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Resumo do mês — apoio ao plano, não o foco. Fica por último, pequeno,
-              para o olhar ir primeiro para as ações (§14). */}
-          {(plan.ai_summary || s?.general_overview) && (
-            <div className="bg-mint/30 border border-line rounded-2xl p-3.5">
-              <p className="text-[11px] text-forest-700 font-medium flex items-center gap-1.5 mb-1"><Sparkles className="w-3.5 h-3.5" /> Por que este plano foi sugerido</p>
-              <p className="text-sm text-forest-800/90 leading-relaxed">{plan.ai_summary || s?.general_overview}</p>
-            </div>
-          )}
-
-          {c?.final_message && (
-            <div className="bg-white border border-line rounded-2xl p-4">
-              <p className="text-sm text-forest-800 leading-relaxed flex items-start gap-2"><Heart className="w-4 h-4 flex-shrink-0 mt-0.5 text-coral" /> {c.final_message}</p>
-            </div>
-          )}
-        </div>
+      {action && (
+        <section aria-labelledby="care-plan-action-heading">
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Uma possibilidade</p>
+          <h2 id="care-plan-action-heading" className="font-serif text-2xl text-forest-900 mt-1">Algo pequeno para considerar</h2>
+          <p className="text-sm text-ink-soft mt-2 max-w-2xl leading-relaxed">{action}</p>
+          <p className="text-xs text-ink-soft mt-2">Não é uma tarefa nem uma meta. Use apenas se combinar com o seu momento.</p>
+        </section>
       )}
-    </div>
-  )
-}
 
-// ── Cartão sanfona do plano legado (self_care_plan_reviews) ───────────────────
-function LegacyReviewCard({ r, open, onToggle }: { r: Review; open: boolean; onToggle: () => void }) {
-  return (
-    <div className="border border-line rounded-3xl bg-paper-soft overflow-hidden">
-      <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 p-4 sm:p-5 text-left hover:bg-mint/20 transition-colors">
-        <div className="min-w-0">
-          <h3 className="font-serif text-lg text-forest-900 capitalize">Plano de {monthLabel(r.month_key)}</h3>
-          <p className="text-xs text-ink-soft mt-0.5">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p>
-          {!open && r.next_focus && <p className="text-sm text-forest-700 mt-1.5 line-clamp-1"><span className="text-ink-soft">Foco sugerido: </span>{r.next_focus}</p>}
-        </div>
-        <ChevronDown className={`w-5 h-5 flex-shrink-0 text-forest-500 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="px-4 sm:px-5 pb-5 pt-4 space-y-3 border-t border-line/60">
-          {r.summary && <Field label="Resumo" value={r.summary} />}
-          {r.suggested_adjustments && <Field label="Pequenos cuidados sugeridos" value={r.suggested_adjustments} />}
-          {r.next_focus && <Field label="Possível foco do próximo período" value={r.next_focus} />}
-          {r.pdf_url && (
-            <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-forest-700 hover:underline">
-              <Download className="w-4 h-4" /> Baixar em PDF
-            </a>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Field({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div>
-      <p className="text-xs text-ink-soft font-medium mb-1">{label}</p>
-      <p className={`text-sm leading-relaxed whitespace-pre-wrap ${strong ? 'text-forest-900 font-medium' : 'text-ink'}`}>{value}</p>
+      <section className="border-t border-line pt-5">
+        <button type="button" onClick={() => setShowDetails(true)} className="inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800">
+          Explorar meu plano <ArrowRight className="w-4 h-4" />
+        </button>
+        <p className="mt-2 text-xs text-ink-soft">Prioridades, microações, ritmo semanal, conteúdos relacionados, base do plano e roteiros anteriores continuam na visão completa.</p>
+      </section>
     </div>
   )
 }
