@@ -13,8 +13,8 @@ test('Fase 22 registra regras de hierarquia sem alterar a navegação lateral', 
 
 test('Hoje mostra avaliação e ações principais antes do aprofundamento', () => {
   assert.match(home, /E aí, a vida colaborou hoje\?/)
-  assert.match(home, /Registrar como estou/)
-  assert.match(home, /Quero escrever/)
+  assert.match(home, /Registrar meu check-in/)
+  assert.match(home, /Quero escrever no diário/)
   assert.match(home, /Olhar minha semana/)
   assert.match(home, /detailsOpen &&/)
 })
