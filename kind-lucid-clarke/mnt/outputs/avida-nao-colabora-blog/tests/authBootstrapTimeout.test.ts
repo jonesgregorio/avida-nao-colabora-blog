@@ -11,10 +11,11 @@ test('bootstrap de autenticação nunca mantém o app em loading infinito', () =
   assert.match(source, /active = false/)
 })
 
-test('perfil não bloqueia a liberação inicial do shell após a sessão ser conhecida', () => {
-  assert.match(source, /acceptConfirmedUser\(session\?\.user \?\? null, false\)/)
+test('perfil é resolvido antes de liberar o shell após a sessão ser conhecida', () => {
+  assert.match(source, /acceptConfirmedUser\(session\?\.user \?\? null\)/)
+  assert.doesNotMatch(source, /acceptConfirmedUser\(session\?\.user \?\? null, false\)/)
   assert.match(source, /const profilePromise = fetchProfile/)
-  assert.match(source, /if \(waitForProfile\)[\s\S]*await profilePromise[\s\S]*else[\s\S]*void profilePromise/)
+  assert.match(source, /if \(waitForProfile\)[\s\S]*await profilePromise/)
 })
 
 test('fluxos posteriores de autenticação continuam carregando o perfil normalmente', () => {
