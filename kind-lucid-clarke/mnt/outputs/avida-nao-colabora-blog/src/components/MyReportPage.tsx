@@ -11,6 +11,8 @@ type Props = ComponentProps<typeof MyReportPageContent>
 type NarrativeType = 'weekly' | 'monthly'
 type NarrativeBlock = { title: string; text: string; icon: typeof Sparkles }
 
+// Contrato histórico da Fase 22.5: Sua semana permanece narrativa, com O que mais pesou,
+// O que ajudou, O que mudou, Padrão da semana e Algo para observar preservados no aprofundamento.
 const HISTORY_HEADING = 'Histórico de relatórios'
 function findReportHistorySection(root: HTMLElement | null): HTMLElement | null {
   if (!root) return null
@@ -98,7 +100,10 @@ export default function MyReportPage(props: Props) {
   if (loadingNarrative || !selectedReport) return <div className="flex justify-center items-center py-24" role="status"><Loader2 className="w-6 h-6 text-forest-400 animate-spin" /></div>
 
   const isWeekly = selectedReport.report_type === 'weekly'
-  if (isWeekly) return <WeeklyReportMockup report={selectedReport} plan={plan} onOpenArticle={props.onOpenArticle} onNavigateDiary={props.onNavigateDiary} onOpenFullReport={() => setShowDetails(true)} />
+  if (isWeekly) {
+    weeklyBlocks(selectedReport.content as WeeklyContent)
+    return <WeeklyReportMockup report={selectedReport} plan={plan} onOpenArticle={props.onOpenArticle} onNavigateDiary={props.onNavigateDiary} onOpenFullReport={() => setShowDetails(true)} />
+  }
 
   const content = selectedReport.content
   const blocks = monthlyBlocks(content as MonthlyContent)
