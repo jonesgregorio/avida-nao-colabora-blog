@@ -8,11 +8,11 @@ function source(path: string) {
 
 test('19R.C permite restaurar descobertas ocultas pela própria interface', () => {
   const page = source('../src/components/DescobertasPage.tsx')
-  assert.match(page, /Ocultadas/)
-  assert.match(page, /Ver e restaurar/)
+  assert.match(page, /Ocultas/)
+  assert.match(page, /Descobertas ocultas/)
   assert.match(page, /Voltar a acompanhar/)
   assert.match(page, /hiddenDiscoveries/)
-  assert.match(page, /choose\(discovery\.stableKey, 'not_following'\)/)
+  assert.match(page, /onRestore=\{key => choose\(key, 'not_following'\)\}/)
 })
 
 test('19R.C deixa Cuidar com três caminhos reais de cuidado', () => {
