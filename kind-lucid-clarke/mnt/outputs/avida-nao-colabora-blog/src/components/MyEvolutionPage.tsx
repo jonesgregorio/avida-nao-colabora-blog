@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { ArrowRight, CalendarDays, ChevronDown, ChevronLeft, Leaf, Loader2, Sparkles } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, Info, LockKeyhole, Loader2 } from 'lucide-react'
 import type { Profile } from '../types'
 import { monthKey } from '../lib/dateUtils'
-import { hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
-import PlanBadge from './PlanBadge'
-import FreeMapComparison from './FreeMapComparison'
-import LegacyMyEvolutionPage from './MyEvolutionPageLegacy'
 
 export type Tab = 'resumo' | 'graficos'
 
@@ -31,11 +27,14 @@ type MapEntry = {
 }
 
 type DayMood = { day: number; mood: number }
+type Ranked = { label: string; count: number }
 type Pair = { emotion: string; context: string; count: number }
 
-function nextMonthKey(key: string) {
+const weekDays = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
+
+function shiftMonth(key: string, delta: number) {
   const [year, month] = key.split('-').map(Number)
-  return monthKey(new Date(year, month, 1, 12))
+  return monthKey(new Date(year, month - 1 + delta, 1, 12))
 }
 
 function monthLabel(key: string) {
@@ -44,46 +43,45 @@ function monthLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-function heatClass(mood: number) {
-  if (mood >= 4) return 'bg-forest-600'
-  if (mood >= 3) return 'bg-mint'
-  return 'bg-coral/70'
+function moodMeta(mood: number) {
+  if (mood >= 4.5) return { label: 'Muito leve', face: '☺', cls: 'bg-[#39775b] text-white' }
+  if (mood >= 3.5) return { label: 'Leve', face: '☺', cls: 'bg-[#a8c99e] text-[#173c2e]' }
+  if (mood >= 2.5) return { label: 'Neutro', face: '−', cls: 'bg-[#f5c34d] text-[#173c2e]' }
+  if (mood >= 1.5) return { label: 'Difícil', face: '−', cls: 'bg-[#f58a3c] text-[#173c2e]' }
+  return { label: 'Muito difícil', face: '⌢', cls: 'bg-[#ef6257] text-[#173c2e]' }
 }
 
-function moodLabel(mood: number) {
-  if (mood >= 4) return 'mais leves'
-  if (mood >= 3) return 'mais neutros'
-  return 'mais difíceis'
+function rankTags(entries: MapEntry[], field: 'emotional_tags' | 'context_tags', limit = 6): Ranked[] {
+  const counts = new Map<string, number>()
+  entries.flatMap(entry => entry[field] ?? []).forEach(label => counts.set(label, (counts.get(label) ?? 0) + 1))
+  return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, limit)
+}
+
+function BarList({ items, empty = 'Ainda não há dados suficientes.' }: { items: Ranked[]; empty?: string }) {
+  const max = Math.max(...items.map(item => item.count), 1)
+  if (!items.length) return <p className="py-8 text-sm text-ink-soft">{empty}</p>
+  return <div className="space-y-4">{items.map((item, index) => (
+    <div key={item.label} className="grid grid-cols-[1fr_auto_120px] items-center gap-3 text-sm">
+      <span className="flex items-center gap-2 text-ink"><span className="w-6 h-6 rounded-full bg-mint/70 flex items-center justify-center text-[10px] text-forest-900">{index + 1}</span>{item.label}</span>
+      <span className="text-ink-soft tabular-nums">{item.count}</span>
+      <span className="h-1.5 rounded-full bg-[#edf0e8] overflow-hidden"><span className="block h-full rounded-full bg-forest-700" style={{ width: `${(item.count / max) * 100}%` }} /></span>
+    </div>
+  ))}</div>
 }
 
 export default function MyEvolutionPage(props: Props) {
-  const { user, profile, initialTab } = props
-  const [showDetails, setShowDetails] = useState(initialTab === 'graficos')
-  const [showAllData, setShowAllData] = useState(initialTab === 'graficos')
+  const { user } = props
+  const [periodKey, setPeriodKey] = useState(monthKey())
   const [entries, setEntries] = useState<MapEntry[]>([])
-  const [loading, setLoading] = useState(initialTab !== 'graficos')
+  const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
-  const periodKey = monthKey()
-  const plan = profile?.plan ?? 'free'
-  const isEssential = hasPlanAccess(plan, 'essential')
 
   useEffect(() => {
-    if (initialTab === 'graficos') {
-      setShowDetails(true)
-      setShowAllData(true)
-    }
-  }, [initialTab])
-
-  useEffect(() => {
-    if (!user || showDetails) {
-      setLoading(false)
-      return
-    }
+    if (!user) { setEntries([]); setLoading(false); return }
     let active = true
-    setLoading(true)
-    setFailed(false)
+    setLoading(true); setFailed(false)
     const start = `${periodKey}-01`
-    const end = `${nextMonthKey(periodKey)}-01`
+    const end = `${shiftMonth(periodKey, 1)}-01`
     supabase.from('diary_entries')
       .select('mood_score,emotional_tags,context_tags,date,created_at')
       .eq('user_id', user.id).gte('date', start).lt('date', end).order('date', { ascending: true })
@@ -91,12 +89,9 @@ export default function MyEvolutionPage(props: Props) {
         if (!active) return
         if (error) { setFailed(true); setEntries([]) } else setEntries((data ?? []) as MapEntry[])
         setLoading(false)
-      }, () => {
-        if (!active) return
-        setFailed(true); setEntries([]); setLoading(false)
-      })
+      }, () => { if (active) { setFailed(true); setEntries([]); setLoading(false) } })
     return () => { active = false }
-  }, [periodKey, showDetails, user])
+  }, [periodKey, user])
 
   const dailyMoods = useMemo<DayMood[]>(() => {
     const byDay = new Map<number, number[]>()
@@ -106,107 +101,87 @@ export default function MyEvolutionPage(props: Props) {
       const day = Number(String(entry.date || entry.created_at).slice(8, 10))
       if (!day) continue
       const values = byDay.get(day) ?? []
-      values.push(Math.min(5, Math.max(1, score)))
-      byDay.set(day, values)
+      values.push(Math.min(5, Math.max(1, score))); byDay.set(day, values)
     }
     return [...byDay.entries()].map(([day, values]) => ({ day, mood: values.reduce((sum, value) => sum + value, 0) / values.length })).sort((a, b) => a.day - b.day)
   }, [entries])
 
-  const topEmotions = useMemo(() => {
-    if (!isEssential) return [] as { label: string; count: number }[]
-    const counts = new Map<string, number>()
-    entries.flatMap(entry => entry.emotional_tags ?? []).forEach(label => counts.set(label, (counts.get(label) ?? 0) + 1))
-    return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 3)
-  }, [entries, isEssential])
-
-  const strongestPair = useMemo<Pair | null>(() => {
-    if (!isEssential) return null
+  const emotions = useMemo(() => rankTags(entries, 'emotional_tags'), [entries])
+  const contexts = useMemo(() => rankTags(entries, 'context_tags'), [entries])
+  const connections = useMemo<Pair[]>(() => {
     const counts = new Map<string, Pair>()
     for (const entry of entries) for (const emotion of entry.emotional_tags ?? []) for (const context of entry.context_tags ?? []) {
-      const key = `${emotion}\u0000${context}`
-      const current = counts.get(key)
+      const key = `${emotion}\u0000${context}`; const current = counts.get(key)
       counts.set(key, current ? { ...current, count: current.count + 1 } : { emotion, context, count: 1 })
     }
-    const first = [...counts.values()].sort((a, b) => b.count - a.count)[0]
-    return first && first.count >= 2 ? first : null
-  }, [entries, isEssential])
+    return [...counts.values()].filter(item => item.count >= 2).sort((a, b) => b.count - a.count).slice(0, 3)
+  }, [entries])
 
-  if (showDetails) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <button type="button" onClick={() => { setShowDetails(false); setShowAllData(false) }} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Voltar ao resumo do mês
-        </button>
+  const moodByDay = useMemo(() => new Map(dailyMoods.map(item => [item.day, item.mood])), [dailyMoods])
+  const [year, month] = periodKey.split('-').map(Number)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const firstWeekday = (new Date(year, month - 1, 1).getDay() + 6) % 7
+  const cells = Array.from({ length: 42 }, (_, i) => {
+    const day = i - firstWeekday + 1
+    return day >= 1 && day <= daysInMonth ? day : null
+  })
 
-        <section className="mt-6 rounded-3xl border border-line bg-paper-soft p-5 sm:p-7">
-          <div className="flex items-center gap-2 text-forest-600"><Sparkles className="w-4 h-4" /><p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Explorar seu mapa</p></div>
-          <h1 className="font-serif text-3xl text-forest-900 mt-1">Primeiro entenda. Depois, aprofunde.</h1>
-          <p className="mt-2 text-sm text-ink-soft max-w-2xl leading-relaxed">O Mapa Emocional tem bastante informação, mas você não precisa ver tudo de uma vez. A leitura detalhada continua completa e organizada por mês; os dados aprofundados ficam recolhidos até você querer consultá-los.</p>
-
-          <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {['Humor, energia e ansiedade', 'Emoções e contextos', 'Quando aconteceu', 'Comparações'].map(label => (
-              <div key={label} className="rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm text-forest-900">{label}</div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-3xl border border-line bg-mint/25 p-5 sm:p-6">
-          <button type="button" onClick={() => setShowAllData(value => !value)} aria-expanded={showAllData} className="w-full flex items-center justify-between gap-4 text-left">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Ver dados do mês</p>
-              <h2 className="font-serif text-xl text-forest-900 mt-1">Análises, emoções, contextos e comparações</h2>
-              <p className="text-xs text-ink-soft mt-1">Abra quando quiser consultar o mapa completo. Nenhuma informação foi removida.</p>
-            </div>
-            <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0"><ChevronDown className={`w-4 h-4 text-forest-700 transition-transform ${showAllData ? 'rotate-180' : ''}`} /></span>
-          </button>
-        </section>
-
-        {showAllData && (
-          <div className="mt-4 rounded-3xl border border-line bg-white overflow-hidden">
-            {isEssential && user && (
-              <div className="border-b border-line bg-paper-soft px-4 sm:px-6 py-5">
-                <FreeMapComparison userId={user.id} />
-              </div>
-            )}
-            <LegacyMyEvolutionPage {...props} initialTab="graficos" />
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const maxEmotion = Math.max(...topEmotions.map(item => item.count), 1)
-  const averageMood = dailyMoods.length ? dailyMoods.reduce((sum, item) => sum + item.mood, 0) / dailyMoods.length : 0
-  const difficultDays = dailyMoods.filter(item => item.mood < 3).length
-  const lighterDays = dailyMoods.filter(item => item.mood >= 4).length
+  const chartPoints = dailyMoods.map((item, index) => ({ x: dailyMoods.length === 1 ? 50 : (index / (dailyMoods.length - 1)) * 100, y: 100 - ((item.mood - 1) / 4) * 100 }))
+  const polyline = chartPoints.map(point => `${point.x},${point.y}`).join(' ')
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-7">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-9 text-ink">
+      <header className="flex flex-wrap items-start justify-between gap-4 mb-7">
         <div>
-          <div className="flex items-center gap-2 text-forest-600"><Leaf className="w-5 h-5" /><p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Seu mês</p></div>
-          <h1 className="font-serif text-3xl md:text-4xl text-forest-900 mt-1">Mapa Emocional</h1>
-          <p className="mt-2 text-ink-soft max-w-xl leading-relaxed">Primeiro, um retrato simples do que apareceu. Você escolhe quando quer aprofundar.</p>
+          <div className="flex items-center gap-2"><h1 className="font-serif text-4xl text-forest-900">Mapa Emocional</h1><Info className="w-4 h-4 text-ink-soft" /></div>
+          <p className="mt-1.5 text-sm text-ink-soft">Explore seus registros e visualize como você se sentiu ao longo do tempo.</p>
         </div>
-        <PlanBadge plan={plan} member size="sm" />
+        <div className="flex gap-2">
+          <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900"><Filter className="w-4 h-4" /> Filtros</button>
+          <button type="button" aria-label="Escolher período" className="rounded-xl border border-line bg-white p-2.5 text-forest-900"><CalendarDays className="w-4 h-4" /></button>
+        </div>
       </header>
 
-      <section className="rounded-3xl border border-line bg-paper-soft p-5 sm:p-7">
-        <div className="flex items-center justify-between gap-4">
-          <div><p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">{monthLabel(periodKey)}</p><h2 className="font-serif text-2xl text-forest-900 mt-1">O que mais esteve presente</h2></div>
-          <span className="text-xs text-ink-soft">{dailyMoods.length} {dailyMoods.length === 1 ? 'dia com registro' : 'dias com registros'}</span>
+      <section className="rounded-[24px] border border-line bg-white p-4 sm:p-6 mb-5">
+        <div className="flex items-center justify-center gap-8">
+          <button type="button" aria-label="Mês anterior" onClick={() => setPeriodKey(key => shiftMonth(key, -1))} className="p-2 text-forest-900"><ChevronLeft className="w-5 h-5" /></button>
+          <div className="text-center"><h2 className="text-xl font-semibold text-forest-900">{monthLabel(periodKey)}</h2><p className="mt-1 text-sm text-ink-soft">{daysInMonth} dias <span className="mx-1">•</span> {dailyMoods.length} dias com registros</p></div>
+          <button type="button" aria-label="Próximo mês" onClick={() => setPeriodKey(key => shiftMonth(key, 1))} className="p-2 text-forest-900"><ChevronRight className="w-5 h-5" /></button>
         </div>
-        {loading ? <div className="flex justify-center py-14" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /></div>
-        : failed ? <p className="mt-5 rounded-2xl bg-coral/25 px-4 py-3 text-sm text-[#8a3b23]">Não foi possível carregar seu mapa agora. Você ainda pode abrir os detalhes e tentar novamente por lá.</p>
-        : dailyMoods.length === 0 ? <div className="mt-6 rounded-2xl bg-mint/30 p-5"><p className="font-serif text-xl text-forest-900">Ainda não há um retrato deste mês</p><p className="text-sm text-ink-soft mt-2">Quando houver registros, os dias começam a formar um mapa visual aqui. Não existe meta de frequência.</p><button type="button" onClick={props.onNavigateDiary} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium">Ir para o diário <ArrowRight className="w-4 h-4" /></button></div>
-        : <div className="mt-6 grid md:grid-cols-[0.9fr_1.1fr] gap-6"><div className="rounded-2xl bg-mint/35 p-5"><p className="text-xs text-ink-soft">Tom geral dos dias registrados</p><p className="font-serif text-3xl text-forest-900 mt-1">{moodLabel(averageMood)}</p><div className="grid grid-cols-2 gap-3 mt-5"><div><p className="font-serif text-2xl text-forest-900">{lighterDays}</p><p className="text-xs text-ink-soft">dias mais leves</p></div><div><p className="font-serif text-2xl text-forest-900">{difficultDays}</p><p className="text-xs text-ink-soft">dias mais difíceis</p></div></div></div><div>{isEssential && topEmotions.length > 0 ? <div className="space-y-3">{topEmotions.map(item => <div key={item.label}><div className="flex items-center justify-between gap-3 text-sm"><span className="text-forest-900">{item.label}</span><span className="text-xs text-ink-soft">{item.count}x</span></div><div className="mt-1.5 h-2.5 rounded-full bg-mint overflow-hidden"><div className="h-full rounded-full bg-forest-500" style={{ width: `${(item.count / maxEmotion) * 100}%` }} /></div></div>)}</div> : <div className="h-full rounded-2xl border border-dashed border-line p-5 flex flex-col justify-center"><p className="text-sm text-forest-900 font-medium">O panorama básico continua disponível para você.</p><p className="text-xs text-ink-soft mt-2">No Essencial, o mapa também organiza emoções e outros sinais estruturados para aprofundar o período.</p><button type="button" onClick={props.onNavigatePricing} className="mt-3 self-start text-xs font-medium text-forest-700 underline">Conhecer o Essencial</button></div>}</div></div>}
+
+        {loading ? <div className="h-80 flex items-center justify-center" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-600" /></div> : failed ? <p className="my-10 text-center text-sm text-[#8a3b23]">Não foi possível carregar este período agora.</p> : <>
+          <div className="mt-5 rounded-2xl border border-line overflow-hidden">
+            <div className="grid grid-cols-7 bg-paper-soft">{weekDays.map(day => <div key={day} className="py-3 text-center text-[11px] font-medium text-ink-soft">{day}</div>)}</div>
+            <div className="grid grid-cols-7">{cells.map((day, index) => {
+              const mood = day ? moodByDay.get(day) : undefined
+              return <div key={index} className="min-h-[78px] border-t border-r last:border-r-0 border-line p-2.5 relative bg-white">
+                {day && <><span className="text-xs font-medium text-forest-900">{day}</span>{mood ? <span title={moodMeta(mood).label} className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-base ${moodMeta(mood).cls}`}>{moodMeta(mood).face}</span> : <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#d8d8d2]" />}</>}
+              </div>
+            })}</div>
+          </div>
+          <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-ink-soft">{[1,2,3,4,5].map(value => <span key={value} className="flex items-center gap-2"><span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${moodMeta(value).cls}`}>{moodMeta(value).face}</span>{moodMeta(value).label}</span>)}<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#d8d8d2]" />Sem registro</span></div>
+        </>}
       </section>
 
-      {!loading && dailyMoods.length > 0 && <section><div className="flex items-center gap-2 text-forest-600"><CalendarDays className="w-4 h-4" /><p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Quando isso aconteceu?</p></div><h2 className="font-serif text-2xl text-forest-900 mt-1">Seu mês, dia a dia</h2><p className="text-sm text-ink-soft mt-1">Sem comparar desempenho: apenas uma forma visual de lembrar quando os dias pareceram diferentes.</p><div className="mt-4 flex flex-wrap gap-2">{dailyMoods.map(item => <span key={item.day} title={`Dia ${item.day}`} className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-medium ${heatClass(item.mood)} ${item.mood >= 4 ? 'text-white' : 'text-forest-900'}`}>{item.day}</span>)}</div></section>}
+      <div className="grid lg:grid-cols-2 gap-4 mb-4">
+        <section className="rounded-[22px] border border-line bg-white p-5">
+          <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Humor ao longo do mês</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div>
+          {dailyMoods.length ? <div className="mt-5 h-52 relative"><div className="absolute inset-0 flex flex-col justify-between">{[0,1,2,3,4].map(i => <span key={i} className="border-t border-dashed border-line" />)}</div><svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full overflow-visible"><polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="text-forest-900" />{chartPoints.map((point, i) => <circle key={i} cx={point.x} cy={point.y} r="1.2" className="fill-forest-900" />)}</svg></div> : <p className="py-16 text-sm text-ink-soft">Os registros de humor aparecerão aqui.</p>}
+        </section>
+        <section className="rounded-[22px] border border-line bg-white p-5"><div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Emoções mais registradas</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todas</span></div><BarList items={emotions} /></section>
+      </div>
 
-      {!loading && dailyMoods.length > 0 && <section className="rounded-3xl border border-line bg-mint/25 p-5 sm:p-6"><div className="flex items-center gap-2 text-forest-600"><Sparkles className="w-4 h-4" /><p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Algo chama atenção</p></div><h2 className="font-serif text-2xl text-forest-900 mt-1">Uma pista para observar, não uma conclusão</h2><p className="text-sm text-forest-800 mt-3 leading-relaxed">{strongestPair ? `“${strongestPair.emotion}” e “${strongestPair.context}” apareceram juntos em ${strongestPair.count} registros deste mês. Isso não indica causa; pode valer observar a relação.` : topEmotions[0] ? `“${topEmotions[0].label}” foi um dos sinais mais presentes nos registros deste mês. Ainda assim, frequência sozinha não explica o motivo.` : `Você registrou ${dailyMoods.length} ${dailyMoods.length === 1 ? 'dia' : 'dias'} neste mês. O mapa já mostra quando houve mudanças, sem transformar isso em diagnóstico ou meta.`}</p><button type="button" aria-label="Explorar detalhes — Entender melhor meu mapa" onClick={() => setShowDetails(true)} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium">{strongestPair ? 'Explorar essa relação' : 'Explorar detalhes'} <ArrowRight className="w-4 h-4" /></button></section>}
+      <div className="grid lg:grid-cols-2 gap-4 mb-4">
+        <section className="rounded-[22px] border border-line bg-white p-5"><div className="flex items-center justify-between mb-5"><h3 className="font-semibold text-forest-900">Contextos mais frequentes</h3><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todos</span></div><BarList items={contexts} /></section>
+        <section className="rounded-[22px] border border-line bg-white p-5"><div className="flex items-center justify-between mb-5"><h3 className="font-semibold text-forest-900">Sinais do período</h3><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todos</span></div><BarList items={emotions.slice(0, 6)} empty="Os sinais estruturados aparecerão aqui conforme seus registros." /></section>
+      </div>
 
-      <p className="text-xs text-ink-soft border-t border-line pt-4">Esta leitura considera apenas os dados resumidos deste mapa, formados por sinais estruturados — não o texto completo do seu Diário. Ela não é diagnóstico.</p>
+      <section className="rounded-[22px] border border-line bg-white p-5 sm:p-6 mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">O que apareceu junto</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div><p className="text-xs text-ink-soft mt-1">Relações mais comuns entre emoções e contextos.</p></div><button type="button" aria-label="Entender melhor meu mapa — ver descobertas" onClick={() => props.onNavigate?.('discoveries')} className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todas as conexões</button></div>
+        {connections.length ? <div className="mt-7 grid md:grid-cols-3 gap-7">{connections.map((pair, index) => <div key={`${pair.emotion}-${pair.context}`} className="text-center"><div className="flex items-center justify-center"><span className={`w-24 h-24 rounded-full flex items-center justify-center text-sm ${index === 0 ? 'bg-[#f6b0a5]' : index === 1 ? 'bg-[#f7bd8e]' : 'bg-[#b7d1a9]'}`}>{pair.emotion}</span><span className="w-6 h-px bg-forest-900" /><span className={`w-24 h-24 rounded-full flex items-center justify-center text-sm ${index === 0 ? 'bg-[#f6d48b]' : index === 1 ? 'bg-[#d4b5df]' : 'bg-[#c5dfd2]'}`}>{pair.context}</span></div><p className="mt-4 text-xs text-ink-soft">Apareceram juntos em</p><p className="mt-1 font-semibold text-forest-800">{pair.count} dias</p></div>)}</div> : <p className="py-10 text-sm text-ink-soft">Quando emoções e contextos se repetirem juntos, as conexões aparecerão aqui.</p>}
+      </section>
+
+      <footer className="rounded-2xl border border-line bg-paper-soft px-5 py-4 flex items-center gap-4"><LockKeyhole className="w-5 h-5 text-forest-800 shrink-0" /><div className="flex-1"><p className="text-xs font-semibold text-forest-900">Este é o seu mapa emocional. Seus dados são privados e seguros.</p><p className="text-xs text-ink-soft mt-0.5">Nada aqui é diagnóstico. É apenas um reflexo do que você registrou.</p></div><Info className="w-4 h-4 text-ink-soft" /></footer>
     </div>
   )
 }
