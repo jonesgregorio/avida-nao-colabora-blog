@@ -15,7 +15,7 @@ test('check-in da Home também é sincronizado com o histórico do Diário', () 
 })
 
 test('payload do histórico usa somente colunas existentes em diary_entries', () => {
-  const payloadBlock = sync.match(/const payload = \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  const payloadBlock = sync.match(/const payload = \{[\s\S]*?\n\s{2}\}/)?.[0] || ''
   assert.match(payloadBlock, /user_id: userId/)
   assert.match(payloadBlock, /entry_type: 'checkin'/)
   assert.doesNotMatch(payloadBlock, /updated_at/)
@@ -37,7 +37,7 @@ test('depois de salvo o check-in fica fechado e o Diário abre um registro separ
 })
 
 test('escolher a nota não persiste antes do salvamento explícito', () => {
-  const chooseScoreBlock = home.match(/function chooseScore[\s\S]*?\n {2}}/)?.[0] || ''
+  const chooseScoreBlock = home.match(/function chooseScore[\s\S]*?\n\s{2}}/)?.[0] || ''
   assert.match(chooseScoreBlock, /setScore\(nextScore\)/)
   assert.doesNotMatch(chooseScoreBlock, /daily_life_collaboration|upsert|syncHomeCheckinToDiary/)
 })
