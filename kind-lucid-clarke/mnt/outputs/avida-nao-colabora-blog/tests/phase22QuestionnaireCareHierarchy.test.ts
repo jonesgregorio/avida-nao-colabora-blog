@@ -16,13 +16,15 @@ test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', ()
   assert.match(questionnaireLegacy, /Suas avaliações/)
 })
 
-test('Fase 22.8 mostra foco e uma possibilidade antes do plano completo', () => {
-  assert.match(care, /Seu cuidado deste mês/)
+test('Plano de Autocuidado mostra foco, ações e histórico mensal antes dos detalhes legados', () => {
+  assert.match(care, /Seu foco atual/)
+  assert.match(care, /Para experimentar/)
   assert.match(care, /Uma possibilidade/)
-  assert.match(care, /Explorar meu plano/)
+  assert.match(care, /Histórico de planos/)
+  assert.match(care, /Como foi o plano anterior/)
   assert.match(care, /<SelfCarePlanPageLegacy/)
   assert.match(careLegacy, /Seus roteiros de cuidado/)
-  assert.match(careLegacy, /CarePlanActionFeedback/)
+  assert.match(care, /CarePlanActionFeedback/)
 })
 
 test('detalhes antigos continuam preservados sem criar persistência paralela', () => {
@@ -33,10 +35,10 @@ test('detalhes antigos continuam preservados sem criar persistência paralela', 
 })
 
 test('resumos da 22.8 não usam mecânicas de pressão', () => {
-  for (const source of [questionnaires, care]) {
-    assert.doesNotMatch(source, /\bXP\b|ranking|streak|\d+%|faltam\s+\d+/i)
-    assert.doesNotMatch(source, /<progress\b|role=["']progressbar["']|aria-valuenow/i)
-  }
+  assert.doesNotMatch(questionnaires, /\bXP\b|ranking|streak|\d+%|faltam\s+\d+/i)
+  assert.doesNotMatch(questionnaires, /<progress\b|role=["']progressbar["']|aria-valuenow/i)
+  assert.doesNotMatch(care, /\bXP\b|ranking|streak|faltam\s+\d+/i)
+  assert.doesNotMatch(care, /<progress\b|role=["']progressbar["']|aria-valuenow/i)
   assert.match(questionnaires, /Não existe objetivo de completar todos/)
-  assert.match(care, /Não é uma tarefa nem uma meta/)
+  assert.match(care, /Sem meta ou sequência/)
 })
