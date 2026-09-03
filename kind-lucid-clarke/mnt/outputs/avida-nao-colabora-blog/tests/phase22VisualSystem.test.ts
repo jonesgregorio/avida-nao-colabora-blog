@@ -23,7 +23,7 @@ test('22.10 centraliza o acabamento visual sem criar uma segunda arquitetura', (
 
 test('largura continua contextual: leitura concentrada e superfícies editoriais amplas quando necessário', () => {
   assert.match(diary, /max-w-4xl/)
-  assert.match(discoveries, /max-w-4xl/)
+  assert.match(discoveries, /max-w-5xl/)
   assert.match(map, /max-w-4xl/)
   assert.match(reports, /max-w-6xl/)
   assert.match(care, /max-w-4xl/)
