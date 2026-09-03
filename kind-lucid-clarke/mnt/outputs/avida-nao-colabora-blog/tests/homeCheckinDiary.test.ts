@@ -15,7 +15,7 @@ test('check-in da Home também é sincronizado com o histórico do Diário', () 
 })
 
 test('payload do histórico usa somente colunas existentes em diary_entries', () => {
-  const payloadBlock = sync.match(/const payload = \{[\s\S]*?\n  \}/)?.[0] || ''
+  const payloadBlock = sync.match(/const payload = \{[\s\S]*?\n {2}\}/)?.[0] || ''
   assert.match(payloadBlock, /user_id: userId/)
   assert.match(payloadBlock, /entry_type: 'checkin'/)
   assert.doesNotMatch(payloadBlock, /updated_at/)
