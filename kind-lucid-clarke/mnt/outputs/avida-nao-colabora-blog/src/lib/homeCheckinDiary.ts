@@ -33,7 +33,6 @@ export async function syncHomeCheckinToDiary({ userId, date, score, feelingTags 
     entry_type: 'checkin',
     ai_disabled: true,
     markers: [HOME_CHECKIN_MARKER],
-    updated_at: new Date().toISOString(),
   }
 
   const { data: existing, error: lookupError } = await supabase
