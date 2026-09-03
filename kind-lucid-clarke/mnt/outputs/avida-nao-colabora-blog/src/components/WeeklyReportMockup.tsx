@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, BookOpen, CalendarDays, Check, CheckCircle2, ClipboardCheck,
-  Download, Heart, Info, MessageCircle, Moon, Share2, Sparkles, Sprout, Target, Zap,
+  Download, Info, MessageCircle, Share2, Sparkles, Sprout, Target,
 } from 'lucide-react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { exportReportPdf } from '../lib/reportPdf'
