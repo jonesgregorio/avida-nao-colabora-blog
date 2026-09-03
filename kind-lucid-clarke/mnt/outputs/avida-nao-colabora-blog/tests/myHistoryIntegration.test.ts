@@ -6,6 +6,7 @@ const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 const navigation = readFileSync(new URL('../src/lib/navigation.ts', import.meta.url), 'utf8')
 const layout = readFileSync(new URL('../src/components/user/UserLayout.tsx', import.meta.url), 'utf8')
 const page = readFileSync(new URL('../src/components/MyHistoryPageLegacy.tsx', import.meta.url), 'utf8')
+const garden = readFileSync(new URL('../src/components/MyGardenPage.tsx', import.meta.url), 'utf8')
 const temporalPanel = readFileSync(new URL('../src/components/history/TemporalComparisonPanel.tsx', import.meta.url), 'utf8')
 
 test('Minha História possui rota canônica própria e entra no shell logado', () => {
@@ -15,10 +16,20 @@ test('Minha História possui rota canônica própria e entra no shell logado', (
   assert.match(app, /goAuth\('my-history'\)/)
 })
 
-test('navegação expõe Minha História no grupo da jornada (Fase 19R.1)', () => {
+test('navegação expõe Minha História e Meu Jardim no grupo da jornada', () => {
   assert.match(layout, /label: 'Minha História'/)
-  assert.match(layout, /\['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history'\]/)
+  assert.match(layout, /label: 'Meu Jardim'/)
+  assert.match(layout, /\['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden'\]/)
   assert.match(layout, /MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
+})
+
+test('Meu Jardim possui rota própria e renderização protegida no shell logado', () => {
+  assert.match(navigation, /'\/meu-jardim':\s+'my-garden'/)
+  assert.match(app, /const MyGardenPage = lazy/)
+  assert.match(app, /view === 'my-garden'/)
+  assert.match(app, /goAuth\('my-garden'\)/)
+  assert.match(app, /<MyGardenPage userId=\{user\.id\} \/>/)
+  assert.match(garden, /Seu jardim cresce com interações significativas/)
 })
 
 test('histórico completo respeita o entitlement oficial do Essencial', () => {
