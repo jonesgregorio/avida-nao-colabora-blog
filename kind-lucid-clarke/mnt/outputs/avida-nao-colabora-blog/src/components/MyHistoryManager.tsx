@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Bookmark, CalendarDays, Check, Eye, EyeOff, Loader2, Pencil, Plus, Save, Sparkles, Star, Trash2, X } from 'lucide-react'
 import {
   createHistoryMilestone,
@@ -40,13 +40,13 @@ export default function MyHistoryManager({ userId, months, onBack, onChanged, st
   const [creating, setCreating] = useState(startCreating)
   const [form, setForm] = useState<FormState>(emptyForm)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true); setError('')
     try { setItems(await loadHistoryManagementItems(userId)) }
     catch { setError('Não foi possível carregar suas preferências da história.') }
     finally { setLoading(false) }
-  }
-  useEffect(() => { void refresh() }, [userId])
+  }, [userId])
+  useEffect(() => { void refresh() }, [refresh])
 
   const milestones = useMemo(() => items.filter(i => i.item_type === 'milestone'), [items])
   const hidden = useMemo(() => new Set(items.filter(i => i.item_type === 'hidden_month').map(i => i.reference_key).filter(Boolean) as string[]), [items])
