@@ -107,7 +107,7 @@ export default function MyReportPage(props: Props) {
     const target = report ?? (type === 'monthly' ? latestMonthly : latestWeekly)
     if (!target) return
     setSelectedType(type)
-    setSelectedReportId(target.id)
+    setSelectedReportId(target.id ?? null)
     setShowDetails(false)
     setView('report')
     window.scrollTo({ top: 0, behavior: 'smooth' })
