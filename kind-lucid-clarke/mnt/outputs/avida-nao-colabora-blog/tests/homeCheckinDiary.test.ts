@@ -30,7 +30,7 @@ test('depois de salvo o check-in fica fechado e o Diário abre um registro separ
 })
 
 test('escolher a nota não persiste antes do salvamento explícito', () => {
-  const chooseScoreBlock = home.match(/function chooseScore[\s\S]*?\n  }/)?.[0] || ''
+  const chooseScoreBlock = home.match(/function chooseScore[\s\S]*?\n {2}}/)?.[0] || ''
   assert.match(chooseScoreBlock, /setScore\(nextScore\)/)
   assert.doesNotMatch(chooseScoreBlock, /daily_life_collaboration|upsert|syncHomeCheckinToDiary/)
 })
