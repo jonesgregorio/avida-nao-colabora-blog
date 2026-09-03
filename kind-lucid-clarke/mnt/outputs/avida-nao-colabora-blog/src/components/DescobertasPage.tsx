@@ -29,6 +29,74 @@ interface Props {
   onNavigate: (section: string) => void
 }
 
+function isFatigueSignal(discovery: HomeDiscovery) {
+  const key = discovery.stableKey.toLowerCase()
+  return key.includes('cansaco') || key.includes('sem_energia')
+}
+
+function discoveryCategoryLabel(discovery: HomeDiscovery): string {
+  switch (discovery.kind) {
+    case 'context':
+      return 'Tema recorrente'
+    case 'trigger':
+      return 'Possível gatilho'
+    case 'emotion':
+      return 'Emoção recorrente'
+    case 'context_emotion':
+    case 'trigger_emotion':
+      return 'Conexão em observação'
+    case 'sleep_anxiety':
+      return 'Sinal no sono'
+    case 'energy_anxiety':
+      return 'Conexão em observação'
+    case 'mood':
+      return isFatigueSignal(discovery) ? 'Sintoma recorrente' : 'Humor recorrente'
+    default:
+      return 'Sinal recorrente'
+  }
+}
+
+function discoveryStage(discovery: HomeDiscovery): string {
+  if (discovery.status === 'forming') return 'Começando a aparecer'
+
+  const ratio = discovery.baseDays > 0 ? discovery.matchedDays / discovery.baseDays : 0
+  if (discovery.baseDays >= 7 && discovery.matchedDays >= 5 && ratio >= 0.6) {
+    return 'Padrão observado'
+  }
+  return 'Se repetindo'
+}
+
+function discoveryContextualDescription(discovery: HomeDiscovery): string {
+  const { matchedDays, baseDays, status } = discovery
+  const stillForming = status === 'forming'
+
+  switch (discovery.kind) {
+    case 'context':
+      return stillForming
+        ? `Esse tema apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. Vale observar se ele costuma surgir associado a algum sentimento, sintoma ou momento específico.`
+        : `Esse tema apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. A repetição já é consistente o bastante para observar em quais situações ele ganha mais peso.`
+    case 'mood':
+      if (isFatigueSignal(discovery)) {
+        return stillForming
+          ? `Você registrou esse sinal em ${matchedDays} dos seus ${baseDays} dias com registro. Por enquanto, o sistema está acompanhando a frequência e o contexto em que ele aparece.`
+          : `Você registrou esse sinal em ${matchedDays} dos seus ${baseDays} dias com registro. A frequência já permite observar com mais atenção o que costuma acontecer nos mesmos dias.`
+      }
+      return stillForming
+        ? `Esse estado apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. Ainda está ganhando contexto, então vale acompanhar sem tirar conclusões agora.`
+        : `Esse estado apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. A repetição já permite comparar melhor os dias em que ele aparece.`
+    case 'emotion':
+      return stillForming
+        ? `Essa emoção apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. Ainda é cedo para tratá-la como padrão, mas já existe repetição para acompanhar.`
+        : `Essa emoção apareceu em ${matchedDays} dos seus ${baseDays} dias com registro. Agora já há contexto suficiente para observar o que costuma acompanhá-la.`
+    case 'trigger':
+      return stillForming
+        ? `Esse gatilho foi marcado em ${matchedDays} dos seus ${baseDays} dias com registro. O sistema ainda está observando em quais situações ele volta a aparecer.`
+        : `Esse gatilho foi marcado em ${matchedDays} dos seus ${baseDays} dias com registro. A repetição já permite olhar com mais atenção para o que costuma acontecer ao redor dele.`
+    default:
+      return discovery.description
+  }
+}
+
 export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   const plan = normalizePlan(profile?.plan)
   const [entries, setEntries] = useState<HomeDiscoveryEntry[]>([])
@@ -285,7 +353,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
               {hiddenDiscoveries.map(discovery => (
                 <div key={discovery.stableKey} className="rounded-2xl bg-paper-soft px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">{discovery.eyebrow}</p>
+                    <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">{discoveryCategoryLabel(discovery)}</p>
                     <p className="font-serif text-base text-forest-900 mt-0.5">{discovery.title}</p>
                   </div>
                   <button
@@ -359,7 +427,7 @@ function DiscoveryCard({
     <article className={`rounded-3xl p-5 sm:p-6 ${collected ? 'bg-mint/25' : emerging ? 'bg-paper-soft' : 'border border-line bg-white/80'}`}>
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">
-          {emerging ? 'Começando a aparecer' : collected ? 'Guardada por você' : discovery.eyebrow}
+          {discoveryCategoryLabel(discovery)}
         </p>
         {collected && (
           <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-forest-700">
@@ -368,10 +436,16 @@ function DiscoveryCard({
         )}
       </div>
       <h3 className="font-serif text-xl text-forest-900 mt-1">{discovery.title}</h3>
-      <p className="text-sm text-ink-soft mt-2 leading-relaxed">{discovery.description}</p>
+      <p className="text-sm text-ink-soft mt-2 leading-relaxed">{discoveryContextualDescription(discovery)}</p>
 
       <details className="mt-3 text-xs text-ink-soft">
         <summary className="cursor-pointer font-medium text-forest-700">Entender melhor</summary>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-ink-soft">Estágio da descoberta</span>
+          <span className="rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-forest-700">
+            {discoveryStage(discovery)}
+          </span>
+        </div>
         <p className="mt-2">{discovery.evidence}</p>
         <p className="text-sm text-forest-800 mt-2">Para observar: {discovery.question}</p>
         <button
