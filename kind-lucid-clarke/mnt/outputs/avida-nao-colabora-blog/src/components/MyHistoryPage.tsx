@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import {
-  ArrowRight, BookMarked, CalendarDays, ChevronDown, Clock3, Heart, Leaf, Loader2,
+  ArrowRight, BookMarked, CalendarDays, ChevronDown, Clock3, Heart, Loader2,
   NotebookPen, Settings2, Sparkles, Sprout, Tags, TreePine, TrendingUp, UserRoundPlus,
 } from 'lucide-react'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
