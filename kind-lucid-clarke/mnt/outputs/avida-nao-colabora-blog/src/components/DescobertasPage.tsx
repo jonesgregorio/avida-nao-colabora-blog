@@ -220,15 +220,18 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
     { key: 'hidden', label: 'Ocultas', count: hiddenDiscoveries.length },
   ]
 
-  const activeDiscoveries = activeTab === 'now'
-    ? nowDiscoveries
-    : activeTab === 'patterns'
-      ? patternDiscoveries
-      : activeTab === 'connections'
-        ? connectionDiscoveries
-        : activeTab === 'saved'
-          ? madeSenseDiscoveries
-          : []
+  const activeDiscoveries = useMemo(
+    () => activeTab === 'now'
+      ? nowDiscoveries
+      : activeTab === 'patterns'
+        ? patternDiscoveries
+        : activeTab === 'connections'
+          ? connectionDiscoveries
+          : activeTab === 'saved'
+            ? madeSenseDiscoveries
+            : [],
+    [activeTab, nowDiscoveries, patternDiscoveries, connectionDiscoveries, madeSenseDiscoveries],
+  )
 
   const categoryOptions = useMemo(
     () => [...new Set(activeDiscoveries.map(discoveryCategoryLabel))],
