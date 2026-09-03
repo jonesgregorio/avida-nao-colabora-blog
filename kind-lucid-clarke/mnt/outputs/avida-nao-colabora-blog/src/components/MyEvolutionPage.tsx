@@ -271,18 +271,16 @@ export default function MyEvolutionPage(props: Props) {
                 ? `“${topEmotions[0].label}” foi um dos sinais mais presentes nos registros deste mês. Ainda assim, frequência sozinha não explica o motivo.`
                 : `Você registrou ${dailyMoods.length} ${dailyMoods.length === 1 ? 'dia' : 'dias'} neste mês. O mapa já mostra quando houve mudanças, sem transformar isso em diagnóstico ou meta.`}
           </p>
-          <button type="button" onClick={() => setShowDetails(true)} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors">
+          <button
+            type="button"
+            aria-label="Explorar detalhes — Entender melhor meu mapa"
+            onClick={() => setShowDetails(true)}
+            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors"
+          >
             {strongestPair ? 'Explorar essa relação' : 'Explorar detalhes'} <ArrowRight className="w-4 h-4" />
           </button>
         </section>
       )}
-
-      <section className="border-t border-line pt-5">
-        <button type="button" onClick={() => setShowDetails(true)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors">
-          Explorar detalhes <ArrowRight className="w-4 h-4" />
-        </button>
-        <p className="text-xs text-ink-soft mt-2 max-w-2xl">Em “Explorar detalhes”, métricas, comparações, padrões e a opção “Entender melhor meu mapa” continuam disponíveis conforme o seu plano.</p>
-      </section>
 
       <p className="text-xs text-ink-soft border-t border-line pt-4">Esta leitura considera apenas os dados resumidos deste mapa, formados por sinais estruturados — não o texto completo do seu Diário. Ela não é diagnóstico.</p>
     </div>
