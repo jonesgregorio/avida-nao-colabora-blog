@@ -425,7 +425,9 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
     const signal = signalFromEntry(payload)
     setSaved({ entry, signal, mirror: null, processing: !isCheckin && aiAllowed, kind: isCheckin ? 'checkin' : 'diary' }); setSuggestionsApplied(false)
     if (!isCheckin) void runMirror(entry)
-    resetComposer(); setSaving(false); if (onClearPromptContext) onClearPromptContext()
+    resetComposer()
+    await Promise.all([fetchMonthPresence(), fetchEntries(true)])
+    setSaving(false); if (onClearPromptContext) onClearPromptContext()
   }
   const applySuggestions = async () => {
     const current = saved?.entry; const tags = saved?.mirror?.suggested_tags
@@ -448,14 +450,10 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
     if (!entry) return
     setSaved(null)
     if (todayMain) { setMode('main-saved'); setTab('write'); setError(''); return }
+    const note = String(entry.text || '').trim()
+    const moodWord = effectiveMoodLabel(entry.mood, entry.mood_other_label).toLowerCase()
     resetComposer()
-    const meta = moodMeta(entry.mood)
-    setMood(meta.value); setMoodChip(MOODS.find(m => CHIP_TO_MOOD[m.key] === meta.value)?.key || null); setMoodOtherLabel(entry.mood_other_label || '')
-    setEnergy(entry.energy || 3); setStress(entry.stress_level || 3); setAnxiety(entry.anxiety_level || 3)
-    const carried = new Set<string>(); if (entry.energy) carried.add('energy'); if (entry.stress_level) carried.add('stress'); if (entry.anxiety_level) carried.add('anxiety'); setTouched(carried)
-    setContexts(entry.context_tags || [])
-    const note = String(entry.text || '').trim(); const moodWord = effectiveMoodLabel(entry.mood, entry.mood_other_label).toLowerCase()
-    setHelperPrompt(note ? `No seu check-in você anotou: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Se quiser, conte um pouco mais sobre isso.` : `Você marcou ${moodWord}. O que está por trás deste momento?`)
+    setHelperPrompt(note ? `Seu check-in ficou salvo: “${note.slice(0, 140)}${note.length > 140 ? '…' : ''}”. Agora, se quiser, escreva um registro separado sobre o seu dia.` : `Seu check-in com ${moodWord} ficou salvo. Agora, se quiser, escreva um registro separado sobre o seu dia.`)
     setMode('diary'); setTab('write'); setError(''); setTimeout(() => editorRef.current?.focus(), 80)
   }
   async function exportHistory() {
@@ -464,7 +462,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
   }
 
   if (saved) {
-    return <DiarySavedReflection saved={saved} user={user} plan={plan} isEssential={isEssential} todayDeepened={todayDeepened} suggestionsApplied={suggestionsApplied} onOpenArticle={onOpenArticle} moodMeta={moodMeta} onApplySuggestions={() => void applySuggestions()} onAskFollowUp={() => void askFollowUp()} onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }} onContinueFromCheckin={continueFromCheckin} onViewHistory={() => { setSaved(null); setTab('history') }} onBack={onBack} />
+    return <DiarySavedReflection saved={saved} user={user} plan={plan} isEssential={isEssential} todayDeepened={todayDeepened} suggestionsApplied={suggestionsApplied} onOpenArticle={onOpenArticle} moodMeta={moodMeta} onApplySuggestions={() => void applySuggestions()} onAskFollowUp={() => void askFollowUp()} onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }} onContinueFromCheckin={continueFromCheckin} onViewHistory={() => { setSaved(null); setTab('history'); void fetchMonthPresence(); void fetchEntries(true) }} onBack={onBack} />
   }
 
   const shell = focusMode ? 'fixed inset-0 z-50 bg-[#f8f5ef] overflow-y-auto' : ''
@@ -482,7 +480,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
           <button onClick={() => setFocusMode(false)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title="Sair do modo foco" aria-label="Sair do modo foco"><Minimize2 className="w-4 h-4" /></button>
         </header>}
 
-        {!focusMode && <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><div className="inline-flex rounded-full border border-line bg-white p-1"><button onClick={() => setTab('write')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'write' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Escrever</button><button onClick={() => setTab('history')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'history' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Histórico</button></div><div className="flex items-center gap-2"><button onClick={() => setFocusMode(true)} className="rounded-xl border border-line bg-white p-2.5 text-forest-800" title="Modo foco" aria-label="Ativar modo foco"><Maximize2 className="w-4 h-4" /></button><button onClick={onBack} className="text-sm text-ink-soft hover:text-forest-900 inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button></div></div>}
+        {!focusMode && <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><div className="inline-flex rounded-full border border-line bg-white p-1"><button onClick={() => setTab('write')} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'write' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Escrever</button><button onClick={() => { setTab('history'); void fetchMonthPresence() }} className={`px-4 py-1.5 rounded-full text-sm ${tab === 'history' ? 'bg-forest-900 text-white' : 'text-ink-soft'}`}>Histórico</button></div><div className="flex items-center gap-2"><button onClick={() => setFocusMode(true)} className="rounded-xl border border-line bg-white p-2.5 text-forest-800" title="Modo foco" aria-label="Ativar modo foco"><Maximize2 className="w-4 h-4" /></button><button onClick={onBack} className="text-sm text-ink-soft hover:text-forest-900 inline-flex items-center gap-1.5"><Home className="w-4 h-4" /> Início</button></div></div>}
 
         {tab === 'write' ? (
           <div className={focusMode ? '' : 'relative rounded-[2rem] border border-[#cfc2a8] bg-[#dfd3bc] p-2.5 sm:p-4 shadow-[0_24px_60px_rgba(53,69,54,0.14)]'}>
@@ -539,7 +537,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
               </div>
             </div>
           </div>
-        ) : <DiaryHistorySection sectionRef={historyRef} entries={entries} monthRows={monthRows} today={today} exportPdfEnabled={cfg.exportPDF} exporting={exporting} filter={filter} periodFilter={periodFilter} expandedId={expanded} loading={loading} loadingMore={loadingMore} hasMore={hasMore} getMoodMeta={moodMeta} onExport={() => void exportHistory()} onFilterChange={setFilter} onPeriodFilterChange={setPeriodFilter} onExpandedChange={setExpanded} onRefresh={() => void fetchEntries(true)} onLoadMore={() => void fetchEntries(false)} />}
+        ) : <DiaryHistorySection sectionRef={historyRef} entries={entries} monthRows={monthRows} today={today} exportPdfEnabled={cfg.exportPDF} exporting={exporting} filter={filter} periodFilter={periodFilter} expandedId={expanded} loading={loading} loadingMore={loadingMore} hasMore={hasMore} getMoodMeta={moodMeta} onExport={() => void exportHistory()} onFilterChange={setFilter} onPeriodFilterChange={setPeriodFilter} onExpandedChange={setExpanded} onRefresh={() => { void fetchMonthPresence(); void fetchEntries(true) }} onLoadMore={() => void fetchEntries(false)} />}
       </div>
     </div>
   )
