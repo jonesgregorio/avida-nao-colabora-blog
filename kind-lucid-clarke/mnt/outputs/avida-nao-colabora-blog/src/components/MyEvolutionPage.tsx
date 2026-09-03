@@ -277,13 +277,6 @@ export default function MyEvolutionPage(props: Props) {
         </section>
       )}
 
-      <section className="border-t border-line pt-5">
-        <button type="button" onClick={() => setShowDetails(true)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors">
-          Explorar detalhes <ArrowRight className="w-4 h-4" />
-        </button>
-        <p className="text-xs text-ink-soft mt-2 max-w-2xl">Em “Explorar detalhes”, métricas, comparações, padrões e a opção “Entender melhor meu mapa” continuam disponíveis conforme o seu plano.</p>
-      </section>
-
       <p className="text-xs text-ink-soft border-t border-line pt-4">Esta leitura considera apenas os dados resumidos deste mapa, formados por sinais estruturados — não o texto completo do seu Diário. Ela não é diagnóstico.</p>
     </div>
   )
