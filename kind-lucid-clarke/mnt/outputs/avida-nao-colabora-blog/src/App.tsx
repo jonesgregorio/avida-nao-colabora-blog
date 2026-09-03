@@ -50,6 +50,7 @@ const MyPlanPage = lazy(() => import('./components/MyPlanPage'))
 const MyReportPage = lazy(() => import('./components/MyReportPage'))
 const MyEvolutionPage = lazy(() => import('./components/MyEvolutionPage'))
 const MyHistoryPage = lazy(() => import('./components/MyHistoryPage'))
+const MyGardenPage = lazy(() => import('./components/MyGardenPage'))
 const SelfCarePlanPage = lazy(() => import('./components/SelfCarePlanPage'))
 const DescobertasPage = lazy(() => import('./components/DescobertasPage'))
 const CuidarPage = lazy(() => import('./components/CuidarPage'))
@@ -197,7 +198,7 @@ export default function App() {
       'home', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios', 'questionarios-evolucao',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
-      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'self-care',
+      'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'self-care',
       'descobertas', 'cuidar', 'mais',
       'notifications',
     ]
@@ -676,6 +677,13 @@ export default function App() {
         onNavigateReport={() => navigate('my-report')}
         onNavigateMap={() => navigate('my-evolution')}
       />
+    )
+  }
+
+  if (view === 'my-garden') {
+    if (!user) { goAuth('my-garden'); return null }
+    return appShell(
+      <MyGardenPage userId={user.id} />
     )
   }
 

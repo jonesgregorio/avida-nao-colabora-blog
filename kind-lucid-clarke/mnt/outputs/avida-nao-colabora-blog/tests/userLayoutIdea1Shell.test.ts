@@ -10,8 +10,8 @@ test('área logada preserva logo oficial e mantém a entrada principal como Hoje
   assert.match(source, /<LogoIcon className=/)
 })
 
-test('desktop recupera o menu direto anterior e acrescenta Descobertas', () => {
-  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'articles', 'questionarios', 'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support']) {
+test('desktop recupera o menu direto anterior e acrescenta Descobertas e Meu Jardim', () => {
+  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios', 'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support']) {
     assert.match(source, new RegExp(`id: '${id}'`), `destino ausente da navegação desktop: ${id}`)
   }
 
@@ -19,7 +19,7 @@ test('desktop recupera o menu direto anterior e acrescenta Descobertas', () => {
     assert.match(source, new RegExp(`label: '${group}'`), `grupo desktop ausente: ${group}`)
   }
 
-  assert.match(source, /\['descobertas', 'my-evolution', 'my-report', 'my-history', 'articles', 'questionarios'\]/)
+  assert.match(source, /\['descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios'\]/)
   assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
 })
 

@@ -2,7 +2,7 @@
 // LEGADOS (mantidos por compatibilidade de dados) e tratados como 'plus'.
 export type Plan = 'free' | 'essential' | 'plus' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'content' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'questionarios-evolucao' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution' | 'my-history' | 'self-care' | 'descobertas' | 'cuidar' | 'mais' | 'conquistas' | 'lembretes' | 'faq'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'content' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'questionarios-evolucao' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution' | 'my-history' | 'my-garden' | 'self-care' | 'descobertas' | 'cuidar' | 'mais' | 'conquistas' | 'lembretes' | 'faq'
 
 export interface Profile {
   id: string
@@ -187,4 +187,3 @@ export interface WeeklyEvaluation {
   recommendations: string[]
   created_at: string
 }
-
