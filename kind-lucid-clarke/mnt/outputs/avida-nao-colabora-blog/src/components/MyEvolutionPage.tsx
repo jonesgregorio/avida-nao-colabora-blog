@@ -6,6 +6,7 @@ import { monthKey } from '../lib/dateUtils'
 import { hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import PlanBadge from './PlanBadge'
+import FreeMapComparison from './FreeMapComparison'
 import LegacyMyEvolutionPage from './MyEvolutionPageLegacy'
 
 export type Tab = 'resumo' | 'graficos'
@@ -162,6 +163,11 @@ export default function MyEvolutionPage(props: Props) {
 
         {showAllData && (
           <div className="mt-4 rounded-3xl border border-line bg-white overflow-hidden">
+            {isEssential && user && (
+              <div className="border-b border-line bg-paper-soft px-4 sm:px-6 py-5">
+                <FreeMapComparison userId={user.id} />
+              </div>
+            )}
             <LegacyMyEvolutionPage {...props} initialTab="graficos" />
           </div>
         )}
