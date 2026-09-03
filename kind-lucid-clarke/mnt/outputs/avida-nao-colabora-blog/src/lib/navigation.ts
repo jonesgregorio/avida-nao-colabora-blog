@@ -7,7 +7,7 @@ export const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
   'about','privacy','terms','questionnaire','questionarios','pricing',
   'articles','article','responsibility','admin','contact','success','faq',
-  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','self-care',
+  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
   'descobertas','cuidar','mais',
   'notifications',
 ]
@@ -38,6 +38,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/mapa-emocional':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/minha-historia':             'my-history',
+  '/meu-jardim':                 'my-garden',
   '/descobertas':                'descobertas',
   '/cuidar':                     'cuidar',
   '/mais':                       'mais',
@@ -172,13 +173,8 @@ export function urlForView(targetView: string, slug?: string | null, ticketId?: 
   return VIEW_TO_URL[targetView] ?? '/'
 }
 
-/**
- * Retorna apenas quando a URL atual precisa ser substituída por uma URL canônica.
- * null significa que a URL já é válida e deve permanecer como está.
- */
 export function canonicalPathForLocation(path: string, search = ''): string | null {
-  const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
-  if (target) return VIEW_TO_URL[target] ?? '/'
-  if (path !== '/' && !parseNavLocation(path, search)) return '/'
-  return null
+  const nav = parseNavLocation(path, search)
+  if (!nav) return path === '/' ? null : '/'
+  return urlForView(nav.view, nav.articleSlug, nav.ticketId)
 }
