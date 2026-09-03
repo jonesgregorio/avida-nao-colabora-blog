@@ -170,7 +170,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
 
             {showFeelings && <div className="mt-4 rounded-2xl border border-white bg-white/65 p-4">
               <p className="text-sm font-semibold text-forest-900">Como isso apareceu em você?</p>
-              <p className="text-xs text-ink-soft mt-1">Opcional. Escolha quantas tags fizerem sentido. Você também pode salvar somente a avaliação acima.</p>
+              <p className="text-xs text-ink-soft mt-1">Opcional. Escolha quantas tags fizerem sentido. O check-in continua rápido e sem texto longo; você também pode salvar somente a avaliação acima.</p>
               <div className="flex flex-wrap gap-2 mt-3">
                 {featuredMoods.map(mood => <MoodChip key={mood.key} mood={mood} active={selectedFeelings.includes(mood.key)} onClick={() => toggleFeeling(mood.key)} />)}
                 <button type="button" onClick={() => setShowCustomTag(value => !value)} className="inline-flex items-center rounded-full border border-dashed border-forest-300 bg-white px-3.5 py-2 text-sm font-medium text-forest-800 hover:bg-mint/40">+ Outro</button>
