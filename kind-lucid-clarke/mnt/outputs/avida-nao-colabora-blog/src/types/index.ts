@@ -2,7 +2,7 @@
 // LEGADOS (mantidos por compatibilidade de dados) e tratados como 'plus'.
 export type Plan = 'free' | 'essential' | 'plus' | 'therapeutic' | 'therapeutic-plus'
 
-export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'content' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'questionarios-evolucao' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution' | 'my-history' | 'self-care' | 'descobertas' | 'cuidar' | 'mais' | 'conquistas' | 'lembretes' | 'faq'
+export type View = 'home' | 'auth' | 'article' | 'diary' | 'profile' | 'meditations' | 'challenges' | 'content' | 'therapeutic-q' | 'about' | 'privacy' | 'terms' | 'questionnaire' | 'questionarios' | 'questionarios-evolucao' | 'pricing' | 'articles' | 'responsibility' | 'trails' | 'saved' | 'admin' | 'contact' | 'success' | 'support' | 'support-ticket' | 'notifications' | 'monthly-guidance' | 'professional-comments' | 'my-plan' | 'my-report' | 'my-evolution' | 'my-history' | 'my-garden' | 'self-care' | 'descobertas' | 'cuidar' | 'mais' | 'conquistas' | 'lembretes' | 'faq'
 
 export interface Profile {
   id: string
@@ -80,111 +80,10 @@ export interface UserProfile {
 export interface Comment {
   id: string
   article_id: string
-  user_id: string | null
+  user_id?: string
   author_name: string
+  author_email?: string
   content: string
+  approved: boolean
   created_at: string
 }
-
-export interface DiaryEntry {
-  id: string
-  user_id: string
-  date?: string
-  mood: string | number
-  mood_other_label?: string | null
-  mood_emoji?: string
-  mood_score?: number
-  text?: string
-  energy?: number
-  anxiety_level?: number
-  stress_level?: number
-  self_esteem?: number
-  irritability?: number
-  overload?: number
-  sleep_quality?: number
-  emotional_triggers?: string
-  recurring_thoughts?: string
-  emotional_need?: string
-  relationships?: string
-  habits?: string
-  emotional_tags?: string[]
-  context_tags?: string[]
-  need_tags?: string[]
-  care_action_tags?: string[]
-  trigger_tags?: string[]
-  gratitude?: string
-  small_pride?: string
-  free_note?: string
-  notes?: string
-  guided_question_1?: string
-  guided_question_2?: string
-  guided_question_3?: string
-  guided_question_4?: string
-  markers?: string[]
-  entry_type?: 'diary' | 'checkin' | 'questionnaire' | 'evaluation'
-  /** basic = Gratuito, main = diário principal, addon = complemento, advanced = aprofundamento Plus. */
-  diary_kind?: 'basic' | 'main' | 'addon' | 'advanced'
-  questionnaire_score?: number
-  questionnaire_category?: string
-  created_at: string
-}
-
-export interface QuestionnaireResponse {
-  id: string
-  user_id: string | null
-  answers: Record<string, number>
-  score: number
-  category: string
-  created_at: string
-}
-
-export interface GuidedMeditation {
-  id: string
-  title: string
-  subtitle: string
-  day_of_week: number
-  duration_minutes: number
-  content: string
-  theme: string
-  created_at: string
-}
-
-export interface MiniChallenge {
-  id: string
-  title: string
-  slug: string
-  description: string
-  duration_days: number
-  days: ChallengeDayContent[]
-  created_at: string
-}
-
-export interface ChallengeDayContent {
-  day: number
-  title: string
-  description: string
-  activity: string
-  tip: string
-}
-
-export interface GuidedPrompt {
-  id: string
-  text: string
-  theme: string
-  day_of_week: number | null
-  plan_level: Plan
-  created_at: string
-}
-
-export interface WeeklyEvaluation {
-  id: string
-  user_id: string
-  week_start: string
-  avg_mood: number
-  avg_sleep: number
-  avg_stress: number
-  highlight: string
-  recommendations: string[]
-  created_at: string
-}
-
