@@ -271,7 +271,12 @@ export default function MyEvolutionPage(props: Props) {
                 ? `“${topEmotions[0].label}” foi um dos sinais mais presentes nos registros deste mês. Ainda assim, frequência sozinha não explica o motivo.`
                 : `Você registrou ${dailyMoods.length} ${dailyMoods.length === 1 ? 'dia' : 'dias'} neste mês. O mapa já mostra quando houve mudanças, sem transformar isso em diagnóstico ou meta.`}
           </p>
-          <button type="button" onClick={() => setShowDetails(true)} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors">
+          <button
+            type="button"
+            aria-label="Explorar detalhes — Entender melhor meu mapa"
+            onClick={() => setShowDetails(true)}
+            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors"
+          >
             {strongestPair ? 'Explorar essa relação' : 'Explorar detalhes'} <ArrowRight className="w-4 h-4" />
           </button>
         </section>
