@@ -68,10 +68,16 @@ export async function deleteHistoryItem(id: string, userId: string) {
 
 export async function setMonthHistoryControl(userId: string, monthKey: string, type: 'hidden_month' | 'highlight_month', enabled: boolean) {
   if (enabled) {
-    const { error } = await supabase.from('user_history_items').upsert(
-      { user_id: userId, item_type: type, reference_key: monthKey },
-      { onConflict: 'user_id,item_type,reference_key', ignoreDuplicates: true },
-    )
+    const { data: existing, error: lookupError } = await supabase
+      .from('user_history_items')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('item_type', type)
+      .eq('reference_key', monthKey)
+      .maybeSingle()
+    if (lookupError) throw lookupError
+    if (existing?.id) return
+    const { error } = await supabase.from('user_history_items').insert({ user_id: userId, item_type: type, reference_key: monthKey })
     if (error) throw error
     return
   }
