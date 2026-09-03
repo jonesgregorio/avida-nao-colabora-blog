@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentProps, type MouseEvent } from 'react'
 import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Download, Eye, History, Leaf, Loader2, Sparkles, TrendingUp } from 'lucide-react'
 import MyReportPageContent from './MyReportPageContent'
+import WeeklyReportMockup from './WeeklyReportMockup'
 import { supabase } from '../lib/supabase'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import { formatPeriodShort, monthTitle } from '../lib/reportPeriods'
@@ -97,8 +98,10 @@ export default function MyReportPage(props: Props) {
   if (loadingNarrative || !selectedReport) return <div className="flex justify-center items-center py-24" role="status"><Loader2 className="w-6 h-6 text-forest-400 animate-spin" /></div>
 
   const isWeekly = selectedReport.report_type === 'weekly'
+  if (isWeekly) return <WeeklyReportMockup report={selectedReport} plan={plan} onOpenArticle={props.onOpenArticle} onNavigateDiary={props.onNavigateDiary} onOpenFullReport={() => setShowDetails(true)} />
+
   const content = selectedReport.content
-  const blocks = isWeekly ? weeklyBlocks(content as WeeklyContent) : monthlyBlocks(content as MonthlyContent)
+  const blocks = monthlyBlocks(content as MonthlyContent)
   const summary = String(content.summary || selectedReport.summary || '').trim()
   const periodLabel = reportLabel(selectedReport)
 
@@ -109,7 +112,7 @@ export default function MyReportPage(props: Props) {
     </header>
 
     <section className="relative overflow-hidden rounded-[2rem] border border-line bg-gradient-to-r from-mint/55 via-paper-soft to-white p-6 sm:p-8 shadow-sm">
-      <div className="relative z-10 max-w-3xl"><p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-forest-600">{isWeekly ? 'Sua semana está pronta' : 'Seu mês está pronto'}</p><h2 className="mt-2 font-serif text-2xl sm:text-3xl text-forest-900">{summary || `Veja o que seus registros contam sobre ${isWeekly ? 'esta semana' : 'este mês'}.`}</h2><p className="mt-2 text-sm text-ink-soft">{periodLabel} · retrospectiva baseada nos registros disponíveis</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full bg-forest-900 text-white px-4 py-2 text-xs font-medium">Resumo</span></div></div>
+      <div className="relative z-10 max-w-3xl"><p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-forest-600">Seu mês está pronto</p><h2 className="mt-2 font-serif text-2xl sm:text-3xl text-forest-900">{summary || 'Veja o que seus registros contam sobre este mês.'}</h2><p className="mt-2 text-sm text-ink-soft">{periodLabel} · retrospectiva baseada nos registros disponíveis</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full bg-forest-900 text-white px-4 py-2 text-xs font-medium">Resumo</span></div></div>
       <div className="hidden md:block absolute right-10 top-1/2 -translate-y-1/2 opacity-70"><Leaf className="w-28 h-28 text-forest-300" strokeWidth={1} /></div>
     </section>
 
