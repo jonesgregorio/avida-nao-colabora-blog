@@ -13,6 +13,6 @@ test('Ver todos mantém os filtros de tipo dos dois blocos', () => {
 test('Ver todos leva o usuário até o histórico após aplicar o filtro', () => {
   assert.match(wrapper, /HISTORY_HEADING = 'Histórico de relatórios'/)
   assert.match(wrapper, /startsWith\('Ver todos'\)/)
-  assert.match(wrapper, /history\.id = 'report-history'/)
+  assert.match(wrapper, /history\.id\s*=\s*'report-history'/)
   assert.match(wrapper, /history\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/)
 })
