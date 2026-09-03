@@ -173,8 +173,13 @@ export function urlForView(targetView: string, slug?: string | null, ticketId?: 
   return VIEW_TO_URL[targetView] ?? '/'
 }
 
+/**
+ * Retorna apenas quando a URL atual precisa ser substituída por uma URL canônica.
+ * null significa que a URL já é válida e deve permanecer como está.
+ */
 export function canonicalPathForLocation(path: string, search = ''): string | null {
-  const nav = parseNavLocation(path, search)
-  if (!nav) return path === '/' ? null : '/'
-  return urlForView(nav.view, nav.articleSlug, nav.ticketId)
+  const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
+  if (target) return VIEW_TO_URL[target] ?? '/'
+  if (path !== '/' && !parseNavLocation(path, search)) return '/'
+  return null
 }
