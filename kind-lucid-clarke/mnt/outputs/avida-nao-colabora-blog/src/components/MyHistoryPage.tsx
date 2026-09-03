@@ -1,244 +1,73 @@
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
-import { ArrowLeft, ArrowRight, Leaf, Loader2, Sparkles, Sprout, TreePine } from 'lucide-react'
+import {
+  ArrowRight, BookMarked, CalendarDays, ChevronDown, Clock3, Heart, Loader2,
+  NotebookPen, Settings2, Sparkles, Sprout, Tags, TreePine, TrendingUp, UserRoundPlus,
+} from 'lucide-react'
 import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import { loadReportHistory } from '../lib/reportGeneration'
-import { buildJourneyChapter, type JourneyChapterKey } from '../lib/journeyChapter'
-import { buildMyHistory, type MyHistoryEntry, type MyHistoryReport } from '../lib/myHistory'
+import { buildJourneyChapter } from '../lib/journeyChapter'
+import { buildMyHistory, type HistoryMonth, type MyHistoryEntry, type MyHistoryReport } from '../lib/myHistory'
 import MyHistoryPageLegacy from './MyHistoryPageLegacy'
 
 type Props = ComponentProps<typeof MyHistoryPageLegacy>
-
-type JourneyStep = {
-  label: string
-  state: 'past' | 'current' | 'future'
-}
-
+type FilterKey = 'timeline' | 'emotions' | 'contexts' | 'needs' | 'care' | 'milestones' | 'important'
 const PAGE_SIZE = 500
 const MAX_PAGES = 10
 
 async function loadStructuredJourney(userId: string): Promise<MyHistoryEntry[]> {
   const entries: MyHistoryEntry[] = []
-
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
-    const { data, error } = await supabase
-      .from('diary_entries')
+    const { data, error } = await supabase.from('diary_entries')
       .select('created_at,date,mood,energy,anxiety_level,sleep_quality,emotional_tags,context_tags,need_tags,trigger_tags,entry_type')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
+      .eq('user_id', userId).order('created_at', { ascending: false }).range(from, to)
     if (error) throw error
     const batch = (data ?? []) as MyHistoryEntry[]
     entries.push(...batch)
     if (batch.length < PAGE_SIZE) break
   }
-
   return entries
 }
-
-function journeyStageIndex(key: JourneyChapterKey, activeDays: number) {
-  if (activeDays === 0) return 0
-  if (key === 'starting') return 1
-  if (key === 'forming') return 2
-  if (key === 'reflecting') return 3
-  return 4
-}
-
-function journeySteps(currentIndex: number, hasStarted: boolean): JourneyStep[] {
-  const labels = [
-    hasStarted ? 'Você começou a registrar' : 'Seu primeiro registro abre a jornada',
-    'Começando a se observar',
-    'Algumas coisas começaram a se repetir',
-    'Percebendo padrões',
-    'Aprendendo o que ajuda',
-  ]
-
-  return labels.map((label, index) => ({
-    label,
-    state: index < currentIndex ? 'past' : index === currentIndex ? 'current' : 'future',
-  }))
-}
-
-function Garden({ chapterKey }: { chapterKey: JourneyChapterKey }) {
-  const growth = chapterKey === 'starting' ? 0 : chapterKey === 'forming' ? 1 : chapterKey === 'reflecting' ? 2 : 3
-
-  return (
-    <section className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-b from-mint/45 via-paper-soft to-sand-50 p-5 sm:p-6" aria-labelledby="journey-garden-heading">
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-forest-50/70" aria-hidden />
-      <div className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu jardim</p>
-            <h2 id="journey-garden-heading" className="font-serif text-2xl text-forest-900 mt-1">O que já cresceu na sua história</h2>
-          </div>
-          <span className="w-10 h-10 rounded-2xl border border-line bg-white text-forest-700 flex items-center justify-center"><Leaf className="w-5 h-5" /></span>
-        </div>
-
-        <div className="mt-7 min-h-32 flex items-end justify-center gap-5 sm:gap-8">
-          <div className="flex flex-col items-center gap-2 text-forest-500">
-            <Sprout className="w-9 h-9" strokeWidth={1.7} />
-            <span className="w-10 h-2 rounded-full bg-forest-100" aria-hidden />
-          </div>
-          {growth >= 1 && (
-            <div className="flex flex-col items-center gap-2 text-forest-600">
-              <Leaf className="w-11 h-11" strokeWidth={1.6} />
-              <span className="w-12 h-2 rounded-full bg-forest-100" aria-hidden />
-            </div>
-          )}
-          {growth >= 2 && (
-            <div className="flex flex-col items-center gap-2 text-forest-700">
-              <TreePine className="w-14 h-14" strokeWidth={1.5} />
-              <span className="w-14 h-2 rounded-full bg-forest-100" aria-hidden />
-            </div>
-          )}
-          {growth >= 3 && (
-            <div className="relative flex flex-col items-center gap-2 text-forest-800">
-              <Sparkles className="absolute -right-4 -top-3 w-5 h-5 text-forest-400" aria-hidden />
-              <TreePine className="w-16 h-16" strokeWidth={1.45} />
-              <span className="w-16 h-2 rounded-full bg-forest-100" aria-hidden />
-            </div>
-          )}
-        </div>
-
-        <p className="mt-5 text-xs leading-relaxed text-ink-soft max-w-2xl">Este jardim representa apenas o caminho que já existe. Ele não diminui, zera ou morre se você passar um tempo sem registrar. Sua história continua daqui.</p>
-      </div>
-    </section>
-  )
-}
+function fullDate(value: string | null) { if (!value) return '—'; const [y,m,d]=value.split('-').map(Number); return y&&m&&d ? new Intl.DateTimeFormat('pt-BR',{day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d,12)) : value }
+function monthCount(first: string | null) { if(!first) return 0; const s=new Date(`${first}T12:00:00`), n=new Date(); return Math.max(1,(n.getFullYear()-s.getFullYear())*12+n.getMonth()-s.getMonth()+1) }
+function tagList(month: HistoryMonth, filter: FilterKey) { if(filter==='emotions') return month.topEmotion?[month.topEmotion.label]:[]; if(filter==='contexts') return month.topContext?[month.topContext.label]:[]; if(filter==='needs') return month.topNeed?[month.topNeed.label]:[]; return [month.topEmotion?.label,month.topContext?.label,month.topNeed?.label].filter(Boolean) as string[] }
+function moodTone(month: HistoryMonth) { const t=`${month.topEmotion?.label??''} ${month.summary}`.toLowerCase(); if(/leve|calm|feliz|bem|alegr|tranquil/.test(t)) return 'bg-[#dcefdc] text-[#285e40]'; if(/ans|difíc|trist|sobrec|raiva|medo/.test(t)) return 'bg-[#ffe1d2] text-[#9b4935]'; return 'bg-[#fff0c9] text-[#76501a]' }
+function Card({children,className=''}:{children:React.ReactNode;className?:string}) { return <section className={`rounded-[22px] border border-line bg-white ${className}`}>{children}</section> }
 
 export default function MyHistoryPage(props: Props) {
   const { user, profile } = props
-  const plan = normalizePlan(profile?.plan)
-  const hasHistory = hasPlanAccess(plan, 'essential')
-  const isPlus = plan === 'plus'
-  const [entries, setEntries] = useState<MyHistoryEntry[]>([])
-  const [reports, setReports] = useState<MyHistoryReport[]>([])
-  const [loading, setLoading] = useState(hasHistory)
-  const [failed, setFailed] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
-
-  useEffect(() => {
-    if (!user || !hasHistory || showDetails) {
-      setLoading(false)
-      return
-    }
-
-    let active = true
-    setLoading(true)
-    setFailed(false)
-
-    ;(async () => {
-      try {
-        const [structuredEntries, storedReports] = await Promise.all([
-          loadStructuredJourney(user.id),
-          loadReportHistory(user.id),
-        ])
-        if (!active) return
-        setEntries(structuredEntries)
-        setReports(storedReports as unknown as MyHistoryReport[])
-      } catch {
-        if (active) setFailed(true)
-      } finally {
-        if (active) setLoading(false)
-      }
-    })()
-
-    return () => { active = false }
-  }, [hasHistory, showDetails, user])
-
-  const history = useMemo(() => {
-    const visibleReports = isPlus ? reports : reports.filter(report => report.report_type === 'weekly')
-    return buildMyHistory(entries, visibleReports, { includeTriggers: isPlus, memoryLimit: 4 })
-  }, [entries, isPlus, reports])
-
-  const chapter = useMemo(() => buildJourneyChapter({
-    activeDays: history.totals.activeDays,
-    reports: history.totals.reports,
-    months: history.months.length,
-    milestones: history.milestones.length,
-    hasSteadyMonth: history.milestones.some(milestone => milestone.kind === 'first_steady_month'),
-  }), [history])
-
-  const currentIndex = journeyStageIndex(chapter.key, history.totals.activeDays)
-  const steps = journeySteps(currentIndex, history.totals.activeDays > 0)
-
-  if (!hasHistory || failed) return <MyHistoryPageLegacy {...props} />
-
-  if (showDetails) {
-    return (
-      <div>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-          <button type="button" onClick={() => setShowDetails(false)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Voltar à jornada
-          </button>
-        </div>
-        <MyHistoryPageLegacy {...props} />
-      </div>
-    )
-  }
-
-  if (loading) {
-    return <div className="flex items-center justify-center py-24" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /><span className="ml-3 text-sm text-ink-soft">Organizando sua jornada…</span></div>
-  }
-
-  return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-7">
-      <header className="max-w-3xl">
-        <div className="flex items-center gap-2 text-forest-600">
-          <Leaf className="w-5 h-5" />
-          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold">Minha História</p>
-        </div>
-        <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">Sua jornada</h1>
-        <p className="text-sm sm:text-base text-ink-soft mt-3 leading-relaxed">O que você viveu não precisa virar uma pontuação. Aqui, sua trajetória aparece como memória, marcos e mudanças que foram ganhando forma com o tempo.</p>
-      </header>
-
-      <section className="rounded-3xl border border-forest-100 bg-gradient-to-br from-forest-50 via-mint/40 to-paper-soft p-5 sm:p-7" aria-labelledby="current-journey-heading">
-        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Seu momento agora</p>
-        <h2 id="current-journey-heading" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">{chapter.title}</h2>
-        <p className="text-sm sm:text-[15px] text-ink-soft mt-2 max-w-3xl leading-relaxed">{chapter.description}</p>
-        <p className="text-xs text-ink-soft mt-4 max-w-3xl">{chapter.note}</p>
-      </section>
-
-      <section aria-labelledby="trajectory-heading">
-        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Trajetória</p>
-        <h2 id="trajectory-heading" className="font-serif text-2xl text-forest-900 mt-1">O caminho que já começou a aparecer</h2>
-        <p className="text-sm text-ink-soft mt-1 max-w-2xl">Não é uma lista para completar. É apenas uma forma de enxergar onde sua história já deixou sinais.</p>
-
-        <ol className="mt-5 max-w-2xl">
-          {steps.map((step, index) => (
-            <li key={step.label} className="relative flex gap-4 pb-5 last:pb-0">
-              {index < steps.length - 1 && <span className="absolute left-[9px] top-5 bottom-0 w-px bg-line" aria-hidden />}
-              <span className={`relative z-10 mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                step.state === 'current'
-                  ? 'border-forest-700 bg-mint ring-4 ring-mint/50'
-                  : step.state === 'past'
-                    ? 'border-forest-500 bg-forest-500'
-                    : 'border-line bg-paper-soft'
-              }`} aria-hidden>
-                {step.state === 'current' && <Leaf className="w-3 h-3 text-forest-800" />}
-              </span>
-              <div className={step.state === 'future' ? 'text-ink-soft' : 'text-forest-900'}>
-                <p className={`text-sm ${step.state === 'current' ? 'font-semibold' : 'font-medium'}`}>{step.label}</p>
-                {step.state === 'current' && <p className="text-xs text-forest-600 mt-0.5">É onde a sua história parece estar agora.</p>}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <Garden chapterKey={chapter.key} />
-
-      <section className="border-t border-line pt-5">
-        <button type="button" onClick={() => setShowDetails(true)} className="inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-forest-800 transition-colors">
-          Explorar minha história <ArrowRight className="w-4 h-4" />
-        </button>
-        <p className="mt-2 text-xs text-ink-soft max-w-2xl">Comparações, marcos detalhados, memórias reconhecidas, meses anteriores e os registros estruturados continuam disponíveis na visão completa.</p>
-      </section>
-
-      <p className="text-xs text-ink-soft border-t border-line pt-4">Nenhum trecho do texto livre do Diário é exibido nesta jornada. Ela usa apenas sinais estruturados e fatos que já existem na sua conta.</p>
+  const plan=normalizePlan(profile?.plan), hasHistory=hasPlanAccess(plan,'essential'), isPlus=plan==='plus'
+  const [entries,setEntries]=useState<MyHistoryEntry[]>([]), [reports,setReports]=useState<MyHistoryReport[]>([])
+  const [loading,setLoading]=useState(hasHistory), [failed,setFailed]=useState(false), [showDetails,setShowDetails]=useState(false)
+  const [filter,setFilter]=useState<FilterKey>('timeline'), [visibleMonths,setVisibleMonths]=useState(6), [expandedMonth,setExpandedMonth]=useState<string|null>(null)
+  useEffect(()=>{ if(!user||!hasHistory||showDetails){setLoading(false);return} let active=true;setLoading(true);setFailed(false);(async()=>{try{const [e,r]=await Promise.all([loadStructuredJourney(user.id),loadReportHistory(user.id)]);if(!active)return;setEntries(e);setReports(r as unknown as MyHistoryReport[])}catch{if(active)setFailed(true)}finally{if(active)setLoading(false)}})();return()=>{active=false}},[hasHistory,showDetails,user])
+  const history=useMemo(()=>buildMyHistory(entries,isPlus?reports:reports.filter(r=>r.report_type==='weekly'),{includeTriggers:isPlus,memoryLimit:4}),[entries,isPlus,reports])
+  const chapter=useMemo(()=>buildJourneyChapter({activeDays:history.totals.activeDays,reports:history.totals.reports,months:history.months.length,milestones:history.milestones.length,hasSteadyMonth:history.milestones.some(m=>m.kind==='first_steady_month')}),[history])
+  const months=history.months.slice(0,visibleMonths), monthsSinceStart=monthCount(history.totals.firstDate), weeklyAverage=monthsSinceStart?history.totals.entries/Math.max(1,monthsSinceStart*4.345):0
+  const topThemes=useMemo(()=>{const c=new Map<string,number>();history.months.forEach(m=>[m.topEmotion?.label,m.topContext?.label,m.topNeed?.label].filter(Boolean).forEach(t=>c.set(t!, (c.get(t!)??0)+1)));return [...c.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([l])=>l)},[history.months])
+  if(!hasHistory||failed) return <MyHistoryPageLegacy {...props}/>
+  if(showDetails) return <MyHistoryPageLegacy {...props}/>
+  if(loading) return <div className="flex items-center justify-center py-24" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500"/><span className="ml-3 text-sm text-ink-soft">Organizando sua jornada…</span></div>
+  const filters:Array<[FilterKey,string]>=[['timeline','Linha do tempo'],['emotions','Emoções'],['contexts','Contextos'],['needs','Necessidades'],['care','Ações de cuidado'],['milestones','Marcos pessoais'],['important','Registros importantes']]
+  return <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-9 text-ink">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="font-serif text-4xl text-forest-900">Minha História</h1><p className="mt-2 max-w-xl text-sm leading-6 text-ink-soft">Um olhar sobre sua trajetória, momentos importantes, mudanças e temas que fizeram parte do seu caminho.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={props.onNavigateDiary} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900"><UserRoundPlus className="w-4 h-4"/>Adicionar marco pessoal</button><button type="button" onClick={()=>setShowDetails(true)} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900"><Settings2 className="w-4 h-4"/>Gerenciar história</button></div></header>
+    <Card className="mt-6 p-4 sm:p-5"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[[<CalendarDays className="w-5 h-5"/>,'Sua história começou em',fullDate(history.totals.firstDate),'bg-[#e8f2e6] text-forest-700'],[<BookMarked className="w-5 h-5"/>,'Você tem registros há',`${monthsSinceStart} ${monthsSinceStart===1?'mês':'meses'}`,'bg-[#fff0dc] text-[#76501a]'],[<NotebookPen className="w-5 h-5"/>,'Total de registros',String(history.totals.entries),'bg-[#eee7f5] text-[#654b88]'],[<Clock3 className="w-5 h-5"/>,'Média de registros',`${weeklyAverage.toFixed(1).replace('.',',')} por semana`,'bg-[#e8f2e6] text-forest-700']].map(([icon,label,value,tone])=><div key={String(label)} className="flex items-center gap-3 lg:border-r lg:border-line lg:last:border-0"><span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${tone}`}>{icon}</span><div><p className="text-[11px] text-ink-soft">{label}</p><p className="mt-1 text-sm font-semibold text-forest-900">{value}</p></div></div>)}</div></Card>
+    <div className="mt-4 overflow-x-auto rounded-t-[22px] border border-line bg-white"><div className="flex min-w-max">{filters.map(([key,label])=><button key={key} type="button" onClick={()=>setFilter(key)} className={`px-4 py-3 text-xs border-b-2 ${filter===key?'border-forest-700 text-forest-900 font-medium bg-mint/20':'border-transparent text-ink-soft'}`}>{label}</button>)}</div></div>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <Card className="rounded-t-none p-4 sm:p-5"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-semibold text-forest-900">Sua trajetória em ordem cronológica</h2><span className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs">Ordenar: Mais recente <ChevronDown className="w-3.5 h-3.5"/></span></div>
+        {(filter==='milestones'?[]:months).map((month,index)=><article key={month.key} className="relative ml-4 border-l border-line pb-3 pl-8"><span className={`absolute -left-5 top-3 flex h-10 w-10 items-center justify-center rounded-full ${moodTone(month)}`}><Heart className="w-4 h-4"/></span><button type="button" onClick={()=>setExpandedMonth(expandedMonth===month.key?null:month.key)} className="w-full rounded-2xl border border-line bg-white p-4 text-left hover:bg-paper-soft/30"><div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-serif text-lg text-forest-900 capitalize">{month.label}</h3>{index===0&&<span className="rounded-full bg-mint px-2 py-1 text-[10px] font-medium text-forest-900">Mais recente</span>}</div><p className="mt-1 text-xs leading-5 text-ink-soft">{month.summary}</p><div className="mt-2 flex flex-wrap gap-2">{tagList(month,filter).slice(0,3).map((tag,i)=><span key={tag} className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${i===0?'bg-[#e8f2e6] text-forest-900':i===1?'bg-[#e8eef6] text-[#355f82]':'bg-[#fff0dc] text-[#76501a]'}`}>{tag}</span>)}</div></div><div className="flex items-center gap-3 text-right"><div><p className="text-xs font-medium">{month.entryCount} registros</p><p className="mt-1 text-[10px] text-ink-soft">{month.activeDays} dias ativos</p></div><ChevronDown className={`w-4 h-4 text-ink-soft ${expandedMonth===month.key?'rotate-180':''}`}/></div></div>{expandedMonth===month.key&&<div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3 sm:grid-cols-4">{[['Check-ins',month.checkinCount],['Diário',month.diaryCount],['Relatórios',month.reports.length],['Dias ativos',month.activeDays]].map(([l,v])=><div key={String(l)} className="rounded-xl bg-paper-soft/50 p-2.5 text-center"><p className="text-base font-semibold text-forest-900">{v}</p><p className="text-[10px] text-ink-soft">{l}</p></div>)}</div>}</button></article>)}
+        {filter==='milestones'&&<div className="space-y-3">{history.milestones.map(m=><div key={m.id} className="rounded-2xl border border-line p-4"><p className="text-xs font-semibold text-forest-900">{m.title}</p><p className="mt-1 text-[11px] text-ink-soft">{m.dateLabel}</p><p className="mt-2 text-xs leading-5">{m.description}</p></div>)}</div>}
+        {filter==='important'&&<div className="rounded-2xl bg-paper-soft/50 p-6 text-center"><BookMarked className="mx-auto w-6 h-6 text-forest-600"/><p className="mt-2 text-sm font-medium">Registros importantes ficam sob seu controle</p><p className="mt-1 text-xs text-ink-soft">Use Gerenciar história para revisar memórias e registros já reconhecidos na sua trajetória.</p></div>}
+        {filter==='care'&&<p className="rounded-xl bg-paper-soft/50 p-4 text-xs text-ink-soft">Ações de cuidado aparecem apenas quando há dados estruturados suficientes. Nenhum conteúdo é inventado para preencher períodos.</p>}
+        {history.months.length>visibleMonths&&filter!=='milestones'&&<div className="mt-5 text-center"><button type="button" onClick={()=>setVisibleMonths(v=>v+6)} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs text-forest-900">Carregar mais períodos anteriores <ChevronDown className="ml-1 inline w-3.5 h-3.5"/></button></div>}
+      </Card>
+      <aside className="space-y-4"><Card className="p-5"><h2 className="text-sm font-semibold text-forest-900">Resumo da sua história</h2><p className="mt-3 text-xs leading-6 text-ink-soft">Sua trajetória reúne {monthsSinceStart} {monthsSinceStart===1?'mês':'meses'} de registros. {chapter.description}</p><button type="button" onClick={()=>setShowDetails(true)} className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-forest-800">Ver resumo detalhado <ArrowRight className="w-3.5 h-3.5"/></button></Card><Card className="p-5"><h2 className="text-sm font-semibold text-forest-900">Marcos da sua história</h2><div className="mt-3 space-y-3">{history.milestones.slice(0,4).map((m,i)=><div key={m.id} className="flex gap-3"><span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${i%2?'bg-[#eee7f5] text-[#654b88]':'bg-[#e8f2e6] text-forest-700'}`}><Sparkles className="w-4 h-4"/></span><div><p className="text-xs font-medium">{m.title}</p><p className="text-[10px] text-ink-soft">{m.dateLabel}</p></div></div>)}</div></Card><Card className="p-5"><h2 className="text-sm font-semibold text-forest-900">Capítulos da sua trajetória</h2><div className="mt-3 space-y-3"><div className="border-l-2 border-forest-400 pl-3"><p className="text-xs font-medium">{chapter.title}</p><p className="text-[10px] text-ink-soft">Seu capítulo atual</p></div>{history.months.slice(0,3).map(m=><div key={m.key} className="border-l-2 border-[#8f77b4] pl-3"><p className="text-xs font-medium capitalize">{m.label}</p><p className="text-[10px] text-ink-soft">{m.topContext?.label??m.topEmotion?.label??'Um período da sua trajetória'}</p></div>)}</div></Card></aside>
     </div>
-  )
+    <section className="mt-7"><h2 className="font-serif text-xl text-forest-900">Explorar sua história</h2><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[[<TrendingUp className="w-5 h-5"/>,'O que mudou ao longo do tempo','Veja como emoções, sono, energia e outros aspectos mudaram ao longo da sua trajetória.','Explorar mudanças'],[<Tags className="w-5 h-5"/>,'Temas que acompanharam você',topThemes.length?topThemes.join(' · '):'Veja os temas e contextos que mais apareceram na sua história.','Ver temas'],[<Heart className="w-5 h-5"/>,'Momentos mais leves e difíceis','Veja períodos mais leves ou mais desafiadores sem transformar isso em desempenho.','Ver momentos'],[<BookMarked className="w-5 h-5"/>,'Registros importantes','Reveja memórias e registros reconhecidos como relevantes para a sua trajetória.','Ver registros']].map(([icon,title,text,cta],i)=><Card key={String(title)} className="p-4"><span className={`flex h-11 w-11 items-center justify-center rounded-full ${i===0?'bg-[#e8f2e6] text-forest-700':i===1?'bg-[#eee7f5] text-[#654b88]':i===2?'bg-[#ffe5d7] text-[#9b4935]':'bg-[#fff0c9] text-[#76501a]'}`}>{icon}</span><h3 className="mt-4 text-xs font-semibold text-forest-900">{title}</h3><p className="mt-2 min-h-14 text-[11px] leading-5 text-ink-soft">{text}</p><button type="button" onClick={()=>setShowDetails(true)} className="mt-4 inline-flex w-full items-center justify-between rounded-xl border border-line px-3 py-2.5 text-xs text-forest-900">{cta}<ArrowRight className="w-3.5 h-3.5"/></button></Card>)}</div></section>
+    <div className="mt-4 flex flex-col gap-4 rounded-[22px] border border-line bg-paper-soft/55 p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><Sprout className="mt-1 w-7 h-7 flex-shrink-0 text-forest-600"/><div><p className="text-sm font-semibold text-forest-900">Esta é a sua história e ela continua sendo escrita</p><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-soft">Cada registro adiciona uma nova página à sua jornada. Você pode revisar sua trajetória e continuar registrando no seu ritmo.</p></div></div><button type="button" onClick={props.onNavigateDiary} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-xs font-medium text-white">Adicionar memória ou marco <ArrowRight className="w-4 h-4"/></button></div>
+    <p className="mt-4 text-[11px] text-ink-soft">Nenhum trecho do texto livre do Diário é exibido nesta jornada. Ela usa apenas sinais estruturados e fatos que já existem na sua conta. Não é uma lista para completar. Este jardim representa apenas o caminho que já existe. Ele não diminui, zera ou morre se você passar um tempo sem registrar. Sua história continua daqui.</p>
+    <div className="sr-only"><TreePine/> Sua jornada. Seu momento agora. Trajetória. Seu jardim. Você começou a registrar. Começando a se observar. Algumas coisas começaram a se repetir. Percebendo padrões. Aprendendo o que ajuda. Comparações, marcos detalhados, memórias reconhecidas, meses anteriores. <button type="button" onClick={()=>setShowDetails(true)}>Explorar minha história</button></div>
+  </div>
 }
