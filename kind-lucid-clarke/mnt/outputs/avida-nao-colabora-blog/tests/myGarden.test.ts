@@ -14,6 +14,12 @@ test('Meu Jardim prioriza progressão visual sem streak ou XP visível',()=>{
   assert.match(garden,/growth=counts\.activeDays\+counts\.reports\*2\+counts\.milestones\*3/)
   assert.doesNotMatch(garden,/\+\d+ XP/)
 })
+test('cards da coleção explicam claramente quantos elementos foram descobertos',()=>{
+  assert.match(garden,/\{n\} de \{total\} descobertos/)
+  assert.match(garden,/Toque para ver a coleção/)
+  assert.match(garden,/Novos elementos surgem naturalmente conforme sua história cresce/)
+  assert.match(garden,/não precisa cumprir uma sequência nem acompanhar pontos/)
+})
 test('Meu Jardim está acessível pela área Mais',()=>{
   assert.match(more,/title:'Meu Jardim'/)
   assert.match(more,/MyGardenPage userId=\{profile\.user_id\}/)
