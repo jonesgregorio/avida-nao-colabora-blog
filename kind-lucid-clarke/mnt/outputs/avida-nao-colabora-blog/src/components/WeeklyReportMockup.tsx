@@ -63,7 +63,7 @@ function BarRows({ items, empty }: { items: Ranked[]; empty: string }) {
 
 function chipClass(index: number) { return palette[index % palette.length] }
 
-export default function WeeklyReportMockup({ report, plan, onOpenArticle, onNavigateDiary, onOpenFullReport }: Props) {
+export default function WeeklyReportMockup({ report, plan, onOpenArticle, onNavigateDiary }: Props) {
   const c = report.content as WeeklyExtended
   const [recs, setRecs] = useState<RecommendedContent[]>([])
   const [shared, setShared] = useState(false)
@@ -182,6 +182,6 @@ export default function WeeklyReportMockup({ report, plan, onOpenArticle, onNavi
       <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto] lg:items-center"><div className="flex gap-3"><span className={`w-9 h-9 rounded-full flex items-center justify-center ${hasEnough ? 'bg-mint text-forest-700' : 'bg-[#fff0dc] text-[#a25f24]'}`}>{hasEnough ? <CheckCircle2 className="w-4 h-4" /> : <Info className="w-4 h-4" />}</span><div><p className="text-sm font-medium text-forest-900">{hasEnough ? 'Dados suficientes para uma leitura cuidadosa.' : 'Leitura com poucos dados.'}</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">{c.data_quality_notice ?? c.data_quality?.message ?? (hasEnough ? 'Continue registrando quando fizer sentido para acompanhar seu percurso.' : 'Abaixo de 3 dias ativos e 5 registros, esta leitura é apenas um ponto de partida, não uma conclusão.')}</p></div></div><div className="text-center lg:px-5 lg:border-l lg:border-line"><p className="text-2xl font-semibold">{numbers.active_days ?? 0}</p><p className="text-[10px] text-ink-soft">dias ativos<br />(mín. 3)</p></div><div className="text-center lg:px-5 lg:border-l lg:border-line"><p className="text-2xl font-semibold">{numbers.total_entries ?? 0}</p><p className="text-[10px] text-ink-soft">registros totais<br />(mín. 5)</p></div></div>
     </Card>
 
-    <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[18px] border border-line bg-white px-5 py-4"><p className="text-xs text-ink-soft"><strong className="text-forest-900">Esta leitura considera seus registros da semana e não representa diagnóstico ou orientação profissional.</strong></p><button type="button" onClick={onOpenFullReport} className="text-xs font-medium text-forest-800 underline underline-offset-4">Explorar relatório completo</button></div>
+    <div className="mt-4 rounded-[18px] border border-line bg-white px-5 py-4"><p className="text-xs text-ink-soft"><strong className="text-forest-900">Esta leitura considera seus registros da semana e não representa diagnóstico ou orientação profissional.</strong></p></div>
   </div>
 }
