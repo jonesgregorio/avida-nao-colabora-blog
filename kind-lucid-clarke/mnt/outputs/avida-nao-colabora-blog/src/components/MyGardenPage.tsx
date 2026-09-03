@@ -1,0 +1,75 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import { Bird, Flower2, Leaf, LockKeyhole, Sparkles, Sprout, TreePine, Waves } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+
+interface Props { user: User }
+type Counts = { diary:number; activeDays:number; reports:number; discoveries:number; milestones:number }
+type GardenItem = { icon:string; label:string; at:number; kind:'Plantas'|'Visitantes'|'Detalhes' }
+const ITEMS: GardenItem[] = [
+  {icon:'🌱',label:'Primeiro broto',at:1,kind:'Plantas'}, {icon:'🌼',label:'Margaridas',at:4,kind:'Plantas'},
+  {icon:'🌿',label:'Folhagens',at:8,kind:'Plantas'}, {icon:'🌷',label:'Tulipas',at:14,kind:'Plantas'},
+  {icon:'🌳',label:'Árvore do caminho',at:24,kind:'Plantas'}, {icon:'🪨',label:'Pedras do caminho',at:32,kind:'Detalhes'},
+  {icon:'🦋',label:'Borboleta',at:42,kind:'Visitantes'}, {icon:'🪵',label:'Banco do jardim',at:55,kind:'Detalhes'},
+  {icon:'🐦',label:'Pássaro',at:70,kind:'Visitantes'}, {icon:'🍄',label:'Cogumelos',at:90,kind:'Detalhes'},
+  {icon:'💧',label:'Pequeno lago',at:115,kind:'Detalhes'}, {icon:'🌸',label:'Árvore florida',at:145,kind:'Plantas'},
+]
+const CYCLE_NAMES=['Primeiros brotos','Jardim jovem','Jardim florescendo','Jardim vivo','Novos caminhos','Pequeno bosque']
+
+async function countRows(table:string,userId:string){ const {count}=await supabase.from(table).select('id',{count:'exact',head:true}).eq('user_id',userId); return count??0 }
+async function loadCounts(userId:string):Promise<Counts>{
+  const [{data:diary},reports,discoveries,milestones]=await Promise.all([
+    supabase.from('diary_entries').select('date,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(5000),
+    countRows('reports',userId), countRows('emotional_discoveries',userId), countRows('history_milestones',userId),
+  ])
+  const rows=(diary??[]) as Array<{date:string|null;created_at:string}>
+  return {diary:rows.length,activeDays:new Set(rows.map(r=>r.date||r.created_at.slice(0,10))).size,reports,discoveries,milestones}
+}
+
+export default function MyGardenPage({user}:Props){
+  const [counts,setCounts]=useState<Counts>({diary:0,activeDays:0,reports:0,discoveries:0,milestones:0})
+  const [collection,setCollection]=useState(false)
+  useEffect(()=>{let alive=true;loadCounts(user.id).then(v=>alive&&setCounts(v)).catch(()=>{});return()=>{alive=false}},[user.id])
+  // Pontuação é apenas interna: o usuário vê crescimento, nunca XP, streak ou cobrança.
+  const growth=counts.activeDays+counts.reports*2+counts.discoveries*2+counts.milestones*3
+  const cycle=Math.floor(growth/60), cycleProgress=growth%60, level=Math.max(1,Math.floor(growth/12)+1)
+  const unlocked=useMemo(()=>ITEMS.filter(item=>growth>=item.at),[growth])
+  const latest=unlocked.at(-1)??ITEMS[0]
+  const stage=CYCLE_NAMES[Math.min(cycle,CYCLE_NAMES.length-1)]??`Novo jardim ${cycle+1}`
+  const lush=Math.min(5,Math.floor(cycleProgress/12)+1)
+  return <div className="min-h-full bg-[#fbf7ef] text-forest-950">
+    <div className="mx-auto max-w-[1180px] px-4 py-7 sm:px-6 lg:px-8">
+      <header className="text-center"><p className="text-xs uppercase tracking-[.2em] text-forest-600">Seu espaço vivo</p><h1 className="mt-1 font-serif text-4xl sm:text-5xl text-forest-900">Meu Jardim</h1><p className="mt-2 text-sm text-ink-soft">Cada cuidado deixa uma marca.</p></header>
+
+      <section className="relative mt-6 min-h-[470px] overflow-hidden rounded-[34px] border border-[#dcd3c4] bg-gradient-to-b from-[#f8f2e7] via-[#edf3e8] to-[#dce8cf] shadow-[0_18px_50px_rgba(36,70,49,.10)]" aria-label={`Seu jardim: ${stage}`}>
+        <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.95),transparent_70%)]" />
+        <div className="absolute left-[8%] top-[13%] text-[110px] sm:text-[150px] drop-shadow-sm select-none" aria-hidden>🌳</div>
+        {growth>=145&&<div className="absolute right-[6%] top-[12%] text-[105px] sm:text-[145px] select-none" aria-hidden>🌸</div>}
+        <div className="absolute left-[2%] right-[2%] bottom-0 h-[48%] rounded-t-[50%] bg-[#b9ce9d]/70" />
+        <div className="absolute left-[17%] bottom-[3%] h-[42%] w-[23%] rotate-[18deg] rounded-[50%] bg-[#e7d9b8] opacity-80" />
+        {growth>=115&&<div className="absolute bottom-[9%] right-[22%] h-24 w-44 rounded-[50%] border-4 border-white/50 bg-[#8bb6ac] shadow-inner"><Waves className="m-auto mt-7 text-white/80"/></div>}
+        <div className="absolute bottom-[5%] left-[5%] right-[5%] flex flex-wrap items-end justify-center gap-1 text-4xl sm:text-5xl select-none" aria-hidden>{Array.from({length:7+lush*3},(_,i)=><span key={i}>{['🌿','🌼','🌱','🌷','🌿'][i%5]}</span>)}</div>
+        {growth>=55&&<div className="absolute bottom-[17%] left-[27%] text-7xl select-none" aria-hidden>🪵</div>}
+        {growth>=42&&<div className="absolute left-[53%] top-[42%] animate-[pulse_4s_ease-in-out_infinite] text-4xl select-none" aria-hidden>🦋</div>}
+        {growth>=70&&<div className="absolute right-[17%] top-[25%] text-4xl select-none" aria-hidden>🐦</div>}
+        <div className="absolute left-1/2 top-5 -translate-x-1/2 rounded-2xl border border-white/70 bg-white/80 px-5 py-3 text-center shadow-sm backdrop-blur"><p className="text-sm font-semibold text-forest-900">Nível {level}</p><p className="text-xs text-ink-soft">{stage}</p></div>
+      </section>
+
+      <section className="relative z-10 mx-auto -mt-8 max-w-3xl rounded-[28px] border border-line bg-white/95 p-5 shadow-lg sm:p-7">
+        <div className="flex items-center gap-2" aria-label="Progresso visual do jardim">{[0,1,2,3,4].map(i=><span key={i} className={`h-3 flex-1 rounded-full ${cycleProgress>=i*12?'bg-forest-700':'bg-[#e5dfd4]'}`}/>)}</div>
+        <p className="mt-3 text-center text-sm text-ink-soft">Você está construindo algo bonito.</p>
+        <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-[#fbf7ef] p-4 sm:flex-row sm:items-center"><span className="text-5xl" aria-hidden>{latest.icon}</span><div className="flex-1"><p className="text-sm font-semibold text-forest-900">{unlocked.length ? `${latest.label} apareceu no seu jardim` : 'Seu primeiro broto está começando'}</p><p className="mt-1 text-xs leading-5 text-ink-soft">Seu jardim cresce com interações significativas. Ele nunca murcha nem perde progresso quando você passa um tempo longe.</p></div><button type="button" onClick={()=>setCollection(true)} className="rounded-xl bg-forest-900 px-4 py-2.5 text-xs font-medium text-white">Ver coleção</button></div>
+      </section>
+
+      <div className="mt-5 grid grid-cols-3 gap-3 max-w-3xl mx-auto">{[
+        [Sprout,'Plantas',unlocked.filter(i=>i.kind==='Plantas').length,ITEMS.filter(i=>i.kind==='Plantas').length],
+        [Bird,'Visitantes',unlocked.filter(i=>i.kind==='Visitantes').length,ITEMS.filter(i=>i.kind==='Visitantes').length],
+        [Sparkles,'Detalhes',unlocked.filter(i=>i.kind==='Detalhes').length,ITEMS.filter(i=>i.kind==='Detalhes').length],
+      ].map(([Icon,label,n,total])=><button key={String(label)} type="button" onClick={()=>setCollection(true)} className="rounded-2xl border border-line bg-white p-4 text-center"><Icon className="mx-auto h-5 w-5 text-forest-700"/><p className="mt-2 text-xs font-medium">{label}</p><p className="mt-1 text-[11px] text-ink-soft">{n}/{total}</p></button>)}</div>
+      <p className="mx-auto mt-5 max-w-2xl text-center text-[11px] leading-5 text-ink-soft">Não existe sequência obrigatória. Se você se afastar, nada morre, diminui ou é perdido. Quando voltar, seu jardim continua exatamente de onde ficou.</p>
+    </div>
+
+    {collection&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-forest-950/30 p-0 sm:items-center sm:p-6" onMouseDown={e=>{if(e.target===e.currentTarget)setCollection(false)}}><div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] bg-[#fffdf8] p-5 shadow-2xl sm:rounded-[28px] sm:p-7"><div className="flex items-center justify-between"><div><h2 className="font-serif text-2xl text-forest-900">Sua coleção</h2><p className="mt-1 text-xs text-ink-soft">O que já ganhou vida no seu jardim.</p></div><button type="button" onClick={()=>setCollection(false)} className="rounded-full border border-line px-3 py-2 text-xs">Fechar</button></div>{(['Plantas','Visitantes','Detalhes'] as const).map(kind=><div key={kind} className="mt-6"><h3 className="text-xs font-semibold uppercase tracking-wider text-ink-soft">{kind}</h3><div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">{ITEMS.filter(i=>i.kind===kind).map(item=>{const open=growth>=item.at;return <div key={item.label} className={`rounded-2xl border p-3 text-center ${open?'border-line bg-white':'border-line bg-paper-soft/50 opacity-55'}`}><div className="text-4xl">{open?item.icon:<LockKeyhole className="mx-auto h-7 w-7 text-ink-soft"/>}</div><p className="mt-2 text-[11px] font-medium">{open?item.label:'Ainda vai surgir'}</p></div>})}</div></div>)}</div></div>}
+    <div className="sr-only"><Leaf/><Flower2/><TreePine/> O jardim evolui em ciclos e novas áreas ao longo dos anos. Ciclos maduros permanecem na história; não existe fim definitivo, streak, punição, perda de nível ou XP visível.</div>
+  </div>
+}
