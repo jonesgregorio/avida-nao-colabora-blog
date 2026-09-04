@@ -48,6 +48,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'admin-discount',
     'admin-plan-consistency',
     'admin-plan-pricing',
+    'admin-refund',
     'admin-schedule-cancellation',
     'checkout-session-status',
     'configure-stripe-webhook',
