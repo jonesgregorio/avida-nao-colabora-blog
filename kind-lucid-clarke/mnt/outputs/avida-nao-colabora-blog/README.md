@@ -21,25 +21,37 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 ## Planos oficiais
 
 ### Gratuito
-- Check-in rápido ilimitado.
-- Diário básico limitado a 5 registros/mês e 1 registro principal/dia.
-- Conteúdo público e recursos básicos.
-- Sem relatório semanal/mensal, plano de autocuidado ou orientação mensal.
+- Check-in diário: 1 por dia.
+- Diário emocional: até 5 dias com registros por mês, 1 registro principal/dia.
+- Diário por voz.
+- Questionários de autoconhecimento: seleção configurada para o Gratuito.
+- Artigos e conteúdos.
+- Conteúdos Guiados: seleção para começar.
+- Minha História: visão inicial.
+- Sem Mapa Emocional, Descobertas, Meu Jardim, relatório semanal/mensal, plano de autocuidado ou orientação mensal.
 
 ### Essencial
 - Tudo do Gratuito.
-- Diário completo e complementos.
-- Histórico e Mapa Emocional completos.
+- Diário emocional sem limite mensal.
+- Questionários configurados para o Essencial.
+- Conteúdos Guiados completos.
+- Mapa Emocional completo.
+- Descobertas (o que está se repetindo, sem linguagem diagnóstica).
+- Minha História completa.
 - Relatório semanal automático.
-- Conteúdos guiados completos.
+- Meu Jardim.
 
 ### Plus
 - Tudo do Essencial.
-- Campos avançados e gatilhos reais (`trigger_tags`).
+- Aprofundamentos do Diário: até 3 por dia (extensão do mesmo registro, não um novo check-in).
+- Questionários configurados para o Plus.
 - Relatório mensal aprofundado.
 - Plano de autocuidado mensal com revisão.
-- Comentário profissional do relatório mensal.
 - Orientação mensal por mensagem, solicitada pelo usuário e revisada antes do envio.
+
+`unlimited_access` é um entitlement administrativo (equivale ao Plus para autorização de recursos) e não é um plano comercial.
+
+"Comentário profissional sobre o relatório" foi descontinuado como recurso ativo do produto; dados de comentários já enviados continuam preservados no banco e na exportação de dados do usuário, apenas sem ser mais oferecido ou gerado.
 
 Nomes antigos como **Terapêutico**, **Terapêutico Plus**, **Trilhas**, **Caixa de Cuidado** e **Meditações** podem existir apenas em aliases/migrations históricos de compatibilidade; não devem voltar como nomenclatura principal do produto.
 
