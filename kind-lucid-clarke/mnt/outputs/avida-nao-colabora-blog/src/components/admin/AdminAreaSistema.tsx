@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Activity, Plug, ClipboardList, Shield, Zap, Gauge } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield, Zap, Gauge, MapPin } from 'lucide-react'
 import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
 import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
 import AdminAutomationsHealth from './AdminAutomationsHealth'
 import AdminIdea1Rollout from './AdminIdea1Rollout'
+import AdminInfraReference from './AdminInfraReference'
 
 // Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
 // serviços (Supabase/Stripe/IA/e-mail/hospedagem) — não é mais texto fixo. A
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'integracoes', label: 'Integrações', icon: Plug },
   { id: 'logs', label: 'Logs de auditoria', icon: ClipboardList },
   { id: 'permissoes', label: 'Permissões', icon: Shield },
+  { id: 'infra', label: 'Infra & externas', icon: MapPin },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -72,6 +74,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
         {tab === 'integracoes' && <AdminIntegrations />}
         {tab === 'logs' && <AdminLogs />}
         {tab === 'permissoes' && <AdminPermissions />}
+        {tab === 'infra' && <AdminInfraReference />}
       </div>
     </div>
   )
