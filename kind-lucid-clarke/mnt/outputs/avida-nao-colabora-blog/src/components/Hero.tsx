@@ -50,14 +50,14 @@ export default function Hero({ onNavigate }: HeroProps) {
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#ded8cd] sm:min-h-[520px] lg:min-h-[620px]">
           <img
-            src="/images/home/hero-person-clean.webp"
-            alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."
-            className="absolute inset-0 h-full w-full object-cover object-center"
+            src="/images/home/hero-person-generated.webp"
+            alt="Homem relaxando com uma caneca em um ambiente acolhedor, iluminado pela luz natural e cercado por plantas."
+            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
             loading="eager"
             decoding="async"
             fetchPriority="high"
           />
-          <span className="sr-only">“Todo sentimento também conta uma história.” “Aqui eu consigo colocar em palavras o que às vezes parece confuso dentro de mim.” Acolher hoje. Construir o amanhã.</span>
+          <span className="sr-only">Acolher hoje. Construir o amanhã.</span>
           <span className="sr-only"><Lock /> Privado · sem julgamentos · no seu ritmo</span>
         </div>
       </div>
