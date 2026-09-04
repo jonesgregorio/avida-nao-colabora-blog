@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Star, Loader2, BookOpen } from 'lucide-react'
+import { Star, Loader2, BookOpen, Info } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { normalizePlan } from '../lib/officialPlans'
+
+// Comentário profissional foi descontinuado como recurso comercial ativo do
+// Plus. Esta tela deixou de oferecer/gerar novos comentários; ela só existe
+// para preservar o acesso a comentários já enviados no passado (histórico) e
+// para não quebrar a URL antiga (/comentarios-profissional).
 
 interface Props {
   user: User | null
   profile: Profile | null
   onNavigateDiary?: () => void
-  onNavigatePricing?: () => void
+  onNavigateGuidance?: () => void
 }
 
 interface Comment {
@@ -26,7 +31,26 @@ function monthLabel(iso: string) {
   return new Date(Number(year), Number(month) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-export default function ProfessionalCommentsSection({ user, profile, onNavigateDiary, onNavigatePricing }: Props) {
+function DiscontinuedNotice({ onNavigateGuidance }: { onNavigateGuidance?: () => void }) {
+  return (
+    <div className="bg-white border border-stone-100 rounded-2xl p-5 flex items-start gap-3">
+      <Info className="w-5 h-5 text-stone-400 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-semibold text-forest-800">Este recurso foi descontinuado</p>
+        <p className="text-xs text-forest-500 mt-1">
+          O comentário individual do profissional não é mais gerado para novos relatórios. Comentários enviados anteriormente continuam disponíveis abaixo.
+        </p>
+        {onNavigateGuidance && (
+          <button onClick={onNavigateGuidance} className="text-xs text-forest-700 hover:underline font-medium mt-2">
+            Conhecer a Orientação Mensal
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function ProfessionalCommentsSection({ user, profile, onNavigateDiary, onNavigateGuidance }: Props) {
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -50,16 +74,7 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
   }, [user])
 
   if (!allowed) {
-    return (
-      <div className="bg-white border border-stone-100 rounded-2xl p-6 text-center">
-        <Star className="w-8 h-8 text-stone-200 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-forest-800 mb-1">Comentário individual do profissional</p>
-        <p className="text-xs text-forest-500 mb-4">Disponível no plano Plus — um comentário personalizado sobre seu relatório mensal.</p>
-        {onNavigatePricing && (
-          <button onClick={onNavigatePricing} className="text-xs text-forest-700 hover:underline font-medium">Ver planos</button>
-        )}
-      </div>
-    )
+    return <DiscontinuedNotice onNavigateGuidance={onNavigateGuidance} />
   }
 
   if (loading) {
@@ -70,22 +85,15 @@ export default function ProfessionalCommentsSection({ user, profile, onNavigateD
     )
   }
 
-  if (comments.length === 0) {
-    return (
-      <div className="bg-white border border-stone-100 rounded-2xl p-6 text-center">
-        <Star className="w-8 h-8 text-stone-200 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-forest-800 mb-1">Nenhum comentário ainda</p>
-        <p className="text-xs text-forest-500">Seu comentário mensal do profissional aparecerá aqui após o primeiro relatório.</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-forest-700 flex items-center gap-2">
-        <Star className="w-4 h-4 text-forest-400" />
-        Comentários do profissional
-      </h3>
+      <DiscontinuedNotice onNavigateGuidance={onNavigateGuidance} />
+      {comments.length > 0 && (
+        <h3 className="text-sm font-semibold text-forest-700 flex items-center gap-2">
+          <Star className="w-4 h-4 text-forest-400" />
+          Comentários recebidos anteriormente
+        </h3>
+      )}
       {comments.map(c => (
         <div key={c.id} className="bg-white border border-forest-100 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3 mb-3">

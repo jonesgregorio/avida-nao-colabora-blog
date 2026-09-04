@@ -229,7 +229,6 @@ export default function AdminNotifications() {
               <option value="my-report">Relatórios</option>
               <option value="self-care">Plano de autocuidado</option>
               <option value="monthly-guidance">Orientação profissional</option>
-              <option value="professional-comments">Comentário profissional</option>
               <option value="my-plan">Meu Plano</option>
               <option value="support">Suporte</option>
             </select>

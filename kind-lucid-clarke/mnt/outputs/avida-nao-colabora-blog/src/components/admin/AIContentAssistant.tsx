@@ -22,7 +22,6 @@ export type AIContentType =
   | 'meditation'
   | 'emotional_exercise'
   | 'self_care_plan'
-  | 'professional_comment'
   | 'monthly_guidance'
   | 'plan_description'
   | 'improve'
@@ -80,7 +79,6 @@ const TYPE_LABELS: Record<AIContentType, string> = {
   meditation: 'Gerar pausa emocional guiada',
   emotional_exercise: 'Gerar exercício emocional',
   self_care_plan: 'Gerar sequência de cuidado da semana',
-  professional_comment: 'Gerar rascunho de comentário',
   monthly_guidance: 'Gerar orientação mensal',
   plan_description: 'Gerar descrição do plano',
   improve: 'Melhorar texto',
@@ -205,11 +203,6 @@ Tipo: "${theme}". Seja honesto, sem números falsos. Máximo 3 frases.`
 
     case 'self_care_plan':
       return `Crie uma sequência de cuidado para a semana sobre: "${theme}". Sugira 5 dias com uma prática simples cada. Sem promessas de resultado. Inclua uma pergunta de reflexão.`
-
-    case 'professional_comment':
-      return `Crie um rascunho de comentário profissional mensal.
-Tópicos: "${theme}"${ctx}
-3 a 5 frases: reconheça o esforço, ofereça reflexão, sugira prática. NÃO diagnostique. Será revisado antes de enviar.`
 
     case 'monthly_guidance':
       return `Escreva uma orientação mensal por mensagem para um usuário de app de bem-estar.

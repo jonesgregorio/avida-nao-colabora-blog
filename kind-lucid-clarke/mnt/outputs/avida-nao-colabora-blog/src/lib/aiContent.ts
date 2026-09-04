@@ -413,24 +413,6 @@ A descrição deve ter 1 frase que resume o valor do plano. Seja direto e acolhe
   )
 }
 
-export async function generateProfessionalCommentDraft(
-  topics: string,
-  opts: AICallOptions = {}
-): Promise<string> {
-  return callAI(
-    `Crie um rascunho de comentário profissional mensal para um usuário de aplicativo de bem-estar emocional.
-Tópicos a abordar: "${topics}".
-O comentário deve:
-- Ser acolhedor e encorajador
-- Reconhecer o esforço do usuário
-- Oferecer uma reflexão ou sugestão prática
-- NÃO diagnosticar, NÃO dar prescrição, NÃO substituir consulta clínica
-- Ter 3 a 5 frases no máximo
-Este é um rascunho para revisão do profissional antes de enviar.`,
-    { size: 'curto', tone: 'profissional', ...opts }
-  )
-}
-
 export async function improveText(text: string, opts: AICallOptions = {}): Promise<string> {
   return callAI(
     `Melhore o texto abaixo mantendo o mesmo sentido e intenção, mas tornando-o mais claro, fluido e acolhedor:

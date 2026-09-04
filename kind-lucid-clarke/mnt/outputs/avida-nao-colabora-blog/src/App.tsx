@@ -539,7 +539,7 @@ export default function App() {
           user={user}
           profile={accessProfile}
           onNavigateDiary={() => navigate('diary')}
-          onNavigatePricing={() => navigate('pricing')}
+          onNavigateGuidance={() => navigate('monthly-guidance')}
         />
       </div>
     )

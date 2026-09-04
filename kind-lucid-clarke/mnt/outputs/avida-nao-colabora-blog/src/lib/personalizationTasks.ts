@@ -353,21 +353,10 @@ export const TASK_DEFS: TaskDef[] = [
     dueParam: 10,
     expiresAfterDueDays: null,
   },
-  {
-    key: 'professional_comment',
-    title: 'Comentário individual sobre relatório',
-    description: 'Usuário gerou relatório mensal e aguarda comentário profissional.',
-    contentType: 'professional_comment',
-    targetArea: 'professional_comments',
-    notificationTitle: 'Comentário sobre seu relatório disponível',
-    notificationBody: 'Seu comentário individual sobre o relatório do mês está disponível.',
-    frequency: 'on_report',
-    minPlan: 'plus',
-    priority: 'high',
-    dueType: 'days_after_event',
-    dueParam: 5,
-    expiresAfterDueDays: null,
-  },
+  // 'professional_comment' foi aposentado como recurso comercial do Plus e não
+  // é mais gerado por refreshTasksForAllUsers. Os rótulos em
+  // TARGET_AREA_LABELS/PERSONALIZED_CONTENT_LABELS/ACTION_VIEW_MAP permanecem
+  // só para exibir corretamente tarefas/entregas antigas já existentes no banco.
   {
     key: 'monthly_guidance',
     title: 'Orientação mensal por mensagem',
