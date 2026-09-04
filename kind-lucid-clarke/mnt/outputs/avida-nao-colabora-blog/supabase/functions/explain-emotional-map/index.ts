@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { resolveAiModels } from '../_shared/aiModels.ts'
 
 // ETAPA 3 — IA no Mapa Emocional.
 // A IA NUNCA recebe texto bruto do Diário, respostas abertas de questionário,
@@ -46,8 +47,8 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
 type Generated = { raw: string; model: string; provider: 'gemini' | 'groq' | 'openai' }
 async function generate(promptText: string): Promise<Generated | null> {
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
-  const configured = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)
-  const models = (configured.length ? configured : ['gemini-3.6-flash']).slice(0, 2)
+  const cfg = await resolveAiModels()
+  const models = [cfg.gemini]
   if (geminiKey) {
     for (const model of models) {
       try {
@@ -67,7 +68,7 @@ async function generate(promptText: string): Promise<Generated | null> {
   const groqKey = Deno.env.get('GROQ_API_KEY')
   if (groqKey) {
     try {
-      const model = 'openai/gpt-oss-120b'
+      const model = cfg.groq
       const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },

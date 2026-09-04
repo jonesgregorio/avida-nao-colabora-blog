@@ -34,6 +34,7 @@ interface DiaryExperienceProps {
 
 type DiaryEntryV2 = DiaryEntry & {
   deepened_at?: string | null
+  deepening_count?: number | null
   ai_disabled?: boolean
   ai_title?: string | null
   ai_reflection?: DiaryMirror | null
@@ -64,6 +65,7 @@ const CHIP_TO_MOOD: Record<string, string> = {
 }
 const quickContextTags = ['trabalho','família','relacionamento','saúde','dinheiro','sono','rotina','estudos','outro']
 const PAGE_SIZE = 30
+const MAX_DEEPENINGS_PER_DAY = 3
 const normalizeScale = (value: number) => Math.min(5, Math.max(1, Math.round(value)))
 const unique = (items: string[]) => [...new Set(items.filter(Boolean))]
 
@@ -134,7 +136,9 @@ function voiceErrorMessage(code?: string) {
 export default function DiaryExperienceRefined({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
   const [tab, setTab] = useState<PageTab>('write')
-  const [mode, setMode] = useState<EntryMode>(initialMood ? 'quick' : 'diary')
+  // O Diário não oferece uma segunda implementação de check-in. Check-in é feito
+  // exclusivamente pela experiência canônica da Página Inicial, uma vez ao dia.
+  const [mode, setMode] = useState<EntryMode>('diary')
   const [entries, setEntries] = useState<DiaryEntryV2[]>([])
   const [monthRows, setMonthRows] = useState<DiaryEntryV2[]>([])
   const [todayMain, setTodayMain] = useState<DiaryEntryV2 | null>(null)
@@ -192,7 +196,9 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
   const entryLimit = cfg.entriesPerMonth
   const atLimit = entryLimit != null && monthDiaryCount >= entryLimit
   const today = ymd(new Date())
-  const todayDeepened = Boolean(todayMain?.deepened_at)
+  const todayDeepeningCount = Math.min(MAX_DEEPENINGS_PER_DAY, Math.max(0, Number(todayMain?.deepening_count || 0)))
+  const todayDeepened = todayDeepeningCount >= MAX_DEEPENINGS_PER_DAY
+  const deepeningsRemaining = Math.max(0, MAX_DEEPENINGS_PER_DAY - todayDeepeningCount)
   const selectedMood = moodMeta(mood)
   const moodForAi = moodChip ? effectiveMoodLabel(selectedMood.label, moodOtherLabel) : 'seu momento'
   const fieldOn = (key: string) => cfg.fields[key] !== false
@@ -232,6 +238,8 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
   useEffect(() => { void fetchEntries(true) }, [filter, periodFilter]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void fetchMonthPresence(); void fetchTodayMain(); void fetchFreeCount() }, [fetchMonthPresence, fetchTodayMain, fetchFreeCount])
   useEffect(() => {
+    // initialMood continua aceito por compatibilidade de rota, mas não muda o Diário
+    // para um formulário de check-in alternativo.
     if (initialMood && CHIP_TO_MOOD[initialMood]) { setMoodChip(initialMood); setMood(CHIP_TO_MOOD[initialMood]) }
   }, [initialMood])
   useEffect(() => {
@@ -287,7 +295,8 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
   const startDeepening = async (question?: string) => {
     const entry = todayMain
     if (!entry) return
-    if (entry.deepened_at) { setError('Você já aprofundou seu registro de hoje. Amanhã um novo diário fica disponível.'); return }
+    const used = Number(entry.deepening_count || 0)
+    if (used >= MAX_DEEPENINGS_PER_DAY) { setError('Você já usou os 3 aprofundamentos disponíveis para o diário de hoje. Amanhã começa uma nova página.'); return }
     hydrateForDeepening(entry, question)
   }
   const requestStartHelp = async () => {
@@ -306,7 +315,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
       happened: 'O que aconteceu hoje que ainda está ecoando em você?',
       worried: 'Qual preocupação está pedindo mais espaço na sua atenção agora?',
       good: 'O que aconteceu hoje que você gostaria de guardar?',
-      unclear: 'Sem tentar explicar: qual palavra chega mais perto do que está acontecendo dentro de você?',
+      unclear: 'Nem sei explicar',
     }
     setHelperPrompt(prompts[kind] || localStartPrompt(moodForAi)); setStarterOpen(false); setTimeout(() => editorRef.current?.focus(), 50)
   }
@@ -368,7 +377,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
     const isCheckin = mode === 'quick'
     if (isCheckin && !moodChip) { setError('Escolha como você está se sentindo antes de salvar o check-in.'); return }
     if (!isCheckin && !draft.trim()) { setError('Escreva ao menos uma frase antes de salvar seu diário.'); return }
-    if (!isCheckin && !editingEntryId && atLimit) { setError('Você atingiu o limite de registros de diário deste mês. Seus check-ins continuam liberados.'); return }
+    if (!isCheckin && !editingEntryId && atLimit) { setError('Você atingiu o limite de registros de diário deste mês.'); return }
     setSaving(true); setError('')
     const meta = moodChip ? selectedMood : null
     const payload: Record<string, unknown> = {
@@ -409,14 +418,13 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
     const { data, error: saveError } = await savePayload(payload, editingEntryId)
     if (saveError || !data) {
       const raw = `${saveError?.message || ''} ${saveError?.details || ''}`.toLowerCase()
-      setError(raw.includes('aprofund') ? 'Você já aprofundou seu registro de hoje.' : raw.includes('limit') || raw.includes('limite') ? 'Você atingiu o limite de registros de diário deste mês.' : 'Não foi possível salvar agora. Tente novamente em instantes.')
+      setError(raw.includes('3 aprofundamentos') || raw.includes('aprofund') ? 'Você já usou os 3 aprofundamentos disponíveis para o diário de hoje.' : raw.includes('limit') || raw.includes('limite') ? 'Você atingiu o limite de registros de diário deste mês.' : 'Não foi possível salvar agora. Tente novamente em instantes.')
       setSaving(false); return
     }
     const entry = data as DiaryEntryV2
     setEntries(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev]); setMonthRows(prev => wasEditing ? prev.map(e => e.id === entry.id ? entry : e) : [...prev, entry])
     if (!isCheckin) {
-      const main = wasEditing ? { ...entry, deepened_at: entry.deepened_at || new Date().toISOString() } : entry
-      setTodayMain(main)
+      setTodayMain(entry)
       if (isFree && !wasEditing) {
         const next = monthDiaryCount + 1; setMonthDiaryCount(next)
         if (entryLimit != null) { const monthKey = today.slice(0, 7); if (next === entryLimit - 1) void emailDiaryLimitWarningForUser(user.id, monthKey); else if (next >= entryLimit) void emailDiaryLimitReachedForUser(user.id, monthKey) }
@@ -462,7 +470,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
   }
 
   if (saved) {
-    return <DiarySavedReflection saved={saved} user={user} plan={plan} isEssential={isEssential} todayDeepened={todayDeepened} suggestionsApplied={suggestionsApplied} onOpenArticle={onOpenArticle} moodMeta={moodMeta} onApplySuggestions={() => void applySuggestions()} onAskFollowUp={() => void askFollowUp()} onFinishCheckin={() => { setSaved(null); setMode('quick'); setTab('write') }} onContinueFromCheckin={continueFromCheckin} onViewHistory={() => { setSaved(null); setTab('history'); void fetchMonthPresence(); void fetchEntries(true) }} onBack={onBack} />
+    return <DiarySavedReflection saved={saved} user={user} plan={plan} isEssential={isEssential} todayDeepened={todayDeepened} suggestionsApplied={suggestionsApplied} onOpenArticle={onOpenArticle} moodMeta={moodMeta} onApplySuggestions={() => void applySuggestions()} onAskFollowUp={() => void askFollowUp()} onFinishCheckin={() => { setSaved(null); setMode('diary'); setTab('write') }} onContinueFromCheckin={continueFromCheckin} onViewHistory={() => { setSaved(null); setTab('history'); void fetchMonthPresence(); void fetchEntries(true) }} onBack={onBack} />
   }
 
   const shell = focusMode ? 'fixed inset-0 z-50 bg-[#f8f5ef] overflow-y-auto' : ''
@@ -475,7 +483,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
         {focusMode && <header className="flex items-start justify-between gap-4 mb-6">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{formattedToday}</p>
-            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. {mode === 'quick' ? 'Como você está agora?' : 'O que você quer colocar para fora hoje?'}</h1>
+            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. O que você quer colocar para fora hoje?</h1>
           </div>
           <button onClick={() => setFocusMode(false)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title="Sair do modo foco" aria-label="Sair do modo foco"><Minimize2 className="w-4 h-4" /></button>
         </header>}
@@ -490,27 +498,25 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
                 {!focusMode && <div className="relative min-h-[610px] border-b border-[#e1d7c5] p-6 sm:p-8 lg:border-b-0 lg:border-r lg:border-[#d8cbb5] lg:pr-11">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-forest-600">{formattedToday}</p>
                   <p className="mt-8 text-xs uppercase tracking-[0.16em] text-forest-600">Meu diário</p>
-                  <h1 className="mt-2 font-serif text-3xl sm:text-4xl text-forest-900">{greeting()}.<br />{mode === 'quick' ? 'Como você está agora?' : 'O que você quer colocar para fora hoje?'}</h1>
-                  <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">{mode === 'diary' ? 'Esta página é sua. Comece pelo texto e acrescente contexto somente se fizer sentido.' : mode === 'quick' ? 'Um check-in rápido também é uma forma de registrar o dia.' : 'Seu registro de hoje continua disponível para um único aprofundamento.'}</p>
+                  <h1 className="mt-2 font-serif text-3xl sm:text-4xl text-forest-900">{greeting()}.<br />O que você quer colocar para fora hoje?</h1>
+                  <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">{mode === 'main-saved' ? (todayDeepened ? 'Seu diário de hoje já recebeu os três aprofundamentos disponíveis.' : `Seu diário continua aberto para ${deepeningsRemaining} ${deepeningsRemaining === 1 ? 'aprofundamento' : 'aprofundamentos'} hoje.`) : 'Esta página é sua. Comece pelo texto e acrescente contexto somente se fizer sentido.'}</p>
 
-                  {mode !== 'main-saved' && <div className="mt-8 rounded-2xl border border-[#e7ddcc] bg-[#faf6ec] p-4">{mode === 'quick' ? <button type="button" onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-800"><span aria-hidden>←</span> Quero escrever no diário</button> : <button type="button" onClick={() => setMode('quick')} className="text-sm font-medium text-forest-800 underline underline-offset-4">Prefiro só um Check-in rápido hoje</button>}</div>}
+                  <div className="mt-8 rounded-2xl border border-[#e7ddcc] bg-[#faf6ec] p-4"><p className="text-sm leading-relaxed text-forest-800"><strong>Check-in e Diário são separados.</strong> O check-in é feito uma única vez ao dia pela Página Inicial. Aqui ficam somente sua escrita e os aprofundamentos do Diário.</p></div>
 
                   <div className="mt-10 rounded-2xl border border-[#e8dfcf] bg-white/70 p-5"><p className="font-serif text-xl text-forest-900">“Não precisa ficar bonito para ser verdadeiro.”</p><p className="mt-2 text-sm leading-relaxed text-ink-soft">Escreva como vier. Esta página não mede frequência, desempenho ou sequência.</p></div>
-                  <div className="mt-8 border-t border-[#e7ddcc] pt-5"><p className="text-xs font-medium text-forest-800">Seu espaço, no seu ritmo.</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">Você pode usar somente o diário, fazer um check-in curto ou abrir detalhes quando quiser.</p></div>
+                  <div className="mt-8 border-t border-[#e7ddcc] pt-5"><p className="text-xs font-medium text-forest-800">Seu espaço, no seu ritmo.</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">Você pode escrever seu diário e aprofundar o mesmo registro até três vezes no dia, quando fizer sentido.</p></div>
                 </div>}
 
                 <main className={focusMode ? 'min-w-0' : 'min-w-0 p-4 sm:p-7 lg:pl-11'}>
                   <div className={focusMode ? '' : 'mx-auto max-w-3xl'}>
-                    {focusMode && mode !== 'main-saved' && <div className="mb-4">{mode === 'quick' ? <button type="button" onClick={() => setMode(todayMain ? 'main-saved' : 'diary')} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900"><span aria-hidden>←</span> Quero escrever no diário</button> : <button type="button" onClick={() => setMode('quick')} className="text-sm text-forest-700 underline underline-offset-2 hover:text-forest-900">Prefiro só um Check-in rápido hoje</button>}</div>}
-
                     {mode === 'main-saved' && todayMain ? (
-                      <section className="rounded-3xl border border-line bg-paper-soft p-6 sm:p-8"><p className="text-xs uppercase tracking-[0.14em] text-forest-600">Registro de hoje</p><h2 className="font-serif text-2xl text-forest-900 mt-1">Você já colocou algo no papel hoje.</h2><p className="text-sm text-ink-soft mt-2 leading-relaxed">{todayDeepened ? 'Seu registro já foi aprofundado uma vez hoje. Seus check-ins continuam disponíveis, e amanhã começa uma nova página.' : 'Se algo ainda ficou sem palavras, você pode aprofundar este mesmo registro uma única vez hoje.'}</p><blockquote className="mt-5 border-l-2 border-forest-300 pl-4 text-sm text-ink-soft whitespace-pre-line line-clamp-5">{todayMain.text || 'Registro sem texto.'}</blockquote><div className="flex flex-wrap gap-2 mt-5">{!todayDeepened && <button onClick={() => void startDeepening()} className="rounded-xl bg-forest-900 text-white px-4 py-2.5 text-sm font-medium">Aprofundar meu registro</button>}<button onClick={() => setMode('quick')} className="rounded-xl border border-line bg-white text-forest-900 px-4 py-2.5 text-sm">Fazer check-in rápido</button></div></section>
+                      <section className="rounded-3xl border border-line bg-paper-soft p-6 sm:p-8"><p className="text-xs uppercase tracking-[0.14em] text-forest-600">Diário de hoje</p><h2 className="font-serif text-2xl text-forest-900 mt-1">Você já colocou algo no papel hoje.</h2><p className="text-sm text-ink-soft mt-2 leading-relaxed">{todayDeepened ? 'Você já usou os 3 aprofundamentos disponíveis para o Diário de hoje. O registro continua guardado exatamente como ficou.' : `Se algo ainda ficou sem palavras, você pode aprofundar este mesmo Diário mais ${deepeningsRemaining} ${deepeningsRemaining === 1 ? 'vez' : 'vezes'} hoje.`}</p><div className="mt-3 inline-flex rounded-full border border-line bg-white px-3 py-1 text-xs text-forest-700">{todayDeepeningCount} de {MAX_DEEPENINGS_PER_DAY} aprofundamentos usados hoje</div><blockquote className="mt-5 border-l-2 border-forest-300 pl-4 text-sm text-ink-soft whitespace-pre-line line-clamp-5">{todayMain.text || 'Registro sem texto.'}</blockquote><div className="flex flex-wrap gap-2 mt-5">{!todayDeepened && <button onClick={() => void startDeepening()} className="rounded-xl bg-forest-900 text-white px-4 py-2.5 text-sm font-medium">Aprofundar meu registro</button>}</div></section>
                     ) : (
                       <section className={`${focusMode ? 'bg-transparent' : 'bg-transparent'} p-4 sm:p-7`}>
                         {promptContext && mode === 'diary' && <div className="mb-5 rounded-2xl bg-mint/50 border border-forest-100 p-4"><p className="text-xs text-forest-600">Pergunta do conteúdo “{promptContext.articleTitle}”</p><p className="text-sm text-forest-900 mt-1">{promptContext.prompt}</p></div>}
                         {mode === 'quick' ? <>
                           <DiaryMoodSelector selectedKey={moodChip} otherLabel={moodOtherLabel} onSelect={chooseMood} onOtherLabelChange={setMoodOtherLabel} />
-                          <p className="text-sm text-ink-soft mb-4">Leva menos de um minuto. Escolha uma emoção e, se quiser, acrescente alguns sinais deste momento.</p>
+                          <p className="text-sm text-ink-soft mb-4">Esta visualização existe apenas para compatibilidade de registros antigos. Novos check-ins são feitos exclusivamente pela Página Inicial.</p>
                           {isEssential && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"><QuickScaleField label="Energia" value={energy} touched={touched.has('energy')} labels={['Muito baixa','Baixa','Média','Boa','Alta']} onChange={v => touch('energy', setEnergy, v)} onClear={() => clearTouch('energy', setEnergy)} /><QuickScaleField label="Tensão/estresse" value={stress} touched={touched.has('stress')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('stress', setStress, v)} onClear={() => clearTouch('stress', setStress)} />{mood === 'ansiedade' && <QuickScaleField label="Intensidade da ansiedade" value={anxiety} touched={touched.has('anxiety')} labels={['Muito baixa','Baixa','Média','Alta','Muito alta']} onChange={v => touch('anxiety', setAnxiety, v)} onClear={() => clearTouch('anxiety', setAnxiety)} />}</div>}
                           {isEssential && <div className="mb-4"><button type="button" onClick={() => setQuickContextOpen(v => !v)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-800"><SlidersHorizontal className="w-4 h-4" /> Quero contar um pouco mais {quickContextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{quickContextOpen && <div className="mt-3 rounded-2xl border border-line bg-white p-4"><p className="text-sm font-semibold text-forest-900">O que mais está influenciando você agora?</p><p className="text-xs text-ink-soft mt-1">Escolha só uma opção, se fizer sentido.</p><div className="flex flex-wrap gap-2 mt-3">{quickContextTags.map(tag => <button key={tag} type="button" onClick={() => setQuickContext(prev => prev === tag ? null : tag)} className={`rounded-full border px-3 py-1.5 text-xs ${quickContext === tag ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-forest-800'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>)}</div></div>}</div>}
                           <label className="text-sm font-semibold text-forest-900">Quer deixar uma nota rápida? <span className="font-normal text-ink-soft">(opcional)</span></label><textarea value={quickNote} onChange={e => setQuickNote(e.target.value)} rows={3} placeholder="Uma frase já basta…" aria-label="Nota rápida do check-in" className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-4 text-base resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300" />
@@ -525,11 +531,11 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
 
                           {detailsOpen && <DiaryDetailsDrawer isEssential={isEssential} isPlus={isPlus} isFree={isFree} fieldOn={fieldOn} touched={touched} values={{ moodScore, energy, anxiety, sleep, stress, selfEsteem, irritability, overload }} onScaleChange={handleScaleChange} onScaleClear={handleScaleClear} emotions={emotions} contexts={contexts} needs={needs} careActions={careActions} triggers={triggers} onToggleEmotion={tag => toggle(emotions, setEmotions, tag)} onToggleContext={tag => toggle(contexts, setContexts, tag)} onToggleNeed={tag => toggle(needs, setNeeds, tag)} onToggleCareAction={tag => toggle(careActions, setCareActions, tag)} onToggleTrigger={tag => toggle(triggers, setTriggers, tag)} plusDetailsOpen={plusDetailsOpen} onTogglePlusDetails={() => setPlusDetailsOpen(value => !value)} onClose={() => setDetailsOpen(false)} />}
 
-                          <div className="mt-4 rounded-2xl border border-line/70 bg-white/55 px-4 py-3 flex flex-col items-start gap-1"><label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer"><input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" /><span className="font-medium text-forest-800">Usar este texto só como diário</span></label><p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Se marcar, ele não será usado para personalizar reflexões ou sugestões.' : 'Este texto será salvo normalmente e não será usado para personalizar reflexões ou sugestões.'}</p>{isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês. Check-ins continuam ilimitados.</p>}</div>
+                          <div className="mt-4 rounded-2xl border border-line/70 bg-white/55 px-4 py-3 flex flex-col items-start gap-1"><label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer"><input type="checkbox" checked={!aiAllowed} onChange={e => { const disabled = e.target.checked; setAiAllowed(!disabled); if (disabled) setOrganizedCandidate(''); setError('') }} className="accent-forest-700" aria-describedby="diary-ai-privacy-help" /><span className="font-medium text-forest-800">Usar este texto só como diário</span></label><p id="diary-ai-privacy-help" className="text-[11px] leading-relaxed text-ink-soft">{aiAllowed ? 'Se marcar, ele não será usado para personalizar reflexões ou sugestões.' : 'Este texto será salvo normalmente e não será usado para personalizar reflexões ou sugestões.'}</p>{isFree && entryLimit != null && <p className="mt-1 text-[11px] text-ink-soft">Plano Gratuito: {monthDiaryCount} de {entryLimit} registros de diário usados neste mês.</p>}</div>
                         </>}
 
                         {error && <div className="mt-4 rounded-xl bg-coral/30 px-4 py-3 text-sm text-[#8a3b23]">{error}</div>}
-                        <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line/70 bg-[#f8f5ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">{!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}{mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}{mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir mais detalhes" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}<button onClick={() => void handleSave()} disabled={saving || (mode === 'quick' && !moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? 'Salvar aprofundamento' : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button></div>
+                        <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line/70 bg-[#f8f5ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">{!focusMode && mode === 'diary' && atLimit && !editingEntryId ? <div className="mr-auto"><p className="text-sm text-ink-soft">Você usou {monthDiaryCount} de {entryLimit} registros neste mês.</p>{onNavigatePricing && <button onClick={onNavigatePricing} className="text-xs text-forest-700 font-medium mt-1">Ver registros ilimitados</button>}</div> : <span className="mr-auto" />}{mode === 'diary' && <button type="button" onClick={toggleVoice} aria-label={voiceActive ? 'Parar ditado' : 'Usar microfone'} className={`sm:hidden rounded-xl border p-3 ${voiceActive ? 'border-coral bg-coral/40 text-[#8a3b23]' : 'border-line bg-white text-forest-800'}`}><Mic className="h-4 w-4" /></button>}{mode === 'diary' && <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Abrir mais detalhes" className="sm:hidden rounded-xl border border-line bg-white p-3 text-forest-800"><SlidersHorizontal className="h-4 w-4" /></button>}<button onClick={() => void handleSave()} disabled={saving || (mode === 'quick' && !moodChip) || (mode === 'diary' && !draft.trim())} className="rounded-2xl bg-forest-900 text-white px-5 py-3 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingEntryId ? `Salvar aprofundamento ${Math.min(MAX_DEEPENINGS_PER_DAY, todayDeepeningCount + 1)} de ${MAX_DEEPENINGS_PER_DAY}` : mode === 'quick' ? 'Salvar check-in' : 'Guardar meu registro'}</button></div>
                       </section>
                     )}
                   </div>
