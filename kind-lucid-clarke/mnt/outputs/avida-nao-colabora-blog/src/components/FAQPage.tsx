@@ -38,7 +38,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Planos e pagamento',
     question: 'Qual a diferença entre os planos?',
-    answer: 'O plano Gratuito dá acesso ao diário básico (5 registros/mês), blog aberto e questionário inicial. O Essencial libera diário ilimitado, histórico completo, mapa emocional e relatório semanal. O Plus inclui tudo do Essencial mais plano de autocuidado mensal, relatório aprofundado e orientação por mensagem com profissional.',
+    answer: 'O Gratuito permite começar com Check-in diário, Diário emocional em até 5 dias por mês, Diário por voz, uma seleção de questionários, conteúdos guiados e uma visão inicial da Minha História. O Essencial amplia o acompanhamento com Diário sem limite mensal, Mapa Emocional, Descobertas, Minha História completa, Relatório Semanal, Meu Jardim e conteúdos guiados completos. O Plus inclui tudo do Essencial e acrescenta Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal.',
   },
   {
     category: 'Planos e pagamento',
@@ -90,7 +90,7 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   {
     category: 'Saúde e segurança',
     question: 'O Plano Plus substitui o acompanhamento com psicólogo?',
-    answer: 'Não. São recursos diferentes e complementares do Plus: o comentário profissional fica ligado ao relatório mensal e oferece uma devolutiva breve sobre aquela leitura; a orientação mensal por mensagem parte de uma pergunta específica enviada por você. Nenhum dos dois substitui psicoterapia ou acompanhamento clínico continuado.',
+    answer: 'Não. O Plus reúne recursos adicionais de autoconhecimento — Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal por mensagem, esta última a partir de uma pergunta específica enviada por você. Nenhum deles substitui psicoterapia, avaliação clínica ou acompanhamento profissional continuado.',
   },
 ]
 

@@ -474,8 +474,8 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               <div className="mt-5 pt-4 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-soft">
                 <span className="inline-flex items-center gap-1.5"><NotebookPen className="w-3.5 h-3.5" /> {nextStep.eyebrow}</span>
                 {plan === 'free' && stats.diaryLimit != null
-                  ? <span>Diário básico: {stats.diaryThisMonth}/{stats.diaryLimit} neste mês · check-ins ilimitados</span>
-                  : <span>Diário completo disponível no seu plano</span>}
+                  ? <span>Diário emocional: {stats.diaryThisMonth}/{stats.diaryLimit} dias com registro neste mês · check-in diário: 1 por dia</span>
+                  : <span>Diário emocional sem limite mensal disponível no seu plano</span>}
               </div>
             </div>
           </div>

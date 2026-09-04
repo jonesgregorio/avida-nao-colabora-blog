@@ -54,9 +54,9 @@ const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avi
 
 const PLAN_BENEFITS: Record<string, string> = {
   essential:
-    '- Diário ilimitado\n- Mapa emocional completo com histórico e gráficos\n- Conteúdos guiados completos\n- Relatório semanal automático',
+    '- Diário emocional sem limite mensal\n- Mapa emocional completo com histórico e gráficos\n- Descobertas\n- Conteúdos guiados completos\n- Relatório semanal automático\n- Meu Jardim',
   plus:
-    '- Tudo do Essencial\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Comentário profissional mensal\n- Orientação mensal por mensagem',
+    '- Tudo do Essencial\n- Aprofundamentos do Diário (até 3 por dia)\n- Plano de autocuidado mensal\n- Relatório mensal aprofundado\n- Orientação mensal por mensagem',
 }
 
 const PLAN_LABELS: Record<string, string> = {

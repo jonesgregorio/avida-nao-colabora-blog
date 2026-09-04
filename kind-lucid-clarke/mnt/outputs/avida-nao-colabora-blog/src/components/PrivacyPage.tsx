@@ -66,7 +66,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
           <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
             <p>Usamos seus dados para operar, proteger e melhorar o serviço e para entregar as funcionalidades que você utiliza. Não vendemos ou alugamos seus dados pessoais a anunciantes.</p>
             <p>Recursos de inteligência artificial podem processar o conteúdo ou resumos necessários para gerar artigos, relatórios, planos, recomendações e outros recursos. Enviamos ao provedor somente o contexto necessário para aquela geração e mantemos mecanismos de validação e fallback no backend.</p>
-            <p>Em funcionalidades do Plus que incluem revisão profissional, o profissional recebe o relatório ou o contexto necessário para produzir a devolutiva prevista naquele recurso. Isso não significa acesso livre ou rotineiro da equipe ao seu diário completo.</p>
+            <p>O comentário individual de um profissional sobre o relatório mensal foi descontinuado como recurso ativo do produto; comentários enviados no passado continuam preservados para consulta e exportação, sem que a equipe tenha acesso livre ou rotineiro ao seu diário completo.</p>
           </div>
         </section>
 

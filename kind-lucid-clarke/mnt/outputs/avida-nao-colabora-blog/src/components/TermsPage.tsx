@@ -106,7 +106,7 @@ export default function TermsPage({ onNavigate }: TermsPageProps) {
               'Não prescrevemos tratamentos, medicamentos ou intervenções clínicas',
               'Não garantimos resultados terapêuticos de qualquer natureza',
               'Relatórios e gráficos são para fins de autoconhecimento, não clínicos',
-              'O Plano Plus inclui orientação mensal por mensagem e comentário profissional — não é psicoterapia clínica',
+              'O Plano Plus inclui recursos adicionais de autoconhecimento, plano de autocuidado e orientação mensal, sem substituir psicoterapia, avaliação clínica ou acompanhamento profissional continuado',
               'Não substituímos acompanhamento profissional continuado',
             ].map((item, i) => (
               <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">

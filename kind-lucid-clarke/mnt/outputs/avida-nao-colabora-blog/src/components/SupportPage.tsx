@@ -56,7 +56,7 @@ const STATUS_COLOR: Record<string, string> = {
 const HELP_TOPICS: { q: string; a: string }[] = [
   {
     q: 'Como funciona o Plano Plus?',
-    a: 'O Plus inclui tudo do Essencial e adiciona plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional ligado ao relatório e orientação mensal por mensagem. O comentário é uma devolutiva breve sobre o relatório; a orientação parte de uma pergunta específica que você envia. Os dois são não emergenciais e não substituem acompanhamento clínico. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
+    a: 'O Plus inclui tudo do Essencial e adiciona Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal por mensagem. A orientação parte de uma pergunta específica que você envia. É não emergencial e não substitui acompanhamento clínico. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
   },
   {
     q: 'Como cancelar assinatura?',
