@@ -1,59 +1,74 @@
-import { ArrowRight, Leaf, Lock } from 'lucide-react'
+import { ArrowRight, Heart, Leaf, Lock, ShieldCheck } from 'lucide-react'
 import HeroArt from './HeroArt'
-import { useSiteSnippet } from '../lib/siteContent'
 
 interface HeroProps {
   onNavigate: (section: string) => void
 }
 
 export default function Hero({ onNavigate }: HeroProps) {
-  const kicker = useSiteSnippet('hero_kicker', 'A Vida Não Colabora')
-  const title = useSiteSnippet('hero_title', 'A vida nem sempre colabora.')
-  const titleAccent = useSiteSnippet('hero_title_accent', 'Você não precisa organizar tudo sozinho.')
-  const subtitle = useSiteSnippet('hero_subtitle', 'Escreva como foi seu dia. Aos poucos, o A Vida Não Colabora ajuda você a perceber o que pesa, o que ajuda e o que está mudando.')
-  const cta = useSiteSnippet('hero_cta', 'Começar gratuitamente')
-  const reassurance = useSiteSnippet('hero_reassurance', 'Privado · sem julgamentos · no seu ritmo')
+  const scrollHowItWorks = () => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   return (
-    <section id="home" className="bg-paper overflow-hidden">
-      <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:py-20">
-        <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-8 lg:gap-14 items-center">
+    <section id="home" className="overflow-hidden border-b border-line bg-[#f7f2e8]">
+      <div className="mx-auto grid max-w-[1440px] lg:grid-cols-[1.03fr_0.97fr]">
+        <div className="flex items-center px-5 py-12 sm:px-8 sm:py-16 lg:px-14 lg:py-20 xl:px-20">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 text-forest-600">
-              <Leaf className="w-4 h-4" />
-              <span className="text-[11px] uppercase tracking-[0.14em] font-semibold">{kicker}</span>
-            </div>
-
-            <h1 className="mt-4 font-serif text-4xl sm:text-5xl lg:text-6xl leading-[1.06] text-forest-900">
-              {title}<br />
-              <span className="text-forest-700">{titleAccent}</span>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-forest-600">Pequenos registros. Grandes percepções.</p>
+            <h1 className="mt-4 font-serif text-[2.55rem] leading-[1.03] text-forest-900 sm:text-5xl lg:text-[3.7rem]">
+              Entender o que você sente pode começar com um registro por dia.
             </h1>
-
-            <p className="mt-5 text-base sm:text-lg text-ink-soft leading-relaxed max-w-xl">
-              {subtitle}
+            <p className="mt-5 max-w-xl text-base leading-7 text-ink-soft sm:text-lg">
+              Um espaço para registrar seus dias, perceber padrões e transformar o que você vive em possibilidades de cuidado — no seu ritmo.
             </p>
 
-            <div className="mt-7">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <button
                 data-cta="hero-comecar-gratis"
                 data-cta-location="hero"
-                onClick={() => onNavigate('diary')}
-                className="inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white font-medium text-sm px-6 py-3.5 rounded-2xl transition-colors shadow-sm"
+                onClick={() => onNavigate('auth')}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-forest-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800"
               >
-                {cta}
-                <ArrowRight className="w-4 h-4" />
+                Criar minha conta gratuita <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={scrollHowItWorks}
+                className="inline-flex items-center justify-center rounded-full border border-forest-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-forest-900 transition-colors hover:bg-white/60"
+              >
+                Conhecer como funciona
               </button>
             </div>
 
-            <p className="mt-4 inline-flex items-center gap-2 text-xs text-ink-soft">
-              <Lock className="w-3.5 h-3.5 text-forest-500" />
-              {reassurance}
-            </p>
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3 text-xs text-forest-800">
+              <span className="inline-flex items-center gap-2"><Leaf className="h-4 w-4" /> Gratuito para começar</span>
+              <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Seguro e privado</span>
+              <span className="inline-flex items-center gap-2"><Heart className="h-4 w-4" /> Sem julgamentos</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative min-h-[430px] overflow-hidden bg-gradient-to-br from-[#dfe8d9] via-[#d7dfcc] to-[#c5d1bc] sm:min-h-[520px] lg:min-h-[620px]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_24%,rgba(255,255,255,.9),transparent_30%),radial-gradient(circle_at_12%_85%,rgba(255,245,226,.8),transparent_34%)]" />
+          <div className="absolute -bottom-10 left-1/2 w-[92%] max-w-[620px] -translate-x-1/2 opacity-95" aria-hidden>
+            <HeroArt className="h-auto w-full drop-shadow-[0_28px_40px_rgba(34,64,45,.18)]" />
           </div>
 
-          <div className="relative min-h-[300px] sm:min-h-[390px] flex items-end justify-center lg:justify-end" aria-hidden>
-            <div className="absolute inset-6 rounded-full bg-mint/50 blur-3xl" />
-            <HeroArt className="relative w-full max-w-[500px] h-auto" />
+          <div className="absolute right-5 top-8 max-w-[215px] rotate-[-3deg] text-right sm:right-9 sm:top-12">
+            <p className="font-serif text-xl italic leading-snug text-forest-800/80 sm:text-2xl">“Todo sentimento também conta uma história.”</p>
           </div>
+
+          <div className="absolute bottom-20 left-5 max-w-[250px] rounded-[24px] border border-white/70 bg-[#fbf7ef]/95 p-4 shadow-xl backdrop-blur sm:left-8 sm:bottom-24">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-mint text-forest-700"><Leaf className="h-4 w-4" /></span>
+              <p className="font-serif text-sm italic leading-5 text-forest-900">“Aqui eu consigo colocar em palavras o que às vezes parece confuso dentro de mim.”</p>
+            </div>
+          </div>
+
+          <div className="absolute bottom-5 right-6 text-right text-xs leading-5 text-white/90 sm:right-9">
+            <p>Acolher hoje.</p>
+            <p>Construir o amanhã.</p>
+          </div>
+          <span className="sr-only"><Lock /> Privado · sem julgamentos · no seu ritmo</span>
         </div>
       </div>
     </section>
