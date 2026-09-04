@@ -4,6 +4,7 @@ import { Loader2, TrendingUp, TrendingDown, DollarSign, Users, XCircle, ArrowDow
 import { OFFICIAL_PLANS, normalizePlan } from '../../lib/officialPlans'
 import { REASON_LABELS, reasonsLabel, type ReasonSlug } from '../../lib/cancelReasons'
 import { formatDateTimeShort, formatBRL, eventLabel } from '../../lib/subscriptionStatus'
+import AdminRefund from './AdminRefund'
 import {
   periodRange, calcularMetricas, rankingMotivos, serieMensal, serieMensalEvento,
   PERIOD_LABELS, type PeriodKey, type FinanceEvent, type FeedbackRow,
@@ -404,6 +405,8 @@ export default function AdminFinanceiro() {
           </div>
         )}
       </section>
+
+      <AdminRefund />
     </div>
   )
 }
