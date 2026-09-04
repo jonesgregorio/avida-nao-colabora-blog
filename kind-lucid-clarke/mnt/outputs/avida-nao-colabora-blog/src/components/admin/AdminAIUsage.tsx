@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { RefreshCw, Loader2, Cpu, Download, PlayCircle, Search, X, FilterX } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
+import AdminAIConfig from './AdminAIConfig'
 
 interface UserHit {
   user_id: string
@@ -243,6 +244,17 @@ export default function AdminAIUsage() {
           </button>
         </div>
       </div>
+
+      <details className="bg-white border border-line rounded-2xl mb-6 group">
+        <summary className="cursor-pointer list-none px-5 py-3.5 flex items-center gap-2 text-sm font-medium text-forest-900">
+          <Cpu className="w-4 h-4 text-forest-600" />
+          Configuração de IA — modelo e chaves
+          <span className="ml-auto text-xs text-ink-soft group-open:hidden">abrir</span>
+        </summary>
+        <div className="px-5 pb-5 border-t border-line pt-4">
+          <AdminAIConfig />
+        </div>
+      </details>
 
       <div className="flex gap-1.5 mb-4" aria-label="Categoria das gerações">
         {([['todos', 'Tudo'], ['emocional', 'Emocional'], ['editorial', 'Editorial']] as [Category, string][]).map(([key, label]) => (

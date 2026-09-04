@@ -40,17 +40,21 @@ const LEGACY_GEMINI_MODELS = new Set([
   'gemini-2.5-flash',
 ])
 
-const GEMINI_MODEL = (() => {
-  const configured = (Deno.env.get('GEMINI_MODEL') || '').split(',')[0]?.trim()
-  if (!configured || LEGACY_GEMINI_MODELS.has(configured)) return DEFAULT_GEMINI_MODEL
-  return configured
-})()
+function normalizeGeminiModel(value: string | null | undefined): string {
+  const v = (value || '').split(',')[0]?.trim()
+  if (!v || LEGACY_GEMINI_MODELS.has(v)) return DEFAULT_GEMINI_MODEL
+  return v
+}
+function normalizeGroqModel(value: string | null | undefined): string {
+  const v = (value || '').trim()
+  if (!v || DEPRECATED_GROQ_MODELS.has(v)) return DEFAULT_GROQ_MODEL
+  return v
+}
 
-const GROQ_MODEL = (() => {
-  const configured = (Deno.env.get('GROQ_MODEL') || '').trim()
-  if (!configured || DEPRECATED_GROQ_MODELS.has(configured)) return DEFAULT_GROQ_MODEL
-  return configured
-})()
+// Efetivo. Começa no secret/default; o handler pode sobrescrever com o override
+// de ai_settings (editável em Admin → Central de IA) a cada requisição.
+let GEMINI_MODEL = normalizeGeminiModel(Deno.env.get('GEMINI_MODEL'))
+let GROQ_MODEL = normalizeGroqModel(Deno.env.get('GROQ_MODEL'))
 
 const OPENAI_MODEL = (Deno.env.get('OPENAI_MODEL') || DEFAULT_OPENAI_MODEL).trim()
 
@@ -603,6 +607,19 @@ Deno.serve(async (req) => {
     .eq('user_id', user.id)
     .maybeSingle()
   if (profile?.role !== 'admin') return json({ error: 'Acesso restrito a administradores' }, 403)
+
+  // Override de modelo (Admin → Central de IA). Se vazio, mantém secret/default.
+  try {
+    const { data: models } = await admin
+      .from('ai_settings')
+      .select('gemini_model, groq_model')
+      .eq('id', 1)
+      .maybeSingle()
+    if (models?.gemini_model?.trim()) GEMINI_MODEL = normalizeGeminiModel(models.gemini_model)
+    if (models?.groq_model?.trim()) GROQ_MODEL = normalizeGroqModel(models.groq_model)
+  } catch {
+    // segue com secret/default
+  }
 
   let body: {
     prompt?: string

@@ -104,15 +104,7 @@ async function openDiary(page, plan, viewport) {
   await expect(page.getByRole('button', { name: 'Guardar meu registro' })).toBeVisible()
 }
 
-async function openCheckin(page) {
-  await page.getByRole('button', { name: /Prefiro só um Check-in rápido hoje/i }).click()
-  await expect(page.getByRole('heading', { name: /Como você está agora/i })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Salvar check-in' })).toBeVisible()
-}
-
 async function openWritingMode(page) {
-  const back = page.getByRole('button', { name: /Quero escrever no diário/i })
-  if (await back.count()) await back.click()
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Preciso de ajuda para começar' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Adicionar mais detalhes' })).toBeVisible()
@@ -170,40 +162,28 @@ async function installVoiceMocks(page, { permissionState = 'granted', denyMicrop
   }, { state: permissionState, deny: denyMicrophone })
 }
 
-test('A escrita abre primeiro; o check-in rápido continua a um toque sem duplicar emoções', async ({ page }) => {
+test('Diário abre como escrita e não oferece um segundo check-in', async ({ page }) => {
   await openDiary(page, 'plus', { width: 1440, height: 900 })
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
-  await openCheckin(page)
-  await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Prefiro só um Check-in rápido hoje/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Fazer check-in rápido/i })).toHaveCount(0)
+  await expect(page.getByText(/Check-in e Diário são separados/i)).toBeVisible()
+  await expect(page.getByText(/check-in é feito uma única vez ao dia pela Página Inicial/i)).toBeVisible()
+})
+
+test('Diário mantém sentimentos como contexto opcional, sem transformá-los em check-in', async ({ page }) => {
+  await openDiary(page, 'plus', { width: 1440, height: 900 })
+  await openEmotionalContext(page)
   await page.getByRole('button', { name: /Bem-estar/i }).click()
-  await expect(page.getByLabel('Energia')).toBeVisible()
-  await expect(page.getByLabel('Tensão/estresse')).toBeVisible()
-  await expect(page.getByLabel('Intensidade da ansiedade')).toHaveCount(0)
-  await page.getByRole('button', { name: /Ansiedade/i }).click()
-  await expect(page.getByLabel('Intensidade da ansiedade')).toBeVisible()
-  await page.getByRole('button', { name: 'Quero contar um pouco mais' }).click()
-  await expect(page.getByText('O que mais está influenciando você agora?')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Trabalho' })).toBeVisible()
+  await expect(page.getByText('Como você está se sentindo?')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar meu registro' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Salvar check-in' })).toHaveCount(0)
 })
 
-test('Check-in salvo oferece concluir ou continuar no diário', async ({ page }) => {
-  await openDiary(page, 'plus', { width: 1440, height: 900 })
-  await openCheckin(page)
-  await page.getByRole('button', { name: /Tranquilidade/i }).click()
-  await page.getByRole('textbox', { name: 'Nota rápida do check-in' }).fill('Uma pausa no fim da tarde me ajudou.')
-  await page.getByRole('button', { name: 'Salvar check-in' }).click()
-  await expect(page.getByRole('heading', { name: 'Check-in registrado' })).toBeVisible()
-  await expect(page.getByText('Você registrou como está agora. Quer deixar assim ou escrever um pouco mais?')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Concluir' })).toBeVisible()
-  await page.getByRole('button', { name: 'Quero escrever sobre isso' }).click()
-  await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
-})
-
-test('Gratuito mantém check-in simples, limite visível no diário e histórico sem PDF', async ({ page }) => {
+test('Gratuito mantém limite visível no Diário e histórico sem PDF, sem check-in alternativo', async ({ page }) => {
   await openDiary(page, 'free', { width: 1440, height: 900 })
-  await openCheckin(page)
-  await expect(page.getByLabel('Energia')).toHaveCount(0)
-  await expect(page.getByText('Sinais mais específicos')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Prefiro só um Check-in rápido hoje/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Fazer check-in rápido/i })).toHaveCount(0)
   await openWritingMode(page)
   await expect(page.getByText('Plano Gratuito')).toBeVisible()
   await expect(page.getByText('0 de 5 registros de diário usados')).toBeVisible()
