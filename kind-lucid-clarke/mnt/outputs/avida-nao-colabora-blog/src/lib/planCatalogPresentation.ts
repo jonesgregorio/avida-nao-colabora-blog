@@ -120,7 +120,10 @@ export function buildCatalogPlanBenefits(
 
 export function buildCatalogComparisonRows(catalog: PlanFeatureCatalog): PlanCompareRow[] {
   const commercial: PlanCompareRow[] = catalog.items
-    .filter(item => item.kind === 'commercial' && item.isActive && item.showOnComparison && item.key !== 'professional_comment_on_monthly_report')
+    .filter(item => {
+      if (!item.isActive || !item.showOnComparison) return false
+      return item.kind === 'commercial' && item.key !== 'professional_comment_on_monthly_report'
+    })
     .map(item => ({
       label: item.name,
       values: {
