@@ -633,7 +633,7 @@ export default function App() {
   if (view === 'my-garden') {
     if (!user) { goAuth('my-garden'); return null }
     return appShell(
-      <MyGardenPage userId={user.id} />
+      <MyGardenPage userId={user.id} profile={accessProfile} onNavigatePricing={() => navigate('pricing')} />
     )
   }
 
