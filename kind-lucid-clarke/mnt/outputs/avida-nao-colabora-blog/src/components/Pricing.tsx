@@ -314,7 +314,28 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     return hidden
   }, [catalog, catalogByKey])
 
-  const comparisonRows = useMemo(() => COMPARISON_ROWS.filter(row => !hiddenApprovedFeatures.has(row.id)), [hiddenApprovedFeatures])
+  // Recursos comerciais criados pelo Admin (aba "Catálogo de funcionalidades")
+  // também entram na tabela de comparação — igual já acontecia em Meu Plano
+  // via buildCatalogComparisonRows. Sem isso, um item novo só aparecia na
+  // versão logada.
+  const commercialComparisonRows = useMemo(() => catalog.items
+    .filter(item => item.kind === 'commercial' && item.isActive && item.showOnComparison && item.key !== 'professional_comment_on_monthly_report')
+    .map(item => ({
+      id: item.key,
+      label: item.name,
+      values: {
+        free: item.plans.free.enabled,
+        essential: item.plans.essential.enabled,
+        plus: item.plans.plus.enabled,
+      } as Record<PlanKey, PlanCompareValue>,
+    })), [catalog])
+
+  const comparisonRows = useMemo(() => [
+    ...COMPARISON_ROWS
+      .filter(row => !hiddenApprovedFeatures.has(row.id))
+      .map(row => ({ id: row.id, label: FEATURES[row.id].label, values: row.values })),
+    ...commercialComparisonRows,
+  ], [hiddenApprovedFeatures, commercialComparisonRows])
 
   const isFeatureVisibleOnPricing = (feature: PlanFeature) => {
     if (feature.catalogKey) {
@@ -431,12 +452,12 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
               <thead><tr className="text-sm bg-white/60"><th className="text-left px-4 py-4 text-xs font-semibold text-forest-700">Funcionalidade</th><th className="px-4 py-4"><span className="flex items-center justify-center gap-1.5"><Sprout className="w-4 h-4 text-forest-600" /><span className="font-serif text-lg text-forest-900">Gratuito</span></span></th><th className="px-4 py-4 bg-mint/40"><span className="flex items-center justify-center gap-1.5"><LineChart className="w-4 h-4 text-forest-600" /><span className="font-serif text-lg text-forest-900">Essencial</span></span></th><th className="px-4 py-4"><span className="flex items-center justify-center gap-1.5"><Star className="w-4 h-4 text-forest-700" /><span className="font-serif text-lg text-forest-900">Plus</span></span></th></tr></thead>
               <tbody>
                 {comparisonRows.map(row => {
-                  const feature = FEATURES[row.id]
-                  const catalogItem = feature.catalogKey ? catalogByKey.get(feature.catalogKey) : null
-                  const rowLabel = catalogItem?.name?.trim() || feature.label
+                  const feature: PlanFeature | undefined = FEATURES[row.id as FeatureId]
+                  const catalogItem = feature?.catalogKey ? catalogByKey.get(feature.catalogKey) : null
+                  const rowLabel = catalogItem?.name?.trim() || row.label
                   return (
                     <tr key={row.id} className="border-t border-line align-top">
-                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{rowLabel}</span><InfoButton feature={{ ...feature, label: rowLabel }} onOpen={setInfoFeature} /></div></td>
+                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{rowLabel}</span>{feature && <InfoButton feature={{ ...feature, label: rowLabel }} onOpen={setInfoFeature} />}</div></td>
                       <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={catalogItem?.plans.free.label?.trim() || row.values.free} /></td>
                       <td className="px-4 py-4 text-center text-sm bg-mint/25"><ComparisonCell value={catalogItem?.plans.essential.label?.trim() || row.values.essential} /></td>
                       <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={catalogItem?.plans.plus.label?.trim() || row.values.plus} /></td>
