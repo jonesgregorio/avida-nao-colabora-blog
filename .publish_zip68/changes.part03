@@ -1,0 +1,143 @@
++  automation_emotional: 'Verifique o cron run-emotional-automations, a Edge Function e o trigger reports_notify_after_persist.',
++  automation_editorial: 'Verifique o cron run-content-automations, a Edge Function run-automations e os últimos erros das regras.',
++  operational_metrics: 'Revise os detalhes para localizar falhas recentes de IA, automações editoriais e filas pendentes.',
+@@ -522,0 +527,10 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
++  const operationalResult = results.find(r => r.checkKey === 'operational_metrics')
++  const operational = (operationalResult?.details ?? {}) as Record<string, unknown>
++  const operationalCards = [
++    { label: 'Relatórios (30d)', value: Number(operational.reports_generated_30d ?? 0) },
++    { label: 'Fallbacks (30d)', value: Number(operational.reports_fallback_30d ?? 0) },
++    { label: 'Planos p/ revisar', value: Number(operational.care_plans_pending_review ?? 0) },
++    { label: 'Orientações pendentes', value: Number(operational.guidance_pending_review ?? 0) },
++    { label: 'Artigos bloqueados', value: Number(operational.articles_auto_publish_blocked_30d ?? 0) },
++    { label: 'Erros IA (30d)', value: Number(operational.ai_generation_errors_30d ?? 0) },
++  ]
+@@ -560,0 +575,20 @@ function OverviewTab({ results, overall, errorCount, warnCount, openIncidents, l
++      {operationalResult && (
++        <div className="bg-white rounded-xl border border-line p-4">
++          <div className="flex items-center justify-between gap-3 mb-3">
++            <div>
++              <h2 className="font-semibold text-forest-900 text-sm">Indicadores operacionais</h2>
++              <p className="text-xs text-stone-400">Filas e qualidade operacional sem expor conteúdo sensível dos usuários.</p>
++            </div>
++            <StatusBadge status={operationalResult.status} />
++          </div>
++          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
++            {operationalCards.map(card => (
++              <div key={card.label} className="rounded-xl bg-stone-50 border border-line px-3 py-2.5">
++                <p className="text-lg font-bold text-forest-900">{card.value}</p>
++                <p className="text-[10px] text-stone-500 leading-tight">{card.label}</p>
++              </div>
++            ))}
++          </div>
++        </div>
++      )}
++
+@@ -651 +685 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
+-  const quickKeys = ['site_public', 'admin_session', 'supabase_conn', 'db_notifications', 'db_pers_tasks', 'db_pers_deliveries', 'db_diary', 'db_articles', 'payments']
++  const quickKeys = ['site_public', 'admin_session', 'supabase_conn', 'db_notifications', 'db_pers_tasks', 'db_pers_deliveries', 'db_diary', 'db_articles', 'automation_emotional', 'automation_editorial', 'operational_metrics', 'payments']
+@@ -653 +687 @@ function AutoTab({ results, isRunningQuick, onQuickCheck, lastAt }: {
+-  const interKeys = ['db_questionnaires', 'db_trails', 'db_guidance', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
++  const interKeys = ['db_questionnaires', 'db_guidance', 'db_reports', 'db_support', 'db_saved', 'rls_personalization', 'drafts_dryrun', 'ai_fallback']
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/aiPrompts/emotionalPrompts.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/aiPrompts/emotionalPrompts.ts
+index d32dd366303e93eae8b68f938df8d4ffbdf1a242..89aeec8e22a93a9630f5e30d651e9d5951847849 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/aiPrompts/emotionalPrompts.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/aiPrompts/emotionalPrompts.ts
+@@ -1,0 +2 @@ import type { EmotionalSummary } from '../emotionalAnalytics'
++import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS, type EmotionalPromptKind } from '../../../supabase/functions/_shared/emotionalPromptContracts'
+@@ -17,25 +18,2 @@ import type { EmotionalSummary } from '../emotionalAnalytics'
+-export type EmotionalPromptKind =
+-  | 'weekly_report'
+-  | 'monthly_deep_report'
+-  | 'self_care_plan'
+-  | 'professional_guidance_draft'
+-
+-export const EMOTIONAL_PROMPT_VERSIONS: Record<EmotionalPromptKind, string> = {
+-  weekly_report: 'weekly_report_v2',
+-  monthly_deep_report: 'monthly_deep_report_v2',
+-  self_care_plan: 'self_care_plan_v2',
+-  professional_guidance_draft: 'professional_guidance_v1',
+-}
+-
+-export const EMOTIONAL_AI_SAFETY_RULES = [
+-  'Escreva em português brasileiro, com tom acolhedor, claro, humano e não julgador.',
+-  'Use apenas os dados agregados informados. Não invente fatos, datas, causas, números ou padrões.',
+-  'Não diagnostique, não prescreva, não prometa cura e não afirme condição clínica.',
+-  'Não se apresente como psicólogo, psiquiatra, médico, terapeuta ou profissional de saúde.',
+-  'Prefira expressões cautelosas: "seus registros sugerem", "vale observar", "pode ser interessante" e "talvez faça sentido".',
+-  'Evite expressões impositivas como "você precisa", "obrigatório", "controle suas emoções" ou "garantido".',
+-  'Não trate marcadores emocionais como gatilhos. `emotional_tags` são marcadores; gatilhos reais só podem vir de `real_triggers`/`trigger_tags`.',
+-  'Não transforme correlação em causa. Relações entre energia, ansiedade, sono e contexto são pistas, não conclusões.',
+-  'Se a qualidade dos dados for baixa, seja breve, reconheça a limitação e convide a pessoa a registrar mais, sem concluir além do possível.',
+-  'Retorne exclusivamente JSON válido, sem markdown, sem comentários e sem campos adicionais.',
+-].join('\n- ')
++export { EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS }
++export const EMOTIONAL_AI_SAFETY_RULES = EMOTIONAL_AI_SAFETY_TEXT
+@@ -72 +50 @@ function base(kind: EmotionalPromptKind, summary: EmotionalSummary): string {
+-    `- ${EMOTIONAL_AI_SAFETY_RULES}`,
++    `- ${EMOTIONAL_AI_SAFETY_TEXT}`,
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
+index 234dcd4ffb51f5209c881830367ed3e52e7b3060..526af09d5efcab0f98de961542038197e66e492c 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/officialPlans.ts
+@@ -74 +74 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
+-  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional mensal',  category: 'Orientação profissional', order: 12 },
++  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional sobre o relatório',  category: 'Orientação profissional', order: 12 },
+@@ -215 +215 @@ export const PUBLIC_PLAN_FEATURES: Record<PlanKey, string[]> = {
+-    'Comentário profissional mensal', 'Orientação mensal por mensagem',
++    'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem',
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
+index b6807bb901b328cf13420f5ba091460ee71d7ed5..4e3608b857d70cc0aaa9324ab5e1e782169d1796 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/planComparison.ts
+@@ -19 +19 @@ export const PLAN_COMPARE_ROWS: PlanCompareRow[] = [
+-  { label: 'Comentário profissional mensal', values: { free: false,              essential: false,            plus: true } },
++  { label: 'Comentário profissional sobre o relatório', values: { free: false,              essential: false,            plus: true } },
+@@ -44 +44 @@ export const PLAN_BENEFITS: Record<'free' | 'essential' | 'plus', string[]> = {
+-    'Comentário profissional mensal',
++    'Comentário profissional sobre o relatório',
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
+index efdd0417505b4e6f758a404b757d4c4a00510c2f..ce8518d86091f568a05a3b7b39371930843b23fe 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/reportPeriods.ts
+@@ -20,2 +20,8 @@ export interface Period {
+-// ── Helpers de data (local, meio-dia p/ evitar borda de DST) ──────────────────
+-function atNoon(y: number, m: number, d: number): Date { return new Date(y, m, d, 12, 0, 0, 0) }
++// ── Helpers de calendário — sempre America/Sao_Paulo ─────────────────────────
++export const REPORT_TIME_ZONE = 'America/Sao_Paulo'
++function atNoon(y: number, m: number, d: number): Date { return new Date(Date.UTC(y, m, d, 12, 0, 0, 0)) }
++function saoPauloParts(date: Date): { year: number; month: number; day: number } {
++  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: REPORT_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
++  const get = (type: string) => Number(parts.find(p => p.type === type)?.value || 0)
++  return { year: get('year'), month: get('month'), day: get('day') }
++}
+@@ -23 +29,2 @@ export function ymd(date: Date): string {
+-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
++  const { year, month, day } = saoPauloParts(date)
++  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+@@ -30 +37 @@ function addDays(s: string, n: number): string {
+-  const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d)
++  const d = parseYmd(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d)
+@@ -37,3 +44,4 @@ function weekBounds(date: Date): { start: string; end: string } {
+-  const dow = date.getDay() // 0=domingo
+-  const sunday = atNoon(date.getFullYear(), date.getMonth(), date.getDate() - dow)
+-  const saturday = atNoon(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6)
++  const calendarDate = parseYmd(ymd(date))
++  const dow = calendarDate.getUTCDay() // 0=domingo
++  const sunday = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), calendarDate.getUTCDate() - dow)
++  const saturday = atNoon(sunday.getUTCFullYear(), sunday.getUTCMonth(), sunday.getUTCDate() + 6)
+@@ -44,2 +52,3 @@ function monthBounds(date: Date): { start: string; end: string } {
+-  const start = atNoon(date.getFullYear(), date.getMonth(), 1)
+-  const end = atNoon(date.getFullYear(), date.getMonth() + 1, 0) // dia 0 do mês seguinte = último dia
++  const calendarDate = parseYmd(ymd(date))
++  const start = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth(), 1)
++  const end = atNoon(calendarDate.getUTCFullYear(), calendarDate.getUTCMonth() + 1, 0) // dia 0 do mês seguinte = último dia
+@@ -109 +118 @@ export function formatPeriodShort(p: { start: string; end: string }): string {
+-  const f = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
++  const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+@@ -114 +123 @@ export function formatDateBR(s: string): string {
+-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
++  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+@@ -117 +126 @@ export function monthTitle(s: string): string {
+-  return parseYmd(s).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
++  return parseYmd(s).toLocaleString('pt-BR', { timeZone: REPORT_TIME_ZONE, month: 'long', year: 'numeric' })
