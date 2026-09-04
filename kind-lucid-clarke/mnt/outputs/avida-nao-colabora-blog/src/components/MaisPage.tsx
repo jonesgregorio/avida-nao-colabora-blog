@@ -4,17 +4,18 @@ import {
   MoreHorizontal, ShieldCheck, Sprout, User as UserIcon,
 } from 'lucide-react'
 import type { Profile } from '../types'
-import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import MyGardenPage from './MyGardenPage'
 
 interface Props { profile: Profile | null; onNavigate: (section: string) => void }
 export default function MaisPage({ profile, onNavigate }: Props) {
-  const plan = normalizePlan(profile?.plan)
+  const plan = getEffectivePlan(profile)
   const guidanceAccess = hasPlanAccess(plan, 'plus')
+  const gardenAccess = hasPlanAccess(plan, 'essential')
   const [gardenOpen,setGardenOpen]=useState(false)
-  if(gardenOpen&&profile?.user_id) return <div><button type="button" onClick={()=>setGardenOpen(false)} className="ml-4 mt-4 rounded-xl border border-line bg-white px-4 py-2 text-xs text-forest-900 sm:ml-6">← Voltar para Mais</button><MyGardenPage userId={profile.user_id}/></div>
+  if(gardenOpen&&gardenAccess&&profile?.user_id) return <div><button type="button" onClick={()=>setGardenOpen(false)} className="ml-4 mt-4 rounded-xl border border-line bg-white px-4 py-2 text-xs text-forest-900 sm:ml-6">← Voltar para Mais</button><MyGardenPage userId={profile.user_id} profile={profile} onNavigatePricing={()=>onNavigate('pricing')}/></div>
   const items = [
-    { icon:<Sprout className="w-5 h-5"/>, title:'Meu Jardim', description:'Veja seu espaço ganhar vida conforme sua jornada continua.', onClick:()=>setGardenOpen(true) },
+    { icon:<Sprout className="w-5 h-5"/>, title:'Meu Jardim', description:gardenAccess?'Veja seu espaço ganhar vida conforme sua jornada continua.':'Meu Jardim — disponível a partir do Essencial.', onClick:()=>gardenAccess?setGardenOpen(true):onNavigate('pricing') },
     { icon:<ClipboardList className="w-5 h-5"/>, title:'Questionários', description:'Avaliações pontuais e a sua evolução ao longo do tempo.', onClick:()=>onNavigate('questionarios') },
     { icon:<MessageCircle className="w-5 h-5"/>, title:'Orientação por mensagem', description:guidanceAccess?'Tire dúvidas e receba orientação durante o mês.':'Orientação por mensagem — disponível no Plus.', onClick:()=>onNavigate(guidanceAccess?'monthly-guidance':'pricing') },
     { icon:<Bell className="w-5 h-5"/>, title:'Notificações', description:'Acompanhamentos, descobertas e retrospectivas.', onClick:()=>onNavigate('notifications') },

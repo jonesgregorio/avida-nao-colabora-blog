@@ -28,7 +28,7 @@ test('Meu Jardim possui rota própria e renderização protegida no shell logado
   assert.match(app, /const MyGardenPage = lazy/)
   assert.match(app, /view === 'my-garden'/)
   assert.match(app, /goAuth\('my-garden'\)/)
-  assert.match(app, /<MyGardenPage userId=\{user\.id\} \/>/)
+  assert.match(app, /<MyGardenPage userId=\{user\.id\} profile=\{accessProfile\}/)
   assert.match(garden, /Seu jardim cresce com interações significativas/)
 })
 

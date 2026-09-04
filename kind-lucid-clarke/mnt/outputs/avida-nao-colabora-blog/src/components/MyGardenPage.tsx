@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import type { LucideProps } from 'lucide-react'
 import { Bird, ChevronLeft, ChevronRight, Flower2, Leaf, LockKeyhole, Sparkles, Sprout, TreePine, Waves } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
+import type { Profile } from '../types'
 
-interface Props { userId:string }
+interface Props { userId:string; profile?: Profile | null; onNavigatePricing?: () => void }
 type Counts={activeDays:number;reports:number;milestones:number}
 type GardenKind='Plantas'|'Visitantes'|'Detalhes'
 type GardenItem={icon:string;label:string;at:number;kind:GardenKind}
@@ -34,12 +36,13 @@ function buildCycleItems(index:number):GardenItem[]{
 async function countRows(table:string,userId:string,extra?:{column:string;value:string}){let q=supabase.from(table).select('id',{count:'exact',head:true}).eq('user_id',userId);if(extra)q=q.eq(extra.column,extra.value);const{count}=await q;return count??0}
 async function loadCounts(userId:string):Promise<Counts>{const[{data:diary},reports,milestones]=await Promise.all([supabase.from('diary_entries').select('date,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(5000),countRows('reports',userId),countRows('user_history_items',userId,{column:'item_type',value:'milestone'})]);const rows=(diary??[]) as Array<{date:string|null;created_at:string}>;return{activeDays:new Set(rows.map(r=>r.date||r.created_at.slice(0,10))).size,reports,milestones}}
 
-export default function MyGardenPage({userId}:Props){
+export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
+  const hasAccess=hasPlanAccess(getEffectivePlan(profile),'essential')
   const[counts,setCounts]=useState<Counts>({activeDays:0,reports:0,milestones:0})
   const[collection,setCollection]=useState(false)
   const[history,setHistory]=useState(false)
   const[selectedCycle,setSelectedCycle]=useState<number|null>(null)
-  useEffect(()=>{let alive=true;loadCounts(userId).then(v=>alive&&setCounts(v)).catch(()=>{});return()=>{alive=false}},[userId])
+  useEffect(()=>{if(!hasAccess)return;let alive=true;loadCounts(userId).then(v=>alive&&setCounts(v)).catch(()=>{});return()=>{alive=false}},[userId,hasAccess])
 
   const growth=counts.activeDays+counts.reports*2+counts.milestones*3
   const currentCycle=Math.floor(growth/CYCLE_SIZE)
@@ -49,6 +52,10 @@ export default function MyGardenPage({userId}:Props){
   const items=useMemo(()=>buildCycleItems(currentCycle),[currentCycle])
   const unlocked=useMemo(()=>items.filter(item=>cycleProgress>=item.at),[items,cycleProgress])
   const latest=unlocked.length?unlocked[unlocked.length-1]:items[0]
+
+  if(!hasAccess){
+    return <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center"><Sprout className="mx-auto h-10 w-10 text-forest-500"/><h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1><p className="mx-auto mt-3 max-w-xl text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>{onNavigatePricing&&<button type="button" onClick={onNavigatePricing} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm font-medium text-white">Ver planos</button>}</section></div>
+  }
   const lush=Math.min(5,Math.floor(cycleProgress/12)+1)
   const stats:Array<[ComponentType<LucideProps>,GardenKind,number,number]>=[[Sprout,'Plantas',unlocked.filter(i=>i.kind==='Plantas').length,items.filter(i=>i.kind==='Plantas').length],[Bird,'Visitantes',unlocked.filter(i=>i.kind==='Visitantes').length,items.filter(i=>i.kind==='Visitantes').length],[Sparkles,'Detalhes',unlocked.filter(i=>i.kind==='Detalhes').length,items.filter(i=>i.kind==='Detalhes').length]]
   const viewedCycle=selectedCycle??currentCycle
