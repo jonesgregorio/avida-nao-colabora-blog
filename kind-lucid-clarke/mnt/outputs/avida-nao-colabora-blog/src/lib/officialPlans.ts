@@ -64,9 +64,12 @@ export const OFFICIAL_FEATURES: OfficialFeature[] = [
   // Plus
   { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
   { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },
-  { key: 'professional_comment_on_monthly_report', name: 'Comentário profissional sobre o relatório', category: 'Orientação profissional', order: 12 },
-  { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 13 },
+  { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 12 },
 ]
+// 'professional_comment_on_monthly_report' foi aposentado como recurso comercial
+// (nunca mais como oferta ativa do Plus). Dados históricos permanecem no banco
+// (professional_comments) apenas para compatibilidade; ver docs/archive e a
+// migration de aposentadoria para o desligamento operacional completo.
 
 // ─── Mapa de aliases → chave principal ───────────────────────────────────────
 
@@ -110,8 +113,7 @@ const ESSENTIAL_OWN_KEYS = [
   'emotional_exercise_library', 'weekly_assessments',
 ]
 const PLUS_OWN_KEYS = [
-  'personalized_self_care_plan', 'advanced_monthly_report',
-  'professional_comment_on_monthly_report', 'monthly_message_guidance',
+  'personalized_self_care_plan', 'advanced_monthly_report', 'monthly_message_guidance',
 ]
 
 export const OWN_FEATURE_KEYS: Record<PlanKey, string[]> = {
@@ -285,6 +287,5 @@ export const OFFICIAL_PLAN_COMPARISON: OfficialPlanCompareRow[] = [
   featureRow('weekly-report', 'Relatório semanal automático', 'weekly_assessments'),
   featureRow('self-care', 'Plano de autocuidado mensal', 'personalized_self_care_plan'),
   featureRow('monthly-report', 'Relatório mensal aprofundado', 'advanced_monthly_report'),
-  featureRow('professional-comment', 'Comentário profissional sobre o relatório', 'professional_comment_on_monthly_report'),
   featureRow('monthly-guidance', 'Orientação mensal por mensagem', 'monthly_message_guidance'),
 ]

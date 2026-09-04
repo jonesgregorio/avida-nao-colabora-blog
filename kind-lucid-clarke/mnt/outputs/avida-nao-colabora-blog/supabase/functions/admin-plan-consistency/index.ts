@@ -31,7 +31,7 @@ const OFFICIAL_FEATURE_KEYS = [
   'articles_free', 'wellbeing_diary_5_month', 'basic_self_assessment', 'biweekly_auto_challenges',
   'diary_unlimited', 'diary_mood_symptoms_summary', 'full_history', 'emotional_exercise_library',
   'weekly_assessments', 'personalized_self_care_plan', 'advanced_monthly_report',
-  'professional_comment_on_monthly_report', 'monthly_message_guidance',
+  'monthly_message_guidance',
 ]
 const PAID_PLAN_KEYS = ['essential', 'plus'] as const
 
