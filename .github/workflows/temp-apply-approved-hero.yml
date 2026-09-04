@@ -1,5 +1,5 @@
 name: Temporary apply approved hero image
-# retry after complete payload
+# retry with indentation-safe Hero replacement
 
 on:
   push:
@@ -39,25 +39,16 @@ jobs:
           from pathlib import Path
           p = Path('src/components/Hero.tsx')
           s = p.read_text()
-          old = '''          <img
-            src="/images/home/hero-person-clean.webp"
-            alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."
-            className="absolute inset-0 h-full w-full object-cover object-center"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />'''
-          new = '''          <img
-            src="/images/home/hero-person-approved.webp"
-            alt="Pessoa relaxando com uma caneca em um ambiente acolhedor com plantas e luz natural."
-            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />'''
-          if old not in s:
-              raise SystemExit('Hero image block not found')
-          p.write_text(s.replace(old, new, 1))
+          replacements = [
+              ('src="/images/home/hero-person-clean.webp"', 'src="/images/home/hero-person-approved.webp"'),
+              ('alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."', 'alt="Pessoa relaxando com uma caneca em um ambiente acolhedor com plantas e luz natural."'),
+              ('className="absolute inset-0 h-full w-full object-cover object-center"', 'className="absolute inset-0 h-full w-full object-cover object-[72%_center]"'),
+          ]
+          for old, new in replacements:
+              if s.count(old) != 1:
+                  raise SystemExit(f'Expected exactly one occurrence of {old!r}, got {s.count(old)}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
           PY
 
       - name: Remove temporary payload and workflows
