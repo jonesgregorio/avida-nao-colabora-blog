@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS } from '../_shared/emotionalPromptContracts.ts'
+import { resolveAiModels } from '../_shared/aiModels.ts'
 
 // Automação emocional (relatórios + plano). Não mistura conteúdo editorial e
 // nunca recebe texto livre do diário: somente colunas analíticas agregadas.
@@ -248,11 +249,9 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
     failures.push(`${provider}: ${text}`)
   }
 
+  const aiCfg = await resolveAiModels()
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
-  const legacyGeminiModels = new Set(['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash'])
-  const configuredGeminiModels = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)
-  const geminiModels = configuredGeminiModels.filter(model => !legacyGeminiModels.has(model))
-  if (!geminiModels.length) geminiModels.push('gemini-3.6-flash')
+  const geminiModels = [aiCfg.gemini]
   if (geminiKey) {
     for (const model of geminiModels) {
       try {
@@ -278,11 +277,11 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 1800 }),
+        body: JSON.stringify({ model: aiCfg.groq, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 1800 }),
       })
       if (res.ok) {
         const data = await res.json(); const text = data?.choices?.[0]?.message?.content
-        if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:openai/gpt-oss-120b' }
+        if (text && String(text).trim()) return { text: String(text).trim(), model: `groq:${aiCfg.groq}` }
         note('groq', 'resposta vazia')
       } else {
         note('groq', `HTTP ${res.status}`)
