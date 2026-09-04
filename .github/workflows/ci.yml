@@ -66,7 +66,39 @@ jobs:
         run: npm ci
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          set -uo pipefail
+          # O endpoint de advisories do npm ocasionalmente responde 503/timeout.
+          # Repetimos somente falhas transitórias de rede/serviço; uma auditoria
+          # válida com vulnerabilidade alta continua falhando imediatamente.
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            log="$(mktemp)"
+            set +e
+            npm audit --omit=dev --audit-level=high >"$log" 2>&1
+            status=$?
+            set -e
+            cat "$log"
+
+            if [ "$status" -eq 0 ]; then
+              rm -f "$log"
+              exit 0
+            fi
+
+            if grep -Eqi '503|504|service unavailable|network timeout|network error|audit endpoint returned an error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH' "$log"; then
+              rm -f "$log"
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "Auditoria npm indisponível temporariamente. Nova tentativa $((attempt + 1))/$max_attempts em 10s..."
+                sleep 10
+                continue
+              fi
+              echo "O endpoint de auditoria npm permaneceu indisponível após $max_attempts tentativas."
+              exit "$status"
+            fi
+
+            rm -f "$log"
+            exit "$status"
+          done
 
       - name: Automated tests
         run: npm test
