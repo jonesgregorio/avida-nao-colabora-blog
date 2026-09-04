@@ -50,9 +50,9 @@ export default function Hero({ onNavigate }: HeroProps) {
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#ded8cd] sm:min-h-[520px] lg:min-h-[620px]">
           <img
-            src="/images/home/hero-person-clean.webp"
-            alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."
-            className="absolute inset-0 h-full w-full object-cover object-center"
+            src="/images/home/hero-person-approved.webp"
+            alt="Pessoa relaxando com uma caneca em um ambiente acolhedor com plantas e luz natural."
+            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
             loading="eager"
             decoding="async"
             fetchPriority="high"
