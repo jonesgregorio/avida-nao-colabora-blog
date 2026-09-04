@@ -35,25 +35,40 @@ export async function syncHomeCheckinToDiary({ userId, date, score, feelingTags 
     markers: [HOME_CHECKIN_MARKER],
   }
 
+  // O check-in é uma fotografia única do dia, não uma edição do Diário.
+  // Se já existe qualquer check-in na data, preservamos o primeiro exatamente
+  // como foi enviado e apenas devolvemos sua identidade.
   const { data: existing, error: lookupError } = await supabase
     .from('diary_entries')
     .select('id')
     .eq('user_id', userId)
     .eq('date', date)
     .eq('entry_type', 'checkin')
-    .contains('markers', [HOME_CHECKIN_MARKER])
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
   if (lookupError) throw lookupError
-
-  if (existing?.id) {
-    const { error } = await supabase.from('diary_entries').update(payload).eq('id', existing.id)
-    if (error) throw error
-    return existing.id
-  }
+  if (existing?.id) return existing.id
 
   const { data, error } = await supabase.from('diary_entries').insert(payload).select('id').single()
-  if (error) throw error
+  if (error) {
+    // Duas telas podem tentar sincronizar no mesmo instante. O índice único do
+    // banco decide quem gravou primeiro; em seguida recuperamos o registro já
+    // existente em vez de criar/editar um segundo check-in.
+    if (error.code === '23505') {
+      const { data: concurrent, error: concurrentError } = await supabase
+        .from('diary_entries')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('date', date)
+        .eq('entry_type', 'checkin')
+        .limit(1)
+        .single()
+      if (concurrentError) throw concurrentError
+      return concurrent.id
+    }
+    throw error
+  }
   return data.id
 }
