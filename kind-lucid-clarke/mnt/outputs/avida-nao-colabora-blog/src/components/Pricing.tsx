@@ -425,7 +425,6 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                         <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-forest-700" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap"><span className="text-sm text-ink">{feature.label}{item.value ? ` — ${item.value}` : ''}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div>
-                          {feature.short && <p className="text-xs leading-relaxed text-ink-soft mt-1">{feature.short}</p>}
                         </div>
                       </li>
                     )
@@ -452,7 +451,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
                   const feature = FEATURES[row.id]
                   return (
                     <tr key={row.id} className="border-t border-line align-top">
-                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{feature.label}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div>{feature.short && <p className="text-xs text-ink-soft mt-1 max-w-sm leading-relaxed">{feature.short}</p>}</td>
+                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{feature.label}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div></td>
                       <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={row.values.free} /></td>
                       <td className="px-4 py-4 text-center text-sm bg-mint/25"><ComparisonCell value={row.values.essential} /></td>
                       <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={row.values.plus} /></td>
