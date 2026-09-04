@@ -50,20 +50,14 @@ export default function Hero({ onNavigate }: HeroProps) {
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#ded8cd] sm:min-h-[520px] lg:min-h-[620px]">
           <img
-            src="/images/home/hero-person-clean.webp"
+            src="/images/home/hero-person-photo-hq.webp"
             alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."
             className="absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
+            decoding="async"
             fetchPriority="high"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-transparent" aria-hidden />
-          <div className="absolute right-5 top-8 max-w-[215px] rotate-[-3deg] text-right sm:right-9 sm:top-12">
-            <p className="font-serif text-xl italic leading-snug text-white drop-shadow-md sm:text-2xl">“Todo sentimento também conta uma história.”</p>
-          </div>
-          <div className="absolute bottom-20 left-5 max-w-[250px] rounded-[24px] border border-white/70 bg-[#fbf7ef]/95 p-4 shadow-xl backdrop-blur-sm sm:bottom-24 sm:left-8">
-            <div className="flex items-start gap-3"><span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-mint text-forest-700"><Leaf className="h-4 w-4" /></span><p className="font-serif text-sm italic leading-5 text-forest-900">“Aqui eu consigo colocar em palavras o que às vezes parece confuso dentro de mim.”</p></div>
-          </div>
-          <div className="absolute bottom-5 right-6 text-right text-xs leading-5 text-white drop-shadow-md sm:right-9"><p>Acolher hoje.</p><p>Construir o amanhã.</p></div>
+          <span className="sr-only">“Todo sentimento também conta uma história.” “Aqui eu consigo colocar em palavras o que às vezes parece confuso dentro de mim.” Acolher hoje. Construir o amanhã.</span>
           <span className="sr-only"><Lock /> Privado · sem julgamentos · no seu ritmo</span>
         </div>
       </div>
