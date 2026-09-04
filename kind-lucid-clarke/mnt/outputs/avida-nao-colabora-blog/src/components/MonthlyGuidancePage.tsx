@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   ArrowRight, CalendarClock, CalendarDays, CheckCircle, ChevronDown, ChevronLeft,
   Clock, Crown, Eye, FileText, Heart, Info, ListChecks, Loader2, MessageSquare,
-  Send, ShieldCheck, Sparkles,
+  Send, ShieldCheck, Sparkles, type LucideIcon,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
@@ -46,7 +46,7 @@ interface Cycle {
 
 type HelpPreset = {
   label: string
-  icon: typeof Sparkles
+  icon: LucideIcon
 }
 
 const DEADLINE_DAY = 23
@@ -77,10 +77,6 @@ function monthKeyLabel(key: string) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
@@ -89,7 +85,7 @@ function formatShort(d: Date | string) {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function answered(req: GuidanceRequest) {
+function isRequestAnswered(req: GuidanceRequest) {
   return isGuidanceAnswered(req.status, {
     finalResponseJson: req.final_response_json,
     aiDraftJson: req.ai_draft_json,
@@ -210,7 +206,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
   const deadline = formatShort(cycle.deadline)
   const reopen = formatShort(cycle.nextOpen)
-  const currentAnswered = request ? answered(request) : false
+  const currentAnswered = request ? isRequestAnswered(request) : false
   const dueDate = request ? formatShort(guidanceResponseDueDate(request.created_at).toISOString()) : null
 
   return (
@@ -323,7 +319,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
       )}
 
       <section className="rounded-[26px] border border-line bg-white/80 p-4 sm:p-5">
-        <SectionHeading number="2" title="O que será considerado na resposta" subtitle="Usamos o que está disponível para preparar uma orientação coerente com o seu momento." />
+        <SectionHeading number="2" title="O que será considerado na resposta" subtitle="Análise cuidadosa antes da resposta: usamos o que está disponível para preparar uma orientação coerente com o seu momento." />
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
           <DataSource icon={MessageSquare} label="Sua mensagem" badge="Sempre considerado" />
           <DataSource icon={FileText} label="Registros agregados do mês" badge="Disponível" />
@@ -404,7 +400,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
   )
 }
 
-function SummaryCell({ icon: Icon, title, separated = false, children }: { icon: typeof CalendarDays; title: string; separated?: boolean; children: React.ReactNode }) {
+function SummaryCell({ icon: Icon, title, separated = false, children }: { icon: LucideIcon; title: string; separated?: boolean; children: ReactNode }) {
   return (
     <div className={`p-5 flex gap-3 ${separated ? 'md:border-l md:border-line' : ''}`}>
       <span className="w-10 h-10 rounded-full bg-paper-soft flex items-center justify-center text-forest-700 flex-shrink-0"><Icon className="w-5 h-5" /></span>
@@ -417,11 +413,11 @@ function SectionHeading({ number, title, subtitle }: { number: string; title: st
   return <div className="flex gap-3 items-start"><span className="w-7 h-7 rounded-full bg-forest-900 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">{number}</span><div><h2 className="font-serif text-xl text-forest-900">{title}</h2>{subtitle && <p className="text-xs text-ink-soft mt-0.5">{subtitle}</p>}</div></div>
 }
 
-function DataSource({ icon: Icon, label, badge }: { icon: typeof FileText; label: string; badge: string }) {
+function DataSource({ icon: Icon, label, badge }: { icon: LucideIcon; label: string; badge: string }) {
   return <div className="rounded-2xl bg-paper-soft/70 p-3"><div className="flex items-center gap-2 text-xs font-medium text-forest-900"><Icon className="w-4 h-4 text-forest-600" /> {label}</div><span className="inline-flex mt-2 rounded-full bg-[#e7f2df] px-2 py-1 text-[10px] text-forest-700">✓ {badge}</span></div>
 }
 
-function SafetyCard({ icon: Icon, title, text }: { icon: typeof Info; title: string; text: string }) {
+function SafetyCard({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return <div className="rounded-2xl border border-[#eadfc9] bg-[#fff8e9] p-4 flex gap-3"><span className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center text-forest-700 flex-shrink-0"><Icon className="w-5 h-5" /></span><div><p className="text-sm font-medium text-forest-900">{title}</p><p className="text-xs text-ink-soft mt-1 leading-relaxed">{text}</p></div></div>
 }
 
@@ -435,14 +431,14 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
     aiDraftJson: req.ai_draft_json,
     response: req.response,
   })
-  const isAnswered = answered(req)
+  const answered = isRequestAnswered(req)
   return (
     <div className="border-b border-line last:border-b-0">
       <button type="button" onClick={onToggle} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-paper-soft/70 transition-colors">
         <span className="w-9 h-9 rounded-full bg-mint/60 flex items-center justify-center text-forest-700 flex-shrink-0"><CalendarDays className="w-4 h-4" /></span>
-        <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900 capitalize">{monthKeyLabel(req.month_key)}</p><p className="text-[11px] text-ink-soft">Enviada em {formatShort(req.created_at)}{isAnswered && req.responded_at ? ` · Respondida em ${formatShort(req.responded_at)}` : ''}</p></div>
-        <span className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[10px] ${isAnswered ? 'bg-[#e5f2e8] text-forest-700' : 'bg-[#fff0dc] text-amber-700'}`}>{isAnswered ? 'Respondida' : 'Em análise'}</span>
-        {isAnswered && <span className="hidden md:inline-flex rounded-xl border border-line px-3 py-2 text-xs text-forest-800">Ler orientação</span>}
+        <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900 capitalize">{monthKeyLabel(req.month_key)}</p><p className="text-[11px] text-ink-soft">Enviada em {formatShort(req.created_at)}{answered && req.responded_at ? ` · Respondida em ${formatShort(req.responded_at)}` : ''}</p></div>
+        <span className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[10px] ${answered ? 'bg-[#e5f2e8] text-forest-700' : 'bg-[#fff0dc] text-amber-700'}`}>{answered ? 'Respondida' : 'Em análise'}</span>
+        {answered && <span className="hidden md:inline-flex rounded-xl border border-line px-3 py-2 text-xs text-forest-800">Ler orientação</span>}
         <ChevronDown className={`w-4 h-4 text-forest-600 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -450,8 +446,15 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
           <div><p className="text-[11px] font-medium text-ink-soft mb-1">Sobre o que pediu orientação</p><p className="text-sm text-ink whitespace-pre-wrap">{req.message}</p></div>
           {req.context && <div><p className="text-[11px] font-medium text-ink-soft mb-1">O que já tentou</p><p className="text-sm text-ink-soft whitespace-pre-wrap">{req.context}</p></div>}
           {req.expected_help && <div><p className="text-[11px] font-medium text-ink-soft mb-1">Tipo de apoio esperado</p><p className="text-sm text-ink-soft whitespace-pre-wrap">{req.expected_help}</p></div>}
-          {isAnswered ? (
-            <><div className="rounded-2xl border border-forest-100 bg-white p-4"><div className="flex items-center gap-2 mb-3"><p className="text-xs font-semibold text-forest-700">Sua orientação mensal</p><span className="text-[10px] rounded-full bg-mint px-2 py-1 text-forest-800">Orientação respondida</span></div><GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />{req.responded_at && <p className="text-[10px] text-ink-soft mt-3">Respondida em {formatDate(req.responded_at)}</p>}</div>{userId && <MonthlyGuidanceFeedback userId={userId} guidanceRequestId={req.id} />}</>
+          {answered ? (
+            <>
+              <div className="rounded-2xl border border-forest-100 bg-white p-4">
+                <div className="flex items-center gap-2 mb-3"><p className="text-xs font-semibold text-forest-700">Sua orientação mensal</p><span className="text-[10px] rounded-full bg-mint px-2 py-1 text-forest-800">Orientação respondida</span></div>
+                <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
+                {req.responded_at && <p className="text-[10px] text-ink-soft mt-3">Respondida em {formatDate(req.responded_at)}</p>}
+              </div>
+              {userId && <MonthlyGuidanceFeedback userId={userId} guidanceRequestId={req.id} />}
+            </>
           ) : (
             <div className="rounded-2xl border border-line bg-white p-4 flex items-center gap-2 text-xs text-ink-soft"><Loader2 className="w-4 h-4 text-forest-500" /> Recebemos sua mensagem. A resposta está prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.</div>
           )}
