@@ -194,9 +194,12 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
           </div>
         </header>
 
-        <main className="flex-1 min-w-0 pb-24 lg:pb-0">
-          {children}
-          {currentView === 'profile' && user && <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10"><UserMfaSettings user={user} /></div>}
+        <main className="flex-1 min-w-0 pb-24 lg:pb-0 flex flex-col">
+          <div className="flex-1">
+            {children}
+            {currentView === 'profile' && user && <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10"><UserMfaSettings user={user} /></div>}
+          </div>
+          <UserFooter onNavigate={onNavigate} />
         </main>
       </div>
 
@@ -239,6 +242,37 @@ function MobileNavButton({ item, active, onClick }: { item: NavItem; active: boo
   const { Icon } = item
   const label = item.id === 'my-evolution' ? 'Mapa' : item.label
   return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={`min-h-[58px] flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium transition-colors ${active ? 'text-forest-900' : 'text-ink-soft'}`}><span className={`w-8 h-7 rounded-xl flex items-center justify-center ${active ? 'bg-mint' : ''}`}><Icon className="w-[19px] h-[19px]" /></span>{label}</button>
+}
+
+function UserFooter({ onNavigate }: { onNavigate: (id: string) => void }) {
+  const links: [string, string][] = [
+    ['faq', 'Perguntas frequentes'],
+    ['support', 'Suporte'],
+    ['contact', 'Contato'],
+    ['about', 'Sobre'],
+    ['terms', 'Termos de uso'],
+    ['privacy', 'Privacidade'],
+    ['responsibility', 'Aviso de responsabilidade'],
+  ]
+  return (
+    <footer className="border-t border-line mt-8 px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <nav aria-label="Ajuda e informações" className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {links.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onNavigate(id)}
+              className="text-xs text-ink-soft hover:text-forest-800 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 rounded"
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <p className="text-[11px] text-stone-400">Em crise? CVV 188 (24h) · SAMU 192</p>
+      </div>
+    </footer>
+  )
 }
 
 function Avatar({ profile, name }: { profile: Profile | null; name: string }) {
