@@ -1,10 +1,14 @@
 import { BookOpen, Heart, Map, BarChart2, Sparkles, FileText } from 'lucide-react'
+import CmsPage from './CmsPage'
+import { useSitePage } from '../lib/siteContent'
 
 interface AboutPageProps {
   onNavigate: (section: string) => void
 }
 
 export default function AboutPage({ onNavigate }: AboutPageProps) {
+  const cms = useSitePage('sobre')
+  if (cms) return <CmsPage title={cms.title} body={cms.body_md} kicker="Sobre nós" onNavigate={onNavigate} back />
   return (
     <div className="min-h-screen bg-paper">
       {/* Hero */}

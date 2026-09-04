@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, MessageCircle, Mail, Phone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useFaqItems } from '../lib/siteContent'
 
 interface FAQPageProps {
   onNavigate: (section: string) => void
@@ -93,9 +94,13 @@ const FAQS: { question: string; answer: string; category: string }[] = [
   },
 ]
 
-const CATEGORIES = [...new Set(FAQS.map(f => f.category))]
-
 export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
+  const dbFaqs = useFaqItems()
+  const faqList: { question: string; answer: string; category: string }[] = dbFaqs
+    ? dbFaqs.map(f => ({ question: f.question, answer: f.answer, category: f.category }))
+    : FAQS
+  const CATEGORIES = [...new Set(faqList.map(f => f.category))]
+
   const [open, setOpen] = useState<number | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('Todos')
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
@@ -104,7 +109,7 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
   const [error, setError] = useState('')
   const [website, setWebsite] = useState('')
 
-  const filtered = activeCategory === 'Todos' ? FAQS : FAQS.filter(f => f.category === activeCategory)
+  const filtered = activeCategory === 'Todos' ? faqList : faqList.filter(f => f.category === activeCategory)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -162,7 +167,7 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
         {/* Acordeão */}
         <div className="space-y-2">
           {filtered.map((faq) => {
-            const idx = FAQS.indexOf(faq)
+            const idx = faqList.indexOf(faq)
             const isOpen = open === idx
             return (
               <div key={idx} className="bg-white border border-line rounded-2xl overflow-hidden">
