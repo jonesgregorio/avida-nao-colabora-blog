@@ -38,7 +38,7 @@ const COMMENT_TYPES = new Set([
  * permite registrar/avisar a inconsistência de forma explícita.
  */
 export async function sendPersonalizedDelivery(params: SendPersonalizedDeliveryParams): Promise<SendResult> {
-  const { userId, adminId, contentType, targetArea, title, body, relatedGuidanceId } = params
+  const { userId, adminId, contentType, targetArea, body, relatedGuidanceId } = params
 
   if (!body?.trim()) return { ok: false, error: 'Conteúdo vazio' }
   if (!userId) return { ok: false, error: 'Usuário não identificado' }
@@ -50,7 +50,14 @@ export async function sendPersonalizedDelivery(params: SendPersonalizedDeliveryP
   }
 
   if (COMMENT_TYPES.has(contentType) || targetArea === 'professional_comments') {
-    return reflectInProfessionalComments({ userId, adminId, title, body, now })
+    // Comentário profissional foi descontinuado como recurso ativo (PR3). Só
+    // sobra alguma tarefa deste tipo na fila se foi criada antes da
+    // aposentadoria — nunca deve gerar um novo registro em
+    // professional_comments. Cancele a tarefa em vez de enviá-la.
+    return {
+      ok: false,
+      error: 'Comentário profissional foi descontinuado e não pode mais ser enviado. Cancele esta tarefa em vez de enviá-la.',
+    }
   }
 
   return { ok: true }
@@ -98,42 +105,3 @@ async function reflectInGuidance({
     : { ok: true }
 }
 
-async function reflectInProfessionalComments({
-  userId, adminId, title, body, now,
-}: {
-  userId: string; adminId: string; title: string; body: string; now: string
-}): Promise<SendResult> {
-  const reportMonth = now.slice(0, 7)
-
-  // professional_comments possui report_month como chave temporal. Não use
-  // month_key/plan_key/status/updated_at: esses campos não fazem parte do schema
-  // oficial desta tabela.
-  const { data: existing, error: selectError } = await supabase
-    .from('professional_comments')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('report_month', reportMonth)
-    .eq('comment_text', body)
-    .limit(1)
-    .maybeSingle()
-
-  if (selectError) return { ok: false, error: `Falha ao verificar comentário profissional: ${selectError.message}` }
-  if (existing?.id) return { ok: true }
-
-  const { error: insertError } = await supabase.from('professional_comments').insert({
-    user_id: userId,
-    professional_id: adminId || null,
-    created_by: adminId || null,
-    report_month: reportMonth,
-    title,
-    comment: body,
-    comment_text: body,
-    visibility: 'user',
-    is_read: false,
-    created_at: now,
-  })
-
-  return insertError
-    ? { ok: false, error: `Falha ao gravar comentário profissional: ${insertError.message}` }
-    : { ok: true }
-}

@@ -6,31 +6,20 @@ const service = readFileSync(
   new URL('../src/services/personalizedDeliveryService.ts', import.meta.url),
   'utf8',
 )
-const professionalBlock = service.match(/async function reflectInProfessionalComments\([\s\S]*$/)?.[0] ?? ''
-const insertPayload = professionalBlock.match(/\.from\('professional_comments'\)\.insert\(\{([\s\S]*?)\}\)/)?.[1] ?? ''
 
-test('comentário profissional usa somente campos do schema oficial', () => {
-  assert.ok(professionalBlock)
-  assert.ok(insertPayload, 'payload do insert profissional deve existir')
-  assert.match(professionalBlock, /\.eq\('report_month', reportMonth\)/)
-  assert.match(insertPayload, /report_month: reportMonth/)
-  assert.match(insertPayload, /comment_text: body/)
-  assert.match(insertPayload, /visibility: 'user'/)
-  assert.match(insertPayload, /is_read: false/)
-  assert.doesNotMatch(professionalBlock, /\.eq\('month_key'/)
-  assert.doesNotMatch(insertPayload, /\bmonth_key:/)
-  assert.doesNotMatch(insertPayload, /\bplan_key:/)
-  assert.doesNotMatch(insertPayload, /\bstatus:/)
-  assert.doesNotMatch(insertPayload, /\bupdated_at:/)
+// Comentário profissional foi aposentado (PR3/PR2). O único jeito de este
+// ramo ainda ser alcançado é uma tarefa de fila (user_personalization_tasks)
+// criada ANTES da aposentadoria e nunca enviada — o serviço precisa recusar
+// esse envio de forma explícita, nunca gravar em professional_comments de novo.
+test('envio de comentário profissional é recusado explicitamente, nunca grava em professional_comments', () => {
+  assert.doesNotMatch(service, /function reflectInProfessionalComments/)
+  assert.doesNotMatch(service, /\.from\('professional_comments'\)\.insert/)
+  assert.match(service, /COMMENT_TYPES\.has\(contentType\) \|\| targetArea === 'professional_comments'/)
+  assert.match(service, /ok: false,\s*\n\s*error: 'Comentário profissional foi descontinuado e não pode mais ser enviado\. Cancele esta tarefa em vez de enviá-la\.',/)
 })
 
-test('falhas de leitura ou gravação não são tratadas como sucesso', () => {
-  assert.match(professionalBlock, /if \(selectError\) return \{ ok: false/)
-  assert.match(professionalBlock, /insertError/)
-  assert.match(professionalBlock, /Falha ao gravar comentário profissional/)
-})
-
-test('orientação mensal também devolve erro explícito quando não consegue refletir', () => {
+test('orientação mensal continua refletindo normalmente e devolve erro explícito quando não consegue', () => {
+  assert.match(service, /\.from\('monthly_guidance_requests'\)\.update/)
   assert.match(service, /Falha ao atualizar orientação mensal/)
   assert.match(service, /Nenhuma orientação mensal aberta foi encontrada/)
   assert.match(service, /Falha ao refletir orientação mensal/)

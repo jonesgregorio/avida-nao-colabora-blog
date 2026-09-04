@@ -697,6 +697,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     if (error) {
       setAuthOpResult({ type: 'err', msg: 'Erro: ' + error.message })
     } else {
+      void logAdminAction('update', 'user_password_reset', selectedUser.user_id, { email: selectedUser.email ?? null })
       setAuthOpResult({ type: 'ok', msg: 'Senha alterada com sucesso.' })
       setNewPassword('')
     }
@@ -716,6 +717,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     if (error) {
       setAuthOpResult({ type: 'err', msg: 'Erro: ' + error.message })
     } else {
+      void logAdminAction('update', 'user_email_change', selectedUser.user_id, { from: selectedUser.email ?? null, to: newEmail.trim() })
       setAuthOpResult({ type: 'ok', msg: 'E-mail alterado com sucesso.' })
       setNewEmail('')
     }
