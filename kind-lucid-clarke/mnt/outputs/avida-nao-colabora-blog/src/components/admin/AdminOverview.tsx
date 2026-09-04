@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import type { AdminView } from './types'
 import {
   Users, CreditCard, Clock, MessageSquare, RefreshCw, ArrowRight,
-  MessageCircle, LifeBuoy, BarChart3, CalendarCheck, AlertTriangle,
+  LifeBuoy, BarChart3, CalendarCheck, AlertTriangle,
   UserPlus, TrendingUp, Mail, Database, Cpu, HardDrive, ChevronRight, Ban,
 } from 'lucide-react'
 
@@ -15,7 +15,6 @@ interface Counts {
   users: number
   newUsers7d: number
   paid: number
-  pendingComments: number
   pendingGuidance: number
   openTickets: number
   reportsToReview: number
@@ -26,7 +25,7 @@ interface Counts {
 }
 
 const EMPTY: Counts = {
-  users: 0, newUsers7d: 0, paid: 0, pendingComments: 0, pendingGuidance: 0,
+  users: 0, newUsers7d: 0, paid: 0, pendingGuidance: 0,
   openTickets: 0, reportsToReview: 0, selfCarePending: 0, emailFailures: 0, aiFailures: 0, pendingCancellations: 0,
 }
 
@@ -51,10 +50,9 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
     const users = await safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }))
     setDbOk(true)
-    const [newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations] = await Promise.all([
+    const [newUsers7d, paid, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations] = await Promise.all([
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', since)),
       safeCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).in('plan', ['essential', 'plus'])),
-      safeCount(() => supabase.from('professional_comments').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
       safeCount(() => supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       safeCount(() => supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       safeCount(() => supabase.from('reports').select('*', { count: 'exact', head: true }).eq('report_type', 'monthly').in('status', ['draft', 'generated'])),
@@ -65,7 +63,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       safeCount(() => supabase.from('ai_generation_logs').select('*', { count: 'exact', head: true }).eq('status', 'error')),
       safeCount(() => supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted')),
     ])
-    setC({ users, newUsers7d, paid, pendingComments, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations })
+    setC({ users, newUsers7d, paid, pendingGuidance, openTickets, reportsToReview, selfCarePending, emailFailures, aiFailures, pendingCancellations })
 
     // Atividade recente (novos usuários + mudanças de plano)
     const acts: Activity[] = []
@@ -88,7 +86,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
 
   useEffect(() => { load() }, [])
 
-  const pendencias = c.pendingComments + c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.aiFailures + c.pendingCancellations
+  const pendencias = c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.aiFailures + c.pendingCancellations
 
   const cards = [
     { label: 'Usuários ativos', value: c.users, delta: c.newUsers7d > 0 ? `+${c.newUsers7d} nesta semana` : 'Total de contas', Icon: Users, bg: 'bg-mint', color: 'text-forest-600' },
@@ -98,7 +96,6 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
   ]
 
   const fila = [
-    { Icon: MessageCircle, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Comentários profissionais pendentes', sub: 'Aguardando revisão e resposta', qtd: c.pendingComments, nav: 'professional-comments' as AdminView },
     { Icon: MessageSquare, color: 'text-[#3d6ea5]', bg: 'bg-sky', title: 'Orientações mensais aguardando resposta', sub: 'Usuários Plus no aguardo', qtd: c.pendingGuidance, nav: 'guidance-requests' as AdminView },
     { Icon: LifeBuoy, color: 'text-forest-600', bg: 'bg-mint', title: 'Tickets de suporte abertos', sub: 'Em atendimento', qtd: c.openTickets, nav: 'support' as AdminView },
     { Icon: BarChart3, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Relatórios a revisar', sub: 'Relatórios mensais aguardando revisão', qtd: c.reportsToReview, nav: 'pdf' as AdminView },

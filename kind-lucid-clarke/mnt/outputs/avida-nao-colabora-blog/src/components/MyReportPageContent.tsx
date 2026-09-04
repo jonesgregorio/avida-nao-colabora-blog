@@ -55,18 +55,6 @@ function prevRange(p: { start: string; end: string }): { start: string; end: str
   return { start: ymd(ps), end: ymd(pe) }
 }
 
-function Section({ icon, title, badge, children }: { icon: React.ReactNode; title: string; badge?: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-paper-soft rounded-2xl border border-line p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-forest-500">{icon}</span>
-        <h3 className="text-sm font-semibold text-forest-900">{title}</h3>
-        {badge && <span className="ml-auto text-[10px] bg-mint text-forest-700 px-2 py-0.5 rounded-full font-medium">{badge}</span>}
-      </div>
-      {children}
-    </div>
-  )
-}
 function StatPill({ label, value, unit = '' }: { label: string; value: string | number; unit?: string }) {
   return (
     <div className="bg-mint/40 rounded-xl px-3 py-2 text-center">
@@ -921,10 +909,6 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
           </div>
         </section>
 
-        <div className="mb-8">
-          <ProfessionalComment userId={user!.id} selectedMonth={lastMonthly?.period_start?.slice(0, 7) ?? ymd(now).slice(0, 7)} onNavigateDiary={onNavigateDiary} />
-        </div>
-
         <section className="bg-paper-soft border border-line rounded-2xl p-5 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-4">
             <div>
@@ -1343,25 +1327,6 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
   )
 }
 
-function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userId: string; selectedMonth: string; onNavigateDiary: () => void }) {
-  const [comment, setComment] = useState<{ comment_text: string; professional_name: string | null; report_month: string } | null>(null)
-  useEffect(() => {
-    let active = true
-    supabase.from('professional_comments').select('comment_text,comment,report_month,professional_name').eq('user_id', userId).eq('report_month', selectedMonth).maybeSingle()
-      .then(({ data }) => { if (!active) return; const d = data as { comment_text?: string; comment?: string; professional_name: string | null; report_month: string } | null; setComment(d ? { comment_text: d.comment_text || d.comment || '', professional_name: d.professional_name, report_month: d.report_month } : null) })
-    return () => { active = false }
-  }, [userId, selectedMonth])
-  return (
-    <Section icon={<Star className="w-4 h-4" />} title="Comentário do profissional" badge="Plus">
-      {comment ? (
-        <div className="space-y-2">
-          <p className="text-sm text-forest-700 leading-relaxed whitespace-pre-wrap">{comment.comment_text}</p>
-          {comment.professional_name && <p className="text-[10px] text-ink-soft">{comment.professional_name}</p>}
-          <button onClick={onNavigateDiary} className="flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900 font-medium mt-1"><BookOpen className="w-3.5 h-3.5" /> Responder no diário</button>
-        </div>
-      ) : (
-        <p className="text-sm text-ink-soft">Seu comentário profissional sobre o relatório ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
-      )}
-    </Section>
-  )
-}
+// 'Comentário do profissional' foi aposentado como recurso ativo do Plus.
+// A tabela professional_comments é preservada apenas para histórico/export
+// (ver export-user-data), sem mais ser ofertada nesta tela.
