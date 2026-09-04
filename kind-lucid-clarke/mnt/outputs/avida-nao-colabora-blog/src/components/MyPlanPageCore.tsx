@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldCheck, Sprout, Leaf } from 'lucide-react'
+import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldCheck, Sprout, Leaf, Info } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
@@ -141,6 +141,7 @@ export default function MyPlanPage({
   const [reasons, setReasons] = useState<string[]>([])
   const [reasonComment, setReasonComment] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
+  const [infoBenefit, setInfoBenefit] = useState<CatalogBenefitView | null>(null)
 
   function openModal(m: { type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string }) {
     setReasons([])
@@ -371,10 +372,14 @@ export default function MyPlanPage({
               {currentPlanBenefits.map(item => (
                 <li key={item.key} className="flex items-start gap-2 text-xs text-forest-800">
                   <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-forest-600" />
-                  <span>
+                  <div className="min-w-0 flex items-center gap-1.5">
                     <strong className="font-medium">{item.label}</strong>
-                    {item.description ? <span className="block text-ink-soft mt-0.5">{item.description}</span> : null}
-                  </span>
+                    {item.description ? (
+                      <button type="button" onClick={() => setInfoBenefit(item)} className="inline-flex items-center justify-center text-ink-soft hover:text-forest-800 transition-colors flex-shrink-0" aria-label={`Saiba mais sobre ${item.label}`}>
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -789,6 +794,18 @@ export default function MyPlanPage({
           </div>
         </div>
       )}
+      {infoBenefit && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={`Informações sobre ${infoBenefit.label}`}>
+          <button type="button" className="absolute inset-0 bg-forest-950/35 backdrop-blur-[2px]" onClick={() => setInfoBenefit(null)} aria-label="Fechar informações" />
+          <div className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] border border-line bg-paper shadow-2xl p-6 sm:p-7">
+            <button type="button" onClick={() => setInfoBenefit(null)} className="absolute right-5 top-5 w-8 h-8 rounded-full hover:bg-mint/60 inline-flex items-center justify-center text-ink-soft hover:text-forest-900" aria-label="Fechar"><X className="w-4 h-4" /></button>
+            <div className="w-10 h-10 rounded-xl bg-mint flex items-center justify-center text-forest-700 mb-4"><Info className="w-5 h-5" /></div>
+            <h3 className="font-serif text-2xl text-forest-950 pr-10">{infoBenefit.label}</h3>
+            <p className="mt-4 text-sm leading-relaxed text-ink-soft">{infoBenefit.description}</p>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
