@@ -3,7 +3,7 @@ import { Plan } from '../types'
 import { supabase } from '../lib/supabase'
 import { trackEvent } from '../lib/analytics'
 import { Check, Info, LineChart, Loader2, ShieldCheck, Sprout, Star, X } from 'lucide-react'
-import { PLAN_COMPARE_ROWS, type PlanCompareValue } from '../lib/planComparison'
+import { type PlanCompareValue } from '../lib/planComparison'
 import { OFFICIAL_PLANS, normalizePlan, type PlanKey } from '../lib/officialPlans'
 import {
   buildFallbackPlanFeatureCatalog,
@@ -260,18 +260,6 @@ const COMPARISON_ROWS: Array<{ id: FeatureId; values: Record<PlanKey, PlanCompar
   { id: 'guidance', values: { free: false, essential: false, plus: true } },
 ]
 
-const COMPARISON_FEATURE_BY_ROW: Record<string, FeatureId | 'professional-comment'> = {
-  'Diário emocional': 'diary',
-  'Questionário inicial': 'questionnaires',
-  'Mapa emocional e gráficos': 'map',
-  'Conteúdos guiados': 'guided',
-  'Relatório semanal automático': 'weekly',
-  'Plano de autocuidado mensal': 'self-care',
-  'Relatório mensal aprofundado': 'monthly-report',
-  'Comentário profissional sobre o relatório': 'professional-comment',
-  'Orientação mensal por mensagem': 'guidance',
-}
-
 function ComparisonCell({ value }: { value: PlanCompareValue }) {
   if (value === true) return <Check className="w-4 h-4 text-forest-700 inline" aria-label="incluído" />
   if (value === false || value === '—') return <span className="text-ink-soft/45">—</span>
@@ -307,22 +295,14 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     catalogBenefits: getCatalogPlanBenefits(catalog, p.key, 'pricing'),
   })), [prices, catalog])
 
-  const hiddenApprovedFeatures = useMemo(() => {
-    const byKey = new Map(catalog.items.map(item => [item.key, item]))
-    const hidden = new Set<FeatureId>()
+  const catalogByKey = useMemo(() => new Map(catalog.items.map(item => [item.key, item])), [catalog])
 
-    PLAN_COMPARE_ROWS.flatMap(row => {
-      const mapped = COMPARISON_FEATURE_BY_ROW[row.label]
-      if (!mapped || mapped === 'professional-comment') return []
-      const feature = FEATURES[mapped]
-      const item = feature.catalogKey ? byKey.get(feature.catalogKey) : null
-      if (item && (!item.isActive || !item.showOnComparison)) return []
-      return [{ ...row, label: item?.name || row.label }]
-    })
+  const hiddenApprovedFeatures = useMemo(() => {
+    const hidden = new Set<FeatureId>()
 
     for (const feature of Object.values(FEATURES)) {
       if (!feature.catalogKey) continue
-      const item = byKey.get(feature.catalogKey)
+      const item = catalogByKey.get(feature.catalogKey)
       if (item && (!item.isActive || !item.showOnComparison)) hidden.add(feature.id)
     }
 
@@ -332,7 +312,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
     }
 
     return hidden
-  }, [catalog])
+  }, [catalog, catalogByKey])
 
   const comparisonRows = useMemo(() => COMPARISON_ROWS.filter(row => !hiddenApprovedFeatures.has(row.id)), [hiddenApprovedFeatures])
 
@@ -452,12 +432,14 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
               <tbody>
                 {comparisonRows.map(row => {
                   const feature = FEATURES[row.id]
+                  const catalogItem = feature.catalogKey ? catalogByKey.get(feature.catalogKey) : null
+                  const rowLabel = catalogItem?.name?.trim() || feature.label
                   return (
                     <tr key={row.id} className="border-t border-line align-top">
-                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{feature.label}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div></td>
-                      <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={row.values.free} /></td>
-                      <td className="px-4 py-4 text-center text-sm bg-mint/25"><ComparisonCell value={row.values.essential} /></td>
-                      <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={row.values.plus} /></td>
+                      <td className="px-4 py-4"><div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{rowLabel}</span><InfoButton feature={{ ...feature, label: rowLabel }} onOpen={setInfoFeature} /></div></td>
+                      <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={catalogItem?.plans.free.label?.trim() || row.values.free} /></td>
+                      <td className="px-4 py-4 text-center text-sm bg-mint/25"><ComparisonCell value={catalogItem?.plans.essential.label?.trim() || row.values.essential} /></td>
+                      <td className="px-4 py-4 text-center text-sm"><ComparisonCell value={catalogItem?.plans.plus.label?.trim() || row.values.plus} /></td>
                     </tr>
                   )
                 })}

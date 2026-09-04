@@ -14,9 +14,9 @@ test('filas paralelas dos quatro artefatos oficiais são neutralizadas', () => {
   }
   assert.match(migration, /NEW\.status := 'not_applicable'/)
   assert.match(migration, /status IN \('pending','overdue','draft','generated'\)/)
-  assert.match(plans, /Plano de autocuidado mensal/)
-  assert.match(plans, /Relatório mensal aprofundado/)
-  assert.match(plans, /Orientação mensal por mensagem/)
+  assert.match(plans, /Plano de Autocuidado Mensal/)
+  assert.match(plans, /Relatório Mensal Aprofundado/)
+  assert.match(plans, /Orientação Mensal/)
 })
 
 test('delivery profissional enviado ganha reflexo oficial idempotente', () => {

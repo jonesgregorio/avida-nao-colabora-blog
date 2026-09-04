@@ -75,22 +75,25 @@ const OWN_PLAN_LABELS: Record<PlanKey, string[]> = {
   ],
 }
 
+// catalogKey liga cada linha ao catálogo (plan_features) — permite que o Admin
+// renomeie a linha e o texto por plano (aba "Catálogo de funcionalidades")
+// sem editar código; ver buildCatalogComparisonRows abaixo.
 const CURRENT_COMPARISON_ROWS: PlanCompareRow[] = [
-  { label: 'Check-in diário', values: { free: '1 por dia', essential: '1 por dia', plus: '1 por dia' } },
-  { label: 'Diário emocional', values: { free: 'Até 5 dias/mês', essential: 'Sem limite', plus: 'Sem limite' } },
-  { label: 'Diário por voz', values: { free: true, essential: true, plus: true } },
-  { label: 'Aprofundamentos do Diário', values: { free: false, essential: false, plus: 'Até 3 por dia' } },
-  { label: 'Questionários de autoconhecimento', values: { free: 'Seleção', essential: 'Essencial', plus: 'Plus' } },
-  { label: 'Artigos e conteúdos', values: { free: true, essential: true, plus: true } },
-  { label: 'Conteúdos Guiados', values: { free: 'Seleção', essential: 'Completo', plus: 'Completo' } },
-  { label: 'Mapa Emocional', values: { free: false, essential: 'Completo', plus: 'Completo' } },
-  { label: 'Descobertas', values: { free: false, essential: true, plus: true } },
-  { label: 'Minha História', values: { free: 'Visão inicial', essential: 'Completa', plus: 'Completa' } },
-  { label: 'Relatório Semanal', values: { free: false, essential: true, plus: true } },
-  { label: 'Meu Jardim', values: { free: false, essential: true, plus: true } },
-  { label: 'Relatório Mensal Aprofundado', values: { free: false, essential: false, plus: true } },
-  { label: 'Plano de Autocuidado Mensal', values: { free: false, essential: false, plus: true } },
-  { label: 'Orientação Mensal', values: { free: false, essential: false, plus: true } },
+  { label: 'Check-in diário', catalogKey: 'checkin_daily', values: { free: '1 por dia', essential: '1 por dia', plus: '1 por dia' } },
+  { label: 'Diário emocional', catalogKey: 'diary_unlimited', values: { free: 'Até 5 dias/mês', essential: 'Sem limite', plus: 'Sem limite' } },
+  { label: 'Diário por voz', catalogKey: 'diary_voice', values: { free: true, essential: true, plus: true } },
+  { label: 'Aprofundamentos do Diário', catalogKey: 'diary_deepenings', values: { free: false, essential: false, plus: 'Até 3 por dia' } },
+  { label: 'Questionários de autoconhecimento', catalogKey: 'basic_self_assessment', values: { free: 'Seleção', essential: 'Essencial', plus: 'Plus' } },
+  { label: 'Artigos e conteúdos', catalogKey: 'articles_free', values: { free: true, essential: true, plus: true } },
+  { label: 'Conteúdos Guiados', catalogKey: 'emotional_exercise_library', values: { free: 'Seleção', essential: 'Completo', plus: 'Completo' } },
+  { label: 'Mapa Emocional', catalogKey: 'diary_mood_symptoms_summary', values: { free: false, essential: 'Completo', plus: 'Completo' } },
+  { label: 'Descobertas', catalogKey: 'discoveries', values: { free: false, essential: true, plus: true } },
+  { label: 'Minha História', catalogKey: 'full_history', values: { free: 'Visão inicial', essential: 'Completa', plus: 'Completa' } },
+  { label: 'Relatório Semanal', catalogKey: 'weekly_assessments', values: { free: false, essential: true, plus: true } },
+  { label: 'Meu Jardim', catalogKey: 'my_garden', values: { free: false, essential: true, plus: true } },
+  { label: 'Relatório Mensal Aprofundado', catalogKey: 'advanced_monthly_report', values: { free: false, essential: false, plus: true } },
+  { label: 'Plano de Autocuidado Mensal', catalogKey: 'personalized_self_care_plan', values: { free: false, essential: false, plus: true } },
+  { label: 'Orientação Mensal', catalogKey: 'monthly_message_guidance', values: { free: false, essential: false, plus: true } },
 ]
 
 function commercialBenefits(catalog: PlanFeatureCatalog, plan: PlanKey, surface: CatalogSurface): CatalogBenefitView[] {
@@ -119,6 +122,27 @@ export function buildCatalogPlanBenefits(
 }
 
 export function buildCatalogComparisonRows(catalog: PlanFeatureCatalog): PlanCompareRow[] {
+  const byKey = new Map(catalog.items.map(item => [item.key, item]))
+
+  const system: PlanCompareRow[] = CURRENT_COMPARISON_ROWS
+    .filter(row => {
+      const item = row.catalogKey ? byKey.get(row.catalogKey) : null
+      return !item || (item.isActive && item.showOnComparison)
+    })
+    .map(row => {
+      const item = row.catalogKey ? byKey.get(row.catalogKey) : null
+      if (!item) return row
+      return {
+        label: item.name.trim() || row.label,
+        catalogKey: row.catalogKey,
+        values: {
+          free: item.plans.free.label?.trim() || row.values.free,
+          essential: item.plans.essential.label?.trim() || row.values.essential,
+          plus: item.plans.plus.label?.trim() || row.values.plus,
+        } as Record<PlanKey, PlanCompareValue>,
+      }
+    })
+
   const commercial: PlanCompareRow[] = catalog.items
     .filter(item => {
       if (!item.isActive || !item.showOnComparison) return false
@@ -133,5 +157,5 @@ export function buildCatalogComparisonRows(catalog: PlanFeatureCatalog): PlanCom
       } as Record<PlanKey, PlanCompareValue>,
     }))
 
-  return [...CURRENT_COMPARISON_ROWS, ...commercial]
+  return [...system, ...commercial]
 }

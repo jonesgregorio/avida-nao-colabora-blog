@@ -12,11 +12,15 @@ export type { PlanCompareValue } from './officialPlans'
 
 export interface PlanCompareRow {
   label: string
+  /** Chave do catálogo (plan_features) que dá nome a esta linha — permite ao
+   *  Admin renomear a linha sem editar código; ver officialPlans.ts. */
+  catalogKey?: string
   values: Record<PlanKey, PlanCompareValue>
 }
 
 export const PLAN_COMPARE_ROWS: PlanCompareRow[] = OFFICIAL_PLAN_COMPARISON.map(row => ({
   label: row.label,
+  catalogKey: row.catalogKey,
   values: row.values,
 }))
 

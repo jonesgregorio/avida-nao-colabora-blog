@@ -64,6 +64,6 @@ test('texto específico por plano permanece separado de disponibilidade técnica
   assert.match(catalog, /custom_label/)
   assert.match(catalog, /custom_description/)
   assert.match(adminCatalog, /Nome específico \(opcional\)/)
-  assert.match(adminCatalog, /Em recursos do sistema, a disponibilidade técnica continua sendo controlada na tela de permissões/)
+  assert.match(adminCatalog, /A disponibilidade técnica continua sendo controlada na tela de permissões/)
   assert.match(adminCatalog, /editing\.kind === 'commercial'/)
 })
