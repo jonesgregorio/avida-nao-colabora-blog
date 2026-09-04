@@ -1,8 +1,13 @@
+import CmsPage from './CmsPage'
+import { useSitePage } from '../lib/siteContent'
+
 interface PrivacyPageProps {
   onNavigate?: (section: string) => void
 }
 
 export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
+  const cms = useSitePage('privacidade')
+  if (cms) return <CmsPage title={cms.title} body={cms.body_md} kicker="Legal" onNavigate={onNavigate} back />
   return (
     <div className="min-h-screen bg-paper">
       {/* Hero */}

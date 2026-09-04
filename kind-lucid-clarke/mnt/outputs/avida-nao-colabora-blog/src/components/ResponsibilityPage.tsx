@@ -1,4 +1,9 @@
+import CmsPage from './CmsPage'
+import { useSitePage } from '../lib/siteContent'
+
 export function ResponsibilityPage() {
+  const cms = useSitePage('aviso-responsabilidade')
+  if (cms) return <CmsPage title={cms.title} body={cms.body_md} kicker="Legal" />
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
       <h1 className="text-3xl font-bold text-stone-800 mb-6">Aviso de Responsabilidade</h1>
