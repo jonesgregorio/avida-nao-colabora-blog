@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
-import { normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import { fetchHistoryPersonalizationEnabled } from '../lib/privacyPreferences'
 import {
   buildHomeDiscoveries,
@@ -115,7 +115,8 @@ function discoveryContextualDescription(discovery: HomeDiscovery): string {
 }
 
 export default function DescobertasPage({ user, profile, onNavigate }: Props) {
-  const plan = normalizePlan(profile?.plan)
+  const plan = getEffectivePlan(profile)
+  const hasAccess = hasPlanAccess(plan, 'essential')
   const [entries, setEntries] = useState<HomeDiscoveryEntry[]>([])
   const [personalizationEnabled, setPersonalizationEnabled] = useState(true)
   const [feedback, setFeedback] = useState<DiscoveryFeedbackMap>({})
@@ -126,7 +127,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   const [selectedDiscovery, setSelectedDiscovery] = useState<HomeDiscovery | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (!user || !hasAccess) { setLoading(false); return }
     let active = true
     ;(async () => {
       setLoading(true)
@@ -158,7 +159,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       }
     })()
     return () => { active = false }
-  }, [user])
+  }, [user, hasAccess])
 
   useEffect(() => {
     if (!selectedDiscovery) return
@@ -268,6 +269,27 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       })
     }
   }, [user, feedback])
+
+  if (!hasAccess) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <Compass className="w-10 h-10 text-forest-500 mx-auto" />
+          <h1 className="font-serif text-3xl text-forest-900 mt-4">Descobertas</h1>
+          <p className="text-sm text-ink-soft mt-3 max-w-xl mx-auto">
+            Descobertas reúne o que está se repetindo nos seus registros. Está disponível a partir do plano Essencial.
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate('pricing')}
+            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium"
+          >
+            Ver planos <ArrowRight className="w-4 h-4" />
+          </button>
+        </section>
+      </div>
+    )
+  }
 
   if (!personalizationEnabled && !loading) {
     return (
