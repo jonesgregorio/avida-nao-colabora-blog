@@ -1,0 +1,37 @@
+name: Temporary pricing compact update
+
+on:
+  push:
+    branches:
+      - chatgpt/pricing-info-only-descriptions
+    paths:
+      - .github/workflows/temp-pricing-info-only.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/pricing-info-only-descriptions
+      - name: Remove inline feature descriptions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Pricing.tsx')
+          s = p.read_text()
+          s = s.replace('                          {feature.short && <p className="text-xs leading-relaxed text-ink-soft mt-1">{feature.short}</p>}\n', '')
+          s = s.replace('<div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{feature.label}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div>{feature.short && <p className="text-xs text-ink-soft mt-1 max-w-sm leading-relaxed">{feature.short}</p>}', '<div className="flex items-center gap-1.5"><span className="text-sm font-semibold text-forest-900">{feature.label}</span><InfoButton feature={feature} onOpen={setInfoFeature} /></div>')
+          p.write_text(s)
+          Path('.github/workflows/temp-pricing-info-only.yml').unlink()
+          PY
+      - name: Commit compact pricing layout
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Pricing.tsx .github/workflows/temp-pricing-info-only.yml
+          git commit -m "Ajustar descrições dos planos para o ícone de informação"
+          git push origin HEAD:chatgpt/pricing-info-only-descriptions
