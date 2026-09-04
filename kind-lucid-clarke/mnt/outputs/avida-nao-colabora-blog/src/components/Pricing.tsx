@@ -52,12 +52,13 @@ type PlanFeature = {
 }
 
 const FEATURES: Record<FeatureId, PlanFeature> = {
-  checkin: { id: 'checkin', label: 'Check-in diário' },
+  checkin: { id: 'checkin', label: 'Check-in diário', catalogKey: 'checkin_daily' },
   diary: { id: 'diary', label: 'Diário emocional', catalogKey: 'wellbeing_diary_5_month' },
-  voice: { id: 'voice', label: 'Diário por voz' },
+  voice: { id: 'voice', label: 'Diário por voz', catalogKey: 'diary_voice' },
   deepening: {
     id: 'deepening',
     label: 'Aprofundamentos do Diário',
+    catalogKey: 'diary_deepenings',
     short: 'Acrescente novos momentos, pensamentos ou sentimentos ao seu Diário ao longo do dia.',
     info: {
       title: 'Aprofundamentos do Diário',
@@ -105,6 +106,7 @@ const FEATURES: Record<FeatureId, PlanFeature> = {
   discoveries: {
     id: 'discoveries',
     label: 'Descobertas',
+    catalogKey: 'discoveries',
     short: 'Perceba padrões, repetições e conexões nos seus registros.',
     info: {
       title: 'Descobertas',
@@ -138,6 +140,7 @@ const FEATURES: Record<FeatureId, PlanFeature> = {
   garden: {
     id: 'garden',
     label: 'Meu Jardim',
+    catalogKey: 'my_garden',
     short: 'Veja sua jornada ganhar vida em um espaço que cresce com seus momentos de cuidado.',
     info: {
       title: 'Meu Jardim',
