@@ -42,7 +42,7 @@ test('Meu Plano usa nomes do catálogo para downgrade, comparativo e plano atual
   assert.match(presentation, /!item\.isActive/)
 })
 
-test('Pricing remove do comparativo recursos ocultos ou arquivados', () => {
-  assert.match(pricing, /PLAN_COMPARE_ROWS\.flatMap/)
-  assert.match(pricing, /if \(item && \(!item\.isActive \|\| !item\.showOnComparison\)\) return \[\]/)
+test('Pricing remove do comparativo recursos ocultos ou arquivados e aplica o nome do catálogo', () => {
+  assert.match(pricing, /if \(item && \(!item\.isActive \|\| !item\.showOnComparison\)\) hidden\.add\(feature\.id\)/)
+  assert.match(pricing, /const rowLabel = catalogItem\?\.name\?\.trim\(\) \|\| feature\.label/)
 })

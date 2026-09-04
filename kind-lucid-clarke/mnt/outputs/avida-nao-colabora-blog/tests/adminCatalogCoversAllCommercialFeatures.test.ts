@@ -47,8 +47,9 @@ test('Edge Function admin-plan-consistency permanece sincronizada com o catálog
 
 test('comparação oficial (Meu Plano) ganhou as mesmas 5 linhas que o Pricing já mostrava', () => {
   const officialPlans = readFileSync(new URL('../src/lib/officialPlans.ts', import.meta.url), 'utf8')
-  for (const key of ['checkin', 'voice', 'discoveries', 'garden']) {
+  for (const key of ['voice', 'discoveries', 'garden']) {
     assert.match(officialPlans, new RegExp(`featureRow\\('${key}'`), `linha de comparação "${key}" ausente de OFFICIAL_PLAN_COMPARISON`)
   }
+  assert.match(officialPlans, /key: 'checkin'/, 'linha de comparação "checkin" ausente de OFFICIAL_PLAN_COMPARISON')
   assert.match(officialPlans, /key: 'deepening'/, 'linha de comparação "deepening" ausente de OFFICIAL_PLAN_COMPARISON')
 })

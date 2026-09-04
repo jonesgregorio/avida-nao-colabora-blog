@@ -38,7 +38,7 @@ test('benefícios públicos são derivados do catálogo e planComparison só ree
 
 test('comparação oficial não inventa níveis de questionário fora do catálogo', () => {
   const labels = OFFICIAL_FEATURES.map(feature => feature.name).join(' | ')
-  assert.match(labels, /Questionário inicial/)
+  assert.match(labels, /Questionários de autoconhecimento/)
   const comparison = JSON.stringify(OFFICIAL_PLAN_COMPARISON)
   assert.doesNotMatch(comparison, /Questionários intermediários/i)
   assert.doesNotMatch(comparison, /Questionários avançados/i)
