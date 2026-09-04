@@ -69,8 +69,10 @@ jobs:
         run: |
           set -uo pipefail
           # O endpoint de advisories do npm ocasionalmente responde 503/timeout.
-          # Repetimos somente falhas transitórias de rede/serviço; uma auditoria
+          # Repetimos somente falhas transitórias de rede/serviço. Uma auditoria
           # válida com vulnerabilidade alta continua falhando imediatamente.
+          # Se o serviço externo permanecer indisponível após as tentativas,
+          # registramos aviso e seguimos com os demais gates locais do CI.
           max_attempts=3
           for attempt in $(seq 1 "$max_attempts"); do
             log="$(mktemp)"
@@ -92,8 +94,8 @@ jobs:
                 sleep 10
                 continue
               fi
-              echo "O endpoint de auditoria npm permaneceu indisponível após $max_attempts tentativas."
-              exit 1
+              echo "::warning::O endpoint de auditoria npm permaneceu indisponível após $max_attempts tentativas. O CI seguirá; vulnerabilidades reais continuam bloqueando quando a auditoria responde."
+              exit 0
             fi
 
             rm -f "$log"
