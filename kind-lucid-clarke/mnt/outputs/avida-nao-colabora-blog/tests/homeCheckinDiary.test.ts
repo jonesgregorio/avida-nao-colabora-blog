@@ -11,7 +11,15 @@ test('check-in da Home também é sincronizado com o histórico do Diário', () 
   assert.match(sync, /entry_type: 'checkin'/)
   assert.match(sync, /HOME_CHECKIN_MARKER = 'home_checkin'/)
   assert.match(sync, /markers: \[HOME_CHECKIN_MARKER\]/)
-  assert.match(sync, /contains\('markers', \[HOME_CHECKIN_MARKER\]\)/)
+  assert.match(sync, /eq\('date', date\)/)
+  assert.match(sync, /eq\('entry_type', 'checkin'\)/)
+})
+
+test('check-in é idempotente: o primeiro do dia é preservado e não é reeditado', () => {
+  assert.match(sync, /order\('created_at', \{ ascending: true \}\)/)
+  assert.match(sync, /if \(existing\?\.id\) return existing\.id/)
+  assert.doesNotMatch(sync, /update\(payload\)\.eq\('id', existing\.id\)/)
+  assert.match(sync, /error\.code === '23505'/)
 })
 
 test('payload do histórico usa somente colunas existentes em diary_entries', () => {
