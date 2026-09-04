@@ -8,6 +8,7 @@ import { OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { usePlanPricing } from '../../lib/planPricing'
 import {
   buildFallbackPlanFeatureCatalog,
+  getCatalogPlanBenefits,
   loadPlanFeatureCatalog,
   type PlanFeatureCatalog,
 } from '../../lib/planFeatureCatalog'
@@ -32,10 +33,14 @@ export default function AdminPlanosPage() {
 
   const displayPlans = useMemo(() => OFFICIAL_PLANS.map(plan => {
     const price = prices[plan.key]?.display || plan.price
+    const presentedBenefits = buildCatalogPlanBenefits(catalog, plan.key, 'pricing')
+    const catalogBenefits = getCatalogPlanBenefits(catalog, plan.key, 'pricing')
     return {
       ...plan,
       displayPrice: plan.key === 'free' ? price : `${price}/mês`,
-      benefits: buildCatalogPlanBenefits(catalog, plan.key, 'pricing'),
+      benefits: presentedBenefits.length > 0
+        ? presentedBenefits
+        : catalogBenefits.map(item => ({ key: item.key, label: item.label, description: item.description })),
     }
   }), [prices, catalog])
 
