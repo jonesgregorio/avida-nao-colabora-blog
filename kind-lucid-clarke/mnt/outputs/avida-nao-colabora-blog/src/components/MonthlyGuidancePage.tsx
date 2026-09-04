@@ -365,9 +365,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
               {!request ? (
                 <><p className="font-medium text-forest-900">Nenhuma orientação enviada neste mês.</p><p className="text-xs text-ink-soft mt-1">{cycle.isPastDeadline ? `O próximo período abre em ${reopen}.` : `Envie sua solicitação até ${deadline} para receber sua orientação.`}</p></>
               ) : currentAnswered ? (
-                <><p className="font-medium text-forest-900">Sua orientação de {currentMonthLabel()} está respondida.</p><p className="text-xs text-ink-soft mt-1">A resposta fica guardada no histórico para você revisitar quando quiser.</p></>
+                <><p className="font-medium text-forest-900">Sua orientação de {currentMonthLabel()} está respondida.</p><p className="text-xs text-ink-soft mt-1">Sua orientação já está disponível no histórico abaixo. Ela fica guardada para você revisitar quando quiser.</p></>
               ) : (
-                <><p className="font-medium text-forest-900">Sua orientação está em análise.</p><p className="text-xs text-ink-soft mt-1">Enviada em {formatShort(request.created_at)} · resposta prevista até {dueDate}.</p></>
+                <><p className="font-medium text-forest-900">Seu pedido está em análise.</p><p className="text-xs text-ink-soft mt-1">Enviada em {formatShort(request.created_at)} · resposta prevista até {dueDate}.</p></>
               )}
             </div>
           </div>
@@ -456,7 +456,7 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
               {userId && <MonthlyGuidanceFeedback userId={userId} guidanceRequestId={req.id} />}
             </>
           ) : (
-            <div className="rounded-2xl border border-line bg-white p-4 flex items-center gap-2 text-xs text-ink-soft"><Loader2 className="w-4 h-4 text-forest-500" /> Recebemos sua mensagem. A resposta está prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.</div>
+            <div className="rounded-2xl border border-line bg-white p-4 flex items-center gap-2 text-xs text-ink-soft"><Loader2 className="w-4 h-4 text-forest-500" /> Seu pedido está em análise. A resposta está prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.</div>
           )}
         </div>
       )}
