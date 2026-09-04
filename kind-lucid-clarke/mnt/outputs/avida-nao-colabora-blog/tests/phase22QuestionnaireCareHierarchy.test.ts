@@ -16,15 +16,16 @@ test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', ()
   assert.match(questionnaireLegacy, /Suas avaliações/)
 })
 
-test('Plano de Autocuidado mostra foco, ações e histórico mensal antes dos detalhes legados', () => {
+test('Plano de Autocuidado usa somente a experiência mensal nova na navegação do usuário', () => {
   assert.match(care, /Seu foco atual/)
   assert.match(care, /Para experimentar/)
   assert.match(care, /Uma possibilidade/)
   assert.match(care, /Histórico de planos/)
   assert.match(care, /Como foi o plano anterior/)
-  assert.match(care, /<SelfCarePlanPageLegacy/)
-  assert.match(careLegacy, /Seus roteiros de cuidado/)
   assert.match(care, /CarePlanActionFeedback/)
+  assert.doesNotMatch(care, /SelfCarePlanPageLegacy/)
+  assert.doesNotMatch(care, /showLegacy/)
+  assert.match(careLegacy, /Seus roteiros de cuidado/)
 })
 
 test('histórico mensal abre em modal visível e permite reabrir qualquer mês', () => {
@@ -41,11 +42,19 @@ test('Entender melhor permanece na experiência nova do Plano de Autocuidado', (
   assert.match(care, /onClick=\{\(\) => setDetailsOpen\(true\)\}/)
   assert.match(care, /Entenda melhor este foco/)
   assert.match(care, /Por que este foco apareceu/)
-  assert.match(care, /Este detalhamento faz parte do plano atual e não abre a versão antiga da página/)
-  assert.doesNotMatch(care, /onClick=\{\(\) => setShowLegacy\(true\)\}[^>]*>Entender melhor/)
+  assert.match(care, /Este detalhamento faz parte da experiência atual do Plano de Autocuidado/)
 })
 
-test('detalhes antigos continuam preservados sem criar persistência paralela', () => {
+test('Ajustes abre preferências da experiência nova sem navegar para a tela legada', () => {
+  assert.match(care, /onClick=\{\(\) => setSettingsOpen\(true\)\}/)
+  assert.match(care, /Ajustes do Plano de Autocuidado/)
+  assert.match(care, /Como você prefere explorar o plano\?/)
+  assert.match(care, /Mostrar lembretes gentis/)
+  assert.match(care, /Explicar como os dados entram no plano/)
+  assert.match(care, /care-plan-preferences:/)
+})
+
+test('detalhes da experiência nova continuam sem criar persistência paralela de planos', () => {
   assert.doesNotMatch(questionnaires, /\.insert\(|\.upsert\(/)
   assert.doesNotMatch(care, /\.insert\(|\.upsert\(/)
   assert.match(questionnaires, /rpc\('get_questionnaire_catalog'\)/)

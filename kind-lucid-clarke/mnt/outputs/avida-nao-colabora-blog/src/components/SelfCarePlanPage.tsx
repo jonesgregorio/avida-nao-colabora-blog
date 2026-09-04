@@ -1,16 +1,23 @@
-import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import type { Profile } from '../types'
 import {
-  ArrowLeft, ArrowRight, CalendarDays, ChevronDown, ChevronRight, Clock3,
-  Coffee, Heart, HelpCircle, History, Leaf, Loader2, Moon, Settings2,
-  Sparkles, Sprout, Star, SunMedium, X,
+  ArrowRight, CalendarDays, ChevronDown, ChevronRight, Clock3, Coffee, Heart,
+  HelpCircle, History, Leaf, Loader2, Moon, Settings2, ShieldCheck, Sparkles,
+  Sprout, Star, SunMedium, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { normalizePlan } from '../lib/officialPlans'
 import { CARE_PLAN_DISCLAIMER, type CarePlanContent } from '../lib/careePlanAI'
 import CarePlanActionFeedback from './CarePlanActionFeedback'
-import SelfCarePlanPageLegacy from './SelfCarePlanPageLegacy'
 
-type Props = ComponentProps<typeof SelfCarePlanPageLegacy>
+type Props = {
+  user: User | null
+  profile: Profile | null
+  onNavigatePricing: () => void
+  onNavigate?: (v: string) => void
+  onOpenArticle?: (slug: string) => void
+}
 
 type CurrentPlan = {
   id: string
@@ -19,6 +26,18 @@ type CurrentPlan = {
   period_end: string
   sent_at: string | null
   care_plan: CarePlanContent | null
+}
+
+type CarePlanPreferences = {
+  presentation: 'balanced' | 'practical' | 'reflective'
+  showReminders: boolean
+  showDataExplanation: boolean
+}
+
+const DEFAULT_PREFERENCES: CarePlanPreferences = {
+  presentation: 'balanced',
+  showReminders: true,
+  showDataExplanation: true,
 }
 
 function monthLabel(key: string) {
@@ -58,8 +77,7 @@ function questionsOf(plan: CarePlanContent | null) {
 
 const ACTION_ICONS = [Leaf, Coffee, Moon, Heart]
 
-export default function SelfCarePlanPage(props: Props) {
-  const { user, profile } = props
+export default function SelfCarePlanPage({ user, profile, onNavigatePricing }: Props) {
   const isPlus = normalizePlan(profile?.plan) === 'plus'
   const [plans, setPlans] = useState<CurrentPlan[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -67,10 +85,32 @@ export default function SelfCarePlanPage(props: Props) {
   const [failed, setFailed] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [showLegacy, setShowLegacy] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [preferences, setPreferences] = useState<CarePlanPreferences>(DEFAULT_PREFERENCES)
 
   useEffect(() => {
-    if (!user || !isPlus || showLegacy) { setLoading(false); return }
+    if (!user) return
+    try {
+      const raw = window.localStorage.getItem(`care-plan-preferences:${user.id}`)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Partial<CarePlanPreferences>
+      setPreferences({ ...DEFAULT_PREFERENCES, ...saved })
+    } catch {
+      setPreferences(DEFAULT_PREFERENCES)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    try {
+      window.localStorage.setItem(`care-plan-preferences:${user.id}`, JSON.stringify(preferences))
+    } catch {
+      // Preferências locais são opcionais; o plano continua funcionando sem elas.
+    }
+  }, [preferences, user])
+
+  useEffect(() => {
+    if (!user || !isPlus) { setLoading(false); return }
     let active = true
     setLoading(true)
     setFailed(false)
@@ -94,7 +134,7 @@ export default function SelfCarePlanPage(props: Props) {
         setLoading(false)
       })
     return () => { active = false }
-  }, [isPlus, showLegacy, user])
+  }, [isPlus, user])
 
   const selectedIndex = Math.max(0, plans.findIndex(plan => plan.id === selectedId))
   const current = plans[selectedIndex] ?? null
@@ -102,17 +142,15 @@ export default function SelfCarePlanPage(props: Props) {
   const actions = useMemo(() => actionsOf(current?.care_plan ?? null), [current])
   const questions = useMemo(() => questionsOf(current?.care_plan ?? null), [current])
 
-  if (!isPlus || !user || failed || (!loading && !current)) return <SelfCarePlanPageLegacy {...props} />
-
-  if (showLegacy) {
+  if (!user || !isPlus) {
     return (
-      <div>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5">
-          <button type="button" onClick={() => setShowLegacy(false)} className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 hover:text-forest-900">
-            <ArrowLeft className="w-4 h-4" /> Voltar ao plano
-          </button>
-        </div>
-        <SelfCarePlanPageLegacy {...props} />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <Sprout className="w-10 h-10 text-forest-500 mx-auto" />
+          <h1 className="font-serif text-3xl text-forest-900 mt-4">Plano de Autocuidado</h1>
+          <p className="text-sm text-ink-soft mt-3 max-w-xl mx-auto">O plano mensal organiza sinais dos seus registros em poucas possibilidades de cuidado, sem transformar isso em meta ou desempenho.</p>
+          <button type="button" onClick={onNavigatePricing} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium">Conhecer o Plus <ArrowRight className="w-4 h-4" /></button>
+        </section>
       </div>
     )
   }
@@ -121,12 +159,43 @@ export default function SelfCarePlanPage(props: Props) {
     return <div className="flex items-center justify-center py-24" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-500" /><span className="ml-3 text-sm text-ink-soft">Organizando seu cuidado…</span></div>
   }
 
-  const focus = focusOf(current!.care_plan)
-  const why = whyOf(current!.care_plan)
-  const priority = current!.care_plan?.light_emotional_goal || current!.care_plan?.small_commitment || actions[0] || 'Escolha apenas uma pequena coisa que combine com o seu momento.'
-  const priorities = current!.care_plan?.three_care_priorities ?? []
-  const reminders = current!.care_plan?.gentle_reminders?.filter(Boolean) ?? []
-  const weekly = current!.care_plan?.weekly_rhythm
+  if (failed) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <h1 className="font-serif text-2xl text-forest-900">Não foi possível carregar seu plano agora.</h1>
+          <p className="text-sm text-ink-soft mt-2">Seus planos continuam guardados. Tente novamente em alguns instantes.</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-5 rounded-xl border border-forest-200 bg-white px-4 py-2 text-sm text-forest-800">Tentar novamente</button>
+        </section>
+      </div>
+    )
+  }
+
+  if (!current) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <Sparkles className="w-9 h-9 text-forest-400 mx-auto" />
+          <h1 className="font-serif text-2xl text-forest-900 mt-3">Seu plano deste mês ainda está sendo preparado.</h1>
+          <p className="text-sm text-ink-soft mt-2 max-w-xl mx-auto">Quando um novo plano for disponibilizado, ele aparecerá aqui e ficará guardado no histórico mensal.</p>
+        </section>
+      </div>
+    )
+  }
+
+  const focus = focusOf(current.care_plan)
+  const why = whyOf(current.care_plan)
+  const priority = current.care_plan?.light_emotional_goal || current.care_plan?.small_commitment || actions[0] || 'Escolha apenas uma pequena coisa que combine com o seu momento.'
+  const priorities = current.care_plan?.three_care_priorities ?? []
+  const reminders = current.care_plan?.gentle_reminders?.filter(Boolean) ?? []
+  const weekly = current.care_plan?.weekly_rhythm
+  const isHistorical = selectedIndex > 0
+
+  const experimentCopy = preferences.presentation === 'practical'
+    ? 'Se preferir algo mais direto, comece por uma única ação e ignore o restante por enquanto.'
+    : preferences.presentation === 'reflective'
+      ? 'Você pode começar observando o que combina com o seu momento antes de escolher qualquer ação.'
+      : 'Pequenas ações que podem tornar seu dia mais leve. Escolha somente o que fizer sentido.'
 
   const openPlan = (planId: string) => {
     setSelectedId(planId)
@@ -145,39 +214,46 @@ export default function SelfCarePlanPage(props: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setHistoryOpen(true)} className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-800 hover:bg-paper-soft" aria-haspopup="dialog">
-            <CalendarDays className="w-4 h-4" /> {monthLabel(current!.month_reference)} <ChevronDown className="w-4 h-4" />
+            <CalendarDays className="w-4 h-4" /> {monthLabel(current.month_reference)} <ChevronDown className="w-4 h-4" />
           </button>
-          <button type="button" onClick={() => setShowLegacy(true)} className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-800 hover:bg-paper-soft">
+          <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-800 hover:bg-paper-soft" aria-haspopup="dialog">
             <Settings2 className="w-4 h-4" /> Ajustes
           </button>
         </div>
       </header>
 
+      {isHistorical && (
+        <div className="rounded-2xl border border-line bg-paper-soft px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p className="text-sm text-ink-soft"><strong className="text-forest-800">Você está revendo um plano anterior.</strong> As escolhas e percepções deste mês continuam preservadas no histórico.</p>
+          <button type="button" onClick={() => openPlan(plans[0].id)} className="text-xs font-medium text-forest-700 whitespace-nowrap">Voltar ao plano mais recente</button>
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[30px] border border-forest-100 bg-gradient-to-r from-[#f3f0df] via-[#edf1df] to-[#dbe6d0] min-h-[290px]" aria-labelledby="care-focus-heading">
         <div className="absolute inset-y-0 right-0 w-1/2 opacity-70 bg-[radial-gradient(circle_at_70%_28%,rgba(255,245,190,.95),transparent_18%),radial-gradient(circle_at_82%_78%,rgba(27,88,64,.28),transparent_38%),linear-gradient(145deg,transparent_20%,rgba(55,111,75,.20)_21%,transparent_22%,transparent_35%,rgba(55,111,75,.18)_36%,transparent_38%)]" aria-hidden="true" />
         <div className="relative p-6 sm:p-8 max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/65 px-3 py-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-700"><Leaf className="w-3.5 h-3.5" /> Seu foco atual</span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/65 px-3 py-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-700"><Leaf className="w-3.5 h-3.5" /> {isHistorical ? 'Foco deste plano' : 'Seu foco atual'}</span>
           <h2 id="care-focus-heading" className="font-serif text-3xl sm:text-4xl text-forest-900 mt-4 max-w-xl">{focus}</h2>
           <p className="mt-3 text-sm text-ink-soft leading-relaxed max-w-xl">{why}</p>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-forest-200 bg-white/70 px-4 py-2 text-xs font-medium text-forest-800 hover:bg-white" aria-haspopup="dialog">Entender melhor <Sparkles className="w-3.5 h-3.5" /></button>
-            <span className="text-[11px] text-ink-soft">Período: {dateBR(current!.period_start)} a {dateBR(current!.period_end)}</span>
+            <span className="text-[11px] text-ink-soft">Período: {dateBR(current.period_start)} a {dateBR(current.period_end)}</span>
           </div>
         </div>
       </section>
 
       <section aria-labelledby="experimentar-heading" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <div><h2 id="experimentar-heading" className="font-serif text-2xl text-forest-900">Para experimentar</h2><p className="text-sm text-ink-soft mt-1">Pequenas ações que podem tornar seu dia mais leve. Escolha somente o que fizer sentido.</p></div>
+          <div><h2 id="experimentar-heading" className="font-serif text-2xl text-forest-900">Para experimentar</h2><p className="text-sm text-ink-soft mt-1">{experimentCopy}</p></div>
           <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft"><HelpCircle className="w-4 h-4" /> Sem meta ou sequência</span>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {(actions.length ? actions : ['Abrir um pequeno espaço de pausa no seu dia.']).map((action, index) => {
             const Icon = ACTION_ICONS[index % ACTION_ICONS.length]
-            return <article key={`${current!.id}-${index}`} className="rounded-3xl border border-line bg-white/80 p-5 text-center min-h-[210px] flex flex-col items-center justify-center"><span className="w-12 h-12 rounded-full bg-mint/70 flex items-center justify-center text-forest-700"><Icon className="w-5 h-5" /></span><h3 className="font-serif text-lg text-forest-900 mt-4 leading-snug">{action}</h3><p className="text-xs text-ink-soft mt-2">Experimente do seu jeito e observe como isso combina com o momento.</p></article>
+            return <article key={`${current.id}-${index}`} className="rounded-3xl border border-line bg-white/80 p-5 text-center min-h-[210px] flex flex-col items-center justify-center"><span className="w-12 h-12 rounded-full bg-mint/70 flex items-center justify-center text-forest-700"><Icon className="w-5 h-5" /></span><h3 className="font-serif text-lg text-forest-900 mt-4 leading-snug">{action}</h3><p className="text-xs text-ink-soft mt-2">Experimente do seu jeito e observe como isso combina com o momento.</p></article>
           })}
         </div>
-        {actions.length > 0 && <div className="rounded-3xl border border-line bg-paper-soft/80 p-4 sm:p-5"><CarePlanActionFeedback userId={user.id} carePlanId={current!.id} actions={actions} /></div>}
+        {actions.length > 0 && <div className="rounded-3xl border border-line bg-paper-soft/80 p-4 sm:p-5"><CarePlanActionFeedback userId={user.id} carePlanId={current.id} actions={actions} /></div>}
       </section>
 
       <section className="rounded-3xl border border-forest-100 bg-gradient-to-r from-mint/55 via-paper-soft to-sand-50 p-5 sm:p-6 grid lg:grid-cols-[1fr_1.4fr] gap-4 items-center">
@@ -216,7 +292,7 @@ export default function SelfCarePlanPage(props: Props) {
             </div>
             <div className="overflow-y-auto max-h-[62vh] p-3 sm:p-4 space-y-2">
               {plans.map((plan, index) => {
-                const isOpen = plan.id === current!.id
+                const isOpen = plan.id === current.id
                 return (
                   <button key={plan.id} type="button" onClick={() => openPlan(plan.id)} className={`w-full text-left rounded-2xl border px-4 py-3 flex items-center justify-between gap-4 transition ${isOpen ? 'border-forest-200 bg-mint/55' : 'border-line bg-white hover:bg-paper-soft'}`}>
                     <span><span className="block font-medium text-forest-900">{monthLabel(plan.month_reference)}</span><span className="block text-xs text-ink-soft mt-0.5">{index === 0 ? 'Plano mais recente' : `Plano anterior · ${dateBR(plan.period_start)} a ${dateBR(plan.period_end)}`}</span></span>
@@ -233,21 +309,63 @@ export default function SelfCarePlanPage(props: Props) {
         <div className="fixed inset-0 z-[80] bg-forest-950/25 backdrop-blur-[2px] p-4 sm:p-6 flex items-center justify-center" role="presentation" onMouseDown={() => setDetailsOpen(false)}>
           <section role="dialog" aria-modal="true" aria-labelledby="care-details-title" className="w-full max-w-3xl max-h-[86vh] overflow-hidden rounded-[30px] border border-line bg-[#fffdf8] shadow-2xl" onMouseDown={event => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 border-b border-line px-5 sm:px-7 py-5">
-              <div><p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-forest-600">{monthLabel(current!.month_reference)}</p><h2 id="care-details-title" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Entenda melhor este foco</h2></div>
+              <div><p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-forest-600">{monthLabel(current.month_reference)}</p><h2 id="care-details-title" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Entenda melhor este foco</h2></div>
               <button type="button" onClick={() => setDetailsOpen(false)} className="w-10 h-10 rounded-full border border-line bg-white flex items-center justify-center text-forest-700 hover:bg-paper-soft" aria-label="Fechar detalhes"><X className="w-4 h-4" /></button>
             </div>
             <div className="overflow-y-auto max-h-[70vh] p-5 sm:p-7 space-y-6">
               <div className="rounded-3xl bg-mint/35 border border-forest-100 p-5"><p className="text-xs font-semibold text-forest-700 uppercase tracking-[0.12em]">Por que este foco apareceu</p><p className="font-serif text-xl text-forest-900 mt-2">{focus}</p><p className="text-sm text-ink-soft leading-relaxed mt-2">{why}</p></div>
 
+              {preferences.showDataExplanation && <div className="rounded-2xl border border-line bg-paper-soft p-4 flex gap-3"><ShieldCheck className="w-5 h-5 text-forest-600 flex-shrink-0 mt-0.5" /><div><p className="font-medium text-forest-900 text-sm">Como este plano usa seus dados</p><p className="text-xs text-ink-soft mt-1 leading-relaxed">O plano é construído a partir de sinais e métricas agregadas dos seus registros, como frequência de emoções, contextos, necessidades, sono, energia e ansiedade. O texto íntimo do Diário não é usado para inventar conclusões.</p></div></div>}
+
               {priorities.length > 0 && <div><h3 className="font-serif text-xl text-forest-900">Prioridades deste ciclo</h3><div className="grid md:grid-cols-3 gap-3 mt-3">{priorities.slice(0, 3).map((item, index) => <article key={`${item.priority}-${index}`} className="rounded-2xl border border-line bg-white p-4"><p className="font-medium text-forest-900">{item.priority}</p>{item.why_it_matters && <p className="text-xs text-ink-soft mt-1 leading-relaxed">{item.why_it_matters}</p>}</article>)}</div></div>}
 
               {weekly && Object.values(weekly).some(Boolean) && <div><h3 className="font-serif text-xl text-forest-900">Um ritmo possível para o mês</h3><div className="grid sm:grid-cols-2 gap-3 mt-3">{Object.entries(weekly).filter(([, value]) => Boolean(value)).map(([key, value], index) => <div key={key} className="rounded-2xl border border-line bg-paper-soft p-4"><p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">Semana {index + 1}</p><p className="text-sm text-ink mt-1">{value}</p></div>)}</div></div>}
 
-              {(current!.care_plan?.what_not_to_force || reminders.length > 0) && <div className="grid md:grid-cols-2 gap-3">{current!.care_plan?.what_not_to_force && <div className="rounded-2xl border border-line bg-white p-4"><p className="font-serif text-lg text-forest-900">O que não precisa ser forçado</p><p className="text-sm text-ink-soft mt-2 leading-relaxed">{current!.care_plan.what_not_to_force}</p></div>}{reminders.length > 0 && <div className="rounded-2xl border border-line bg-white p-4"><p className="font-serif text-lg text-forest-900">Lembretes gentis</p><ul className="mt-2 space-y-2 text-sm text-ink-soft">{reminders.slice(0, 3).map(reminder => <li key={reminder} className="flex gap-2"><Leaf className="w-4 h-4 text-forest-500 flex-shrink-0 mt-0.5" /><span>{reminder}</span></li>)}</ul></div>}</div>}
+              {(current.care_plan?.what_not_to_force || (preferences.showReminders && reminders.length > 0)) && <div className="grid md:grid-cols-2 gap-3">{current.care_plan?.what_not_to_force && <div className="rounded-2xl border border-line bg-white p-4"><p className="font-serif text-lg text-forest-900">O que não precisa ser forçado</p><p className="text-sm text-ink-soft mt-2 leading-relaxed">{current.care_plan.what_not_to_force}</p></div>}{preferences.showReminders && reminders.length > 0 && <div className="rounded-2xl border border-line bg-white p-4"><p className="font-serif text-lg text-forest-900">Lembretes gentis</p><ul className="mt-2 space-y-2 text-sm text-ink-soft">{reminders.slice(0, 3).map(reminder => <li key={reminder} className="flex gap-2"><Leaf className="w-4 h-4 text-forest-500 flex-shrink-0 mt-0.5" /><span>{reminder}</span></li>)}</ul></div>}</div>}
 
-              {current!.care_plan?.when_to_seek_more_support && <div className="rounded-2xl border border-line bg-paper-soft p-4"><p className="font-serif text-lg text-forest-900">Quando pode valer buscar mais apoio</p><p className="text-sm text-ink-soft mt-2 leading-relaxed">{current!.care_plan.when_to_seek_more_support}</p></div>}
+              {current.care_plan?.when_to_seek_more_support && <div className="rounded-2xl border border-line bg-paper-soft p-4"><p className="font-serif text-lg text-forest-900">Quando pode valer buscar mais apoio</p><p className="text-sm text-ink-soft mt-2 leading-relaxed">{current.care_plan.when_to_seek_more_support}</p></div>}
 
-              <p className="text-xs text-ink-soft leading-relaxed">Este detalhamento faz parte do plano atual e não abre a versão antiga da página. {CARE_PLAN_DISCLAIMER}</p>
+              <p className="text-xs text-ink-soft leading-relaxed">Este detalhamento faz parte da experiência atual do Plano de Autocuidado. {CARE_PLAN_DISCLAIMER}</p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="fixed inset-0 z-[80] bg-forest-950/25 backdrop-blur-[2px] p-4 sm:p-6 flex items-center justify-center" role="presentation" onMouseDown={() => setSettingsOpen(false)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="care-settings-title" className="w-full max-w-2xl max-h-[86vh] overflow-hidden rounded-[30px] border border-line bg-[#fffdf8] shadow-2xl" onMouseDown={event => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 border-b border-line px-5 sm:px-7 py-5">
+              <div><p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-forest-600">Preferências</p><h2 id="care-settings-title" className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Ajustes do Plano de Autocuidado</h2><p className="text-sm text-ink-soft mt-1">Ajuste como você prefere explorar seus planos. Nada aqui apaga ou reescreve um mês já emitido.</p></div>
+              <button type="button" onClick={() => setSettingsOpen(false)} className="w-10 h-10 rounded-full border border-line bg-white flex items-center justify-center text-forest-700 hover:bg-paper-soft" aria-label="Fechar ajustes"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="overflow-y-auto max-h-[70vh] p-5 sm:p-7 space-y-6">
+              <div>
+                <h3 className="font-serif text-xl text-forest-900">Como você prefere explorar o plano?</h3>
+                <p className="text-sm text-ink-soft mt-1">Isso muda apenas a ênfase da apresentação. O conteúdo do plano mensal continua preservado.</p>
+                <div className="grid sm:grid-cols-3 gap-3 mt-3">
+                  {([
+                    ['balanced', 'Equilibrado', 'Ações e reflexão com o mesmo peso.'],
+                    ['practical', 'Mais prático', 'Comece pelas ações pequenas.'],
+                    ['reflective', 'Mais reflexivo', 'Observe antes de escolher uma ação.'],
+                  ] as const).map(([value, label, description]) => (
+                    <button key={value} type="button" onClick={() => setPreferences(currentPreferences => ({ ...currentPreferences, presentation: value }))} className={`rounded-2xl border p-4 text-left ${preferences.presentation === value ? 'border-forest-300 bg-mint/50' : 'border-line bg-white hover:bg-paper-soft'}`}>
+                      <span className="block font-medium text-forest-900 text-sm">{label}</span><span className="block text-xs text-ink-soft mt-1">{description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-line bg-white divide-y divide-line">
+                <label className="p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer"><span><span className="block font-medium text-forest-900 text-sm">Mostrar lembretes gentis</span><span className="block text-xs text-ink-soft mt-1">Exibe os lembretes do mês dentro de “Entender melhor”.</span></span><input type="checkbox" checked={preferences.showReminders} onChange={event => setPreferences(currentPreferences => ({ ...currentPreferences, showReminders: event.target.checked }))} className="w-4 h-4 accent-forest-800" /></label>
+                <label className="p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer"><span><span className="block font-medium text-forest-900 text-sm">Explicar como os dados entram no plano</span><span className="block text-xs text-ink-soft mt-1">Mantém visível a explicação de privacidade e personalização.</span></span><input type="checkbox" checked={preferences.showDataExplanation} onChange={event => setPreferences(currentPreferences => ({ ...currentPreferences, showDataExplanation: event.target.checked }))} className="w-4 h-4 accent-forest-800" /></label>
+              </div>
+
+              <div className="rounded-3xl border border-forest-100 bg-mint/30 p-5 flex gap-3"><ShieldCheck className="w-5 h-5 text-forest-600 flex-shrink-0 mt-0.5" /><div><h3 className="font-medium text-forest-900 text-sm">Privacidade e histórico</h3><p className="text-xs text-ink-soft mt-1 leading-relaxed">Esses ajustes ficam salvos neste dispositivo para sua conta. Eles não excluem planos anteriores, não mudam o histórico e não alteram os registros usados para gerar os próximos ciclos.</p></div></div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <button type="button" onClick={() => setPreferences(DEFAULT_PREFERENCES)} className="text-sm text-forest-700 hover:text-forest-900">Restaurar preferências padrão</button>
+                <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-xl bg-forest-900 text-white px-5 py-2.5 text-sm font-medium">Concluir</button>
+              </div>
             </div>
           </section>
         </div>
