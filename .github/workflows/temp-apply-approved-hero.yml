@@ -1,4 +1,5 @@
 name: Temporary apply approved hero image
+# retry after complete payload
 
 on:
   push:
