@@ -27,6 +27,24 @@ test('Plano de Autocuidado mostra foco, ações e histórico mensal antes dos de
   assert.match(care, /CarePlanActionFeedback/)
 })
 
+test('histórico mensal abre em modal visível e permite reabrir qualquer mês', () => {
+  assert.match(care, /role="dialog" aria-modal="true" aria-labelledby="care-history-title"/)
+  assert.match(care, /escolha um mês para abrir/)
+  assert.match(care, /const openPlan = \(planId: string\)/)
+  assert.match(care, /setSelectedId\(planId\)/)
+  assert.match(care, /window\.scrollTo\(\{ top: 0, behavior: 'smooth' \}\)/)
+  assert.match(care, /Ver planos anteriores/)
+  assert.match(care, /Histórico completo/)
+})
+
+test('Entender melhor permanece na experiência nova do Plano de Autocuidado', () => {
+  assert.match(care, /onClick=\{\(\) => setDetailsOpen\(true\)\}/)
+  assert.match(care, /Entenda melhor este foco/)
+  assert.match(care, /Por que este foco apareceu/)
+  assert.match(care, /Este detalhamento faz parte do plano atual e não abre a versão antiga da página/)
+  assert.doesNotMatch(care, /onClick=\{\(\) => setShowLegacy\(true\)\}[^>]*>Entender melhor/)
+})
+
 test('detalhes antigos continuam preservados sem criar persistência paralela', () => {
   assert.doesNotMatch(questionnaires, /\.insert\(|\.upsert\(/)
   assert.doesNotMatch(care, /\.insert\(|\.upsert\(/)
