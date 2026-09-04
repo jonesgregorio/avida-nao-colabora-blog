@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { resolveAiModels } from '../_shared/aiModels.ts'
 
 const ALLOWED_ORIGINS = [
   'https://avidanaocolabora.com',
@@ -89,8 +90,8 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
 
 async function generate(promptText: string): Promise<{ raw: string; model: string } | null> {
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
-  const configured = (Deno.env.get('GEMINI_MODEL') || '').split(',').map(v => v.trim()).filter(Boolean)
-  const models = (configured.length ? configured : ['gemini-3.6-flash']).slice(0, 2)
+  const cfg = await resolveAiModels()
+  const models = [cfg.gemini]
   if (geminiKey) {
     for (const model of models) {
       try {
@@ -113,11 +114,11 @@ async function generate(promptText: string): Promise<{ raw: string; model: strin
       const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 900, temperature: 0.45 }),
+        body: JSON.stringify({ model: cfg.groq, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_completion_tokens: 900, temperature: 0.45 }),
       })
       if (res.ok) {
         const data = await res.json(); const raw = data?.choices?.[0]?.message?.content
-        if (raw) return { raw: String(raw), model: 'groq:openai/gpt-oss-120b' }
+        if (raw) return { raw: String(raw), model: `groq:${cfg.groq}` }
       }
     } catch { /* próximo provedor */ }
   }

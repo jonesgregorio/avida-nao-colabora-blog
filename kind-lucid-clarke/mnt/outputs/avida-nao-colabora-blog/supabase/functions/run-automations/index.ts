@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { resolveAiModels } from '../_shared/aiModels.ts'
 import {
   SUPPORTED_EDITORIAL_AUTOMATION_TYPES,
   clampAutomationQuantity,
@@ -101,7 +102,6 @@ async function searchPexelsCover(query: string): Promise<{ url: string; alt: str
   } catch { return null }
 }
 
-const GEMINI_MODELS = ['gemini-3.6-flash']
 const AI_TIMEOUT_MS = 45_000
 const GROQ_TPM_SAFE_BUDGET = 7600
 
@@ -118,10 +118,11 @@ async function withTimeout(url: string, init: RequestInit): Promise<Response> {
 }
 
 async function genAI(prompt: string): Promise<string> {
-  // Ordem de failover: Gemini (lista de modelos) → Groq → OpenAI. Chaves só no servidor.
+  // Ordem de failover: Gemini → Groq → OpenAI. Chaves só no servidor.
+  const cfg = await resolveAiModels()
   const gk = Deno.env.get('GEMINI_API_KEY')
   if (gk) {
-    for (const model of GEMINI_MODELS) {
+    for (const model of [cfg.gemini]) {
       try {
         const r = await withTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${gk}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -136,7 +137,7 @@ async function genAI(prompt: string): Promise<string> {
     try {
       const r = await withTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${qk}` },
-        body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: [{ role: 'user', content: prompt }], max_completion_tokens: groqOutputBudget(prompt) }),
+        body: JSON.stringify({ model: cfg.groq, messages: [{ role: 'user', content: prompt }], max_completion_tokens: groqOutputBudget(prompt) }),
       })
       if (r.ok) { const d = await r.json(); const t = d?.choices?.[0]?.message?.content; if (t?.trim()) return String(t).trim() }
     } catch { /* próximo provedor */ }
