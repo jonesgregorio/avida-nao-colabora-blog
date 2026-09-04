@@ -44,5 +44,5 @@ test('Meu Plano usa nomes do catálogo para downgrade, comparativo e plano atual
 
 test('Pricing remove do comparativo recursos ocultos ou arquivados e aplica o nome do catálogo', () => {
   assert.match(pricing, /if \(item && \(!item\.isActive \|\| !item\.showOnComparison\)\) hidden\.add\(feature\.id\)/)
-  assert.match(pricing, /const rowLabel = catalogItem\?\.name\?\.trim\(\) \|\| feature\.label/)
+  assert.match(pricing, /const rowLabel = catalogItem\?\.name\?\.trim\(\) \|\| row\.label/)
 })

@@ -50,7 +50,7 @@ test('OFFICIAL_PLAN_COMPARISON tem catalogKey em toda linha e labels idênticos 
 
 test('Pricing aplica o nome/valor do catálogo do Admin na tabela de comparação (não só esconde)', () => {
   const pricing = read('src/components/Pricing.tsx')
-  assert.match(pricing, /const rowLabel = catalogItem\?\.name\?\.trim\(\) \|\| feature\.label/)
+  assert.match(pricing, /const rowLabel = catalogItem\?\.name\?\.trim\(\) \|\| row\.label/)
   assert.match(pricing, /catalogItem\?\.plans\.free\.label\?\.trim\(\) \|\| row\.values\.free/)
   assert.match(pricing, /catalogItem\?\.plans\.essential\.label\?\.trim\(\) \|\| row\.values\.essential/)
   assert.match(pricing, /catalogItem\?\.plans\.plus\.label\?\.trim\(\) \|\| row\.values\.plus/)
