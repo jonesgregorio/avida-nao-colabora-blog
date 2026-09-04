@@ -1,32 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags } from 'lucide-react'
+import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags, Info, X, Check } from 'lucide-react'
 import AdminPlans from './AdminPlans'
 import AdminPlanFeatureCatalog from './AdminPlanFeatureCatalog'
 import AdminBillingPriceEditor from './AdminBillingPriceEditor'
 import AdminPlanConsistencyCheck from './AdminPlanConsistencyCheck'
-import { OFFICIAL_PLANS, type PlanKey } from '../../lib/officialPlans'
+import { OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { usePlanPricing } from '../../lib/planPricing'
 import {
   buildFallbackPlanFeatureCatalog,
-  getCatalogPlanBenefits,
   loadPlanFeatureCatalog,
   type PlanFeatureCatalog,
 } from '../../lib/planFeatureCatalog'
+import {
+  buildCatalogComparisonRows,
+  buildCatalogPlanBenefits,
+  type CatalogBenefitView,
+} from '../../lib/planCatalogPresentation'
 
 type View = 'overview' | 'permissions' | 'catalog'
-
-const RULE_FEATURES: { key: string; values: Record<PlanKey, string> }[] = [
-  { key: 'wellbeing_diary_5_month', values: { free: 'Básico', essential: 'Completo', plus: 'Completo' } },
-  { key: 'diary_mood_symptoms_summary', values: { free: 'Inicial', essential: 'Completo', plus: 'Completo' } },
-  { key: 'emotional_exercise_library', values: { free: 'Parcial', essential: 'Completo', plus: 'Completo' } },
-  { key: 'personalized_self_care_plan', values: { free: 'Não incluso', essential: 'Não incluso', plus: 'Mensal' } },
-  { key: 'monthly_message_guidance', values: { free: 'Não incluso', essential: 'Não incluso', plus: '1 por mês' } },
-]
 
 export default function AdminPlanosPage() {
   const [view, setView] = useState<View>('overview')
   const { prices } = usePlanPricing()
   const [catalog, setCatalog] = useState<PlanFeatureCatalog>(() => buildFallbackPlanFeatureCatalog())
+  const [infoBenefit, setInfoBenefit] = useState<CatalogBenefitView | null>(null)
 
   useEffect(() => {
     if (view !== 'overview') return
@@ -38,30 +35,11 @@ export default function AdminPlanosPage() {
     return {
       ...plan,
       displayPrice: plan.key === 'free' ? price : `${price}/mês`,
-      benefits: getCatalogPlanBenefits(catalog, plan.key, 'pricing').map(item => item.label),
+      benefits: buildCatalogPlanBenefits(catalog, plan.key, 'pricing'),
     }
   }), [prices, catalog])
 
-  const rules = useMemo(() => {
-    const byKey = new Map(catalog.items.map(item => [item.key, item]))
-    const official = RULE_FEATURES.map(rule => ({
-      key: rule.key,
-      label: byKey.get(rule.key)?.name || rule.key,
-      values: rule.values,
-    }))
-    const commercial = catalog.items
-      .filter(item => item.kind === 'commercial' && item.isActive && item.showOnComparison)
-      .map(item => ({
-        key: item.key,
-        label: item.name,
-        values: {
-          free: item.plans.free.enabled ? 'Incluído' : 'Não incluso',
-          essential: item.plans.essential.enabled ? 'Incluído' : 'Não incluso',
-          plus: item.plans.plus.enabled ? 'Incluído' : 'Não incluso',
-        } as Record<PlanKey, string>,
-      }))
-    return [...official, ...commercial]
-  }, [catalog])
+  const rules = useMemo(() => buildCatalogComparisonRows(catalog), [catalog])
 
   if (view !== 'overview') {
     return (
@@ -95,7 +73,7 @@ export default function AdminPlanosPage() {
       </div>
 
       <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/30 p-4 text-sm text-forest-800">
-        <strong>Como funciona:</strong> em “Funcionalidades e textos” você altera o que o cliente lê. Em “Preços e permissões” ficam as regras técnicas que realmente liberam recursos. Renomear um benefício nunca muda sua chave interna nem o acesso do plano.
+        <strong>Como funciona:</strong> os cards abaixo usam a mesma nomenclatura comercial atual exibida ao usuário. O símbolo ⓘ mostra os detalhes sem poluir a leitura. Em “Preços e permissões” continuam as regras técnicas que realmente liberam recursos.
       </div>
 
       <AdminBillingPriceEditor />
@@ -110,7 +88,23 @@ export default function AdminPlanosPage() {
             <div className="font-serif text-3xl text-forest-900 my-3">{plan.displayPrice}</div>
             <ul className="space-y-2 flex-1 mb-5">
               {plan.benefits.map(benefit => (
-                <li key={benefit} className="flex items-start gap-2 text-sm text-ink"><span className="text-forest-600 font-bold leading-5">✓</span>{benefit}</li>
+                <li key={benefit.key} className="flex items-start gap-2 text-sm text-ink">
+                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-forest-600" />
+                  <span className="min-w-0 inline-flex items-start gap-1.5">
+                    <span>{benefit.label}</span>
+                    {benefit.description ? (
+                      <button
+                        type="button"
+                        onClick={() => setInfoBenefit(benefit)}
+                        className="inline-flex items-center justify-center text-ink-soft hover:text-forest-800 transition-colors flex-shrink-0 mt-0.5"
+                        aria-label={`Saiba mais sobre ${benefit.label}`}
+                        title={`Detalhes de ${benefit.label}`}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    ) : null}
+                  </span>
+                </li>
               ))}
             </ul>
             <button onClick={() => setView('catalog')} className={`w-full py-2.5 rounded-xl text-sm font-medium transition-colors ${plan.recommended ? 'bg-forest-900 text-white hover:bg-forest-800' : 'border border-line text-forest-800 hover:border-forest-300'}`}>
@@ -123,18 +117,54 @@ export default function AdminPlanosPage() {
       <div className="bg-white border border-line rounded-2xl p-6 mt-5">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="font-serif text-2xl text-forest-900">Regras de acesso</h2>
-            <p className="text-xs text-ink-soft mt-1">Os nomes vêm do mesmo catálogo usado no site; os valores abaixo continuam representando a regra de cada plano.</p>
+            <h2 className="font-serif text-2xl text-forest-900">Matriz atual dos planos</h2>
+            <p className="text-xs text-ink-soft mt-1">A comparação abaixo usa os mesmos nomes e níveis apresentados na experiência do usuário.</p>
           </div>
           <button onClick={() => setView('permissions')} className="text-xs font-medium text-forest-700 hover:text-forest-900">Editar permissões técnicas</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[560px]">
-            <thead><tr className="border-b border-line"><th className="text-left px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Funcionalidade</th><th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Gratuito</th><th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide bg-mint/30">Essencial</th><th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Plus</th></tr></thead>
-            <tbody>{rules.map(rule => <tr key={rule.key} className="border-b border-line last:border-0"><td className="px-4 py-3 text-forest-900 font-medium">{rule.label}</td><td className="px-4 py-3 text-center text-ink">{rule.values.free}</td><td className="px-4 py-3 text-center text-ink bg-mint/30">{rule.values.essential}</td><td className="px-4 py-3 text-center text-ink">{rule.values.plus}</td></tr>)}</tbody>
+          <table className="w-full text-sm border-collapse min-w-[680px]">
+            <thead>
+              <tr className="border-b border-line">
+                <th className="text-left px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Funcionalidade</th>
+                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Gratuito</th>
+                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide bg-mint/30">Essencial</th>
+                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Plus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map(rule => (
+                <tr key={rule.label} className="border-b border-line last:border-0">
+                  <td className="px-4 py-3 text-forest-900 font-medium">{rule.label}</td>
+                  <td className="px-4 py-3 text-center text-ink"><AccessValue value={rule.values.free} /></td>
+                  <td className="px-4 py-3 text-center text-ink bg-mint/30"><AccessValue value={rule.values.essential} /></td>
+                  <td className="px-4 py-3 text-center text-ink"><AccessValue value={rule.values.plus} /></td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </div>
+
+      {infoBenefit && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={`Informações sobre ${infoBenefit.label}`}>
+          <button type="button" className="absolute inset-0 bg-forest-950/35 backdrop-blur-[2px]" onClick={() => setInfoBenefit(null)} aria-label="Fechar informações" />
+          <div className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] border border-line bg-paper shadow-2xl p-6 sm:p-7">
+            <button type="button" onClick={() => setInfoBenefit(null)} className="absolute right-5 top-5 w-8 h-8 rounded-full hover:bg-mint/60 inline-flex items-center justify-center text-ink-soft hover:text-forest-900" aria-label="Fechar">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-10 h-10 rounded-xl bg-mint flex items-center justify-center text-forest-700 mb-4"><Info className="w-5 h-5" /></div>
+            <h3 className="font-serif text-2xl text-forest-950 pr-10">{infoBenefit.label}</h3>
+            <p className="mt-4 text-sm leading-relaxed text-ink-soft">{infoBenefit.description}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function AccessValue({ value }: { value: boolean | string }) {
+  if (value === true) return <Check className="w-4 h-4 text-forest-600 inline" aria-label="Incluído" />
+  if (value === false) return <span className="text-ink-soft/50" aria-label="Não incluído">—</span>
+  return <span>{value}</span>
 }
