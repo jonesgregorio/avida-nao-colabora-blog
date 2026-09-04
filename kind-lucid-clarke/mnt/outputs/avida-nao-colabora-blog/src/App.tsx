@@ -377,76 +377,26 @@ export default function App() {
     )
   }
 
+  // Páginas de conteúdo/ajuda (Contato, Sobre, Termos, Privacidade, Aviso, FAQ):
+  // usuário logado vê dentro da moldura do app (sidebar + rodapé); visitante vê
+  // o cabeçalho público. appShell resolve os dois casos.
   if (view === 'contact') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <ContactPage user={user} profile={accessProfile} onBack={() => setView('home')} navigate={navigate} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<ContactPage user={user} profile={accessProfile} onBack={() => setView('home')} navigate={navigate} />)
   }
-
   if (view === 'about') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <AboutPage onNavigate={navigate} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<AboutPage onNavigate={navigate} />)
   }
-
   if (view === 'privacy') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <PrivacyPage onNavigate={navigate} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<PrivacyPage onNavigate={navigate} />)
   }
-
   if (view === 'terms') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <TermsPage onNavigate={navigate} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<TermsPage onNavigate={navigate} />)
   }
-
   if (view === 'responsibility') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen bg-stone-50">
-          <ResponsibilityPage />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<ResponsibilityPage />)
   }
-
   if (view === 'faq') {
-    return (
-      <>
-        <Header onNavigate={navigate} user={user} profile={accessProfile} onSignOut={handleSignOut} currentView={view} />
-        <main className="min-h-screen">
-          <FAQPage onNavigate={navigate} />
-        </main>
-        <Footer onNavigate={navigate} />
-      </>
-    )
+    return appShell(<FAQPage onNavigate={navigate} />)
   }
 
   if (view === 'questionarios') {

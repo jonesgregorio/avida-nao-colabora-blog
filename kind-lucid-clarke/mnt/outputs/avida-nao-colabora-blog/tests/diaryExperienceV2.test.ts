@@ -61,15 +61,24 @@ test('mobile mantém ações essenciais próximas do polegar', () => {
   assert.match(diary, /Guardar meu registro/)
 })
 
-test('a escrita é a entrada principal do Diário; o check-in rápido continua a um toque (Fase 19R.3)', () => {
-  assert.match(diary, /useState<EntryMode>\(initialMood \? 'quick' : 'diary'\)/)
-  assert.match(diary, /Quero escrever no diário/)
-  assert.match(diary, /Prefiro só um Check-in rápido hoje/)
-  assert.doesNotMatch(diary, />Check-in rápido<\/button>[\s\S]*>Meu diário<\/button>/)
+test('Diário não oferece um segundo check-in e mantém as experiências separadas', () => {
+  assert.match(diary, /useState<EntryMode>\('diary'\)/)
+  assert.match(diary, /Check-in e Diário são separados/)
+  assert.match(diary, /check-in é feito uma única vez ao dia pela Página Inicial/i)
+  assert.doesNotMatch(diary, /Prefiro só um Check-in rápido hoje/)
+  assert.doesNotMatch(diary, />Fazer check-in rápido<\/button>/)
   assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)
 })
 
-test('Diário guarda texto sem exigir humor; check-in continua exigindo humor (Fase 19R.B)', () => {
+test('Diário permite até três aprofundamentos do mesmo registro no dia', () => {
+  assert.match(diary, /MAX_DEEPENINGS_PER_DAY = 3/)
+  assert.match(diary, /todayDeepeningCount >= MAX_DEEPENINGS_PER_DAY/)
+  assert.match(diary, /3 aprofundamentos disponíveis/)
+  assert.match(diary, /deepeningsRemaining/)
+  assert.match(diary, /aprofundamentos usados hoje/)
+})
+
+test('Diário guarda texto sem exigir humor; compatibilidade de check-in continua exigindo humor', () => {
   assert.match(diary, /if \(isCheckin && !moodChip\)/)
   assert.match(diary, /mood: meta\?\.label \?\? null/)
   assert.match(diary, /mood_score: meta \?/)
@@ -88,7 +97,7 @@ test('pós-registro mostra uma ajuda por vez e deixa conteúdo extra sob escolha
   assert.match(savedReflection, /não transformar o pós-registro em uma lista de tarefas/)
 })
 
-test('o check-in rápido continua coletando sinais complementares sem formulário longo', () => {
+test('compatibilidade legada de check-in mantém sinais complementares sem voltar à navegação do Diário', () => {
   assert.match(diary, /Tensão\/estresse/)
   assert.match(diary, /Intensidade da ansiedade/)
   assert.match(diary, /mood === 'ansiedade'/)
@@ -185,7 +194,7 @@ test('tags sugeridas só entram nos dados após confirmação explícita', () =>
   assert.match(migration, /ai_suggested_tags jsonb/)
 })
 
-test('metadados de IA e confirmação de tags não consomem o único aprofundamento', () => {
+test('metadados de IA e confirmação de tags não consomem aprofundamentos', () => {
   assert.match(migration, /meaningful_update BOOLEAN/)
   assert.match(migration, /OLD\.text IS DISTINCT FROM NEW\.text/)
   assert.match(migration, /NEW\.deepened_at := OLD\.deepened_at/)
