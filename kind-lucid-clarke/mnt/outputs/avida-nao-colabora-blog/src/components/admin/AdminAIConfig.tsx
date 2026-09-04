@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Save, Check, RefreshCw, ExternalLink, KeyRound, Cpu } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { logAdminAction } from '../../lib/adminAudit'
 
 // Configuração de IA no Admin:
 //  - modelo do Gemini/Groq (override no banco, sem deploy)
@@ -96,6 +97,7 @@ export default function AdminAIConfig() {
     const { error } = await supabase.rpc('admin_set_ai_models', { p_gemini: gemini.trim() || null, p_groq: groq.trim() || null })
     setSaving(false)
     if (error) { setErr(error.message); return }
+    void logAdminAction('config', 'ai_models', null, { gemini: gemini.trim() || null, groq: groq.trim() || null })
     setSaved(true); setTimeout(() => setSaved(false), 2500)
     await load()
   }

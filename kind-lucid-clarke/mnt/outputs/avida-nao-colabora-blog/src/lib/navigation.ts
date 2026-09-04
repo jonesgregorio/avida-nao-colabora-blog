@@ -5,7 +5,7 @@ export const PERSIST_KEY = 'avida_nav'
 // Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
 export const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
-  'about','privacy','terms','questionnaire','questionarios','pricing',
+  'about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing',
   'articles','article','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
   'descobertas','cuidar','mais',

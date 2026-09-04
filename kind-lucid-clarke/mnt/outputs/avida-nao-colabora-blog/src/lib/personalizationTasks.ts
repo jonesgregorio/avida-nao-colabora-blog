@@ -579,7 +579,7 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
     const defs = getTaskDefsForPlan(plan)
 
     for (const def of defs) {
-      const buildAndQueue = (periodKey: string, eventDate?: Date, eventId?: string, relatedIds?: Record<string, string>) => {
+      const buildAndQueue = (periodKey: string, eventDate?: Date, relatedIds?: Record<string, string>) => {
         const compositeKey = `${uid}|${def.key}|${periodKey}`
         let dueAt = dueDateForDef(def, now, eventDate)
         // Usuário recém-criado não nasce atrasado: o vencimento nunca é anterior à
@@ -632,11 +632,11 @@ export async function refreshTasksForAllUsers(): Promise<{ created: number; upda
         buildAndQueue(curMonth)
       } else if (def.frequency === 'on_guidance') {
         for (const g of (guidanceByUser[uid] ?? [])) {
-          buildAndQueue(`guidance-${g.id}`, new Date(g.created_at), g.id, { guidance_id: g.id })
+          buildAndQueue(`guidance-${g.id}`, new Date(g.created_at), { guidance_id: g.id })
         }
       } else if (def.frequency === 'on_report') {
         for (const r of (reportByUser[uid] ?? [])) {
-          buildAndQueue(`report-${r.id}`, new Date(r.created_at), r.id, { report_id: r.id })
+          buildAndQueue(`report-${r.id}`, new Date(r.created_at), { report_id: r.id })
         }
       }
     }

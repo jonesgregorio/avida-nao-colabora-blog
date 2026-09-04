@@ -124,6 +124,7 @@ export default function AdminNotifications() {
     if (!confirm('Excluir notificação?')) return
     const { error } = await supabase.from('notifications').delete().eq('id', id)
     if (error) { showToastMsg('Erro ao excluir: ' + error.message); return }
+    void logAdminAction('delete', 'notification', id, null)
     load()
   }
 
