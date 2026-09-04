@@ -200,7 +200,7 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
 
 // Constrói o relatório (não salva) a partir dos registros do período.
 export function buildReport(
-  type: ReportType, plan: string, period: Period,
+  type: ReportType, period: Period,
   entries: DiaryRowLite[], prevEntries: DiaryRowLite[],
 ): StoredReport {
   const analysis = computeEmotionalAnalysis(entries, prevEntries)

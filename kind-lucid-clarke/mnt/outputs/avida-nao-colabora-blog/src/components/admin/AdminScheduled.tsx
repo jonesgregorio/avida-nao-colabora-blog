@@ -19,13 +19,6 @@ const TYPES = ['Artigo', 'Campanha', 'Lembrete', 'Reflexão mensal guiada']
 const PLANS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', therapeutic: 'Plus', 'therapeutic-plus': 'Plus', plus: 'Plus',
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  sent: 'bg-green-100 text-green-700',
-  cancelled: 'bg-stone-100 text-stone-400',
-}
-
 const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
 
 export default function AdminScheduled() {
