@@ -28,9 +28,11 @@ interface Finding { severity: Severity; area: Area; message: string }
 // tests/ trava o número de chaves para lembrar de atualizar os dois lados
 // se o catálogo oficial mudar.
 const OFFICIAL_FEATURE_KEYS = [
-  'articles_free', 'wellbeing_diary_5_month', 'basic_self_assessment', 'biweekly_auto_challenges',
-  'diary_unlimited', 'diary_mood_symptoms_summary', 'full_history', 'emotional_exercise_library',
-  'weekly_assessments', 'personalized_self_care_plan', 'advanced_monthly_report',
+  'checkin_daily', 'articles_free', 'wellbeing_diary_5_month', 'diary_voice',
+  'basic_self_assessment', 'biweekly_auto_challenges',
+  'diary_unlimited', 'diary_mood_symptoms_summary', 'discoveries', 'full_history',
+  'emotional_exercise_library', 'weekly_assessments', 'my_garden',
+  'diary_deepenings', 'personalized_self_care_plan', 'advanced_monthly_report',
   'monthly_message_guidance',
 ]
 const PAID_PLAN_KEYS = ['essential', 'plus'] as const

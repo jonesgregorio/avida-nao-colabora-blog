@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('OFFICIAL_FEATURE_KEYS da Edge Function fica em sincronia com os 12 recursos técnicos oficiais', () => {
+test('OFFICIAL_FEATURE_KEYS da Edge Function fica em sincronia com os 17 recursos técnicos oficiais', () => {
   const officialPlans = read('src/lib/officialPlans.ts')
   const officialKeys = [...officialPlans.matchAll(/key: '([a-z0-9_]+)'/g)].map(m => m[1])
   // Corta o array em OFFICIAL_FEATURES (antes de OFFICIAL_PLANS reaproveitar `key:`).
@@ -13,7 +13,7 @@ test('OFFICIAL_FEATURE_KEYS da Edge Function fica em sincronia com os 12 recurso
     officialPlans.indexOf('export const ALIAS_TO_KEY'),
   )
   const officialFeatureKeys = [...featuresBlock.matchAll(/key: '([a-z0-9_]+)'/g)].map(m => m[1])
-  assert.equal(officialFeatureKeys.length, 12, 'auditoria assume 12 recursos técnicos oficiais — atualize a Edge Function se isso mudar')
+  assert.equal(officialFeatureKeys.length, 17, 'auditoria assume 17 recursos técnicos oficiais — atualize a Edge Function se isso mudar')
 
   const fn = read('supabase/functions/admin-plan-consistency/index.ts')
   const fnBlock = fn.slice(fn.indexOf('const OFFICIAL_FEATURE_KEYS'), fn.indexOf(']') + 1)

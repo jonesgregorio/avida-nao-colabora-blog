@@ -51,20 +51,25 @@ export interface OfficialPlan {
 // Catálogo oficial ENXUTO — somente os recursos dos 3 planos (§3).
 export const OFFICIAL_FEATURES: OfficialFeature[] = [
   // Gratuito
-  { key: 'articles_free',                          name: 'Blog aberto',                     category: 'Conteúdo',                order: 1, aliases: ['articles_free'] },
-  { key: 'wellbeing_diary_5_month',                name: 'Diário emocional básico',         category: 'Diário',                  order: 2, aliases: ['wellbeing_diary_limited', 'diary_monthly_limit_5', 'simple_mood_checkin'] },
-  { key: 'basic_self_assessment',                  name: 'Questionário inicial',            category: 'Questionários',           order: 3 },
-  { key: 'biweekly_auto_challenges',               name: 'Algumas práticas guiadas',        category: 'Conteúdo',                order: 4 },
+  { key: 'checkin_daily',                          name: 'Check-in diário',                 category: 'Check-in',                order: 1 },
+  { key: 'articles_free',                          name: 'Blog aberto',                     category: 'Conteúdo',                order: 2, aliases: ['articles_free'] },
+  { key: 'wellbeing_diary_5_month',                name: 'Diário emocional básico',         category: 'Diário',                  order: 3, aliases: ['wellbeing_diary_limited', 'diary_monthly_limit_5', 'simple_mood_checkin'] },
+  { key: 'diary_voice',                            name: 'Diário por voz',                  category: 'Diário',                  order: 4 },
+  { key: 'basic_self_assessment',                  name: 'Questionário inicial',            category: 'Questionários',           order: 5 },
+  { key: 'biweekly_auto_challenges',               name: 'Algumas práticas guiadas',        category: 'Conteúdo',                order: 6 },
   // Essencial
-  { key: 'diary_unlimited',                        name: 'Diário ilimitado',                category: 'Diário',                  order: 5 },
-  { key: 'diary_mood_symptoms_summary',            name: 'Mapa emocional completo',         category: 'Mapa emocional',          order: 6, aliases: ['evolution_highlights_no_clinical_analysis', 'monthly_comparative_charts', 'extra_emotional_markers'] },
-  { key: 'full_history',                           name: 'Histórico e gráficos',            category: 'Histórico',               order: 7, aliases: ['simple_evolution_charts', 'limited_history'] },
-  { key: 'emotional_exercise_library',             name: 'Conteúdos guiados completos',     category: 'Conteúdo',                order: 8, aliases: ['guided_text_meditations', 'guided_diary_notes'] },
-  { key: 'weekly_assessments',                     name: 'Relatório semanal automático',    category: 'Relatórios',              order: 9 },
+  { key: 'diary_unlimited',                        name: 'Diário ilimitado',                category: 'Diário',                  order: 7 },
+  { key: 'diary_mood_symptoms_summary',            name: 'Mapa emocional completo',         category: 'Mapa emocional',          order: 8, aliases: ['evolution_highlights_no_clinical_analysis', 'monthly_comparative_charts', 'extra_emotional_markers'] },
+  { key: 'discoveries',                            name: 'Descobertas',                     category: 'Descobertas',             order: 9 },
+  { key: 'full_history',                           name: 'Histórico e gráficos',            category: 'Histórico',               order: 10, aliases: ['simple_evolution_charts', 'limited_history'] },
+  { key: 'emotional_exercise_library',             name: 'Conteúdos guiados completos',     category: 'Conteúdo',                order: 11, aliases: ['guided_text_meditations', 'guided_diary_notes'] },
+  { key: 'weekly_assessments',                     name: 'Relatório semanal automático',    category: 'Relatórios',              order: 12 },
+  { key: 'my_garden',                              name: 'Meu Jardim',                      category: 'Jardim',                  order: 13 },
   // Plus
-  { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 10, aliases: ['weekly_self_care_plan'] },
-  { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 11 },
-  { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 12 },
+  { key: 'diary_deepenings',                       name: 'Aprofundamentos do Diário',       category: 'Diário',                  order: 14 },
+  { key: 'personalized_self_care_plan',            name: 'Plano de autocuidado mensal',     category: 'Autocuidado',             order: 15, aliases: ['weekly_self_care_plan'] },
+  { key: 'advanced_monthly_report',                name: 'Relatório mensal aprofundado',    category: 'Relatórios',              order: 16 },
+  { key: 'monthly_message_guidance',               name: 'Orientação mensal por mensagem',  category: 'Orientação profissional', order: 17 },
 ]
 // 'professional_comment_on_monthly_report' foi aposentado como recurso comercial
 // (nunca mais como oferta ativa do Plus). Dados históricos permanecem no banco
@@ -106,14 +111,15 @@ export const DEFAULT_INHERIT: Record<PlanKey, boolean> = {
 // ─── Features PRÓPRIAS de cada plano (excluindo herdadas) ────────────────────
 
 const FREE_KEYS = [
-  'articles_free', 'wellbeing_diary_5_month', 'basic_self_assessment', 'biweekly_auto_challenges',
+  'checkin_daily', 'articles_free', 'wellbeing_diary_5_month', 'diary_voice',
+  'basic_self_assessment', 'biweekly_auto_challenges',
 ]
 const ESSENTIAL_OWN_KEYS = [
-  'diary_unlimited', 'diary_mood_symptoms_summary', 'full_history',
-  'emotional_exercise_library', 'weekly_assessments',
+  'diary_unlimited', 'diary_mood_symptoms_summary', 'discoveries', 'full_history',
+  'emotional_exercise_library', 'weekly_assessments', 'my_garden',
 ]
 const PLUS_OWN_KEYS = [
-  'personalized_self_care_plan', 'advanced_monthly_report', 'monthly_message_guidance',
+  'diary_deepenings', 'personalized_self_care_plan', 'advanced_monthly_report', 'monthly_message_guidance',
 ]
 
 export const OWN_FEATURE_KEYS: Record<PlanKey, string[]> = {
@@ -272,19 +278,28 @@ function featureRow(key: string, label: string, featureKey: string): OfficialPla
 }
 
 export const OFFICIAL_PLAN_COMPARISON: OfficialPlanCompareRow[] = [
+  featureRow('checkin', 'Check-in diário', 'checkin_daily'),
   {
     key: 'diary',
     label: 'Diário emocional',
     values: { free: 'Básico (5/mês)', essential: 'Ilimitado', plus: 'Ilimitado' },
   },
+  featureRow('voice', 'Diário por voz', 'diary_voice'),
+  {
+    key: 'deepening',
+    label: 'Aprofundamentos do Diário',
+    values: { free: false, essential: false, plus: 'Até 3 por dia' },
+  },
   featureRow('questionnaire', 'Questionário inicial', 'basic_self_assessment'),
   featureRow('emotional-map', 'Mapa emocional e gráficos', 'diary_mood_symptoms_summary'),
+  featureRow('discoveries', 'Descobertas', 'discoveries'),
   {
     key: 'guided-content',
     label: 'Conteúdos guiados',
     values: { free: 'Algumas práticas', essential: 'Completos', plus: 'Completos' },
   },
   featureRow('weekly-report', 'Relatório semanal automático', 'weekly_assessments'),
+  featureRow('garden', 'Meu Jardim', 'my_garden'),
   featureRow('self-care', 'Plano de autocuidado mensal', 'personalized_self_care_plan'),
   featureRow('monthly-report', 'Relatório mensal aprofundado', 'advanced_monthly_report'),
   featureRow('monthly-guidance', 'Orientação mensal por mensagem', 'monthly_message_guidance'),

@@ -554,7 +554,7 @@ export default function MyPlanPage({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-forest-800">Confirmar upgrade</h3>
-              <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+              <button onClick={() => setModal(null)} aria-label="Fechar confirmação de upgrade" className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3 mb-5">
               {[
@@ -612,7 +612,7 @@ export default function MyPlanPage({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-forest-800">Confirmar downgrade de plano</h3>
-              <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+              <button onClick={() => setModal(null)} aria-label="Fechar confirmação de downgrade" className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
               <div className="grid grid-cols-2 gap-2">
@@ -692,7 +692,7 @@ export default function MyPlanPage({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 my-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-red-700">Solicitar cancelamento</h3>
-              <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+              <button onClick={() => setModal(null)} aria-label="Fechar solicitação de cancelamento" className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4 mb-5">
               <div className="grid grid-cols-2 gap-2">
@@ -771,7 +771,7 @@ export default function MyPlanPage({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-forest-800">{hasPendingDowngrade ? 'Desfazer downgrade' : isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}</h3>
-              <button onClick={() => setModal(null)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+              <button onClick={() => setModal(null)} aria-label={`Fechar: ${hasPendingDowngrade ? 'Desfazer downgrade' : isCancelRequested ? 'Cancelar solicitação' : 'Manter meu plano'}`} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-sm text-stone-600 mb-5">
               {hasPendingDowngrade
