@@ -269,7 +269,7 @@ function UserFooter({ onNavigate }: { onNavigate: (id: string) => void }) {
             </button>
           ))}
         </nav>
-        <p className="text-[11px] text-stone-400">Em crise? CVV 188 (24h) · SAMU 192</p>
+        <p className="text-xs text-ink-soft">Em crise? CVV 188 (24h) · SAMU 192</p>
       </div>
     </footer>
   )
