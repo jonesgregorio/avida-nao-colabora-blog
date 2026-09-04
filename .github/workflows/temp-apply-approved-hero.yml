@@ -1,0 +1,76 @@
+name: Temporary apply approved hero image
+
+on:
+  push:
+    branches:
+      - chatgpt/home-hero-approved-image-final
+    paths:
+      - '.github/workflows/temp-apply-approved-hero.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/home-hero-approved-image-final
+          fetch-depth: 0
+
+      - name: Decode and validate approved hero image
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+        run: |
+          mkdir -p public/images/home
+          cat .tmp/hero-approved.part* | base64 --decode > public/images/home/hero-person-approved.webp
+          test -s public/images/home/hero-person-approved.webp
+          SIZE=$(stat -c%s public/images/home/hero-person-approved.webp)
+          echo "decoded_size=$SIZE"
+          test "$SIZE" -eq 61010
+          file public/images/home/hero-person-approved.webp | grep -qi 'Web/P image'
+
+      - name: Point Hero to approved image
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/Hero.tsx')
+          s = p.read_text()
+          old = '''          <img
+            src="/images/home/hero-person-clean.webp"
+            alt="Pessoa relaxando perto de uma janela em um ambiente acolhedor com plantas e livros."
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />'''
+          new = '''          <img
+            src="/images/home/hero-person-approved.webp"
+            alt="Pessoa relaxando com uma caneca em um ambiente acolhedor com plantas e luz natural."
+            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />'''
+          if old not in s:
+              raise SystemExit('Hero image block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Remove temporary payload and workflows
+        run: |
+          rm -rf kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/.tmp
+          rm -f kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/.github/workflows/temp-apply-approved-hero.yml
+          rm -f .github/workflows/temp-apply-approved-hero.yml
+
+      - name: Commit final hero image
+        run: |
+          git config user.name "jonesgregorio"
+          git config user.email "jonesgregory.jg@gmail.com"
+          git add -A
+          git diff --cached --stat
+          git diff --cached --quiet && exit 1 || true
+          git commit -m "fix: aplicar imagem aprovada no hero público"
+          git push origin HEAD:chatgpt/home-hero-approved-image-final
