@@ -75,7 +75,7 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             log="$(mktemp)"
             set +e
-            npm audit --omit=dev --audit-level=high >"$log" 2>&1
+            timeout 60s npm audit --omit=dev --audit-level=high >"$log" 2>&1
             status=$?
             set -e
             cat "$log"
@@ -85,7 +85,7 @@ jobs:
               exit 0
             fi
 
-            if grep -Eqi '503|504|service unavailable|network timeout|network error|audit endpoint returned an error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH' "$log"; then
+            if [ "$status" -eq 124 ] || grep -Eqi '503|504|service unavailable|network timeout|network error|audit endpoint returned an error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH' "$log"; then
               rm -f "$log"
               if [ "$attempt" -lt "$max_attempts" ]; then
                 echo "Auditoria npm indisponível temporariamente. Nova tentativa $((attempt + 1))/$max_attempts em 10s..."
@@ -93,7 +93,7 @@ jobs:
                 continue
               fi
               echo "O endpoint de auditoria npm permaneceu indisponível após $max_attempts tentativas."
-              exit "$status"
+              exit 1
             fi
 
             rm -f "$log"
