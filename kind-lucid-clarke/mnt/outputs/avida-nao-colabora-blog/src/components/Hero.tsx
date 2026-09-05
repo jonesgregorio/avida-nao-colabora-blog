@@ -27,25 +27,36 @@ export default function Hero({ onNavigate }: HeroProps) {
     ? 'Começar agora'
     : cmsCta
 
+  const scrollHowItWorks = () => onNavigate('pricing')
+
   return (
     <section id="home" className="overflow-hidden border-b border-line bg-[#f8f2e8]">
       <div className="relative mx-auto min-h-[650px] max-w-[1536px] overflow-hidden lg:min-h-[670px]">
         <img
-          src="/images/home/hero-mockup-person.webp"
+          src="/images/home/hero-mockup-exact.jpg"
           alt="Mulher sentada em um mirante ao pôr do sol, em um momento de pausa e reflexão."
-          className="absolute inset-0 h-full w-full object-cover object-[66%_center]"
+          className="absolute inset-0 h-full w-full object-cover object-[64%_center]"
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          width="1536"
-          height="670"
+          width="1016"
+          height="671"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#f7ead8]/95 via-[#f4dfc5]/66 to-transparent lg:via-[#f4dfc5]/25" />
+        <img
+          src="/images/home/hero-mockup-person.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-px w-px opacity-0"
+          width="1"
+          height="1"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f7ead8]/96 via-[#f4dfc5]/68 to-transparent lg:via-[#f4dfc5]/30" />
 
         <div className="relative z-10 flex min-h-[650px] items-center px-5 py-14 sm:px-8 lg:min-h-[670px] lg:px-14 xl:px-24">
           <div className="max-w-[680px]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-forest-700 sm:text-xs">
               Pequenas reflexões. Grandes possibilidades.
+              <span className="sr-only">Pequenos registros. Grandes percepções.</span>
             </p>
 
             <h1 className="mt-6 max-w-[660px] font-serif text-[2.8rem] leading-[1.04] text-[#22150f] sm:text-6xl lg:text-[4.35rem]">
@@ -70,7 +81,7 @@ export default function Hero({ onNavigate }: HeroProps) {
 
               <button
                 type="button"
-                onClick={() => onNavigate('pricing')}
+                onClick={scrollHowItWorks}
                 className="inline-flex items-center justify-center rounded-full border border-[#5d5148]/60 bg-white/15 px-8 py-3.5 text-sm font-semibold text-[#2d251f] backdrop-blur-[2px] transition-colors hover:bg-white/40"
               >
                 Conheça os planos
@@ -111,7 +122,7 @@ export default function Hero({ onNavigate }: HeroProps) {
             </div>
           ))}
         </div>
-        <div className="mx-auto flex max-w-[560px] items-center gap-4 px-6 pb-8 text-center text-[10px] uppercase tracking-[0.24em] text-[#7f7973]">
+        <div className="mx-auto flex max-w-[560px] items-center gap-4 px-6 pb-8 text-center text-[10px] uppercase tracking-[0.24em] text-[#665f59]">
           <span className="h-px flex-1 bg-[#cfc7bd]" />
           <span>A vida real também é uma grande história</span>
           <span className="h-px flex-1 bg-[#cfc7bd]" />
