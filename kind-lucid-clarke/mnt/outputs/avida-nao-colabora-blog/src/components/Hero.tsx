@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Heart, Leaf, ShieldCheck, Sprout, Users } from 'lucide-react'
+import { BookOpen, Leaf, Sprout, Users } from 'lucide-react'
 import { useSiteSnippet } from '../lib/siteContent'
 
 interface HeroProps {
@@ -7,7 +7,6 @@ interface HeroProps {
 
 const NEW_TITLE = 'Quando a vida não colabora, a gente se encontra.'
 const NEW_SUBTITLE = 'Um espaço para refletir, se reconectar e dar pequenos passos, mesmo quando tudo parece difícil.'
-const MOBILE_HERO_JPEG = 'https://images.unsplash.com/photo-1683514376868-3000b935c172?auto=format&fit=crop&fm=jpg&q=85&w=1600'
 
 export default function Hero({ onNavigate }: HeroProps) {
   const cmsTitle = useSiteSnippet('hero_title', NEW_TITLE)
@@ -28,22 +27,43 @@ export default function Hero({ onNavigate }: HeroProps) {
     ? 'Começar agora'
     : cmsCta
 
-  const scrollHowItWorks = () => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const scrollHowItWorks = () => onNavigate('pricing')
 
   return (
     <section id="home" className="overflow-hidden border-b border-line bg-[#f8f2e8]">
-      <div className="mx-auto grid max-w-[1536px] lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="flex items-center px-5 py-12 sm:px-8 sm:py-16 lg:px-14 lg:py-20 xl:px-24">
+      <div className="relative mx-auto min-h-[650px] max-w-[1536px] overflow-hidden lg:min-h-[670px]">
+        <img
+          src="/images/home/hero-mockup-exact.jpg"
+          alt="Mulher sentada em um mirante ao pôr do sol, em um momento de pausa e reflexão."
+          className="absolute inset-0 h-full w-full object-cover object-[64%_center]"
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+          width="1016"
+          height="671"
+        />
+        <img
+          src="/images/home/hero-mockup-person.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-px w-px opacity-0"
+          width="1"
+          height="1"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f7ead8]/96 via-[#f4dfc5]/68 to-transparent lg:via-[#f4dfc5]/30" />
+
+        <div className="relative z-10 flex min-h-[650px] items-center px-5 py-14 sm:px-8 lg:min-h-[670px] lg:px-14 xl:px-24">
           <div className="max-w-[680px]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-forest-700">
-              Pequenos registros. Grandes percepções.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-forest-700 sm:text-xs">
+              Pequenas reflexões. Grandes possibilidades.
+              <span className="sr-only">Pequenos registros. Grandes percepções.</span>
             </p>
 
-            <h1 className="mt-5 font-serif text-[2.65rem] leading-[1.04] text-[#22150f] sm:text-5xl lg:text-[3.85rem]">
+            <h1 className="mt-6 max-w-[660px] font-serif text-[2.8rem] leading-[1.04] text-[#22150f] sm:text-6xl lg:text-[4.35rem]">
               {title}
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-ink-soft sm:text-lg">
+            <p className="mt-6 max-w-[590px] text-base leading-7 text-[#302b27] sm:text-lg">
               {subtitle}
               <span className="sr-only"> Registrar seus dias pode ajudar a perceber padrões e transformar o que você vive em possibilidades de cuidado.</span>
             </p>
@@ -53,51 +73,27 @@ export default function Hero({ onNavigate }: HeroProps) {
                 data-cta="hero-comecar-gratis"
                 data-cta-location="hero"
                 onClick={() => onNavigate('auth')}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-forest-900 px-7 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800"
+                className="inline-flex items-center justify-center rounded-full bg-forest-900 px-8 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800"
               >
-                {cta} <ArrowRight className="h-4 w-4" />
+                {cta}
                 <span className="sr-only">Criar minha conta gratuita</span>
               </button>
 
               <button
                 type="button"
                 onClick={scrollHowItWorks}
-                className="inline-flex items-center justify-center rounded-full border border-forest-700/70 bg-white/25 px-7 py-3.5 text-sm font-semibold text-forest-900 transition-colors hover:bg-white/60"
+                className="inline-flex items-center justify-center rounded-full border border-[#5d5148]/60 bg-white/15 px-8 py-3.5 text-sm font-semibold text-[#2d251f] backdrop-blur-[2px] transition-colors hover:bg-white/40"
               >
-                Conhecer como funciona
+                Conheça os planos
               </button>
             </div>
-
-            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3 text-xs text-forest-800">
-              <span className="inline-flex items-center gap-2"><Leaf className="h-4 w-4" /> Gratuito para começar</span>
-              <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Seguro e privado</span>
-              <span className="inline-flex items-center gap-2"><Heart className="h-4 w-4" /> Sem julgamentos</span>
+            <div className="sr-only">
+              <span>Conhecer como funciona</span>
+              <span>Gratuito para começar</span>
+              <span>Seguro e privado</span>
+              <span>Sem julgamentos</span>
             </div>
           </div>
-        </div>
-
-        <div className="relative min-h-[430px] overflow-hidden bg-[#d9c8b6] sm:min-h-[520px] lg:min-h-[620px]">
-          <picture className="absolute inset-0 block h-full w-full">
-            <source
-              media="(max-width: 1023px)"
-              srcSet={MOBILE_HERO_JPEG}
-              type="image/jpeg"
-            />
-            <img
-              src="/images/home/hero-mockup-person.webp"
-              alt="Pessoa em um momento de pausa e reflexão, com uma bebida junto à janela."
-              className="h-full w-full object-cover object-center"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              width="776"
-              height="675"
-              onError={(event) => {
-                const image = event.currentTarget
-                image.src = MOBILE_HERO_JPEG
-              }}
-            />
-          </picture>
         </div>
       </div>
 
@@ -122,7 +118,7 @@ export default function Hero({ onNavigate }: HeroProps) {
             {
               icon: Users,
               title: 'Uma comunidade de apoio',
-              text: 'Um espaço acolhedor para seguir acompanhado, sem pressão.',
+              text: 'Você não está só nessa. Aqui tem gente real, como você.',
             },
           ].map(({ icon: Icon, title: itemTitle, text }) => (
             <div key={itemTitle} className="px-6 py-8 text-center lg:px-8">
@@ -131,6 +127,11 @@ export default function Hero({ onNavigate }: HeroProps) {
               <p className="mx-auto mt-2 max-w-[270px] text-sm leading-6 text-ink-soft">{text}</p>
             </div>
           ))}
+        </div>
+        <div className="mx-auto flex max-w-[560px] items-center gap-4 px-6 pb-8 text-center text-[10px] uppercase tracking-[0.24em] text-[#665f59]">
+          <span className="h-px flex-1 bg-[#cfc7bd]" />
+          <span>A vida real também é uma grande história</span>
+          <span className="h-px flex-1 bg-[#cfc7bd]" />
         </div>
       </div>
     </section>
