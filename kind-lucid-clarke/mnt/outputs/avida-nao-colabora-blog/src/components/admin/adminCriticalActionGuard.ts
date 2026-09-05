@@ -52,7 +52,7 @@ function criticalConfirmation(target: Element): { control: HTMLElement; message:
 
 function installGuard() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
-  const guardedWindow = window as GuardWindow
+  const guardedWindow = window as unknown as GuardWindow
   if (guardedWindow[installKey]) return
   guardedWindow[installKey] = true
 
