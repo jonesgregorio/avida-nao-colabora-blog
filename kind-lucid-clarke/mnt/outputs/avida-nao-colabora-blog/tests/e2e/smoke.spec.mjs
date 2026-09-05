@@ -35,8 +35,8 @@ test('foto principal do hero carrega bytes válidos', async ({ page, request }) 
   await expect(hero).toBeVisible()
   await expect(hero).toHaveAttribute('src', '/images/home/hero-person-approved.webp')
   await expect.poll(
-    () => hero.evaluate((img) => img.complete && img.naturalWidth > 0),
-    { message: 'a imagem do hero deve terminar o carregamento com largura natural válida' },
+    () => hero.evaluate((img) => img.complete && img.naturalWidth >= 1200),
+    { message: 'a imagem aprovada do hero deve carregar completa e com resolução nítida' },
   ).toBe(true)
 
   const src = await hero.getAttribute('src')
