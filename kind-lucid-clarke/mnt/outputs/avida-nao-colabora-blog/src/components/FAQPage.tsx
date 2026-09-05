@@ -2,97 +2,13 @@ import { useState } from 'react'
 import { ChevronDown, MessageCircle, Mail, Phone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useFaqItems } from '../lib/siteContent'
+import { FAQ_FALLBACK } from '../lib/faqContent'
 
 interface FAQPageProps {
   onNavigate: (section: string) => void
 }
 
-const FAQS: { question: string; answer: string; category: string }[] = [
-  // Conta e acesso
-  {
-    category: 'Conta e acesso',
-    question: 'Como crio minha conta?',
-    answer: 'Clique em "Começar gratuitamente" em qualquer página, informe seu nome, e-mail e crie uma senha. Depois do cadastro, enviamos um link de confirmação para o endereço informado. O acesso à área logada é liberado somente após confirmar o e-mail. Se o link não chegar, verifique a caixa de spam ou use a opção de reenviar na tela de confirmação.',
-  },
-  {
-    category: 'Conta e acesso',
-    question: 'Esqueci minha senha. O que faço?',
-    answer: 'Na tela de login, clique em "Esqueci minha senha". Você receberá um link de redefinição no e-mail cadastrado. O link expira em 1 hora.',
-  },
-  {
-    category: 'Conta e acesso',
-    question: 'Posso usar no celular?',
-    answer: 'Sim. A plataforma funciona em qualquer navegador mobile (Chrome, Safari, Firefox). Não há necessidade de instalar aplicativo — acesse pelo navegador do seu celular normalmente.',
-  },
-  {
-    category: 'Conta e acesso',
-    question: 'Posso excluir minha conta?',
-    answer: 'Sim. Em Meu perfil > Privacidade e seus dados, você pode excluir a conta por autoatendimento. Para sua segurança, é necessário informar a senha atual e digitar EXCLUIR. A conta e os dados pessoais vinculados ao aplicativo são removidos ao concluir o processo; se houver cadastro de cobrança no Stripe, ele é encerrado antes da exclusão para impedir novas cobranças. Registros que prestadores precisem conservar por obrigação legal, segurança ou auditoria seguem os prazos aplicáveis desses prestadores.',
-  },
-  // Planos e pagamento
-  {
-    category: 'Planos e pagamento',
-    question: 'O plano gratuito tem prazo de validade?',
-    answer: 'Não. O plano Gratuito é para sempre, sem limite de tempo. Você pode usar as funcionalidades básicas pelo tempo que quiser, sem precisar inserir cartão de crédito.',
-  },
-  {
-    category: 'Planos e pagamento',
-    question: 'Qual a diferença entre os planos?',
-    answer: 'O Gratuito permite começar com Check-in diário, Diário emocional em até 5 dias por mês, Diário por voz, uma seleção de questionários, conteúdos guiados e uma visão inicial da Minha História. O Essencial amplia o acompanhamento com Diário sem limite mensal, Mapa Emocional, Descobertas, Minha História completa, Relatório Semanal, Meu Jardim e conteúdos guiados completos. O Plus inclui tudo do Essencial e acrescenta Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal.',
-  },
-  {
-    category: 'Planos e pagamento',
-    question: 'Como funciona o pagamento?',
-    answer: 'Os planos pagos são cobrados mensalmente via cartão de crédito, processados com segurança pelo Stripe (padrão PCI DSS nível 1). Não armazenamos dados do seu cartão.',
-  },
-  {
-    category: 'Planos e pagamento',
-    question: 'Posso cancelar quando quiser?',
-    answer: 'Sim, sem multa. Ao cancelar, seu acesso ao plano pago continua até o final do período já pago. Após isso, sua conta volta automaticamente para o plano Gratuito e seus dados ficam preservados.',
-  },
-  {
-    category: 'Planos e pagamento',
-    question: 'Existe reembolso?',
-    answer: 'Analisamos pedidos de reembolso caso a caso. Em geral, oferecemos reembolso proporcional nos primeiros 7 dias após a assinatura se o serviço não atendeu ao esperado. Entre em contato pelo formulário abaixo.',
-  },
-  // Diário e conteúdo
-  {
-    category: 'Diário e funcionalidades',
-    question: 'Meus registros do diário são privados?',
-    answer: 'Sim. Seus registros ficam protegidos por controles de acesso e não são disponibilizados publicamente. O conteúdo pode ser processado automaticamente para gerar mapas, relatórios, planos e recomendações. Em recursos do Plus que preveem revisão profissional, o profissional recebe o relatório ou o contexto necessário para a devolutiva, conforme o fluxo apresentado a você; isso não transforma o diário em uma área de leitura livre pela equipe.',
-  },
-  {
-    category: 'Diário e funcionalidades',
-    question: 'Posso exportar meus dados?',
-    answer: 'Sim. Em Meu perfil > Privacidade e seus dados, clique em "Baixar meus dados". A plataforma prepara um arquivo JSON legível com os dados vinculados à sua conta, incluindo perfil, diário, check-ins, questionários, relatórios, planos, preferências, suporte, histórico de uso e informações de assinatura/cobrança aplicáveis.',
-  },
-  {
-    category: 'Diário e funcionalidades',
-    question: 'Os conteúdos do blog são para todos?',
-    answer: 'Os conteúdos marcados como "Público" podem ser lidos por qualquer pessoa, sem precisar criar conta. Conteúdos dos planos Essencial e Plus ficam disponíveis somente para assinantes dos respectivos planos.',
-  },
-  {
-    category: 'Diário e funcionalidades',
-    question: 'O que é o mapa emocional?',
-    answer: 'O mapa emocional é uma visualização dos seus registros ao longo do tempo — humor, energia, sintomas e padrões emocionais — apresentados em gráficos e resumos. Disponível no plano Essencial e Plus.',
-  },
-  // Saúde e segurança
-  {
-    category: 'Saúde e segurança',
-    question: 'Vocês fazem diagnósticos?',
-    answer: 'Não. A plataforma é uma ferramenta de autoconhecimento e organização emocional. Não realizamos diagnósticos de qualquer tipo. Se você precisar de avaliação clínica, procure um profissional de saúde mental habilitado.',
-  },
-  {
-    category: 'Saúde e segurança',
-    question: 'E se eu estiver em crise?',
-    answer: 'Se você estiver em crise ou pensando em se machucar, procure ajuda imediatamente: CVV 188 (gratuito, 24h) ou SAMU 192. Esta plataforma não é um serviço de emergência.',
-  },
-  {
-    category: 'Saúde e segurança',
-    question: 'O Plano Plus substitui o acompanhamento com psicólogo?',
-    answer: 'Não. O Plus reúne recursos adicionais de autoconhecimento — Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal por mensagem, esta última a partir de uma pergunta específica enviada por você. Nenhum deles substitui psicoterapia, avaliação clínica ou acompanhamento profissional continuado.',
-  },
-]
+const FAQS = FAQ_FALLBACK
 
 export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
   const dbFaqs = useFaqItems()
