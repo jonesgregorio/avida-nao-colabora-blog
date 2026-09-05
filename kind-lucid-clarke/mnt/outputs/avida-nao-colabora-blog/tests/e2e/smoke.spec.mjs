@@ -31,7 +31,7 @@ test('home pública renderiza sem sessão', async ({ page }) => {
 
 test('foto principal do hero carrega bytes válidos', async ({ page, request }) => {
   await page.goto('/')
-  const hero = page.locator('img[src="/images/home/hero-mockup-person.webp"]')
+  const hero = page.locator('img[src="/images/home/hero-person-clean.webp"]')
   await expect(hero).toBeVisible()
   await expect.poll(
     () => hero.evaluate((img) => img.complete && img.naturalWidth > 0),
