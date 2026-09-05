@@ -1,0 +1,1 @@
+Regression guard: the Home hero must reference a committed image asset larger than 1 KB. The previous hero-mockup-exact.jpg was only 11 bytes and rendered as a broken image in production.
