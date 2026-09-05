@@ -7,6 +7,7 @@ interface HeroProps {
 
 const NEW_TITLE = 'Quando a vida não colabora, a gente se encontra.'
 const NEW_SUBTITLE = 'Um espaço para refletir, se reconectar e dar pequenos passos, mesmo quando tudo parece difícil.'
+const MOBILE_HERO_JPEG = 'https://images.unsplash.com/photo-1683514376868-3000b935c172?auto=format&fit=crop&fm=jpg&q=85&w=1600'
 
 export default function Hero({ onNavigate }: HeroProps) {
   const cmsTitle = useSiteSnippet('hero_title', NEW_TITLE)
@@ -76,29 +77,27 @@ export default function Hero({ onNavigate }: HeroProps) {
         </div>
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#d9c8b6] sm:min-h-[520px] lg:min-h-[620px]">
-          <img
-            src="/images/home/hero-mockup-person.webp"
-            alt="Pessoa em um momento de pausa e reflexão ao nascer do sol, com uma caneca e um caderno."
-            className="absolute inset-0 h-full w-full object-cover object-center"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            width="776"
-            height="675"
-            onError={(event) => {
-              const image = event.currentTarget
-              const currentSrc = image.getAttribute('src') || ''
-
-              if (currentSrc.endsWith('hero-mockup-person.webp')) {
-                image.src = '/images/home/hero-person-clean.webp'
-                return
-              }
-
-              if (currentSrc.endsWith('hero-person-clean.webp')) {
-                image.src = '/images/home/hero-person-photo-hq.webp'
-              }
-            }}
-          />
+          <picture className="absolute inset-0 block h-full w-full">
+            <source
+              media="(max-width: 1023px)"
+              srcSet={MOBILE_HERO_JPEG}
+              type="image/jpeg"
+            />
+            <img
+              src="/images/home/hero-mockup-person.webp"
+              alt="Pessoa em um momento de pausa e reflexão, com uma bebida junto à janela."
+              className="h-full w-full object-cover object-center"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              width="776"
+              height="675"
+              onError={(event) => {
+                const image = event.currentTarget
+                image.src = MOBILE_HERO_JPEG
+              }}
+            />
+          </picture>
         </div>
       </div>
 
