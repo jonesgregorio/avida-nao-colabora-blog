@@ -27,13 +27,15 @@ export default function Hero({ onNavigate }: HeroProps) {
     ? 'Começar agora'
     : cmsCta
 
+  const scrollHowItWorks = () => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   return (
     <section id="home" className="overflow-hidden border-b border-line bg-[#f8f2e8]">
       <div className="mx-auto grid max-w-[1536px] lg:grid-cols-[1.05fr_0.95fr]">
         <div className="flex items-center px-5 py-12 sm:px-8 sm:py-16 lg:px-14 lg:py-20 xl:px-24">
           <div className="max-w-[680px]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-forest-700">
-              Pequenas reflexões. Grandes possibilidades.
+              Pequenos registros. Grandes percepções.
             </p>
 
             <h1 className="mt-5 font-serif text-[2.65rem] leading-[1.04] text-[#22150f] sm:text-5xl lg:text-[3.85rem]">
@@ -42,6 +44,7 @@ export default function Hero({ onNavigate }: HeroProps) {
 
             <p className="mt-6 max-w-xl text-base leading-7 text-ink-soft sm:text-lg">
               {subtitle}
+              <span className="sr-only"> Registrar seus dias pode ajudar a perceber padrões e transformar o que você vive em possibilidades de cuidado.</span>
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -52,14 +55,15 @@ export default function Hero({ onNavigate }: HeroProps) {
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-forest-900 px-7 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800"
               >
                 {cta} <ArrowRight className="h-4 w-4" />
+                <span className="sr-only">Criar minha conta gratuita</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => onNavigate('pricing')}
+                onClick={scrollHowItWorks}
                 className="inline-flex items-center justify-center rounded-full border border-forest-700/70 bg-white/25 px-7 py-3.5 text-sm font-semibold text-forest-900 transition-colors hover:bg-white/60"
               >
-                Conheça os planos
+                Conhecer como funciona
               </button>
             </div>
 
