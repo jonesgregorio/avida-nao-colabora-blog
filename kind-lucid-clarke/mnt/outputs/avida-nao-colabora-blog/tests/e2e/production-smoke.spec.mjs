@@ -10,7 +10,11 @@ async function loginBlog(page, email, password) {
   await page.locator('input[type="email"]').fill(email)
   await page.locator('input[type="password"]').fill(password)
   await page.getByRole('button', { name: 'Entrar', exact: true }).last().click()
-  await expect(page).not.toHaveURL(/\/login$/, { timeout: 20_000 })
+
+  // O app é SPA: a sessão pode ser aceita e a superfície logada renderizar antes
+  // de o pathname ser canonicalizado. Para o smoke, a prova real de autenticação
+  // é o formulário público desaparecer e uma rota privada permanecer acessível.
+  await expect(page.locator('input[type="email"]')).toBeHidden({ timeout: 20_000 })
 }
 
 test('domínios oficiais entregam Home, login e asset essencial', async ({ page, request }) => {
@@ -41,6 +45,7 @@ test('usuário temporário acessa uma página autenticada em produção', async 
   await expect(page).toHaveURL(/\/diario$/)
   await expect(page.locator('body')).not.toContainText('Missing Supabase environment variables')
   await expect(page.locator('body')).not.toContainText('Cuidar da mente começa por se escutar')
+  await expect(page.locator('input[type="email"]')).toHaveCount(0)
 })
 
 test('conta admin temporária chega ao gate MFA obrigatório', async ({ page }) => {
