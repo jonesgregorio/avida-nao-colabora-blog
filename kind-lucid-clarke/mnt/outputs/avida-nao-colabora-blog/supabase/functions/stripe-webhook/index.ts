@@ -205,12 +205,11 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // Reserva idempotente antes do processamento. Em falha crítica, a reserva é
-  // removida para permitir que o Stripe reentregue o mesmo evento.
+  // Reserva idempotente antes do processamento. Se a reserva não puder ser
+  // garantida, falha fechado e deixa a Stripe reentregar o evento depois.
   const dedup = await supabase
     .from('stripe_webhook_events')
     .insert({ stripe_event_id: event.id, event_type: event.type })
-  let claimed = true
   if (dedup.error) {
     if (String(dedup.error.code) === '23505' || /duplicate|unique/i.test(dedup.error.message)) {
       console.log(`webhook: evento ${event.id} já reservado/processado — ignorado`)
@@ -218,8 +217,10 @@ Deno.serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    console.error('stripe_webhook_events: falha ao registrar (segue processando):', dedup.error.message)
-    claimed = false
+    console.error('stripe_webhook_events: falha ao reservar evento; processamento interrompido:', dedup.error.message)
+    return new Response(JSON.stringify({ error: 'idempotency_reservation_failed' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -227,22 +228,18 @@ Deno.serve(async (req) => {
 
     // A tabela já possui status/processed_at; antes esta transição nunca era feita,
     // deixando eventos processados presos em "processing" no diagnóstico.
-    if (claimed) {
-      const { error: doneErr } = await supabase
-        .from('stripe_webhook_events')
-        .update({ status: 'processed', processed_at: new Date().toISOString(), error_message: null })
-        .eq('stripe_event_id', event.id)
-      if (doneErr) console.error('stripe_webhook_events: falha ao marcar processed:', doneErr.message)
-    }
+    const { error: doneErr } = await supabase
+      .from('stripe_webhook_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString(), error_message: null })
+      .eq('stripe_event_id', event.id)
+    if (doneErr) console.error('stripe_webhook_events: falha ao marcar processed:', doneErr.message)
 
     return response
   } catch (err) {
     console.error(`webhook: falha ao processar ${event.type} (${event.id}):`, (err as Error).message)
-    if (claimed) {
-      const { error: relErr } = await supabase
-        .from('stripe_webhook_events').delete().eq('stripe_event_id', event.id)
-      if (relErr) console.error('webhook: falha ao liberar reserva:', relErr.message)
-    }
+    const { error: relErr } = await supabase
+      .from('stripe_webhook_events').delete().eq('stripe_event_id', event.id)
+    if (relErr) console.error('webhook: falha ao liberar reserva:', relErr.message)
     return new Response(JSON.stringify({ error: 'processing_failed' }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
