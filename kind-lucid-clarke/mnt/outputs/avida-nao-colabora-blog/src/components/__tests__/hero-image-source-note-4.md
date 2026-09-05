@@ -1,0 +1,1 @@
+Temporary operational note for the hero image incident.
