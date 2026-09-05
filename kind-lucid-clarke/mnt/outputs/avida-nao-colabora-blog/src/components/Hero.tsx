@@ -31,12 +31,12 @@ export default function Hero({ onNavigate }: HeroProps) {
 
   return (
     <section id="home" className="overflow-hidden border-b border-line bg-[#f8f2e8]">
-      <div className="relative mx-auto min-h-[650px] max-w-[1536px] overflow-hidden lg:min-h-[670px]">
+      <div className="relative mx-auto min-h-[520px] max-w-[1536px] overflow-hidden sm:min-h-[610px] lg:min-h-[670px]">
         <img
           data-testid="home-hero-image"
           src="/images/home/hero-person-approved.webp"
           alt="Mulher sentada em um mirante ao pôr do sol, em um momento de pausa e reflexão."
-          className="absolute inset-0 h-full w-full object-cover object-[68%_center] sm:object-[70%_center] lg:object-[72%_center]"
+          className="absolute inset-0 h-full w-full object-cover object-[79%_center] sm:object-[72%_center] lg:object-[72%_center]"
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -50,30 +50,32 @@ export default function Hero({ onNavigate }: HeroProps) {
             }
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#f7ead8]/96 via-[#f4dfc5]/68 to-transparent lg:via-[#f4dfc5]/30" />
 
-        <div className="relative z-10 flex min-h-[650px] items-center px-5 py-14 sm:px-8 lg:min-h-[670px] lg:px-14 xl:px-24">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,234,216,0.97)_0%,rgba(244,223,197,0.88)_48%,rgba(244,223,197,0.48)_72%,rgba(244,223,197,0.12)_100%)] sm:bg-gradient-to-r sm:from-[#f7ead8]/96 sm:via-[#f4dfc5]/68 sm:to-transparent lg:via-[#f4dfc5]/30" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/15 to-transparent sm:hidden" />
+
+        <div className="relative z-10 flex min-h-[520px] items-center px-5 py-10 sm:min-h-[610px] sm:px-8 sm:py-14 lg:min-h-[670px] lg:px-14 xl:px-24">
           <div className="max-w-[680px]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-forest-700 sm:text-xs">
+            <p className="max-w-[300px] text-[10px] font-semibold uppercase leading-5 tracking-[0.17em] text-forest-800 sm:max-w-none sm:text-xs sm:tracking-[0.2em]">
               Pequenas reflexões. Grandes possibilidades.
               <span className="sr-only">Pequenos registros. Grandes percepções.</span>
             </p>
 
-            <h1 className="mt-6 max-w-[660px] font-serif text-[2.8rem] leading-[1.04] text-[#22150f] sm:text-6xl lg:text-[4.35rem]">
+            <h1 className="mt-4 max-w-[610px] font-serif text-[2.28rem] leading-[1.01] tracking-[-0.025em] text-[#22150f] sm:mt-6 sm:text-6xl sm:leading-[1.04] sm:tracking-normal lg:max-w-[660px] lg:text-[4.35rem]">
               {title}
             </h1>
 
-            <p className="mt-6 max-w-[590px] text-base leading-7 text-[#302b27] sm:text-lg">
+            <p className="mt-5 max-w-[520px] text-[0.98rem] leading-6 text-[#302b27] sm:mt-6 sm:max-w-[590px] sm:text-lg sm:leading-7">
               {subtitle}
               <span className="sr-only"> Registrar seus dias pode ajudar a perceber padrões e transformar o que você vive em possibilidades de cuidado.</span>
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row">
               <button
                 data-cta="hero-comecar-gratis"
                 data-cta-location="hero"
                 onClick={() => onNavigate('auth')}
-                className="inline-flex items-center justify-center rounded-full bg-forest-900 px-8 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800"
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-forest-900 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800 sm:min-h-0 sm:py-3.5"
               >
                 {cta}
                 <span className="sr-only">Criar minha conta gratuita</span>
@@ -82,7 +84,7 @@ export default function Hero({ onNavigate }: HeroProps) {
               <button
                 type="button"
                 onClick={scrollHowItWorks}
-                className="inline-flex items-center justify-center rounded-full border border-[#5d5148]/60 bg-white/15 px-8 py-3.5 text-sm font-semibold text-[#2d251f] backdrop-blur-[2px] transition-colors hover:bg-white/40"
+                className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#5d5148]/55 bg-[#fffaf1]/82 px-8 py-3 text-sm font-semibold text-[#2d251f] shadow-sm backdrop-blur-[3px] transition-colors hover:bg-white sm:min-h-0 sm:bg-white/20 sm:py-3.5"
               >
                 Conheça os planos
               </button>
