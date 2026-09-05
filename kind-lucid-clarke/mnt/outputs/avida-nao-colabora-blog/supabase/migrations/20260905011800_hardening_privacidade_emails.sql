@@ -94,3 +94,14 @@ Atualize os dados de pagamento para evitar interrupção dos recursos do seu pla
 Equipe A Vida Não Colabora$b$,
   updated_at = now()
 WHERE template_key = 'payment_failed';
+
+-- O motivo do cancelamento já é coletado no próprio fluxo. Evita pedir a mesma
+-- informação novamente e explica com clareza o estado do pedido.
+UPDATE support_reply_templates SET
+  body = $b$Olá! Recebemos seu pedido de cancelamento e ele está em análise.
+
+Enquanto o pedido é analisado, seu plano continua ativo normalmente. Assim que houver a confirmação, você será informado sobre o encerramento no fim do ciclo já pago.
+
+O motivo informado no pedido já ficou registrado, então não é necessário enviá-lo novamente. Se quiser acrescentar algum contexto, pode responder por esta conversa.$b$,
+  updated_at = now()
+WHERE title = 'Solicitação de cancelamento';
