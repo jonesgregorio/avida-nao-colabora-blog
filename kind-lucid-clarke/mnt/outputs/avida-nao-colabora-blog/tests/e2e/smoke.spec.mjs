@@ -29,6 +29,23 @@ test('home pública renderiza sem sessão', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Missing Supabase environment variables')
 })
 
+test('foto principal do hero carrega bytes válidos', async ({ page, request }) => {
+  await page.goto('/')
+  const hero = page.locator('img[src="/images/home/hero-mockup-person.webp"]')
+  await expect(hero).toBeVisible()
+  await expect.poll(
+    () => hero.evaluate((img) => img.complete && img.naturalWidth > 0),
+    { message: 'a imagem do hero deve terminar o carregamento com largura natural válida' },
+  ).toBe(true)
+
+  const src = await hero.getAttribute('src')
+  expect(src).toBeTruthy()
+  const response = await request.get(new URL(src, page.url()).toString())
+  expect(response.status()).toBe(200)
+  expect(response.headers()['content-type'] ?? '').toMatch(/^image\//)
+  expect((await response.body()).byteLength).toBeGreaterThan(1_000)
+})
+
 test('rota de login renderiza o formulário de autenticação', async ({ page }) => {
   await page.goto('/login')
   await expect(page).toHaveURL(/\/login$/)

@@ -1,0 +1,77 @@
+name: Production Smoke
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-smoke-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  official-domains:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: America/Sao_Paulo
+      PRODUCTION_BASE_URL: https://avidanaocolabora.com
+      SUPABASE_PROJECT_REF: lejvvhzluggyxlfwfoxl
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Wait for official domain and critical hero asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            home_status="$(curl -L -sS -o /tmp/home.html -w '%{http_code}' --max-time 15 https://avidanaocolabora.com/ || true)"
+            asset_status="$(curl -L -sS -o /tmp/hero.webp -w '%{http_code}' --max-time 15 https://avidanaocolabora.com/images/home/hero-mockup-person.webp || true)"
+            if [ "$home_status" = "200" ] && [ "$asset_status" = "200" ] && [ -s /tmp/hero.webp ]; then
+              echo "Domínio oficial e hero estão prontos."
+              break
+            fi
+            if [ "$attempt" = "40" ]; then
+              echo "Produção não ficou pronta no domínio oficial dentro da janela de espera."
+              exit 1
+            fi
+            echo "Aguardando produção... tentativa $attempt/40 (home=$home_status asset=$asset_status)"
+            sleep 15
+          done
+
+      - name: Provision temporary smoke users
+        run: node scripts/production-smoke-users.mjs create
+
+      - name: Run official-domain production smoke
+        run: npx playwright test --config=playwright.production.config.mjs
+
+      - name: Cleanup temporary smoke users
+        if: always()
+        run: node scripts/production-smoke-users.mjs cleanup
