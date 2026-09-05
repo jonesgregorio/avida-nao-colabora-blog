@@ -33,14 +33,22 @@ export default function Hero({ onNavigate }: HeroProps) {
     <section id="home" className="overflow-hidden border-b border-line bg-[#f8f2e8]">
       <div className="relative mx-auto min-h-[650px] max-w-[1536px] overflow-hidden lg:min-h-[670px]">
         <img
-          src="/images/home/hero-person-clean.webp"
+          data-testid="home-hero-image"
+          src="/images/home/hero-person-approved.webp"
           alt="Mulher sentada em um mirante ao pôr do sol, em um momento de pausa e reflexão."
-          className="absolute inset-0 h-full w-full object-cover object-[64%_center]"
+          className="absolute inset-0 h-full w-full object-cover object-[68%_center] sm:object-[70%_center] lg:object-[72%_center]"
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          width="1016"
-          height="671"
+          width="1536"
+          height="1024"
+          onError={(event) => {
+            const img = event.currentTarget
+            if (!img.src.endsWith('/images/home/hero-person-clean.webp')) {
+              img.onerror = null
+              img.src = '/images/home/hero-person-clean.webp'
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#f7ead8]/96 via-[#f4dfc5]/68 to-transparent lg:via-[#f4dfc5]/30" />
 

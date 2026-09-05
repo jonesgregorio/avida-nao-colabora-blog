@@ -31,11 +31,12 @@ test('home pública renderiza sem sessão', async ({ page }) => {
 
 test('foto principal do hero carrega bytes válidos', async ({ page, request }) => {
   await page.goto('/')
-  const hero = page.locator('img[src="/images/home/hero-person-clean.webp"]')
+  const hero = page.getByTestId('home-hero-image')
   await expect(hero).toBeVisible()
+  await expect(hero).toHaveAttribute('src', '/images/home/hero-person-approved.webp')
   await expect.poll(
-    () => hero.evaluate((img) => img.complete && img.naturalWidth > 0),
-    { message: 'a imagem do hero deve terminar o carregamento com largura natural válida' },
+    () => hero.evaluate((img) => img.complete && img.naturalWidth >= 1200),
+    { message: 'a imagem aprovada do hero deve carregar completa e com resolução nítida' },
   ).toBe(true)
 
   const src = await hero.getAttribute('src')
@@ -43,7 +44,7 @@ test('foto principal do hero carrega bytes válidos', async ({ page, request }) 
   const response = await request.get(new URL(src, page.url()).toString())
   expect(response.status()).toBe(200)
   expect(response.headers()['content-type'] ?? '').toMatch(/^image\//)
-  expect((await response.body()).byteLength).toBeGreaterThan(1_000)
+  expect((await response.body()).byteLength).toBeGreaterThan(50_000)
 })
 
 test('rota de login renderiza o formulário de autenticação', async ({ page }) => {
