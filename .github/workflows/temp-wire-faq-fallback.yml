@@ -1,0 +1,40 @@
+name: Temporary wire FAQ fallback
+
+on:
+  push:
+    branches:
+      - chatgpt/revisar-faq-completo-planos
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/revisar-faq-completo-planos
+          fetch-depth: 0
+      - name: Replace legacy inline FAQ with canonical fallback
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx')
+          text = path.read_text()
+          import_line = "import { FAQ_FALLBACK } from '../lib/faqContent'\n"
+          anchor = "import { useFaqItems } from '../lib/siteContent'\n"
+          if import_line not in text:
+              text = text.replace(anchor, anchor + import_line, 1)
+          start = text.index('const FAQS:')
+          end = text.index('export default function FAQPage')
+          text = text[:start] + 'const FAQS = FAQ_FALLBACK\n\n' + text[end:]
+          path.write_text(text)
+      - name: Commit result and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/temp-wire-faq-fallback.yml
+          git add kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx
+          git commit -m "refactor(faq): usar fallback canônico revisado"
+          git push origin HEAD:chatgpt/revisar-faq-completo-planos
