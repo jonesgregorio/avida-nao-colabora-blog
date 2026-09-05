@@ -133,6 +133,44 @@
   50% { transform: translateY(-12px); }
 }
 
+/* Ajustes específicos de composição da Home em telas pequenas.
+   Os elementos decorativos do card Meu Jardim não podem cobrir texto/CTA. */
+@media (max-width: 639px) {
+  .bg-gradient-to-br.from-\[\#edf3e8\].to-\[\#dce6d2\] > .relative.z-10 {
+    max-width: none;
+  }
+
+  .bg-gradient-to-br.from-\[\#edf3e8\].to-\[\#dce6d2\] > .absolute.bottom-4.right-5 {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    margin-top: 1.25rem;
+    justify-content: center;
+    gap: 0.2rem;
+    font-size: 2.25rem;
+    line-height: 1;
+  }
+
+  .bg-gradient-to-br.from-\[\#edf3e8\].to-\[\#dce6d2\] > .absolute.bottom-4.right-5 .text-8xl {
+    font-size: 4rem;
+    line-height: 1;
+  }
+
+  .bg-gradient-to-br.from-\[\#edf3e8\].to-\[\#dce6d2\] button {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* Evita que os mockups de telefone estourem a coluna em aparelhos estreitos. */
+  .w-\[154px\] {
+    max-width: 100%;
+  }
+}
+
 /* ===== @media print ===== */
 @media print {
   header, nav, footer,
