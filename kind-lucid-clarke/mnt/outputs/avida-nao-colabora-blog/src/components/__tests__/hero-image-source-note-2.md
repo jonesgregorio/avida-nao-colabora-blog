@@ -1,0 +1,1 @@
+The hero source was switched to the existing valid hero-person-clean.webp asset so production no longer depends on the corrupt 11-byte JPEG.
