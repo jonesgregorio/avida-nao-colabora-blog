@@ -87,6 +87,7 @@ export default function Hero({ onNavigate }: HeroProps) {
                 Conheça os planos
               </button>
             </div>
+            <span className="sr-only">Conhecer como funciona</span>
           </div>
         </div>
       </div>
