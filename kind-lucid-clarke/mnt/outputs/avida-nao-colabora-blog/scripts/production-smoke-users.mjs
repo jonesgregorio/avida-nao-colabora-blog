@@ -10,19 +10,24 @@ const statePath = '.production-smoke-users.json'
 if (!['create', 'cleanup'].includes(action)) throw new Error('Uso: node scripts/production-smoke-users.mjs create|cleanup')
 if (!managementToken) throw new Error('SUPABASE_ACCESS_TOKEN não configurado para o smoke de produção.')
 
-async function serviceRoleKey() {
-  const response = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/api-keys`, {
+async function adminApiKey() {
+  const response = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/api-keys?reveal=true`, {
     headers: { Authorization: `Bearer ${managementToken}` },
   })
   if (!response.ok) throw new Error(`Management API retornou ${response.status} ao consultar chaves do projeto.`)
+
   const keys = await response.json()
-  const row = keys.find((key) => key.name === 'service_role')
-  if (!row?.api_key) throw new Error('Chave service_role não encontrada pela Management API.')
-  return row.api_key
+  const modernSecret = keys.find((key) => key.type === 'secret' && key.api_key)
+  if (modernSecret?.api_key) return modernSecret.api_key
+
+  const legacyServiceRole = keys.find((key) => key.name === 'service_role' && key.api_key && key.disabled !== true)
+  if (legacyServiceRole?.api_key) return legacyServiceRole.api_key
+
+  throw new Error('Nenhuma chave administrativa ativa encontrada. O smoke exige uma secret key moderna (sb_secret_...) ou service_role legado ainda habilitado.')
 }
 
 async function getAdminClient() {
-  const key = await serviceRoleKey()
+  const key = await adminApiKey()
   if (process.env.GITHUB_ACTIONS) console.log(`::add-mask::${key}`)
   return createClient(`https://${projectRef}.supabase.co`, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
