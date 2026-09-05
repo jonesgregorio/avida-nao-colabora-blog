@@ -146,3 +146,29 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  database-migrations:
+    name: database-migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start disposable local database
+        run: supabase db start
+
+      - name: Rebuild schema from migrations
+        run: supabase db reset --local
+
+      - name: Database lint
+        run: supabase db lint --local --level error
