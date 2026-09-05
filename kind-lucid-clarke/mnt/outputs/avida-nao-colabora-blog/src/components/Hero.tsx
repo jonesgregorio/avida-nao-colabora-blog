@@ -77,7 +77,7 @@ export default function Hero({ onNavigate }: HeroProps) {
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#d9c8b6] sm:min-h-[520px] lg:min-h-[620px]">
           <img
-            src="/images/home/hero-reflection-sunrise.webp"
+            src="/images/home/hero-mockup-person.webp"
             alt="Pessoa em um momento de pausa e reflexão ao nascer do sol, com uma caneca e um caderno."
             className="absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
