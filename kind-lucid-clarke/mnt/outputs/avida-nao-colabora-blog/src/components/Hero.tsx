@@ -81,10 +81,23 @@ export default function Hero({ onNavigate }: HeroProps) {
             alt="Pessoa em um momento de pausa e reflexão ao nascer do sol, com uma caneca e um caderno."
             className="absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
-            decoding="sync"
+            decoding="async"
             fetchPriority="high"
             width="776"
             height="675"
+            onError={(event) => {
+              const image = event.currentTarget
+              const currentSrc = image.getAttribute('src') || ''
+
+              if (currentSrc.endsWith('hero-mockup-person.webp')) {
+                image.src = '/images/home/hero-person-clean.webp'
+                return
+              }
+
+              if (currentSrc.endsWith('hero-person-clean.webp')) {
+                image.src = '/images/home/hero-person-photo-hq.webp'
+              }
+            }}
           />
         </div>
       </div>
