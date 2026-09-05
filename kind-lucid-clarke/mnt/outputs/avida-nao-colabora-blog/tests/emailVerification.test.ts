@@ -61,7 +61,7 @@ test('configuração hosted de Auth é aplicada automaticamente na main e verifi
 })
 
 test('FAQ informa que novos cadastros precisam confirmar o e-mail', () => {
-  const faq = read('src/components/FAQPage.tsx')
+  const faq = read('src/lib/faqContent.ts')
   assert.match(faq, /link de confirmação/i)
   assert.doesNotMatch(faq, /sem necessidade de confirmar e-mail/i)
 })
