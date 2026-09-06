@@ -1,0 +1,138 @@
++        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
++          method: 'POST', headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1800 } }),
++        })
++        if (res.ok) {
++          const data = await res.json(); const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
++          if (text && String(text).trim()) return { text: String(text).trim(), model }
++        }
++      } catch { /* tenta próximo modelo/provedor */ }
++    }
++  }
++
++  const groqKey = Deno.env.get('GROQ_API_KEY')
++  if (groqKey) {
++    try {
++      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
++        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
++        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),
++      })
++      if (res.ok) {
++        const data = await res.json(); const text = data?.choices?.[0]?.message?.content
++        if (text && String(text).trim()) return { text: String(text).trim(), model: 'groq:llama-3.3-70b-versatile' }
++      }
++    } catch { /* tenta OpenAI */ }
++  }
++
++  const openaiKey = Deno.env.get('OPENAI_API_KEY')
++  if (openaiKey) {
++    try {
++      const res = await fetch('https://api.openai.com/v1/chat/completions', {
++        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
++        body: JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: promptText }], max_tokens: 1800 }),
++      })
++      if (res.ok) {
++        const data = await res.json(); const text = data?.choices?.[0]?.message?.content
++        if (text && String(text).trim()) return { text: String(text).trim(), model: 'openai:gpt-4o-mini' }
++      }
++    } catch { /* fallback determinístico será usado pelo chamador */ }
++  }
++
++  throw new Error('Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado')
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
+index 80c338ba94fb74b51ca544f7cb4cd09f9ada5d9c..e3f0d87e527e24bbd3200f348989c9008187b176 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/migrations/20260817222000_priority3_automation_health.sql
+@@ -109 +108,0 @@ GRANT EXECUTE ON FUNCTION public.get_emotional_automation_health() TO authentica
+--- Validação de implantação: não esconde falha de cron/trigger em produção.
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/automationContracts.test.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/automationContracts.test.ts
+index 5615c6587fc0959ead1dfccab10b5d54ae5a0197..4b563e1d20109c04a5ac584324539e0bfd00bdad 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/automationContracts.test.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/automationContracts.test.ts
+@@ -52,4 +52,60 @@ test('automações editoriais sem executor não podem voltar como ativas', () =>
+-  assert.match(edge, /generate_daily/)
+-  assert.match(edge, /generate_weekly_package/)
+-  assert.match(edge, /generate_pauta/)
+-  assert.match(edge, /monthly_pauta/)
++  assert.match(edge, /executeArticleAutomation/)
++  assert.match(edge, /executePautaAutomation/)
++  assert.match(edge, /a\.type === 'generate_daily' \|\| a\.type === 'generate_weekly_package'/)
++  assert.match(edge, /type === 'monthly_pauta'/)
++  assert.match(edge, /editorial_calendar/)
++})
++
++test('healthchecks de automações emocional e editorial estão ligados ao Admin', () => {
++  const health = read('src/lib/systemHealth.ts')
++  const migration = read('supabase/migrations/20260817234000_editorial_automation_health_and_timeout.sql')
++  assert.match(health, /get_emotional_automation_health/)
++  assert.match(health, /get_editorial_automation_health/)
++  assert.match(health, /automation_emotional/)
++  assert.match(health, /automation_editorial/)
++  assert.match(migration, /run-content-automations/)
++  assert.match(migration, /timeout_milliseconds := 120000/)
++})
++
++test('helpers de plano efetivo não expõem entitlement de outros usuários autenticados', () => {
++  const sql = read('supabase/migrations/20260817235000_harden_effective_plan_helpers.sql')
++  assert.match(sql, /auth\.uid\(\) IS DISTINCT FROM p_user_id/)
++  assert.match(sql, /NOT public\.is_admin\(\)/)
++  assert.match(sql, /not allowed to inspect another user plan/)
++})
++
++test('IA emocional possui failover de provedor antes do fallback determinístico', () => {
++  const edge = read('supabase/functions/run-emotional-automations/index.ts')
++  assert.match(edge, /GEMINI_API_KEY/)
++  assert.match(edge, /GROQ_API_KEY/)
++  assert.match(edge, /OPENAI_API_KEY/)
++  assert.match(edge, /fallback determinístico aplicado/)
++})
++
++test('versões e regras de segurança dos prompts emocionais são compartilhadas', () => {
++  const frontend = read('src/lib/aiPrompts/emotionalPrompts.ts')
++  const edge = read('supabase/functions/run-emotional-automations/index.ts')
++  assert.match(frontend, /emotionalPromptContracts/)
++  assert.match(edge, /emotionalPromptContracts/)
++  assert.match(edge, /EMOTIONAL_PROMPT_VERSIONS/)
++  assert.match(edge, /EMOTIONAL_AI_SAFETY_TEXT/)
++})
++
++test('falha editorial é reagendada sem fingir execução concluída', () => {
++  const source = read('supabase/functions/run-automations/index.ts')
++  const start = source.indexOf('Falhas não contam como execução concluída')
++  assert.ok(start >= 0)
++  const retryBlock = source.slice(start, source.indexOf("results.push({ id: a.id, result: 'erro:", start))
++  assert.match(retryBlock, /next_run_at/)
++  assert.doesNotMatch(retryBlock, /last_run_at\s*:/)
++})
++
++test('indicadores operacionais são admin-only e integrados à Saúde do Sistema', () => {
++  const migration = read('supabase/migrations/20260817235500_operational_metrics.sql')
++  const health = read('src/lib/systemHealth.ts')
++  assert.match(migration, /get_operational_metrics/)
++  assert.match(migration, /IF NOT public\.is_admin\(\)/)
++  assert.match(migration, /reports_generated_30d/)
++  assert.match(migration, /articles_auto_publish_blocked_30d/)
++  assert.match(health, /get_operational_metrics/)
++  assert.match(health, /operational_metrics/)
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/reportPeriods.test.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/reportPeriods.test.ts
+index 09dcfc90a86d72382d5a08e4e0f1c3f072a2981b..a976719795a11c660ee3e8ab5a82e31eb9145c7d 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/reportPeriods.test.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/tests/reportPeriods.test.ts
+@@ -13 +13 @@ test('primeira semana começa na ativação quando assinatura ocorre no meio do
+-  const now = new Date(2026, 7, 19, 12, 0, 0) // quarta 19/08/2026
++  const now = new Date(2026, 7, 19, 12, 0, 0)
+@@ -29 +29 @@ test('não retorna período anterior fechado se a ativação aconteceu depois de
+-  const now = new Date(2026, 7, 23, 12, 0, 0) // domingo seguinte
++  const now = new Date(2026, 7, 23, 12, 0, 0)
+@@ -35 +35 @@ test('período mensal anterior é cortado pela ativação', () => {
+-  const now = new Date(2026, 8, 1, 12, 0, 0) // 01/09
++  const now = new Date(2026, 8, 1, 12, 0, 0)
+@@ -46,0 +47,8 @@ test('disponibilidade começa no dia seguinte ao fim do período', () => {
++
++test('períodos usam explicitamente America/Sao_Paulo perto da virada UTC', () => {
++  // 02:30 UTC ainda é 23:30 do dia anterior em São Paulo.
++  const now = new Date('2026-08-18T02:30:00Z')
++  const current = getCurrentWeeklyPeriod(null, now)
++  assert.equal(current.start, '2026-08-16')
++  assert.equal(current.end, '2026-08-22')
++})
