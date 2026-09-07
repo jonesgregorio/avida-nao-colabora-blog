@@ -6,8 +6,11 @@
 // título de cada view e reaplicamos a cada troca de rota; o ArticleView
 // continua responsável pelo caso dele (título específico do artigo).
 
-const SITE_NAME = 'A Vida Não Colabora'
-const HOME_TITLE = `${SITE_NAME} — Bem-estar emocional e autoconhecimento`
+export const SITE_NAME = 'A Vida Não Colabora'
+export const HOME_TITLE = `${SITE_NAME} — Bem-estar emocional e autoconhecimento`
+// Título seguro para artigos enquanto o conteúdo ainda carrega (o ArticleView
+// troca pelo título real do artigo assim que os dados chegam).
+export const ARTICLE_FALLBACK_TITLE = `Conteúdos Guiados — ${SITE_NAME}`
 const DEFAULT_DESCRIPTION =
   'Um espaço para organizar o que você sente, acompanhar seus padrões emocionais e cuidar de si com mais leveza.'
 const ORIGIN = 'https://www.avidanaocolabora.com'
@@ -55,13 +58,14 @@ export function titleForView(view: string): string {
 
 /**
  * Atualiza <title> e as meta tags de descrição/OG/canonical para a view atual.
- * O ArticleView tem o próprio efeito com o título específico do artigo; para
- * `view === 'article'` só ajustamos o <title> genérico e deixamos o resto com ele.
+ * Para `view === 'article'` NÃO tocamos em nada: o ArticleView é o dono exclusivo
+ * do título/OG do artigo (título específico quando carrega, fallback enquanto isso).
  */
 export function applyRouteMetadata(view: string, pathname = window.location.pathname): void {
+  if (view === 'article') return
+
   const title = titleForView(view)
   document.title = title
-  if (view === 'article') return
 
   const url = `${ORIGIN}${pathname}`
   const setMeta = (selector: string, content: string) => {

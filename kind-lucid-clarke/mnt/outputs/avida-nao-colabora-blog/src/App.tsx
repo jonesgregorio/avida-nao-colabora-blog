@@ -154,12 +154,14 @@ export default function App() {
     navigate('diary')
   }
 
-  // Sincroniza URL com o estado de navegação
+  // Sincroniza URL + metadados com o estado de navegação. Atualiza o título de
+  // forma síncrona a cada navegação SPA (sem depender do timing dos efeitos).
   function pushURL(targetView: string, slug?: string | null, ticketId?: string | null) {
     const url = urlForView(targetView, slug, ticketId)
     if (window.location.pathname !== url) {
       window.history.pushState({ view: targetView, slug, ticketId }, '', url)
     }
+    applyRouteMetadata(targetView, url)
   }
 
   const navigate = useCallback((section: string, ref?: string) => {
@@ -279,8 +281,10 @@ export default function App() {
         if (fromURL.articleSlug) setSelectedArticleSlug(fromURL.articleSlug)
         if (fromURL.ticketId) setActiveSupportTicketId(fromURL.ticketId)
         if (fromURL.view === 'questionnaire') setActiveQuestionnaireId(fromURL.questionnaireId ?? null)
+        applyRouteMetadata(fromURL.view)
       } else {
         setView('home')
+        applyRouteMetadata('home')
       }
     }
     window.addEventListener('popstate', handlePopState)
