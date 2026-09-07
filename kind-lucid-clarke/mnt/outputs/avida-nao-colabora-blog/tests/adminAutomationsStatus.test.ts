@@ -26,11 +26,19 @@ test('RPC lista todos os cron jobs genericamente (um cron novo aparece sozinho)'
   assert.doesNotMatch(migration, /WHERE j\.jobname (=|IN)/)
 })
 
-test('Admin tem aba Automações mostrando status/duração/erro reais', () => {
+test('Admin tem aba Automações mostrando status/duração/erro reais + controle e histórico', () => {
   assert.match(area, /\{ id: 'automacoes', label: 'Automações'/)
   assert.match(area, /<AdminAutomationsHealth \/>/)
   assert.match(component, /get_cron_automations_status/)
-  for (const col of ['Agendamento', 'Status', 'Última execução', 'Duração', 'Erro']) {
-    assert.ok(component.includes(col), `coluna ausente na tabela de automações: ${col}`)
-  }
+  // Todos os campos continuam visíveis (layout de lista, não mais tabela).
+  assert.match(component, /humanSchedule/)             // agendamento legível
+  assert.match(component, /statusBadge/)               // status
+  assert.match(component, /last_started_at/)           // última execução
+  assert.match(component, /duration_seconds/)          // duração (no histórico)
+  assert.match(component, /last_error|summary_30\.last_error/) // erro
+  // Etapa 4: controle e histórico.
+  assert.match(component, /admin_set_cron_active/)
+  assert.match(component, /admin_cron_run_history/)
+  assert.match(component, /logAdminAction\('config', next \? 'automation_resume' : 'automation_pause'/)
+  assert.match(component, /window\.confirm\(/)
 })
