@@ -10,6 +10,7 @@ import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
 import { generateArticleCTA, getLastProvider, providerLabel } from '../../lib/aiContent'
 import { DEFAULT_CTA } from '../../lib/articleCta'
+import { logAdminAction } from '../../lib/adminAudit'
 
 interface ArticleData {
   title: string
@@ -26,6 +27,7 @@ interface ArticleData {
   keyword: string
   secondary_keywords: string
   tags: string
+  related_slugs: string
   emotion: string
   journey_stage: string
   intent: string
@@ -57,7 +59,7 @@ const EMPTY: ArticleData = {
   title: '', slug: '', status: 'draft', content_type: 'article', category: '',
   content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
-  keyword: '', secondary_keywords: '', tags: '', emotion: '', journey_stage: '',
+  keyword: '', secondary_keywords: '', tags: '', related_slugs: '', emotion: '', journey_stage: '',
   intent: '', audience: '', og_image: '', origin: 'manual', internal_notes: '',
   diary_question: '', cta_text: '', cta_link: '',
   cta_mode: 'auto', cta_custom_title: '', cta_custom_text: '',
@@ -101,6 +103,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [categories, setCategories] = useState<string[]>([])
   const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
   const [versions, setVersions] = useState<ArticleVersion[]>([])
+  const [review, setReview] = useState<{ at: string | null; note: string }>({ at: null, note: '' })
   const [previewOpen, setPreviewOpen] = useState(false)
   const [ctaBusy, setCtaBusy] = useState(false)
   // ID do artigo recém-criado (insert). O articleId da prop é null para artigo
@@ -152,6 +155,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           keyword: a.keyword || '',
           secondary_keywords: a.secondary_keywords || '',
           tags: fromArray(a.tags),
+          related_slugs: fromArray(a.related_slugs),
           emotion: a.emotion || '',
           journey_stage: a.journey_stage || '',
           intent: a.intent || '',
@@ -175,6 +179,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           is_guided_content: a.is_guided_content ?? true,
           is_recommendable: a.is_recommendable ?? true,
         })
+        setReview({ at: a.reviewed_at ?? null, note: a.review_notes ?? '' })
       }
       setLoading(false)
     })
@@ -240,6 +245,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       secondary_keywords: data.secondary_keywords,
       // Colunas TEXT[] (086): sempre array, nunca string.
       tags: toArray(data.tags),
+      related_slugs: toArray(data.related_slugs),
       keywords: toArray(data.keywords),
       emotional_themes: toArray(data.emotional_themes),
       estimated_time_minutes: data.estimated_time_minutes === '' ? null : Number(data.estimated_time_minutes),
@@ -272,7 +278,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
     // Salva; se a migration dos campos novos ainda não aplicou, faz fallback
     // gravando só o essencial (o editor não pode quebrar por causa do deploy).
-    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable']
+    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'related_slugs', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable']
     const writeArticle = (p: Record<string, unknown>) =>
       effectiveId
         ? supabase.from('articles').update(p).eq('id', effectiveId)
@@ -407,7 +413,23 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const missingCritical = checklist.filter(c => c.critical && !c.ok)
   const score = Math.round((checklist.filter(c => c.ok).length / checklist.length) * 100)
 
-  function restoreVersion(v: ArticleVersion) {
+  // Restauração de 1 clique: server-side (grava de volta E registra a volta como
+  // nova versão). Se a RPC ainda não existe, cai no modo "carrega no formulário".
+  async function restoreVersion(v: ArticleVersion) {
+    if (effectiveId && window.confirm(`Restaurar a versão ${v.version}? O conteúdo atual é preservado como versão anterior no histórico.`)) {
+      const { error } = await supabase.rpc('admin_restore_article_version', { p_article_id: effectiveId, p_version: v.version })
+      if (!error) {
+        void logAdminAction('update', 'article_version_restore', effectiveId, { restored_from: v.version })
+        showToast(`Versão ${v.version} restaurada. Recarregando…`)
+        setTimeout(() => window.location.reload(), 800)
+        return
+      }
+      if (!/admin_restore_article_version|does not exist|schema cache/i.test(error.message)) {
+        showToast('Erro ao restaurar: ' + error.message, true)
+        return
+      }
+      // segue para o fallback abaixo
+    }
     const s = v.snapshot
     const str = (k: string) => (typeof s[k] === 'string' ? (s[k] as string) : '')
     setData(d => ({
@@ -428,6 +450,19 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       cta_link: str('cta_link'),
     }))
     showToast(`Versão ${v.version} carregada no formulário. Revise e salve para confirmar.`)
+  }
+
+  // Aprovar revisão: carimba quem revisou/quando e libera para publicação.
+  async function approveReview() {
+    if (!effectiveId) { showToast('Salve o artigo antes de aprovar a revisão.', true); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    const patch = { reviewed_by: user?.id ?? null, reviewed_at: new Date().toISOString(), status: 'draft', updated_at: new Date().toISOString() }
+    const { error } = await supabase.from('articles').update(patch).eq('id', effectiveId)
+    if (error) { showToast('Erro ao aprovar revisão: ' + error.message, true); return }
+    void logAdminAction('update', 'article_review_approved', effectiveId, { title: data.title })
+    setReview({ at: patch.reviewed_at, note: review.note })
+    setData(d => ({ ...d, status: 'draft' }))
+    showToast('Revisão aprovada. O artigo está pronto para publicar.')
   }
 
   if (loading) return <p className="text-stone-400 text-sm">Carregando artigo...</p>
@@ -485,6 +520,13 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             className="flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> Salvar rascunho
+          </button>
+          <button
+            onClick={() => save('review')}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-2 border border-amber-300 text-amber-700 rounded-lg text-sm hover:bg-amber-50 disabled:opacity-50"
+          >
+            <Eye className="w-4 h-4" /> Enviar p/ revisão
           </button>
           <button
             onClick={() => save('published')}
@@ -620,6 +662,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             <Field label="Notas internas (não aparecem no site)">
               <textarea value={data.internal_notes} onChange={e => set('internal_notes', e.target.value)} rows={2} placeholder="Anotações para a equipe" className={inputCls} />
             </Field>
+            <Field label="Artigos relacionados (slugs, separados por vírgula)">
+              <input value={data.related_slugs} onChange={e => set('related_slugs', e.target.value)} placeholder="ansiedade-no-trabalho, primeiros-passos" className={inputCls} />
+            </Field>
           </div>
         </div>
 
@@ -629,6 +674,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             <Field label="Status">
               <select value={data.status} onChange={e => set('status', e.target.value)} className={inputCls}>
                 <option value="draft">Rascunho</option>
+                <option value="review">Em revisão</option>
                 <option value="published">Publicado</option>
                 <option value="archived">Arquivado</option>
                 <option value="scheduled">Agendado</option>
@@ -638,6 +684,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <Field label="Agendar para">
                 <input type="datetime-local" value={data.scheduled_at} onChange={e => set('scheduled_at', e.target.value)} className={inputCls} />
               </Field>
+            )}
+            {data.status === 'review' && (
+              <button onClick={() => void approveReview()} className="w-full text-sm bg-amber-600 text-white rounded-lg py-2 hover:bg-amber-700">
+                Aprovar revisão
+              </button>
+            )}
+            {review.at && (
+              <p className="text-[11px] text-stone-400">Revisado em {new Date(review.at).toLocaleString('pt-BR')}</p>
             )}
             <Field label="Tipo de conteúdo">
               <select value={data.content_type} onChange={e => set('content_type', e.target.value)} className={inputCls}>
@@ -852,7 +906,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                       <p className="text-xs font-medium text-forest-900">v{v.version} · {v.source}</p>
                       <p className="text-[11px] text-stone-400">{new Date(v.created_at).toLocaleString('pt-BR')}</p>
                     </div>
-                    <button onClick={() => restoreVersion(v)} className="text-[11px] text-forest-700 border border-line rounded-md px-2 py-1 hover:bg-stone-50 whitespace-nowrap">Restaurar</button>
+                    <button onClick={() => void restoreVersion(v)} className="text-[11px] text-forest-700 border border-line rounded-md px-2 py-1 hover:bg-stone-50 whitespace-nowrap">Restaurar</button>
                   </li>
                 ))}
               </ul>

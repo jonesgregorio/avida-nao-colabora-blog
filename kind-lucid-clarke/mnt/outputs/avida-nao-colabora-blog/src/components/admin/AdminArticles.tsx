@@ -54,6 +54,7 @@ const TYPE_COPY: Record<ContentType, { title: string; novo: string; vazio: strin
 const STATUS_LABELS: Record<string, string> = {
   published: 'Publicado',
   draft: 'Rascunho',
+  review: 'Em revisão',
   archived: 'Arquivado',
   scheduled: 'Agendado',
 }
