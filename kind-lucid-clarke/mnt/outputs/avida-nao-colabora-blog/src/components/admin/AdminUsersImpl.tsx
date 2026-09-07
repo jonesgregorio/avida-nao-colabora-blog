@@ -25,6 +25,7 @@ import {
 } from './adminUsersServer'
 import {
   ACCOUNT_STATUS_COLORS,
+  accountStatusLabel,
   DRAWER_TABS,
   NOTE_PRIORITY_COLORS,
   PLAN_COLORS,
@@ -439,7 +440,13 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   function closeDrawer() { setSelectedUser(null) }
 
   async function setAdmin(userId: string, isAdmin: boolean) {
-    if (!isAdmin && !window.confirm('Remover o acesso administrativo desta pessoa? Ela perderá imediatamente o acesso ao painel.')) return
+    const isSelf = !!adminUser?.id && userId === adminUser.id
+    if (!isAdmin) {
+      const message = isSelf
+        ? 'Você está removendo o SEU PRÓPRIO acesso de administrador. Você perde o painel imediatamente e só outro admin poderá te devolver o acesso. Continuar?'
+        : 'Remover o acesso administrativo desta pessoa? Ela perderá imediatamente o acesso ao painel.'
+      if (!window.confirm(message)) return
+    }
     const { error } = await supabase.from('profiles').update({ role: isAdmin ? 'admin' : null }).eq('user_id', userId)
     if (error) {
       window.alert(error.message.includes('último administrador')
@@ -800,9 +807,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PLAN_COLORS[selectedUser.plan] ?? 'bg-stone-100'}`}>
                     {PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan}
                   </span>
-                  {selectedUser.account_status && (
+                  {selectedUser.account_status && selectedUser.account_status !== 'active' && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ACCOUNT_STATUS_COLORS[selectedUser.account_status] ?? 'bg-stone-100'}`}>
-                      {selectedUser.account_status}
+                      {accountStatusLabel(selectedUser.account_status)}
                     </span>
                   )}
                 </div>
@@ -842,7 +849,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         ['Cadastro', new Date(selectedUser.created_at).toLocaleDateString('pt-BR')],
                         ['Desde', timeSince(selectedUser.created_at)],
                         ['Último acesso', selectedUser.last_activity ? timeSince(selectedUser.last_activity) : 'Sem registros'],
-                        ['Status', selectedUser.account_status ?? 'active'],
+                        ['Status', accountStatusLabel(selectedUser.account_status)],
                       ].map(([label, value]) => (
                         <div key={label} className="bg-stone-50 rounded-xl p-3 border border-line">
                           <p className="text-[10px] text-stone-400 mb-0.5">{label}</p>
@@ -931,27 +938,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {drawerTab === 'mapa' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-stone-50 border border-line rounded-xl p-4">
-                        <p className="text-2xl font-serif text-forest-900">{metrics.diary}</p>
-                        <p className="text-xs text-stone-500 mt-1">Entradas no diário</p>
-                      </div>
-                      <div className="bg-stone-50 border border-line rounded-xl p-4">
-                        <p className="text-2xl font-serif text-forest-900">{metrics.questionnaires}</p>
-                        <p className="text-xs text-stone-500 mt-1">Questionários respondidos</p>
-                      </div>
-                    </div>
-                    <div className="bg-stone-50 border border-line rounded-xl p-4 text-xs text-stone-600">
-                      Último registro no diário: <strong>{lastDiary ? new Date(lastDiary).toLocaleDateString('pt-BR') : '—'}</strong>
-                    </div>
-                    <p className="text-xs text-stone-400">
-                      O mapa emocional detalhado (marcadores, gráficos e relatórios) fica na área <strong>Diário e mapa emocional</strong>.
-                    </p>
                   </div>
                 )}
 
@@ -1222,6 +1208,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                         </div>
                       </div>
                     ))}
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 text-xs text-stone-600">
+                      Último registro no diário: <strong>{lastDiary ? new Date(lastDiary).toLocaleDateString('pt-BR') : '—'}</strong>
+                    </div>
                   </div>
                 )}
 
@@ -1510,7 +1499,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       <p className="text-xs font-semibold text-stone-700 mb-3">Status da conta</p>
                       <div className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full font-medium mb-4 ${ACCOUNT_STATUS_COLORS[selectedUser.account_status ?? 'active'] ?? 'bg-stone-100'}`}>
                         <Shield className="w-3.5 h-3.5" />
-                        {selectedUser.account_status ?? 'active'}
+                        {accountStatusLabel(selectedUser.account_status)}
                       </div>
 
                       {selectedUser.account_status === 'active' || !selectedUser.account_status ? (

@@ -51,3 +51,26 @@ test('não há mais cancelamento/reativação fake (sem Stripe) na gaveta de Usu
 test('copy de pagamento desatualizada removida', () => {
   assert.doesNotMatch(impl, /Mercado Pago/)
 })
+
+const model = read('src/components/admin/adminUsersModel.ts')
+
+test('aba "Mapa emocional" da gaveta foi removida (número duplicava a aba Uso)', () => {
+  assert.doesNotMatch(model, /key: 'mapa'/)
+  assert.doesNotMatch(model, /\|\s*'mapa'/)
+  assert.doesNotMatch(impl, /drawerTab === 'mapa'/)
+  // "Último registro no diário" passou para a aba Uso.
+  assert.match(impl, /drawerTab === 'uso'/)
+  assert.match(impl, /Último registro no diário/)
+})
+
+test('status da conta aparece em português', () => {
+  assert.match(model, /ACCOUNT_STATUS_LABELS/)
+  assert.match(model, /blocked: 'Bloqueada'/)
+  assert.match(model, /suspended: 'Suspensa'/)
+  assert.match(impl, /accountStatusLabel\(selectedUser\.account_status\)/)
+})
+
+test('remover o próprio acesso de admin dá um aviso diferente', () => {
+  assert.match(impl, /const isSelf = !!adminUser\?\.id && userId === adminUser\.id/)
+  assert.match(impl, /SEU PRÓPRIO acesso de administrador/)
+})

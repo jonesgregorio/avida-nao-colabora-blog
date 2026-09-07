@@ -92,7 +92,6 @@ export interface AISummaryRow {
 export type DrawerTab =
   | 'resumo'
   | 'plano'
-  | 'mapa'
   | 'orientacoes'
   | 'assinatura'
   | 'acesso'
@@ -148,6 +147,17 @@ export const ACCOUNT_STATUS_COLORS: Record<string, string> = {
   trial: 'bg-blue-100 text-blue-700',
 }
 
+export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
+  active: 'Ativa',
+  blocked: 'Bloqueada',
+  suspended: 'Suspensa',
+  cancelled: 'Cancelada',
+  trial: 'Teste',
+}
+
+export const accountStatusLabel = (status: string | null | undefined): string =>
+  ACCOUNT_STATUS_LABELS[status ?? 'active'] ?? status ?? 'Ativa'
+
 export const TYPE_LABELS: Record<string, string> = {
   info: 'Info',
   content: 'Conteúdo',
@@ -179,7 +189,6 @@ export const KANBAN_COLUMNS = [
 export const DRAWER_TABS: ReadonlyArray<{ key: DrawerTab; label: string }> = [
   { key: 'resumo', label: 'Resumo' },
   { key: 'plano', label: 'Plano' },
-  { key: 'mapa', label: 'Mapa emocional' },
   { key: 'orientacoes', label: 'Orientações' },
   { key: 'assinatura', label: 'Assinatura e Pagamentos' },
   { key: 'acesso', label: 'Acesso' },
