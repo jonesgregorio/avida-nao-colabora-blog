@@ -542,49 +542,39 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     }
   }
 
-  async function blockUser() {
-    if (!selectedUser || !blockReason.trim()) return
+  // Bloqueio/suspensão passam pela RPC admin_set_account_status, que também bane
+  // o usuário no GoTrue (auth.users.banned_until) — invalida login e tokens ativos.
+  async function setAccountStatus(status: 'active' | 'blocked' | 'suspended', reason?: string) {
+    if (!selectedUser) return
+    if (status !== 'active' && selectedUser.user_id === adminUser?.id) {
+      window.alert('Você não pode bloquear ou suspender a sua própria conta.')
+      return
+    }
     setBlockingUser(true)
-    const { error } = await supabase.from('profiles').update({
-      account_status: 'blocked',
-      blocked_at: new Date().toISOString(),
-      blocked_by: adminUser?.id ?? null,
-      blocked_reason: blockReason,
-    }).eq('user_id', selectedUser.user_id)
+    const { error } = await supabase.rpc('admin_set_account_status', {
+      target_user_id: selectedUser.user_id,
+      new_status: status,
+      reason: reason ?? null,
+    })
     if (!error) {
-      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, account_status: 'blocked' } : r))
-      setSelectedUser(s => s ? { ...s, account_status: 'blocked' } : s)
+      const patch = {
+        account_status: status,
+        blocked_reason: status === 'active' ? null : (reason?.trim() || null),
+      }
+      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, ...patch } : r))
+      setSelectedUser(s => s ? { ...s, ...patch } : s)
       setShowBlockForm(false)
+      void logAdminAction('update', 'account_status', selectedUser.user_id, { status, email: selectedUser.email ?? null })
       void loadStats()
+    } else {
+      window.alert('Não foi possível alterar o status da conta: ' + error.message)
     }
     setBlockingUser(false)
   }
 
-  async function unblockUser() {
-    if (!selectedUser) return
-    setBlockingUser(true)
-    const { error } = await supabase.from('profiles').update({
-      account_status: 'active',
-      blocked_at: null, blocked_by: null, blocked_reason: null,
-    }).eq('user_id', selectedUser.user_id)
-    if (!error) {
-      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, account_status: 'active' } : r))
-      setSelectedUser(s => s ? { ...s, account_status: 'active' } : s)
-      void loadStats()
-    }
-    setBlockingUser(false)
-  }
-
-  async function suspendUser() {
-    if (!selectedUser) return
-    setBlockingUser(true)
-    const { error } = await supabase.from('profiles').update({ account_status: 'suspended' }).eq('user_id', selectedUser.user_id)
-    if (!error) {
-      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, account_status: 'suspended' } : r))
-      setSelectedUser(s => s ? { ...s, account_status: 'suspended' } : s)
-    }
-    setBlockingUser(false)
-  }
+  const blockUser = () => { if (blockReason.trim()) void setAccountStatus('blocked', blockReason) }
+  const unblockUser = () => void setAccountStatus('active')
+  const suspendUser = () => void setAccountStatus('suspended')
 
   async function addTag(tag: string) {
     if (!selectedUser) return
