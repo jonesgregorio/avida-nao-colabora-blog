@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 const garden=readFileSync(new URL('../src/components/MyGardenPage.tsx',import.meta.url),'utf8')
-const more=readFileSync(new URL('../src/components/MaisPage.tsx',import.meta.url),'utf8')
+const layout=readFileSync(new URL('../src/components/user/UserLayout.tsx',import.meta.url),'utf8')
 
 test('Meu Jardim prioriza progressão visual sem streak ou XP visível',()=>{
   assert.match(garden,/Meu Jardim/)
@@ -33,7 +33,10 @@ test('progressão não tem ciclo final e mantém jardins anteriores navegáveis'
   assert.doesNotMatch(garden,/Math\.min\(currentCycle,THEMES\.length-1\)/)
 })
 
-test('Meu Jardim está acessível pela área Mais',()=>{
-  assert.match(more,/title:'Meu Jardim'/)
-  assert.match(more,/MyGardenPage userId=\{profile\.user_id\}/)
+test('Meu Jardim está acessível pelo menu (nav do shell logado)',()=>{
+  // Saiu da página "Mais"; agora é item de navegação (folha "Mais" do mobile
+  // e grupo "Entender" do desktop). O acesso por plano é defendido na própria
+  // MyGardenPage (ver planAccessDescobertasGarden.test.ts).
+  assert.match(layout,/id: 'my-garden'/)
+  assert.match(layout,/label: 'Meu Jardim'/)
 })
