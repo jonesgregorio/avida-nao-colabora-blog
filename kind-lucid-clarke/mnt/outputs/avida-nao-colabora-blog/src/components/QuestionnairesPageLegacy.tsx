@@ -94,9 +94,11 @@ export default function QuestionnairesPage({
   }
 
   function handleStart(item: QItem) {
-    if (!user) { onStartAuth(item.id); return }
+    // Rota /questionarios/:slug — usa o slug; cai para o id se não houver slug.
+    const ref = item.slug || item.id
+    if (!user) { onStartAuth(ref); return }
     if (!hasPlanAccess(profile?.plan, item.plan_required)) { setLockedModal(item); return }
-    onStart(item.id)
+    onStart(ref)
   }
 
   return (
@@ -314,7 +316,7 @@ export default function QuestionnairesPage({
             </div>
             <div className="space-y-2">
               <button
-                onClick={() => { const id = lockedModal.id; setLockedModal(null); if (user) onNavigatePricing(); else onStartAuth(id) }}
+                onClick={() => { const ref = lockedModal.slug || lockedModal.id; setLockedModal(null); if (user) onNavigatePricing(); else onStartAuth(ref) }}
                 className="w-full bg-forest-900 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-forest-800 transition-colors"
               >
                 {user ? 'Ver planos' : 'Criar conta gratuita'}

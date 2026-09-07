@@ -20,6 +20,7 @@ interface Props {
   user: User | null
   profile: Profile | null
   onBack: () => void
+  onBackToPlan: () => void
   onNavigatePricing: () => void
 }
 
@@ -93,7 +94,7 @@ function isRequestAnswered(req: GuidanceRequest) {
   })
 }
 
-export default function MonthlyGuidancePage({ user, profile, onBack, onNavigatePricing }: Props) {
+export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPlan, onNavigatePricing }: Props) {
   const [loading, setLoading] = useState(true)
   const [request, setRequest] = useState<GuidanceRequest | null>(null)
   const [cycle, setCycle] = useState<Cycle>(() => guidanceCycle())
@@ -211,7 +212,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onNavigateP
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
-      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900">
+      <button onClick={onBackToPlan} className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-700 hover:text-forest-900">
         <ChevronLeft className="w-4 h-4" /> Voltar ao plano
       </button>
 

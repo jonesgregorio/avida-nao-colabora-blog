@@ -13,6 +13,7 @@ import {
   restoreNav,
   urlForView,
 } from './lib/navigation'
+import { applyRouteMetadata } from './lib/pageTitles'
 
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -117,6 +118,12 @@ export default function App() {
     trackEvent('page_view', { entity_id: window.location.pathname, entity_title: selectedArticleSlug || view, user_id: user?.id ?? null, metadata: { view } })
   }, [view, selectedArticleSlug, user?.id])
 
+  // Título e metadados por rota — o pathname já está sincronizado por pushURL
+  // quando este efeito roda. O ArticleView mantém o título específico do artigo.
+  useEffect(() => {
+    applyRouteMetadata(view)
+  }, [view, selectedArticleSlug, activeQuestionnaireId])
+
   // Analytics: Web Vitals (1x) + captura de cliques em CTA marcados com data-cta
   useEffect(() => {
     initWebVitals()
@@ -155,7 +162,7 @@ export default function App() {
     }
   }
 
-  const navigate = useCallback((section: string, articleSlug?: string) => {
+  const navigate = useCallback((section: string, ref?: string) => {
     // Redireciona views de módulos removidos do MVP para destinos válidos.
     section = normalizeLegacyView(section)
 
@@ -207,8 +214,9 @@ export default function App() {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
       if (section === 'diary') setDiaryMood(null)
       setView(section as View)
-      if (articleSlug) setSelectedArticleSlug(articleSlug)
-      pushURL(section, articleSlug)
+      if (section === 'article' && ref) setSelectedArticleSlug(ref)
+      if (section === 'questionnaire' && ref) setActiveQuestionnaireId(ref)
+      pushURL(section, ref)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -254,6 +262,8 @@ export default function App() {
       setView('article')
       pushURL('article', pending.articleSlug)
       window.scrollTo(0, 0)
+    } else if (pending.view === 'questionnaire' && pending.questionnaireId) {
+      navigate('questionnaire', pending.questionnaireId)
     } else {
       navigate(pending.view)
     }
@@ -268,6 +278,7 @@ export default function App() {
         setView(fromURL.view)
         if (fromURL.articleSlug) setSelectedArticleSlug(fromURL.articleSlug)
         if (fromURL.ticketId) setActiveSupportTicketId(fromURL.ticketId)
+        if (fromURL.view === 'questionnaire') setActiveQuestionnaireId(fromURL.questionnaireId ?? null)
       } else {
         setView('home')
       }
@@ -416,12 +427,12 @@ export default function App() {
       <QuestionnairesPage
         user={user}
         profile={accessProfile}
-        onStart={(id) => {
-          setActiveQuestionnaireId(id)
-          navigate('questionnaire')
+        onStart={(ref) => {
+          setActiveQuestionnaireId(ref)
+          navigate('questionnaire', ref)
         }}
-        onStartAuth={(id) => {
-          setPendingAction({ view: 'questionnaire', questionnaireId: id })
+        onStartAuth={(ref) => {
+          setPendingAction({ view: 'questionnaire', questionnaireId: ref })
           navigate('auth')
         }}
         onBack={() => navigate('home')}
@@ -538,6 +549,7 @@ export default function App() {
         user={user}
         profile={accessProfile}
         onBack={() => navigate('home')}
+        onBackToPlan={() => navigate('self-care')}
         onNavigatePricing={() => navigate('pricing')}
       />
     )
