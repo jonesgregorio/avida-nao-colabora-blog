@@ -901,14 +901,11 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
 
                 {drawerTab === 'plano' && (
                   <div className="space-y-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Plano atual</p>
                     <div className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full font-medium ${PLAN_COLORS[selectedUser.plan] ?? 'bg-stone-100'}`}>
                       <Crown className="w-3.5 h-3.5" />
                       {PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan}
                     </div>
-
-                    <p className="text-xs text-stone-400">
-                      Para alterar o plano deste usuário, use a aba <strong>Assinatura e Pagamentos</strong>.
-                    </p>
 
                     {planHistory.length > 0 && (
                       <div>
@@ -956,8 +953,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'assinatura' && (
-                  <div className="space-y-4">
+                {drawerTab === 'plano' && (
+                  <div className="space-y-4 border-t border-line pt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Assinatura e pagamentos</p>
                     {adminSubMsg && (
                       <div className={`text-sm px-3 py-2 rounded-lg border ${adminSubMsg.type === 'ok' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
                         {adminSubMsg.text}
@@ -998,8 +996,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'acesso' && (
-                  <div className="space-y-4">
+                {drawerTab === 'plano' && (
+                  <div className="space-y-4 border-t border-line pt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Acesso</p>
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Acesso ilimitado</p>
                       <div className="flex items-center gap-2">
@@ -1040,16 +1039,25 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'suporte' && (
+                {drawerTab === 'mensagens' && (
                   <div className="space-y-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => setShowMsgModal(true)}
                         className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" /> Enviar mensagem
+                        <Bell className="w-3.5 h-3.5" /> Enviar notificação
+                      </button>
+                      <button
+                        onClick={() => setShowEmailModal(true)}
+                        disabled={!selectedUser.email}
+                        title={selectedUser.email ? '' : 'Este usuário não possui e-mail cadastrado.'}
+                        className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50"
+                      >
+                        <Mail className="w-3.5 h-3.5" /> Enviar e-mail
                       </button>
                     </div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 pt-1">Tickets de suporte</p>
                     {userTickets.length === 0 ? (
                       <div className="text-center py-10 text-stone-400">
                         <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -1074,14 +1082,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'notificacoes' && (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setShowMsgModal(true)}
-                      className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800"
-                    >
-                      <Bell className="w-3.5 h-3.5" /> Enviar notificação
-                    </button>
+                {drawerTab === 'mensagens' && (
+                  <div className="space-y-3 border-t border-line pt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Notificações</p>
                     {userNotifs.length === 0 ? (
                       <div className="text-center py-10 text-stone-400">
                         <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -1104,21 +1107,11 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'comunicacao' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-semibold text-forest-900">E-mails enviados</h3>
-                        <p className="text-xs text-stone-400">Mensagens manuais enviadas por você a este usuário.</p>
-                      </div>
-                      <button
-                        onClick={() => setShowEmailModal(true)}
-                        disabled={!selectedUser.email}
-                        title={selectedUser.email ? '' : 'Este usuário não possui e-mail cadastrado.'}
-                        className="flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50 flex-shrink-0"
-                      >
-                        <Mail className="w-3.5 h-3.5" /> Enviar e-mail
-                      </button>
+                {drawerTab === 'mensagens' && (
+                  <div className="space-y-4 border-t border-line pt-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">E-mails enviados</p>
+                      <p className="text-xs text-stone-400 mt-1">Mensagens manuais enviadas por você a este usuário.</p>
                     </div>
 
                     {!selectedUser.email && (
@@ -1204,8 +1197,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                   </div>
                 )}
 
-                {drawerTab === 'descontos' && (
-                  <div className="space-y-4">
+                {drawerTab === 'plano' && (
+                  <div className="space-y-4 border-t border-line pt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Descontos</p>
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-stone-700">Desconto administrativo</p>
                       <div className="grid grid-cols-2 gap-3">
