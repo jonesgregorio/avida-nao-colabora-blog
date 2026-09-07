@@ -208,7 +208,12 @@ export default function Auth({ onBack }: AuthProps) {
         setSuccess('E-mail de recuperação enviado! Verifique sua caixa de entrada.')
       }
     } catch (err) {
-      setError((err as Error).message || 'Ocorreu um erro. Tente novamente.')
+      const raw = (err as Error).message || ''
+      const banned = /ban(ned)?|user is banned|user_banned/i.test(raw)
+        || (err as { code?: string })?.code === 'user_banned'
+      setError(banned
+        ? 'Esta conta está bloqueada. Entre em contato com o suporte pelo e-mail contato@avidanaocolabora.com.br.'
+        : raw || 'Ocorreu um erro. Tente novamente.')
     } finally {
       setLoading(false)
     }

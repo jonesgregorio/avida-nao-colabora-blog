@@ -93,13 +93,8 @@ export type DrawerTab =
   | 'resumo'
   | 'plano'
   | 'orientacoes'
-  | 'assinatura'
-  | 'acesso'
-  | 'suporte'
-  | 'notificacoes'
-  | 'comunicacao'
+  | 'mensagens'
   | 'uso'
-  | 'descontos'
   | 'notas'
   | 'seguranca'
   | 'resumo-inteligente'
@@ -188,15 +183,10 @@ export const KANBAN_COLUMNS = [
 
 export const DRAWER_TABS: ReadonlyArray<{ key: DrawerTab; label: string }> = [
   { key: 'resumo', label: 'Resumo' },
-  { key: 'plano', label: 'Plano' },
+  { key: 'plano', label: 'Plano e cobrança' },
   { key: 'orientacoes', label: 'Orientações' },
-  { key: 'assinatura', label: 'Assinatura e Pagamentos' },
-  { key: 'acesso', label: 'Acesso' },
-  { key: 'suporte', label: 'Suporte' },
-  { key: 'notificacoes', label: 'Notificações' },
-  { key: 'comunicacao', label: 'Comunicação' },
+  { key: 'mensagens', label: 'Mensagens' },
   { key: 'uso', label: 'Uso' },
-  { key: 'descontos', label: 'Descontos' },
   { key: 'notas', label: 'Notas' },
   { key: 'seguranca', label: 'Segurança' },
   { key: 'resumo-inteligente', label: '✦ Resumo IA' },

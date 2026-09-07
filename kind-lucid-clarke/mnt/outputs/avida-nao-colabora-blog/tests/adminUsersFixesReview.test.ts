@@ -26,13 +26,12 @@ test('conta bloqueada/suspensa é barrada antes de qualquer área logada', () =>
   assert.match(gate, /onSignOut/)
 })
 
-test('alteração de plano não está mais duplicada na aba "Plano"', () => {
-  // A aba Plano vira só leitura (badge + histórico) e aponta para a aba certa.
+test('alteração de plano não está mais duplicada', () => {
   assert.doesNotMatch(impl, /async function handlePlanChange/)
   assert.doesNotMatch(impl, /setChangingPlan/)
-  assert.match(impl, /use a aba <strong>Assinatura e Pagamentos<\/strong>/)
-  // O único fluxo de alteração de plano é o adminChangePlan (aba Assinatura),
-  // que mantém profiles + user_subscriptions + os DOIS históricos + notificação.
+  // O único fluxo de alteração de plano é o adminChangePlan (seção Assinatura
+  // da aba "Plano e cobrança"), que mantém profiles + user_subscriptions + os
+  // DOIS históricos + notificação.
   assert.match(impl, /async function adminChangePlan/)
   assert.match(impl, /from\('plan_change_history'\)\.insert/)
   assert.match(impl, /from\('user_plan_history'\)\.insert/)
@@ -73,4 +72,20 @@ test('status da conta aparece em português', () => {
 test('remover o próprio acesso de admin dá um aviso diferente', () => {
   assert.match(impl, /const isSelf = !!adminUser\?\.id && userId === adminUser\.id/)
   assert.match(impl, /SEU PRÓPRIO acesso de administrador/)
+})
+
+test('gaveta de Usuários consolidada em menos abas', () => {
+  // 8 abas (era 14): resumo, plano e cobrança, orientações, mensagens,
+  // uso, notas, segurança, resumo IA.
+  const block = model.match(/DRAWER_TABS[\s\S]*?\n\]/)?.[0] ?? ''
+  const keys = [...block.matchAll(/\{ key: '([^']+)'/g)].map(m => m[1])
+  assert.deepEqual(keys, ['resumo', 'plano', 'orientacoes', 'mensagens', 'uso', 'notas', 'seguranca', 'resumo-inteligente'])
+  // Cobrança (plano + assinatura + acesso + descontos) tudo sob 'plano'.
+  assert.match(impl, /drawerTab === 'plano'[\s\S]*Assinatura e pagamentos[\s\S]*Acesso[\s\S]*Descontos/)
+  assert.doesNotMatch(impl, /drawerTab === 'assinatura'/)
+  assert.doesNotMatch(impl, /drawerTab === 'descontos'/)
+  // Mensagens (suporte + notificações + e-mails) tudo sob 'mensagens'.
+  assert.match(impl, /drawerTab === 'mensagens'[\s\S]*Tickets de suporte[\s\S]*Notificações[\s\S]*E-mails enviados/)
+  assert.doesNotMatch(impl, /drawerTab === 'suporte'/)
+  assert.doesNotMatch(impl, /drawerTab === 'comunicacao'/)
 })
