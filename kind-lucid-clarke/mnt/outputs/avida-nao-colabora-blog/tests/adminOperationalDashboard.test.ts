@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 
 const migration = read('supabase/migrations/20260907170000_admin_operational_dashboard.sql')
+const hotfix = read('supabase/migrations/20260907290000_fix_operational_dashboard_notifications.sql')
 const dash = read('src/components/admin/AdminOperationalDashboard.tsx')
 const overview = read('src/components/admin/AdminOverview.tsx')
 
@@ -30,12 +31,24 @@ test('a RPC devolve período + bloco "requer atenção" e só agrega (sem dados 
   assert.doesNotMatch(migration, /\.text|free_note|content_html|full_name|email\b/i)
 })
 
-test('a Central da Jornada tem seletor de período e degrada com segurança', () => {
+test('hotfix: notifications_draft não usa notifications.status (coluna inexistente em prod)', () => {
+  assert.match(hotfix, /create or replace function public\.admin_operational_dashboard\(/i)
+  assert.match(hotfix, /'notifications_draft', \(\s*\n\s*select count\(\*\) from public\.admin_communications where status = 'draft'/i)
+  assert.doesNotMatch(hotfix, /from public\.notifications\s*\n\s*where coalesce\(status/i)
+  assert.match(hotfix, /grant execute on function public\.admin_operational_dashboard\(timestamptz, timestamptz\) to authenticated/i)
+})
+
+test('a Central da Jornada tem seletor de período e trata erro sem placeholder de dev', () => {
   assert.match(dash, /'today' \| '7d' \| '30d' \| 'month' \| 'custom'/)
   assert.match(dash, /supabase\.rpc\('admin_operational_dashboard'/)
-  assert.match(dash, /admin_operational_dashboard\|does not exist\|schema cache/)
+  // Sem texto de "após o deploy desta etapa"; só erro real ou PGRST202 explícito.
+  assert.doesNotMatch(dash, /após o deploy desta etapa|ficam disponíveis após/)
+  assert.match(dash, /code === 'PGRST202'/)
   assert.match(dash, /Requer atenção/)
   assert.match(dash, /period === 'custom'/)
+  // Distingue carregando (skeleton) de valor real (inclui 0).
+  assert.match(dash, /animate-pulse/)
+  assert.match(dash, /typeof raw === 'number'/)
 })
 
 test('a Central da Jornada é renderizada na Visão geral, sem remover o que já existia', () => {

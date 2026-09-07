@@ -76,6 +76,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [adminSubPlanReason, setAdminSubPlanReason] = useState('')
   const [adminSubActing, setAdminSubActing] = useState(false)
   const [adminSubMsg, setAdminSubMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  // Estado da assinatura Stripe do usuário — usado para impedir que o ajuste
+  // manual de plano crie divergência com uma assinatura paga ativa.
+  const [adminSubInfo, setAdminSubInfo] = useState<{ hasStripe: boolean; active: boolean; planKey: string | null } | null>(null)
   const [userTickets, setUserTickets] = useState<TicketRow[]>([])
   const [userNotifs, setUserNotifs] = useState<NotifRow[]>([])
   const [userNotes, setUserNotes] = useState<NoteRow[]>([])
@@ -384,14 +387,50 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   // A EXIBIÇÃO é do AdminSubscriptionPanel, que busca os próprios dados.
   // Cancelamento/reativação com Stripe são feitos na aba Admin > Cancelamentos.
   async function loadAdminSub(userId: string) {
-    const { data } = await supabase.from('user_subscriptions').select('plan_key').eq('user_id', userId).maybeSingle()
+    setAdminSubInfo(null)
+    const { data } = await supabase
+      .from('user_subscriptions')
+      .select('plan_key, status, payment_status, provider_subscription_id, cancel_at_period_end')
+      .eq('user_id', userId).maybeSingle()
     if (data?.plan_key) setAdminSubPlan(data.plan_key)
+    if (data) {
+      const hasStripe = Boolean(data.provider_subscription_id)
+      const active = ['active', 'trialing'].includes(data.status ?? '')
+        || ['active', 'trialing'].includes(data.payment_status ?? '')
+      setAdminSubInfo({ hasStripe, active: hasStripe && active, planKey: data.plan_key ?? null })
+    } else {
+      setAdminSubInfo({ hasStripe: false, active: false, planKey: null })
+    }
   }
 
   async function adminChangePlan(targetPlan: string, userId: string) {
+    const oldPlan = selectedUser?.plan ?? 'free'
+
+    // Trava de consistência: se o usuário tem assinatura Stripe ativa, o ajuste
+    // manual aqui criaria divergência (Stripe cobrando um plano, app mostrando
+    // outro). Nesse caso, o admin deve usar o Stripe / a aba Cancelamentos para
+    // mudar a assinatura comercial, ou "Acesso ilimitado" para dar benefício.
+    if (adminSubInfo?.active) {
+      setAdminSubMsg({
+        type: 'err',
+        text: 'Este usuário tem assinatura ativa no Stripe. Alterar o plano aqui criaria divergência com a cobrança. '
+          + 'Para mudar a assinatura comercial use o Stripe (ou a aba Cancelamentos para encerrar). '
+          + 'Para dar acesso extra sem mexer na cobrança, use "Acesso ilimitado" abaixo.',
+      })
+      return
+    }
+
+    const from = PLAN_LABELS[oldPlan] ?? oldPlan
+    const to = PLAN_LABELS[targetPlan] ?? targetPlan
+    if (!window.confirm(
+      `Ajuste manual de plano\n\n${from} → ${to}\n\n`
+      + '• Não passa pelo Stripe e não gera cobrança.\n'
+      + '• Efeito imediato.\n'
+      + '• O usuário recebe uma notificação.\n\nConfirmar?',
+    )) return
+
     setAdminSubActing(true)
     setAdminSubMsg(null)
-    const oldPlan = selectedUser?.plan ?? 'free'
     const { error } = await supabase.from('profiles').update({ plan: targetPlan }).eq('user_id', userId)
     if (error) { setAdminSubMsg({ type: 'err', text: 'Erro ao alterar plano: ' + error.message }); setAdminSubActing(false); return }
     await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
@@ -403,7 +442,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setUsers(u => u.map(r => r.user_id === userId ? { ...r, plan: targetPlan } : r))
     setSelectedUser(s => s ? { ...s, plan: targetPlan } : s)
     setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: adminSubPlanReason || null, created_at: new Date().toISOString() }, ...prev])
-    setAdminSubMsg({ type: 'ok', text: `Plano alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.` })
+    setAdminSubInfo({ hasStripe: false, active: false, planKey: targetPlan })
+    setAdminSubMsg({ type: 'ok', text: `Plano ajustado para ${PLAN_LABELS[targetPlan] ?? targetPlan} (sem efeito no Stripe).` })
     setAdminSubPlanReason('')
     void loadStats()
     setAdminSubActing(false)
@@ -437,7 +477,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setMsgTitle(''); setMsgBody(''); setMsgType('admin_message')
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
-    setAdminSubMsg(null); setAdminSubPlan(u.plan); setAdminSubPlanReason('')
+    setAdminSubMsg(null); setAdminSubPlan(u.plan); setAdminSubPlanReason(''); setAdminSubInfo(null)
     setAiSummaries([]); setAiCurrentSummary(''); setAiExtraLoaded(false); setAiMsg(null)
     setUser360(null); setLoading360(true)
     loadUser360(u.user_id).then(setUser360).catch(() => setUser360(null)).finally(() => setLoading360(false))
@@ -996,32 +1036,38 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                     )}
 
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
-                      <p className="text-xs font-semibold text-stone-700">Alterar plano (admin)</p>
-                      <div className="flex gap-2">
-                        <select
-                          value={adminSubPlan}
-                          onChange={e => setAdminSubPlan(e.target.value)}
-                          className={inputCls}
-                        >
-                          {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-                        </select>
-                        <button
-                          onClick={() => adminChangePlan(adminSubPlan, selectedUser!.user_id)}
-                          disabled={adminSubActing || adminSubPlan === selectedUser?.plan}
-                          className="flex-shrink-0 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-40 transition-colors"
-                        >
-                          {adminSubActing ? '...' : 'Aplicar'}
-                        </button>
-                      </div>
-                      <input
-                        value={adminSubPlanReason}
-                        onChange={e => setAdminSubPlanReason(e.target.value)}
-                        placeholder="Motivo da alteração (opcional)"
-                        className={inputCls}
-                      />
-                      <p className="text-[10px] text-stone-400">
-                        Altera o plano imediatamente, sem cobrança proporcional, e notifica o usuário. <strong>Não mexe no Stripe</strong> — para cancelar uma assinatura paga, use a aba <strong>Cancelamentos</strong>.
-                      </p>
+                      <p className="text-xs font-semibold text-stone-700">Ajuste manual de plano (sem Stripe)</p>
+                      {adminSubInfo?.active ? (
+                        <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 space-y-1">
+                          <p>Este usuário tem <strong>assinatura ativa no Stripe</strong>. O ajuste manual está bloqueado para não divergir da cobrança.</p>
+                          <p>• Para mudar a assinatura comercial: use o Stripe, ou a aba <strong>Cancelamentos</strong> para encerrar ao fim do ciclo.</p>
+                          <p>• Para dar acesso extra sem tocar na cobrança: use <strong>Acesso ilimitado</strong> abaixo.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex gap-2">
+                            <select value={adminSubPlan} onChange={e => setAdminSubPlan(e.target.value)} className={inputCls}>
+                              {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                            </select>
+                            <button
+                              onClick={() => adminChangePlan(adminSubPlan, selectedUser!.user_id)}
+                              disabled={adminSubActing || adminSubPlan === selectedUser?.plan}
+                              className="flex-shrink-0 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-40 transition-colors"
+                            >
+                              {adminSubActing ? '...' : 'Aplicar'}
+                            </button>
+                          </div>
+                          <input
+                            value={adminSubPlanReason}
+                            onChange={e => setAdminSubPlanReason(e.target.value)}
+                            placeholder="Motivo da alteração (opcional)"
+                            className={inputCls}
+                          />
+                          <p className="text-[10px] text-stone-400">
+                            Para contas <strong>sem assinatura paga</strong> (gratuitas, cortesias, planos legados). Efeito imediato, <strong>sem cobrança</strong> e sem passar pelo Stripe. Notifica o usuário. Para uma assinatura paga de verdade, o Stripe é a fonte.
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

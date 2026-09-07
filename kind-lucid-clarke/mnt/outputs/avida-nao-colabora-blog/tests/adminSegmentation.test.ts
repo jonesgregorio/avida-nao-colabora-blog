@@ -40,10 +40,19 @@ test('as ações em massa pedem confirmação forte e são auditadas', () => {
   assert.match(comp, /logAdminAction\('config', 'segment_notify'/)
 })
 
-test('a tela degrada quando a RPC ainda não existe e permite exportar CSV', () => {
-  assert.match(comp, /admin_segment_preview\|does not exist\|schema cache/)
-  assert.match(comp, /disponível após o deploy desta etapa/i)
+test('a tela degrada só quando a RPC não existe (PGRST202) e permite exportar CSV', () => {
+  assert.match(comp, /\(error as \{ code\?: string \}\)\.code === 'PGRST202'/)
+  assert.doesNotMatch(comp, /admin_segment_preview\|does not exist\|schema cache/)
   assert.match(comp, /Exportar CSV/)
+})
+
+test('públicos salvos podem ser reutilizados, atualizados e excluídos', () => {
+  assert.match(comp, /function atualizarPublico/)
+  assert.match(comp, /function excluirPublico/)
+  assert.match(comp, /from\('admin_segments'\)\.update\(/)
+  assert.match(comp, /from\('admin_segments'\)\.delete\(\)/)
+  assert.match(comp, /logAdminAction\('update', 'admin_segment'/)
+  assert.match(comp, /logAdminAction\('delete', 'admin_segment'/)
 })
 
 test('a área Segmentação está registrada no admin e no menu', () => {
