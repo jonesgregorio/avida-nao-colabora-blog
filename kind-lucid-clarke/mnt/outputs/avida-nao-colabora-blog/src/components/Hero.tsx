@@ -34,14 +34,14 @@ export default function Hero({ onNavigate }: HeroProps) {
       <div className="relative mx-auto min-h-[520px] max-w-[1536px] overflow-hidden sm:min-h-[610px] lg:min-h-[670px]">
         <img
           data-testid="home-hero-image"
-          src="/images/home/hero-person-2026-v2.webp"
-          alt="Homem sentado no sofá segurando uma caneca, olhando pela janela em um ambiente iluminado pela luz natural e cercado por plantas."
+          src="/images/home/hero-reflection-overlook-2026-v2.webp"
+          alt="Mulher sentada em um mirante ao pôr do sol, com uma caneca nas mãos, olhando a cidade ao longe em um momento de pausa e reflexão."
           className="absolute inset-0 h-full w-full object-cover object-[79%_center] sm:object-[72%_center] lg:object-[72%_center]"
           loading="eager"
           decoding="async"
           fetchPriority="high"
           width="2000"
-          height="1540"
+          height="1333"
           onError={(event) => {
             const img = event.currentTarget
             if (!img.src.endsWith('/images/home/hero-person-clean.webp')) {
