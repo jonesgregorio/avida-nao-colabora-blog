@@ -20,11 +20,15 @@ async function loginBlog(page, email, password) {
 test('domínios oficiais entregam Home, login e asset essencial', async ({ page, request }) => {
   await page.goto('/')
   await expect(page.locator('body')).toContainText('A Vida Não Colabora')
-  const hero = page.locator('img[src="/images/home/hero-mockup-person.webp"]')
+  // A imagem do hero muda de arquivo de tempos em tempos; ancoramos no
+  // data-testid estável e validamos o asset que ELA aponta, não um nome fixo.
+  const hero = page.getByTestId('home-hero-image')
   await expect(hero).toBeVisible()
   await expect.poll(() => hero.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true)
 
-  const heroResponse = await request.get('/images/home/hero-mockup-person.webp')
+  const heroSrc = await hero.getAttribute('src')
+  expect(heroSrc, 'hero sem src').toBeTruthy()
+  const heroResponse = await request.get(heroSrc)
   expect(heroResponse.status()).toBe(200)
   expect(heroResponse.headers()['content-type'] ?? '').toMatch(/^image\//)
   expect((await heroResponse.body()).byteLength).toBeGreaterThan(1_000)
