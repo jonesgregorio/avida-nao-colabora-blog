@@ -1,5 +1,20 @@
 import { supabase } from '../../lib/supabase'
-import type { UserRow } from './adminUsersModel'
+import type { User360, UserRow } from './adminUsersModel'
+
+/**
+ * Retrato 360º do usuário (Etapa 1). Passa por admin_user_360 (SECURITY DEFINER
+ * + is_admin) porque a RLS das tabelas de dados é `auth.uid() = user_id` — um
+ * SELECT direto do admin sobre outro usuário volta vazio.
+ * Devolve null se a RPC ainda não existir no banco (antes do deploy da etapa).
+ */
+export async function loadUser360(userId: string): Promise<User360 | null> {
+  const { data, error } = await supabase.rpc('admin_user_360', { target_user_id: userId })
+  if (error) {
+    if (/function .*admin_user_360|does not exist|schema cache/i.test(error.message)) return null
+    throw error
+  }
+  return (data ?? null) as User360 | null
+}
 
 export interface AdminUsersServerStats {
   total: number

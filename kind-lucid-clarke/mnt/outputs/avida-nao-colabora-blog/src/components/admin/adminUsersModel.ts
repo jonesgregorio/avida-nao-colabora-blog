@@ -91,13 +91,60 @@ export interface AISummaryRow {
 
 export type DrawerTab =
   | 'resumo'
-  | 'plano'
+  | 'jornada'
+  | 'diario'
+  | 'checkins'
+  | 'mapa'
+  | 'questionarios'
+  | 'autocuidado'
+  | 'conteudos'
+  | 'relatorios'
   | 'orientacoes'
+  | 'plano'
   | 'mensagens'
   | 'uso'
   | 'notas'
   | 'seguranca'
+  | 'historico'
   | 'resumo-inteligente'
+
+/** Retrato agregado do usuário — RPC admin_user_360 (SECURITY DEFINER). */
+export interface User360 {
+  generated_at?: string
+  header?: {
+    pending_support?: number
+    pending_guidance?: number
+    pending_payment?: number
+    scheduled_cancellation?: boolean
+    unread_notifications?: number
+    account_status?: string
+    last_seen_at?: string | null
+  }
+  diary?: { total: number; first_at: string | null; last_at: string | null; active_days: number; deepenings: number; last_30d: number }
+  checkins?: { total: number; first_at: string | null; last_at: string | null; active_days: number; last_30d: number }
+  mapa?: {
+    avg_mood_90d: number | null
+    top_emotions: { label: string; count: number }[]
+    top_contexts: { label: string; count: number }[]
+    top_needs: { label: string; count: number }[]
+  }
+  questionnaires?: { total: number; completed: number; last_at: string | null; last_completed_at: string | null }
+  care_plans?: { total: number; generated: number; pending: number; failed: number; last_generated_at: string | null; last_reviewed_at: string | null }
+  content?: { articles_read: number; last_read_at: string | null; guided_sent: number; guided_opened: number; guided_completed: number }
+  reports?: { total: number; weekly: number; monthly: number; generated: number; building: number; failed: number; last_generated_at: string | null }
+  guidance?: { total: number; answered: number; open: number; last_request_at: string | null; last_answered_at: string | null }
+  subscription?: {
+    plan_key: string | null; status: string | null
+    current_period_start: string | null; current_period_end: string | null
+    cancel_at_period_end: boolean | null
+    pending_plan: string | null; pending_plan_starts_at: string | null
+    stripe_subscription_id: string | null; stripe_customer_id: string | null
+  } | null
+  payment_events?: { type: string | null; status: string | null; amount: number | null; currency: string | null; description: string | null; created_at: string }[]
+  subscription_events?: { event_type: string; previous_plan: string | null; new_plan: string | null; amount: number | null; status: string | null; created_at: string }[]
+  plan_history_count?: number
+  history?: { milestones: number; highlighted_months: number; hidden_months: number }
+}
 
 export type ViewMode = 'list' | 'kanban'
 
@@ -181,14 +228,30 @@ export const KANBAN_COLUMNS = [
   { key: 'plus', label: 'Plus', color: 'border-[#f0c3b4] bg-coral/30', badge: 'bg-coral text-[#c05f3c]' },
 ] as const
 
+// Abas da Ficha 360º que são somente-leitura e vêm da RPC admin_user_360.
+const USER_360_TABS: ReadonlyArray<DrawerTab> = [
+  'jornada', 'diario', 'checkins', 'mapa', 'questionarios',
+  'autocuidado', 'conteudos', 'relatorios', 'historico',
+]
+export const is360Tab = (tab: DrawerTab): boolean => USER_360_TABS.includes(tab)
+
 export const DRAWER_TABS: ReadonlyArray<{ key: DrawerTab; label: string }> = [
-  { key: 'resumo', label: 'Resumo' },
-  { key: 'plano', label: 'Plano e cobrança' },
+  { key: 'resumo', label: 'Visão geral' },
+  { key: 'jornada', label: 'Jornada' },
+  { key: 'diario', label: 'Diário' },
+  { key: 'checkins', label: 'Check-ins' },
+  { key: 'mapa', label: 'Mapa Emocional' },
+  { key: 'questionarios', label: 'Questionários' },
+  { key: 'autocuidado', label: 'Plano de Autocuidado' },
+  { key: 'conteudos', label: 'Conteúdos Guiados' },
+  { key: 'relatorios', label: 'Relatórios' },
   { key: 'orientacoes', label: 'Orientações' },
-  { key: 'mensagens', label: 'Mensagens' },
+  { key: 'plano', label: 'Assinatura e cobrança' },
+  { key: 'mensagens', label: 'Suporte e mensagens' },
   { key: 'uso', label: 'Uso' },
   { key: 'notas', label: 'Notas' },
   { key: 'seguranca', label: 'Segurança' },
+  { key: 'historico', label: 'Histórico' },
   { key: 'resumo-inteligente', label: '✦ Resumo IA' },
 ]
 

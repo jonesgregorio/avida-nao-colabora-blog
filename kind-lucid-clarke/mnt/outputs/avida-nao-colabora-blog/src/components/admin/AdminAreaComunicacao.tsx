@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Bell, Mail, FileText, Sparkles, LayoutTemplate } from 'lucide-react'
+import { Bell, Mail, FileText, Sparkles, LayoutTemplate, Megaphone } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminEmails from './AdminEmails'
 import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminSiteContent from './AdminSiteContent'
+import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
 
 // Comunicação — canais de mensagem: notificações in-app + e-mails + criador IA
 const TABS = [
+  { id: 'campanhas',     label: 'Campanhas',           icon: Megaphone },
   { id: 'notificacoes',  label: 'Notificações',        icon: Bell },
   { id: 'emails',        label: 'E-mails enviados',     icon: Mail },
   { id: 'templates',     label: 'Templates de e-mail',  icon: FileText },
@@ -23,9 +25,9 @@ interface Props {
 export default function AdminAreaComunicacao({ initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      const saved = initialTab ?? localStorage.getItem('admin-comunicacao-tab') ?? 'notificacoes'
-      return (TABS.find(t => t.id === saved)?.id ?? 'notificacoes') as Tab
-    } catch { return 'notificacoes' }
+      const saved = initialTab ?? localStorage.getItem('admin-comunicacao-tab') ?? 'campanhas'
+      return (TABS.find(t => t.id === saved)?.id ?? 'campanhas') as Tab
+    } catch { return 'campanhas' }
   })
 
   function switchTab(id: Tab) {
@@ -61,6 +63,7 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
         </nav>
       </div>
       <div className="flex-1">
+        {tab === 'campanhas'    && <AdminCommunicationCampaigns />}
         {tab === 'notificacoes' && <AdminNotifications />}
         {tab === 'emails'       && <AdminEmails initialTab="logs" />}
         {tab === 'templates'    && <AdminEmails initialTab="templates" />}

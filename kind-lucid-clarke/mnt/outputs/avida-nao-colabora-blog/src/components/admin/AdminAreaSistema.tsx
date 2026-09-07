@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Activity, Plug, ClipboardList, Shield, Zap, Gauge, MapPin } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield, Zap, Gauge, MapPin, ListChecks, ToggleRight } from 'lucide-react'
 import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
+import AdminQueuesFailures from './AdminQueuesFailures'
 import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
 import AdminAutomationsHealth from './AdminAutomationsHealth'
 import AdminIdea1Rollout from './AdminIdea1Rollout'
+import AdminFeatureFlags from './AdminFeatureFlags'
 import AdminInfraReference from './AdminInfraReference'
 
 // Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
@@ -18,8 +20,10 @@ import AdminInfraReference from './AdminInfraReference'
 // sem alterar planos, assinaturas nem recursos contratados.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
+  { id: 'filas', label: 'Filas e falhas', icon: ListChecks },
   { id: 'automacoes', label: 'Automações', icon: Zap },
   { id: 'liberacao', label: 'Liberação', icon: Gauge },
+  { id: 'flags', label: 'Funcionalidades', icon: ToggleRight },
   { id: 'integracoes', label: 'Integrações', icon: Plug },
   { id: 'logs', label: 'Logs de auditoria', icon: ClipboardList },
   { id: 'permissoes', label: 'Permissões', icon: Shield },
@@ -69,8 +73,10 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       </div>
       <div className="flex-1">
         {tab === 'saude' && <AdminSystemHealthFriendly />}
+        {tab === 'filas' && <AdminQueuesFailures />}
         {tab === 'automacoes' && <AdminAutomationsHealth />}
         {tab === 'liberacao' && <AdminIdea1Rollout />}
+        {tab === 'flags' && <AdminFeatureFlags />}
         {tab === 'integracoes' && <AdminIntegrations />}
         {tab === 'logs' && <AdminLogs />}
         {tab === 'permissoes' && <AdminPermissions />}

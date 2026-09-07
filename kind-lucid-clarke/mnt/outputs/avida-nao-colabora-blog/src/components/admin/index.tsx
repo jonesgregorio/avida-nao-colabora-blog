@@ -11,6 +11,7 @@ import AdminMfaGate from './AdminMfaGate'
 const AdminArticleEditor = lazy(() => import('./AdminArticleEditor'))
 const AdminOverview = lazy(() => import('./AdminOverview'))
 const AdminUsers = lazy(() => import('./AdminUsers'))
+const AdminSegments = lazy(() => import('./AdminSegments'))
 const AdminEngagement = lazy(() => import('./AdminEngagement'))
 const AdminPlanosPage = lazy(() => import('./AdminPlanosPage'))
 const AdminCancellations = lazy(() => import('./AdminCancellations'))
@@ -40,7 +41,7 @@ const ADMIN_KEY = 'avida_admin_view'
 // "visao-geral" — por isso adicionar um item no menu exige registrá-lo AQUI
 // também, senão ele existe mas não abre.
 const AREAS: AdminView[] = [
-  'visao-geral', 'usuarios', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'estudio', 'analytics', 'financeiro',
+  'visao-geral', 'usuarios', 'segmentacao', 'engajamento', 'planos', 'cancelamentos', 'conteudos', 'estudio', 'analytics', 'financeiro',
   'mapa', 'emocional', 'comunicacao', 'suporte', 'sistema',
 ]
 
@@ -194,6 +195,7 @@ export default function AdminPanel() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
       case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
+      case 'segmentacao': return <AdminSegments />
       case 'engajamento': return <AdminEngagement />
       case 'planos': return <AdminPlanosPage />
       case 'cancelamentos': return <AdminCancellations />

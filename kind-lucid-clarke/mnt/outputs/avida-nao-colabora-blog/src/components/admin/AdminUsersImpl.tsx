@@ -15,11 +15,13 @@ import { ADMIN_INPUT_CLASS as inputCls } from '../../lib/styleConstants'
 import AdminSubscriptionPanel from './AdminSubscriptionPanel'
 import AdminSendUserEmail from './AdminSendUserEmail'
 import AdminUsersOverview from './AdminUsersOverview'
+import AdminUser360Tabs from './AdminUser360Tabs'
 import {
   EMPTY_STATS,
   loadAdminUsersPage,
   loadAdminUsersStats,
   loadAllAdminUsersForExport,
+  loadUser360,
   type AdminUsersFilters,
   type AdminUsersServerStats,
 } from './adminUsersServer'
@@ -27,6 +29,7 @@ import {
   ACCOUNT_STATUS_COLORS,
   accountStatusLabel,
   DRAWER_TABS,
+  is360Tab,
   NOTE_PRIORITY_COLORS,
   PLAN_COLORS,
   PREDEFINED_TAGS,
@@ -43,6 +46,7 @@ import {
   type NotifRow,
   type PlanHistoryRow,
   type TicketRow,
+  type User360,
   type UserRow,
   type ViewMode,
 } from './adminUsersModel'
@@ -80,6 +84,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [userGuidance, setUserGuidance] = useState<{ id: string; month_key: string; status: string; created_at: string; message: string | null }[]>([])
   const [lastDiary, setLastDiary] = useState<string | null>(null)
   const [loadingDrawer, setLoadingDrawer] = useState(false)
+  // Ficha 360º (Etapa 1): retrato agregado via RPC admin_user_360.
+  const [user360, setUser360] = useState<User360 | null>(null)
+  const [loading360, setLoading360] = useState(false)
   // Comunicação: e-mails manuais enviados pelo admin a este usuário
   const [emailHistory, setEmailHistory] = useState<EmailLogRow[]>([])
   const [loadingEmailHistory, setLoadingEmailHistory] = useState(false)
@@ -432,6 +439,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
     setAdminSubMsg(null); setAdminSubPlan(u.plan); setAdminSubPlanReason('')
     setAiSummaries([]); setAiCurrentSummary(''); setAiExtraLoaded(false); setAiMsg(null)
+    setUser360(null); setLoading360(true)
+    loadUser360(u.user_id).then(setUser360).catch(() => setUser360(null)).finally(() => setLoading360(false))
     loadDrawerData(u.user_id)
     loadAdminSub(u.user_id)
     loadAiSummaries(u.user_id)
@@ -808,6 +817,25 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {(() => {
+              const h = user360?.header
+              const badges: { label: string; cls: string }[] = []
+              if ((h?.pending_payment ?? 0) > 0) badges.push({ label: 'Pagamento pendente', cls: 'bg-red-100 text-red-700' })
+              if (h?.scheduled_cancellation) badges.push({ label: 'Cancelamento agendado', cls: 'bg-orange-100 text-orange-700' })
+              if ((h?.pending_support ?? metrics.tickets) > 0) badges.push({ label: `${h?.pending_support ?? metrics.tickets} suporte`, cls: 'bg-amber-100 text-amber-700' })
+              if ((h?.pending_guidance ?? 0) > 0) badges.push({ label: `${h?.pending_guidance} orientação`, cls: 'bg-purple-100 text-purple-700' })
+              if ((h?.unread_notifications ?? metrics.unreadNotifs) > 0) badges.push({ label: `${h?.unread_notifications ?? metrics.unreadNotifs} notif.`, cls: 'bg-blue-100 text-blue-700' })
+              if (!badges.length) return null
+              return (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {badges.map(b => (
+                    <span key={b.label} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.cls}`}>{b.label}</span>
+                  ))}
+                </div>
+              )
+            })()}
+
             <div className="flex gap-1 flex-wrap">
               {DRAWER_TABS.map(t => (
                 <button
@@ -826,6 +854,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
               <div className="space-y-3">
                 {[1, 2, 3].map(i => <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />)}
               </div>
+            ) : is360Tab(drawerTab) ? (
+              <AdminUser360Tabs tab={drawerTab} data={user360} loading={loading360} />
             ) : (
               <>
                 {drawerTab === 'resumo' && (

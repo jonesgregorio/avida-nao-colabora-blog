@@ -53,11 +53,11 @@ test('copy de pagamento desatualizada removida', () => {
 
 const model = read('src/components/admin/adminUsersModel.ts')
 
-test('aba "Mapa emocional" da gaveta foi removida (número duplicava a aba Uso)', () => {
-  assert.doesNotMatch(model, /key: 'mapa'/)
-  assert.doesNotMatch(model, /\|\s*'mapa'/)
-  assert.doesNotMatch(impl, /drawerTab === 'mapa'/)
-  // "Último registro no diário" passou para a aba Uso.
+test('a aba "Mapa Emocional" da gaveta usa sinais estruturados, não números duplicados', () => {
+  // Etapa 1: 'mapa' voltou como aba somente-leitura da Ficha 360º (humor médio,
+  // top emoções/contextos/necessidades) — não mais 2 contagens que já estavam em "Uso".
+  assert.match(model, /is360Tab/)
+  assert.doesNotMatch(impl, /drawerTab === 'mapa' &&/)
   assert.match(impl, /drawerTab === 'uso'/)
   assert.match(impl, /Último registro no diário/)
 })
@@ -74,12 +74,17 @@ test('remover o próprio acesso de admin dá um aviso diferente', () => {
   assert.match(impl, /SEU PRÓPRIO acesso de administrador/)
 })
 
-test('gaveta de Usuários consolidada em menos abas', () => {
-  // 8 abas (era 14): resumo, plano e cobrança, orientações, mensagens,
-  // uso, notas, segurança, resumo IA.
+test('gaveta de Usuários: cobrança e mensagens continuam consolidadas (não voltam a virar abas soltas)', () => {
+  // A Ficha 360º (Etapa 1) adicionou abas somente-leitura (Jornada, Diário,
+  // Check-ins, Mapa, Questionários, Autocuidado, Conteúdos, Relatórios,
+  // Histórico), mas cobrança e mensagens seguem cada uma numa aba só.
   const block = model.match(/DRAWER_TABS[\s\S]*?\n\]/)?.[0] ?? ''
   const keys = [...block.matchAll(/\{ key: '([^']+)'/g)].map(m => m[1])
-  assert.deepEqual(keys, ['resumo', 'plano', 'orientacoes', 'mensagens', 'uso', 'notas', 'seguranca', 'resumo-inteligente'])
+  assert.deepEqual(keys, [
+    'resumo', 'jornada', 'diario', 'checkins', 'mapa', 'questionarios',
+    'autocuidado', 'conteudos', 'relatorios', 'orientacoes', 'plano',
+    'mensagens', 'uso', 'notas', 'seguranca', 'historico', 'resumo-inteligente',
+  ])
   // Cobrança (plano + assinatura + acesso + descontos) tudo sob 'plano'.
   assert.match(impl, /drawerTab === 'plano'[\s\S]*Assinatura e pagamentos[\s\S]*Acesso[\s\S]*Descontos/)
   assert.doesNotMatch(impl, /drawerTab === 'assinatura'/)
