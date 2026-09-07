@@ -8,6 +8,7 @@ import { markArticleRead } from '../lib/readingProgress'
 import { renderArticleContent, estimateReadTime } from '../lib/renderArticle'
 import { setPendingAction } from '../lib/pendingAction'
 import { DEFAULT_CTA } from '../lib/articleCta'
+import { ARTICLE_FALLBACK_TITLE } from '../lib/pageTitles'
 
 interface ArticleViewProps {
   slug?: string
@@ -147,8 +148,13 @@ export default function ArticleView({
   // (api/article.js) já cobre o carregamento direto/robôs corretamente; sem
   // este efeito, título/descrição/OG ficavam presos no primeiro artigo aberto
   // na sessão ao trocar de artigo pelos links de "conteúdos relacionados".
+  // O ArticleView é o único dono do <title> na rota /blog/:slug (App não mexe).
   useEffect(() => {
-    if (!article) return
+    if (!article) {
+      // Enquanto o conteúdo carrega, um título seguro em vez do da página anterior.
+      document.title = ARTICLE_FALLBACK_TITLE
+      return
+    }
     const title = (article.seo_title || article.title || 'Artigo').trim()
     const description = (article.seo_description || article.summary || article.excerpt || '').trim().slice(0, 320)
     const canonical = `https://www.avidanaocolabora.com/blog/${encodeURIComponent(article.slug)}`
