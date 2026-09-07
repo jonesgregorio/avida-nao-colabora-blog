@@ -8,13 +8,14 @@ const legacyHome = fs.readFileSync(new URL('../src/components/LoggedHomeLegacy.t
 
 const expected = ['Nem um pouco', 'Fez o mínimo', 'Sobrevivemos', 'Até que tentou', 'Colaborou']
 
-test('Home separa avaliação do dia de estado emocional', () => {
+test('Home separa avaliação do dia de estados e sensações percebidos', () => {
   assert.match(home, /E aí, a vida colaborou hoje\?/)
   for (const label of expected) assert.match(home, new RegExp(label))
   assert.match(home, /daily_life_collaboration/)
-  assert.match(home, /Como isso apareceu em você\?/ )
-  assert.match(home, /Opcional\. Escolha quantas tags fizerem sentido\./)
-  assert.match(home, /sem texto longo/)
+  assert.match(home, /O que mais marcou como você se sentiu hoje\?/)
+  assert.match(home, /Opcional\. Escolha as opções que mais combinaram com o seu dia\./)
+  assert.match(home, /'alegria'/)
+  assert.doesNotMatch(home, /featuredMoodKeys = new Set\(\['bem_estar'/)
 })
 
 test('Diário e check-in continuam usando estados emocionais, não a escala da Home', () => {
