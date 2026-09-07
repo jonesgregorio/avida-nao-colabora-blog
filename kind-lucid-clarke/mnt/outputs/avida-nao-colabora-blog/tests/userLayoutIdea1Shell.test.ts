@@ -23,8 +23,12 @@ test('desktop recupera o menu direto anterior e acrescenta Descobertas e Meu Jar
   assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
 })
 
-test('Cuidar e Mais continuam disponíveis sem substituir os atalhos diretos do desktop', () => {
-  assert.match(source, /id: 'cuidar'/)
+test('mobile expõe Plano de Autocuidado e Orientação como itens diretos (sem o intermediário "Cuidar")', () => {
+  // O menu do mobile deixou de ter um item "Cuidar" que abria uma subtela;
+  // Plano de Autocuidado e Orientação agora são opções próprias, como no desktop.
+  assert.doesNotMatch(source, /id: 'cuidar'/)
+  assert.doesNotMatch(source, /label: 'Cuidar',\s+Icon/)
+  assert.match(source, /const PRIMARY_NAV[\s\S]*id: 'self-care'[\s\S]*id: 'monthly-guidance'[\s\S]*\]/)
   assert.match(source, /id: 'mais'/)
   assert.match(source, /const NAV_GROUPS/)
   assert.match(source, /groups=\{NAV_GROUPS\}/)
