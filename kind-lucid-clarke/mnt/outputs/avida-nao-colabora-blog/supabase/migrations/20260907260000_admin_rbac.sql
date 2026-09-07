@@ -18,13 +18,9 @@ alter table public.profiles add column if not exists admin_role text;
 
 do $$
 begin
-  if not exists (
-    select 1 from information_schema.constraint_column_usage
-    where table_name = 'profiles' and constraint_name = 'profiles_admin_role_check'
-  ) then
-    alter table public.profiles add constraint profiles_admin_role_check
-      check (admin_role is null or admin_role in ('super_admin','content','support','finance','analyst'));
-  end if;
+  alter table public.profiles add constraint profiles_admin_role_check
+    check (admin_role is null or admin_role in ('super_admin','content','support','finance','analyst'));
+exception when duplicate_object then null;
 end $$;
 
 -- Todo admin existente vira super_admin; quem não é admin não tem papel.
