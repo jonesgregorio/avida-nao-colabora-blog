@@ -101,6 +101,12 @@ export function parseNavLocation(path: string, search = ''): NavigationState | n
     return { view: 'support-ticket', articleSlug: null, ticketId: path.slice(9) }
   }
 
+  // /questionarios/:slug → tela do questionário (introdução/execução), com URL
+  // própria para sobreviver a reload, link direto e histórico.
+  if (path.startsWith('/questionarios/') && path.length > 15) {
+    return { view: 'questionnaire', articleSlug: null, ticketId: null, questionnaireId: decodeURIComponent(path.slice(15)) }
+  }
+
   // Rota antiga do questionário terapêutico → Questionários.
   if (path === '/questionario-terapeutico') {
     return { view: 'questionarios', articleSlug: null, ticketId: null }
@@ -170,6 +176,7 @@ export function normalizeLegacyView(section: string): string {
 export function urlForView(targetView: string, slug?: string | null, ticketId?: string | null): string {
   if (targetView === 'article' && slug) return `/blog/${slug}`
   if (targetView === 'support-ticket' && ticketId) return `/suporte/${ticketId}`
+  if (targetView === 'questionnaire' && slug) return `/questionarios/${encodeURIComponent(slug)}`
   return VIEW_TO_URL[targetView] ?? '/'
 }
 

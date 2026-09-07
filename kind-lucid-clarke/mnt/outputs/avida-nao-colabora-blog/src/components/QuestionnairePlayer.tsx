@@ -167,10 +167,13 @@ export default function QuestionnairePlayer({
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
+      // A rota é /questionarios/:slug, mas links/estados antigos ainda podem
+      // trazer o UUID — aceitamos os dois.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(questionnaireId)
       const { data: q, error: qErr } = await supabase
         .from('questionnaires')
         .select('*')
-        .eq('id', questionnaireId)
+        .eq(isUuid ? 'id' : 'slug', questionnaireId)
         .single()
 
       if (qErr || !q) { setError('Questionário não encontrado.'); setPhase('error'); return }

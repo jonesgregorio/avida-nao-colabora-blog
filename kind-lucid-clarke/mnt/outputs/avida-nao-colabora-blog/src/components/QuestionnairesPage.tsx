@@ -8,6 +8,7 @@ type Props = ComponentProps<typeof QuestionnairesPageLegacy>
 
 type QItem = {
   id: string
+  slug?: string | null
   title: string
   description: string
   short_description?: string
@@ -76,13 +77,16 @@ export default function QuestionnairesPage(props: Props) {
   const progCount = items.filter(item => !completed.has(item.id) && inProgress.has(item.id)).length
   const availCount = Math.max(0, items.length - doneCount - progCount)
 
+  // Rota do questionário usa o slug (URL amigável e estável); cai para o id se
+  // algum questionário ainda não tiver slug.
   const handleStart = (item: QItem) => {
-    if (!user) { onStartAuth(item.id); return }
+    const ref = item.slug || item.id
+    if (!user) { onStartAuth(ref); return }
     if (!hasPlanAccess(profile?.plan, item.plan_required)) {
       setShowDetails(true)
       return
     }
-    onStart(item.id)
+    onStart(ref)
   }
 
   if (failed) return <QuestionnairesPageLegacy {...props} />
