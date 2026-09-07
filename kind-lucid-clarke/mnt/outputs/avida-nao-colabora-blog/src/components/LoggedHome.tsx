@@ -121,7 +121,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
   }
 
   const selected = COLLABORATION.find(item => item.score === score)
-  const featuredMoodKeys = new Set(['bem_estar', 'tranquilidade', 'cansaco', 'ansiedade', 'sobrecarga', 'tristeza', 'irritacao'])
+  const featuredMoodKeys = new Set(['alegria', 'tranquilidade', 'cansaco', 'ansiedade', 'sobrecarga', 'tristeza', 'irritacao'])
   const featuredMoods = MOODS.filter(mood => featuredMoodKeys.has(mood.key))
   const savedFeelingLabels = selectedFeelings.map(key => MOODS.find(mood => mood.key === key)?.label || key)
 
@@ -169,8 +169,8 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
             </div>
 
             {showFeelings && <div className="mt-4 rounded-2xl border border-white bg-white/65 p-4">
-              <p className="text-sm font-semibold text-forest-900">Como isso apareceu em você?</p>
-              <p className="text-xs text-ink-soft mt-1">Opcional. Escolha quantas tags fizerem sentido. O check-in continua rápido e sem texto longo; você também pode salvar somente a avaliação acima.</p>
+              <p className="text-sm font-semibold text-forest-900">O que mais marcou como você se sentiu hoje?</p>
+              <p className="text-xs text-ink-soft mt-1">Opcional. Escolha as opções que mais combinaram com o seu dia.</p>
               <div className="flex flex-wrap gap-2 mt-3">
                 {featuredMoods.map(mood => <MoodChip key={mood.key} mood={mood} active={selectedFeelings.includes(mood.key)} onClick={() => toggleFeeling(mood.key)} />)}
                 <button type="button" onClick={() => setShowCustomTag(value => !value)} className="inline-flex items-center rounded-full border border-dashed border-forest-300 bg-white px-3.5 py-2 text-sm font-medium text-forest-800 hover:bg-mint/40">+ Outro</button>
@@ -182,9 +182,9 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
 
               {showCustomTag && <div className="mt-3 flex flex-col sm:flex-row gap-2 max-w-xl">
                 <div className="flex-1">
-                  <label htmlFor="home-checkin-custom-tag" className="sr-only">Outra tag</label>
-                  <input id="home-checkin-custom-tag" value={customTagInput} maxLength={MAX_CUSTOM_TAG_LENGTH} onChange={event => setCustomTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCustomTag() } }} placeholder="Ex.: desânimo, saudade, alívio" className="w-full rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900 outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100" />
-                  <p className="mt-1 text-[11px] text-ink-soft">Até {MAX_CUSTOM_TAGS} tags personalizadas, com no máximo {MAX_CUSTOM_TAG_LENGTH} caracteres cada.</p>
+                  <label htmlFor="home-checkin-custom-tag" className="sr-only">Como você se sentiu?</label>
+                  <input id="home-checkin-custom-tag" value={customTagInput} maxLength={MAX_CUSTOM_TAG_LENGTH} onChange={event => setCustomTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCustomTag() } }} placeholder="Ex.: alívio, preocupação, desânimo" className="w-full rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900 outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100" />
+                  <p className="mt-1 text-[11px] text-ink-soft">Até {MAX_CUSTOM_TAGS} opções personalizadas, com no máximo {MAX_CUSTOM_TAG_LENGTH} caracteres cada.</p>
                 </div>
                 <button type="button" onClick={addCustomTag} disabled={!customTagInput.trim() || customTags.length >= MAX_CUSTOM_TAGS} className="h-fit rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 disabled:opacity-50">Adicionar</button>
               </div>}
