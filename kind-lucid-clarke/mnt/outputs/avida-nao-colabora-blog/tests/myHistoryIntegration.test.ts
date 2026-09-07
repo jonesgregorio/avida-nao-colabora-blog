@@ -19,7 +19,9 @@ test('Minha História possui rota canônica própria e entra no shell logado', (
 test('navegação expõe Minha História e Meu Jardim no grupo da jornada', () => {
   assert.match(layout, /label: 'Minha História'/)
   assert.match(layout, /label: 'Meu Jardim'/)
-  assert.match(layout, /\['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden'\]/)
+  // A folha "Mais" do mobile lista só o que NÃO está na barra inferior:
+  // Relatórios, Minha História e Meu Jardim (Hoje/Diário/Descobertas/Mapa ficam na barra).
+  assert.match(layout, /\['my-report', 'my-history', 'my-garden'\]/)
   assert.match(layout, /MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
 })
 

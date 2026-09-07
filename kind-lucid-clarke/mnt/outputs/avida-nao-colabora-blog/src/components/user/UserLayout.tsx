@@ -74,8 +74,12 @@ const DESKTOP_NAV_GROUPS: NavGroup[] = [
   { label: 'Conta', items: DESKTOP_NAV.filter(item => ['my-plan', 'profile', 'support'].includes(item.id)) },
 ]
 
+// Itens já fixos na barra inferior do mobile — não se repetem na folha "Mais".
+const MOBILE_PRIMARY_IDS = ['home', 'diary', 'descobertas', 'my-evolution'] as const
+
+// A folha "Mais" mostra só o que NÃO está na barra inferior.
 const NAV_GROUPS: NavGroup[] = [
-  { label: 'Sua jornada', items: PRIMARY_NAV.filter(item => ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden'].includes(item.id)) },
+  { label: 'Sua jornada', items: PRIMARY_NAV.filter(item => ['my-report', 'my-history', 'my-garden'].includes(item.id)) },
   { label: 'Cuidado e conta', items: PRIMARY_NAV.filter(item => ['self-care', 'monthly-guidance', 'articles', 'mais'].includes(item.id)) },
 ]
 
@@ -94,8 +98,6 @@ const HEADER_LABELS: Record<string, string> = {
   'monthly-guidance': 'Orientação',
   'professional-comments': 'Orientação',
 }
-
-const MOBILE_PRIMARY_IDS = ['home', 'diary', 'descobertas', 'my-evolution'] as const
 
 function displayName(profile: Profile | null, user: SupabaseUser | null) {
   return profile?.preferred_name || profile?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'você'
