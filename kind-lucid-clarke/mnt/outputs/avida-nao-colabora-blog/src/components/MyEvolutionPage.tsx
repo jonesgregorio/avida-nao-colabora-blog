@@ -54,10 +54,61 @@ function moodMeta(mood: number) {
   return { label: 'Muito difícil', face: '⌢', cls: 'bg-[#ef6257] text-[#173c2e]' }
 }
 
-function rankTags(entries: MapEntry[], field: 'emotional_tags' | 'context_tags', limit = 6): Ranked[] {
+function rankTags(entries: MapEntry[], field: 'emotional_tags' | 'context_tags'): Ranked[] {
   const counts = new Map<string, number>()
   entries.flatMap(entry => entry[field] ?? []).forEach(label => counts.set(label, (counts.get(label) ?? 0) + 1))
-  return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, limit)
+  return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+}
+
+function InfoHint({ text, className = 'w-3.5 h-3.5' }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="Ver o que este dado significa"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        className="text-ink-soft transition-colors hover:text-forest-900"
+      >
+        <Info className={className} />
+      </button>
+      {open && (
+        <>
+          <button type="button" tabIndex={-1} aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <span role="tooltip" className="absolute left-0 top-6 z-20 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-white p-3 text-left text-xs font-normal leading-5 text-ink-soft shadow-lg sm:w-64">
+            {text}
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
+function RankedSection({ title, items, moreLabel, hint, empty }: { title: string; items: Ranked[]; moreLabel: string; hint?: string; empty?: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = 6
+  const shown = expanded ? items : items.slice(0, visible)
+  return (
+    <section className="rounded-[22px] border border-line bg-white p-5">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-forest-900">{title}</h3>
+          {hint && <InfoHint text={hint} />}
+        </div>
+        {items.length > visible && (
+          <button
+            type="button"
+            onClick={() => setExpanded(value => !value)}
+            className="text-xs rounded-lg border border-line px-3 py-1.5 text-forest-900 transition-colors hover:bg-paper-soft"
+          >
+            {expanded ? 'Ver menos' : moreLabel}
+          </button>
+        )}
+      </div>
+      <BarList items={shown} empty={empty} />
+    </section>
+  )
 }
 
 function BarList({ items, empty = 'Ainda não há dados suficientes.' }: { items: Ranked[]; empty?: string }) {
@@ -197,7 +248,7 @@ export default function MyEvolutionPage(props: Props) {
         <div className="max-w-4xl">
           <div className="flex items-center gap-2">
             <h1 className="font-serif text-4xl text-forest-900">Mapa Emocional</h1>
-            <Info className="w-4 h-4 text-ink-soft" />
+            <InfoHint className="w-4 h-4" text="O Mapa Emocional reúne só os sinais estruturados dos seus registros — humor, marcadores emocionais e contextos —, nunca o texto do seu Diário. Ele descreve o seu mês; não é um diagnóstico." />
           </div>
           <p className="mt-1.5 text-sm text-ink-soft">Explore seus registros e visualize como você se sentiu ao longo do tempo.</p>
         </div>
@@ -257,7 +308,7 @@ export default function MyEvolutionPage(props: Props) {
 
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
         <section className="rounded-[22px] border border-line bg-white p-5">
-          <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Humor ao longo do mês</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div>
+          <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Humor ao longo do mês</h3><InfoHint text="Cada ponto é a média do seu humor naquele dia, de 1 (muito difícil) a 5 (muito leve). Dias sem registro não entram na linha." /></div>
           {dailyMoods.length ? (
             <div className="mt-5 h-52 relative">
               <div className="absolute inset-0 flex flex-col justify-between">{[0, 1, 2, 3, 4].map(i => <span key={i} className="border-t border-dashed border-line" />)}</div>
@@ -268,27 +319,34 @@ export default function MyEvolutionPage(props: Props) {
             </div>
           ) : <p className="py-16 text-sm text-ink-soft">Os registros de humor aparecerão aqui.</p>}
         </section>
-        <section className="rounded-[22px] border border-line bg-white p-5">
-          <div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Emoções mais registradas</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todas</span></div>
-          <BarList items={emotions} />
-        </section>
+        <RankedSection
+          title="Emoções mais registradas"
+          items={emotions}
+          moreLabel="Ver todas"
+          hint="Conta quantas vezes cada marcador emocional apareceu nos seus registros deste mês. Mede frequência, não intensidade."
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
-        <section className="rounded-[22px] border border-line bg-white p-5">
-          <div className="flex items-center justify-between mb-5"><h3 className="font-semibold text-forest-900">Contextos mais frequentes</h3><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todos</span></div>
-          <BarList items={contexts} />
-        </section>
-        <section className="rounded-[22px] border border-line bg-white p-5">
-          <div className="flex items-center justify-between mb-5"><h3 className="font-semibold text-forest-900">Sintomas e sinais</h3><span className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todos</span></div>
-          <BarList items={signals} empty="Os sinais estruturados aparecerão aqui conforme seus registros." />
-        </section>
+        <RankedSection
+          title="Contextos mais frequentes"
+          items={contexts}
+          moreLabel="Ver todos"
+          hint="Mostra em quais contextos — trabalho, rotina, vida pessoal, estudos… — você mais registrou algo neste mês."
+        />
+        <RankedSection
+          title="Sintomas e sinais"
+          items={signals}
+          moreLabel="Ver todos"
+          empty="Os sinais estruturados aparecerão aqui conforme seus registros."
+          hint="Agrupa os seus dias com registro por faixa de humor médio, de muito difícil a muito leve."
+        />
       </div>
 
       <section className="rounded-[22px] border border-line bg-white p-5 sm:p-6 mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">O que apareceu junto</h3><Info className="w-3.5 h-3.5 text-ink-soft" /></div>
+            <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">O que apareceu junto</h3><InfoHint text="Pares de emoção e contexto que apareceram no mesmo dia pelo menos duas vezes no mês. Aparecer junto não quer dizer que um causou o outro." /></div>
             <p className="text-xs text-ink-soft mt-1">Relações mais comuns entre emoções e contextos.</p>
           </div>
           <button type="button" aria-label="Entender melhor meu mapa — ver descobertas" onClick={() => props.onNavigate?.('discoveries')} className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todas as conexões</button>
