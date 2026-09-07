@@ -123,6 +123,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [newPassword, setNewPassword] = useState('')
   const [authOpResult, setAuthOpResult] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
   const [savingAuthOp, setSavingAuthOp] = useState(false)
+  const [confirmMfaReset, setConfirmMfaReset] = useState(false)
 
   // Resumo inteligente
   const [aiSummaries, setAiSummaries] = useState<AISummaryRow[]>([])
@@ -456,6 +457,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setNewEmail('')
     setNewPassword('')
     setAuthOpResult(null)
+    setConfirmMfaReset(false)
     setMsgTitle(''); setMsgBody(''); setMsgType('admin_message')
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
@@ -700,6 +702,28 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       void logAdminAction('update', 'user_password_reset', selectedUser.user_id, { email: selectedUser.email ?? null })
       setAuthOpResult({ type: 'ok', msg: 'Senha alterada com sucesso.' })
       setNewPassword('')
+    }
+    setSavingAuthOp(false)
+  }
+
+  async function handleResetMfa() {
+    if (!selectedUser || savingAuthOp) return
+    setSavingAuthOp(true); setAuthOpResult(null)
+    const { data, error } = await supabase.rpc('admin_reset_user_mfa', {
+      target_user_id: selectedUser.user_id,
+    })
+    if (error) {
+      setAuthOpResult({ type: 'err', msg: 'Erro: ' + error.message })
+    } else {
+      const removed = Number(data ?? 0)
+      void logAdminAction('update', 'user_mfa_reset', selectedUser.user_id, { email: selectedUser.email ?? null, factors_removed: removed })
+      setAuthOpResult({
+        type: 'ok',
+        msg: removed > 0
+          ? `Verificação em duas etapas removida (${removed} ${removed === 1 ? 'fator' : 'fatores'}). O usuário entra só com a senha e pode reconfigurar.`
+          : 'Este usuário não tinha verificação em duas etapas ativa.',
+      })
+      setConfirmMfaReset(false)
     }
     setSavingAuthOp(false)
   }
@@ -1664,6 +1688,31 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                           {savingAuthOp ? 'Salvando...' : 'Definir'}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
+                      <p className="text-xs font-semibold text-stone-700">Redefinir verificação em duas etapas (2FA)</p>
+                      <p className="text-xs text-stone-400">Remove o 2FA por aplicativo autenticador do usuário. Use quando a pessoa perdeu o app e está travada na tela "Confirme que é você". Depois disso ela entra só com a senha e pode reconfigurar o 2FA no perfil.</p>
+                      {!confirmMfaReset ? (
+                        <button
+                          onClick={() => setConfirmMfaReset(true)}
+                          disabled={savingAuthOp}
+                          className="text-sm border border-red-300 text-red-700 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+                        >
+                          Redefinir 2FA
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleResetMfa}
+                            disabled={savingAuthOp}
+                            className="text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                          >
+                            {savingAuthOp ? 'Removendo...' : 'Confirmar remoção do 2FA'}
+                          </button>
+                          <button onClick={() => setConfirmMfaReset(false)} disabled={savingAuthOp} className="text-sm border border-line px-4 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-40">Cancelar</button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
