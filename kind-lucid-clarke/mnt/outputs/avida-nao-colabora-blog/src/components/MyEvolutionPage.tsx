@@ -349,7 +349,7 @@ export default function MyEvolutionPage(props: Props) {
             <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">O que apareceu junto</h3><InfoHint text="Pares de emoção e contexto que apareceram no mesmo dia pelo menos duas vezes no mês. Aparecer junto não quer dizer que um causou o outro." /></div>
             <p className="text-xs text-ink-soft mt-1">Relações mais comuns entre emoções e contextos.</p>
           </div>
-          <button type="button" aria-label="Entender melhor meu mapa — ver descobertas" onClick={() => props.onNavigate?.('discoveries')} className="text-xs rounded-lg border border-line px-3 py-1.5">Ver todas as conexões</button>
+          <button type="button" aria-label="Entender melhor meu mapa — ver descobertas" onClick={() => props.onNavigate?.('descobertas')} className="text-xs rounded-lg border border-line px-3 py-1.5 text-forest-900 transition-colors hover:bg-paper-soft">Ver todas as conexões</button>
         </div>
 
         {connections.length ? (
