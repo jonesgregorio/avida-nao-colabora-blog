@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Loader2, Copy, Check } from 'lucide-react'
+import AdminSubscriptionActions from './AdminSubscriptionActions'
 import { OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { reasonsLabel } from '../../lib/cancelReasons'
 import {
@@ -105,26 +106,22 @@ export default function AdminSubscriptionPanel({ userId, plan }: Props) {
   const [feedbacks, setFeedbacks] = useState<FeedbackRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let vivo = true
-    async function carregar() {
-      setLoading(true)
-      const [s, e, f] = await Promise.all([
-        supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('subscription_events').select('*').eq('user_id', userId)
-          .order('occurred_at', { ascending: false }).limit(50),
-        supabase.from('subscription_change_feedback').select('*').eq('user_id', userId)
-          .order('requested_at', { ascending: false }).limit(20),
-      ])
-      if (!vivo) return
-      setSub(s.data as SubRow | null)
-      setEventos((e.data as EventRow[]) ?? [])
-      setFeedbacks((f.data as FeedbackRow[]) ?? [])
-      setLoading(false)
-    }
-    void carregar()
-    return () => { vivo = false }
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const [s, e, f] = await Promise.all([
+      supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('subscription_events').select('*').eq('user_id', userId)
+        .order('occurred_at', { ascending: false }).limit(50),
+      supabase.from('subscription_change_feedback').select('*').eq('user_id', userId)
+        .order('requested_at', { ascending: false }).limit(20),
+    ])
+    setSub(s.data as SubRow | null)
+    setEventos((e.data as EventRow[]) ?? [])
+    setFeedbacks((f.data as FeedbackRow[]) ?? [])
+    setLoading(false)
   }, [userId])
+
+  useEffect(() => { void carregar() }, [carregar])
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-forest-500" /></div>
 
@@ -200,6 +197,14 @@ export default function AdminSubscriptionPanel({ userId, plan }: Props) {
           </div>
         </div>
       )}
+
+      {/* Ações administrativas sobre a assinatura */}
+      <AdminSubscriptionActions
+        userId={userId}
+        cancelAtPeriodEnd={sub?.cancel_at_period_end ?? null}
+        hasStripe={Boolean(sub?.provider_subscription_id)}
+        onChanged={carregar}
+      />
 
       {/* IDs administrativos */}
       {sub && (
