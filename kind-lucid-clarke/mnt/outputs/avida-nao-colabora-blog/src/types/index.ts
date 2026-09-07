@@ -21,6 +21,8 @@ export interface Profile {
   communication_preference?: string
   notification_frequency?: string
   must_change_password?: boolean
+  account_status?: string | null
+  blocked_reason?: string | null
   created_at: string
   updated_at: string
 }

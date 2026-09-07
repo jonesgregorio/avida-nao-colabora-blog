@@ -29,18 +29,6 @@ function criticalConfirmation(target: Element): { control: HTMLElement; message:
       message: 'Confirmar a alteração imediata do plano deste usuário? Verifique o plano selecionado antes de continuar.',
     }
   }
-  if (label === 'Confirmar alteração') {
-    return {
-      control: button,
-      message: 'Confirmar a alteração do plano deste usuário? Esta ação será registrada no histórico administrativo.',
-    }
-  }
-  if (label === 'Agendar cancelamento') {
-    return {
-      control: button,
-      message: 'Confirmar o agendamento do cancelamento desta assinatura? O usuário continuará com acesso até o fim do ciclo vigente.',
-    }
-  }
   if (label === 'Definir' && cardText.includes('Redefinir senha')) {
     return {
       control: button,

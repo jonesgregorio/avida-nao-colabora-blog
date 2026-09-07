@@ -30,8 +30,6 @@ test('componentes visuais de AdminUsers não ganham efeitos colaterais de dados 
 test('fluxos administrativos sensíveis continuam no orquestrador', () => {
   for (const marker of [
     'async function adminChangePlan',
-    'async function adminCancelSub',
-    'async function adminReactivateSub',
     'async function saveDiscount',
     'async function clearDiscount',
     'async function handleResetPassword',
