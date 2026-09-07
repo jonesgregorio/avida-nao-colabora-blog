@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Activity, Plug, ClipboardList, Shield, Zap, Gauge, MapPin } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield, Zap, Gauge, MapPin, ListChecks } from 'lucide-react'
 import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
+import AdminQueuesFailures from './AdminQueuesFailures'
 import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
@@ -18,6 +19,7 @@ import AdminInfraReference from './AdminInfraReference'
 // sem alterar planos, assinaturas nem recursos contratados.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
+  { id: 'filas', label: 'Filas e falhas', icon: ListChecks },
   { id: 'automacoes', label: 'Automações', icon: Zap },
   { id: 'liberacao', label: 'Liberação', icon: Gauge },
   { id: 'integracoes', label: 'Integrações', icon: Plug },
@@ -69,6 +71,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       </div>
       <div className="flex-1">
         {tab === 'saude' && <AdminSystemHealthFriendly />}
+        {tab === 'filas' && <AdminQueuesFailures />}
         {tab === 'automacoes' && <AdminAutomationsHealth />}
         {tab === 'liberacao' && <AdminIdea1Rollout />}
         {tab === 'integracoes' && <AdminIntegrations />}
