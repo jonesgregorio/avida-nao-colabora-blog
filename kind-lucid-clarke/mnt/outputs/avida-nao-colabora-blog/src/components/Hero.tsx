@@ -51,7 +51,7 @@ export default function Hero({ onNavigate }: HeroProps) {
           }}
         />
 
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,234,216,0.97)_0%,rgba(244,223,197,0.88)_48%,rgba(244,223,197,0.48)_72%,rgba(244,223,197,0.12)_100%)] sm:bg-gradient-to-r sm:from-[#f7ead8]/96 sm:via-[#f4dfc5]/68 sm:to-transparent lg:via-[#f4dfc5]/30" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(247,234,216,0.97)_0%,rgba(244,223,197,0.88)_48%,rgba(244,223,197,0.48)_72%,rgba(244,223,197,0.12)_100%)] sm:bg-[linear-gradient(90deg,rgba(247,234,216,0.98)_0%,rgba(245,227,203,0.93)_44%,rgba(245,227,203,0.62)_66%,rgba(245,227,203,0.16)_100%)] lg:bg-[linear-gradient(90deg,rgba(247,234,216,0.97)_0%,rgba(245,227,203,0.9)_40%,rgba(245,227,203,0.55)_62%,rgba(245,227,203,0.1)_88%,rgba(245,227,203,0)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/15 to-transparent sm:hidden" />
 
         <div className="relative z-10 flex min-h-[520px] items-center px-5 py-10 sm:min-h-[610px] sm:px-8 sm:py-14 lg:min-h-[670px] lg:px-14 xl:px-24">
