@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart,
   Sparkles, Mail, LifeBuoy, Settings2, Activity, Ban,
-  ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone,
+  ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -14,6 +14,7 @@ type NavItem = { id: AdminView; label: string; icon: LucideIcon }
 const NAV: NavItem[] = [
   { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'usuarios', label: 'Usuários', icon: Users },
+  { id: 'segmentacao', label: 'Segmentação', icon: ListFilter },
   { id: 'engajamento', label: 'Engajamento', icon: Activity },
   { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard },
   { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
