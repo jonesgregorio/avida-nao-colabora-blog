@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { AdminView } from './types'
+import AdminOperationalDashboard from './AdminOperationalDashboard'
 import {
   Users, CreditCard, Clock, MessageSquare, RefreshCw, ArrowRight,
   LifeBuoy, BarChart3, CalendarCheck, AlertTriangle,
@@ -128,6 +129,9 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </button>
       </div>
+
+      {/* Central da jornada — atividade por período + requer atenção */}
+      <AdminOperationalDashboard onNavigate={onNavigate} />
 
       {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
