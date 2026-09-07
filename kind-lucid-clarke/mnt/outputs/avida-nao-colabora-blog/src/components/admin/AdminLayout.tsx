@@ -1,5 +1,6 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 import {
   LayoutDashboard, Users, CreditCard, BookOpen, LineChart,
   Sparkles, Mail, LifeBuoy, Settings2, Activity, Ban,
@@ -34,6 +35,16 @@ function deriveActive(view: string): string {
   return view === 'article-editor' ? 'conteudos' : view
 }
 
+// Área do menu -> módulo de permissão (Etapa 11). O gate REAL é no backend
+// (admin_can nas RPCs); aqui é só para não mostrar o que o papel não usa.
+const AREA_MODULE: Record<string, string> = {
+  'visao-geral': 'overview', usuarios: 'users', segmentacao: 'users', engajamento: 'analytics',
+  planos: 'finance', cancelamentos: 'finance', financeiro: 'finance',
+  conteudos: 'content', estudio: 'content', mapa: 'content',
+  analytics: 'analytics', emocional: 'content', comunicacao: 'communication',
+  suporte: 'users', sistema: 'system',
+}
+
 interface Props {
   currentView: string
   onNavigate: (v: AdminView) => void
@@ -46,6 +57,27 @@ interface Props {
 export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const active = deriveActive(currentView)
+
+  // Papel administrativo: filtra o menu. null / super_admin / RPC ausente => tudo.
+  const [allowed, setAllowed] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data, error } = await supabase.rpc('admin_my_permissions')
+      if (!alive) return
+      const mods = (data as string[] | null) ?? null
+      // RPC ausente, erro, ou super_admin ("*") => menu completo.
+      if (error || !mods || mods.includes('*')) { setAllowed(null); return }
+      setAllowed(new Set(mods))
+    })().catch(() => { setAllowed(null) })
+    return () => { alive = false }
+  }, [])
+
+  const visibleNav = NAV.filter(item => {
+    if (!allowed) return true
+    const mod = AREA_MODULE[item.id]
+    return !mod || mod === 'permissions' || allowed.has(mod)
+  })
 
   const name = userName || (userEmail ? userEmail.split('@')[0] : 'Administrador')
   const initials = (name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'AD').toUpperCase()
@@ -68,7 +100,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-        {NAV.map(item => {
+        {visibleNav.map(item => {
           const Icon = item.icon
           const on = active === item.id
           return (
