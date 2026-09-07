@@ -35,7 +35,6 @@ import {
   buildAdminUsersCsv,
   resolveTabFilter,
   timeSince,
-  type AdminSubscription,
   type AISummaryRow,
   type DrawerTab,
   type EmailLogRow,
@@ -68,8 +67,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('resumo')
 
   // Drawer data
-  const [adminSub, setAdminSub] = useState<AdminSubscription | null>(null)
   const [adminSubPlan, setAdminSubPlan] = useState('')
+  const [adminSubPlanReason, setAdminSubPlanReason] = useState('')
   const [adminSubActing, setAdminSubActing] = useState(false)
   const [adminSubMsg, setAdminSubMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [userTickets, setUserTickets] = useState<TicketRow[]>([])
@@ -94,12 +93,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [notePriority, setNotePriority] = useState('normal')
   const [notePinned, setNotePinned] = useState(false)
   const [savingNote, setSavingNote] = useState(false)
-
-  // Plan change
-  const [changingPlan, setChangingPlan] = useState(false)
-  const [newPlan, setNewPlan] = useState('')
-  const [planReason, setPlanReason] = useState('')
-  const [savingPlan, setSavingPlan] = useState(false)
 
   // Unlimited access
   const [unlimitedAccessForm, setUnlimitedAccessForm] = useState({ enabled: false, until: '', reason: '' })
@@ -379,13 +372,12 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setAiSaving(false)
   }
 
-  // Continua carregando a assinatura porque as AÇÕES de admin (alterar plano,
-  // cancelar/reativar) dependem dela. A EXIBIÇÃO agora é do AdminSubscriptionPanel,
-  // que busca os próprios dados.
+  // Carrega a assinatura só para pré-preencher o seletor de plano do admin.
+  // A EXIBIÇÃO é do AdminSubscriptionPanel, que busca os próprios dados.
+  // Cancelamento/reativação com Stripe são feitos na aba Admin > Cancelamentos.
   async function loadAdminSub(userId: string) {
-    const { data } = await supabase.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()
-    setAdminSub(data as AdminSubscription | null)
-    if (data) setAdminSubPlan(data.plan_key)
+    const { data } = await supabase.from('user_subscriptions').select('plan_key').eq('user_id', userId).maybeSingle()
+    if (data?.plan_key) setAdminSubPlan(data.plan_key)
   }
 
   async function adminChangePlan(targetPlan: string, userId: string) {
@@ -395,38 +387,17 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     const { error } = await supabase.from('profiles').update({ plan: targetPlan }).eq('user_id', userId)
     if (error) { setAdminSubMsg({ type: 'err', text: 'Erro ao alterar plano: ' + error.message }); setAdminSubActing(false); return }
     await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
-    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: planReason || null })
+    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: adminSubPlanReason || null })
+    // Mantém user_plan_history em sincronia (fonte do "Histórico de planos" da aba Plano).
+    await supabase.from('user_plan_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, changed_by: adminUser?.id ?? null, reason: adminSubPlanReason || null })
     await createUserNotification({ userId, type: 'plan_change', title: 'Plano atualizado pelo suporte', message: `Seu plano foi alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.`, destination: 'my-plan' })
-    void logAdminAction('update', 'user_plan', userId, { from: oldPlan, to: targetPlan, reason: planReason || null })
+    void logAdminAction('update', 'user_plan', userId, { from: oldPlan, to: targetPlan, reason: adminSubPlanReason || null })
     setUsers(u => u.map(r => r.user_id === userId ? { ...r, plan: targetPlan } : r))
     setSelectedUser(s => s ? { ...s, plan: targetPlan } : s)
-    setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: planReason || 'admin_change', created_at: new Date().toISOString() }, ...prev])
+    setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: adminSubPlanReason || null, created_at: new Date().toISOString() }, ...prev])
     setAdminSubMsg({ type: 'ok', text: `Plano alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.` })
-    loadAdminSub(userId)
+    setAdminSubPlanReason('')
     void loadStats()
-    setAdminSubActing(false)
-  }
-
-  async function adminCancelSub(userId: string) {
-    setAdminSubActing(true)
-    setAdminSubMsg(null)
-    await supabase.from('user_subscriptions').upsert({ user_id: userId, status: 'cancel_pending', cancel_at_period_end: true }, { onConflict: 'user_id' })
-    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: selectedUser?.plan, new_plan: 'free', change_type: 'cancel', changed_by: adminUser?.id ?? null, source: 'admin', notes: 'Cancelado pelo admin' })
-    await createUserNotification({ userId, type: 'plan_change', title: 'Plano cancelado pelo suporte', message: 'Seu plano foi cancelado. Você continuará com acesso até o fim do ciclo atual.', destination: 'my-plan' })
-    void logAdminAction('update', 'subscription_cancel', userId, { plan: selectedUser?.plan ?? null })
-    setAdminSubMsg({ type: 'ok', text: 'Cancelamento agendado com sucesso.' })
-    loadAdminSub(userId)
-    setAdminSubActing(false)
-  }
-
-  async function adminReactivateSub(userId: string) {
-    setAdminSubActing(true)
-    setAdminSubMsg(null)
-    await supabase.from('user_subscriptions').update({ status: 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }).eq('user_id', userId)
-    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: selectedUser?.plan, new_plan: selectedUser?.plan, change_type: 'reactivate', changed_by: adminUser?.id ?? null, source: 'admin', notes: 'Reativado pelo admin' })
-    await createUserNotification({ userId, type: 'plan_change', title: 'Assinatura reativada pelo suporte', message: 'Seu cancelamento foi removido. A assinatura continuará ativa normalmente.', destination: 'my-plan' })
-    setAdminSubMsg({ type: 'ok', text: 'Assinatura reativada com sucesso.' })
-    loadAdminSub(userId)
     setAdminSubActing(false)
   }
 
@@ -436,9 +407,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setNewNote('')
     setNotePriority('normal')
     setNotePinned(false)
-    setChangingPlan(false)
-    setNewPlan(u.plan)
-    setPlanReason('')
     setUnlimitedAccessForm({
       enabled: u.unlimited_access ?? false,
       until: u.unlimited_access_until ? u.unlimited_access_until.slice(0, 10) : '',
@@ -461,7 +429,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setMsgTitle(''); setMsgBody(''); setMsgType('admin_message')
     setMsgCreateTicket(false); setMsgPriority('medium')
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
-    setAdminSub(null); setAdminSubMsg(null); setAdminSubPlan(u.plan)
+    setAdminSubMsg(null); setAdminSubPlan(u.plan); setAdminSubPlanReason('')
     setAiSummaries([]); setAiCurrentSummary(''); setAiExtraLoaded(false); setAiMsg(null)
     loadDrawerData(u.user_id)
     loadAdminSub(u.user_id)
@@ -482,29 +450,6 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     void logAdminAction(isAdmin ? 'promote_admin' : 'revoke_admin', 'profile', userId, { role: isAdmin ? 'admin' : 'user' })
     setUsers(u => u.map(r => r.user_id === userId ? { ...r, role: isAdmin ? 'admin' : null } : r))
     if (selectedUser?.user_id === userId) setSelectedUser(s => s ? { ...s, role: isAdmin ? 'admin' : null } : s)
-  }
-
-  async function handlePlanChange() {
-    if (!selectedUser || !newPlan) return
-    setSavingPlan(true)
-    const oldPlan = selectedUser.plan
-    const { error } = await supabase.from('profiles').update({ plan: newPlan }).eq('user_id', selectedUser.user_id)
-    if (!error) {
-      await supabase.from('user_plan_history').insert({
-        user_id: selectedUser.user_id,
-        old_plan: oldPlan,
-        new_plan: newPlan,
-        changed_by: adminUser?.id ?? null,
-        reason: planReason || null,
-      })
-      setUsers(u => u.map(r => r.user_id === selectedUser.user_id ? { ...r, plan: newPlan } : r))
-      setSelectedUser(s => s ? { ...s, plan: newPlan } : s)
-      setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: newPlan, reason: planReason || null, created_at: new Date().toISOString() }, ...prev])
-      setChangingPlan(false)
-      setPlanReason('')
-      void loadStats()
-    }
-    setSavingPlan(false)
   }
 
   async function saveUnlimitedAccess() {
@@ -964,35 +909,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                       {PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan}
                     </div>
 
-                    {!changingPlan ? (
-                      <button
-                        onClick={() => setChangingPlan(true)}
-                        className="flex items-center gap-2 text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800"
-                      >
-                        Alterar plano
-                      </button>
-                    ) : (
-                      <div className="bg-stone-50 border border-line rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-semibold text-stone-700">Alterar plano</p>
-                        <div>
-                          <label className="block text-xs text-stone-500 mb-1">Novo plano</label>
-                          <select value={newPlan} onChange={e => setNewPlan(e.target.value)} className={inputCls}>
-                            {OFFICIAL_PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-stone-500 mb-1">Motivo (opcional)</label>
-                          <input value={planReason} onChange={e => setPlanReason(e.target.value)} placeholder="Motivo da alteração..." className={inputCls} />
-                        </div>
-                        <p className="text-[10px] text-stone-400">Integração com checkout real depende do Stripe/Mercado Pago.</p>
-                        <div className="flex gap-2">
-                          <button onClick={handlePlanChange} disabled={savingPlan} className="text-sm bg-forest-900 text-white px-4 py-2 rounded-lg hover:bg-forest-800 disabled:opacity-50">
-                            {savingPlan ? 'Salvando...' : 'Confirmar alteração'}
-                          </button>
-                          <button onClick={() => setChangingPlan(false)} className="text-sm border border-line px-4 py-2 rounded-lg hover:bg-stone-50">Cancelar</button>
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-xs text-stone-400">
+                      Para alterar o plano deste usuário, use a aba <strong>Assinatura e Pagamentos</strong>.
+                    </p>
 
                     {planHistory.length > 0 && (
                       <div>
@@ -1090,27 +1009,15 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                           {adminSubActing ? '...' : 'Aplicar'}
                         </button>
                       </div>
-                      <p className="text-[10px] text-stone-400">Altera o plano imediatamente, sem cobrança proporcional. Uma notificação é enviada ao usuário.</p>
-                    </div>
-
-                    <div className="flex gap-2 flex-wrap">
-                      {adminSub?.cancel_at_period_end ? (
-                        <button
-                          onClick={() => adminReactivateSub(selectedUser!.user_id)}
-                          disabled={adminSubActing}
-                          className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors"
-                        >
-                          Reativar assinatura
-                        </button>
-                      ) : selectedUser?.plan !== 'free' ? (
-                        <button
-                          onClick={() => adminCancelSub(selectedUser!.user_id)}
-                          disabled={adminSubActing}
-                          className="text-sm border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
-                        >
-                          Agendar cancelamento
-                        </button>
-                      ) : null}
+                      <input
+                        value={adminSubPlanReason}
+                        onChange={e => setAdminSubPlanReason(e.target.value)}
+                        placeholder="Motivo da alteração (opcional)"
+                        className={inputCls}
+                      />
+                      <p className="text-[10px] text-stone-400">
+                        Altera o plano imediatamente, sem cobrança proporcional, e notifica o usuário. <strong>Não mexe no Stripe</strong> — para cancelar uma assinatura paga, use a aba <strong>Cancelamentos</strong>.
+                      </p>
                     </div>
                   </div>
                 )}

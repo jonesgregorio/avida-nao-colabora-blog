@@ -16,15 +16,12 @@ test('operações críticas do Admin exigem confirmação explícita sem inflar 
   assert.match(facade, /export \{ default \} from '\.\/AdminUsersImpl'/)
   assert.match(guard, /window\.confirm/)
   assert.match(guard, /Alterar plano \(admin\)/)
-  assert.match(guard, /Confirmar alteração/)
-  assert.match(guard, /Agendar cancelamento/)
   assert.match(guard, /Redefinir senha/)
   assert.match(guard, /input#admin-toggle/)
 })
 
 test('operações críticas mantêm auditoria e feedback de sucesso ou erro', () => {
   assert.match(impl, /logAdminAction\('update', 'user_plan'/)
-  assert.match(impl, /logAdminAction\('update', 'subscription_cancel'/)
   assert.match(impl, /logAdminAction\('update', 'user_password_reset'/)
   assert.match(impl, /logAdminAction\(isAdmin \? 'promote_admin' : 'revoke_admin'/)
   assert.match(impl, /setAdminSubMsg\(\{ type: 'ok'/)

@@ -30,6 +30,7 @@ import ContactPage from './components/ContactPage'
 import FAQPage from './components/FAQPage'
 import SuccessPage from './components/SuccessPage'
 import ForceChangePassword from './components/ForceChangePassword'
+import AccountBlockedGate from './components/AccountBlockedGate'
 import type { Tab } from './components/MyEvolutionPage'
 
 // Páginas de aplicação são carregadas apenas quando a rota exige. Isso preserva
@@ -306,6 +307,17 @@ export default function App() {
   // Force password change if admin set a temporary password
   if (user && profile?.must_change_password) {
     return <ForceChangePassword userId={user.id} onDone={refreshProfile} />
+  }
+
+  // Conta bloqueada/suspensa pelo Admin — nenhuma área logada é acessível.
+  if (user && profile && (profile.account_status === 'blocked' || profile.account_status === 'suspended') && view !== 'auth') {
+    return (
+      <AccountBlockedGate
+        status={profile.account_status}
+        reason={profile.blocked_reason ?? null}
+        onSignOut={handleSignOut}
+      />
+    )
   }
 
   // Usuário autenticado mas sem perfil (a criação automática do useAuth falhou) — §19.
