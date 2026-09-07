@@ -23,9 +23,10 @@ test('MyGardenPage aplica hasPlanAccess(plan, "essential") como defesa própria'
   assert.match(garden, /Disponível a partir do plano Essencial/i)
 })
 
-test('MaisPage bloqueia o card Meu Jardim para quem não tem Essencial+', () => {
-  assert.match(maisPage, /gardenAccess\s*=\s*hasPlanAccess\(plan,\s*'essential'\)/)
-  assert.match(maisPage, /disponível a partir do Essencial/i)
+test('MaisPage não expõe mais o card Meu Jardim (o gate vive na MyGardenPage)', () => {
+  // O card saiu da página "Mais" (virou item de navegação). A regra Essencial+
+  // continua garantida pela defesa própria da MyGardenPage, testada acima.
+  assert.doesNotMatch(maisPage, /title:'Meu Jardim'/)
 })
 
 test('App.tsx passa profile ao MyGardenPage para a rota /my-garden não vazar acesso', () => {
