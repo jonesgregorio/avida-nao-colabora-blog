@@ -44,8 +44,10 @@ const PRIMARY_NAV: NavItem[] = [
   { id: 'my-report',    label: 'Relatórios',     Icon: BarChart3,      match: ['my-report'] },
   { id: 'my-history',   label: 'Minha História', Icon: History,        match: ['my-history'] },
   { id: 'my-garden',    label: 'Meu Jardim',     Icon: Flower2,        match: ['my-garden'] },
-  { id: 'cuidar',       label: 'Cuidar',         Icon: Sprout,         match: ['cuidar', 'self-care', 'articles', 'article', 'content'], matchPath: ['/plano-de-autocuidado'] },
-  { id: 'mais',         label: 'Mais',           Icon: MoreHorizontal, match: ['mais', 'questionarios', 'questionnaire', 'questionarios-evolucao', 'monthly-guidance', 'professional-comments', 'my-plan', 'profile', 'support', 'support-ticket', 'notifications'] },
+  { id: 'self-care',        label: 'Plano de Autocuidado', Icon: Sprout,         match: ['self-care'], matchPath: ['/plano-de-autocuidado'] },
+  { id: 'monthly-guidance', label: 'Orientação',           Icon: MessageCircle,  match: ['monthly-guidance', 'professional-comments'] },
+  { id: 'articles',         label: 'Conteúdos Guiados',     Icon: BookOpen,       match: ['articles', 'article', 'content'] },
+  { id: 'mais',             label: 'Mais',                 Icon: MoreHorizontal, match: ['mais', 'questionarios', 'questionnaire', 'questionarios-evolucao', 'my-plan', 'profile', 'support', 'support-ticket', 'notifications'] },
 ]
 
 const DESKTOP_NAV: NavItem[] = [
@@ -74,7 +76,7 @@ const DESKTOP_NAV_GROUPS: NavGroup[] = [
 
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Sua jornada', items: PRIMARY_NAV.filter(item => ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden'].includes(item.id)) },
-  { label: 'Cuidado e conta', items: PRIMARY_NAV.filter(item => ['cuidar', 'mais'].includes(item.id)) },
+  { label: 'Cuidado e conta', items: PRIMARY_NAV.filter(item => ['self-care', 'monthly-guidance', 'articles', 'mais'].includes(item.id)) },
 ]
 
 const HEADER_LABELS: Record<string, string> = {

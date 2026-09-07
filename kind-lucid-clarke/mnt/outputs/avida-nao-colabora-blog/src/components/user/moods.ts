@@ -13,7 +13,10 @@ export interface MoodOption {
 export const MOODS: MoodOption[] = [
   // Tons de texto escurecidos apenas o necessário para manter contraste WCAG AA
   // nos fundos suaves dos chips, sem alterar a identidade visual da taxonomia.
+  // bem_estar é mantido para compatibilidade com registros históricos; novos check-ins
+  // usam alegria como opção positiva específica e semanticamente alinhada à pergunta.
   { key: 'bem_estar',     label: 'Bem-estar',     Icon: Sun,            cls: 'bg-amber-50 text-amber-800' },
+  { key: 'alegria',       label: 'Alegria',       Icon: Sun,            cls: 'bg-amber-50 text-amber-800' },
   { key: 'tranquilidade', label: 'Tranquilidade', Icon: Sprout,         cls: 'bg-mint text-forest-700' },
   { key: 'cansaco',       label: 'Cansaço',       Icon: BatteryLow,     cls: 'bg-lilac text-[#6b5ca0]' },
   { key: 'sem_energia',   label: 'Sem energia',   Icon: BatteryWarning, cls: 'bg-lilac text-[#6b5ca0]' },
