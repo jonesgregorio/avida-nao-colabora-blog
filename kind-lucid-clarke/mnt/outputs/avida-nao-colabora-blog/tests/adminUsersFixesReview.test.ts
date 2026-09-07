@@ -44,7 +44,16 @@ test('não há mais cancelamento/reativação fake (sem Stripe) na gaveta de Usu
   assert.doesNotMatch(impl, /Agendar cancelamento/)
   assert.doesNotMatch(impl, /Cancelamento agendado com sucesso/)
   // Aponta para o fluxo real.
-  assert.match(impl, /para cancelar uma assinatura paga, use a aba <strong>Cancelamentos<\/strong>/)
+  assert.match(impl, /aba <strong>Cancelamentos<\/strong>/)
+})
+
+test('ajuste manual de plano é bloqueado quando há assinatura Stripe ativa', () => {
+  assert.match(impl, /if \(adminSubInfo\?\.active\)/)
+  assert.match(impl, /Ajuste manual de plano \(sem Stripe\)/)
+  assert.match(impl, /assinatura ativa no Stripe/)
+  // Confirmação explícita mostrando de -> para, sem cobrança, efeito imediato.
+  assert.match(impl, /Ajuste manual de plano\\n\\n\$\{from\} → \$\{to\}/)
+  assert.match(impl, /provider_subscription_id/)
 })
 
 test('copy de pagamento desatualizada removida', () => {

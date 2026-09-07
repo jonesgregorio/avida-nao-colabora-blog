@@ -63,7 +63,9 @@ export default function AdminCommunicationCampaigns() {
     setLoading(true)
     const { data, error } = await supabase.from('admin_communications').select('*').order('created_at', { ascending: false }).limit(100)
     if (error) {
-      if (/admin_communications|does not exist|schema cache/i.test(error.message)) setNotAvailable(true)
+      const code = (error as { code?: string }).code
+      if (code === 'PGRST205' || code === '42P01') setNotAvailable(true)
+      else setMsg({ ok: false, text: 'Erro ao carregar campanhas: ' + error.message })
       setItems([])
     } else {
       setItems((data ?? []) as Campaign[])

@@ -63,7 +63,7 @@ const ATTENTION: { key: string; label: string; nav: AdminView }[] = [
   { key: 'cancellations_to_handle', label: 'Cancelamentos a tratar', nav: 'cancelamentos' as AdminView },
   { key: 'email_failures_7d', label: 'Falhas de e-mail (7 dias)', nav: 'system-health' as AdminView },
   { key: 'ai_errors_active', label: 'Fluxos de IA com erro ativo', nav: 'system-health' as AdminView },
-  { key: 'notifications_draft', label: 'Notificações não enviadas', nav: 'notifications' as AdminView },
+  { key: 'notifications_draft', label: 'Campanhas em rascunho', nav: 'comunicacao' as AdminView },
 ]
 
 export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: (v: AdminView) => void }) {
@@ -72,7 +72,6 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
   const [customEnd, setCustomEnd] = useState('')
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [notAvailable, setNotAvailable] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { start, end } = useMemo(
@@ -81,14 +80,18 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
   )
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null); setNotAvailable(false)
+    setLoading(true); setError(null)
     const { data: res, error: err } = await supabase.rpc('admin_operational_dashboard', {
       p_start: start.toISOString(),
       p_end: end.toISOString(),
     })
     if (err) {
-      if (/admin_operational_dashboard|does not exist|schema cache/i.test(err.message)) setNotAvailable(true)
-      else setError(err.message)
+      const code = (err as { code?: string }).code
+      setError(
+        code === 'PGRST202'
+          ? 'A função admin_operational_dashboard não está publicada neste ambiente.'
+          : err.message,
+      )
       setData(null)
     } else {
       setData((res ?? {}) as DashboardData)
@@ -137,24 +140,29 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
         </div>
       )}
 
-      {notAvailable ? (
-        <p className="rounded-xl bg-stone-50 border border-line p-4 text-xs text-stone-500">
-          Os indicadores operacionais completos ficam disponíveis após o deploy desta etapa.
-        </p>
-      ) : error ? (
+      {error ? (
         <p className="rounded-xl bg-red-50 border border-red-200 p-4 text-xs text-red-700">Não foi possível carregar: {error}</p>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {METRICS.map(m => (
-              <div key={m.key} className="rounded-xl border border-line bg-stone-50 p-3">
-                <div className="flex items-center gap-1.5 text-stone-400">
-                  <m.Icon className="w-3.5 h-3.5" />
-                  <p className="text-[10px] uppercase tracking-wide">{m.label}</p>
+            {METRICS.map(m => {
+              // Distingue: carregando / valor real (inclui 0) / sem esse dado no retorno.
+              const raw = data?.period?.[m.key]
+              const display = loading ? null : typeof raw === 'number' ? raw.toLocaleString('pt-BR') : '—'
+              return (
+                <div key={m.key} className="rounded-xl border border-line bg-stone-50 p-3">
+                  <div className="flex items-center gap-1.5 text-stone-400">
+                    <m.Icon className="w-3.5 h-3.5" />
+                    <p className="text-[10px] uppercase tracking-wide">{m.label}</p>
+                  </div>
+                  {display === null ? (
+                    <span className="mt-2 block h-6 w-12 rounded bg-stone-200 animate-pulse" aria-label="carregando" />
+                  ) : (
+                    <p className="font-serif text-2xl text-forest-900 mt-1 leading-none">{display}</p>
+                  )}
                 </div>
-                <p className="font-serif text-2xl text-forest-900 mt-1 leading-none">{loading ? '—' : (data?.period?.[m.key] ?? 0)}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="mt-5">

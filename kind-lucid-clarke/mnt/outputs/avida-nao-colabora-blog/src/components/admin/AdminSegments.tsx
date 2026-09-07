@@ -88,7 +88,7 @@ export default function AdminSegments() {
     setPreviewing(true); setErr(''); setListRows(null)
     const { data, error } = await supabase.rpc('admin_segment_preview', { p_filter: cleanFilter })
     if (error) {
-      if (/admin_segment_preview|does not exist|schema cache/i.test(error.message)) setNotAvailable(true)
+      if ((error as { code?: string }).code === 'PGRST202') setNotAvailable(true)
       else setErr(error.message)
       setCount(null); setSample([])
     } else {
@@ -183,6 +183,26 @@ export default function AdminSegments() {
       setMsg({ ok: true, text: `Público "${name}" salvo.` })
       loadSaved()
     }
+  }
+
+  // Atualiza um público salvo com os critérios atuais do construtor.
+  async function atualizarPublico(s: SavedSegment) {
+    if (isEmpty) { setMsg({ ok: false, text: 'Defina critérios antes de atualizar.' }); return }
+    if (!window.confirm(`Substituir os critérios de "${s.name}" pelos critérios atuais?`)) return
+    const { error } = await supabase.from('admin_segments').update({ filter: cleanFilter, updated_at: new Date().toISOString() }).eq('id', s.id)
+    if (error) { setMsg({ ok: false, text: 'Falha: ' + error.message }); return }
+    void logAdminAction('update', 'admin_segment', s.id, { name: s.name, filter: cleanFilter })
+    setMsg({ ok: true, text: `Público "${s.name}" atualizado.` })
+    loadSaved()
+  }
+
+  async function excluirPublico(s: SavedSegment) {
+    if (!window.confirm(`Excluir o público salvo "${s.name}"? Campanhas já enviadas não são afetadas.`)) return
+    const { error } = await supabase.from('admin_segments').delete().eq('id', s.id)
+    if (error) { setMsg({ ok: false, text: 'Falha: ' + error.message }); return }
+    void logAdminAction('delete', 'admin_segment', s.id, { name: s.name })
+    setMsg({ ok: true, text: `Público "${s.name}" excluído.` })
+    loadSaved()
   }
 
   return (
@@ -298,9 +318,13 @@ export default function AdminSegments() {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 mb-2">Públicos salvos</p>
               <div className="space-y-1">
                 {saved.map(s => (
-                  <button key={s.id} onClick={() => setFilter({ tags_mode: 'any', ...s.filter })} className="block w-full text-left text-sm text-forest-800 hover:underline truncate">
-                    {s.name}
-                  </button>
+                  <div key={s.id} className="flex items-center gap-1 group">
+                    <button onClick={() => setFilter({ tags_mode: 'any', ...s.filter })} className="flex-1 text-left text-sm text-forest-800 hover:underline truncate">
+                      {s.name}
+                    </button>
+                    <button onClick={() => void atualizarPublico(s)} title="Salvar critérios atuais neste público" className="text-[11px] text-stone-400 hover:text-forest-700 px-1">salvar</button>
+                    <button onClick={() => void excluirPublico(s)} title="Excluir público" className="text-[11px] text-stone-400 hover:text-red-600 px-1">excluir</button>
+                  </div>
                 ))}
               </div>
             </div>
