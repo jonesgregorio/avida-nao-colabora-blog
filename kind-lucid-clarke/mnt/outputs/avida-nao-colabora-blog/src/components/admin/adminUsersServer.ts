@@ -10,7 +10,11 @@ import type { User360, UserRow } from './adminUsersModel'
 export async function loadUser360(userId: string): Promise<User360 | null> {
   const { data, error } = await supabase.rpc('admin_user_360', { target_user_id: userId })
   if (error) {
-    if (/function .*admin_user_360|does not exist|schema cache/i.test(error.message)) return null
+    // Só trata como "ainda não publicada" quando a RPC realmente não existe /
+    // não está no cache do PostgREST. Erro de coluna/tabela dentro da função
+    // (does not exist) precisa propagar — não é ausência de deploy.
+    const code = (error as { code?: string }).code
+    if (code === 'PGRST202' || /could not find the function|schema cache/i.test(error.message)) return null
     throw error
   }
   return (data ?? null) as User360 | null

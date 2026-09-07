@@ -27,10 +27,12 @@ test('a RPC agrega dados mas NÃO devolve texto livre de diário / conteúdo pri
   }
 })
 
-test('loadUser360 degrada com segurança se a RPC ainda não existir', () => {
+test('loadUser360 degrada só quando a RPC não existe, e propaga erro real', () => {
   assert.match(server, /export async function loadUser360/)
   assert.match(server, /supabase\.rpc\('admin_user_360', \{ target_user_id: userId \}\)/)
-  assert.match(server, /admin_user_360\|does not exist\|schema cache/)
+  // "não publicada" só para PGRST202 / função ausente — não para erro de coluna.
+  assert.match(server, /code === 'PGRST202'|could not find the function\|schema cache/i)
+  assert.doesNotMatch(server, /\|does not exist\|schema cache/)
 })
 
 test('a Ficha 360º entra na gaveta sem duplicar componente nem quebrar as abas existentes', () => {
