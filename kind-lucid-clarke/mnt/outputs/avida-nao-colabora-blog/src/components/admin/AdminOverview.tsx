@@ -12,9 +12,14 @@ import {
 import type { AdminView } from './types'
 import AdminOperationalDashboard from './AdminOperationalDashboard'
 import {
+  fetchOperationalSnapshot, attentionTotal,
+  type OperationalSnapshot,
+} from '../../lib/adminOperationalStatus'
+import {
   Users, CreditCard, Clock, MessageSquare, RefreshCw, ArrowRight,
   LifeBuoy, BarChart3, CalendarCheck, AlertTriangle,
   UserPlus, TrendingUp, Mail, Database, Cpu, HardDrive, ChevronRight, Ban,
+  Megaphone, BookOpen,
 } from 'lucide-react'
 
 interface OverviewProps {
@@ -32,12 +37,6 @@ interface Counts {
   emailFailures: number
   aiFailures: number
   pendingCancellations: number
-}
-
-interface QueueSnapshot {
-  queues?: Record<string, number>
-  failures_24h?: Record<string, number>
-  failures_active?: Record<string, number>
 }
 
 type HealthState = 'ok' | 'warn' | 'error' | 'unknown'
@@ -75,8 +74,11 @@ function healthState(status: CheckStatus): HealthState {
 
 interface Activity { icon: typeof UserPlus; text: string; sub: string; at: string }
 
+const EMPTY_SNAPSHOT: OperationalSnapshot = { ok: false, queues: {}, failuresActive: {}, failures24h: {} }
+
 export default function AdminOverview({ onNavigate }: OverviewProps) {
   const [c, setC] = useState<Counts>(EMPTY)
+  const [snapshot, setSnapshot] = useState<OperationalSnapshot>(EMPTY_SNAPSHOT)
   const [activity, setActivity] = useState<Activity[]>([])
   const [health, setHealth] = useState<HealthItem[]>([
     { Icon: Database, label: 'Banco de dados', state: 'unknown', note: 'Verificação pendente', nav: 'system-health' },
@@ -94,7 +96,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     const since7d = new Date(Date.now() - 7 * 86400000).toISOString()
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    const [usersRes, newUsersRes, paidRes, pendingGuidanceRes, openTicketsRes, reportsRes, cancellationsRes, queuesRes] = await Promise.all([
+    const [usersRes, newUsersRes, paidRes, pendingGuidanceRes, openTicketsRes, reportsRes, cancellationsRes, snap] = await Promise.all([
       readCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true })),
       readCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', since7d)),
       readCount(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).in('plan', ['essential', 'plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'])),
@@ -102,19 +104,16 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       readCount(() => supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')),
       readCount(() => supabase.from('reports').select('*', { count: 'exact', head: true }).eq('report_type', 'monthly').in('status', ['draft', 'generated'])),
       readCount(() => supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted')),
-      supabase.rpc('admin_queues_overview'),
+      fetchOperationalSnapshot(),
     ])
 
-    let selfCarePending = 0
-    let emailFailures = 0
-    let aiFailures = 0
-    if (!queuesRes.error) {
-      const snapshot = (queuesRes.data ?? {}) as QueueSnapshot
-      const failures = snapshot.failures_active ?? snapshot.failures_24h ?? {}
-      selfCarePending = snapshot.queues?.care_plans_pending ?? 0
-      emailFailures = failures.emails_failed ?? 0
-      aiFailures = failures.ai_errors ?? 0
-    } else {
+    setSnapshot(snap)
+    // Camada única de status operacional (adminOperationalStatus). Fallbacks
+    // pontuais só quando a RPC não respondeu, para o Dashboard não zerar.
+    let selfCarePending = snap.queues.care_plans_pending ?? 0
+    let emailFailures = snap.failuresActive.emails_failed ?? 0
+    let aiFailures = snap.failuresActive.ai_errors ?? 0
+    if (!snap.ok) {
       const [careFallback, emailFallback, aiFallback] = await Promise.all([
         readCount(() => supabase.from('monthly_care_plans').select('*', { count: 'exact', head: true }).in('status', ['pending_generation', 'generated', 'pending_review', 'draft'])),
         readCount(() => supabase.from('email_logs').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', since24h)),
@@ -216,23 +215,39 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
 
   useEffect(() => { void load() }, [])
 
-  const pendencias = c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.aiFailures + c.pendingCancellations
+  // Fonte única: soma deduplicada de "requer ação" + "falhas técnicas ativas".
+  // Fallback para a soma manual só quando a RPC não respondeu.
+  const q = snapshot.queues
+  const f = snapshot.failuresActive
+  const pendencias = snapshot.ok
+    ? attentionTotal(snapshot)
+    : c.pendingGuidance + c.openTickets + c.reportsToReview + c.selfCarePending + c.emailFailures + c.aiFailures + c.pendingCancellations
 
   const cards = [
     { label: 'Usuários ativos', value: c.users, delta: c.newUsers7d > 0 ? `+${c.newUsers7d} nesta semana` : 'Total de contas', Icon: Users, bg: 'bg-mint', color: 'text-forest-600' },
     { label: 'Assinaturas pagas', value: c.paid, delta: 'Essencial + Plus', Icon: CreditCard, bg: 'bg-sky', color: 'text-[#3d6ea5]' },
-    { label: 'Pendências', value: pendencias, delta: 'Itens ativos que precisam de atenção', Icon: Clock, bg: 'bg-coral', color: 'text-[#c05f3c]' },
+    { label: 'Precisa de atenção', value: pendencias, delta: 'Ação + falhas técnicas ativas (sem duplicar)', Icon: Clock, bg: 'bg-coral', color: 'text-[#c05f3c]' },
     { label: 'Orientações abertas', value: c.pendingGuidance, delta: 'Aguardando resposta', Icon: MessageSquare, bg: 'bg-lilac', color: 'text-[#7c5cbf]' },
   ]
 
-  const fila = [
-    { Icon: MessageSquare, color: 'text-[#3d6ea5]', bg: 'bg-sky', title: 'Orientações mensais aguardando resposta', sub: 'Usuários Plus no aguardo', qtd: c.pendingGuidance, nav: 'guidance-requests' as AdminView },
-    { Icon: LifeBuoy, color: 'text-forest-600', bg: 'bg-mint', title: 'Tickets de suporte abertos', sub: 'Em atendimento', qtd: c.openTickets, nav: 'support' as AdminView },
-    { Icon: BarChart3, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Relatórios a revisar', sub: 'Relatórios mensais aguardando revisão', qtd: c.reportsToReview, nav: 'pdf' as AdminView },
-    { Icon: CalendarCheck, color: 'text-forest-600', bg: 'bg-mint', title: 'Planos de autocuidado pendentes', sub: 'Aguardando geração ou envio', qtd: c.selfCarePending, nav: 'self-care-plans' as AdminView },
-    { Icon: Mail, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas de e-mail ativas', sub: 'Falhas recentes ainda relevantes', qtd: c.emailFailures, nav: 'emails' as AdminView },
-    { Icon: AlertTriangle, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Falhas de IA ativas', sub: 'Falhas recentes ainda relevantes', qtd: c.aiFailures, nav: 'uso-ia' as AdminView },
-    { Icon: Ban, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Cancelamentos a revisar', sub: 'Pedidos de cancelamento aguardando resposta', qtd: c.pendingCancellations, nav: 'cancelamentos' as AdminView },
+  const acaoRows = [
+    { Icon: MessageSquare, color: 'text-[#3d6ea5]', bg: 'bg-sky', title: 'Orientações mensais a responder', qtd: q.guidance_pending ?? c.pendingGuidance, nav: 'guidance-requests' as AdminView },
+    { Icon: LifeBuoy, color: 'text-forest-600', bg: 'bg-mint', title: 'Tickets de suporte abertos', qtd: q.tickets_open ?? c.openTickets, nav: 'support' as AdminView },
+    { Icon: BarChart3, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Relatórios aguardando revisão', qtd: q.reports_pending_review ?? c.reportsToReview, nav: 'pdf' as AdminView },
+    { Icon: CalendarCheck, color: 'text-forest-600', bg: 'bg-mint', title: 'Planos de autocuidado a revisar', qtd: q.care_plans_pending ?? c.selfCarePending, nav: 'self-care-plans' as AdminView },
+    { Icon: Ban, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Cancelamentos a tratar', qtd: q.cancellations_to_handle ?? c.pendingCancellations, nav: 'cancelamentos' as AdminView },
+    { Icon: Cpu, color: 'text-[#7c5cbf]', bg: 'bg-lilac', title: 'Personalizações vencidas', qtd: q.personalization_overdue ?? 0, nav: 'personalization' as AdminView },
+    { Icon: Megaphone, color: 'text-[#3d6ea5]', bg: 'bg-sky', title: 'Campanhas em rascunho', qtd: q.notifications_draft ?? 0, nav: 'comunicacao' as AdminView },
+  ]
+
+  const falhaRows = [
+    { Icon: AlertTriangle, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Falhas ativas de IA', qtd: f.ai_errors ?? c.aiFailures, nav: 'uso-ia' as AdminView },
+    { Icon: Mail, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas ativas de e-mail', qtd: f.emails_failed ?? c.emailFailures, nav: 'emails' as AdminView },
+    { Icon: BarChart3, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Relatórios com falha', qtd: f.reports_failed ?? 0, nav: 'pdf' as AdminView },
+    { Icon: CalendarCheck, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Planos de autocuidado com falha', qtd: f.care_plans_failed ?? 0, nav: 'self-care-plans' as AdminView },
+    { Icon: BookOpen, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Jobs de conteúdo com falha', qtd: f.content_jobs_failed ?? 0, nav: 'automacoes-blog' as AdminView },
+    { Icon: CreditCard, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Webhooks do Stripe com falha', qtd: f.webhooks_failed ?? 0, nav: 'financeiro' as AdminView },
+    { Icon: Clock, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Webhooks do Stripe travados', qtd: q.webhooks_stuck ?? 0, nav: 'financeiro' as AdminView },
   ]
 
   function openAllPending() {
@@ -273,23 +288,39 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-        <div className="lg:col-span-2 bg-white border border-line rounded-2xl p-5">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">Fila de atenção</h2>
-          <div className="divide-y divide-line">
-            {fila.map(row => (
-              <div key={row.title} className="flex items-center gap-3 py-3">
-                <span className={`w-9 h-9 rounded-full ${row.bg} flex items-center justify-center flex-shrink-0`}>
-                  <row.Icon className={`w-4 h-4 ${row.color}`} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-forest-900 truncate">{row.title}</p>
-                  <p className="text-xs text-ink-soft truncate">{row.sub}</p>
-                </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${row.qtd > 0 ? 'bg-coral text-[#b0532f]' : 'bg-mint text-forest-700'}`}>{loading ? '—' : row.qtd}</span>
-                <button onClick={() => onNavigate(row.nav)} className="text-xs text-forest-700 hover:text-forest-900 border border-line rounded-lg px-2.5 py-1 whitespace-nowrap">Ver fila</button>
+        <div className="lg:col-span-2 bg-white border border-line rounded-2xl p-5 space-y-5">
+          {([
+            { title: 'Requer ação', rows: acaoRows, empty: 'Nenhuma pendência operacional. 🌿' },
+            { title: 'Falhas técnicas ativas', rows: falhaRows, empty: 'Nenhuma falha técnica ativa.' },
+          ] as const).map(group => {
+            const visible = group.rows.filter(r => (r.qtd ?? 0) > 0)
+            return (
+              <div key={group.title}>
+                <h2 className="font-serif text-lg text-forest-900 mb-3">{group.title}</h2>
+                {loading ? (
+                  <p className="text-xs text-stone-400">Carregando…</p>
+                ) : visible.length === 0 ? (
+                  <p className="rounded-xl bg-mint/40 border border-forest-100 p-3 text-xs text-forest-700">{group.empty}</p>
+                ) : (
+                  <div className="divide-y divide-line">
+                    {visible.map(row => (
+                      <div key={row.title} className="flex items-center gap-3 py-2.5">
+                        <span className={`w-9 h-9 rounded-full ${row.bg} flex items-center justify-center flex-shrink-0`}>
+                          <row.Icon className={`w-4 h-4 ${row.color}`} />
+                        </span>
+                        <p className="flex-1 min-w-0 text-sm font-medium text-forest-900 truncate">{row.title}</p>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-[#b0532f]">{row.qtd}</span>
+                        <button onClick={() => onNavigate(row.nav)} className="text-xs text-forest-700 hover:text-forest-900 border border-line rounded-lg px-2.5 py-1 whitespace-nowrap">Abrir</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            )
+          })}
+          {!snapshot.ok && !loading && (
+            <p className="text-[11px] text-amber-700">Painel de filas indisponível — mostrando estimativa parcial.</p>
+          )}
         </div>
 
         <div className="bg-white border border-line rounded-2xl p-5">

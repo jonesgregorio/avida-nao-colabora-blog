@@ -12,11 +12,16 @@ interface QueuesData {
 }
 
 const QUEUE_ROWS: { key: string; label: string; alert?: boolean }[] = [
+  { key: 'guidance_pending', label: 'Orientações mensais a responder', alert: true },
+  { key: 'tickets_open', label: 'Tickets de suporte abertos' },
+  { key: 'tickets_stale_7d', label: 'Tickets parados há +7 dias', alert: true },
+  { key: 'reports_pending_review', label: 'Relatórios aguardando revisão' },
+  { key: 'reports_building', label: 'Relatórios em processamento' },
+  { key: 'care_plans_pending', label: 'Planos de autocuidado aguardando revisão' },
+  { key: 'cancellations_to_handle', label: 'Cancelamentos a tratar', alert: true },
   { key: 'personalization_pending', label: 'Personalização aguardando geração' },
   { key: 'personalization_overdue', label: 'Personalização vencida (não gerada)', alert: true },
-  { key: 'reports_building', label: 'Relatórios em processamento' },
-  { key: 'care_plans_pending', label: 'Planos de autocuidado aguardando' },
-  { key: 'notifications_draft', label: 'Notificações não enviadas' },
+  { key: 'notifications_draft', label: 'Campanhas não enviadas (rascunho)' },
   { key: 'content_jobs_running', label: 'Jobs de conteúdo em execução' },
   { key: 'webhooks_stuck', label: 'Webhooks travados há +1h', alert: true },
 ]
