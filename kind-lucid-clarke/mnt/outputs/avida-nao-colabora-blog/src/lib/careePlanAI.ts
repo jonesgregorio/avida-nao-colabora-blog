@@ -58,6 +58,9 @@ export interface CarePlanResult {
   recommended_content_tags: string[]
   generatedByAI: boolean
   hasEnoughData: boolean
+  /** Só quando generatedByAI=false: por que caiu no rascunho determinístico
+   *  NESTA tentativa (motivo técnico, sem conteúdo emocional). */
+  aiError?: string
 }
 
 export interface RecordsSummary {
@@ -225,8 +228,9 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v.trim() : ''
 }
 
-function validate(parsed: unknown): CarePlanResult | null {
-  if (!parsed || typeof parsed !== 'object') return null
+function validate(parsed: unknown, reasons?: string[]): CarePlanResult | null {
+  const fail = (why: string) => { reasons?.push(why); return null }
+  if (!parsed || typeof parsed !== 'object') return fail('resposta da IA não é um objeto JSON')
   const p = parsed as Record<string, unknown>
   // O prompt oficial (buildSelfCarePlanPrompt) devolve um objeto PLANO:
   // { main_focus, why_this_focus, three_care_priorities, weekly_rhythm, ... }.
@@ -279,7 +283,14 @@ function validate(parsed: unknown): CarePlanResult | null {
   // rejeitamos (generateCarePlanAI tenta de novo e, no limite, cai no rascunho
   // determinístico).
   const priorities = care_plan.three_care_priorities ?? []
-  if (!care_plan.main_focus || !care_plan.why_this_focus || priorities.length < 3) return null
+  if (!care_plan.main_focus || !care_plan.why_this_focus || priorities.length < 3) {
+    const miss = [
+      !care_plan.main_focus && 'main_focus',
+      !care_plan.why_this_focus && 'why_this_focus',
+      priorities.length < 3 && `three_care_priorities (${priorities.length}/3)`,
+    ].filter(Boolean).join(', ')
+    return fail(`a IA respondeu, mas faltaram campos essenciais: ${miss}`)
+  }
 
   // A IA às vezes devolve o JSON só parcialmente preenchido (bug relatado: "não
   // preenche todos os campos"). Antes isso descartava o plano INTEIRO e mandava
@@ -395,16 +406,23 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
  */
 export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummary): Promise<CarePlanResult> {
   // Poucos dados: não força a IA a inventar; entrega rascunho suave direto.
-  if (!rs.hasEnoughData) return fallbackCarePlan(a, rs.monthLabel)
+  // Não é falha da IA — é falta de registro no mês.
+  if (!rs.hasEnoughData) {
+    return {
+      ...fallbackCarePlan(a, rs.monthLabel),
+      aiError: `Poucos registros em ${rs.monthLabel} (${rs.totalEntries} entrada(s), ${rs.activeDays} dia(s) ativo(s); mínimo 5 e 3). Sem base para um plano com IA — este rascunho é um ponto de partida, não uma falha da IA.`,
+    }
+  }
   // Até 3 tentativas: validate() só rejeita quando faltam os essenciais
   // (foco + 3 prioridades). Uma tentativa extra costuma resolver respostas
   // truncadas antes de cair no rascunho determinístico (mais genérico).
+  const reasons: string[] = []
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       // Fonte oficial do prompt emocional; buildCarePlanPrompt permanece
       // exportado apenas para compatibilidade com integrações antigas.
       const raw = await generateWithFailover(buildSelfCarePlanPrompt(asEmotionalSummary(rs)))
-      const parsed = validate(extractJson(raw))
+      const parsed = validate(extractJson(raw), reasons)
       if (parsed) {
         // O prompt de autocuidado foca no plano e não devolve o bloco de
         // "Resumo mensal dos registros". Preenche-o com o resumo determinístico
@@ -412,11 +430,15 @@ export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummar
         if (!parsed.summary.general_overview) parsed.summary = fallbackCarePlan(a, rs.monthLabel).summary
         return parsed
       }
-    } catch {
-      /* tenta de novo; se for a última tentativa, cai no fallback abaixo */
+    } catch (err) {
+      reasons.push(err instanceof Error ? err.message : String(err))
     }
   }
-  return fallbackCarePlan(a, rs.monthLabel)
+  // Motivo real DESTA tentativa (não o de um ciclo anterior). Sem conteúdo emocional.
+  const aiError = reasons.length
+    ? `Rascunho de emergência após 3 tentativas. Último motivo — ${reasons[reasons.length - 1]}`.slice(0, 400)
+    : undefined
+  return { ...fallbackCarePlan(a, rs.monthLabel), aiError }
 }
 
 // ── Conteúdos recomendados reais (§20) ────────────────────────────────────────

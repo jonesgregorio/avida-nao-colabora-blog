@@ -6,7 +6,7 @@ import {
 } from '../../lib/emotionalAnalytics'
 import {
   buildRecordsSummary, generateCarePlanAI, resolveRecommendedContent,
-  type CareSummary, type CarePlanContent, type ResolvedContent,
+  type CareSummary, type CarePlanContent, type CarePlanResult, type ResolvedContent,
 } from '../../lib/careePlanAI'
 import { normalizeCarePlanBasis } from '../../lib/carePlanBasis'
 import {
@@ -423,6 +423,9 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   // Salvar/revisar não deve reescrever generated_at como se uma nova geração tivesse ocorrido.
   const [generatedByAI, setGeneratedByAI] = useState(plan?.generated_by_ai ?? false)
   const [fallbackUsed, setFallbackUsed] = useState(plan?.fallback_used ?? false)
+  // Motivo da falha DESTA sessão (quando a geração cai no rascunho de emergência).
+  // Substitui o plan.error_message antigo no aviso e ao salvar.
+  const [aiError, setAiError] = useState<string | null>(plan?.error_message ?? null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(plan?.generated_at ?? null)
   const contentBaselineRef = useRef(JSON.stringify({ summary, care }))
   const status = plan?.status ?? 'pending_generation'
@@ -468,8 +471,13 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
 
   // Gera um novo rascunho com IA. Retorna se a IA respondeu (true) ou se caiu
   // no fallback (false); null = erro de rede/geração.
-  async function runAI(): Promise<boolean | null> {
-    if (!analysis) return null
+  // Retorna o resultado (ou null se nem chegou a gerar) para quem chamou poder
+  // agir sem depender do estado que acabou de ser setado (evita closure velha).
+  async function runAI(): Promise<CarePlanResult | null> {
+    if (!analysis) {
+      showToast('Ainda carregando os dados do mês — aguarde e tente de novo.', true)
+      return null
+    }
     setGenerating(true)
     try {
       const rs = buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period))
@@ -479,23 +487,25 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
       setCare(result.care_plan)
       setGeneratedByAI(result.generatedByAI)
       setFallbackUsed(!result.generatedByAI)
+      setAiError(result.generatedByAI ? null : (result.aiError ?? 'A IA não retornou um plano válido nesta tentativa.'))
       setGeneratedAt(generatedNow)
       contentBaselineRef.current = JSON.stringify({ summary: result.summary, care: result.care_plan })
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
       setContent(resolved)
-      showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (fallback determinístico). Revise antes de enviar.')
-      return result.generatedByAI
-    } catch {
-      showToast('Não foi possível gerar agora. Tente novamente.', true)
+      showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (fallback). Revise antes de enviar.')
+      return result
+    } catch (e) {
+      showToast('Não foi possível gerar agora: ' + ((e as Error)?.message ?? 'erro desconhecido'), true)
       return null
     } finally {
       setGenerating(false)
     }
   }
 
-  // "Regerar e trocar": gera um novo rascunho com IA e substitui o plano atual.
-  // Funciona inclusive num plano JÁ ENVIADO — nesse caso ele volta para "em
-  // revisão" (o usuário deixa de vê-lo) até você revisar e reenviar.
+  // "Regerar e trocar": gera um novo rascunho com IA e substitui o conteúdo do
+  // formulário. NÃO fecha o drawer nem salva sozinho para planos em rascunho/
+  // revisão — o admin revisa e clica em Salvar/Enviar. Só planos JÁ ENVIADOS
+  // são persistidos aqui (para voltar de 'sent' → 'em revisão').
   async function regenerateAndReplace() {
     const wasSent = status === 'sent'
     if (wasSent && !window.confirm(
@@ -504,15 +514,21 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
     )) return
     if (!wasSent && !window.confirm('Regerar este rascunho com IA? O conteúdo atual será substituído.')) return
 
-    const ok = await runAI()
-    if (ok === null) return // erro já avisado
-    await persist('draft', { clearSent: wasSent })
-    showToast(ok
-      ? (wasSent ? 'Regerado com IA. Está em "em revisão" — revise e envie.' : 'Regerado com IA. Revise antes de enviar.')
-      : 'A IA falhou de novo — ficou o rascunho de emergência. Tente mais tarde.', !ok)
+    const result = await runAI()
+    if (!result) return // erro já avisado
+    if (wasSent) {
+      await persist('draft', { clearSent: true, aiErrorText: result.generatedByAI ? null : (result.aiError ?? null) })
+      showToast(result.generatedByAI
+        ? 'Regerado com IA. Está em "em revisão" — revise e envie.'
+        : 'Não deu para gerar com IA — ficou o rascunho de emergência. Voltou para "em revisão".', !result.generatedByAI)
+    } else {
+      showToast(result.generatedByAI
+        ? 'Regerado com IA. Revise e clique em Salvar rascunho ou Enviar plano.'
+        : 'Não deu para gerar com IA agora. Veja o motivo no aviso e tente mais tarde, ou edite manualmente.', !result.generatedByAI)
+    }
   }
 
-  async function persist(next: 'draft' | 'send' | 'skip', opts: { clearSent?: boolean } = {}) {
+  async function persist(next: 'draft' | 'send' | 'skip', opts: { clearSent?: boolean; aiErrorText?: string | null } = {}) {
     const now = new Date().toISOString()
     const rs = analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : {}
     const contentSnapshot = JSON.stringify({ summary, care })
@@ -543,10 +559,12 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         generated_at: generatedAt,
         generated_by_ai: generatedByAI,
         fallback_used: generatedByAI ? false : fallbackUsed,
-        // Gerou com IA agora → limpa o motivo de falha antigo (senão o aviso
-        // vermelho "a IA falhou" continua mostrando a causa de uma tentativa
-        // anterior mesmo depois de dar certo).
-        error_message: generatedByAI ? null : (plan?.error_message ?? null),
+        // Gerou com IA agora → limpa o motivo antigo. Caiu no fallback → grava o
+        // motivo DESTA tentativa (opts.aiErrorText tem prioridade — vem direto do
+        // resultado, sem depender do estado recém-setado).
+        error_message: generatedByAI
+          ? null
+          : (opts.aiErrorText !== undefined ? opts.aiErrorText : (aiError ?? plan?.error_message ?? null)),
         edited_by_human: editedByHuman,
         edited_at: editedNow ? now : (plan?.edited_at ?? null),
         updated_at: now,
@@ -671,13 +689,23 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             </section>
           )}
 
-          {fallbackUsed && !generatedByAI && (
-            <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800 space-y-2">
-              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Rascunho de emergência — a IA falhou</p>
-              <p>Este rascunho foi gerado <strong>sem IA</strong> (template determinístico genérico, igual para todos). {plan?.error_message ? <span className="block mt-1 text-xs text-red-700/90">Motivo: {plan.error_message}</span> : null}</p>
-              <p><strong>Não envie assim.</strong> Clique em <em>“Gerar resumo e plano com IA”</em> para tentar de novo, ou edite manualmente antes de enviar.</p>
-            </div>
-          )}
+          {fallbackUsed && !generatedByAI && (() => {
+            const lowData = (analysis?.totalEntries ?? 0) < 5 || (analysis?.activeDays ?? 0) < 3
+            const motivo = aiError ?? plan?.error_message
+            return lowData ? (
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
+                <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Poucos registros no mês — rascunho de incentivo</p>
+                <p>Não há registros suficientes para um plano com IA. Este rascunho é um ponto de partida acolhedor. {motivo ? <span className="block mt-1 text-xs text-amber-800/90">{motivo}</span> : null}</p>
+                <p>Você pode <strong>enviar assim</strong> (incentivo), editar manualmente, ou marcar como <em>Ignorar</em>.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800 space-y-2">
+                <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Rascunho de emergência — a IA falhou</p>
+                <p>Este rascunho foi gerado <strong>sem IA</strong> (template determinístico genérico, igual para todos). {motivo ? <span className="block mt-1 text-xs text-red-700/90">Motivo: {motivo}</span> : null}</p>
+                <p><strong>Não envie assim.</strong> Clique em <em>“Gerar resumo e plano com IA”</em> para tentar de novo, ou edite manualmente antes de enviar.</p>
+              </div>
+            )
+          })()}
 
           {!readOnly && (
             <button onClick={runAI} disabled={generating || loadingData} className="w-full flex items-center justify-center gap-2 bg-forest-900 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-forest-800 disabled:opacity-50">
