@@ -240,6 +240,8 @@ export default function AdminPanel() {
       currentView={view}
       onNavigate={v => navigate(v)}
       onExit={handleExit}
+      onOpenUser={uid => { setPendingUserId(uid); navigate('usuarios') }}
+      onOpenArticle={id => handleEditArticle(id)}
       userName={profile?.full_name || profile?.display_name || profile?.preferred_name || undefined}
     >
       <Suspense fallback={<AdminSectionLoading />}>{renderView()}</Suspense>

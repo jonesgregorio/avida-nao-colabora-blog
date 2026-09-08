@@ -41,7 +41,11 @@ test('Dashboard, sino e filas usam a MESMA camada de status operacional', () => 
   assert.match(shared, /export function attentionTotal/)
   assert.match(shared, /ACTION_QUEUE_KEYS/)
   assert.match(shared, /TECH_FAILURE_KEYS/)
-  // O sino não re-consulta support_tickets / guidance por conta própria.
-  assert.doesNotMatch(layout, /from\('support_tickets'\)/)
-  assert.doesNotMatch(layout, /from\('monthly_guidance_requests'\)/)
+  // O sino (loadAlerts) não re-consulta support_tickets / guidance por conta
+  // própria — usa só o snapshot compartilhado.
+  const loadAlerts = layout.match(/const loadAlerts = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[\]\)/)?.[0] ?? ''
+  assert.ok(loadAlerts.length > 0, 'loadAlerts não encontrada')
+  assert.match(loadAlerts, /fetchOperationalSnapshot\(\)/)
+  assert.doesNotMatch(loadAlerts, /from\('support_tickets'\)/)
+  assert.doesNotMatch(loadAlerts, /from\('monthly_guidance_requests'\)/)
 })

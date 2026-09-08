@@ -31,6 +31,17 @@ type AdminAlert = {
   severity: 'warning' | 'error'
 }
 
+interface EntityUser { user_id: string; full_name: string | null; email: string | null }
+interface EntityArticle { id: string; title: string | null; status: string | null }
+interface EntityTicket { id: string; subject: string | null; status: string | null }
+interface EntityCampaign { id: string; title: string | null; status: string | null }
+interface EntityResults {
+  users: EntityUser[]
+  articles: EntityArticle[]
+  tickets: EntityTicket[]
+  campaigns: EntityCampaign[]
+}
+
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Visão geral', items: [
     { id: 'visao-geral', label: 'Dashboard', icon: LayoutDashboard },
@@ -114,16 +125,20 @@ interface Props {
   currentView: string
   onNavigate: (v: AdminView) => void
   onExit: () => void
+  onOpenUser?: (userId: string) => void
+  onOpenArticle?: (articleId: string) => void
   userEmail?: string
   userName?: string
   children: ReactNode
 }
 
-export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, userName, children }: Props) {
+export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUser, onOpenArticle, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [allowed, setAllowed] = useState<Set<string> | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [entityResults, setEntityResults] = useState<EntityResults | null>(null)
+  const [entitySearching, setEntitySearching] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
   const [alertsLoading, setAlertsLoading] = useState(false)
   const [alertsError, setAlertsError] = useState('')
@@ -167,6 +182,42 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
       .filter(({ haystack }) => haystack.includes(q))
       .map(({ item }) => item)
       .slice(0, 8)
+  }, [searchQuery, allowed])
+
+  // ── Busca global: além da navegação, procura usuários / artigos / tickets /
+  // campanhas. Debounce + limite por grupo + respeita o RBAC (allowed).
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) { setEntityResults(null); return }
+    let alive = true
+    setEntitySearching(true)
+    const id = window.setTimeout(async () => {
+      const can = (mod: string) => !allowed || allowed.has(mod)
+      const like = `%${q}%`
+      const [users, articles, tickets, campaigns] = await Promise.all([
+        can('users')
+          ? supabase.from('profiles').select('user_id, full_name, email').or(`full_name.ilike.${like},email.ilike.${like}`).limit(5)
+          : Promise.resolve({ data: null }),
+        can('content')
+          ? supabase.from('articles').select('id, title, status').ilike('title', like).limit(5)
+          : Promise.resolve({ data: null }),
+        can('users')
+          ? supabase.from('support_tickets').select('id, subject, status').ilike('subject', like).limit(5)
+          : Promise.resolve({ data: null }),
+        can('communication')
+          ? supabase.from('admin_communications').select('id, title, status').ilike('title', like).limit(5)
+          : Promise.resolve({ data: null }),
+      ])
+      if (!alive) return
+      setEntityResults({
+        users: (users.data ?? []) as EntityUser[],
+        articles: (articles.data ?? []) as EntityArticle[],
+        tickets: (tickets.data ?? []) as EntityTicket[],
+        campaigns: (campaigns.data ?? []) as EntityCampaign[],
+      })
+      setEntitySearching(false)
+    }, 300)
+    return () => { alive = false; window.clearTimeout(id) }
   }, [searchQuery, allowed])
 
   function navigateTo(view: AdminView) {
@@ -338,24 +389,91 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
             )}
             {searchOpen && (
               <div className="absolute left-0 top-[calc(100%+8px)] w-[min(560px,80vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-stone-400 border-b border-line">Navegar no Admin</div>
-                {searchResults.length === 0 ? (
-                  <div className="px-4 py-5 text-sm text-stone-500">Nenhum resultado para “{searchQuery}”.</div>
-                ) : (
-                  <div className="max-h-[360px] overflow-y-auto py-1">
-                    {searchResults.map(item => (
-                      <button
-                        key={`${item.view}-${item.label}`}
-                        type="button"
-                        onClick={() => navigateTo(item.view)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
-                      >
-                        <p className="text-sm font-medium text-forest-900">{item.label}</p>
-                        <p className="text-xs text-stone-400 mt-0.5">{item.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="max-h-[420px] overflow-y-auto">
+                  <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-stone-400 border-b border-line">Navegação</div>
+                  {searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-stone-500">Nenhuma área para “{searchQuery}”.</div>
+                  ) : (
+                    <div className="py-1">
+                      {searchResults.map(item => (
+                        <button
+                          key={`${item.view}-${item.label}`}
+                          type="button"
+                          onClick={() => navigateTo(item.view)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
+                        >
+                          <p className="text-sm font-medium text-forest-900">{item.label}</p>
+                          <p className="text-xs text-stone-400 mt-0.5">{item.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery.trim().length >= 2 && (
+                    <>
+                      {entitySearching && !entityResults && (
+                        <div className="px-4 py-3 text-xs text-stone-400 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando registros…</div>
+                      )}
+                      {entityResults?.users.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Usuários</div>
+                          {entityResults.users.map(u => (
+                            <button key={u.user_id} type="button"
+                              onClick={() => { onOpenUser?.(u.user_id); setSearchOpen(false); setSearchQuery('') }}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900">{u.full_name || u.email || u.user_id.slice(0, 8)}</p>
+                              {u.full_name && u.email && <p className="text-xs text-stone-400">{u.email}</p>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.articles.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Artigos</div>
+                          {entityResults.articles.map(a => (
+                            <button key={a.id} type="button"
+                              onClick={() => { if (onOpenArticle) onOpenArticle(a.id); else navigateTo('conteudos'); setSearchOpen(false); setSearchQuery('') }}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{a.title || '(sem título)'}</p>
+                              <p className="text-xs text-stone-400">{a.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.tickets.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Tickets</div>
+                          {entityResults.tickets.map(t => (
+                            <button key={t.id} type="button"
+                              onClick={() => navigateTo('support')}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{t.subject || '(sem assunto)'}</p>
+                              <p className="text-xs text-stone-400">{t.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.campaigns.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Campanhas</div>
+                          {entityResults.campaigns.map(c => (
+                            <button key={c.id} type="button"
+                              onClick={() => navigateTo('notifications')}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{c.title || '(sem título)'}</p>
+                              <p className="text-xs text-stone-400">{c.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults && !entitySearching &&
+                        !entityResults.users.length && !entityResults.articles.length &&
+                        !entityResults.tickets.length && !entityResults.campaigns.length && (
+                        <div className="border-t border-line px-4 py-3 text-xs text-stone-400">Nenhum registro para “{searchQuery}”.</div>
+                      )}
+                    </>
+                  )}
+                </div>
                 <div className="px-3 py-2 text-[10px] text-stone-400 border-t border-line">Enter abre o primeiro resultado · Esc fecha</div>
               </div>
             )}
