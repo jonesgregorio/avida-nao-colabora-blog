@@ -90,6 +90,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   // Ficha 360º (Etapa 1): retrato agregado via RPC admin_user_360.
   const [user360, setUser360] = useState<User360 | null>(null)
   const [loading360, setLoading360] = useState(false)
+  const [user360Error, setUser360Error] = useState<string | null>(null)
   // Comunicação: e-mails manuais enviados pelo admin a este usuário
   const [emailHistory, setEmailHistory] = useState<EmailLogRow[]>([])
   const [loadingEmailHistory, setLoadingEmailHistory] = useState(false)
@@ -479,8 +480,11 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setMsgCategory(''); setMsgResult(null); setShowMsgModal(false)
     setAdminSubMsg(null); setAdminSubPlan(u.plan); setAdminSubPlanReason(''); setAdminSubInfo(null)
     setAiSummaries([]); setAiCurrentSummary(''); setAiExtraLoaded(false); setAiMsg(null)
-    setUser360(null); setLoading360(true)
-    loadUser360(u.user_id).then(setUser360).catch(() => setUser360(null)).finally(() => setLoading360(false))
+    setUser360(null); setUser360Error(null); setLoading360(true)
+    loadUser360(u.user_id)
+      .then(d => setUser360(d))
+      .catch((e: unknown) => setUser360Error(e instanceof Error ? e.message : 'Falha ao carregar o retrato do usuário.'))
+      .finally(() => setLoading360(false))
     loadDrawerData(u.user_id)
     loadAdminSub(u.user_id)
     loadAiSummaries(u.user_id)
@@ -895,7 +899,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
                 {[1, 2, 3].map(i => <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />)}
               </div>
             ) : is360Tab(drawerTab) ? (
-              <AdminUser360Tabs tab={drawerTab} data={user360} loading={loading360} />
+              <AdminUser360Tabs tab={drawerTab} data={user360} loading={loading360} error={user360Error} />
             ) : (
               <>
                 {drawerTab === 'resumo' && (

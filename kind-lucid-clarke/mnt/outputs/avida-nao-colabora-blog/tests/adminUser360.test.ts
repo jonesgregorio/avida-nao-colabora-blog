@@ -51,3 +51,22 @@ test('as abas 360 são somente-leitura e avisam o admin que o texto do diário n
   // Não faz mutações (nada de insert/update/delete/rpc de escrita).
   assert.doesNotMatch(tabs, /\.(insert|update|delete)\(|supabase\.rpc/)
 })
+
+const moodFix = read('supabase/migrations/20260907300000_fix_admin_user_360_mood.sql')
+
+test('hotfix: avg_mood_90d usa mood_score (int 1-5), não mood (texto)', () => {
+  assert.match(moodFix, /create or replace function public\.admin_user_360\(target_user_id uuid\)/i)
+  assert.match(moodFix, /select round\(avg\(mood_score\)::numeric, 2\) from public\.diary_entries/i)
+  assert.match(moodFix, /where user_id = target_user_id and mood_score is not null/i)
+  assert.doesNotMatch(moodFix, /avg\(mood\)::numeric/)
+  assert.match(moodFix, /grant execute on function public\.admin_user_360\(uuid\) to authenticated/i)
+})
+
+test('erro real da Ficha 360 aparece para o admin, não vira "aguardando deploy"', () => {
+  assert.match(impl, /setUser360Error/)
+  assert.match(impl, /<AdminUser360Tabs tab=\{drawerTab\} data=\{user360\} loading=\{loading360\} error=\{user360Error\}/)
+  assert.match(tabs, /if \(error\)/)
+  assert.match(tabs, /Não foi possível carregar o retrato do usuário/)
+  assert.match(tabs, /AAL2|verificação em duas etapas/i)
+  assert.doesNotMatch(tabs, /após o deploy desta etapa/)
+})
