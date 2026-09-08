@@ -524,6 +524,8 @@ Deno.serve(async (req) => {
   const { data: candidates, error } = await profileQuery
   if (error) return json({ error: error.message }, 500)
   const results: string[] = []
+  // Rastreia o que caiu no rascunho determinístico — vira alerta ao admin no fim.
+  const fallbackItems: { user_id: string; kind: string; reason: string }[] = []
   for (const profile of candidates as { user_id: string; plan: string; subscription_status?: string; unlimited_access?: boolean; unlimited_access_until?: string | null; plan_activated_at?: string | null }[]) {
     const unlimited = hasActiveUnlimitedAccess(profile, now)
     const normalizedBasePlan = ['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(profile.plan) ? 'plus' : profile.plan === 'essential' ? 'essential' : 'free'
@@ -566,7 +568,8 @@ Deno.serve(async (req) => {
       const { error: saveError } = await admin.from('reports').insert({ user_id: profile.user_id, report_type: job.kind, plan_required: job.kind === 'weekly' ? 'essential' : 'plus', period_start: job.start, period_end: job.end, available_at: new Date().toISOString(), status: 'generated', title: job.kind === 'weekly' ? `Relatório semanal — ${job.start}` : `Relatório mensal aprofundado — ${job.start.slice(0, 7)}`, summary: content.summary, content, generated_at: new Date().toISOString(), ai_prompt_type: promptType, ai_prompt_version: PROMPT_VERSION[promptType], model_used: model, fallback_used: fallback, data_quality: summary.data_quality, error_message: errorMessage, generated_by: actor })
       if (saveError) { results.push(`${profile.user_id}:${job.kind}:erro`); continue }
       await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: promptType, prompt_type: promptType, prompt_version: PROMPT_VERSION[promptType], provider: providerFromModel(model), model_used: model, fallback_used: fallback, data_quality: summary.data_quality, source_period_start: job.start, source_period_end: job.end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
-      results.push(`${profile.user_id}:${job.kind}:ok`)
+      if (fallback) fallbackItems.push({ user_id: profile.user_id, kind: promptType, reason: errorMessage || 'motivo não registrado' })
+      results.push(`${profile.user_id}:${job.kind}:${fallback ? 'fallback' : 'ok'}`)
     }
     if (plan === 'plus' && (!body.mode || body.mode === 'all' || body.mode === 'monthly')) {
       const careStart = clampStartToActivation(isoDay(monthStart), isoDay(monthEnd), profile.plan_activated_at)
@@ -584,9 +587,50 @@ Deno.serve(async (req) => {
         const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${careStart} a ${careEnd}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
         await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: { ...s, previous_care_action_feedback: careFeedbackSummary(previousCareFeedback) }, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })
         await log(admin, { user_id: profile.user_id, admin_id: actor, content_type: 'self_care_plan', prompt_type: 'self_care_plan', prompt_version: PROMPT_VERSION.self_care_plan, provider: providerFromModel(model), model_used: model, fallback_used: fallback, data_quality: s.data_quality, source_period_start: s.period_start, source_period_end: s.period_end, generation_status: fallback ? 'fallback' : 'success', status: fallback ? 'fallback' : 'success', error_msg: errorMessage })
-        results.push(`${profile.user_id}:plano:ok`)
+        if (fallback) fallbackItems.push({ user_id: profile.user_id, kind: 'self_care_plan', reason: errorMessage || 'motivo não registrado' })
+        results.push(`${profile.user_id}:plano:${fallback ? 'fallback' : 'ok'}`)
       }
     }
   }
-  return json({ ok: true, prompt_versions: PROMPT_VERSION, results })
+  // Alerta ao admin: se algo caiu no rascunho de emergência, uma pessoa precisa
+  // saber ANTES que o conteúdo genérico seja enviado. Nunca quebra a execução.
+  if (fallbackItems.length > 0) {
+    const labels: Record<string, string> = {
+      weekly_report: 'Relatório semanal', monthly_deep_report: 'Relatório mensal aprofundado', self_care_plan: 'Plano de autocuidado',
+    }
+    try {
+      await admin.from('admin_logs').insert({
+        admin_id: actor,
+        action: 'config',
+        target_type: 'ai_fallback',
+        target_id: null,
+        details: { count: fallbackItems.length, items: fallbackItems.map(i => ({ user_id: i.user_id, kind: i.kind })), reason: fallbackItems[0]?.reason ?? null },
+      })
+    } catch (e) { console.error('ai_fallback admin_log:', (e as Error).message) }
+    try {
+      const url = Deno.env.get('SUPABASE_URL')!
+      const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const site = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
+      const adminEmail = Deno.env.get('ADMIN_ALERT_EMAIL') || 'contato@avidanaocolabora.com'
+      const itens = fallbackItems.slice(0, 20)
+        .map(i => `- ${labels[i.kind] ?? i.kind} · usuário ${i.user_id}`).join('\n')
+      await fetch(`${url}/functions/v1/send-transactional-email`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_email: adminEmail,
+          template_key: 'admin_ai_fallback_alert',
+          variables: {
+            quantidade: String(fallbackItems.length),
+            itens,
+            motivo: (fallbackItems[0]?.reason ?? 'não registrado').slice(0, 500),
+            link_admin: `${site}/admin`,
+          },
+          idempotency_key: `ai_fallback:${new Date().toISOString().slice(0, 13)}:${fallbackItems.length}`,
+        }),
+      })
+    } catch (e) { console.error('ai_fallback alert email:', (e as Error).message) }
+  }
+
+  return json({ ok: true, prompt_versions: PROMPT_VERSION, results, fallbacks: fallbackItems.length })
 })

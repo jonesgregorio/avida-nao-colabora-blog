@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Leaf, Loader2, Sparkles, Send, X, Search, RefreshCw, Ban, Save } from 'lucide-react'
+import { Leaf, Loader2, Sparkles, Send, X, Search, RefreshCw, Ban, Save, AlertTriangle } from 'lucide-react'
 import {
   computeEmotionalAnalysis, type DiaryRowLite, type EmotionalAnalysis, MOOD_EMOJI,
 } from '../../lib/emotionalAnalytics'
@@ -45,6 +45,7 @@ interface CarePlanRow {
   updated_at: string
   generated_by_ai: boolean | null
   fallback_used: boolean | null
+  error_message: string | null
   reviewed_by: string | null
   reviewed_at: string | null
   edited_by_human: boolean | null
@@ -455,16 +456,26 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   }
 
   async function persist(next: 'draft' | 'send' | 'skip') {
+    const now = new Date().toISOString()
+    const rs = analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : {}
+    const contentSnapshot = JSON.stringify({ summary, care })
+    const editedNow = contentSnapshot !== contentBaselineRef.current
+    const editedByHuman = (plan?.edited_by_human ?? false) || editedNow
+
+    // Trava contra enviar o rascunho de emergência genérico sem revisar.
+    if (next === 'send' && fallbackUsed && !generatedByAI && !editedByHuman) {
+      if (!window.confirm(
+        'Este plano é o RASCUNHO DE EMERGÊNCIA (a IA falhou) e não foi editado.\n\n'
+        + 'Ele é genérico — o mesmo texto para todo mundo. Envie assim só se realmente '
+        + 'não houver alternativa.\n\nRecomendado: "Tentar gerar com IA de novo" antes.\n\nEnviar mesmo assim?',
+      )) return
+    }
+
     setSaving(next)
     try {
       const { data: auth } = await supabase.auth.getUser()
       const adminId = auth.user?.id ?? null
       if (next === 'send' && !adminId) throw new Error('Sessão administrativa inválida para registrar a revisão.')
-      const now = new Date().toISOString()
-      const rs = analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : {}
-      const contentSnapshot = JSON.stringify({ summary, care })
-      const editedNow = contentSnapshot !== contentBaselineRef.current
-      const editedByHuman = (plan?.edited_by_human ?? false) || editedNow
       const base: Record<string, unknown> = {
         user_id: user.user_id, month_reference: monthRef,
         period_start: period.start, period_end: period.end, available_at: period.availableAt,
@@ -595,10 +606,18 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
             </section>
           )}
 
+          {fallbackUsed && !generatedByAI && (
+            <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800 space-y-2">
+              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Rascunho de emergência — a IA falhou</p>
+              <p>Este rascunho foi gerado <strong>sem IA</strong> (template determinístico genérico, igual para todos). {plan?.error_message ? <span className="block mt-1 text-xs text-red-700/90">Motivo: {plan.error_message}</span> : null}</p>
+              <p><strong>Não envie assim.</strong> Clique em <em>“Gerar resumo e plano com IA”</em> para tentar de novo, ou edite manualmente antes de enviar.</p>
+            </div>
+          )}
+
           {!readOnly && (
             <button onClick={runAI} disabled={generating || loadingData} className="w-full flex items-center justify-center gap-2 bg-forest-900 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-forest-800 disabled:opacity-50">
               {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generating ? 'Gerando resumo e plano…' : 'Gerar resumo e plano com IA'}
+              {generating ? 'Gerando resumo e plano…' : fallbackUsed ? 'Tentar gerar com IA de novo' : 'Gerar resumo e plano com IA'}
             </button>
           )}
 
