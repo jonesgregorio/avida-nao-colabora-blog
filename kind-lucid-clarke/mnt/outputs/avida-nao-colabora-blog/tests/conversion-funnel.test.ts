@@ -24,5 +24,6 @@ test('P3.19 mede ativação sem ler conteúdo sensível', () => {
 test('Analytics legado permanece disponível sem regressão das outras abas', () => {
   assert.match(wrapper, /AdminConversionFunnel/)
   assert.match(wrapper, /AnalyticsPageLegacy/)
-  assert.match(wrapper, /<AnalyticsPageLegacy \{\.\.\.props\} \/>/)
+  // Agora o legado é reaproveitado por área (only=...), não mais em bloco único.
+  assert.match(wrapper, /<AnalyticsPageLegacy \{\.\.\.props\} only=\{ONLY_CONVERSION\} hideHero \/>/)
 })

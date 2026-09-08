@@ -265,11 +265,20 @@ function Delta({ cur, prev, goodWhenUp = true }: { cur: number; prev: number; go
   )
 }
 
-export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: string) => void }) {
+export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEditArticle?: (id: string) => void; only?: readonly string[]; hideHero?: boolean }) {
+  const visibleTabs = only ? TABS.filter(t => only.includes(t.id)) : TABS
+  const firstVisible = (visibleTabs[0]?.id ?? 'overview') as Tab
   const [period, setPeriod] = useState<Period>('30d')
   const [tab, setTab] = useState<Tab>(() => {
-    try { return (localStorage.getItem('admin-analytics-tab') as Tab) || 'overview' } catch { return 'overview' }
+    try {
+      const saved = localStorage.getItem('admin-analytics-tab') as Tab | null
+      if (saved && (!only || only.includes(saved))) return saved
+    } catch { /* noop */ }
+    return firstVisible
   })
+  useEffect(() => {
+    if (only && !only.includes(tab)) setTab(firstVisible)
+  }, [only, tab, firstVisible])
   const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState<Ev[]>([])
   const [prevEvents, setPrevEvents] = useState<Ev[]>([])
@@ -457,8 +466,9 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
+      <div className={`px-6 ${hideHero ? 'pt-4' : 'pt-8'} pb-4 max-w-7xl mx-auto w-full`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
+          {!hideHero && (
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-serif text-3xl text-forest-900">Analytics</h1>
@@ -466,6 +476,7 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
             </div>
             <p className="text-sm text-ink-soft mt-1">Acompanhe visitas, comportamento, SEO, conversões, erros e desempenho do blog.</p>
           </div>
+          )}
           <div className="flex flex-wrap gap-2 items-center">
             <div className="flex gap-1 bg-paper-soft border border-line rounded-xl p-1">
               {PERIODS.map(p => (
@@ -479,9 +490,9 @@ export default function AnalyticsPage({ onEditArticle }: { onEditArticle?: (id: 
         </div>
       </div>
 
-      <div className="border-b border-line bg-white sticky top-0 z-10">
+      <div className="border-b border-line bg-white sticky top-0 z-10" hidden={visibleTabs.length <= 1}>
         <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas do Analytics">
-          {TABS.map(t => {
+          {visibleTabs.map(t => {
             const Icon = t.icon
             return (
               <button key={t.id} onClick={() => switchTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.id ? 'border-forest-700 text-forest-900' : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'}`}>
