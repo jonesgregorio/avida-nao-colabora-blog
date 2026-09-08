@@ -3,7 +3,9 @@ import {
   Activity, AlertTriangle, CheckCircle, ChevronDown, Database, Loader2,
   RefreshCw, Shield, Sparkles, CreditCard, Bell, Clock, Wrench,
 } from 'lucide-react'
+import { checkStorage } from '../../lib/adminHealthExtras'
 import {
+  checkTransactionalEmail,
   loadLatestChecks,
   runQuickHealthCheck,
   saveHealthCheckResults,
@@ -15,7 +17,7 @@ import AdminSystemHealth from './AdminSystemHealth'
 type FriendlyCategory = 'availability' | 'product' | 'ai' | 'payments' | 'communication' | 'automations' | 'security'
 
 const CATEGORY_META: Record<FriendlyCategory, { label: string; description: string; icon: typeof Activity }> = {
-  availability: { label: 'Site e dados', description: 'Disponibilidade do site, sessão administrativa e conexão com os dados.', icon: Database },
+  availability: { label: 'Site e dados', description: 'Disponibilidade do site, sessão administrativa, banco e armazenamento.', icon: Database },
   product: { label: 'Recursos do produto', description: 'Diário, questionários, relatórios, suporte, artigos e personalização.', icon: Activity },
   ai: { label: 'Inteligência artificial', description: 'Provedores de IA e a rede de segurança quando a IA externa falha.', icon: Sparkles },
   payments: { label: 'Pagamentos', description: 'Configuração e disponibilidade do fluxo de assinatura.', icon: CreditCard },
@@ -28,6 +30,8 @@ const FRIENDLY_CHECK_NAMES: Record<string, string> = {
   site_public: 'Site disponível para visitantes',
   admin_session: 'Acesso administrativo',
   supabase_conn: 'Conexão com o banco de dados',
+  storage_media: 'Storage de mídia',
+  email_fn: 'E-mail transacional',
   db_profiles: 'Perfis de usuários',
   db_notifications: 'Notificações',
   db_diary: 'Diário emocional',
@@ -53,6 +57,8 @@ const FRIENDLY_IMPACT: Record<string, string> = {
   site_public: 'Indica se o público consegue abrir o site normalmente.',
   admin_session: 'Indica se sua sessão de administrador continua válida.',
   supabase_conn: 'Indica se o aplicativo consegue consultar os dados necessários.',
+  storage_media: 'Afeta uploads, imagens de capa e a biblioteca de mídia.',
+  email_fn: 'Afeta e-mails transacionais e mensagens automáticas da plataforma.',
   db_notifications: 'Afeta avisos exibidos dentro do produto.',
   db_diary: 'Afeta leitura e gravação dos registros do diário.',
   db_questionnaires: 'Afeta respostas e histórico dos questionários.',
@@ -81,10 +87,10 @@ const STATUS_META: Record<CheckStatus, { label: string; explanation: string; cla
 function friendlyCategory(result: HealthCheckResult): FriendlyCategory {
   if (result.category === 'ai') return 'ai'
   if (result.category === 'payments') return 'payments'
-  if (result.category === 'notifications') return 'communication'
+  if (result.category === 'notifications' || result.category === 'email') return 'communication'
   if (result.category === 'automations') return 'automations'
   if (result.category === 'security' || result.category === 'auth') return 'security'
-  if (result.category === 'site' || result.category === 'database') return 'availability'
+  if (result.category === 'site' || result.category === 'database' || result.category === 'storage') return 'availability'
   return 'product'
 }
 
@@ -124,9 +130,14 @@ export default function AdminSystemHealthFriendly() {
     try {
       const latest = await loadLatestChecks()
       setResults(latest)
-      const quick = await runQuickHealthCheck()
-      setResults(current => mergeChecks(current, quick))
-      await saveHealthCheckResults(quick)
+      const [quick, storage, email] = await Promise.all([
+        runQuickHealthCheck(),
+        checkStorage(),
+        checkTransactionalEmail(),
+      ])
+      const current = [...quick, storage, email]
+      setResults(existing => mergeChecks(existing, current))
+      await saveHealthCheckResults(current)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
