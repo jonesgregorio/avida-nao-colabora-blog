@@ -265,7 +265,7 @@ export default function AdminSystemHealthFriendly() {
           </div>
           <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${technicalOpen ? 'rotate-180' : ''}`} />
         </button>
-        {technicalOpen && <div className="border-t border-line"><AdminSystemHealth /></div>}
+        {technicalOpen && <div className="border-t border-line"><AdminSystemHealth embedded /></div>}
       </section>
     </div>
   )

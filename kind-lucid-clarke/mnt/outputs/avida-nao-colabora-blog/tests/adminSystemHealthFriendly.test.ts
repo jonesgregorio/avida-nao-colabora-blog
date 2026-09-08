@@ -13,7 +13,13 @@ test('Sistema abre a visão amigável e mantém diagnóstico técnico como detal
   assert.doesNotMatch(area, /Component: AdminSystemHealth\b/)
 
   assert.match(friendly, /Diagnóstico técnico e ferramentas de reparo/)
-  assert.match(friendly, /technicalOpen && <div className="border-t border-line"><AdminSystemHealth \/><\/div>/)
+  // Renderiza a camada técnica em modo EMBUTIDO (sem repetir header/título) —
+  // não uma "segunda aplicação" inteira dentro da primeira.
+  assert.match(friendly, /technicalOpen && <div className="border-t border-line"><AdminSystemHealth embedded \/><\/div>/)
+  const health = read('src/components/admin/AdminSystemHealth.tsx')
+  assert.match(health, /embedded = false \}: \{ embedded\?: boolean \}/)
+  assert.match(health, /\{!embedded && <AdminStripeSetup \/>\}/)
+  assert.match(health, /embedded \? \(\s*\n\s*<p className="text-sm font-medium text-stone-700">\s*\n\s*Ferramentas de diagnóstico e reparo/)
 })
 
 test('Saúde do sistema usa linguagem de produto e categorias legíveis', () => {

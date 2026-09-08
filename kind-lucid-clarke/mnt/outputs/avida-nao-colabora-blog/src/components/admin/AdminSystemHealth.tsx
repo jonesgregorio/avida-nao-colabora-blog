@@ -136,7 +136,7 @@ function overallStatus(results: HealthCheckResult[]): CheckStatus {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function AdminSystemHealth() {
+export default function AdminSystemHealth({ embedded = false }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<HealthTab>('overview')
   const [results, setResults] = useState<HealthCheckResult[]>([])
   const [incidents, setIncidents] = useState<SystemIncident[]>([])
@@ -417,25 +417,34 @@ export default function AdminSystemHealth() {
   ]
 
   return (
-    <div>
-      {/* Setup + autoteste do Stripe (server-side; a chave fica nas Edge Functions) */}
-      <AdminStripeSetup />
+    <div className={embedded ? 'p-4' : ''}>
+      {/* Setup + autoteste do Stripe — só na tela cheia; embutido isso é ruído. */}
+      {!embedded && <AdminStripeSetup />}
 
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-2 rounded-lg shadow-lg ${toast.err ? 'bg-red-600' : 'bg-forest-900'}`}>{toast.msg}</div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      {/* Header — no modo embutido não repetimos o título; só as ferramentas. */}
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
         <div>
-          <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2">
-            <Activity className="w-6 h-6 text-forest-700" /> Monitoramento do Sistema
-          </h1>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Saúde e diagnóstico das funcionalidades · {settings.autoEnabled ? `Auto a cada ${settings.quickIntervalSec}s` : 'Manual'}
-            {lastQuickAt && ` · último teste ${timeAgo(lastQuickAt)}`}
-          </p>
+          {embedded ? (
+            <p className="text-sm font-medium text-stone-700">
+              Ferramentas de diagnóstico e reparo
+              <span className="text-stone-400 font-normal"> · {settings.autoEnabled ? `auto a cada ${settings.quickIntervalSec}s` : 'manual'}{lastQuickAt && ` · último teste ${timeAgo(lastQuickAt)}`}</span>
+            </p>
+          ) : (
+            <>
+              <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-forest-700" /> Monitoramento do Sistema
+              </h1>
+              <p className="text-sm text-stone-500 mt-0.5">
+                Saúde e diagnóstico das funcionalidades · {settings.autoEnabled ? `Auto a cada ${settings.quickIntervalSec}s` : 'Manual'}
+                {lastQuickAt && ` · último teste ${timeAgo(lastQuickAt)}`}
+              </p>
+            </>
+          )}
         </div>
         <div className="flex gap-2 flex-wrap">
           {fixableErrorCount > 0 && (
