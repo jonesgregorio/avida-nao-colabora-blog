@@ -10,14 +10,6 @@ import AdminIdea1Rollout from './AdminIdea1Rollout'
 import AdminFeatureFlags from './AdminFeatureFlags'
 import AdminInfraReference from './AdminInfraReference'
 
-// Sistema — apenas abas FUNCIONAIS. "Integrações" mostra o status AO VIVO dos
-// serviços (Supabase/Stripe/IA/e-mail/hospedagem) — não é mais texto fixo. A
-// antiga aba "IA" (marketing estático, sem controle) foi removida.
-// "Automações" mostra o status real de todos os cron jobs. A Saúde do sistema
-// começa por uma leitura em linguagem de produto e mantém o diagnóstico técnico
-// existente disponível como detalhe secundário, sem perder ferramentas de reparo.
-// "Liberação" controla a entrada progressiva em superfícies proativas da Ideia 1
-// sem alterar planos, assinaturas nem recursos contratados.
 const TABS = [
   { id: 'saude', label: 'Saúde do sistema', icon: Activity },
   { id: 'filas', label: 'Filas e falhas', icon: ListChecks },
@@ -39,30 +31,35 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       return (TABS.find(t => t.id === saved)?.id ?? 'saude') as Tab
     } catch { return 'saude' }
   })
+
   function switchTab(id: Tab) {
     setTab(id)
     try { localStorage.setItem('admin-sistema-tab', id) } catch { /* noop */ }
   }
 
   return (
-    <div className="flex flex-col min-h-0">
-      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
-        <h1 className="font-serif text-3xl text-forest-900">Sistema</h1>
-        <p className="text-sm text-ink-soft mt-1">Monitore a saúde do produto, as automações, a liberação progressiva, as integrações, os logs de auditoria e as permissões.</p>
-      </div>
-      <div className="border-b border-line bg-white sticky top-0 z-10">
-        <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas do Sistema">
+    <div className="admin-page-pad flex flex-col min-h-0 gap-4">
+      <section className="admin-page-hero flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="admin-kicker">Operação e governança</p>
+          <h1 className="font-serif text-3xl text-forest-900">Sistema</h1>
+          <p className="admin-subtitle mt-1">Acompanhe saúde, filas, automações, integrações, auditoria, permissões e liberações progressivas do produto.</p>
+        </div>
+        <div className="admin-actions">
+          <button onClick={() => switchTab('saude')} className="admin-btn-primary"><Activity className="w-4 h-4" /> Ver saúde</button>
+          <button onClick={() => switchTab('automacoes')} className="admin-btn-secondary"><Zap className="w-4 h-4" /> Automações</button>
+        </div>
+      </section>
+
+      <div className="admin-tabs-wrap sticky top-20 z-10">
+        <nav className="admin-tabs" aria-label="Abas do Sistema">
           {TABS.map(t => {
             const Icon = t.icon
             return (
               <button
                 key={t.id}
                 onClick={() => switchTab(t.id)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  tab === t.id
-                    ? 'border-forest-700 text-forest-900'
-                    : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'
-                }`}
+                className={`admin-tab ${tab === t.id ? 'is-active' : ''}`}
               >
                 <Icon className="w-4 h-4" />
                 {t.label}
@@ -71,7 +68,8 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
           })}
         </nav>
       </div>
-      <div className="flex-1">
+
+      <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'saude' && <AdminSystemHealthFriendly />}
         {tab === 'filas' && <AdminQueuesFailures />}
         {tab === 'automacoes' && <AdminAutomationsHealth />}
@@ -81,7 +79,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
         {tab === 'logs' && <AdminLogs />}
         {tab === 'permissoes' && <AdminPermissions />}
         {tab === 'infra' && <AdminInfraReference />}
-      </div>
+      </section>
     </div>
   )
 }
