@@ -543,6 +543,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         generated_at: generatedAt,
         generated_by_ai: generatedByAI,
         fallback_used: generatedByAI ? false : fallbackUsed,
+        // Gerou com IA agora → limpa o motivo de falha antigo (senão o aviso
+        // vermelho "a IA falhou" continua mostrando a causa de uma tentativa
+        // anterior mesmo depois de dar certo).
+        error_message: generatedByAI ? null : (plan?.error_message ?? null),
         edited_by_human: editedByHuman,
         edited_at: editedNow ? now : (plan?.edited_at ?? null),
         updated_at: now,

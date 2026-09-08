@@ -260,21 +260,53 @@ function validate(parsed: unknown): CarePlanResult | null {
     reflection_questions: asStringArray(c.reflection_questions),
     final_message: asString(c.final_message),
   }
+  // Essenciais da regra de produto: foco do mês + porquê + 3 prioridades reais.
+  // Se faltar QUALQUER um desses, o plano da IA não tem substância suficiente e
+  // rejeitamos (generateCarePlanAI tenta de novo e, no limite, cai no rascunho
+  // determinístico).
+  const priorities = care_plan.three_care_priorities ?? []
+  if (!care_plan.main_focus || !care_plan.why_this_focus || priorities.length < 3) return null
+
   // A IA às vezes devolve o JSON só parcialmente preenchido (bug relatado: "não
-  // preenche todos os campos"). Em vez de aceitar um plano pela metade, exige
-  // TODOS os campos essenciais — se faltar algo, rejeita (generateCarePlanAI
-  // tenta de novo e, no limite, cai no rascunho determinístico, que é sempre
-  // completo).
-  const hasNewContract = Boolean(
-    care_plan.main_focus && care_plan.why_this_focus && care_plan.three_care_priorities &&
-    care_plan.three_care_priorities.length >= 3 && care_plan.weekly_rhythm?.week_1 &&
-    care_plan.weekly_rhythm.week_2 && care_plan.weekly_rhythm.week_3 && care_plan.weekly_rhythm.week_4 &&
-    (care_plan.suggested_micro_actions?.length ?? 0) >= 2 && care_plan.what_not_to_force && care_plan.light_emotional_goal,
-  )
-  const hasLegacyContract = [care_plan.monthly_priority, care_plan.main_care, care_plan.recommended_practice, care_plan.attention_point, care_plan.small_commitment, care_plan.checkin_suggestion, care_plan.final_message].every(Boolean)
-  if ((!hasNewContract && !hasLegacyContract) || care_plan.reflection_questions.length < 2 || (care_plan.suggested_micro_actions?.length ?? care_plan.practical_tips.length) < 2) {
-    return null
+  // preenche todos os campos"). Antes isso descartava o plano INTEIRO e mandava
+  // o rascunho genérico "igual para todos". Agora completamos apenas os campos
+  // de APOIO que faltam, a partir do próprio conteúdo gerado — o miolo continua
+  // sendo o da IA.
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+  if (!care_plan.what_not_to_force) {
+    care_plan.what_not_to_force = 'Você não precisa dar conta de tudo de uma vez — um passo pequeno já conta.'
   }
+  if (!care_plan.light_emotional_goal) care_plan.light_emotional_goal = care_plan.main_focus
+  const wr = care_plan.weekly_rhythm
+  if (!wr?.week_1 || !wr?.week_2 || !wr?.week_3 || !wr?.week_4) {
+    care_plan.weekly_rhythm = {
+      week_1: wr?.week_1 || `Observar sem se cobrar: ${lower(priorities[0].priority)}.`,
+      week_2: wr?.week_2 || `Experimentar um passo de: ${lower(priorities[1].priority)}.`,
+      week_3: wr?.week_3 || 'Ajustar o que funcionou e soltar o que não coube.',
+      week_4: wr?.week_4 || `Revisar com gentileza: ${lower(priorities[2].priority)}.`,
+    }
+  }
+  if ((care_plan.suggested_micro_actions?.length ?? 0) < 2) {
+    const fromPriorities = priorities.flatMap(p => p.small_actions).filter(Boolean)
+    care_plan.suggested_micro_actions = [...(care_plan.suggested_micro_actions ?? []), ...fromPriorities].slice(0, 4)
+  }
+  if (care_plan.practical_tips.length < 2) {
+    care_plan.practical_tips = (care_plan.suggested_micro_actions ?? []).slice(0, 3)
+  }
+  if (care_plan.reflection_questions.length < 2) {
+    care_plan.reflection_questions = [
+      'O que este mês te mostrou sobre o que te ajuda a se cuidar?',
+      'Qual pequeno passo parece possível para as próximas semanas?',
+    ]
+  }
+  // Espelha os campos legados a partir do contrato novo quando a IA não os enviou.
+  care_plan.monthly_priority ||= care_plan.main_focus
+  care_plan.main_care ||= care_plan.why_this_focus
+  care_plan.recommended_practice ||= care_plan.suggested_micro_actions?.[0] ?? ''
+  care_plan.attention_point ||= care_plan.why_this_focus
+  care_plan.small_commitment ||= care_plan.suggested_micro_actions?.[1] ?? care_plan.suggested_micro_actions?.[0] ?? ''
+  care_plan.checkin_suggestion ||= 'Registrar como você está antes e depois de uma pausa pode ajudar a perceber o que funciona.'
+  care_plan.final_message ||= 'Este plano é um apoio, não uma cobrança. Vá no seu ritmo e ajuste o que precisar.'
   return {
     summary: {
       general_overview: asString(s.general_overview),
@@ -350,10 +382,10 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
 export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummary): Promise<CarePlanResult> {
   // Poucos dados: não força a IA a inventar; entrega rascunho suave direto.
   if (!rs.hasEnoughData) return fallbackCarePlan(a, rs.monthLabel)
-  // Até 2 tentativas: validate() agora rejeita respostas com campos faltando,
-  // então uma 2ª tentativa muitas vezes já resolve antes de cair no rascunho
-  // determinístico (mais genérico que o da IA).
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Até 3 tentativas: validate() só rejeita quando faltam os essenciais
+  // (foco + 3 prioridades). Uma tentativa extra costuma resolver respostas
+  // truncadas antes de cair no rascunho determinístico (mais genérico).
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       // Fonte oficial do prompt emocional; buildCarePlanPrompt permanece
       // exportado apenas para compatibilidade com integrações antigas.
