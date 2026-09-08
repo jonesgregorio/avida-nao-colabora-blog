@@ -143,6 +143,33 @@ export default function AdminMonthlyCarePlans() {
   const months = useMemo(() => recentClosedMonths(6), [])
   const [monthRef, setMonthRef] = useState(months[0]?.ref ?? '')
   const [openRow, setOpenRow] = useState<{ user: EligibleUser; period: ReturnType<typeof periodForMonth>; plan: CarePlanRow | null } | null>(null)
+  const [bulkRegen, setBulkRegen] = useState(false)
+
+  // Planos de "rascunho de emergência" (fallback) ainda em revisão, no mês visível.
+  const emergencyPlans = plans.filter(p =>
+    p.month_reference === monthRef && p.fallback_used && ['draft', 'pending_review'].includes(p.status))
+
+  async function regenerateEmergencyBatch() {
+    if (emergencyPlans.length === 0) return
+    if (!window.confirm(
+      `Regerar ${emergencyPlans.length} plano(s) de rascunho de emergência deste mês?\n\n`
+      + 'Os rascunhos atuais serão apagados e gerados de novo com IA. Isso não toca em planos '
+      + 'já enviados nem nos que a IA gerou bem.',
+    )) return
+    setBulkRegen(true)
+    try {
+      const ids = emergencyPlans.map(p => p.id)
+      const { error: delErr } = await supabase.from('monthly_care_plans').delete().in('id', ids)
+      if (delErr) { setToast({ msg: 'Erro ao limpar: ' + delErr.message, err: true }); return }
+      const { error: fnErr } = await supabase.functions.invoke('run-emotional-automations', { body: { mode: 'monthly' } })
+      setToast(fnErr
+        ? { msg: 'Rascunhos apagados, mas a regeração falhou: ' + fnErr.message + '. Use "Atualizar" e tente de novo.', err: true }
+        : { msg: `${ids.length} plano(s) enviado(s) para regeração. Atualize em alguns segundos.` })
+      setTimeout(load, 4000)
+    } finally {
+      setBulkRegen(false)
+    }
+  }
   const ensuredRef = useRef<Set<string>>(new Set())
 
   function showToast(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3500) }
@@ -242,9 +269,16 @@ export default function AdminMonthlyCarePlans() {
           <h1 className="font-serif text-3xl text-forest-900">Planos de Autocuidado</h1>
           <p className="text-sm text-ink-soft mt-1">Fila mensal dos usuários Plus. Gere com IA, revise e envie — a revisão humana é obrigatória.</p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 border border-line text-forest-800 px-3 py-2 rounded-xl text-sm hover:bg-mint/40">
-          <RefreshCw className="w-4 h-4" /> Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          {emergencyPlans.length > 0 && (
+            <button onClick={regenerateEmergencyBatch} disabled={bulkRegen} className="flex items-center gap-2 border-2 border-red-300 bg-red-50 text-red-800 px-3 py-2 rounded-xl text-sm hover:bg-red-100 disabled:opacity-50">
+              {bulkRegen ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />} Regerar {emergencyPlans.length} de emergência
+            </button>
+          )}
+          <button onClick={load} className="flex items-center gap-2 border border-line text-forest-800 px-3 py-2 rounded-xl text-sm hover:bg-mint/40">
+            <RefreshCw className="w-4 h-4" /> Atualizar
+          </button>
+        </div>
       </div>
 
       <div className="border border-[#eeb7a7] bg-[#fff5f1] text-[#783426] rounded-xl px-4 py-3 text-sm mb-5">
@@ -432,8 +466,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(summary.recurring_emotional_markers ?? summary.recurring_triggers ?? []).join(','), summary.main_emotions.join(',')])
 
-  async function runAI() {
-    if (!analysis) return
+  // Gera um novo rascunho com IA. Retorna se a IA respondeu (true) ou se caiu
+  // no fallback (false); null = erro de rede/geração.
+  async function runAI(): Promise<boolean | null> {
+    if (!analysis) return null
     setGenerating(true)
     try {
       const rs = buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period))
@@ -448,14 +484,35 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
       setContent(resolved)
       showToast(result.generatedByAI ? 'Rascunho gerado com IA. Revise antes de enviar.' : 'Rascunho gerado (fallback determinístico). Revise antes de enviar.')
+      return result.generatedByAI
     } catch {
       showToast('Não foi possível gerar agora. Tente novamente.', true)
+      return null
     } finally {
       setGenerating(false)
     }
   }
 
-  async function persist(next: 'draft' | 'send' | 'skip') {
+  // "Regerar e trocar": gera um novo rascunho com IA e substitui o plano atual.
+  // Funciona inclusive num plano JÁ ENVIADO — nesse caso ele volta para "em
+  // revisão" (o usuário deixa de vê-lo) até você revisar e reenviar.
+  async function regenerateAndReplace() {
+    const wasSent = status === 'sent'
+    if (wasSent && !window.confirm(
+      'Regerar este plano com IA?\n\nEle já foi enviado. Vai voltar para "em revisão" e o '
+      + 'usuário deixa de vê-lo até você revisar e enviar de novo.\n\nContinuar?',
+    )) return
+    if (!wasSent && !window.confirm('Regerar este rascunho com IA? O conteúdo atual será substituído.')) return
+
+    const ok = await runAI()
+    if (ok === null) return // erro já avisado
+    await persist('draft', { clearSent: wasSent })
+    showToast(ok
+      ? (wasSent ? 'Regerado com IA. Está em "em revisão" — revise e envie.' : 'Regerado com IA. Revise antes de enviar.')
+      : 'A IA falhou de novo — ficou o rascunho de emergência. Tente mais tarde.', !ok)
+  }
+
+  async function persist(next: 'draft' | 'send' | 'skip', opts: { clearSent?: boolean } = {}) {
     const now = new Date().toISOString()
     const rs = analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : {}
     const contentSnapshot = JSON.stringify({ summary, care })
@@ -498,6 +555,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         base.sent_by = adminId; base.sent_at = now
       } else {
         base.status = 'pending_review'
+        // Regeração de um plano JÁ enviado: limpa os carimbos de envio para que
+        // ele saia da visão do usuário (RLS: status='sent') e precise ser
+        // revisado + reenviado.
+        if (opts.clearSent) { base.sent_at = null; base.sent_by = null; base.reviewed_at = null; base.reviewed_by = null }
       }
 
       const { data: saved, error } = await supabase
@@ -672,10 +733,20 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         </div>
 
         {/* Ações fixas */}
-        {!readOnly && (
+        {readOnly ? (
+          <div className="sticky bottom-0 bg-paper border-t border-line px-5 py-3 flex flex-wrap items-center gap-3 justify-between">
+            <span className="text-xs text-stone-500">Plano já enviado ao usuário.</span>
+            <button onClick={regenerateAndReplace} disabled={generating || !!saving || loadingData} className="flex items-center gap-1.5 text-sm text-forest-800 border border-forest-200 px-3 py-2 rounded-lg hover:bg-mint/50 disabled:opacity-50">
+              {generating || saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Regerar e trocar (volta para revisão)
+            </button>
+          </div>
+        ) : (
           <div className="sticky bottom-0 bg-paper border-t border-line px-5 py-3 flex flex-wrap gap-2 justify-end">
             <button onClick={() => persist('skip')} disabled={!!saving} className="flex items-center gap-1.5 text-sm text-stone-600 border border-line px-3 py-2 rounded-lg hover:bg-stone-50 disabled:opacity-50">
               {saving === 'skip' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />} Ignorar
+            </button>
+            <button onClick={regenerateAndReplace} disabled={generating || !!saving || loadingData} className="flex items-center gap-1.5 text-sm text-forest-800 border border-forest-200 px-3 py-2 rounded-lg hover:bg-mint/50 disabled:opacity-50">
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Regerar e trocar
             </button>
             <button onClick={() => persist('draft')} disabled={!!saving} className="flex items-center gap-1.5 text-sm text-forest-800 border border-forest-200 px-3 py-2 rounded-lg hover:bg-mint/50 disabled:opacity-50">
               {saving === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar rascunho
