@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
+import { fetchOperationalSnapshot } from '../../lib/adminOperationalStatus'
 import './admin-theme.css'
 
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
@@ -30,10 +31,15 @@ type AdminAlert = {
   severity: 'warning' | 'error'
 }
 
-interface QueueSnapshot {
-  queues?: Record<string, number>
-  failures_24h?: Record<string, number>
-  failures_active?: Record<string, number>
+interface EntityUser { user_id: string; full_name: string | null; email: string | null }
+interface EntityArticle { id: string; title: string | null; status: string | null }
+interface EntityTicket { id: string; subject: string | null; status: string | null }
+interface EntityCampaign { id: string; title: string | null; status: string | null }
+interface EntityResults {
+  users: EntityUser[]
+  articles: EntityArticle[]
+  tickets: EntityTicket[]
+  campaigns: EntityCampaign[]
 }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -119,20 +125,26 @@ interface Props {
   currentView: string
   onNavigate: (v: AdminView) => void
   onExit: () => void
+  onOpenUser?: (userId: string) => void
+  onOpenArticle?: (articleId: string) => void
   userEmail?: string
   userName?: string
   children: ReactNode
 }
 
-export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, userName, children }: Props) {
+export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUser, onOpenArticle, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [allowed, setAllowed] = useState<Set<string> | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [entityResults, setEntityResults] = useState<EntityResults | null>(null)
+  const [entitySearching, setEntitySearching] = useState(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
   const [alertsLoading, setAlertsLoading] = useState(false)
   const [alertsError, setAlertsError] = useState('')
   const [alerts, setAlerts] = useState<AdminAlert[]>([])
+  // undefined = ainda não carregou; nunca tratamos "sem dados" como "sem problemas".
+  const [alertsLoadedOk, setAlertsLoadedOk] = useState<boolean | undefined>(undefined)
   const active = deriveActive(currentView)
 
   useEffect(() => {
@@ -172,6 +184,42 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
       .slice(0, 8)
   }, [searchQuery, allowed])
 
+  // ── Busca global: além da navegação, procura usuários / artigos / tickets /
+  // campanhas. Debounce + limite por grupo + respeita o RBAC (allowed).
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) { setEntityResults(null); return }
+    let alive = true
+    setEntitySearching(true)
+    const id = window.setTimeout(async () => {
+      const can = (mod: string) => !allowed || allowed.has(mod)
+      const like = `%${q}%`
+      const [users, articles, tickets, campaigns] = await Promise.all([
+        can('users')
+          ? supabase.from('profiles').select('user_id, full_name, email').or(`full_name.ilike.${like},email.ilike.${like}`).limit(5)
+          : Promise.resolve({ data: null }),
+        can('content')
+          ? supabase.from('articles').select('id, title, status').ilike('title', like).limit(5)
+          : Promise.resolve({ data: null }),
+        can('users')
+          ? supabase.from('support_tickets').select('id, subject, status').ilike('subject', like).limit(5)
+          : Promise.resolve({ data: null }),
+        can('communication')
+          ? supabase.from('admin_communications').select('id, title, status').ilike('title', like).limit(5)
+          : Promise.resolve({ data: null }),
+      ])
+      if (!alive) return
+      setEntityResults({
+        users: (users.data ?? []) as EntityUser[],
+        articles: (articles.data ?? []) as EntityArticle[],
+        tickets: (tickets.data ?? []) as EntityTicket[],
+        campaigns: (campaigns.data ?? []) as EntityCampaign[],
+      })
+      setEntitySearching(false)
+    }, 300)
+    return () => { alive = false; window.clearTimeout(id) }
+  }, [searchQuery, allowed])
+
   function navigateTo(view: AdminView) {
     onNavigate(view)
     setSearchOpen(false)
@@ -184,40 +232,50 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
     setSidebarOpen(false)
   }
 
-  async function loadAlerts() {
+  const loadAlerts = useCallback(async () => {
     setAlertsLoading(true)
     setAlertsError('')
 
-    const [queuesRes, ticketsRes, guidanceRes, cancellationsRes] = await Promise.all([
-      supabase.rpc('admin_queues_overview'),
-      supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-      supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-      supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted'),
-    ])
+    // Fonte ÚNICA: adminOperationalStatus (RPC admin_queues_overview). Sem
+    // re-consultar support_tickets / guidance / cancellations por conta própria.
+    const snap = await fetchOperationalSnapshot()
+    if (!snap.ok) setAlertsError('Painel de filas indisponível')
+    const q = snap.queues
+    const f = snap.failuresActive
 
-    const errors = [queuesRes.error, ticketsRes.error, guidanceRes.error, cancellationsRes.error].filter(Boolean)
-    if (errors.length > 0) {
-      setAlertsError(errors.map(error => error?.message).filter(Boolean).join(' · '))
-    }
-
-    const snapshot = (queuesRes.data ?? {}) as QueueSnapshot
-    const failures = snapshot.failures_active ?? snapshot.failures_24h ?? {}
     const candidates: AdminAlert[] = [
-      { key: 'tickets', label: 'Tickets de suporte abertos', count: ticketsRes.count ?? 0, view: 'support', severity: 'warning' },
-      { key: 'guidance', label: 'Orientações aguardando resposta', count: guidanceRes.count ?? 0, view: 'guidance-requests', severity: 'warning' },
-      { key: 'care-plans', label: 'Planos de autocuidado pendentes', count: snapshot.queues?.care_plans_pending ?? 0, view: 'self-care-plans', severity: 'warning' },
-      { key: 'personalization-overdue', label: 'Personalizações vencidas', count: snapshot.queues?.personalization_overdue ?? 0, view: 'personalization', severity: 'error' },
-      { key: 'ai', label: 'Falhas ativas de IA', count: failures.ai_errors ?? 0, view: 'uso-ia', severity: 'error' },
-      { key: 'email', label: 'Falhas ativas de e-mail', count: failures.emails_failed ?? 0, view: 'emails', severity: 'error' },
-      { key: 'reports', label: 'Relatórios com falha recente', count: failures.reports_failed ?? 0, view: 'pdf', severity: 'error' },
-      { key: 'webhooks', label: 'Webhooks Stripe travados', count: snapshot.queues?.webhooks_stuck ?? 0, view: 'financeiro', severity: 'error' },
-      { key: 'cancellations', label: 'Cancelamentos a revisar', count: cancellationsRes.count ?? 0, view: 'cancelamentos', severity: 'warning' },
+      { key: 'tickets', label: 'Tickets de suporte abertos', count: q.tickets_open ?? 0, view: 'support', severity: 'warning' },
+      { key: 'tickets-stale', label: 'Tickets parados há +7 dias', count: q.tickets_stale_7d ?? 0, view: 'support', severity: 'error' },
+      { key: 'guidance', label: 'Orientações aguardando resposta', count: q.guidance_pending ?? 0, view: 'guidance-requests', severity: 'warning' },
+      { key: 'reports-review', label: 'Relatórios aguardando revisão', count: q.reports_pending_review ?? 0, view: 'pdf', severity: 'warning' },
+      { key: 'care-plans', label: 'Planos de autocuidado pendentes', count: q.care_plans_pending ?? 0, view: 'self-care-plans', severity: 'warning' },
+      { key: 'personalization-overdue', label: 'Personalizações vencidas', count: q.personalization_overdue ?? 0, view: 'personalization', severity: 'error' },
+      { key: 'cancellations', label: 'Cancelamentos a revisar', count: q.cancellations_to_handle ?? 0, view: 'cancelamentos', severity: 'warning' },
+      { key: 'notifications-draft', label: 'Campanhas em rascunho', count: q.notifications_draft ?? 0, view: 'comunicacao', severity: 'warning' },
+      { key: 'ai', label: 'Falhas ativas de IA', count: f.ai_errors ?? 0, view: 'uso-ia', severity: 'error' },
+      { key: 'email', label: 'Falhas ativas de e-mail', count: f.emails_failed ?? 0, view: 'emails', severity: 'error' },
+      { key: 'reports', label: 'Relatórios com falha', count: f.reports_failed ?? 0, view: 'pdf', severity: 'error' },
+      { key: 'care-plans-failed', label: 'Planos de autocuidado com falha', count: f.care_plans_failed ?? 0, view: 'self-care-plans', severity: 'error' },
+      { key: 'content-jobs', label: 'Jobs de conteúdo com falha', count: f.content_jobs_failed ?? 0, view: 'automacoes-blog', severity: 'error' },
+      { key: 'webhooks-stuck', label: 'Webhooks Stripe travados', count: q.webhooks_stuck ?? 0, view: 'financeiro', severity: 'error' },
+      { key: 'webhooks-failed', label: 'Webhooks Stripe com falha', count: f.webhooks_failed ?? 0, view: 'financeiro', severity: 'error' },
     ]
     const next = candidates.filter(item => item.count > 0)
 
     setAlerts(next)
+    setAlertsLoadedOk(snap.ok)
     setAlertsLoading(false)
-  }
+  }, [])
+
+  // Carrega o snapshot ao entrar no Admin (badge aparece sem clique) e atualiza
+  // em intervalo moderado. Não bloqueia a renderização do Admin.
+  useEffect(() => {
+    void loadAlerts()
+    const id = window.setInterval(() => { void loadAlerts() }, 180_000)
+    const onFocus = () => { void loadAlerts() }
+    window.addEventListener('focus', onFocus)
+    return () => { window.clearInterval(id); window.removeEventListener('focus', onFocus) }
+  }, [loadAlerts])
 
   function toggleAlerts() {
     const next = !alertsOpen
@@ -227,6 +285,8 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
   }
 
   const alertCount = alerts.reduce((sum, item) => sum + item.count, 0)
+  // Estado desconhecido: já tentou carregar e a fonte principal falhou, sem itens.
+  const alertsUnknown = alertsLoadedOk === false && alertCount === 0
 
   const Sidebar = () => (
     <aside className="admin-sidebar w-[250px] text-forest-100 flex flex-col h-full">
@@ -329,24 +389,91 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
             )}
             {searchOpen && (
               <div className="absolute left-0 top-[calc(100%+8px)] w-[min(560px,80vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-stone-400 border-b border-line">Navegar no Admin</div>
-                {searchResults.length === 0 ? (
-                  <div className="px-4 py-5 text-sm text-stone-500">Nenhum resultado para “{searchQuery}”.</div>
-                ) : (
-                  <div className="max-h-[360px] overflow-y-auto py-1">
-                    {searchResults.map(item => (
-                      <button
-                        key={`${item.view}-${item.label}`}
-                        type="button"
-                        onClick={() => navigateTo(item.view)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
-                      >
-                        <p className="text-sm font-medium text-forest-900">{item.label}</p>
-                        <p className="text-xs text-stone-400 mt-0.5">{item.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="max-h-[420px] overflow-y-auto">
+                  <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-stone-400 border-b border-line">Navegação</div>
+                  {searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-stone-500">Nenhuma área para “{searchQuery}”.</div>
+                  ) : (
+                    <div className="py-1">
+                      {searchResults.map(item => (
+                        <button
+                          key={`${item.view}-${item.label}`}
+                          type="button"
+                          onClick={() => navigateTo(item.view)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
+                        >
+                          <p className="text-sm font-medium text-forest-900">{item.label}</p>
+                          <p className="text-xs text-stone-400 mt-0.5">{item.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery.trim().length >= 2 && (
+                    <>
+                      {entitySearching && !entityResults && (
+                        <div className="px-4 py-3 text-xs text-stone-400 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando registros…</div>
+                      )}
+                      {entityResults?.users.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Usuários</div>
+                          {entityResults.users.map(u => (
+                            <button key={u.user_id} type="button"
+                              onClick={() => { onOpenUser?.(u.user_id); setSearchOpen(false); setSearchQuery('') }}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900">{u.full_name || u.email || u.user_id.slice(0, 8)}</p>
+                              {u.full_name && u.email && <p className="text-xs text-stone-400">{u.email}</p>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.articles.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Artigos</div>
+                          {entityResults.articles.map(a => (
+                            <button key={a.id} type="button"
+                              onClick={() => { if (onOpenArticle) onOpenArticle(a.id); else navigateTo('conteudos'); setSearchOpen(false); setSearchQuery('') }}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{a.title || '(sem título)'}</p>
+                              <p className="text-xs text-stone-400">{a.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.tickets.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Tickets</div>
+                          {entityResults.tickets.map(t => (
+                            <button key={t.id} type="button"
+                              onClick={() => navigateTo('support')}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{t.subject || '(sem assunto)'}</p>
+                              <p className="text-xs text-stone-400">{t.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults?.campaigns.length ? (
+                        <div className="border-t border-line py-1">
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Campanhas</div>
+                          {entityResults.campaigns.map(c => (
+                            <button key={c.id} type="button"
+                              onClick={() => navigateTo('notifications')}
+                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                              <p className="text-sm text-forest-900 truncate">{c.title || '(sem título)'}</p>
+                              <p className="text-xs text-stone-400">{c.status ?? ''}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entityResults && !entitySearching &&
+                        !entityResults.users.length && !entityResults.articles.length &&
+                        !entityResults.tickets.length && !entityResults.campaigns.length && (
+                        <div className="border-t border-line px-4 py-3 text-xs text-stone-400">Nenhum registro para “{searchQuery}”.</div>
+                      )}
+                    </>
+                  )}
+                </div>
                 <div className="px-3 py-2 text-[10px] text-stone-400 border-t border-line">Enter abre o primeiro resultado · Esc fecha</div>
               </div>
             )}
@@ -361,11 +488,16 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
               aria-expanded={alertsOpen}
             >
               <Bell className="w-4 h-4" />
-              {alertCount > 0 && (
+              {alertCount > 0 ? (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-semibold flex items-center justify-center">
                   {alertCount > 99 ? '99+' : alertCount}
                 </span>
-              )}
+              ) : alertsUnknown ? (
+                <span
+                  title="Não foi possível verificar os alertas — clique para tentar de novo"
+                  className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-white"
+                />
+              ) : null}
             </button>
             {alertsOpen && (
               <div className="absolute right-0 top-[calc(100%+12px)] w-[min(420px,90vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">

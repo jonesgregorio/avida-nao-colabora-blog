@@ -481,7 +481,10 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
     setGenerating(true)
     try {
       const rs = buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period))
-      const result = await generateCarePlanAI(analysis, rs)
+      const result = await generateCarePlanAI(analysis, rs, {
+        userId: user.user_id,
+        sourcePeriodStart: (period.start || '').slice(0, 10) || undefined,
+      })
       const generatedNow = new Date().toISOString()
       setSummary(result.summary)
       setCare(result.care_plan)

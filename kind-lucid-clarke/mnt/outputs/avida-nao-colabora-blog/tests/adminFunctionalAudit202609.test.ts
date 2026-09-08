@@ -16,7 +16,12 @@ test('admin shell has functional global search and operational alerts', () => {
 
 test('dashboard uses active failures and real health checks', () => {
   const src = read('src/components/admin/AdminOverview.tsx')
-  assert.match(src, /failures_active/)
+  // Fonte única de status operacional (adminOperationalStatus) em vez de
+  // reimplementar a regra de "pendência" no componente.
+  assert.match(src, /fetchOperationalSnapshot|adminOperationalStatus/)
+  assert.match(src, /failuresActive/)
+  const shared = read('src/lib/adminOperationalStatus.ts')
+  assert.match(shared, /failures_active/)
   assert.match(src, /checkSupabaseConnection\(\)/)
   assert.match(src, /checkTransactionalEmail\(\)/)
   assert.match(src, /checkPayments\(\)/)

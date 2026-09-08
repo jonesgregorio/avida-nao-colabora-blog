@@ -298,7 +298,7 @@ export default function AdminGuidanceRequests() {
           monthly_report_summary: combined.monthly_report_summary,
           self_care_plan: combined.self_care_plan,
         },
-      ))
+      ), { contentType: 'professional_guidance', userId: selected.user_id, sourcePeriodStart: monthReference })
       const nextLetter = extractLetter(raw)
       const generatedText = nextLetter.gentle_guidance || nextLetter.final_message_draft || extractDraft(raw)
       const generatedAt = new Date().toISOString()

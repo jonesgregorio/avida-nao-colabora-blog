@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useState, useId, type ReactNode } from 'react'
 import { Bell, FileText, Sparkles, Megaphone, Repeat, History, X } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminEmails from './AdminEmails'
 import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
+import { useModalA11y } from '../../hooks/useModalA11y'
 
 // COMUNICAÇÃO — de 6 abas para 3: Campanhas, Automáticas, Histórico.
 // "Templates de e-mail", "Criador com IA" e "Notificação avulsa" deixaram de ser
@@ -75,20 +76,39 @@ export default function AdminAreaComunicacao({ initialTab }: { initialTab?: stri
       </section>
 
       {tool && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/40" role="dialog" aria-modal="true" aria-label={toolTitle}>
-          <div className="mt-auto sm:m-auto w-full sm:max-w-4xl h-[90vh] sm:h-[85vh] bg-paper rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-line flex-shrink-0">
-              <h2 className="font-serif text-lg text-forest-900">{toolTitle}</h2>
-              <button onClick={() => setTool(null)} aria-label="Fechar" className="p-2 hover:bg-mint/40 rounded-lg"><X className="w-5 h-5 text-ink-soft" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {tool === 'notificacao' && <div className="p-4 sm:p-5"><AdminNotifications /></div>}
-              {tool === 'templates' && <AdminEmails initialTab="templates" />}
-              {tool === 'ia' && <AdminEmailCreatorIA />}
-            </div>
-          </div>
-        </div>
+        <ToolModal title={toolTitle} onClose={() => setTool(null)}>
+          {tool === 'notificacao' && <div className="p-4 sm:p-5"><AdminNotifications /></div>}
+          {tool === 'templates' && <AdminEmails initialTab="templates" />}
+          {tool === 'ia' && <AdminEmailCreatorIA />}
+        </ToolModal>
       )}
+    </div>
+  )
+}
+
+// Modal acessível padrão do projeto: foco inicial dentro do diálogo, focus
+// trap, Escape fecha, foco restaurado ao botão que abriu, aria-labelledby.
+function ToolModal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const close = useCallback(() => onClose(), [onClose])
+  const dialogRef = useModalA11y(close)
+  const titleId = useId()
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/40" onClick={close}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={e => e.stopPropagation()}
+        className="mt-auto sm:m-auto w-full sm:max-w-4xl h-[90vh] sm:h-[85vh] bg-paper rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl outline-none"
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line flex-shrink-0">
+          <h2 id={titleId} className="font-serif text-lg text-forest-900">{title}</h2>
+          <button onClick={close} aria-label="Fechar" className="p-2 hover:bg-mint/40 rounded-lg"><X className="w-5 h-5 text-ink-soft" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto">{children}</div>
+      </div>
     </div>
   )
 }

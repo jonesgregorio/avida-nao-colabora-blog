@@ -626,6 +626,8 @@ Deno.serve(async (req) => {
     provider?: Provider
     test?: boolean
     contentType?: string
+    userId?: string
+    sourcePeriodStart?: string
     tema?: string
     tipo?: string
     frequencia?: string
@@ -704,9 +706,15 @@ Deno.serve(async (req) => {
       // emocionais e humor médio de uma pessoa. Nenhuma tela lê essas colunas.
       admin.from('ai_generation_logs').insert({
         admin_id: user.id,
+        // user_id + source_period_start alimentam a chave de incidente por
+        // usuário/entidade (admin_queues_overview): a regeração bem-sucedida
+        // do plano do usuário A resolve o incidente de A, não o de B.
+        user_id: body.userId ?? null,
+        source_period_start: body.sourcePeriodStart ?? null,
         content_type: body.contentType ?? 'generic',
         provider,
         status: 'success',
+        generation_status: 'success',
       }).then(() => {}, () => {})
 
       return json({
@@ -734,9 +742,12 @@ Deno.serve(async (req) => {
   // Mesma regra do caminho de sucesso: só metadados e o motivo técnico da falha.
   admin.from('ai_generation_logs').insert({
     admin_id: user.id,
+    user_id: body.userId ?? null,
+    source_period_start: body.sourcePeriodStart ?? null,
     content_type: body.contentType ?? 'generic',
     provider: requested,
     status: 'error',
+    generation_status: 'error',
     error_msg: errorMsg.slice(0, 500),
   }).then(() => {}, () => {})
 

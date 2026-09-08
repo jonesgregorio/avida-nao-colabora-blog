@@ -404,7 +404,11 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
  * (rede, timeout, JSON inválido) cai para o rascunho determinístico. Nunca
  * lança — o admin sempre recebe um rascunho para revisar.
  */
-export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummary): Promise<CarePlanResult> {
+export async function generateCarePlanAI(
+  a: EmotionalAnalysis,
+  rs: RecordsSummary,
+  meta?: { userId?: string; sourcePeriodStart?: string },
+): Promise<CarePlanResult> {
   // Poucos dados: não força a IA a inventar; entrega rascunho suave direto.
   // Não é falha da IA — é falta de registro no mês.
   if (!rs.hasEnoughData) {
@@ -421,7 +425,11 @@ export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummar
     try {
       // Fonte oficial do prompt emocional; buildCarePlanPrompt permanece
       // exportado apenas para compatibilidade com integrações antigas.
-      const raw = await generateWithFailover(buildSelfCarePlanPrompt(asEmotionalSummary(rs)))
+      const raw = await generateWithFailover(buildSelfCarePlanPrompt(asEmotionalSummary(rs)), {
+        contentType: 'self_care_plan',
+        userId: meta?.userId,
+        sourcePeriodStart: meta?.sourcePeriodStart,
+      })
       const parsed = validate(extractJson(raw), reasons)
       if (parsed) {
         // O prompt de autocuidado foca no plano e não devolve o bloco de

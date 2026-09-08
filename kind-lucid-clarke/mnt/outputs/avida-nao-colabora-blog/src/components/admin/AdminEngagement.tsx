@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Activity, Search, RefreshCw, Download, Loader2, Users, CheckCircle2, PenLine, ClipboardList, BookOpen } from 'lucide-react'
+import { Activity, Search, RefreshCw, Download, Loader2, Users, CheckCircle2, PenLine, ClipboardList, BookOpen, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 
-// Engajamento por usuário: última atividade em cada frente + dias sem interagir.
-// Dados via RPC get_user_engagement() (migration 101, admin-only).
+// Engajamento por usuário — 100% server-side (RPCs get_user_engagement_page /
+// get_user_engagement_summary, migration 20260908200000). Busca, filtros,
+// ordenação e paginação NÃO acontecem mais no navegador.
+//
+// Thresholds do bucket (definidos no SQL, iguais aos históricos):
+//   ativo ≤ 3 dias · esfriando 4–13 · inativo 14+ · nunca = sem atividade.
 
 interface Row {
   user_id: string
@@ -24,7 +28,11 @@ interface Row {
   contents_30d: number
   checkins_total: number
   diaries_total: number
+  bucket: Bucket
+  total_count: number
 }
+
+interface Summary { total: number; ativo: number; esfriando: number; inativo: number; nunca: number }
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
@@ -38,6 +46,7 @@ const PLAN_COLORS: Record<string, string> = {
 const planLabel = (p: string) => PLAN_LABELS[p] ?? p
 
 const DAY = 86400000
+const PAGE_SIZE = 50
 function daysSince(iso: string | null): number | null {
   if (!iso) return null
   return Math.floor((Date.now() - new Date(iso).getTime()) / DAY)
@@ -54,12 +63,6 @@ function agoLabel(d: number | null): string {
 }
 
 type Bucket = 'ativo' | 'esfriando' | 'inativo' | 'nunca'
-function bucketOf(d: number | null): Bucket {
-  if (d === null) return 'nunca'
-  if (d <= 3) return 'ativo'
-  if (d <= 13) return 'esfriando'
-  return 'inativo'
-}
 const BUCKET_META: Record<Bucket, { label: string; cls: string; dot: string; row: string; bar: string }> = {
   ativo:     { label: 'Ativo',           cls: 'bg-forest-100 text-forest-800', dot: 'bg-forest-500', row: 'bg-mint/25',     bar: 'border-l-forest-500' },
   esfriando: { label: 'Esfriando',       cls: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400',  row: 'bg-amber-50/60', bar: 'border-l-amber-400' },
@@ -67,86 +70,115 @@ const BUCKET_META: Record<Bucket, { label: string; cls: string; dot: string; row
   nunca:     { label: 'Nunca interagiu', cls: 'bg-stone-100 text-stone-500',   dot: 'bg-stone-300',  row: '',               bar: 'border-l-stone-300' },
 }
 
+const SORTS = [
+  { id: 'last_activity', label: 'Última atividade' },
+  { id: 'created_at', label: 'Cadastro' },
+  { id: 'full_name', label: 'Nome' },
+  { id: 'checkins_30d', label: 'Check-ins (30d)' },
+  { id: 'diaries_30d', label: 'Diários (30d)' },
+]
+
 export default function AdminEngagement() {
   const [rows, setRows] = useState<Row[]>([])
+  const [summary, setSummary] = useState<Summary>({ total: 0, ativo: 0, esfriando: 0, inativo: 0, nunca: 0 })
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [err, setErr] = useState('')
+
   const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'todos' | Bucket>('todos')
   const [planFilter, setPlanFilter] = useState('todos')
   const [hideAdmins, setHideAdmins] = useState(true)
+  const [sort, setSort] = useState('last_activity')
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc')
 
-  async function load() {
+  // Debounce da busca (aplica sozinho após parar de digitar).
+  const debounceRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    debounceRef.current = window.setTimeout(() => { setAppliedSearch(search); setPage(0) }, 350)
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current) }
+  }, [search])
+
+  const filterArgs = useMemo(() => ({
+    p_search: appliedSearch || null,
+    p_plan: planFilter === 'todos' ? null : planFilter,
+    p_bucket: statusFilter === 'todos' ? null : statusFilter,
+    p_hide_admins: hideAdmins,
+  }), [appliedSearch, planFilter, statusFilter, hideAdmins])
+
+  const load = useCallback(async () => {
     setLoading(true); setErr('')
-    const { data, error } = await supabase.rpc('get_user_engagement')
-    if (error) setErr(error.message)
-    setRows((data as Row[]) ?? [])
-    setLoading(false)
-  }
-  useEffect(() => { load() }, [])
-
-  const enriched = useMemo(() => rows.map(r => {
-    const d = daysSince(r.last_activity)
-    return { ...r, dias: d, bucket: bucketOf(d) }
-  }), [rows])
-
-  const base = useMemo(() => enriched.filter(r => !(hideAdmins && r.role === 'admin')), [enriched, hideAdmins])
-
-  const counts = useMemo(() => ({
-    total: base.length,
-    ativo: base.filter(r => r.bucket === 'ativo').length,
-    esfriando: base.filter(r => r.bucket === 'esfriando').length,
-    inativo: base.filter(r => r.bucket === 'inativo').length,
-    nunca: base.filter(r => r.bucket === 'nunca').length,
-  }), [base])
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return base
-      .filter(r => statusFilter === 'todos' || r.bucket === statusFilter)
-      .filter(r => planFilter === 'todos' || planLabel(r.plan) === planLabel(planFilter))
-      .filter(r => !q || `${r.full_name ?? ''} ${r.email ?? ''}`.toLowerCase().includes(q))
-      // Mais inativos primeiro (nunca no topo), depois maior gap.
-      .sort((a, b) => {
-        if (a.dias === null && b.dias === null) return 0
-        if (a.dias === null) return -1
-        if (b.dias === null) return 1
-        return b.dias - a.dias
-      })
-  }, [base, statusFilter, planFilter, search])
-
-  function exportCSV() {
-    const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const header = [
-      'Nome', 'E-mail', 'Plano', 'Status', 'Dias sem interagir', 'Última atividade',
-      'Último acesso', 'Último check-in', 'Último diário', 'Último questionário', 'Último conteúdo',
-      'Check-ins 30d', 'Diários 30d', 'Questionários 30d', 'Conteúdos 30d',
-      'Check-ins total', 'Diários total',
-    ]
-    const lines = filtered.map(r => [
-      r.full_name ?? '', r.email ?? '', planLabel(r.plan), BUCKET_META[r.bucket].label,
-      r.dias === null ? 'nunca' : r.dias,
-      fmtDate(r.last_activity), fmtDate(r.last_seen_at), fmtDate(r.last_checkin), fmtDate(r.last_diary),
-      fmtDate(r.last_questionnaire), fmtDate(r.last_content),
-      r.checkins_30d, r.diaries_30d, r.questionnaires_30d, r.contents_30d,
-      r.checkins_total, r.diaries_total,
+    const [pageRes, sumRes] = await Promise.all([
+      supabase.rpc('get_user_engagement_page', {
+        ...filterArgs, p_sort: sort, p_dir: dir, p_limit: PAGE_SIZE, p_offset: page * PAGE_SIZE,
+      }),
+      supabase.rpc('get_user_engagement_summary', {
+        p_search: filterArgs.p_search, p_plan: filterArgs.p_plan, p_hide_admins: filterArgs.p_hide_admins,
+      }),
     ])
-    const bom = String.fromCharCode(0xFEFF)
-    const blob = new Blob([bom + [header, ...lines].map(r => r.map(esc).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `engajamento-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (pageRes.error) { setErr(pageRes.error.message); setRows([]); setLoading(false); return }
+    const list = (pageRes.data as Row[]) ?? []
+    setRows(list)
+    setTotal(list[0]?.total_count ?? 0)
+    if (!sumRes.error && sumRes.data) setSummary(sumRes.data as Summary)
+    setLoading(false)
+  }, [filterArgs, sort, dir, page])
+
+  useEffect(() => { void load() }, [load])
+
+  async function exportCSV() {
+    setExporting(true)
+    try {
+      const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
+      const header = [
+        'Nome', 'E-mail', 'Plano', 'Status', 'Dias sem interagir', 'Última atividade',
+        'Último acesso', 'Último check-in', 'Último diário', 'Último questionário', 'Último conteúdo',
+        'Check-ins 30d', 'Diários 30d', 'Questionários 30d', 'Conteúdos 30d', 'Check-ins total', 'Diários total',
+      ]
+      const all: Row[] = []
+      for (let offset = 0; offset < 20000; offset += 200) {
+        const { data, error } = await supabase.rpc('get_user_engagement_page', {
+          ...filterArgs, p_sort: sort, p_dir: dir, p_limit: 200, p_offset: offset,
+        })
+        if (error) { setErr(error.message); break }
+        const chunk = (data as Row[]) ?? []
+        all.push(...chunk)
+        if (chunk.length < 200) break
+      }
+      const lines = all.map(r => {
+        const dias = daysSince(r.last_activity)
+        return [
+          r.full_name ?? '', r.email ?? '', planLabel(r.plan), BUCKET_META[r.bucket].label,
+          dias === null ? 'nunca' : dias,
+          fmtDate(r.last_activity), fmtDate(r.last_seen_at), fmtDate(r.last_checkin), fmtDate(r.last_diary),
+          fmtDate(r.last_questionnaire), fmtDate(r.last_content),
+          r.checkins_30d, r.diaries_30d, r.questionnaires_30d, r.contents_30d, r.checkins_total, r.diaries_total,
+        ]
+      })
+      const bom = String.fromCharCode(0xFEFF)
+      const blob = new Blob([bom + [header, ...lines].map(r => r.map(esc).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `engajamento-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click(); URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
   }
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const cards: { key: Bucket; label: string; n: number; tone: string }[] = [
-    { key: 'ativo', label: 'Ativos (≤3 dias)', n: counts.ativo, tone: 'text-forest-700' },
-    { key: 'esfriando', label: 'Esfriando (4–13 dias)', n: counts.esfriando, tone: 'text-amber-600' },
-    { key: 'inativo', label: 'Inativos (14+ dias)', n: counts.inativo, tone: 'text-red-600' },
-    { key: 'nunca', label: 'Nunca interagiram', n: counts.nunca, tone: 'text-stone-500' },
+    { key: 'ativo', label: 'Ativos (≤3 dias)', n: summary.ativo, tone: 'text-forest-700' },
+    { key: 'esfriando', label: 'Esfriando (4–13 dias)', n: summary.esfriando, tone: 'text-amber-600' },
+    { key: 'inativo', label: 'Inativos (14+ dias)', n: summary.inativo, tone: 'text-red-600' },
+    { key: 'nunca', label: 'Nunca interagiram', n: summary.nunca, tone: 'text-stone-500' },
   ]
+
+  function setStatus(next: 'todos' | Bucket) { setStatusFilter(next); setPage(0) }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -156,76 +188,78 @@ export default function AdminEngagement() {
           <p className="text-sm text-ink-soft mt-1">Quem está ativo, onde cada pessoa interage e há quantos dias quem sumiu não registra. Atividade = check-in, diário, questionário ou acesso ao site.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
+          <button onClick={() => void load()} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
           </button>
-          <button onClick={exportCSV} disabled={loading || filtered.length === 0} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
-            <Download className="w-4 h-4" /> Extrair relatório
+          <button onClick={() => void exportCSV()} disabled={loading || exporting || total === 0} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Extrair relatório
           </button>
         </div>
       </div>
 
-      {/* Cards de resumo (clicáveis = filtro) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {cards.map(c => {
           const active = statusFilter === c.key
           return (
-            <button key={c.key} onClick={() => setStatusFilter(active ? 'todos' : c.key)}
+            <button key={c.key} onClick={() => setStatus(active ? 'todos' : c.key)}
               className={`text-left bg-white border rounded-2xl p-4 transition-all ${active ? 'border-forest-400 ring-1 ring-forest-200' : 'border-line hover:border-forest-200'}`}>
-              <p className={`font-serif text-3xl ${c.tone}`}>{loading ? '—' : c.n}</p>
+              <p className={`font-serif text-3xl ${c.tone}`}>{loading ? '—' : c.n.toLocaleString('pt-BR')}</p>
               <p className="text-xs text-ink-soft mt-1 leading-snug">{c.label}</p>
             </button>
           )
         })}
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome ou e-mail…"
             className="w-full pl-9 pr-3 py-2.5 border border-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300" />
         </div>
-        <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} className="text-sm px-3 py-2.5 border border-line rounded-xl bg-white">
+        <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(0) }} className="text-sm px-3 py-2.5 border border-line rounded-xl bg-white">
           <option value="todos">Todos os planos</option>
           <option value="free">Gratuito</option>
           <option value="essential">Essencial</option>
           <option value="plus">Plus</option>
         </select>
+        <select value={sort} onChange={e => { setSort(e.target.value); setPage(0) }} className="text-sm px-3 py-2.5 border border-line rounded-xl bg-white">
+          {SORTS.map(s => <option key={s.id} value={s.id}>Ordenar: {s.label}</option>)}
+        </select>
+        <button onClick={() => { setDir(d => (d === 'asc' ? 'desc' : 'asc')); setPage(0) }} className="inline-flex items-center gap-1 text-xs border border-line bg-white px-2.5 py-2.5 rounded-xl hover:border-forest-300">
+          <ArrowUpDown className="w-3.5 h-3.5" /> {dir === 'asc' ? 'crescente' : 'decrescente'}
+        </button>
         <label className="inline-flex items-center gap-1.5 text-xs text-ink-soft px-2 cursor-pointer">
-          <input type="checkbox" checked={hideAdmins} onChange={e => setHideAdmins(e.target.checked)} className="w-4 h-4 rounded border-stone-300 text-forest-700" />
+          <input type="checkbox" checked={hideAdmins} onChange={e => { setHideAdmins(e.target.checked); setPage(0) }} className="w-4 h-4 rounded border-stone-300 text-forest-700" />
           Ocultar admins
         </label>
       </div>
 
-      {/* Filtro por status (nível de interação) */}
       <div className="flex flex-wrap items-center gap-1.5 mb-4">
         <span className="text-xs text-ink-soft mr-1">Filtrar:</span>
         {([
-          ['todos', 'Todos', counts.total],
-          ['ativo', 'Ativos', counts.ativo],
-          ['esfriando', 'Esfriando', counts.esfriando],
-          ['inativo', 'Inativos', counts.inativo],
-          ['nunca', 'Não interagem', counts.nunca],
+          ['todos', 'Todos', summary.total],
+          ['ativo', 'Ativos', summary.ativo],
+          ['esfriando', 'Esfriando', summary.esfriando],
+          ['inativo', 'Inativos', summary.inativo],
+          ['nunca', 'Não interagem', summary.nunca],
         ] as const).map(([key, label, n]) => {
           const active = statusFilter === key
           return (
-            <button key={key} onClick={() => setStatusFilter(key)}
+            <button key={key} onClick={() => setStatus(key)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}>
               {key !== 'todos' && <span className={`w-2 h-2 rounded-full ${BUCKET_META[key].dot}`} />}
               {label}
-              <span className={`text-[10px] px-1.5 rounded-full ${active ? 'bg-white/20' : 'bg-stone-100 text-stone-500'}`}>{n}</span>
+              <span className={`text-[10px] px-1.5 rounded-full ${active ? 'bg-white/20' : 'bg-stone-100 text-stone-500'}`}>{n.toLocaleString('pt-BR')}</span>
             </button>
           )
         })}
       </div>
 
-      {/* Tabela */}
       <div className="bg-white border border-line rounded-2xl overflow-hidden">
         {err && <p className="px-5 py-3 text-sm text-red-600">Erro ao carregar: {err}</p>}
         {loading ? (
           <p className="px-5 py-8 text-sm text-ink-soft flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando engajamento…</p>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="px-5 py-14 text-center text-stone-400">
             <Users className="w-9 h-9 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Nenhum usuário com os filtros aplicados.</p>
@@ -244,14 +278,15 @@ export default function AdminEngagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {filtered.map(r => {
+                {rows.map(r => {
+                  const dias = daysSince(r.last_activity)
                   const chips: { icon: typeof CheckCircle2; label: string; n: number }[] = [
                     { icon: CheckCircle2, label: 'Check-in', n: r.checkins_30d },
                     { icon: PenLine, label: 'Diário', n: r.diaries_30d },
                     { icon: ClipboardList, label: 'Questionário', n: r.questionnaires_30d },
                     { icon: BookOpen, label: 'Conteúdo', n: r.contents_30d },
                   ].filter(c => c.n > 0)
-                  const meta = BUCKET_META[r.bucket]
+                  const meta = BUCKET_META[r.bucket] ?? BUCKET_META.nunca
                   return (
                     <tr key={r.user_id} className={`align-top ${meta.row}`}>
                       <td className={`px-4 py-3 border-l-4 ${meta.bar}`}>
@@ -276,11 +311,11 @@ export default function AdminEngagement() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-forest-900">{fmtDate(r.last_activity)}</span>
-                        <span className="block text-[11px] text-stone-400">{agoLabel(r.dias)}</span>
+                        <span className="block text-[11px] text-stone-400">{agoLabel(dias)}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`font-serif text-lg ${r.bucket === 'inativo' ? 'text-red-600' : r.bucket === 'esfriando' ? 'text-amber-600' : 'text-forest-900'}`}>
-                          {r.dias === null ? '—' : r.dias}
+                          {dias === null ? '—' : dias}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -295,8 +330,18 @@ export default function AdminEngagement() {
             </table>
           </div>
         )}
-        {!loading && filtered.length > 0 && (
-          <p className="px-5 py-3 text-xs text-stone-400 border-t border-line">{filtered.length} de {counts.total} usuários</p>
+        {!loading && rows.length > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 text-xs text-stone-400 border-t border-line">
+            <span>{total.toLocaleString('pt-BR')} usuário(s) · página {page + 1} de {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="inline-flex items-center gap-1 border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">
+                <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+              </button>
+              <button onClick={() => setPage(p => (p + 1 < totalPages ? p + 1 : p))} disabled={page + 1 >= totalPages} className="inline-flex items-center gap-1 border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">
+                Próxima <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

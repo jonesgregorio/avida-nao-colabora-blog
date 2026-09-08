@@ -6,10 +6,16 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 
 // §20 (acessibilidade): nenhum modal do app fechava com Esc nem movia o foco
 // pra dentro do diálogo ao abrir — o foco ficava preso atrás do overlay.
-test('useModalA11y liga Esc e move o foco pro diálogo ao montar', () => {
+test('useModalA11y liga Esc, foco inicial, focus trap e restaura o foco ao fechar', () => {
   const hook = read('src/hooks/useModalA11y.ts')
   assert.match(hook, /e\.key === 'Escape'/)
-  assert.match(hook, /dialogRef\.current\?\.focus\(\)/)
+  // foco inicial no próprio diálogo (tabIndex={-1})
+  assert.match(hook, /dialog\?\.focus\(\)/)
+  // focus trap
+  assert.match(hook, /if \(e\.key !== 'Tab'/)
+  assert.match(hook, /e\.shiftKey/)
+  // restaura o foco pro elemento que abriu
+  assert.match(hook, /if \(opener && document\.contains\(opener\)\) opener\.focus\(\)/)
 })
 
 test('modais reais usam useModalA11y ou o mesmo padrão (role/aria-modal/foco/Esc)', () => {
@@ -28,6 +34,12 @@ test('modais reais usam useModalA11y ou o mesmo padrão (role/aria-modal/foco/Es
   const privacy = read('src/components/AccountPrivacyControls.tsx')
   assert.match(privacy, /useEffect\(\(\) => \{\s*\n\s*if \(!showDelete \|\| isAdmin\) return/)
   assert.match(privacy, /e\.key === 'Escape' && !deleting/)
+
+  // Ferramentas de Comunicação (Notificação avulsa / Templates / Criar com IA)
+  // usam o modal acessível padrão.
+  const comunicacao = read('src/components/admin/AdminAreaComunicacao.tsx')
+  assert.match(comunicacao, /useModalA11y\(close\)/)
+  assert.match(comunicacao, /role="dialog"\s*\n\s*aria-modal="true"\s*\n\s*aria-labelledby=\{titleId\}/)
 })
 
 // §20: labels de formulário precisam de associação programática (htmlFor+id

@@ -54,8 +54,9 @@ test('a Central da Jornada tem seletor de período e trata erro sem placeholder 
 test('a Central da Jornada é renderizada na Visão geral, sem remover o que já existia', () => {
   assert.match(overview, /import AdminOperationalDashboard from '\.\/AdminOperationalDashboard'/)
   assert.match(overview, /<AdminOperationalDashboard onNavigate=\{onNavigate\} \/>/)
-  // Seções antigas preservadas.
-  assert.match(overview, /Fila de atenção/)
+  // Seções preservadas (a "Fila de atenção" virou dois grupos deduplicados).
+  assert.match(overview, /Requer ação/)
+  assert.match(overview, /Falhas técnicas ativas/)
   assert.match(overview, /Atividade recente/)
   assert.match(overview, /Saúde do sistema/)
 })
