@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Plus } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
@@ -11,10 +11,6 @@ import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminAutomacoesBlog from './AdminAutomacoesBlog'
 import AdminScheduled from './AdminScheduled'
 
-// Etapa 6 da MISSÃO GERAL: a área mantém todas as telas existentes, mas deixa
-// de expor dez abas no mesmo nível. A navegação passa a ter somente dois níveis:
-// grupo funcional -> tela. Os IDs antigos são preservados para initialTab e
-// localStorage, evitando quebrar atalhos e histórico de navegação.
 const GROUPS = [
   { id: 'producao', label: 'Produção', icon: FileText },
   { id: 'planejamento', label: 'Planejamento', icon: CalendarDays },
@@ -39,26 +35,15 @@ const TABS = [
 ] as const
 
 type Tab = typeof TABS[number]['id']
-
 const DEFAULT_TAB: Tab = 'artigos'
 
-function isTab(value: string): value is Tab {
-  return TABS.some(tab => tab.id === value)
-}
-
-function groupForTab(tab: Tab): Group {
-  return TABS.find(item => item.id === tab)?.group ?? 'producao'
-}
-
-function firstTabForGroup(group: Group): Tab {
-  return TABS.find(item => item.group === group)?.id ?? DEFAULT_TAB
-}
+function isTab(value: string): value is Tab { return TABS.some(tab => tab.id === value) }
+function groupForTab(tab: Tab): Group { return TABS.find(item => item.id === tab)?.group ?? 'producao' }
+function firstTabForGroup(group: Group): Tab { return TABS.find(item => item.group === group)?.id ?? DEFAULT_TAB }
 
 interface Props {
   onEditArticle: (id?: string) => void
   initialTab?: string
-  // A Central de IA continua única em IA Emocional. Aqui existe apenas um
-  // atalho contextual em Inteligência, sem renderizar novamente a tela de uso.
   onOpenCentralIA?: () => void
 }
 
@@ -71,6 +56,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
   })
 
   const activeGroup = groupForTab(tab)
+  const activeGroupLabel = GROUPS.find(group => group.id === activeGroup)?.label ?? 'Conteúdo'
   const groupTabs = TABS.filter(item => item.group === activeGroup)
 
   function switchTab(id: Tab) {
@@ -84,14 +70,21 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
   }
 
   return (
-    <div className="flex flex-col min-h-0">
-      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
-        <h1 className="font-serif text-3xl text-forest-900">Conteúdo &amp; IA</h1>
-        <p className="text-sm text-ink-soft mt-1">Produza, planeje e acompanhe o conteúdo sem misturar criação, automação e biblioteca no mesmo nível.</p>
-      </div>
+    <div className="admin-page-pad flex flex-col min-h-0 gap-4">
+      <section className="admin-page-hero flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="admin-kicker">Conteúdo editorial</p>
+          <h1 className="font-serif text-3xl text-forest-900">Conteúdo &amp; IA</h1>
+          <p className="admin-subtitle mt-1">Produza, planeje, automatize e acompanhe o conteúdo em uma estrutura visual mais limpa e previsível.</p>
+        </div>
+        <div className="admin-actions">
+          <button onClick={() => onEditArticle()} className="admin-btn-primary"><Plus className="w-4 h-4" /> Novo artigo</button>
+          <button onClick={() => switchTab('calendario')} className="admin-btn-secondary"><CalendarDays className="w-4 h-4" /> Calendário</button>
+        </div>
+      </section>
 
-      <div className="border-y border-line bg-white sticky top-0 z-10">
-        <nav className="flex gap-1 px-4 py-2 overflow-x-auto" aria-label="Grupos de Conteúdo & IA">
+      <div className="admin-tabs-wrap">
+        <nav className="admin-tabs" aria-label="Grupos de Conteúdo & IA">
           {GROUPS.map(group => {
             const Icon = group.icon
             const selected = activeGroup === group.id
@@ -101,11 +94,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
                 type="button"
                 aria-pressed={selected}
                 onClick={() => switchGroup(group.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selected
-                    ? 'bg-forest-900 text-white'
-                    : 'text-ink-soft hover:text-forest-900 hover:bg-paper-soft'
-                }`}
+                className={`admin-tab ${selected ? 'is-active' : ''}`}
               >
                 <Icon className="w-4 h-4" />
                 {group.label}
@@ -113,42 +102,31 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
             )
           })}
         </nav>
-
-        <div className="border-t border-line/70 bg-paper-soft/60">
-          <nav className="flex items-center gap-1 px-4 py-2 overflow-x-auto" aria-label={`Opções de ${GROUPS.find(group => group.id === activeGroup)?.label ?? 'Conteúdo & IA'}`}>
-            {groupTabs.map(item => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => switchTab(item.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                    tab === item.id
-                      ? 'bg-white text-forest-900 font-medium shadow-sm border border-line'
-                      : 'text-ink-soft hover:text-forest-900 hover:bg-white/70'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {item.label}
-                </button>
-              )
-            })}
-            {activeGroup === 'inteligencia' && onOpenCentralIA && (
-              <button
-                type="button"
-                onClick={onOpenCentralIA}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap text-forest-700 hover:text-forest-900 hover:bg-white/70"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Central de IA
-              </button>
-            )}
-          </nav>
-        </div>
       </div>
 
-      <div className="flex-1">
+      <div className="admin-toolbar" role="navigation" aria-label={`Opções de ${activeGroupLabel}`}>
+        {groupTabs.map(item => {
+          const Icon = item.icon
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => switchTab(item.id)}
+              className={`admin-btn-secondary ${tab === item.id ? '!bg-[#123528] !text-white !border-[#123528]' : ''}`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {item.label}
+            </button>
+          )
+        })}
+        {activeGroup === 'inteligencia' && onOpenCentralIA && (
+          <button type="button" onClick={onOpenCentralIA} className="admin-btn-soft">
+            <Sparkles className="w-3.5 h-3.5" /> Central de IA
+          </button>
+        )}
+      </div>
+
+      <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'artigos'     && <AdminArticles contentType="article" onEdit={onEditArticle} onNew={() => onEditArticle()} />}
         {tab === 'gerar-ia'    && <AdminFabricaIA />}
         {tab === 'templates'   && <AdminTemplatesIA />}
@@ -159,7 +137,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
         {tab === 'imagens'     && <AdminMediaLibrary />}
         {tab === 'seo'         && <AdminSEOCockpit onEditArticle={onEditArticle} />}
         {tab === 'depoimentos' && <AdminSocialProof />}
-      </div>
+      </section>
     </div>
   )
 }

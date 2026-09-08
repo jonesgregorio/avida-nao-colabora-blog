@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags, Info, X, Check } from 'lucide-react'
+import { RefreshCw, ArrowLeft, SlidersHorizontal, Tags, Info, X, Check, CreditCard, ShieldCheck } from 'lucide-react'
 import AdminPlans from './AdminPlans'
 import AdminPlanFeatureCatalog from './AdminPlanFeatureCatalog'
 import AdminBillingPriceEditor from './AdminBillingPriceEditor'
@@ -48,98 +48,119 @@ export default function AdminPlanosPage() {
 
   if (view !== 'overview') {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <button onClick={() => setView('overview')} className="inline-flex items-center gap-1.5 text-sm text-forest-700 hover:text-forest-900 mb-4">
+      <div className="admin-page-pad">
+        <button onClick={() => setView('overview')} className="admin-btn-secondary mb-4">
           <ArrowLeft className="w-4 h-4" /> Voltar aos planos
         </button>
-        {view === 'permissions' ? <AdminPlans /> : <AdminPlanFeatureCatalog />}
+        <section className="admin-card overflow-hidden">
+          {view === 'permissions' ? <AdminPlans /> : <AdminPlanFeatureCatalog />}
+        </section>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <div className="admin-page-pad space-y-5">
+      <section className="admin-page-hero flex flex-wrap items-start justify-between gap-4">
         <div>
+          <p className="admin-kicker">Assinaturas e acesso</p>
           <h1 className="font-serif text-3xl text-forest-900">Planos e assinaturas</h1>
-          <p className="text-sm text-ink-soft mt-1">Preços, textos comerciais e permissões ficam separados para evitar alterações acidentais no acesso.</p>
+          <p className="admin-subtitle mt-1">Gerencie preços, textos comerciais e permissões sem misturar apresentação com regras técnicas de acesso.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setView('catalog')} className="inline-flex items-center gap-2 border border-forest-200 bg-mint/40 px-4 py-2 rounded-xl text-sm text-forest-800 font-medium hover:bg-mint transition-colors">
-            <Tags className="w-4 h-4" /> Funcionalidades e textos
-          </button>
-          <button onClick={() => setView('permissions')} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 font-medium hover:border-forest-300 transition-colors">
-            <SlidersHorizontal className="w-4 h-4" /> Preços e permissões
-          </button>
-          <button onClick={() => { void loadPlanFeatureCatalog().then(setCatalog) }} title="Atualizar catálogo" className="inline-flex items-center justify-center border border-line bg-white p-2.5 rounded-xl text-forest-700">
+        <div className="admin-actions">
+          <button onClick={() => setView('catalog')} className="admin-btn-soft"><Tags className="w-4 h-4" /> Funcionalidades e textos</button>
+          <button onClick={() => setView('permissions')} className="admin-btn-secondary"><SlidersHorizontal className="w-4 h-4" /> Preços e permissões</button>
+          <button onClick={() => { void loadPlanFeatureCatalog().then(setCatalog) }} title="Atualizar catálogo" className="admin-btn-secondary px-3">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
+      </section>
+
+      <div className="admin-metric-grid">
+        <div className="admin-metric"><p className="admin-metric-label">Planos disponíveis</p><p className="admin-metric-value">{displayPlans.length}</p></div>
+        <div className="admin-metric"><p className="admin-metric-label">Plano gratuito</p><p className="admin-metric-value">R$ 0</p></div>
+        <div className="admin-metric"><p className="admin-metric-label">Gestão comercial</p><p className="text-sm font-semibold text-forest-900 mt-1">Stripe + catálogo interno</p></div>
+        <div className="admin-metric"><p className="admin-metric-label">Consistência</p><p className="text-sm font-semibold text-forest-900 mt-1">Preços e permissões separados</p></div>
       </div>
 
-      <div className="mb-5 rounded-2xl border border-forest-100 bg-mint/30 p-4 text-sm text-forest-800">
-        <strong>Como funciona:</strong> os cards abaixo usam a mesma nomenclatura comercial atual exibida ao usuário. O símbolo ⓘ mostra os detalhes sem poluir a leitura. Em “Preços e permissões” continuam as regras técnicas que realmente liberam recursos.
-      </div>
+      <section className="admin-card p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="w-10 h-10 rounded-xl bg-mint flex items-center justify-center text-forest-700 flex-shrink-0"><ShieldCheck className="w-5 h-5" /></span>
+          <div>
+            <h2 className="font-serif text-lg text-forest-900">Estrutura segura de gestão</h2>
+            <p className="text-sm text-ink-soft mt-1">Os cards usam a mesma nomenclatura comercial exibida ao usuário. As regras técnicas que liberam recursos continuam separadas em “Preços e permissões”.</p>
+          </div>
+        </div>
+      </section>
 
       <AdminBillingPriceEditor />
       <AdminPlanConsistencyCheck />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {displayPlans.map(plan => (
-          <div key={plan.key} className={`bg-white rounded-2xl p-6 flex flex-col ${plan.recommended ? 'border-2 border-forest-900 shadow-md' : 'border border-line'}`}>
-            {plan.recommended && <span className="self-start text-[11px] font-semibold px-2.5 py-1 rounded-full bg-mint text-forest-700 mb-2">Mais escolhido</span>}
-            <h2 className="font-serif text-2xl text-forest-900">{plan.label}</h2>
-            <p className="text-sm text-ink-soft">{plan.tagline}</p>
-            <div className="font-serif text-3xl text-forest-900 my-3">{plan.displayPrice}</div>
-            <ul className="space-y-2 flex-1 mb-5">
-              {plan.benefits.map(benefit => (
-                <li key={benefit.key} className="flex items-start gap-2 text-sm text-ink">
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-forest-600" />
-                  <span className="min-w-0 inline-flex items-start gap-1.5">
-                    <span>{benefit.label}</span>
-                    {benefit.description ? (
-                      <button
-                        type="button"
-                        onClick={() => setInfoBenefit(benefit)}
-                        className="inline-flex items-center justify-center text-ink-soft hover:text-forest-800 transition-colors flex-shrink-0 mt-0.5"
-                        aria-label={`Saiba mais sobre ${benefit.label}`}
-                        title={`Detalhes de ${benefit.label}`}
-                      >
-                        <Info className="w-3.5 h-3.5" />
-                      </button>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <button onClick={() => setView('catalog')} className={`w-full py-2.5 rounded-xl text-sm font-medium transition-colors ${plan.recommended ? 'bg-forest-900 text-white hover:bg-forest-800' : 'border border-line text-forest-800 hover:border-forest-300'}`}>
-              Editar textos e funcionalidades
-            </button>
+      <section>
+        <div className="admin-section-title">
+          <div>
+            <h2 className="font-serif text-xl text-forest-900">Planos atuais</h2>
+            <p className="text-xs text-ink-soft mt-1">Edite apresentação, benefícios e regras sem perder a leitura comparativa.</p>
           </div>
-        ))}
-      </div>
+          <CreditCard className="w-5 h-5 text-forest-500" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {displayPlans.map(plan => (
+            <div key={plan.key} className={`admin-card p-6 flex flex-col ${plan.recommended ? 'ring-1 ring-forest-700/20 shadow-md' : ''}`}>
+              {plan.recommended && <span className="self-start text-[11px] font-semibold px-2.5 py-1 rounded-full bg-mint text-forest-700 mb-2">Mais escolhido</span>}
+              <h2 className="font-serif text-2xl text-forest-900">{plan.label}</h2>
+              <p className="text-sm text-ink-soft">{plan.tagline}</p>
+              <div className="font-serif text-3xl text-forest-900 my-3">{plan.displayPrice}</div>
+              <ul className="space-y-2 flex-1 mb-5">
+                {plan.benefits.map(benefit => (
+                  <li key={benefit.key} className="flex items-start gap-2 text-sm text-ink">
+                    <Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-forest-600" />
+                    <span className="min-w-0 inline-flex items-start gap-1.5">
+                      <span>{benefit.label}</span>
+                      {benefit.description ? (
+                        <button
+                          type="button"
+                          onClick={() => setInfoBenefit(benefit)}
+                          className="inline-flex items-center justify-center text-ink-soft hover:text-forest-800 transition-colors flex-shrink-0 mt-0.5"
+                          aria-label={`Saiba mais sobre ${benefit.label}`}
+                          title={`Detalhes de ${benefit.label}`}
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <button onClick={() => setView('catalog')} className={plan.recommended ? 'admin-btn-primary w-full' : 'admin-btn-secondary w-full'}>
+                Editar textos e funcionalidades
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <div className="bg-white border border-line rounded-2xl p-6 mt-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
+      <section className="admin-card p-5 sm:p-6">
+        <div className="admin-section-title">
           <div>
             <h2 className="font-serif text-2xl text-forest-900">Matriz atual dos planos</h2>
-            <p className="text-xs text-ink-soft mt-1">A comparação abaixo usa os mesmos nomes e níveis apresentados na experiência do usuário.</p>
+            <p className="text-xs text-ink-soft mt-1">A comparação usa os mesmos nomes e níveis apresentados na experiência do usuário.</p>
           </div>
-          <button onClick={() => setView('permissions')} className="text-xs font-medium text-forest-700 hover:text-forest-900">Editar permissões técnicas</button>
+          <button onClick={() => setView('permissions')} className="admin-btn-secondary">Editar permissões técnicas</button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[680px]">
+        <div className="overflow-x-auto rounded-xl border border-line">
+          <table className="w-full text-sm min-w-[680px]">
             <thead>
-              <tr className="border-b border-line">
-                <th className="text-left px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Funcionalidade</th>
-                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Gratuito</th>
-                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide bg-mint/30">Essencial</th>
-                <th className="px-4 py-3 text-ink-soft font-medium uppercase text-xs tracking-wide">Plus</th>
+              <tr>
+                <th className="text-left px-4 py-3">Funcionalidade</th>
+                <th className="px-4 py-3">Gratuito</th>
+                <th className="px-4 py-3 bg-mint/30">Essencial</th>
+                <th className="px-4 py-3">Plus</th>
               </tr>
             </thead>
             <tbody>
               {rules.map(rule => (
-                <tr key={rule.label} className="border-b border-line last:border-0">
+                <tr key={rule.label}>
                   <td className="px-4 py-3 text-forest-900 font-medium">{rule.label}</td>
                   <td className="px-4 py-3 text-center text-ink"><AccessValue value={rule.values.free} /></td>
                   <td className="px-4 py-3 text-center text-ink bg-mint/30"><AccessValue value={rule.values.essential} /></td>
@@ -149,7 +170,7 @@ export default function AdminPlanosPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       {infoBenefit && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={`Informações sobre ${infoBenefit.label}`}>
