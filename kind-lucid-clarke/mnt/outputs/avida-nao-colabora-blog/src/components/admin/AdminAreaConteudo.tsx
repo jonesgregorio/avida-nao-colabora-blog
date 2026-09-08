@@ -56,6 +56,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
   })
 
   const activeGroup = groupForTab(tab)
+  const activeGroupLabel = GROUPS.find(group => group.id === activeGroup)?.label ?? 'Conteúdo'
   const groupTabs = TABS.filter(item => item.group === activeGroup)
 
   function switchTab(id: Tab) {
@@ -103,7 +104,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
         </nav>
       </div>
 
-      <div className="admin-toolbar">
+      <div className="admin-toolbar" role="navigation" aria-label={`Opções de ${activeGroupLabel}`}>
         {groupTabs.map(item => {
           const Icon = item.icon
           return (
