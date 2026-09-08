@@ -406,7 +406,13 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
  */
 export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummary): Promise<CarePlanResult> {
   // Poucos dados: não força a IA a inventar; entrega rascunho suave direto.
-  if (!rs.hasEnoughData) return fallbackCarePlan(a, rs.monthLabel)
+  // Não é falha da IA — é falta de registro no mês.
+  if (!rs.hasEnoughData) {
+    return {
+      ...fallbackCarePlan(a, rs.monthLabel),
+      aiError: `Poucos registros em ${rs.monthLabel} (${rs.totalEntries} entrada(s), ${rs.activeDays} dia(s) ativo(s); mínimo 5 e 3). Sem base para um plano com IA — este rascunho é um ponto de partida, não uma falha da IA.`,
+    }
+  }
   // Até 3 tentativas: validate() só rejeita quando faltam os essenciais
   // (foco + 3 prioridades). Uma tentativa extra costuma resolver respostas
   // truncadas antes de cair no rascunho determinístico (mais genérico).
