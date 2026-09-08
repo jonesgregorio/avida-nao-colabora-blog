@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 interface QueuesData {
   generated_at?: string
   queues?: Record<string, number>
+  failures_active?: Record<string, number>
   failures_24h?: Record<string, number>
   failures_total?: Record<string, number>
 }
@@ -73,23 +74,24 @@ export default function AdminQueuesFailures() {
     setRequeueing(false)
   }
 
-  const totalFailures24h = FAILURE_ROWS.reduce((s, r) => s + (data?.failures_24h?.[r.key] ?? 0), 0)
+  const activeFailures = data?.failures_active ?? data?.failures_24h ?? {}
+  const totalActive = FAILURE_ROWS.reduce((sum, row) => sum + (activeFailures[row.key] ?? 0), 0)
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="font-serif text-2xl text-forest-900">Filas e falhas</h2>
-          <p className="text-sm text-ink-soft mt-0.5">Processamentos pendentes e o que falhou nas últimas 24 horas.</p>
+          <p className="text-sm text-ink-soft mt-0.5">O que ainda precisa de ação agora, separado do histórico recente.</p>
         </div>
-        <button onClick={() => void load()} className="inline-flex items-center gap-2 text-sm border border-line bg-white px-3.5 py-2 rounded-xl hover:border-forest-300">
+        <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 text-sm border border-line bg-white px-3.5 py-2 rounded-xl hover:border-forest-300 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </button>
       </div>
 
       {notAvailable ? (
         <p className="rounded-xl bg-stone-50 border border-line p-4 text-sm text-stone-500">
-          A visão consolidada de filas fica disponível após o deploy desta etapa.
+          A visão consolidada de filas fica disponível após a migration desta correção ser aplicada.
         </p>
       ) : error ? (
         <p className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">Não foi possível carregar: {error}</p>
@@ -131,29 +133,31 @@ export default function AdminQueuesFailures() {
 
           <section className="bg-white border border-line rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-forest-900">Falhas nas últimas 24h</h3>
+              <h3 className="text-sm font-semibold text-forest-900">Falhas ativas</h3>
               {!loading && (
-                totalFailures24h === 0
+                totalActive === 0
                   ? <span className="inline-flex items-center gap-1 text-xs text-forest-700"><CheckCircle2 className="w-3.5 h-3.5" /> nenhuma</span>
-                  : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{totalFailures24h}</span>
+                  : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{totalActive}</span>
               )}
             </div>
             <div className="divide-y divide-line">
               {FAILURE_ROWS.map(row => {
-                const v = data?.failures_24h?.[row.key] ?? 0
+                const active = activeFailures[row.key] ?? 0
+                const recent = data?.failures_24h?.[row.key] ?? 0
                 const total = data?.failures_total?.[row.key]
                 return (
                   <div key={row.key} className="flex items-center gap-3 py-2.5">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${v > 0 ? 'bg-red-500' : 'bg-forest-500'}`} />
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${active > 0 ? 'bg-red-500' : 'bg-forest-500'}`} />
                     <span className="flex-1 text-sm text-ink">{row.label}</span>
-                    {total != null && total > v && <span className="text-[11px] text-stone-400">{total} no total</span>}
-                    <span className={`text-sm font-semibold tabular-nums ${v > 0 ? 'text-red-600' : 'text-stone-400'}`}>{loading ? '—' : v}</span>
+                    {recent > active && <span className="text-[11px] text-stone-400">{recent} ocorrência(s) em 24h</span>}
+                    {total != null && total > recent && <span className="hidden sm:inline text-[11px] text-stone-400">{total} histórico(s)</span>}
+                    <span className={`text-sm font-semibold tabular-nums ${active > 0 ? 'text-red-600' : 'text-stone-400'}`}>{loading ? '—' : active}</span>
                   </div>
                 )
               })}
             </div>
             <p className="mt-3 text-[11px] text-stone-400">
-              Reprocessamento de e-mails com falha fica em Comunicação → E-mails. Relatórios e planos com falha são reprocessados nas respectivas áreas. Erros de IA e webhooks aparecem detalhados em Automações e Integrações.
+              IA e e-mail deixam de ser “ativos” quando uma tentativa posterior da mesma frente tem sucesso. O histórico de 24h continua visível como contexto, sem inflar a fila operacional.
             </p>
           </section>
 
