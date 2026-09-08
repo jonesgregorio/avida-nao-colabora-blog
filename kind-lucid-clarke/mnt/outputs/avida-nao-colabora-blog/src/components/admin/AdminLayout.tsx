@@ -1,11 +1,11 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   LayoutDashboard, Users, HeartHandshake, BookOpen,
   Mail, LifeBuoy, Settings2, Activity,
   ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
-  Search, Bell, CreditCard,
+  Search, Bell, CreditCard, AlertTriangle, Loader2, X,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -13,6 +13,28 @@ import './admin-theme.css'
 
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
 type NavGroup = { label: string; items: NavItem[] }
+
+type SearchItem = {
+  view: AdminView
+  label: string
+  description: string
+  keywords: string[]
+  module?: string
+}
+
+type AdminAlert = {
+  key: string
+  label: string
+  count: number
+  view: AdminView
+  severity: 'warning' | 'error'
+}
+
+interface QueueSnapshot {
+  queues?: Record<string, number>
+  failures_24h?: Record<string, number>
+  failures_active?: Record<string, number>
+}
 
 // Menu reorganizado (IA 2026-09): menos itens de topo, agrupados por TAREFA.
 // Engajamento permanece como item independente, sem alteração.
@@ -48,6 +70,40 @@ const NAV_GROUPS: NavGroup[] = [
   ]},
 ]
 
+const SEARCH_ITEMS: SearchItem[] = [
+  { view: 'visao-geral', label: 'Dashboard', description: 'Visão geral e pendências atuais', keywords: ['inicio', 'visao geral', 'pendencias'], module: 'overview' },
+  { view: 'usuarios', label: 'Usuários', description: 'Contas, perfil, bloqueio, plano e histórico', keywords: ['contas', 'perfil', 'cliente', 'pessoa'], module: 'users' },
+  { view: 'segmentacao', label: 'Segmentação', description: 'Filtros e grupos de usuários', keywords: ['segmentos', 'filtros', 'publico'], module: 'users' },
+  { view: 'engajamento', label: 'Engajamento', description: 'Atividade e usuários inativos', keywords: ['atividade', 'inativos', 'retencao'], module: 'analytics' },
+  { view: 'assinaturas', label: 'Assinaturas', description: 'Planos, alterações e cancelamentos', keywords: ['planos', 'upgrade', 'downgrade', 'cancelamento'], module: 'finance' },
+  { view: 'financeiro', label: 'Financeiro', description: 'Receita, pagamentos e eventos Stripe', keywords: ['receita', 'stripe', 'pagamentos', 'fatura'], module: 'finance' },
+  { view: 'articles', label: 'Artigos', description: 'Publicação e edição de artigos', keywords: ['conteudo', 'editor', 'publicacao'], module: 'content' },
+  { view: 'fabrica-ia', label: 'Fábrica IA', description: 'Geração editorial com IA', keywords: ['ia', 'gerar', 'conteudo'], module: 'content' },
+  { view: 'calendario', label: 'Calendário editorial', description: 'Planejamento e programação', keywords: ['agenda', 'programados', 'planejamento'], module: 'content' },
+  { view: 'images', label: 'Mídia', description: 'Biblioteca e uploads', keywords: ['imagem', 'upload', 'storage'], module: 'content' },
+  { view: 'seo', label: 'SEO', description: 'Otimização dos conteúdos', keywords: ['busca', 'meta', 'slug'], module: 'content' },
+  { view: 'estudio', label: 'Estúdio de Conteúdo', description: 'Produção de peças e campanhas', keywords: ['instagram', 'social', 'estudio'], module: 'content' },
+  { view: 'diary-config', label: 'Diário e check-ins', description: 'Configuração e acompanhamento do diário', keywords: ['diario', 'checkin', 'humor'], module: 'content' },
+  { view: 'questionnaires', label: 'Questionários', description: 'Questionários de autoconhecimento', keywords: ['perguntas', 'avaliacao'], module: 'content' },
+  { view: 'pdf', label: 'Relatórios', description: 'Relatórios emocionais e revisão', keywords: ['relatorio', 'pdf', 'mensal'], module: 'content' },
+  { view: 'self-care-plans', label: 'Planos de autocuidado', description: 'Geração, revisão e envio', keywords: ['autocuidado', 'care plan'], module: 'content' },
+  { view: 'guidance-requests', label: 'Orientações', description: 'Orientações mensais aguardando resposta', keywords: ['orientacao', 'mensagem'], module: 'content' },
+  { view: 'personalization', label: 'Recomendações', description: 'Personalização e entregas', keywords: ['recomendacoes', 'personalizacao'], module: 'content' },
+  { view: 'notifications', label: 'Campanhas e notificações', description: 'Comunicação in-app', keywords: ['notificacao', 'campanha', 'push'], module: 'communication' },
+  { view: 'emails', label: 'Histórico de e-mails', description: 'Entregas e falhas de e-mail', keywords: ['email', 'mensagem', 'reenviar'], module: 'communication' },
+  { view: 'support', label: 'Suporte', description: 'Tickets e atendimento', keywords: ['ticket', 'atendimento', 'ajuda'], module: 'users' },
+  { view: 'analytics', label: 'Analytics', description: 'Aquisição, conteúdo, conversão e retenção', keywords: ['metricas', 'funil', 'conversao', 'retencao'], module: 'analytics' },
+  { view: 'system-health', label: 'Saúde do sistema', description: 'Diagnóstico e disponibilidade', keywords: ['health', 'saude', 'banco', 'storage'], module: 'system' },
+  { view: 'uso-ia', label: 'IA — uso e falhas', description: 'Providers, logs e incidentes de IA', keywords: ['gemini', 'groq', 'openai', 'ia'], module: 'system' },
+  { view: 'integrations', label: 'Integrações', description: 'Serviços e infraestrutura externa', keywords: ['stripe', 'supabase', 'servicos'], module: 'system' },
+  { view: 'logs', label: 'Auditoria', description: 'Registro de ações administrativas', keywords: ['logs', 'auditoria', 'historico'], module: 'system' },
+  { view: 'permissions', label: 'Papéis e permissões', description: 'Acesso de administradores', keywords: ['rbac', 'permissoes', 'admin'], module: 'system' },
+]
+
+function normalizeSearch(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
 function deriveActive(view: string): string {
   if (view === 'article-editor') return 'conteudos'
   return view
@@ -73,6 +129,12 @@ interface Props {
 export default function AdminLayout({ currentView, onNavigate, onExit, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [allowed, setAllowed] = useState<Set<string> | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const [alertsLoading, setAlertsLoading] = useState(false)
+  const [alertsError, setAlertsError] = useState('')
+  const [alerts, setAlerts] = useState<AdminAlert[]>([])
   const active = deriveActive(currentView)
 
   useEffect(() => {
@@ -96,14 +158,79 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
     return !mod || mod === 'permissions' || allowed.has(mod)
   }
 
+  function canUseModule(module?: string) {
+    return !module || !allowed || allowed.has(module)
+  }
+
   const visibleNav = NAV_GROUPS
     .map(group => ({ ...group, items: group.items.filter(canShow) }))
     .filter(group => group.items.length > 0)
+
+  const searchResults = useMemo(() => {
+    const q = normalizeSearch(searchQuery)
+    if (!q) return SEARCH_ITEMS.filter(item => canUseModule(item.module)).slice(0, 8)
+    return SEARCH_ITEMS
+      .filter(item => canUseModule(item.module))
+      .map(item => ({ item, haystack: normalizeSearch([item.label, item.description, ...item.keywords].join(' ')) }))
+      .filter(({ haystack }) => haystack.includes(q))
+      .map(({ item }) => item)
+      .slice(0, 8)
+  }, [searchQuery, allowed])
+
+  function navigateTo(view: AdminView) {
+    onNavigate(view)
+    setSearchOpen(false)
+    setSearchQuery('')
+    setAlertsOpen(false)
+  }
 
   function go(item: NavItem) {
     onNavigate(item.id)
     setSidebarOpen(false)
   }
+
+  async function loadAlerts() {
+    setAlertsLoading(true)
+    setAlertsError('')
+
+    const [queuesRes, ticketsRes, guidanceRes, cancellationsRes] = await Promise.all([
+      supabase.rpc('admin_queues_overview'),
+      supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.from('monthly_guidance_requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.from('subscription_change_feedback').select('*', { count: 'exact', head: true }).eq('change_type', 'cancellation').is('admin_handled_at', null).neq('status', 'reverted'),
+    ])
+
+    const errors = [queuesRes.error, ticketsRes.error, guidanceRes.error, cancellationsRes.error].filter(Boolean)
+    if (errors.length > 0) {
+      setAlertsError(errors.map(error => error?.message).filter(Boolean).join(' · '))
+    }
+
+    const snapshot = (queuesRes.data ?? {}) as QueueSnapshot
+    const failures = snapshot.failures_active ?? snapshot.failures_24h ?? {}
+    const next: AdminAlert[] = [
+      { key: 'tickets', label: 'Tickets de suporte abertos', count: ticketsRes.count ?? 0, view: 'support', severity: 'warning' },
+      { key: 'guidance', label: 'Orientações aguardando resposta', count: guidanceRes.count ?? 0, view: 'guidance-requests', severity: 'warning' },
+      { key: 'care-plans', label: 'Planos de autocuidado pendentes', count: snapshot.queues?.care_plans_pending ?? 0, view: 'self-care-plans', severity: 'warning' },
+      { key: 'personalization-overdue', label: 'Personalizações vencidas', count: snapshot.queues?.personalization_overdue ?? 0, view: 'personalization', severity: 'error' },
+      { key: 'ai', label: 'Falhas ativas de IA', count: failures.ai_errors ?? 0, view: 'uso-ia', severity: 'error' },
+      { key: 'email', label: 'Falhas ativas de e-mail', count: failures.emails_failed ?? 0, view: 'emails', severity: 'error' },
+      { key: 'reports', label: 'Relatórios com falha recente', count: failures.reports_failed ?? 0, view: 'pdf', severity: 'error' },
+      { key: 'webhooks', label: 'Webhooks Stripe travados', count: snapshot.queues?.webhooks_stuck ?? 0, view: 'financeiro', severity: 'error' },
+      { key: 'cancellations', label: 'Cancelamentos a revisar', count: cancellationsRes.count ?? 0, view: 'cancelamentos', severity: 'warning' },
+    ].filter(item => item.count > 0)
+
+    setAlerts(next)
+    setAlertsLoading(false)
+  }
+
+  function toggleAlerts() {
+    const next = !alertsOpen
+    setAlertsOpen(next)
+    setSearchOpen(false)
+    if (next) void loadAlerts()
+  }
+
+  const alertCount = alerts.reduce((sum, item) => sum + item.count, 0)
 
   const Sidebar = () => (
     <aside className="admin-sidebar w-[250px] text-forest-100 flex flex-col h-full">
@@ -176,15 +303,108 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="admin-search-wrap hidden sm:block">
+          <div className="admin-search-wrap hidden sm:block relative">
             <Search className="admin-search-icon w-4 h-4" />
-            <input className="admin-search" placeholder="Buscar no admin..." aria-label="Buscar no admin" />
+            <input
+              className="admin-search"
+              placeholder="Buscar no admin..."
+              aria-label="Buscar no admin"
+              aria-expanded={searchOpen}
+              value={searchQuery}
+              onFocus={() => { setSearchOpen(true); setAlertsOpen(false) }}
+              onChange={event => { setSearchQuery(event.target.value); setSearchOpen(true) }}
+              onKeyDown={event => {
+                if (event.key === 'Escape') { setSearchOpen(false); return }
+                if (event.key === 'Enter' && searchResults[0]) {
+                  event.preventDefault()
+                  navigateTo(searchResults[0].view)
+                }
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setSearchOpen(true) }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                aria-label="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {searchOpen && (
+              <div className="absolute left-0 top-[calc(100%+8px)] w-[min(560px,80vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
+                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-stone-400 border-b border-line">Navegar no Admin</div>
+                {searchResults.length === 0 ? (
+                  <div className="px-4 py-5 text-sm text-stone-500">Nenhum resultado para “{searchQuery}”.</div>
+                ) : (
+                  <div className="max-h-[360px] overflow-y-auto py-1">
+                    {searchResults.map(item => (
+                      <button
+                        key={`${item.view}-${item.label}`}
+                        type="button"
+                        onClick={() => navigateTo(item.view)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
+                      >
+                        <p className="text-sm font-medium text-forest-900">{item.label}</p>
+                        <p className="text-xs text-stone-400 mt-0.5">{item.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="px-3 py-2 text-[10px] text-stone-400 border-t border-line">Enter abre o primeiro resultado · Esc fecha</div>
+              </div>
+            )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2.5">
-            <button className="w-9 h-9 rounded-full border border-[#ded5c8] bg-[#fffdf9] flex items-center justify-center text-[#637069] hover:bg-[#f5efe6]" aria-label="Notificações">
+          <div className="ml-auto flex items-center gap-2.5 relative">
+            <button
+              type="button"
+              onClick={toggleAlerts}
+              className="relative w-9 h-9 rounded-full border border-[#ded5c8] bg-[#fffdf9] flex items-center justify-center text-[#637069] hover:bg-[#f5efe6]"
+              aria-label="Alertas administrativos"
+              aria-expanded={alertsOpen}
+            >
               <Bell className="w-4 h-4" />
+              {alertCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-semibold flex items-center justify-center">
+                  {alertCount > 99 ? '99+' : alertCount}
+                </span>
+              )}
             </button>
+            {alertsOpen && (
+              <div className="absolute right-0 top-[calc(100%+12px)] w-[min(420px,90vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-line flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-forest-900">Central de alertas</p>
+                    <p className="text-[11px] text-stone-400">Itens que precisam de atenção agora</p>
+                  </div>
+                  <button type="button" onClick={() => void loadAlerts()} className="text-xs text-forest-700 hover:text-forest-900">Atualizar</button>
+                </div>
+                {alertsLoading ? (
+                  <div className="px-4 py-8 flex items-center justify-center gap-2 text-sm text-stone-500"><Loader2 className="w-4 h-4 animate-spin" /> Verificando…</div>
+                ) : alerts.length === 0 && !alertsError ? (
+                  <div className="px-4 py-8 text-center text-sm text-stone-500">Nenhuma pendência ativa encontrada.</div>
+                ) : (
+                  <div className="max-h-[420px] overflow-y-auto divide-y divide-line">
+                    {alerts.map(item => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => navigateTo(item.view)}
+                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-stone-50"
+                      >
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${item.severity === 'error' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'}`}>
+                          <AlertTriangle className="w-4 h-4" />
+                        </span>
+                        <span className="flex-1 text-sm text-stone-700">{item.label}</span>
+                        <span className="text-sm font-semibold text-forest-900 tabular-nums">{item.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {alertsError && <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-100 text-[11px] text-amber-800">Algumas fontes não puderam ser verificadas: {alertsError}</div>}
+              </div>
+            )}
             <span className="w-9 h-9 rounded-full bg-[#E7F0EA] flex items-center justify-center text-xs font-semibold text-forest-700">{initials}</span>
             <div className="hidden sm:block leading-tight">
               <p className="text-sm text-forest-900">{name}</p>
