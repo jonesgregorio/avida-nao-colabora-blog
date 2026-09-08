@@ -9,8 +9,8 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 test('useModalA11y liga Esc, foco inicial, focus trap e restaura o foco ao fechar', () => {
   const hook = read('src/hooks/useModalA11y.ts')
   assert.match(hook, /e\.key === 'Escape'/)
-  // foco inicial dentro do diálogo (primeiro focável ou o próprio diálogo)
-  assert.match(hook, /\(first \?\? dialog\)\?\.focus\(\)/)
+  // foco inicial no próprio diálogo (tabIndex={-1})
+  assert.match(hook, /dialog\?\.focus\(\)/)
   // focus trap
   assert.match(hook, /if \(e\.key !== 'Tab'/)
   assert.match(hook, /e\.shiftKey/)

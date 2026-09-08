@@ -19,9 +19,9 @@ export function useModalA11y(onClose: () => void) {
     const dialog = dialogRef.current
     const opener = document.activeElement as HTMLElement | null
 
-    // Foco inicial: primeiro eldemento focável, senão o próprio diálogo.
-    const first = dialog?.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? dialog)?.focus()
+    // Foco inicial no próprio diálogo (tabIndex={-1}) — ponto de partida
+    // previsível para leitores de tela; o focus trap abaixo cuida do resto.
+    dialog?.focus()
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') { e.stopPropagation(); onCloseRef.current(); return }
