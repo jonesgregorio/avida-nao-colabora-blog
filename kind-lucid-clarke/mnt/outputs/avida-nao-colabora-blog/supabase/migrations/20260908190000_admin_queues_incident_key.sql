@@ -68,7 +68,7 @@ begin
       'personalization_overdue', (select count(*) from public.user_personalization_tasks
         where status = 'overdue' and delivery_id is null and generated_at is null),
       'reports_building', (select count(*) from public.reports where status = 'building'),
-      'reports_pending_review', (select count(*) from public.reports where status in ('generated','pending_review')),
+      'reports_pending_review', (select count(*) from public.reports where status in ('draft','generated','pending_review')),
       'care_plans_pending', (select count(*) from public.monthly_care_plans where status in ('pending_generation','generating','pending_review','draft')),
       -- CORRIGIDO: comunicação não enviada vem de admin_communications, não de notifications.status.
       'notifications_draft', (select count(*) from public.admin_communications where status = 'draft'),
