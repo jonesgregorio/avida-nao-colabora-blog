@@ -95,6 +95,10 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
     return !mod || mod === 'permissions' || allowed.has(mod)
   }
 
+  const visibleNav = NAV_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(canShow) }))
+    .filter(group => group.items.length > 0)
+
   function go(item: NavItem) {
     onNavigate(item.id)
     setSidebarOpen(false)
@@ -111,31 +115,27 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {NAV_GROUPS.map(group => {
-          const visibleItems = group.items.filter(canShow)
-          if (!visibleItems.length) return null
-          return (
-            <div key={group.label}>
-              <div className="admin-nav-section">{group.label}</div>
-              <div className="space-y-1 px-1">
-                {visibleItems.map(item => {
-                  const Icon = item.icon
-                  const on = active === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => go(item)}
-                      className={`admin-nav-button ${on ? 'is-active' : ''} w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-left`}
-                    >
-                      <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
+        {visibleNav.map(group => (
+          <div key={group.label}>
+            <div className="admin-nav-section">{group.label}</div>
+            <div className="space-y-1 px-1">
+              {group.items.map(item => {
+                const Icon = item.icon
+                const on = active === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => go(item)}
+                    className={`admin-nav-button ${on ? 'is-active' : ''} w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-left`}
+                  >
+                    <Icon className="w-[17px] h-[17px] flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </nav>
 
       <div className="px-3 py-3 border-t border-white/10 space-y-2 flex-shrink-0">
