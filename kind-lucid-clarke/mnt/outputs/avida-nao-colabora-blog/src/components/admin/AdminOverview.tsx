@@ -192,14 +192,14 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
     const acts: Activity[] = []
     const usersActivity = await supabase.from('profiles').select('full_name, email, created_at').order('created_at', { ascending: false }).limit(4)
     if (!usersActivity.error) {
-      ;(usersActivity.data || []).forEach((u: { full_name?: string; email?: string; created_at: string }) => {
+      (usersActivity.data || []).forEach((u: { full_name?: string; email?: string; created_at: string }) => {
         acts.push({ icon: UserPlus, text: 'Novo usuário cadastrado', sub: u.full_name || u.email || '—', at: u.created_at })
       })
     }
 
     const plansActivity = await supabase.from('plan_change_history').select('new_plan, change_type, created_at').order('created_at', { ascending: false }).limit(4)
     if (!plansActivity.error) {
-      ;(plansActivity.data || []).forEach((p: { new_plan?: string; change_type?: string; created_at: string }) => {
+      (plansActivity.data || []).forEach((p: { new_plan?: string; change_type?: string; created_at: string }) => {
         acts.push({
           icon: TrendingUp,
           text: p.change_type === 'downgrade' ? 'Downgrade de plano' : 'Upgrade de plano',
