@@ -228,8 +228,14 @@ function asString(v: unknown): string {
 function validate(parsed: unknown): CarePlanResult | null {
   if (!parsed || typeof parsed !== 'object') return null
   const p = parsed as Record<string, unknown>
-  const s = (p.summary ?? {}) as Record<string, unknown>
-  const c = (p.care_plan ?? {}) as Record<string, unknown>
+  // O prompt oficial (buildSelfCarePlanPrompt) devolve um objeto PLANO:
+  // { main_focus, why_this_focus, three_care_priorities, weekly_rhythm, ... }.
+  // Um contrato mais antigo aninhava tudo em { summary, care_plan }. Aceita os
+  // dois — ler só de p.care_plan fazia o validador rejeitar 100% das respostas
+  // do prompt atual e cair sempre no rascunho determinístico.
+  const c = (p.care_plan && typeof p.care_plan === 'object' ? p.care_plan : p) as Record<string, unknown>
+  const s = (p.summary && typeof p.summary === 'object' ? p.summary : {}) as Record<string, unknown>
+
   const care_plan: CarePlanContent = {
     title: asString(c.title),
     month_label: asString(c.month_label),
@@ -239,8 +245,15 @@ function validate(parsed: unknown): CarePlanResult | null {
     three_care_priorities: Array.isArray(c.three_care_priorities)
       ? c.three_care_priorities.map(item => {
         const row = (item ?? {}) as Record<string, unknown>
-        return { priority: asString(row.priority), why_it_matters: asString(row.why_it_matters), small_actions: asStringArray(row.small_actions) }
-      }).filter(item => item.priority && item.why_it_matters && item.small_actions.length)
+        return { priority: asString(row.priority ?? row.title), why_it_matters: asString(row.why_it_matters ?? row.reason), small_actions: asStringArray(row.small_actions ?? row.actions) }
+      })
+        // Só exige o rótulo da prioridade; completa o resto se a IA não mandou.
+        .filter(item => item.priority)
+        .map(item => ({
+          priority: item.priority,
+          why_it_matters: item.why_it_matters || 'Isto apareceu nos seus registros do mês e merece um cuidado leve.',
+          small_actions: item.small_actions.length ? item.small_actions : ['Escolha um passo pequeno e possível para esta semana.'],
+        }))
       : [],
     weekly_rhythm: (c.weekly_rhythm && typeof c.weekly_rhythm === 'object')
       ? { week_1: asString((c.weekly_rhythm as Record<string, unknown>).week_1), week_2: asString((c.weekly_rhythm as Record<string, unknown>).week_2), week_3: asString((c.weekly_rhythm as Record<string, unknown>).week_3), week_4: asString((c.weekly_rhythm as Record<string, unknown>).week_4) }
@@ -256,9 +269,10 @@ function validate(parsed: unknown): CarePlanResult | null {
     attention_point: asString(c.attention_point ?? c.why_this_focus),
     small_commitment: asString(c.small_commitment ?? (Array.isArray(c.suggested_micro_actions) ? c.suggested_micro_actions[1] : '')),
     checkin_suggestion: asString(c.checkin_suggestion),
+    when_to_seek_more_support: asString(c.when_to_seek_more_support),
     practical_tips: asStringArray(c.practical_tips),
     reflection_questions: asStringArray(c.reflection_questions),
-    final_message: asString(c.final_message),
+    final_message: asString(c.final_message ?? c.closing_message),
   }
   // Essenciais da regra de produto: foco do mês + porquê + 3 prioridades reais.
   // Se faltar QUALQUER um desses, o plano da IA não tem substância suficiente e
@@ -391,7 +405,13 @@ export async function generateCarePlanAI(a: EmotionalAnalysis, rs: RecordsSummar
       // exportado apenas para compatibilidade com integrações antigas.
       const raw = await generateWithFailover(buildSelfCarePlanPrompt(asEmotionalSummary(rs)))
       const parsed = validate(extractJson(raw))
-      if (parsed) return parsed
+      if (parsed) {
+        // O prompt de autocuidado foca no plano e não devolve o bloco de
+        // "Resumo mensal dos registros". Preenche-o com o resumo determinístico
+        // (mesmos dados agregados) para o admin não ver essa seção vazia.
+        if (!parsed.summary.general_overview) parsed.summary = fallbackCarePlan(a, rs.monthLabel).summary
+        return parsed
+      }
     } catch {
       /* tenta de novo; se for a última tentativa, cai no fallback abaixo */
     }
