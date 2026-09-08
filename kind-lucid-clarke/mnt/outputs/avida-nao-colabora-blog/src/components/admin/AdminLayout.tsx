@@ -36,8 +36,6 @@ interface QueueSnapshot {
   failures_active?: Record<string, number>
 }
 
-// Menu reorganizado (IA 2026-09): menos itens de topo, agrupados por TAREFA.
-// Engajamento permanece como item independente, sem alteração.
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Visão geral', items: [
     { id: 'visao-geral', label: 'Dashboard', icon: LayoutDashboard },
@@ -207,7 +205,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
 
     const snapshot = (queuesRes.data ?? {}) as QueueSnapshot
     const failures = snapshot.failures_active ?? snapshot.failures_24h ?? {}
-    const next: AdminAlert[] = [
+    const candidates: AdminAlert[] = [
       { key: 'tickets', label: 'Tickets de suporte abertos', count: ticketsRes.count ?? 0, view: 'support', severity: 'warning' },
       { key: 'guidance', label: 'Orientações aguardando resposta', count: guidanceRes.count ?? 0, view: 'guidance-requests', severity: 'warning' },
       { key: 'care-plans', label: 'Planos de autocuidado pendentes', count: snapshot.queues?.care_plans_pending ?? 0, view: 'self-care-plans', severity: 'warning' },
@@ -217,7 +215,8 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
       { key: 'reports', label: 'Relatórios com falha recente', count: failures.reports_failed ?? 0, view: 'pdf', severity: 'error' },
       { key: 'webhooks', label: 'Webhooks Stripe travados', count: snapshot.queues?.webhooks_stuck ?? 0, view: 'financeiro', severity: 'error' },
       { key: 'cancellations', label: 'Cancelamentos a revisar', count: cancellationsRes.count ?? 0, view: 'cancelamentos', severity: 'warning' },
-    ].filter(item => item.count > 0)
+    ]
+    const next = candidates.filter(item => item.count > 0)
 
     setAlerts(next)
     setAlertsLoading(false)
