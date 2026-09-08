@@ -23,7 +23,10 @@ test('generate() registra o motivo de falha de cada provedor de IA', () => {
   assert.match(generateFn, /GEMINI_API_KEY ausente/)
   assert.match(generateFn, /GROQ_API_KEY ausente/)
   assert.match(generateFn, /OPENAI_API_KEY ausente/)
-  assert.doesNotMatch(generateFn, /\} catch \{/)
+  // Nenhum erro operacional engolido em catch VAZIO (JSON.parse pode ter um
+  // catch que devolve valor — isso é ok, não é swallow).
+  assert.doesNotMatch(generateFn, /\} catch \{\s*\}/)
+  assert.doesNotMatch(generateFn, /catch \(err\) \{\s*\}/)
 })
 
 test('erro final propaga os motivos por provedor para ai_generation_logs', () => {
@@ -31,15 +34,20 @@ test('erro final propaga os motivos por provedor para ai_generation_logs', () =>
     runnerSource,
     /Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado\. Motivos — \$\{failures\.join\(' \| '\)\}/,
   )
-  assert.match(runnerSource, /\.slice\(0, 480\)/)
+  assert.match(runnerSource, /\.slice\(0, 800\)/)
+  // O motivo de cada provedor inclui o corpo do erro (não só o status HTTP).
+  assert.match(runnerSource, /bodySnippet\(res\)/)
 })
 
 test('diagnóstico não expõe prompt, conteúdo emocional nem chaves', () => {
   const noteFn = runnerSource.match(/const note = \(provider: string, reason: unknown\) => \{[\s\S]*?\n {2}\}/)?.[0] ?? ''
   assert.notEqual(noteFn, '', 'não encontrou o helper note()')
   assert.match(noteFn, /reason instanceof Error \? reason\.message : reason/)
-  assert.match(noteFn, /\.slice\(0, 120\)/)
+  assert.match(noteFn, /\.slice\(0, 160\)/)
   assert.doesNotMatch(noteFn, /promptText/)
+  // bodySnippet só devolve o error.message do provedor — nunca prompt nem chave.
+  const bodyFn = runnerSource.match(/const bodySnippet = async \(res: Response\)[\s\S]*?\n {2}\}/)?.[0] ?? ''
+  assert.doesNotMatch(bodyFn, /promptText|API_KEY|geminiKey|groqKey|openaiKey/)
 })
 
 test('run-emotional-automations grava o provider real (nunca fica preso em "gemini" por omissão)', () => {

@@ -19,7 +19,9 @@ function envInt(name: string, fallback: number, min: number, max: number): numbe
   return Number.isFinite(raw) ? Math.min(max, Math.max(min, Math.round(raw))) : fallback
 }
 
-const timeoutMs = () => envInt('EMOTIONAL_AI_TIMEOUT_MS', 8_000, 4_000, 15_000)
+// O plano de autocuidado é o prompt mais pesado (resumo + feedback + shape).
+// 8s era curto demais e derrubava o Gemini por timeout mesmo com o modelo OK.
+const timeoutMs = () => envInt('EMOTIONAL_AI_TIMEOUT_MS', 12_000, 4_000, 25_000)
 const attempts = () => envInt('EMOTIONAL_AI_ATTEMPTS', 2, 1, 2)
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 

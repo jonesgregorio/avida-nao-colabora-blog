@@ -245,8 +245,21 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
   const failures: string[] = []
   const note = (provider: string, reason: unknown) => {
     const text = String(reason instanceof Error ? reason.message : reason || 'falha desconhecida')
-      .replace(/\s+/g, ' ').trim().slice(0, 120)
+      .replace(/\s+/g, ' ').trim().slice(0, 160)
     failures.push(`${provider}: ${text}`)
+  }
+  // Motivo técnico da resposta de erro (error.message do provedor), sem prompt
+  // nem chave — para ai_generation_logs dizer POR QUE deu 4xx (modelo inválido,
+  // parâmetro rejeitado, cota, etc.), não só o status.
+  const bodySnippet = async (res: Response): Promise<string> => {
+    const raw = (await res.clone().text().catch(() => '')).trim()
+    if (!raw) return 'sem corpo'
+    const parsed = ((): unknown => { try { return JSON.parse(raw) } catch { return null } })() as
+      { error?: { message?: string } | string; message?: string } | null
+    const msg = (parsed && typeof parsed === 'object'
+      ? (typeof parsed.error === 'object' ? parsed.error?.message : parsed.error) || parsed.message
+      : null) || raw
+    return String(msg).replace(/\s+/g, ' ').trim().slice(0, 140)
   }
 
   const aiCfg = await resolveAiModels()
@@ -264,7 +277,7 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
           if (text && String(text).trim()) return { text: String(text).trim(), model }
           note(`gemini/${model}`, 'resposta vazia')
         } else {
-          note(`gemini/${model}`, `HTTP ${res.status}`)
+          note(`gemini/${model}`, `HTTP ${res.status} — ${await bodySnippet(res)}`)
         }
       } catch (err) { note(`gemini/${model}`, err) }
     }
@@ -284,7 +297,7 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
         if (text && String(text).trim()) return { text: String(text).trim(), model: `groq:${aiCfg.groq}` }
         note('groq', 'resposta vazia')
       } else {
-        note('groq', `HTTP ${res.status}`)
+        note('groq', `HTTP ${res.status} (${aiCfg.groq}) — ${await bodySnippet(res)}`)
       }
     } catch (err) { note('groq', err) }
   } else {
@@ -303,7 +316,7 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
         if (text && String(text).trim()) return { text: String(text).trim(), model: 'openai:gpt-4o-mini' }
         note('openai', 'resposta vazia')
       } else {
-        note('openai', `HTTP ${res.status}`)
+        note('openai', `HTTP ${res.status} — ${await bodySnippet(res)}`)
       }
     } catch (err) { note('openai', err) }
   } else {
@@ -314,7 +327,7 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
   // diagnosticar a causa real do fallback (404 de modelo, 429 de cota, 5xx, timeout,
   // chave ausente) em vez de só informar que houve fallback.
   throw new Error(
-    `Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado. Motivos — ${failures.join(' | ')}`.slice(0, 480),
+    `Nenhum provedor de IA emocional respondeu; fallback determinístico aplicado. Motivos — ${failures.join(' | ')}`.slice(0, 800),
   )
 }
 
