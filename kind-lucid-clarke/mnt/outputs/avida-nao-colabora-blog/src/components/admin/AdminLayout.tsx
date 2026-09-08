@@ -156,15 +156,12 @@ export default function AdminLayout({ currentView, onNavigate, onExit, userEmail
     return !mod || mod === 'permissions' || allowed.has(mod)
   }
 
-  function canUseModule(module?: string) {
-    return !module || !allowed || allowed.has(module)
-  }
-
   const visibleNav = NAV_GROUPS
     .map(group => ({ ...group, items: group.items.filter(canShow) }))
     .filter(group => group.items.length > 0)
 
   const searchResults = useMemo(() => {
+    const canUseModule = (module?: string) => !module || !allowed || allowed.has(module)
     const q = normalizeSearch(searchQuery)
     if (!q) return SEARCH_ITEMS.filter(item => canUseModule(item.module)).slice(0, 8)
     return SEARCH_ITEMS
