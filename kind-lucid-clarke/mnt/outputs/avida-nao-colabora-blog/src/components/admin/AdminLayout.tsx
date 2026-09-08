@@ -2,10 +2,10 @@ import { ReactNode, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
-  LayoutDashboard, Users, CreditCard, BookOpen, LineChart,
-  Sparkles, Mail, LifeBuoy, Settings2, Activity, Ban,
+  LayoutDashboard, Users, HeartHandshake, BookOpen,
+  Mail, LifeBuoy, Settings2, Activity,
   ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
-  Search, Bell,
+  Search, Bell, CreditCard,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -14,50 +14,51 @@ import './admin-theme.css'
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
 type NavGroup = { label: string; items: NavItem[] }
 
+// Menu reorganizado (IA 2026-09): menos itens de topo, agrupados por TAREFA.
+// Engajamento permanece como item independente, sem alteração.
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Visão geral', items: [
     { id: 'visao-geral', label: 'Dashboard', icon: LayoutDashboard },
   ]},
-  { label: 'Usuários', items: [
+  { label: 'Pessoas', items: [
     { id: 'usuarios', label: 'Usuários', icon: Users },
     { id: 'segmentacao', label: 'Segmentação', icon: ListFilter },
     { id: 'engajamento', label: 'Engajamento', icon: Activity },
   ]},
-  { label: 'Assinaturas', items: [
-    { id: 'planos', label: 'Planos e assinaturas', icon: CreditCard },
-    { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
+  { label: 'Negócio', items: [
+    { id: 'assinaturas', label: 'Assinaturas', icon: CreditCard },
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   ]},
   { label: 'Conteúdo', items: [
-    { id: 'conteudos', label: 'Conteúdo & IA', icon: BookOpen },
+    { id: 'conteudos', label: 'Conteúdo', icon: BookOpen },
     { id: 'estudio', label: 'Estúdio de Conteúdo', icon: Megaphone },
   ]},
   { label: 'Cuidado', items: [
-    { id: 'mapa', label: 'Diário e mapa emocional', icon: LineChart },
-    { id: 'emocional', label: 'IA Emocional', icon: Sparkles },
+    { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
   ]},
-  { label: 'Comunicação', items: [
+  { label: 'Relacionamento', items: [
     { id: 'comunicacao', label: 'Comunicação', icon: Mail },
     { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
   ]},
   { label: 'Análise', items: [
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   ]},
-  { label: 'Sistema', items: [
+  { label: 'Administração', items: [
     { id: 'sistema', label: 'Sistema', icon: Settings2 },
   ]},
 ]
 
 function deriveActive(view: string): string {
-  return view === 'article-editor' ? 'conteudos' : view
+  if (view === 'article-editor') return 'conteudos'
+  return view
 }
 
 const AREA_MODULE: Record<string, string> = {
   'visao-geral': 'overview', usuarios: 'users', segmentacao: 'users', engajamento: 'analytics',
-  planos: 'finance', cancelamentos: 'finance', financeiro: 'finance',
-  conteudos: 'content', estudio: 'content', mapa: 'content',
-  analytics: 'analytics', emocional: 'content', comunicacao: 'communication',
-  suporte: 'users', sistema: 'system',
+  assinaturas: 'finance', financeiro: 'finance',
+  conteudos: 'content', estudio: 'content',
+  cuidado: 'content', analytics: 'analytics',
+  comunicacao: 'communication', suporte: 'users', sistema: 'system',
 }
 
 interface Props {

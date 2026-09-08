@@ -10,7 +10,7 @@ const read = (p: string) => readFileSync(join(here, '..', p), 'utf8')
 const sql = read('supabase/migrations/20260903120000_site_content_cms.sql')
 const lib = read('src/lib/siteContent.ts')
 const admin = read('src/components/admin/AdminSiteContent.tsx')
-const comunicacao = read('src/components/admin/AdminAreaComunicacao.tsx')
+const conteudo = read('src/components/admin/AdminAreaConteudo.tsx')
 
 test('migration cria as tabelas do CMS e a de revisões', () => {
   for (const t of ['site_pages', 'site_snippets', 'faq_items', 'site_content_revisions']) {
@@ -71,12 +71,12 @@ test('páginas públicas usam o CMS com fallback para o texto embutido', () => {
   assert.match(faq, /: FAQS/)
 })
 
-test('o editor está no admin (aba de Comunicação) e recarrega o cache ao salvar', () => {
+test('o editor está no admin (Conteúdo → Biblioteca → Home & páginas) e recarrega o cache ao salvar', () => {
   assert.match(admin, /export default function AdminSiteContent/)
   assert.match(admin, /refreshSiteContent\(\)/)
   assert.match(admin, /Histórico de versões/)
   assert.match(admin, /restaurar/i)
-  assert.match(comunicacao, /import AdminSiteContent/)
-  assert.match(comunicacao, /id: 'site'/)
-  assert.match(comunicacao, /tab === 'site'\s*&& <div[\s\S]*<AdminSiteContent \/>/)
+  assert.match(conteudo, /import AdminSiteContent/)
+  assert.match(conteudo, /id: 'site-paginas'/)
+  assert.match(conteudo, /tab === 'site-paginas'\s*&& <div[\s\S]*<AdminSiteContent \/>/)
 })

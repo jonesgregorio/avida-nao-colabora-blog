@@ -69,6 +69,5 @@ test('admin deixa explícito o escopo e não apresenta o rollout como mudança d
   assert.match(admin, /type="range"/)
   assert.match(admin, /role="switch"/)
   assert.match(admin, /Coorte estável/)
-  assert.match(systemArea, /id: 'liberacao', label: 'Liberação'/)
-  assert.match(systemArea, /<AdminIdea1Rollout \/>/)
+  assert.match(systemArea, /id: 'liberacao', label: 'Liberação progressiva', Component: AdminIdea1Rollout/)
 })

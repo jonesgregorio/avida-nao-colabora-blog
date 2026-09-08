@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Plus } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Plus, LayoutTemplate } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
 import AdminSEOCockpit from './AdminSEOCockpit'
 import AdminSocialProof from './AdminSocialProof'
+import AdminSiteContent from './AdminSiteContent'
 import AdminTemplatesIA from './AdminTemplatesIA'
 import AdminFabricaIA from './AdminFabricaIA'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
@@ -30,7 +31,8 @@ const TABS = [
   { id: 'automacoes', label: 'Regras automáticas', icon: Zap, group: 'automacao' },
   { id: 'categorias', label: 'Categorias', icon: Tag, group: 'biblioteca' },
   { id: 'imagens', label: 'Mídia', icon: Image, group: 'biblioteca' },
-  { id: 'depoimentos', label: 'Home e depoimentos', icon: Star, group: 'biblioteca' },
+  { id: 'site-paginas', label: 'Home & páginas', icon: LayoutTemplate, group: 'biblioteca' },
+  { id: 'depoimentos', label: 'Depoimentos', icon: Star, group: 'biblioteca' },
   { id: 'seo', label: 'SEO', icon: Search, group: 'inteligencia' },
 ] as const
 
@@ -136,6 +138,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
         {tab === 'categorias'  && <AdminCategories />}
         {tab === 'imagens'     && <AdminMediaLibrary />}
         {tab === 'seo'         && <AdminSEOCockpit onEditArticle={onEditArticle} />}
+        {tab === 'site-paginas' && <div className="p-5 sm:p-6"><AdminSiteContent /></div>}
         {tab === 'depoimentos' && <AdminSocialProof />}
       </section>
     </div>

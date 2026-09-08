@@ -35,11 +35,10 @@ test('admin_queues_overview traz filas + falhas 24h e é só contagem', () => {
   assert.doesNotMatch(migration, /full_name|email\b|\.text\b|free_note/i)
 })
 
-test('a aba "Filas e falhas" entra no Sistema sem remover as abas existentes', () => {
-  assert.match(area, /\{ id: 'filas', label: 'Filas e falhas'/)
-  assert.match(area, /tab === 'filas' && <AdminQueuesFailures \/>/)
-  assert.match(area, /\{ id: 'saude', label: 'Saúde do sistema'/)
-  assert.match(area, /\{ id: 'automacoes', label: 'Automações'/)
+test('"Filas e falhas" continua no Sistema (Monitoramento) junto de Saúde e Automações', () => {
+  assert.match(area, /id: 'filas', label: 'Filas e falhas', Component: AdminQueuesFailures/)
+  assert.match(area, /id: 'saude', label: 'Saúde do sistema'/)
+  assert.match(area, /id: 'automacoes', label: 'Automações'/)
 })
 
 test('a tela registra a ação de reprocesso na auditoria e confirma antes', () => {

@@ -13,7 +13,7 @@ test('a área "estudio" está registrada nos quatro pontos obrigatórios', () =>
   // 1. tipo
   assert.match(types, /\|\s*'estudio'/)
   // 2. lista de áreas que realmente abrem
-  assert.match(index, /'conteudos',\s*'estudio',\s*'analytics'/)
+  assert.match(index, /'conteudos',\s*'estudio',/)
   // 3. import lazy + case no switch
   assert.match(index, /const AdminEstudio = lazy\(\(\) => import\('\.\/AdminEstudio'\)\)/)
   assert.match(index, /case 'estudio': return <AdminEstudio \/>/)

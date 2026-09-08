@@ -1,23 +1,26 @@
-// ── 10 áreas principais do novo admin (mockup admin-mockup-avnc.html) ──────────
+// ── Áreas principais do admin (reorganização IA 2026-09) ──────────────────────
 export type AdminAreaView =
   | 'visao-geral'
   | 'usuarios'
   | 'segmentacao'
   | 'engajamento'
-  | 'planos'
-  | 'cancelamentos'
+  | 'assinaturas'
+  | 'financeiro'
   | 'conteudos'
   | 'estudio'
+  | 'cuidado'
+  | 'comunicacao'
+  | 'suporte'
+  | 'analytics'
+  | 'sistema'
+  // legadas mantidas para compat de rota/localStorage (resolvidas via LEGACY_MAP)
+  | 'planos'
+  | 'cancelamentos'
   | 'fabrica-ia'
   | 'calendario'
   | 'automacoes-blog'
-  | 'analytics'
-  | 'financeiro'
   | 'mapa'
   | 'emocional'
-  | 'comunicacao'
-  | 'suporte'
-  | 'sistema'
 
 // ── Views auxiliares + legadas (resolvidas via LEGACY_MAP em index.tsx) ────────
 export type AdminView =
