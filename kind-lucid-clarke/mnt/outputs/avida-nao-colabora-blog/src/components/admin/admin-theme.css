@@ -65,9 +65,10 @@
 .admin-login-brand:before,.admin-login-brand:after{content:"";position:absolute;border:1px solid rgba(255,255,255,.08);border-radius:50%;width:380px;height:380px;right:-160px;bottom:-150px}.admin-login-brand:after{width:240px;height:240px;right:-70px;bottom:-80px}
 .admin-login-panel{display:flex;align-items:center;justify-content:center;padding:36px}
 .admin-login-card{width:min(430px,100%);background:var(--admin-surface);border:1px solid var(--admin-line);border-radius:18px;padding:32px;box-shadow:0 18px 50px rgba(18,53,40,.08)}
-/* Refinamento do mockup para páginas legadas que ainda usam utilitários locais. */
-.admin-shell main>div>.flex.items-start.justify-between,.admin-shell main>div>.flex.flex-wrap.items-start.justify-between{background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-radius:18px;padding:20px 22px;box-shadow:0 10px 34px rgba(18,53,40,.04)}
-.admin-shell main>div>.space-y-5>header,.admin-shell main>div>.space-y-4>header{background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-radius:18px;padding:20px 22px}
+/* Refinamento do mockup para páginas legadas que ainda usam utilitários locais.
+   :not(.admin-page-hero) evita moldura dupla quando a área já usa a classe própria. */
+.admin-shell main>div>.flex.items-start.justify-between:not(.admin-page-hero):not(.admin-toolbar),.admin-shell main>div>.flex.flex-wrap.items-start.justify-between:not(.admin-page-hero):not(.admin-toolbar){background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-radius:18px;padding:20px 22px;box-shadow:0 10px 34px rgba(18,53,40,.04)}
+.admin-shell main>div>.space-y-5>header:not(.admin-page-hero),.admin-shell main>div>.space-y-4>header:not(.admin-page-hero){background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-radius:18px;padding:20px 22px}
 .admin-shell main>div>.grid[class*="gap-4"]>div.bg-white,.admin-shell main>div>.grid[class*="gap-3"]>div.bg-white{box-shadow:0 8px 26px rgba(18,53,40,.035)}
 .admin-shell [class*="bg-red-50"][class*="border-red"],.admin-shell [class*="bg-amber-50"][class*="border-amber"],.admin-shell [class*="bg-blue-50"][class*="border-blue"]{box-shadow:none!important;border-width:1px!important}
 .admin-shell .overflow-x-auto{scrollbar-width:thin;scrollbar-color:#cfc5b8 transparent}
@@ -83,8 +84,8 @@
 .admin-shell [class*="bg-stone-50"]{background:#f8f3ec!important}
 .admin-shell [class*="bg-stone-100"]{background:#f0e9df!important}
 /* Homologação final: Engajamento, Cancelamentos, Estúdio, Ficha 360 e listas antigas. */
-.admin-shell main>div[class*="max-w-"]>h1:first-child{margin:0;padding:22px 24px 4px;background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 10px 34px rgba(18,53,40,.035)}
-.admin-shell main>div[class*="max-w-"]>h1:first-child+p{margin:0 0 22px;padding:6px 24px 20px;background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-top:0;border-radius:0 0 18px 18px;color:#68736b!important}
+.admin-shell main>div[class*="max-w-"]:not(.admin-page-pad)>h1:first-child{margin:0;padding:22px 24px 4px;background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 10px 34px rgba(18,53,40,.035)}
+.admin-shell main>div[class*="max-w-"]:not(.admin-page-pad)>h1:first-child+p{margin:0 0 22px;padding:6px 24px 20px;background:linear-gradient(135deg,#fffdf8,#f6efe4);border:1px solid var(--admin-line);border-top:0;border-radius:0 0 18px 18px;color:#68736b!important}
 .admin-shell main>div[class*="max-w-"]>.grid.grid-cols-2>button.bg-white,.admin-shell main>div[class*="max-w-"]>.grid.grid-cols-2>div.bg-white{min-height:112px;box-shadow:0 8px 24px rgba(18,53,40,.035)}
 .admin-shell main>div[class*="max-w-"]>.flex.flex-wrap.items-center.gap-2{background:#fffdf9;border:1px solid var(--admin-line);border-radius:14px;padding:10px 12px}
 .admin-shell main>div[class*="max-w-"]>.flex.flex-wrap.items-center.gap-1\.5,.admin-shell main>div[class*="max-w-"]>.flex.flex-wrap.gap-1\.5{background:rgba(255,252,247,.72);border:1px solid var(--admin-line);border-radius:14px;padding:8px}
