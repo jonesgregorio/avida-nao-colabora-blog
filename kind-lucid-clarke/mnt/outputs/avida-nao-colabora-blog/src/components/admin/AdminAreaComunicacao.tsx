@@ -6,14 +6,13 @@ import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminSiteContent from './AdminSiteContent'
 import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
 
-// Comunicação — canais de mensagem: notificações in-app + e-mails + criador IA
 const TABS = [
   { id: 'campanhas',     label: 'Campanhas',           icon: Megaphone },
   { id: 'notificacoes',  label: 'Notificações',        icon: Bell },
   { id: 'emails',        label: 'E-mails enviados',     icon: Mail },
   { id: 'templates',     label: 'Templates de e-mail',  icon: FileText },
-  { id: 'criador-ia',   label: 'Criador com IA',        icon: Sparkles },
-  { id: 'site',          label: 'Site & páginas',       icon: LayoutTemplate },
+  { id: 'criador-ia',    label: 'Criador com IA',       icon: Sparkles },
+  { id: 'site',          label: 'Site & páginas',        icon: LayoutTemplate },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -36,24 +35,28 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
   }
 
   return (
-    <div className="flex flex-col min-h-0">
-      <div className="px-6 pt-8 pb-4 max-w-7xl mx-auto w-full">
-        <h1 className="font-serif text-3xl text-forest-900">Comunicação</h1>
-        <p className="text-sm text-ink-soft mt-1">Notificações in-app, e-mails enviados e templates de e-mail.</p>
-      </div>
-      <div className="border-b border-line bg-white sticky top-0 z-10">
-        <nav className="flex gap-0 px-4 overflow-x-auto" aria-label="Abas de Comunicação">
+    <div className="admin-page-pad flex flex-col min-h-0 gap-4">
+      <section className="admin-page-hero flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="admin-kicker">Relacionamento</p>
+          <h1 className="font-serif text-3xl text-forest-900">Comunicação</h1>
+          <p className="admin-subtitle mt-1">Centralize campanhas, notificações, e-mails, templates e criação assistida em uma única área.</p>
+        </div>
+        <div className="admin-actions">
+          <button onClick={() => switchTab('campanhas')} className="admin-btn-primary"><Megaphone className="w-4 h-4" /> Nova campanha</button>
+          <button onClick={() => switchTab('notificacoes')} className="admin-btn-secondary"><Bell className="w-4 h-4" /> Notificações</button>
+        </div>
+      </section>
+
+      <div className="admin-tabs-wrap sticky top-20 z-10">
+        <nav className="admin-tabs" aria-label="Abas de Comunicação">
           {TABS.map(t => {
             const Icon = t.icon
             return (
               <button
                 key={t.id}
                 onClick={() => switchTab(t.id)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  tab === t.id
-                    ? 'border-forest-700 text-forest-900'
-                    : 'border-transparent text-ink-soft hover:text-forest-900 hover:border-line'
-                }`}
+                className={`admin-tab ${tab === t.id ? 'is-active' : ''}`}
               >
                 <Icon className="w-4 h-4" />
                 {t.label}
@@ -62,14 +65,15 @@ export default function AdminAreaComunicacao({ initialTab }: Props) {
           })}
         </nav>
       </div>
-      <div className="flex-1">
+
+      <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'campanhas'    && <AdminCommunicationCampaigns />}
         {tab === 'notificacoes' && <AdminNotifications />}
         {tab === 'emails'       && <AdminEmails initialTab="logs" />}
         {tab === 'templates'    && <AdminEmails initialTab="templates" />}
-        {tab === 'criador-ia'  && <AdminEmailCreatorIA />}
-        {tab === 'site'         && <div className="px-6 py-8 max-w-7xl mx-auto w-full"><AdminSiteContent /></div>}
-      </div>
+        {tab === 'criador-ia'   && <AdminEmailCreatorIA />}
+        {tab === 'site'         && <div className="p-5 sm:p-6"><AdminSiteContent /></div>}
+      </section>
     </div>
   )
 }
