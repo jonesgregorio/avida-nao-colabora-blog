@@ -423,6 +423,9 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
   // Salvar/revisar não deve reescrever generated_at como se uma nova geração tivesse ocorrido.
   const [generatedByAI, setGeneratedByAI] = useState(plan?.generated_by_ai ?? false)
   const [fallbackUsed, setFallbackUsed] = useState(plan?.fallback_used ?? false)
+  // Motivo da falha DESTA sessão (quando a geração cai no rascunho de emergência).
+  // Substitui o plan.error_message antigo no aviso e ao salvar.
+  const [aiError, setAiError] = useState<string | null>(plan?.error_message ?? null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(plan?.generated_at ?? null)
   const contentBaselineRef = useRef(JSON.stringify({ summary, care }))
   const status = plan?.status ?? 'pending_generation'
@@ -479,6 +482,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
       setCare(result.care_plan)
       setGeneratedByAI(result.generatedByAI)
       setFallbackUsed(!result.generatedByAI)
+      setAiError(result.generatedByAI ? null : (result.aiError ?? 'A IA não retornou um plano válido nesta tentativa.'))
       setGeneratedAt(generatedNow)
       contentBaselineRef.current = JSON.stringify({ summary: result.summary, care: result.care_plan })
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
@@ -543,10 +547,9 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
         generated_at: generatedAt,
         generated_by_ai: generatedByAI,
         fallback_used: generatedByAI ? false : fallbackUsed,
-        // Gerou com IA agora → limpa o motivo de falha antigo (senão o aviso
-        // vermelho "a IA falhou" continua mostrando a causa de uma tentativa
-        // anterior mesmo depois de dar certo).
-        error_message: generatedByAI ? null : (plan?.error_message ?? null),
+        // Gerou com IA agora → limpa o motivo antigo. Caiu no fallback → grava o
+        // motivo DESTA tentativa (não o de um ciclo anterior).
+        error_message: generatedByAI ? null : (aiError ?? plan?.error_message ?? null),
         edited_by_human: editedByHuman,
         edited_at: editedNow ? now : (plan?.edited_at ?? null),
         updated_at: now,
@@ -674,7 +677,7 @@ function CarePlanDrawer({ user, period, monthRef, plan, onClose, onSaved, showTo
           {fallbackUsed && !generatedByAI && (
             <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-800 space-y-2">
               <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Rascunho de emergência — a IA falhou</p>
-              <p>Este rascunho foi gerado <strong>sem IA</strong> (template determinístico genérico, igual para todos). {plan?.error_message ? <span className="block mt-1 text-xs text-red-700/90">Motivo: {plan.error_message}</span> : null}</p>
+              <p>Este rascunho foi gerado <strong>sem IA</strong> (template determinístico genérico, igual para todos). {(aiError ?? plan?.error_message) ? <span className="block mt-1 text-xs text-red-700/90">Motivo: {aiError ?? plan?.error_message}</span> : null}</p>
               <p><strong>Não envie assim.</strong> Clique em <em>“Gerar resumo e plano com IA”</em> para tentar de novo, ou edite manualmente antes de enviar.</p>
             </div>
           )}
