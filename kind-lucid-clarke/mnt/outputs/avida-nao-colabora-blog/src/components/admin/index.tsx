@@ -199,7 +199,7 @@ export default function AdminPanel() {
       case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
       case 'segmentacao': return <AdminSegments />
       case 'engajamento': return <AdminEngagement />
-      case 'assinaturas': return <AdminAreaAssinaturas />
+      case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'financeiro': return <AdminFinanceiro />
       case 'conteudos': return (
         <AdminAreaConteudo

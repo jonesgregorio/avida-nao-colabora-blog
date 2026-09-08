@@ -16,7 +16,7 @@ const TABS = [
 type Tab = typeof TABS[number]['id']
 const STORE = 'admin-assinaturas-tab'
 
-export default function AdminAreaAssinaturas({ initialTab }: { initialTab?: string }) {
+export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initialTab?: string; onViewUser?: (userId: string) => void }) {
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const saved = initialTab ?? localStorage.getItem(STORE) ?? 'cancelamentos'
@@ -56,7 +56,7 @@ export default function AdminAreaAssinaturas({ initialTab }: { initialTab?: stri
       <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'cancelamentos' && <AdminCancellations />}
         {tab === 'planos' && <AdminPlanosPage />}
-        {tab === 'alteracoes' && <AdminPlanChanges />}
+        {tab === 'alteracoes' && <AdminPlanChanges onOpenUser={onViewUser} />}
       </section>
     </div>
   )
