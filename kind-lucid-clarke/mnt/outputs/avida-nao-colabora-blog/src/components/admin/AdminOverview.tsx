@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { getPlanLabel } from '../../lib/officialPlans'
+import { checkStorage } from '../../lib/adminHealthExtras'
 import {
+  checkAI,
   checkPayments,
-  checkStorage,
   checkSupabaseConnection,
   checkTransactionalEmail,
   type CheckStatus,
@@ -114,8 +115,6 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       emailFailures = failures.emails_failed ?? 0
       aiFailures = failures.ai_errors ?? 0
     } else {
-      // Fallback seguro para ambientes onde a RPC ainda não chegou: somente 24h.
-      // Nunca voltamos à contagem histórica infinita que inflava "Pendências".
       const [careFallback, emailFallback, aiFallback] = await Promise.all([
         readCount(() => supabase.from('monthly_care_plans').select('*', { count: 'exact', head: true }).in('status', ['pending_generation', 'generated', 'pending_review', 'draft'])),
         readCount(() => supabase.from('email_logs').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', since24h)),
@@ -144,10 +143,11 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       .filter(Boolean)
     if (countErrors.length > 0) setLoadError(`Algumas métricas não puderam ser lidas: ${countErrors.join(' · ')}`)
 
-    const [databaseCheck, emailCheck, paymentCheck, storageCheck] = await Promise.all([
+    const [databaseCheck, emailCheck, paymentCheck, aiCheck, storageCheck] = await Promise.all([
       checkSupabaseConnection(),
       checkTransactionalEmail(),
       checkPayments(),
+      checkAI(),
       checkStorage(),
     ])
 
@@ -176,8 +176,8 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       {
         Icon: Cpu,
         label: 'IA e recomendações',
-        state: aiFailures > 0 ? 'warn' : 'unknown',
-        note: aiFailures > 0 ? `${aiFailures} falha(s) ativa(s) nas últimas 24h` : 'Sem falha ativa; teste do provedor em Sistema',
+        state: aiFailures > 0 ? 'warn' : healthState(aiCheck.status),
+        note: aiFailures > 0 ? `${aiFailures} falha(s) ativa(s) nas últimas 24h` : aiCheck.status === 'ok' ? 'Provedor principal respondeu ao teste' : aiCheck.errorMessage || 'Não foi possível confirmar',
         nav: 'uso-ia',
       },
       {
@@ -189,7 +189,6 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       },
     ])
 
-    // Atividade recente (novos usuários + mudanças de plano)
     const acts: Activity[] = []
     const usersActivity = await supabase.from('profiles').select('full_name, email, created_at').order('created_at', { ascending: false }).limit(4)
     if (!usersActivity.error) {
