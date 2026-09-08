@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Ban, CreditCard, RefreshCcw } from 'lucide-react'
+import { Ban, CreditCard, RefreshCcw, LayoutDashboard } from 'lucide-react'
 import AdminCancellations from './AdminCancellations'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminPlanChanges from './AdminPlanChanges'
+import AdminAssinaturasOverview from './AdminAssinaturasOverview'
 
 // ASSINATURAS — a operação comercial da assinatura, separada do FINANCEIRO
 // (que só analisa dinheiro). Junta o que antes eram as áreas "Planos e
 // assinaturas" e "Cancelamentos" + a visão de "Alterações de plano".
 const TABS = [
-  { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
+  { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'planos', label: 'Planos & benefícios', icon: CreditCard },
-  { id: 'alteracoes', label: 'Alterações de plano', icon: RefreshCcw },
+  { id: 'alteracoes', label: 'Alterações', icon: RefreshCcw },
+  { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -19,11 +21,11 @@ const STORE = 'admin-assinaturas-tab'
 export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initialTab?: string; onViewUser?: (userId: string) => void }) {
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      const saved = initialTab ?? localStorage.getItem(STORE) ?? 'cancelamentos'
+      const saved = initialTab ?? localStorage.getItem(STORE) ?? 'visao-geral'
       const map: Record<string, Tab> = { plans: 'planos', financial: 'planos' }
       const resolved = map[saved] ?? saved
-      return (TABS.find(t => t.id === resolved)?.id ?? 'cancelamentos') as Tab
-    } catch { return 'cancelamentos' }
+      return (TABS.find(t => t.id === resolved)?.id ?? 'visao-geral') as Tab
+    } catch { return 'visao-geral' }
   })
 
   function switchTab(id: Tab) {
@@ -54,6 +56,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
       </div>
 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
+        {tab === 'visao-geral' && <AdminAssinaturasOverview onGoTab={switchTab} />}
         {tab === 'cancelamentos' && <AdminCancellations />}
         {tab === 'planos' && <AdminPlanosPage />}
         {tab === 'alteracoes' && <AdminPlanChanges onOpenUser={onViewUser} />}
