@@ -55,12 +55,17 @@ function TagBars({ items }: { items: { label: string; count: number }[] }) {
   )
 }
 
-export default function AdminUser360Tabs({ tab, data, loading }: { tab: DrawerTab; data: User360 | null; loading: boolean }) {
+export default function AdminUser360Tabs({ tab, data, loading, error }: { tab: DrawerTab; data: User360 | null; loading: boolean; error?: string | null }) {
   if (loading) {
     return <div className="flex items-center gap-2 text-sm text-stone-400 py-8 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Carregando dados do usuário…</div>
   }
+  if (error) {
+    return /not_?authorized|not authorized/i.test(error)
+      ? <Empty>Sessão sem verificação em duas etapas (AAL2). Saia e entre de novo no painel para ver o retrato do usuário.</Empty>
+      : <Empty>Não foi possível carregar o retrato do usuário: {error}</Empty>
+  }
   if (!data) {
-    return <Empty>O retrato completo deste usuário fica disponível após o deploy desta etapa (a função de leitura agregada ainda não está publicada).</Empty>
+    return <Empty>O retrato agregado ainda não está disponível para este usuário.</Empty>
   }
 
   if (tab === 'jornada') {
