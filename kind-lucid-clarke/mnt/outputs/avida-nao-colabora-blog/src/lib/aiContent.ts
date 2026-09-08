@@ -115,9 +115,24 @@ export function setActiveProviderLocal(p: AIProvider): void {
 // PRESO nele: um único soluço do Gemini (ex.: cota) deixava tudo grudado no
 // Groq para sempre. Agora cada geração tenta o Gemini de novo — se ele estiver
 // no ar, volta a ser usado sozinho; se não, o failover do servidor cobre.
-export async function generateWithFailover(prompt: string): Promise<string> {
+export interface GenerationMeta {
+  /** Ex.: 'self_care_plan', 'monthly_deep_report', 'professional_guidance'. */
+  contentType?: string
+  /** Usuário-alvo da geração (para a chave de incidente por usuário/entidade). */
+  userId?: string
+  /** Início do período de origem (YYYY-MM-DD), quando aplicável. */
+  sourcePeriodStart?: string
+}
+
+export async function generateWithFailover(prompt: string, meta?: GenerationMeta): Promise<string> {
   const { data, error } = await supabase.functions.invoke('generate-content', {
-    body: { prompt, provider: PROVIDER_ORDER[0] },
+    body: {
+      prompt,
+      provider: PROVIDER_ORDER[0],
+      ...(meta?.contentType ? { contentType: meta.contentType } : {}),
+      ...(meta?.userId ? { userId: meta.userId } : {}),
+      ...(meta?.sourcePeriodStart ? { sourcePeriodStart: meta.sourcePeriodStart } : {}),
+    },
   })
   const out = data as { text?: string; provider?: AIProvider; error?: string } | null
   if (error) throw new Error(out?.error || error.message || 'Falha ao gerar com IA')
