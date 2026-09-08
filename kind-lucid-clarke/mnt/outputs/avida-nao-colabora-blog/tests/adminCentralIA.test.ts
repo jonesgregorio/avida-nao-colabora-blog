@@ -4,18 +4,20 @@ import { readFileSync } from 'node:fs'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('AdminAIUsage não é mais renderizado em duas áreas do Admin — só em IA Emocional', () => {
+test('AdminAIUsage não é renderizado em duas áreas — vive em Sistema › Monitoramento › IA', () => {
   const conteudo = read('src/components/admin/AdminAreaConteudo.tsx')
-  const emocional = read('src/components/admin/AdminAreaEmocional.tsx')
+  const sistema = read('src/components/admin/AdminAreaSistema.tsx')
   assert.doesNotMatch(conteudo, /AdminAIUsage/)
-  assert.match(emocional, /<AdminAIUsage \/>/)
+  assert.match(sistema, /import AdminAIUsage/)
+  assert.match(sistema, /id: 'ia', label: 'IA — uso e falhas', Component: AdminAIUsage/)
 })
 
-test('Conteúdo & IA linka para a Central de IA em vez de duplicar a tela', () => {
+test('Conteúdo linka para a Central de IA (agora em Sistema) em vez de duplicar a tela', () => {
   const conteudo = read('src/components/admin/AdminAreaConteudo.tsx')
   assert.match(conteudo, /onOpenCentralIA/)
   const index = read('src/components/admin/index.tsx')
-  assert.match(index, /localStorage\.setItem\('admin-emocional-tab', 'uso-ia'\)/)
+  assert.match(index, /localStorage\.setItem\('admin-sistema-tab', 'ia'\)/)
+  assert.match(index, /navigate\('sistema'\)/)
 })
 
 test('Central de IA continua unificando editorial e emocional sobre a mesma tabela', () => {

@@ -9,8 +9,8 @@ test('Sistema abre a visão amigável e mantém diagnóstico técnico como detal
   const friendly = read('src/components/admin/AdminSystemHealthFriendly.tsx')
 
   assert.match(area, /import AdminSystemHealthFriendly/)
-  assert.match(area, /tab === 'saude' && <AdminSystemHealthFriendly \/>/)
-  assert.doesNotMatch(area, /tab === 'saude' && <AdminSystemHealth \/>/)
+  assert.match(area, /id: 'saude'[\s\S]{0,90}Component: AdminSystemHealthFriendly/)
+  assert.doesNotMatch(area, /Component: AdminSystemHealth\b/)
 
   assert.match(friendly, /Diagnóstico técnico e ferramentas de reparo/)
   assert.match(friendly, /technicalOpen && <div className="border-t border-line"><AdminSystemHealth \/><\/div>/)

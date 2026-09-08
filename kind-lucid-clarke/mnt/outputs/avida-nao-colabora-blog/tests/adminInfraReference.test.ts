@@ -21,8 +21,7 @@ test('a referência cobre as configs que ficam fora do painel', () => {
   assert.doesNotMatch(ref, /supabase\.rpc|functions\.invoke|\.update\(|\.insert\(/)
 })
 
-test('a aba está registrada na área Sistema', () => {
+test('está registrada na área Sistema (Integrações › Infra & externas)', () => {
   assert.match(sistema, /import AdminInfraReference/)
-  assert.match(sistema, /id: 'infra'/)
-  assert.match(sistema, /tab === 'infra' && <AdminInfraReference \/>/)
+  assert.match(sistema, /id: 'infra', label: 'Infra & externas', Component: AdminInfraReference/)
 })

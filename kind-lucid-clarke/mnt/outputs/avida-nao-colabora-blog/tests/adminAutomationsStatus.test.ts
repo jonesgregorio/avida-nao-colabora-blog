@@ -27,8 +27,7 @@ test('RPC lista todos os cron jobs genericamente (um cron novo aparece sozinho)'
 })
 
 test('Admin tem aba Automações mostrando status/duração/erro reais + controle e histórico', () => {
-  assert.match(area, /\{ id: 'automacoes', label: 'Automações'/)
-  assert.match(area, /<AdminAutomationsHealth \/>/)
+  assert.match(area, /id: 'automacoes', label: 'Automações', Component: AdminAutomationsHealth/)
   assert.match(component, /get_cron_automations_status/)
   // Todos os campos continuam visíveis (layout de lista, não mais tabela).
   assert.match(component, /humanSchedule/)             // agendamento legível

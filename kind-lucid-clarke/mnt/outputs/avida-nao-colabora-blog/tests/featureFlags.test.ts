@@ -37,8 +37,7 @@ test('a lib do cliente é falha-segura e a área Sistema ganha a aba', () => {
   assert.match(lib, /supabase\.rpc\('get_active_feature_flags'/)
   assert.match(lib, /return cache/)
   assert.match(lib, /export function isFeatureEnabled/)
-  assert.match(area, /\{ id: 'flags', label: 'Funcionalidades'/)
-  assert.match(area, /tab === 'flags' && <AdminFeatureFlags \/>/)
+  assert.match(area, /id: 'flags', label: 'Feature flags', Component: AdminFeatureFlags/)
 })
 
 test('a escrita passa por admin_can(system,operate) e é auditada', () => {
