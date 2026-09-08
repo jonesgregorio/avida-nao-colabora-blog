@@ -1,4 +1,5 @@
-.admin-shell{--admin-forest:#123528;--admin-forest-2:#1A4A3A;--admin-forest-3:#22553f;--admin-paper:#F7F3EC;--admin-surface:#FFFCF7;--admin-line:#E7DED2;--admin-ink:#18352B;--admin-muted:#6F756F;--admin-success:#DFF3E7;--admin-warning:#FFF1D6;--admin-danger:#FDE5DE;--admin-info:#E6F0F7;background:var(--admin-paper);color:var(--admin-ink)}
+.admin-shell,.admin-login-shell{--admin-forest:#123528;--admin-forest-2:#1A4A3A;--admin-forest-3:#22553f;--admin-paper:#F7F3EC;--admin-surface:#FFFCF7;--admin-line:#E7DED2;--admin-ink:#18352B;--admin-muted:#6F756F;--admin-success:#DFF3E7;--admin-warning:#FFF1D6;--admin-danger:#FDE5DE;--admin-info:#E6F0F7}
+.admin-shell{background:var(--admin-paper);color:var(--admin-ink)}
 .admin-shell main{background:linear-gradient(180deg,#fbf8f2 0%,#f7f3ec 100%)}
 .admin-shell main>div{max-width:1600px;margin:0 auto}
 .admin-shell h1,.admin-shell h2,.admin-shell h3,.admin-shell .font-serif{letter-spacing:-.02em;color:var(--admin-ink)}
