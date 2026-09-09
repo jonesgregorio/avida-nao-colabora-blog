@@ -81,7 +81,14 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
   const [logs, setLogs] = useState<EmailLog[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [stats, setStats] = useState<EmailStats | null>(null)
-  const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending'>('all')
+  const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending' | 'queued' | 'delivered' | 'bounced'>('all')
+  const [templateFilter, setTemplateFilter] = useState('all')
+  const [recipient, setRecipient] = useState('')
+  const [appliedRecipient, setAppliedRecipient] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [resending, setResending] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; template_key: string; subject: string; preheader: string; body_text: string } | null>(null)
@@ -92,20 +99,39 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
     setToast({ msg, err }); setTimeout(() => setToast(null), 3500)
   }
 
-  const load = useCallback(async () => {
+  const LOGS_PAGE = 50
+
+  const loadLogs = useCallback(async () => {
     setLoading(true)
-    const [logsRes, tplRes, statsRes] = await Promise.all([
-      supabase.from('email_logs').select('*').order('created_at', { ascending: false }).limit(200),
+    let q = supabase.from('email_logs').select('*', { count: 'exact' }).order('created_at', { ascending: false })
+    if (filter !== 'all') q = q.eq('status', filter)
+    if (templateFilter !== 'all') q = q.eq('template_key', templateFilter)
+    if (from) q = q.gte('created_at', `${from}T00:00:00`)
+    if (to) q = q.lte('created_at', `${to}T23:59:59`)
+    const r = appliedRecipient.trim()
+    if (r) {
+      if (/^[0-9a-f-]{36}$/i.test(r)) q = q.eq('user_id', r)
+      else q = q.or(`to_email.ilike.%${r}%,email.ilike.%${r}%`)
+    }
+    const { data, count } = await q.range(page * LOGS_PAGE, page * LOGS_PAGE + LOGS_PAGE - 1)
+    setLogs((data as unknown as EmailLog[]) ?? [])
+    setTotal(count ?? 0)
+    setLoading(false)
+  }, [filter, templateFilter, appliedRecipient, from, to, page])
+
+  const loadMeta = useCallback(async () => {
+    const [tplRes, statsRes] = await Promise.all([
       supabase.from('email_templates').select('id, template_key, subject, category, is_active, updated_at').order('template_key'),
       supabase.rpc('get_email_stats'),
     ])
-    setLogs((logsRes.data as unknown as EmailLog[]) ?? [])
     setTemplates((tplRes.data as unknown as EmailTemplate[]) ?? [])
     setStats((statsRes.data as unknown as EmailStats) ?? null)
-    setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => { await Promise.all([loadLogs(), loadMeta()]) }, [loadLogs, loadMeta])
+
+  useEffect(() => { void loadLogs() }, [loadLogs])
+  useEffect(() => { void loadMeta() }, [loadMeta])
 
   async function handleResend(log: EmailLog) {
     const toEmail = log.to_email ?? log.email
@@ -151,11 +177,13 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
     showToast('Template salvo.'); setEditing(null); load()
   }
 
-  const filtered = logs.filter(l => filter === 'all' ? true : l.status === filter)
+  // Já vem filtrado/paginado do servidor.
+  const filtered = logs
+  const totalPages = Math.max(1, Math.ceil(total / LOGS_PAGE))
   const counts = {
-    sent: logs.filter(l => l.status === 'sent').length,
-    failed: logs.filter(l => l.status === 'failed').length,
-    pending: logs.filter(l => l.status === 'pending').length,
+    sent: stats?.totals?.sent ?? 0,
+    failed: stats?.totals?.failed ?? 0,
+    pending: stats?.totals?.pending ?? 0,
   }
 
   return (
@@ -273,12 +301,36 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
         </div>
       )}
 
-      {!loading && tab === 'logs' && (
+      {tab === 'logs' && (
         <div>
           <div className="flex gap-2 mb-3 flex-wrap">
-            {([['all', `Todos (${logs.length})`], ['sent', `Enviados (${counts.sent})`], ['failed', `Falhas (${counts.failed})`], ['pending', `Pendentes (${counts.pending})`]] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setFilter(v)} className={`text-xs px-3 py-1.5 rounded-lg border ${filter === v ? 'bg-forest-900 text-white border-stone-800' : 'border-line text-stone-600 hover:bg-stone-50'}`}>{l}</button>
+            {([['all', 'Todos'], ['sent', `Enviados (${counts.sent})`], ['delivered', 'Entregues'], ['failed', `Falhas (${counts.failed})`], ['pending', `Pendentes (${counts.pending})`], ['queued', 'Na fila'], ['bounced', 'Bounce']] as const).map(([v, l]) => (
+              <button key={v} onClick={() => { setFilter(v); setPage(0) }} className={`text-xs px-3 py-1.5 rounded-lg border ${filter === v ? 'bg-forest-900 text-white border-stone-800' : 'border-line text-stone-600 hover:bg-stone-50'}`}>{l}</button>
             ))}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-2 mb-3 bg-white border border-line rounded-xl p-3">
+            <label className="flex flex-col gap-1 text-xs text-ink-soft">
+              Template
+              <select value={templateFilter} onChange={e => { setTemplateFilter(e.target.value); setPage(0) }} className="border border-line rounded-lg px-2 py-1.5 text-sm">
+                <option value="all">Todos</option>
+                {templates.map(t => <option key={t.id} value={t.template_key}>{t.template_key}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink-soft flex-1 min-w-[180px]">
+              Destinatário / user_id
+              <input value={recipient} onChange={e => setRecipient(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { setAppliedRecipient(recipient); setPage(0) } }}
+                placeholder="e-mail ou UUID" className="border border-line rounded-lg px-2 py-1.5 text-sm" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink-soft">De
+              <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(0) }} className="border border-line rounded-lg px-2 py-1.5 text-sm" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink-soft">Até
+              <input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(0) }} className="border border-line rounded-lg px-2 py-1.5 text-sm" />
+            </label>
+            <button onClick={() => { setAppliedRecipient(recipient); setPage(0) }} className="bg-forest-900 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-forest-800">Aplicar</button>
+            <span className="text-xs text-stone-400 ml-auto">{loading ? 'Carregando…' : `${total.toLocaleString('pt-BR')} registro(s)`}</span>
           </div>
 
           <div className="bg-white rounded-xl border border-line overflow-x-auto">
@@ -319,6 +371,14 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex items-center justify-between mt-3 text-xs text-stone-400">
+            <span>Página {page + 1} de {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Anterior</button>
+              <button onClick={() => setPage(p => (p + 1 < totalPages ? p + 1 : p))} disabled={page + 1 >= totalPages} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Próxima</button>
+            </div>
           </div>
         </div>
       )}

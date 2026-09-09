@@ -25,7 +25,10 @@ test('Central de IA continua unificando editorial e emocional sobre a mesma tabe
   assert.match(src, /Central de IA/)
   assert.match(src, /const EMOTIONAL_TYPES = new Set\(/)
   assert.match(src, /category !== 'todos' && categoryOf\(log\.content_type\) !== category/)
-  assert.match(src, /\.from\('ai_generation_logs'\)/)
+  // A leitura passou a ser via RPC paginada (admin_ai_usage_page), que lê
+  // ai_generation_logs no servidor — mesma tabela unificada.
+  assert.match(src, /admin_ai_usage_page/)
+  assert.match(read('supabase/migrations/20260909120000_admin_ai_usage_paged.sql'), /from public\.ai_generation_logs/)
 })
 
 test('Central de IA oferece filtros por tipo, provedor, status, data e busca', () => {
@@ -50,10 +53,24 @@ test('busca de logs permanece separada da busca de usuário do diagnóstico', ()
   assert.match(src, /const normalizedQuery = logQuery\.trim\(\)/)
 })
 
-test('tabela, cartões e CSV usam a mesma lista filtrada', () => {
+test('tabela e CSV usam a lista da página; cartões usam estatística do FILTRO inteiro', () => {
   const src = read('src/components/admin/AdminAIUsage.tsx')
-  assert.match(src, /const ok = visibleLogs\.filter/)
-  assert.match(src, /const fallbackCount = visibleLogs\.filter/)
+  // tabela + CSV: a lista visível (página)
   assert.match(src, /visibleLogs\.forEach\(l => push/)
   assert.match(src, /\{visibleLogs\.map\(l =>/)
+  // cartões: RPC de estatística server-side, não só a página
+  assert.match(src, /supabase\.rpc\('admin_ai_usage_stats'/)
+  assert.match(src, /const fallbackCount = stats\?\.fallback \?\?/)
+  assert.match(src, /const fails = stats\?\.error \?\?/)
+})
+
+test('Uso de IA é paginado server-side (não mais "últimos 200")', () => {
+  const src = read('src/components/admin/AdminAIUsage.tsx')
+  assert.match(src, /supabase\.rpc\('admin_ai_usage_page'/)
+  assert.doesNotMatch(src, /\.from\('ai_generation_logs'\)[\s\S]{0,120}\.limit\(200\)/)
+  assert.match(src, /p_offset: page \* PAGE_SIZE/)
+  const migration = read('supabase/migrations/20260909120000_admin_ai_usage_paged.sql')
+  assert.match(migration, /create or replace function public\.admin_ai_usage_stats\(/)
+  assert.match(migration, /create or replace function public\.admin_ai_usage_page\(/)
+  assert.match(migration, /if not public\.is_admin\(\) then/i)
 })

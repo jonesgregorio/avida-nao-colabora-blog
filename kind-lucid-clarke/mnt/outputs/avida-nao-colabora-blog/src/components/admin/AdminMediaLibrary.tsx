@@ -20,6 +20,12 @@ export default function AdminMediaLibrary() {
   const [items, setItems] = useState<Media[]>([])
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [q, setQ] = useState('')
+  const [appliedQ, setAppliedQ] = useState('')
+  const [kindFilter, setKindFilter] = useState('all')
+  const PAGE_SIZE = 40
   const [showNew, setShowNew] = useState(false)
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -34,12 +40,18 @@ export default function AdminMediaLibrary() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('media_library').select('*').order('created_at', { ascending: false }).limit(200)
+    let query = supabase.from('media_library').select('*', { count: 'exact' }).order('created_at', { ascending: false })
+    if (kindFilter !== 'all') query = query.eq('kind', kindFilter)
+    const term = appliedQ.trim().replace(/[(),.*"'\\:]/g, ' ')
+    if (term) query = query.or(`alt_text.ilike.%${term}%,credit.ilike.%${term}%,prompt.ilike.%${term}%`)
+    const { data, error, count } = await query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
     if (error) setMissing(true)
     setItems((data as Media[]) ?? [])
+    setTotal(count ?? 0)
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [page, appliedQ, kindFilter])
 
   async function add() {
     if (!url.trim()) { flash('Informe a URL da imagem.', true); return }
@@ -108,6 +120,19 @@ export default function AdminMediaLibrary() {
         </div>
       )}
 
+      {!missing && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setAppliedQ(q); setPage(0) } }}
+            placeholder="Buscar por alt, crédito ou prompt…" className="flex-1 min-w-[200px] border border-line rounded-lg px-3 py-1.5 text-sm" />
+          <select value={kindFilter} onChange={e => { setKindFilter(e.target.value); setPage(0) }} className="border border-line rounded-lg px-2 py-1.5 text-sm">
+            <option value="all">Todos os tipos</option>
+            {KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <button onClick={() => { setAppliedQ(q); setPage(0) }} className="bg-forest-900 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-forest-800">Aplicar</button>
+          <span className="text-xs text-stone-400 ml-auto">{loading ? '…' : `${total.toLocaleString('pt-BR')} imagem(ns)`}</span>
+        </div>
+      )}
+
       {missing ? (
         <div className="p-8 text-center border border-dashed border-line rounded-2xl bg-paper-soft">
           <p className="text-ink-soft text-sm">A tabela <code>media_library</code> ainda não está disponível — aplica com a migration 061 (CI).</p>
@@ -135,6 +160,16 @@ export default function AdminMediaLibrary() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!missing && !loading && total > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-4 text-xs text-stone-400">
+          <span>Página {page + 1} de {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Anterior</button>
+            <button onClick={() => setPage(p => (p + 1) * PAGE_SIZE < total ? p + 1 : p)} disabled={(page + 1) * PAGE_SIZE >= total} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Próxima</button>
+          </div>
         </div>
       )}
     </div>

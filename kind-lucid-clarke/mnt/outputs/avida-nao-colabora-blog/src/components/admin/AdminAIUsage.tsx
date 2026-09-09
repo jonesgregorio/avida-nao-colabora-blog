@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { RefreshCw, Loader2, Cpu, Download, PlayCircle, Search, X, FilterX } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
@@ -19,8 +19,21 @@ interface Log {
   content_type: string
   provider: string
   status: string
+  generation_status?: string | null
+  fallback_used?: boolean | null
+  incident_entity_key?: string | null
+  user_id?: string | null
   error_msg: string | null
   created_at: string
+  total_count?: number
+}
+
+interface UsageStats {
+  total: number
+  success: number
+  error: number
+  fallback: number
+  by_provider: Record<string, number>
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -90,18 +103,41 @@ export default function AdminAIUsage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
-  async function load() {
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [stats, setStats] = useState<UsageStats | null>(null)
+  const PAGE_SIZE = 50
+
+  const rpcArgs = () => ({
+    p_from: dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : null,
+    p_to: dateTo ? new Date(`${dateTo}T23:59:59`).toISOString() : null,
+    p_provider: providerFilter === 'todos' ? null : providerFilter,
+    p_content_type: contentTypeFilter === 'todos' ? null : contentTypeFilter,
+    p_status: statusFilter === 'todos' ? null : statusFilter,
+  })
+
+  const load = useCallback(async () => {
     setLoading(true); setErr('')
-    const { data, error } = await supabase
-      .from('ai_generation_logs')
-      .select('id, content_type, provider, status, error_msg, created_at')
-      .order('created_at', { ascending: false })
-      .limit(200)
-    if (error) setErr(error.message)
-    setLogs((data as Log[]) ?? [])
+    const args = rpcArgs()
+    const [pageRes, statsRes] = await Promise.all([
+      supabase.rpc('admin_ai_usage_page', { ...args, p_search: logQuery.trim() || null, p_limit: PAGE_SIZE, p_offset: page * PAGE_SIZE }),
+      supabase.rpc('admin_ai_usage_stats', args),
+    ])
+    if (pageRes.error) {
+      setErr(pageRes.error.message)
+      setLogs([])
+    } else {
+      const rows = (pageRes.data as Log[]) ?? []
+      setLogs(rows)
+      setTotal(rows[0]?.total_count ?? 0)
+    }
+    if (!statsRes.error && statsRes.data) setStats(statsRes.data as UsageStats)
     setLoading(false)
-  }
-  useEffect(() => { load() }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, logQuery, providerFilter, contentTypeFilter, statusFilter, dateFrom, dateTo])
+  useEffect(() => { void load() }, [load])
+  // Volta para a 1ª página sempre que um filtro muda.
+  useEffect(() => { setPage(0) }, [logQuery, providerFilter, contentTypeFilter, statusFilter, dateFrom, dateTo])
 
   async function buscarUsuario() {
     const term = userQuery.trim()
@@ -147,7 +183,7 @@ export default function AdminAIUsage() {
 
   const contentTypes = [...new Set(logs.map(log => log.content_type).filter(Boolean))]
     .sort((a, b) => typeLabel(a).localeCompare(typeLabel(b), 'pt-BR'))
-  const providerOptions = [...new Set(logs.map(log => log.provider).filter(Boolean))]
+  const providerOptions = [...new Set([...['gemini', 'groq', 'openai', 'fallback'], ...logs.map(log => log.provider).filter(Boolean)])]
     .sort((a, b) => providerLabel(a).localeCompare(providerLabel(b), 'pt-BR'))
 
   // Uma única lista alimenta tabela, cartões e CSV. Assim os números sempre
@@ -183,14 +219,18 @@ export default function AdminAIUsage() {
   }
 
   const ok = visibleLogs.filter(l => l.status === 'success')
-  const byProvider = new Map<string, number>()
-  ok.forEach(l => byProvider.set(l.provider, (byProvider.get(l.provider) ?? 0) + 1))
-  const providers = [...byProvider.entries()].sort((a, b) => b[1] - a[1])
-  const fallbackCount = visibleLogs.filter(l => l.status === 'fallback').length
-  const fails = visibleLogs.filter(l => l.status !== 'success' && l.status !== 'fallback').length
-  const aiAttempts = ok.length + fallbackCount
+  // Cartões de resumo: SEMPRE do período/filtro inteiro (RPC admin_ai_usage_stats),
+  // nunca só da página. A lista client-side abaixo é só a tabela visível.
+  const okTotal = stats?.success ?? ok.length
+  const providers: [string, number][] = stats
+    ? Object.entries(stats.by_provider).sort((a, b) => b[1] - a[1])
+    : [...ok.reduce((m, l) => m.set(l.provider, (m.get(l.provider) ?? 0) + 1), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1])
+  const fallbackCount = stats?.fallback ?? visibleLogs.filter(l => l.status === 'fallback').length
+  const fails = stats?.error ?? visibleLogs.filter(l => l.status !== 'success' && l.status !== 'fallback').length
+  const aiAttempts = okTotal + fallbackCount
   const fallbackRate = aiAttempts > 0 ? Math.round((fallbackCount / aiAttempts) * 100) : 0
   const FALLBACK_ALERT_THRESHOLD = 30
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const fmt = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
@@ -205,7 +245,7 @@ export default function AdminAIUsage() {
     lines.push('')
 
     push(['RESUMO POR PROVEDOR', 'Gerações (sucesso)', '% do total'])
-    providers.forEach(([p, n]) => push([providerLabel(p), n, `${Math.round((n / Math.max(1, ok.length)) * 100)}%`]))
+    providers.forEach(([p, n]) => push([providerLabel(p), n, `${Math.round((n / Math.max(1, okTotal)) * 100)}%`]))
     if (fallbackCount > 0) push(['Fallback (rede de segurança, sem IA)', fallbackCount, `${fallbackRate}%`])
     if (fails > 0) push(['Erros técnicos (tentativas com falha)', fails, ''])
     lines.push('')
@@ -273,7 +313,7 @@ export default function AdminAIUsage() {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <p className="text-sm font-medium text-forest-900">Filtrar gerações</p>
-            <p className="text-xs text-ink-soft mt-0.5">{visibleLogs.length} de {logs.length} registros recentes.</p>
+            <p className="text-xs text-ink-soft mt-0.5">{total.toLocaleString('pt-BR')} registro(s) no filtro · página {page + 1}/{totalPages}</p>
           </div>
           {hasDetailedFilters && (
             <button type="button" onClick={clearDetailedFilters} className="inline-flex items-center gap-1.5 text-xs text-forest-700 hover:text-forest-900">
@@ -391,7 +431,7 @@ export default function AdminAIUsage() {
           <div key={p} className="bg-white border border-line rounded-2xl p-5">
             <div className="mb-2">{providerBadge(p)}</div>
             <p className="font-serif text-3xl text-forest-900">{n}</p>
-            <p className="text-sm text-ink-soft mt-1">gerações ({Math.round((n / Math.max(1, ok.length)) * 100)}% do total)</p>
+            <p className="text-sm text-ink-soft mt-1">gerações ({Math.round((n / Math.max(1, okTotal)) * 100)}% do total)</p>
           </div>
         ))}
         {fallbackCount > 0 && (
@@ -454,6 +494,16 @@ export default function AdminAIUsage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-3 text-xs text-stone-400">
+            <span>Página {page + 1} de {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Anterior</button>
+              <button onClick={() => setPage(p => (p + 1 < totalPages ? p + 1 : p))} disabled={page + 1 >= totalPages} className="border border-line rounded-lg px-2 py-1 disabled:opacity-40 hover:border-forest-300">Próxima</button>
+            </div>
           </div>
         )}
       </div>
