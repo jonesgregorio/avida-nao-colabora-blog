@@ -16,12 +16,16 @@ test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', ()
   assert.match(questionnaireLegacy, /Suas avaliações/)
 })
 
-test('Plano de Autocuidado usa somente a experiência mensal nova na navegação do usuário', () => {
+test('Plano de Autocuidado usa somente a experiência mensal viva na navegação do usuário', () => {
+  assert.match(care, /Plano vivo de autocuidado/i)
   assert.match(care, /Seu foco atual/)
   assert.match(care, /Para experimentar/)
-  assert.match(care, /Uma possibilidade/)
-  assert.match(care, /Histórico de planos/)
+  assert.match(care, /Outras possibilidades para este mês/)
+  assert.match(care, /Seu plano neste ciclo/)
+  assert.match(care, /Hoje está difícil\?/)
   assert.match(care, /Como foi o plano anterior/)
+  assert.match(care, /Seu plano precisa mudar\?/)
+  assert.match(care, /Histórico do cuidado/)
   assert.match(care, /CarePlanActionFeedback/)
   assert.doesNotMatch(care, /SelfCarePlanPageLegacy/)
   assert.doesNotMatch(care, /showLegacy/)
@@ -32,8 +36,8 @@ test('histórico mensal abre em modal visível e permite reabrir qualquer mês',
   assert.match(care, /role="dialog" aria-modal="true" aria-labelledby="care-history-title"/)
   assert.match(care, /escolha um mês para abrir/)
   assert.match(care, /const openPlan = \(planId: string\)/)
-  assert.match(care, /setSelectedId\(planId\)/)
-  assert.match(care, /window\.scrollTo\(\{ top: 0, behavior: 'smooth' \}\)/)
+  assert.match(care, /setSelectedId\s*\(\s*planId\s*\)/)
+  assert.match(care, /window\.scrollTo\s*\(\s*\{\s*top:\s*0,\s*behavior:\s*'smooth'\s*\}\s*\)/)
   assert.match(care, /Ver planos anteriores/)
   assert.match(care, /Histórico completo/)
 })
@@ -45,13 +49,26 @@ test('Entender melhor permanece na experiência nova do Plano de Autocuidado', (
   assert.match(care, /Este detalhamento faz parte da experiência atual do Plano de Autocuidado/)
 })
 
-test('Ajustes abre preferências da experiência nova sem navegar para a tela legada', () => {
+test('Ajustes de apresentação ficam separados do ajuste do conteúdo do plano', () => {
   assert.match(care, /onClick=\{\(\) => setSettingsOpen\(true\)\}/)
+  assert.match(care, /Ajustes de apresentação/)
   assert.match(care, /Ajustes do Plano de Autocuidado/)
   assert.match(care, /Como você prefere explorar o plano\?/)
   assert.match(care, /Mostrar lembretes gentis/)
   assert.match(care, /Explicar como os dados entram no plano/)
+  assert.match(care, /Ajustar meu plano/)
   assert.match(care, /care-plan-preferences:/)
+})
+
+test('feedback do plano vivo não usa mecânicas de performance', () => {
+  assert.match(care, /Fiz e me ajudou/)
+  assert.match(care, /Fiz, mas não mudou muito/)
+  assert.match(care, /Ainda não tentei/)
+  assert.match(care, /Hoje não consegui/)
+  assert.match(care, /Quero adaptar/)
+  assert.match(care, /Não combina comigo/)
+  assert.match(care, /Sem meta ou sequência/)
+  assert.doesNotMatch(care, /\bstreak\b|\bscore\b|<progress\b|role=["']progressbar["']|aria-valuenow/i)
 })
 
 test('detalhes da experiência nova continuam sem criar persistência paralela de planos', () => {
