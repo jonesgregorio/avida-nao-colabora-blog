@@ -69,116 +69,50 @@ const THEMES: GardenTheme[] = [
   {
     name: 'Jardim da Clareira',
     subtitle: 'Um espaço aberto, quente e acolhedor para crescer no seu ritmo.',
-    skyA: '#f9e5c1',
-    skyB: '#f7f0e5',
-    mountainA: '#8f9183',
-    mountainB: '#6f786d',
-    lawnA: '#698057',
-    lawnB: '#3f5f46',
-    foliageA: '#254d39',
-    foliageB: '#54734c',
-    flowerA: '#f4f1e5',
-    flowerB: '#c89aa7',
-    flowerC: '#d8aa73',
-    waterA: '#789b98',
-    waterB: '#395f60',
-    trunk: '#70503b',
-    glow: '#f1c775',
+    skyA: '#f9e5c1', skyB: '#f7f0e5', mountainA: '#8f9183', mountainB: '#6f786d',
+    lawnA: '#698057', lawnB: '#3f5f46', foliageA: '#254d39', foliageB: '#54734c',
+    flowerA: '#f4f1e5', flowerB: '#c89aa7', flowerC: '#d8aa73', waterA: '#789b98', waterB: '#395f60',
+    trunk: '#70503b', glow: '#f1c775',
   },
   {
     name: 'Jardim das Primeiras Folhas',
     subtitle: 'Folhagens delicadas começam a ocupar os caminhos.',
-    skyA: '#f1dfc7',
-    skyB: '#eef2e4',
-    mountainA: '#879486',
-    mountainB: '#627469',
-    lawnA: '#758b61',
-    lawnB: '#46654c',
-    foliageA: '#31533e',
-    foliageB: '#617b54',
-    flowerA: '#f2eee0',
-    flowerB: '#d4a28e',
-    flowerC: '#c5a7bb',
-    waterA: '#7ba0a0',
-    waterB: '#41666a',
-    trunk: '#73523d',
-    glow: '#eac882',
+    skyA: '#f1dfc7', skyB: '#eef2e4', mountainA: '#879486', mountainB: '#627469',
+    lawnA: '#758b61', lawnB: '#46654c', foliageA: '#31533e', foliageB: '#617b54',
+    flowerA: '#f2eee0', flowerB: '#d4a28e', flowerC: '#c5a7bb', waterA: '#7ba0a0', waterB: '#41666a',
+    trunk: '#73523d', glow: '#eac882',
   },
   {
     name: 'Jardim da Montanha',
     subtitle: 'A paisagem ganha horizonte, sombra e novas camadas de verde.',
-    skyA: '#eadfcb',
-    skyB: '#edf0df',
-    mountainA: '#7d8981',
-    mountainB: '#586b61',
-    lawnA: '#6c825b',
-    lawnB: '#3c5a43',
-    foliageA: '#294a37',
-    foliageB: '#5a774f',
-    flowerA: '#f4eedf',
-    flowerB: '#d1a394',
-    flowerC: '#d8bb7e',
-    waterA: '#72989a',
-    waterB: '#3d6268',
-    trunk: '#6f4e39',
-    glow: '#ecc47b',
+    skyA: '#eadfcb', skyB: '#edf0df', mountainA: '#7d8981', mountainB: '#586b61',
+    lawnA: '#6c825b', lawnB: '#3c5a43', foliageA: '#294a37', foliageB: '#5a774f',
+    flowerA: '#f4eedf', flowerB: '#d1a394', flowerC: '#d8bb7e', waterA: '#72989a', waterB: '#3d6268',
+    trunk: '#6f4e39', glow: '#ecc47b',
   },
   {
     name: 'Jardim das Flores',
     subtitle: 'Canteiros mais vivos deixam a paisagem mais colorida.',
-    skyA: '#f2dec7',
-    skyB: '#eff0df',
-    mountainA: '#8b8d7e',
-    mountainB: '#637066',
-    lawnA: '#74885c',
-    lawnB: '#476146',
-    foliageA: '#2f513a',
-    foliageB: '#62794f',
-    flowerA: '#f7f0df',
-    flowerB: '#cf8f9f',
-    flowerC: '#d59d67',
-    waterA: '#789b97',
-    waterB: '#436467',
-    trunk: '#73503a',
-    glow: '#f0c16d',
+    skyA: '#f2dec7', skyB: '#eff0df', mountainA: '#8b8d7e', mountainB: '#637066',
+    lawnA: '#74885c', lawnB: '#476146', foliageA: '#2f513a', foliageB: '#62794f',
+    flowerA: '#f7f0df', flowerB: '#cf8f9f', flowerC: '#d59d67', waterA: '#789b97', waterB: '#436467',
+    trunk: '#73503a', glow: '#f0c16d',
   },
   {
     name: 'Recanto do Entardecer',
     subtitle: 'A luz baixa deixa o jardim mais íntimo e contemplativo.',
-    skyA: '#f3d5ae',
-    skyB: '#f2e7da',
-    mountainA: '#817f78',
-    mountainB: '#5a685f',
-    lawnA: '#6b7e54',
-    lawnB: '#405a40',
-    foliageA: '#2c4b35',
-    foliageB: '#5a704a',
-    flowerA: '#f3ead8',
-    flowerB: '#bd8998',
-    flowerC: '#d18f61',
-    waterA: '#72908f',
-    waterB: '#3c5d61',
-    trunk: '#694936',
-    glow: '#e9ad5e',
+    skyA: '#f3d5ae', skyB: '#f2e7da', mountainA: '#817f78', mountainB: '#5a685f',
+    lawnA: '#6b7e54', lawnB: '#405a40', foliageA: '#2c4b35', foliageB: '#5a704a',
+    flowerA: '#f3ead8', flowerB: '#bd8998', flowerC: '#d18f61', waterA: '#72908f', waterB: '#3c5d61',
+    trunk: '#694936', glow: '#e9ad5e',
   },
   {
     name: 'Jardim do Lago',
     subtitle: 'Água e vegetação formam um novo canto de pausa.',
-    skyA: '#eadfc8',
-    skyB: '#edf0e2',
-    mountainA: '#809087',
-    mountainB: '#596c64',
-    lawnA: '#6b8560',
-    lawnB: '#3e604c',
-    foliageA: '#2a503d',
-    foliageB: '#5c7855',
-    flowerA: '#f5efe1',
-    flowerB: '#c79cab',
-    flowerC: '#d7ad70',
-    waterA: '#6f9ca0',
-    waterB: '#385f68',
-    trunk: '#6f503c',
-    glow: '#e8c77f',
+    skyA: '#eadfc8', skyB: '#edf0e2', mountainA: '#809087', mountainB: '#596c64',
+    lawnA: '#6b8560', lawnB: '#3e604c', foliageA: '#2a503d', foliageB: '#5c7855',
+    flowerA: '#f5efe1', flowerB: '#c79cab', flowerC: '#d7ad70', waterA: '#6f9ca0', waterB: '#385f68',
+    trunk: '#6f503c', glow: '#e8c77f',
   },
 ]
 
@@ -231,9 +165,7 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
       const { data } = await supabase.rpc('get_my_garden_state')
       if (alive && data) setState(data as GardenState)
     })().catch(() => {})
-    return () => {
-      alive = false
-    }
+    return () => { alive = false }
   }, [userId, access])
 
   if (!access) {
@@ -243,11 +175,7 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
           <LockKeyhole className="mx-auto h-9 w-9 text-forest-500" />
           <h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1>
           <p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>
-          {onNavigatePricing && (
-            <button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">
-              Ver planos
-            </button>
-          )}
+          {onNavigatePricing && <button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">Ver planos</button>}
         </section>
       </div>
     )
@@ -266,16 +194,53 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
   return (
     <main className="min-h-full bg-[#f7f0e5] text-[#183a2d]">
       <style>{`
-        @keyframes garden-bird-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
-        @keyframes garden-butterfly { 0%,100% { transform: translate(0,0) rotate(-5deg) } 45% { transform: translate(28px,-12px) rotate(5deg) } 75% { transform: translate(44px,4px) rotate(-2deg) } }
-        @keyframes garden-leaf { 0%,100% { transform: rotate(-0.4deg) } 50% { transform: rotate(0.7deg) } }
-        @keyframes garden-glow { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
-        .garden-birds { animation: garden-bird-float 5.5s ease-in-out infinite; }
-        .garden-butterfly { animation: garden-butterfly 8s ease-in-out infinite; }
-        .garden-tree { transform-origin: 41% 82%; animation: garden-leaf 7s ease-in-out infinite; }
-        .garden-glow { animation: garden-glow 3.4s ease-in-out infinite; }
+        @keyframes garden-tree-sway { 0%,100%{transform:rotate(-.55deg)} 50%{transform:rotate(.75deg)} }
+        @keyframes garden-crown-breathe { 0%,100%{transform:rotate(-.35deg) scale(1)} 50%{transform:rotate(.55deg) scale(1.008)} }
+        @keyframes garden-shrub-sway { 0%,100%{transform:skewX(-.4deg)} 50%{transform:skewX(.7deg)} }
+        @keyframes garden-sprout-sway { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(3deg)} }
+        @keyframes garden-flower-sway { 0%,100%{transform:rotate(-2.3deg)} 50%{transform:rotate(2.8deg)} }
+        @keyframes garden-bird-flight-a { 0%{transform:translate(-85px,18px) scale(.92);opacity:0} 10%{opacity:1} 48%{transform:translate(20px,-14px) scale(1)} 90%{opacity:1} 100%{transform:translate(138px,8px) scale(.94);opacity:0} }
+        @keyframes garden-bird-flight-b { 0%{transform:translate(95px,25px) scale(.88);opacity:0} 10%{opacity:1} 52%{transform:translate(-8px,-18px) scale(1)} 90%{opacity:1} 100%{transform:translate(-135px,12px) scale(.9);opacity:0} }
+        @keyframes garden-wing-flap { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(.42)} }
+        @keyframes garden-butterfly-flight { 0%,100%{transform:translate(0,0) rotate(-6deg)} 22%{transform:translate(34px,-19px) rotate(5deg)} 52%{transform:translate(76px,3px) rotate(-3deg)} 78%{transform:translate(42px,22px) rotate(5deg)} }
+        @keyframes garden-butterfly-wing { 0%,100%{transform:scaleX(1)} 50%{transform:scaleX(.28)} }
+        @keyframes garden-ground-bird-walk { 0%,8%{transform:translateX(0) translateY(0)} 20%{transform:translateX(18px) translateY(-3px)} 34%{transform:translateX(38px) translateY(0)} 46%{transform:translateX(54px) translateY(-2px)} 58%,82%{transform:translateX(70px) translateY(0)} 92%{transform:translateX(28px) translateY(-2px)} 100%{transform:translateX(0) translateY(0)} }
+        @keyframes garden-leg-step-a { 0%,100%{transform:rotate(10deg)} 50%{transform:rotate(-16deg)} }
+        @keyframes garden-leg-step-b { 0%,100%{transform:rotate(-14deg)} 50%{transform:rotate(12deg)} }
+        @keyframes garden-duck-swim { 0%,100%{transform:translateX(-45px)} 50%{transform:translateX(58px)} }
+        @keyframes garden-water-ripple { 0%{transform:scale(.72);opacity:.42} 70%{opacity:.14} 100%{transform:scale(1.16);opacity:0} }
+        @keyframes garden-lily-float { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(3px) rotate(1deg)} }
+        @keyframes garden-reed-sway { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2.5deg)} }
+        @keyframes garden-leaf-fall { 0%{transform:translate(0,-24px) rotate(0);opacity:0} 12%{opacity:.7} 60%{transform:translate(32px,56px) rotate(140deg);opacity:.65} 100%{transform:translate(10px,118px) rotate(250deg);opacity:0} }
+        @keyframes garden-firefly { 0%,100%{transform:translate(0,0);opacity:.25} 30%{transform:translate(8px,-12px);opacity:1} 68%{transform:translate(-7px,-22px);opacity:.55} }
+        @keyframes garden-lantern-glow { 0%,100%{opacity:.62} 50%{opacity:1} }
+
+        .garden-tree { animation:garden-tree-sway 7.4s ease-in-out infinite; transform-box:fill-box; }
+        .garden-tree-crown { animation:garden-crown-breathe 5.8s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        .garden-shrub { animation:garden-shrub-sway 6.8s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        .garden-sprout { animation:garden-sprout-sway 4.8s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        .garden-flower { animation:garden-flower-sway 4.1s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        .garden-bird-one { animation:garden-bird-flight-a 10.5s ease-in-out infinite; }
+        .garden-bird-two { animation:garden-bird-flight-b 13s ease-in-out infinite 1.8s; }
+        .garden-bird-wing { animation:garden-wing-flap .48s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+        .garden-butterfly { animation:garden-butterfly-flight 8.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+        .garden-butterfly-wing { animation:garden-butterfly-wing .55s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+        .garden-ground-bird { animation:garden-ground-bird-walk 11s ease-in-out infinite; }
+        .garden-ground-leg-a { animation:garden-leg-step-a .7s ease-in-out infinite; transform-box:fill-box; transform-origin:center top; }
+        .garden-ground-leg-b { animation:garden-leg-step-b .7s ease-in-out infinite; transform-box:fill-box; transform-origin:center top; }
+        .garden-duck { animation:garden-duck-swim 15s ease-in-out infinite; }
+        .garden-water-ripple { animation:garden-water-ripple 4.6s ease-out infinite; transform-box:fill-box; transform-origin:center; }
+        .garden-lily { animation:garden-lily-float 5.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+        .garden-reed { animation:garden-reed-sway 4.9s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        .garden-falling-leaf { animation:garden-leaf-fall 8.5s linear infinite; }
+        .garden-firefly { animation:garden-firefly 4.2s ease-in-out infinite; }
+        .garden-lantern-glow { animation:garden-lantern-glow 3s ease-in-out infinite; }
+
         @media (prefers-reduced-motion: reduce) {
-          .garden-birds,.garden-butterfly,.garden-tree,.garden-glow { animation: none !important; }
+          .garden-tree,.garden-tree-crown,.garden-shrub,.garden-sprout,.garden-flower,
+          .garden-bird-one,.garden-bird-two,.garden-bird-wing,.garden-butterfly,.garden-butterfly-wing,
+          .garden-ground-bird,.garden-ground-leg-a,.garden-ground-leg-b,.garden-duck,.garden-water-ripple,
+          .garden-lily,.garden-reed,.garden-falling-leaf,.garden-firefly,.garden-lantern-glow { animation:none !important; }
         }
       `}</style>
 
@@ -284,15 +249,10 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
         <div className="mx-auto grid max-w-[1280px] gap-8 px-5 pb-8 pt-9 sm:px-8 lg:grid-cols-[1fr_360px] lg:items-start lg:pb-10">
           <div className="relative z-10 max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[.28em] text-[#446954]">Meu Jardim</p>
-            <h1 className="mt-3 max-w-[680px] font-serif text-5xl leading-[.98] tracking-[-.025em] text-[#17372b] sm:text-6xl lg:text-[72px]">
-              Um espaço<br />que cresce com você
-            </h1>
-            <p className="mt-5 max-w-[560px] text-[15px] leading-7 text-[#5d685f] sm:text-base">
-              Cada pequeno cuidado importa. Aqui, suas ações se transformam em vida, beleza e presença. Sua trajetória ganha forma aos poucos, sem pressa e sem perder o que já foi construído.
-            </p>
+            <h1 className="mt-3 max-w-[680px] font-serif text-5xl leading-[.98] tracking-[-.025em] text-[#17372b] sm:text-6xl lg:text-[72px]">Um espaço<br />que cresce com você</h1>
+            <p className="mt-5 max-w-[560px] text-[15px] leading-7 text-[#5d685f] sm:text-base">Cada pequeno cuidado importa. Aqui, suas ações se transformam em vida, beleza e presença. Sua trajetória ganha forma aos poucos, sem pressa e sem perder o que já foi construído.</p>
             <p className="mt-6 max-w-xl font-serif text-xl italic text-[#355a47]">Cuidar de si também é construir um lugar melhor para ficar.</p>
           </div>
-
           <aside className="relative z-10 rounded-[28px] border border-white/80 bg-[#fffaf2]/82 p-7 shadow-[0_22px_55px_rgba(54,61,43,.12)] backdrop-blur-md">
             <div className="font-serif text-5xl leading-none text-[#466b50]">“</div>
             <p className="mt-1 text-center font-serif text-[22px] leading-8 text-[#284838]">Todo progresso, por menor que pareça, também floresce.</p>
@@ -314,19 +274,11 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
 
           <div className="relative z-30 mx-4 mb-4 mt-[420px] rounded-[30px] border border-white/80 bg-[#fffaf4]/94 p-5 shadow-[0_20px_60px_rgba(35,50,37,.16)] backdrop-blur-md sm:mx-auto sm:mb-7 sm:mt-[460px] sm:max-w-[720px] sm:p-6">
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#e9eadf] text-[#315b43]"><Sprout className="h-5 w-5" /></span>
-                  <div>
-                    <h2 className="font-serif text-2xl text-[#204333]">{theme.name}</h2>
-                    <p className="text-xs text-[#667067]">Em evolução</p>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-[#e9eadf] text-[#315b43]"><Sprout className="h-5 w-5" /></span>
+                <div><h2 className="font-serif text-2xl text-[#204333]">{theme.name}</h2><p className="text-xs text-[#667067]">Em evolução</p></div>
               </div>
-              <div className="text-left md:text-right">
-                <p className="text-[10px] uppercase tracking-[.2em] text-[#899486]">Etapa visual</p>
-                <p className="mt-1 font-serif text-lg text-[#315b43]">{stage} de 6</p>
-              </div>
+              <div className="text-left md:text-right"><p className="text-[10px] uppercase tracking-[.2em] text-[#899486]">Etapa visual</p><p className="mt-1 font-serif text-lg text-[#315b43]">{stage} de 6</p></div>
             </div>
 
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e9e4d8]" aria-label="Progresso visual do jardim">
@@ -338,13 +290,8 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
                 const reached = stage >= itemStage
                 const active = stage === itemStage
                 return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => itemStage > 0 && reached && setSelectedStage(itemStage)}
-                    disabled={!reached || itemStage === 0}
-                    className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2 py-2 text-center transition ${active ? 'bg-[#315b43] text-white shadow-sm' : reached ? 'bg-[#f2eee5] text-[#47624f] hover:bg-[#e8e6db]' : 'text-[#a2aa9f]'}`}
-                  >
+                  <button key={label} type="button" onClick={() => itemStage > 0 && reached && setSelectedStage(itemStage)} disabled={!reached || itemStage === 0}
+                    className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2 py-2 text-center transition ${active ? 'bg-[#315b43] text-white shadow-sm' : reached ? 'bg-[#f2eee5] text-[#47624f] hover:bg-[#e8e6db]' : 'text-[#a2aa9f]'}`}>
                     <span className={`grid h-9 w-9 place-items-center rounded-full ${active ? 'bg-white/12' : reached ? 'bg-white' : 'bg-[#efece4]'}`}><Icon className="h-4 w-4" /></span>
                     <span className="text-[10px] font-medium">{label}</span>
                   </button>
@@ -352,9 +299,7 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
               })}
             </div>
 
-            <p className="mt-5 text-center font-serif text-[16px] italic text-[#526356]">
-              {stage === 0 ? 'Seu espaço ainda está em preparação — e tudo bem começar devagar.' : currentElement?.why || 'Seu jardim continua ganhando forma.'}
-            </p>
+            <p className="mt-5 text-center font-serif text-[16px] italic text-[#526356]">{stage === 0 ? 'Seu espaço ainda está em preparação — e tudo bem começar devagar.' : currentElement?.why || 'Seu jardim continua ganhando forma.'}</p>
           </div>
         </section>
 
@@ -363,54 +308,32 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
             <h2 className="font-serif text-[26px] text-[#234333]">Ações que fazem seu jardim crescer</h2>
             <p className="mt-1 text-sm text-[#70776f]">Diferentes áreas do AVNC contribuem para o jardim. Nenhuma ação simples, sozinha, completa uma transformação.</p>
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {CONTRIBUTIONS.map(({ label, hint, Icon }) => (
-                <div key={label} className="rounded-[20px] border border-[#e7dfd1] bg-[#fbf8f1] p-3 text-center">
-                  <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#e8eadf] text-[#315b43]"><Icon className="h-5 w-5" /></span>
-                  <p className="mt-2 text-[11px] font-semibold leading-4 text-[#315040]">{label}</p>
-                  <p className="mt-1 text-[10px] leading-4 text-[#858c83]">{hint}</p>
-                </div>
-              ))}
+              {CONTRIBUTIONS.map(({ label, hint, Icon }) => <div key={label} className="rounded-[20px] border border-[#e7dfd1] bg-[#fbf8f1] p-3 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#e8eadf] text-[#315b43]"><Icon className="h-5 w-5" /></span><p className="mt-2 text-[11px] font-semibold leading-4 text-[#315040]">{label}</p><p className="mt-1 text-[10px] leading-4 text-[#858c83]">{hint}</p></div>)}
             </div>
           </section>
 
           <section className="relative overflow-hidden rounded-[30px] border border-[#375d43] bg-[#2f5a3d] p-6 text-[#fffaf2] shadow-[0_18px_45px_rgba(42,72,49,.18)]">
             <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/5" />
             <div className="relative flex gap-5">
-              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/30 bg-[#426b4d] shadow-inner">
-                {nextElement ? <nextElement.Icon className="h-10 w-10 text-[#f1e5bd]" /> : <Sparkles className="h-10 w-10 text-[#f1e5bd]" />}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[.2em] text-[#cdd9c7]">{nextElement ? 'Próximo elemento' : 'Jardim maduro'}</p>
-                <h2 className="mt-2 font-serif text-3xl">{nextElement?.name || 'Um novo jardim virá depois'}</h2>
-                <p className="mt-3 text-sm leading-6 text-[#dce6da]">
-                  {nextElement ? 'Ele aparecerá quando novos momentos de cuidado se somarem à sua trajetória.' : 'Quando este espaço amadurecer, ele será preservado nas Memórias do Jardim e outro surgirá automaticamente.'}
-                </p>
-              </div>
+              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/30 bg-[#426b4d] shadow-inner">{nextElement ? <nextElement.Icon className="h-10 w-10 text-[#f1e5bd]" /> : <Sparkles className="h-10 w-10 text-[#f1e5bd]" />}</div>
+              <div><p className="text-[10px] uppercase tracking-[.2em] text-[#cdd9c7]">{nextElement ? 'Próximo elemento' : 'Jardim maduro'}</p><h2 className="mt-2 font-serif text-3xl">{nextElement?.name || 'Um novo jardim virá depois'}</h2><p className="mt-3 text-sm leading-6 text-[#dce6da]">{nextElement ? 'Ele aparecerá quando novos momentos de cuidado se somarem à sua trajetória.' : 'Quando este espaço amadurecer, ele será preservado nas Memórias do Jardim e outro surgirá automaticamente.'}</p></div>
             </div>
           </section>
         </div>
 
         <section className="mt-7 border-t border-[#ded4c5] pt-7">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7d0c3] bg-[#fffaf3]"><TreePine className="h-4 w-4 text-[#315b43]" /></span><h2 className="font-serif text-2xl text-[#234333]">Memórias do Jardim</h2></div>
-              <p className="mt-2 text-sm text-[#727a72]">Cada jardim concluído fica salvo aqui, como parte da sua história. Não existe último jardim por aqui.</p>
-            </div>
+            <div><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7d0c3] bg-[#fffaf3]"><TreePine className="h-4 w-4 text-[#315b43]" /></span><h2 className="font-serif text-2xl text-[#234333]">Memórias do Jardim</h2></div><p className="mt-2 text-sm text-[#727a72]">Cada jardim concluído fica salvo aqui, como parte da sua história. Não existe último jardim por aqui.</p></div>
             {memories.length > 0 && <span className="text-xs font-semibold text-[#315b43]">{state.completed_gardens} {state.completed_gardens === 1 ? 'jardim preservado' : 'jardins preservados'}</span>}
           </div>
-
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {memories.map((index) => <GardenMemoryCard key={index} index={index} />)}
-            <div className="min-h-[185px] rounded-[24px] border border-[#dcd3c5] bg-[#f1eadf] p-5 text-center">
-              <div className="mx-auto mt-4 grid h-12 w-12 place-items-center rounded-full bg-[#e1e5da] text-[#315b43]"><Sprout className="h-5 w-5" /></div>
-              <p className="mt-4 font-serif text-lg text-[#315040]">Novo jardim em andamento…</p>
-              <p className="mt-1 text-xs text-[#858b84]">Mais histórias para viver.</p>
-            </div>
+            <div className="min-h-[185px] rounded-[24px] border border-[#dcd3c5] bg-[#f1eadf] p-5 text-center"><div className="mx-auto mt-4 grid h-12 w-12 place-items-center rounded-full bg-[#e1e5da] text-[#315b43]"><Sprout className="h-5 w-5" /></div><p className="mt-4 font-serif text-lg text-[#315040]">Novo jardim em andamento…</p><p className="mt-1 text-xs text-[#858b84]">Mais histórias para viver.</p></div>
           </div>
         </section>
 
         <section className="mt-7 rounded-[28px] border border-[#e0d6c7] bg-[#fbf7ef] px-6 py-5 text-sm leading-6 text-[#69736b]">
-          O jardim não funciona como uma recompensa por cliques. Ele observa momentos de cuidado ao longo do tempo. Um Check-in isolado não muda tudo; pequenas mudanças aparecem com alguma continuidade, e completar um jardim exige uma trajetória mais consistente. O jardim jamais termina.
+          Sem placar, sem streak e sem punição. O jardim não funciona como uma recompensa por cliques. Dias com Check-ins ou Diário formam a base, enquanto outras experiências também contribuem de forma equilibrada. Um Check-in isolado não muda tudo. O jardim nunca termina: cada jardim amadurecido é preservado e um novo começa automaticamente.
         </section>
       </div>
     </main>
@@ -421,8 +344,10 @@ function GardenScene({ stage, theme, variant }: { stage: number; theme: GardenTh
   const treeLeft = variant % 2 === 0
   const treeX = treeLeft ? 330 : 690
   const lakeX = treeLeft ? 760 : 245
+  const groundBirdX = treeLeft ? 520 : 390
+
   return (
-    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1100 690" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Paisagem do Meu Jardim">
+    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1100 690" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Paisagem viva do Meu Jardim">
       <defs>
         <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={theme.skyA} /><stop offset="1" stopColor={theme.skyB} /></linearGradient>
         <linearGradient id="lawn" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={theme.lawnA} /><stop offset="1" stopColor={theme.lawnB} /></linearGradient>
@@ -441,124 +366,60 @@ function GardenScene({ stage, theme, variant }: { stage: number; theme: GardenTh
       <path d="M500 690 C520 635 545 590 582 548 C615 511 647 488 686 466" fill="none" stroke="#eadfc8" strokeWidth="47" strokeLinecap="round" strokeDasharray="20 17" opacity=".95" />
 
       <g opacity=".96">
-        <path d="M0 497 C55 442 111 453 163 480 C99 484 60 515 0 548Z" fill={theme.foliageA} />
-        <path d="M1100 481 C1040 438 983 446 933 480 C996 484 1041 520 1100 546Z" fill={theme.foliageA} />
-        <g fill={theme.foliageB} opacity=".88">
-          {[70,105,142,955,995,1035].map((x, i) => <ellipse key={x} cx={x} cy={476 + (i % 2) * 7} rx="25" ry="69" />)}
-        </g>
+        <g className="garden-shrub"><path d="M0 497 C55 442 111 453 163 480 C99 484 60 515 0 548Z" fill={theme.foliageA} /></g>
+        <g className="garden-shrub" style={{ animationDelay: '-2.4s' }}><path d="M1100 481 C1040 438 983 446 933 480 C996 484 1041 520 1100 546Z" fill={theme.foliageA} /></g>
+        <g fill={theme.foliageB} opacity=".88">{[70,105,142,955,995,1035].map((x, i) => <ellipse className="garden-shrub" style={{ animationDelay: `${-i * .7}s` }} key={x} cx={x} cy={476 + (i % 2) * 7} rx="25" ry="69" />)}</g>
       </g>
 
-      {stage >= 1 && (
-        <g>
-          {[160,205,252,807,850,900].map((x, i) => (
-            <g key={x} transform={`translate(${x} ${548 + (i % 2) * 11})`}>
-              <path d="M0 32 Q-6 14 -13 1 M0 32 Q7 13 16 2" fill="none" stroke="#365d43" strokeWidth="4" strokeLinecap="round" />
-              <ellipse cx="-13" cy="3" rx="8" ry="4" fill="#6f915e" transform="rotate(-24 -13 3)" />
-              <ellipse cx="16" cy="4" rx="8" ry="4" fill="#819d68" transform="rotate(25 16 4)" />
-            </g>
-          ))}
-        </g>
-      )}
+      {stage >= 1 && <g>{[160,205,252,807,850,900].map((x, i) => <g className="garden-sprout" style={{ animationDelay: `${-i * .65}s` }} key={x} transform={`translate(${x} ${548 + (i % 2) * 11})`}><path d="M0 32 Q-6 14 -13 1 M0 32 Q7 13 16 2" fill="none" stroke="#365d43" strokeWidth="4" strokeLinecap="round" /><ellipse cx="-13" cy="3" rx="8" ry="4" fill="#6f915e" transform="rotate(-24 -13 3)" /><ellipse cx="16" cy="4" rx="8" ry="4" fill="#819d68" transform="rotate(25 16 4)" /></g>)}</g>}
 
-      {stage >= 2 && (
-        <g>
-          <path d="M66 613 C141 562 243 560 319 608 C238 646 140 646 66 613Z" fill="#365d43" opacity=".55" />
-          {[105,140,173,209,245,277].map((x, i) => <Flower key={x} x={x} y={580 + (i % 3) * 13} color={[theme.flowerA, theme.flowerB, theme.flowerC][i % 3]} />)}
-          {[818,852,888,925,960].map((x, i) => <Flower key={x} x={x} y={560 + (i % 2) * 17} color={[theme.flowerC, theme.flowerA, theme.flowerB][i % 3]} />)}
-        </g>
-      )}
+      {stage >= 2 && <g><path d="M66 613 C141 562 243 560 319 608 C238 646 140 646 66 613Z" fill="#365d43" opacity=".55" />{[105,140,173,209,245,277].map((x, i) => <Flower key={x} x={x} y={580 + (i % 3) * 13} color={[theme.flowerA, theme.flowerB, theme.flowerC][i % 3]} delay={i * .42} />)}{[818,852,888,925,960].map((x, i) => <Flower key={x} x={x} y={560 + (i % 2) * 17} color={[theme.flowerC, theme.flowerA, theme.flowerB][i % 3]} delay={1.1 + i * .38} />)}</g>}
 
-      {stage >= 3 && (
-        <g className="garden-tree">
+      {stage >= 3 && <>
+        <g className="garden-tree" style={{ transformOrigin: `${treeX}px 586px` }}>
           <ellipse cx={treeX} cy="590" rx="132" ry="24" fill="#183c2b" opacity=".18" />
           <path d={`M${treeX - 23} 586 C${treeX - 9} 516 ${treeX - 15} 448 ${treeX - 2} 372 C${treeX + 4} 334 ${treeX + 15} 296 ${treeX + 21} 261 C${treeX + 14} 331 ${treeX + 20} 392 ${treeX + 38} 459 C${treeX + 49} 505 ${treeX + 42} 552 ${treeX + 36} 586Z`} fill={theme.trunk} />
           <path d={`M${treeX + 2} 404 C${treeX - 60} 351 ${treeX - 92} 316 ${treeX - 126} 276 M${treeX + 10} 358 C${treeX + 66} 319 ${treeX + 92} 286 ${treeX + 122} 251 M${treeX + 18} 321 C${treeX - 19} 279 ${treeX - 28} 242 ${treeX - 36} 203`} fill="none" stroke={theme.trunk} strokeWidth="15" strokeLinecap="round" />
-          <g fill={theme.foliageA}>
-            <circle cx={treeX - 88} cy="268" r="78" /><circle cx={treeX - 25} cy="222" r="91" /><circle cx={treeX + 67} cy="255" r="89" /><circle cx={treeX + 16} cy="303" r="98" />
-          </g>
-          <g fill={theme.foliageB} opacity=".86">
-            <circle cx={treeX - 71} cy="242" r="47" /><circle cx={treeX + 3} cy="196" r="52" /><circle cx={treeX + 75} cy="238" r="50" /><circle cx={treeX + 32} cy="285" r="48" />
-          </g>
+          <g className="garden-tree-crown"><g fill={theme.foliageA}><circle cx={treeX - 88} cy="268" r="78" /><circle cx={treeX - 25} cy="222" r="91" /><circle cx={treeX + 67} cy="255" r="89" /><circle cx={treeX + 16} cy="303" r="98" /></g><g fill={theme.foliageB} opacity=".86"><circle cx={treeX - 71} cy="242" r="47" /><circle cx={treeX + 3} cy="196" r="52" /><circle cx={treeX + 75} cy="238" r="50" /><circle cx={treeX + 32} cy="285" r="48" /></g></g>
         </g>
-      )}
+        {[0,1,2].map((i) => <g key={i} transform={`translate(${treeX - 70 + i * 58} ${205 + i * 22})`}><ellipse className="garden-falling-leaf" style={{ animationDelay: `${i * 2.7}s` }} cx="0" cy="0" rx="5" ry="10" fill={i % 2 ? theme.foliageB : theme.flowerC} transform="rotate(28)" /></g>)}
+      </>}
 
-      {stage >= 4 && (
-        <g>
-          <g className="garden-birds" fill="#223e3a" stroke="#f5ede0" strokeWidth="3">
-            <path d="M745 196 q23 -25 43 0 q-18 -9 -22 9 q-5 -17 -21 -9Z" />
-            <path d="M807 165 q21 -22 40 0 q-17 -8 -21 8 q-5 -15 -19 -8Z" />
-          </g>
-          <g className="garden-butterfly" transform="translate(250 468)">
-            <ellipse cx="-8" cy="0" rx="12" ry="19" fill={theme.flowerB} transform="rotate(-25)" />
-            <ellipse cx="8" cy="0" rx="12" ry="19" fill={theme.flowerC} transform="rotate(25)" />
-            <rect x="-2" y="-10" width="4" height="23" rx="2" fill="#31483d" />
-          </g>
-        </g>
-      )}
+      {stage >= 4 && <g>
+        <g className="garden-bird-one"><g transform="translate(745 196)" fill="#233d39" stroke="#f5ede0" strokeWidth="2.5"><path d="M0 0 q23 -25 43 0 q-18 -9 -22 9 q-5 -17 -21 -9Z" /><path className="garden-bird-wing" d="M18 1 q13 -22 23 -8 q-8 2 -14 14Z" fill="#52685f" /></g></g>
+        <g className="garden-bird-two"><g transform="translate(807 165)" fill="#314842" stroke="#f5ede0" strokeWidth="2.5"><path d="M0 0 q21 -22 40 0 q-17 -8 -21 8 q-5 -15 -19 -8Z" /><path className="garden-bird-wing" d="M17 1 q12 -20 21 -7 q-7 2 -13 13Z" fill="#667a70" /></g></g>
+        <g transform="translate(250 468)"><g className="garden-butterfly"><g className="garden-butterfly-wing"><ellipse cx="-8" cy="0" rx="12" ry="19" fill={theme.flowerB} transform="rotate(-25)" /><ellipse cx="8" cy="0" rx="12" ry="19" fill={theme.flowerC} transform="rotate(25)" /></g><rect x="-2" y="-10" width="4" height="23" rx="2" fill="#31483d" /></g></g>
+        <g transform={`translate(${groundBirdX} 542)`}><g className="garden-ground-bird"><ellipse cx="0" cy="0" rx="18" ry="12" fill="#37544b" /><circle cx="15" cy="-9" r="9" fill="#4b685d" /><path d="M23 -9 l9 4 -9 4Z" fill="#d9a15d" /><path className="garden-ground-leg-a" d="M-5 10 l-2 12" stroke="#6f503c" strokeWidth="2.5" strokeLinecap="round" /><path className="garden-ground-leg-b" d="M6 10 l3 12" stroke="#6f503c" strokeWidth="2.5" strokeLinecap="round" /><circle cx="18" cy="-11" r="1.5" fill="#14251f" /></g></g>
+      </g>}
 
-      {stage >= 5 && (
-        <g>
-          <ellipse cx={lakeX} cy="595" rx="185" ry="82" fill="#244d46" opacity=".18" />
-          <ellipse cx={lakeX} cy="584" rx="177" ry="71" fill="url(#water)" />
-          <ellipse cx={lakeX - 18} cy="565" rx="132" ry="35" fill="#b9d0c4" opacity=".17" />
-          {[lakeX - 91, lakeX - 23, lakeX + 46, lakeX + 99].map((x, i) => <g key={x}><ellipse cx={x} cy={589 + (i % 2) * 16} rx="27" ry="10" fill="#557b58" /><circle cx={x + 3} cy={582 + (i % 2) * 16} r="7" fill={i % 2 ? theme.flowerB : theme.flowerA} /></g>)}
-          <path d={`M${lakeX - 165} 523 Q${lakeX - 143} 489 ${lakeX - 126} 524 M${lakeX + 145} 523 Q${lakeX + 132} 485 ${lakeX + 119} 526`} stroke="#42684b" strokeWidth="7" fill="none" strokeLinecap="round" />
-          <g transform={`translate(${treeLeft ? 470 : 545} 526)`}>
-            <ellipse cx="0" cy="56" rx="76" ry="13" fill="#243e30" opacity=".22" />
-            <rect x="-61" y="20" width="122" height="18" rx="5" fill="#78563f" />
-            <rect x="-53" y="38" width="11" height="55" rx="3" fill="#684935" /><rect x="42" y="38" width="11" height="55" rx="3" fill="#684935" />
-            <rect x="-67" y="-2" width="12" height="47" rx="3" fill="#684935" /><rect x="55" y="-2" width="12" height="47" rx="3" fill="#684935" />
-            <rect x="-55" y="2" width="110" height="12" rx="4" fill="#8b674c" />
-          </g>
-        </g>
-      )}
+      {stage >= 5 && <g>
+        <ellipse cx={lakeX} cy="595" rx="185" ry="82" fill="#244d46" opacity=".18" />
+        <ellipse cx={lakeX} cy="584" rx="177" ry="71" fill="url(#water)" />
+        <ellipse className="garden-water-ripple" cx={lakeX - 25} cy="578" rx="72" ry="17" fill="none" stroke="#dfece4" strokeWidth="3" />
+        <ellipse className="garden-water-ripple" style={{ animationDelay: '-2.2s' }} cx={lakeX + 74} cy="601" rx="52" ry="12" fill="none" stroke="#dfece4" strokeWidth="2.5" />
+        {[lakeX - 91, lakeX - 23, lakeX + 46, lakeX + 99].map((x, i) => <g className="garden-lily" style={{ animationDelay: `${-i * .9}s` }} key={x}><ellipse cx={x} cy={589 + (i % 2) * 16} rx="27" ry="10" fill="#557b58" /><circle cx={x + 3} cy={582 + (i % 2) * 16} r="7" fill={i % 2 ? theme.flowerB : theme.flowerA} /></g>)}
+        <g className="garden-reed" style={{ transformOrigin: `${lakeX - 150}px 526px` }}><path d={`M${lakeX - 165} 523 Q${lakeX - 143} 489 ${lakeX - 126} 524`} stroke="#42684b" strokeWidth="7" fill="none" strokeLinecap="round" /></g>
+        <g className="garden-reed" style={{ transformOrigin: `${lakeX + 136}px 526px`, animationDelay: '-1.9s' }}><path d={`M${lakeX + 145} 523 Q${lakeX + 132} 485 ${lakeX + 119} 526`} stroke="#42684b" strokeWidth="7" fill="none" strokeLinecap="round" /></g>
+        <g transform={`translate(${lakeX - 28} 557)`}><g className="garden-duck"><ellipse cx="0" cy="0" rx="19" ry="10" fill="#f3ead7" /><circle cx="15" cy="-8" r="8" fill="#f3ead7" /><path d="M22 -8 l10 4 -10 4Z" fill="#d99a58" /><path d="M-18 -1 q-10 4 -15 0" stroke="#385f68" strokeWidth="3" fill="none" strokeLinecap="round" /></g></g>
+        <g transform={`translate(${treeLeft ? 470 : 545} 526)`}><ellipse cx="0" cy="56" rx="76" ry="13" fill="#243e30" opacity=".22" /><rect x="-61" y="20" width="122" height="18" rx="5" fill="#78563f" /><rect x="-53" y="38" width="11" height="55" rx="3" fill="#684935" /><rect x="42" y="38" width="11" height="55" rx="3" fill="#684935" /><rect x="-67" y="-2" width="12" height="47" rx="3" fill="#684935" /><rect x="55" y="-2" width="12" height="47" rx="3" fill="#684935" /><rect x="-55" y="2" width="110" height="12" rx="4" fill="#8b674c" /></g>
+      </g>}
 
-      {stage >= 6 && (
-        <g>
-          <circle cx="194" cy="474" r="84" fill="url(#sun)" opacity=".48" />
-          {[188,286,690,868,940].map((x, i) => <circle key={x} className="garden-glow" cx={x} cy={455 + (i % 3) * 42} r="5" fill={theme.glow} />)}
-          <g transform={`translate(${treeLeft ? 470 : 620} 471)`}>
-            <path d="M0 0 V70" stroke="#5d4935" strokeWidth="6" /><rect x="-13" y="15" width="26" height="36" rx="5" fill="#423e32" /><rect x="-8" y="20" width="16" height="24" rx="3" fill={theme.glow} opacity=".92" />
-          </g>
-        </g>
-      )}
+      {stage >= 6 && <g>
+        <circle cx="194" cy="474" r="84" fill="url(#sun)" opacity=".48" />
+        {[188,286,690,868,940].map((x, i) => <circle key={x} className="garden-firefly" style={{ animationDelay: `${-i * .75}s` }} cx={x} cy={455 + (i % 3) * 42} r="5" fill={theme.glow} />)}
+        <g transform={`translate(${treeLeft ? 470 : 620} 471)`}><path d="M0 0 V70" stroke="#5d4935" strokeWidth="6" /><rect x="-13" y="15" width="26" height="36" rx="5" fill="#423e32" /><rect className="garden-lantern-glow" x="-8" y="20" width="16" height="24" rx="3" fill={theme.glow} /></g>
+      </g>}
 
-      {stage === 0 && (
-        <g transform="translate(530 548)">
-          <ellipse cx="0" cy="28" rx="60" ry="19" fill="#365a43" opacity=".22" />
-          <path d="M0 30 Q-3 15 2 0" stroke="#466d4e" strokeWidth="4" fill="none" strokeLinecap="round" />
-          <ellipse cx="-5" cy="6" rx="9" ry="5" fill="#78956d" transform="rotate(-24 -5 6)" />
-        </g>
-      )}
+      {stage === 0 && <g transform="translate(530 548)"><ellipse cx="0" cy="28" rx="60" ry="19" fill="#365a43" opacity=".22" /><g className="garden-sprout"><path d="M0 30 Q-3 15 2 0" stroke="#466d4e" strokeWidth="4" fill="none" strokeLinecap="round" /><ellipse cx="-5" cy="6" rx="9" ry="5" fill="#78956d" transform="rotate(-24 -5 6)" /></g></g>}
     </svg>
   )
 }
 
-function Flower({ x, y, color }: { x: number; y: number; color: string }) {
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <path d="M0 31 V10" stroke="#345b40" strokeWidth="3" strokeLinecap="round" />
-      {[0, 72, 144, 216, 288].map((r) => <ellipse key={r} cx="0" cy="3" rx="5" ry="10" fill={color} transform={`rotate(${r}) translate(0 -7)`} />)}
-      <circle cx="0" cy="0" r="4" fill="#d7ae62" />
-    </g>
-  )
+function Flower({ x, y, color, delay }: { x: number; y: number; color: string; delay: number }) {
+  return <g transform={`translate(${x} ${y})`}><g className="garden-flower" style={{ animationDelay: `${-delay}s` }}><path d="M0 31 V10" stroke="#345b40" strokeWidth="3" strokeLinecap="round" />{[0,72,144,216,288].map((r) => <ellipse key={r} cx="0" cy="3" rx="5" ry="10" fill={color} transform={`rotate(${r}) translate(0 -7)`} />)}<circle cx="0" cy="0" r="4" fill="#d7ae62" /></g></g>
 }
 
 function GardenMemoryCard({ index }: { index: number }) {
   const theme = themeFor(index)
-  return (
-    <article className="overflow-hidden rounded-[24px] border border-[#ddd4c6] bg-[#fffaf3] shadow-[0_10px_24px_rgba(48,62,47,.08)]">
-      <div className="relative h-[112px] overflow-hidden" style={{ background: `linear-gradient(180deg, ${theme.skyA}, ${theme.skyB})` }}>
-        <div className="absolute bottom-0 h-[58%] w-full" style={{ background: `linear-gradient(165deg, ${theme.mountainA} 0 48%, ${theme.lawnA} 49% 100%)` }} />
-        <div className="absolute bottom-3 left-7 h-14 w-14 rounded-full" style={{ background: theme.foliageA }} />
-        <div className="absolute bottom-1 right-4 h-9 w-24 rounded-[50%]" style={{ background: theme.waterA }} />
-        <div className="absolute bottom-4 left-20 h-2 w-2 rounded-full" style={{ background: theme.flowerB }} />
-        <div className="absolute bottom-6 left-24 h-2 w-2 rounded-full" style={{ background: theme.flowerC }} />
-      </div>
-      <div className="p-4">
-        <p className="font-serif text-[17px] text-[#294939]">{theme.name}</p>
-        <p className="mt-1 text-[11px] text-[#858b84]">Jardim preservado</p>
-      </div>
-    </article>
-  )
+  return <article className="overflow-hidden rounded-[24px] border border-[#ddd4c6] bg-[#fffaf3] shadow-[0_10px_24px_rgba(48,62,47,.08)]"><div className="relative h-[112px] overflow-hidden" style={{ background: `linear-gradient(180deg, ${theme.skyA}, ${theme.skyB})` }}><div className="absolute bottom-0 h-[58%] w-full" style={{ background: `linear-gradient(165deg, ${theme.mountainA} 0 48%, ${theme.lawnA} 49% 100%)` }} /><div className="absolute bottom-3 left-7 h-14 w-14 rounded-full" style={{ background: theme.foliageA }} /><div className="absolute bottom-1 right-4 h-9 w-24 rounded-[50%]" style={{ background: theme.waterA }} /><div className="absolute bottom-4 left-20 h-2 w-2 rounded-full" style={{ background: theme.flowerB }} /><div className="absolute bottom-6 left-24 h-2 w-2 rounded-full" style={{ background: theme.flowerC }} /></div><div className="p-4"><p className="font-serif text-[17px] text-[#294939]">{theme.name}</p><p className="mt-1 text-[11px] text-[#858b84]">Jardim preservado</p></div></article>
 }
