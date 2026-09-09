@@ -74,3 +74,18 @@ export function techFailuresCount(s: OperationalSnapshot): number {
 export function attentionTotal(s: OperationalSnapshot): number {
   return actionItemsCount(s) + techFailuresCount(s)
 }
+
+// Deep-link: ao abrir "Uso de IA" a partir de um alerta de falha de IA, deixa a
+// tela pré-filtrada em Status = Erro (a mesma semântica de failures_active).
+// One-shot: a tela consome e remove a chave no mount.
+export const AI_USAGE_STATUS_KEY = 'admin-ai-usage-status'
+export function markAiFailuresDeepLink(): void {
+  try { localStorage.setItem(AI_USAGE_STATUS_KEY, 'error') } catch { /* storage indisponível não impede navegação */ }
+}
+export function consumeAiUsageStatusPreset(): string | null {
+  try {
+    const v = localStorage.getItem(AI_USAGE_STATUS_KEY)
+    if (v) { localStorage.removeItem(AI_USAGE_STATUS_KEY); return v }
+  } catch { /* noop */ }
+  return null
+}

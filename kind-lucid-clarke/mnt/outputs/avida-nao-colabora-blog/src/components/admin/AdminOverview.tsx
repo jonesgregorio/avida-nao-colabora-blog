@@ -12,7 +12,7 @@ import {
 import type { AdminView } from './types'
 import AdminOperationalDashboard from './AdminOperationalDashboard'
 import {
-  fetchOperationalSnapshot, attentionTotal,
+  fetchOperationalSnapshot, attentionTotal, markAiFailuresDeepLink,
   type OperationalSnapshot,
 } from '../../lib/adminOperationalStatus'
 import {
@@ -241,7 +241,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
   ]
 
   const falhaRows = [
-    { Icon: AlertTriangle, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Falhas ativas de IA', qtd: f.ai_errors ?? c.aiFailures, nav: 'uso-ia' as AdminView },
+    { Icon: AlertTriangle, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Falhas ativas de IA', qtd: f.ai_errors ?? c.aiFailures, nav: 'uso-ia' as AdminView, before: markAiFailuresDeepLink },
     { Icon: Mail, color: 'text-[#c9971f]', bg: 'bg-[#fbf1d5]', title: 'Falhas ativas de e-mail', qtd: f.emails_failed ?? c.emailFailures, nav: 'emails' as AdminView },
     { Icon: BarChart3, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Relatórios com falha', qtd: f.reports_failed ?? 0, nav: 'pdf' as AdminView },
     { Icon: CalendarCheck, color: 'text-[#c05f3c]', bg: 'bg-coral', title: 'Planos de autocuidado com falha', qtd: f.care_plans_failed ?? 0, nav: 'self-care-plans' as AdminView },
@@ -310,7 +310,7 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
                         </span>
                         <p className="flex-1 min-w-0 text-sm font-medium text-forest-900 truncate">{row.title}</p>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-[#b0532f]">{row.qtd}</span>
-                        <button onClick={() => onNavigate(row.nav)} className="text-xs text-forest-700 hover:text-forest-900 border border-line rounded-lg px-2.5 py-1 whitespace-nowrap">Abrir</button>
+                        <button onClick={() => { (row as { before?: () => void }).before?.(); onNavigate(row.nav) }} className="text-xs text-forest-700 hover:text-forest-900 border border-line rounded-lg px-2.5 py-1 whitespace-nowrap">Abrir</button>
                       </div>
                     ))}
                   </div>
