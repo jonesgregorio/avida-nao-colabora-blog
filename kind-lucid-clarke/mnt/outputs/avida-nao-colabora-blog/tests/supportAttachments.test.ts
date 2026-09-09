@@ -7,7 +7,7 @@ const existingSchema = readFileSync(new URL('../supabase/migrations/016_support_
 const helper = readFileSync(new URL('../src/lib/supportAttachments.ts', import.meta.url), 'utf8')
 const supportPage = readFileSync(new URL('../src/components/SupportPage.tsx', import.meta.url), 'utf8')
 const detail = readFileSync(new URL('../src/components/SupportTicketDetail.tsx', import.meta.url), 'utf8')
-const adminPage = readFileSync(new URL('../src/components/admin/AdminSuportePage.tsx', import.meta.url), 'utf8')
+const adminPage = readFileSync(new URL('../src/components/admin/AdminSupport.tsx', import.meta.url), 'utf8')
 const adminAttachments = readFileSync(new URL('../src/components/admin/AdminSupportAttachmentsPanel.tsx', import.meta.url), 'utf8')
 const submitContact = readFileSync(new URL('../supabase/functions/submit-contact-ticket/index.ts', import.meta.url), 'utf8')
 
@@ -67,6 +67,20 @@ test('Admin possui visão própria dos anexos e baixa pelo mesmo fluxo privado',
   assert.match(adminAttachments, /\.not\('attachments', 'is', null\)/)
   assert.match(adminAttachments, /SupportAttachmentList/)
   assert.match(adminAttachments, /Chamado #/)
+})
+
+test('Admin anexa e recebe arquivos na própria conversa do ticket', () => {
+  // seletor de anexo no compositor + lista de anexos nas mensagens
+  assert.match(adminPage, /import SupportAttachmentPicker from '\.\.\/support\/SupportAttachmentPicker'/)
+  assert.match(adminPage, /<SupportAttachmentPicker files=\{files\} onChange=\{setFiles\}/)
+  assert.match(adminPage, /<SupportAttachmentList attachments=\{msg\.attachments\} inverse=\{isAdminMsg\}/)
+  // upload vai para a pasta do dono do ticket (política de Storage deixa o usuário ver)
+  assert.match(adminPage, /uploadSupportAttachments\(selectedTicket\.user_id, selectedTicket\.id, originalFiles\)/)
+  // rollback do storage se o insert falhar
+  assert.match(adminPage, /await removeSupportAttachments\(uploaded\)/)
+  // envio só com anexo (sem texto) é permitido
+  assert.match(adminPage, /\(!trimmed && files\.length === 0\)/)
+  assert.match(adminPage, /select\('id, ticket_id, sender_id, sender_role, content, is_internal, created_at, attachments'\)/)
 })
 
 test('endpoint autenticado devolve somente o próprio ticket_id e não exige contato duplicado', () => {
