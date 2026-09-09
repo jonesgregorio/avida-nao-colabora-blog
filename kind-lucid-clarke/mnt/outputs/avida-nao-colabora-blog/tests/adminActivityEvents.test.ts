@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 
 const evMig = read('supabase/migrations/20260909160000_admin_activity_events.sql')
+const planMig = read('supabase/migrations/20260909170000_admin_activity_plan_changes.sql')
+const popup = read('src/components/admin/AdminActivityPopup.tsx')
 const usersMig = read('supabase/migrations/20260909160500_admin_users_v2_new_signup_filters.sql')
 const segMig = read('supabase/migrations/20260909161000_admin_segment_new_users.sql')
 const tmplMig = read('supabase/migrations/20260909161500_admin_activity_email_templates.sql')
@@ -153,6 +155,40 @@ test('admin_new_users_overview agrega cards e taxa de conversão em SQL', () => 
   assert.match(evMig, /round\(\(v_converted_30d::numeric \/ v_signups_30d\) \* 100, 1\)/)
   assert.match(usersOverview, /Conversão 30d/)
   assert.match(usersOverview, /Assinaturas 7 dias/)
+})
+
+// mudanças de plano + pop-up bloqueante ---------------------------------------
+test('trigger de subscription_events também emite upgrade / downgrade / cancelamento', () => {
+  assert.match(planMig, /create or replace function public\.tg_admin_activity_on_subscription\(\)/)
+  assert.match(planMig, /'checkout_completed', 'upgrade_confirmed', 'downgrade_completed', 'cancellation_completed'/)
+  assert.match(planMig, /v_type := 'plan_upgraded'/)
+  assert.match(planMig, /v_type := 'plan_downgraded'/)
+  assert.match(planMig, /v_type := 'subscription_cancelled'/)
+  // idempotência por evento do Stripe
+  assert.match(planMig, /v_type \|\| ':' \|\| v_evt_key/)
+  assert.match(planMig, /'subscription_started:' \|\| v_sub_key/)
+  // only checkout carimba first_paid_at
+  assert.match(planMig, /if new\.event_type = 'checkout_completed' then\s*\n\s*update public\.profiles\s*\n\s*set first_paid_at/)
+})
+
+test('AdminActivityPopup é bloqueante, cobre todos os tipos e só fecha no X ou OK', () => {
+  const layout = read('src/components/admin/AdminLayout.tsx')
+  assert.match(layout, /<AdminActivityPopup \/>/)
+  for (const t of ['user_signup', 'subscription_started', 'plan_upgraded', 'plan_downgraded', 'subscription_cancelled']) {
+    assert.match(popup, new RegExp(`'${t}'`), `tipo ausente do pop-up: ${t}`)
+  }
+  // consome eventos NÃO LIDOS via a mesma RPC admin
+  assert.match(popup, /fetchActivityEvents\('unread', 50, 0\)/)
+  // não fecha por clique fora: sem onClick no backdrop
+  assert.match(popup, /className="fixed inset-0 z-\[100\][^"]*"\s*\n\s*role="dialog"/)
+  assert.doesNotMatch(popup, /onClick=\{closeOnly\}[\s\S]{0,40}fixed inset-0/)
+  // bloqueia Esc
+  assert.match(popup, /if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\) \}/)
+  // OK marca como lido; X (Fechar) só descarta na sessão
+  assert.match(popup, /await Promise\.all\(ids\.map\(id => markActivityEventRead\(id\)\)\)/)
+  assert.match(popup, /function closeOnly\(\) \{\s*\n\s*queue\.forEach\(ev => dismissedRef\.current\.add\(ev\.id\)\)/)
+  // realtime + poll
+  assert.match(popup, /subscribeActivityEvents/)
 })
 
 // 14 · segurança ----------------------------------------------------------------

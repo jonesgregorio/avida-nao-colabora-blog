@@ -22,7 +22,8 @@ const FILTERS: { key: AdminActivityFilter; label: string }[] = [
 ]
 
 function isSubscription(t: string) {
-  return t === 'subscription_started'
+  // tudo que não é cadastro é evento de assinatura/plano
+  return t !== 'user_signup'
 }
 
 function EventRow({
