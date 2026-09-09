@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Plus, LayoutTemplate } from 'lucide-react'
+import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Search, Star, Plus, LayoutTemplate, ArrowRightLeft } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
 import AdminSEOCockpit from './AdminSEOCockpit'
+import AdminRedirects from './AdminRedirects'
 import AdminSocialProof from './AdminSocialProof'
 import AdminSiteContent from './AdminSiteContent'
 import AdminTemplatesIA from './AdminTemplatesIA'
@@ -34,6 +35,7 @@ const TABS = [
   { id: 'site-paginas', label: 'Home & páginas', icon: LayoutTemplate, group: 'biblioteca' },
   { id: 'depoimentos', label: 'Depoimentos', icon: Star, group: 'biblioteca' },
   { id: 'seo', label: 'SEO', icon: Search, group: 'inteligencia' },
+  { id: 'redirects', label: 'Redirecionamentos', icon: ArrowRightLeft, group: 'inteligencia' },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -138,6 +140,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
         {tab === 'categorias'  && <AdminCategories />}
         {tab === 'imagens'     && <AdminMediaLibrary />}
         {tab === 'seo'         && <AdminSEOCockpit onEditArticle={onEditArticle} />}
+        {tab === 'redirects'   && <AdminRedirects />}
         {tab === 'site-paginas' && <div className="p-5 sm:p-6"><AdminSiteContent /></div>}
         {tab === 'depoimentos' && <AdminSocialProof />}
       </section>

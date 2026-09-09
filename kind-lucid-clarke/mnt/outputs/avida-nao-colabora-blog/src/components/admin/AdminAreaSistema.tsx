@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react'
-import { Activity, Plug, ClipboardList, Shield, Gauge } from 'lucide-react'
+import { Activity, Plug, ClipboardList, Shield, Gauge, Settings2 } from 'lucide-react'
 import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
 import AdminQueuesFailures from './AdminQueuesFailures'
 import AdminIntegrations from './AdminIntegrations'
@@ -10,6 +10,7 @@ import AdminIdea1Rollout from './AdminIdea1Rollout'
 import AdminFeatureFlags from './AdminFeatureFlags'
 import AdminInfraReference from './AdminInfraReference'
 import AdminAIUsage from './AdminAIUsage'
+import AdminAnalyticsSettings from './AdminAnalyticsSettings'
 
 // SISTEMA — de 9 abas soltas para 5 áreas. Nada foi removido: "Saúde", "Filas",
 // "Automações" e a antiga "Central de IA" (que estava em Cuidado) viraram
@@ -37,6 +38,9 @@ const AREAS: { id: string; label: string; icon: typeof Activity; subs: Sub[] }[]
   ]},
   { id: 'auditoria', label: 'Auditoria', icon: ClipboardList, subs: [
     { id: 'logs', label: 'Registro de ações', Component: AdminLogs },
+  ]},
+  { id: 'configuracoes', label: 'Configurações', icon: Settings2, subs: [
+    { id: 'analytics', label: 'Analytics (rastreamento e retenção)', Component: AdminAnalyticsSettings },
   ]},
 ]
 
