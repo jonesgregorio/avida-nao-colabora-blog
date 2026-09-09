@@ -93,8 +93,12 @@ test('AdminActivityAlerts: sino próprio, badge de não lidos, filtros, marcar l
   assert.match(bell, /key: 'unread'/)
   // "carregar mais"
   assert.match(bell, /Carregar mais/)
-  assert.match(lib, /supabase\s*\n?\s*\.channel\('admin_activity_events_stream'\)/)
+  // nome de canal ÚNICO por assinante — dois assinantes (sino + pop-up) não podem
+  // colidir no mesmo tópico realtime (isso lança "cannot add postgres_changes
+  // callbacks ... after subscribe()" e derruba o Admin).
+  assert.match(lib, /\.channel\(`admin_activity_events:\$\{Math\.random\(\)/)
   assert.match(lib, /event: 'INSERT', schema: 'public', table: 'admin_activity_events'/)
+  assert.doesNotMatch(lib, /\.channel\('admin_activity_events_stream'\)/)
 })
 
 // 7–8 · filtros e badges em Usuários --------------------------------------------

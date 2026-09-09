@@ -94,6 +94,8 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
   const rootRef = useRef<HTMLDivElement>(null)
   const seenIdsRef = useRef<Set<string>>(new Set())
   const firstLoadRef = useRef(true)
+  const openRef = useRef(open)
+  openRef.current = open
 
   const refreshCount = useCallback(async () => {
     setUnread(await fetchActivityUnreadCount())
@@ -130,12 +132,12 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
         }
         page.rows.forEach(r => before.add(r.id))
         firstLoadRef.current = false
-        if (open) { setRows(page.rows); setTotal(page.total) }
+        if (openRef.current) { setRows(page.rows); setTotal(page.total) }
       })()
     })
     const poll = window.setInterval(() => { void refreshCount() }, 180_000)
     return () => { unsub(); window.clearInterval(poll) }
-  }, [open, refreshCount])
+  }, [refreshCount])
 
   useEffect(() => {
     if (open) void load(filter, 0)

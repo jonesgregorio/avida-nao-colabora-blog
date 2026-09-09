@@ -81,17 +81,26 @@ export async function fetchNewUsersOverview(): Promise<NewUsersOverview | null> 
 /**
  * Assina INSERT em admin_activity_events (Realtime). O stream respeita a RLS de
  * SELECT (is_admin()). Devolve a função de cleanup.
+ *
+ * Cada chamada usa um nome de canal ÚNICO — dois assinantes (sino + pop-up) ou
+ * um remount não podem colidir no mesmo tópico (isso faz o supabase-js lançar
+ * "tried to subscribe multiple times"). Tudo é best-effort: se o Realtime não
+ * estiver disponível, o polling leve de cada componente assume.
  */
 export function subscribeActivityEvents(onInsert: () => void): () => void {
-  const channel = supabase
-    .channel('admin_activity_events_stream')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'admin_activity_events' },
-      () => onInsert(),
-    )
-    .subscribe()
-  return () => { void supabase.removeChannel(channel) }
+  try {
+    const channel = supabase
+      .channel(`admin_activity_events:${Math.random().toString(36).slice(2)}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'admin_activity_events' },
+        () => onInsert(),
+      )
+      .subscribe()
+    return () => { try { void supabase.removeChannel(channel) } catch { /* noop */ } }
+  } catch {
+    return () => {}
+  }
 }
 
 export function activityRelativeTime(iso: string, nowMs = Date.now()): string {
