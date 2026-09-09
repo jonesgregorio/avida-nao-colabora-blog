@@ -44,6 +44,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const unlocked=ELEMENTS.filter(e=>stage>=e.stage)
   const detail=selected?ELEMENTS.find(e=>e.stage===selected):unlocked[unlocked.length-1]
   const next=ELEMENTS.find(e=>e.stage>stage)
+  const NextIcon=next?.Icon??Sparkles
   const memories=memoryIndexes(Math.max(0,state.completed_gardens||0))
   const visualProgress=Math.max(0,Math.min(100,Math.round((state.garden_progress||0)/60*100)))
 
@@ -56,7 +57,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         <div className="max-w-[520px] rounded-[30px] border border-white/35 bg-[#fffaf1]/72 p-7 shadow-[0_24px_80px_rgba(47,62,43,.12)] backdrop-blur-sm sm:p-9">
           <p className="text-xs font-semibold uppercase tracking-[.24em] text-forest-700">Meu Jardim</p>
           <h1 className="mt-3 font-serif text-5xl leading-[.98] text-[#173e2d] sm:text-6xl">Um espaço<br/>que cresce com você</h1>
-          <p className="mt-5 max-w-md text-[15px] leading-7 text-[#5f655f]">Cada pequeno cuidado importa. Aqui, suas ações se transformam em vida, beleza e presença. Um jardim que reflete sua jornada.</p>
+          <p className="mt-5 max-w-md text-[15px] leading-7 text-[#5f655f]">Sua trajetória ganha forma aos poucos. Cada pequeno cuidado importa e, com o tempo, transforma este espaço em vida, beleza e presença.</p>
           <p className="mt-6 font-serif text-xl italic text-forest-700">Cuidar de si também é construir um lugar melhor para ficar.</p>
         </div>
 
@@ -66,9 +67,9 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
         <div className="absolute bottom-8 left-5 right-5 lg:left-auto lg:right-10 lg:w-[500px]">
           <section className="rounded-[30px] border border-white/70 bg-[#fffdf9]/94 p-6 shadow-[0_28px_80px_rgba(35,52,38,.18)] backdrop-blur-md sm:p-7">
-            <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="font-serif text-2xl">{theme.name}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro':'Em evolução'}</p></div></div><div className="text-right"><p className="text-[10px] uppercase tracking-[.18em] text-forest-500">Etapa visual</p><p className="mt-1 font-serif text-xl">{Math.max(1,stage)} de 6</p></div></div>
+            <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.name}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro':'Em evolução'}</p></div></div><div className="rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>
-            <div className="mt-5 grid grid-cols-6 gap-2">{ELEMENTS.map(({stage:itemStage,name,Icon})=>{const active=stage>=itemStage;return <button key={itemStage} type="button" onClick={()=>active&&setSelected(itemStage)} className="group text-center" aria-label={active?`Ver ${name}`:`${name} ainda não apareceu`}><span className={`mx-auto grid h-11 w-11 place-items-center rounded-full border transition ${active?'border-[#d9ddcf] bg-[#eef0e8] text-forest-700':'border-[#e9e4d9] bg-[#f8f5ef] text-[#bbb9ad]'}`}><Icon className="h-4 w-4"/></span><span className={`mt-2 block text-[10px] ${active?'text-forest-800':'text-[#aaa79d]'}`}>{name}</span></button>})}</div>
+            <div className="mt-5 grid grid-cols-6 gap-2">{ELEMENTS.map(({stage:itemStage,name,Icon})=>{const active=stage>=itemStage;return <button key={itemStage} type="button" onClick={()=>{if(active)setSelected(itemStage)}} className="group text-center" aria-label={active?`Ver ${name}`:`${name} ainda não apareceu`}><span className={`mx-auto grid h-11 w-11 place-items-center rounded-full border transition ${active?'border-[#d9ddcf] bg-[#eef0e8] text-forest-700':'border-[#e9e4d9] bg-[#f8f5ef] text-[#bbb9ad]'}`}><Icon className="h-4 w-4"/></span><span className={`mt-2 block text-[10px] ${active?'text-forest-800':'text-[#aaa79d]'}`}>{name}</span></button>})}</div>
             <p className="mt-5 text-center font-serif text-sm italic text-[#74766f]">{detail?.why??'O jardim está começando a criar raízes.'}</p>
           </section>
         </div>
@@ -78,14 +79,14 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
       <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
         <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)]">
-          <div className="flex items-end justify-between gap-3"><div><h2 className="font-serif text-2xl">Ações que fazem seu jardim crescer</h2><p className="mt-1 text-xs text-ink-soft">Diferentes áreas do AVNC contribuem para o jardim. Sem placar, sem streak e sem punição.</p></div><Heart className="hidden h-6 w-6 text-forest-500 sm:block"/></div>
+          <div className="flex items-end justify-between gap-3"><div><h2 className="font-serif text-2xl">Ações que fazem seu jardim crescer</h2><p className="mt-1 text-xs text-ink-soft">Diferentes áreas do AVNC contribuem para o jardim. Sem streak, sem placar e sem punição.</p></div><Heart className="hidden h-6 w-6 text-forest-500 sm:block"/></div>
           <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-6"><ActionItem Icon={CheckCircle2} label="Check-in"/><ActionItem Icon={BookOpen} label="Diário"/><ActionItem Icon={Sparkles} label="Relatórios"/><ActionItem Icon={Sprout} label="Plano de Autocuidado"/><ActionItem Icon={Flower2} label="Conteúdos"/><ActionItem Icon={TreePine} label="Marcos"/></div>
-          <p className="mt-5 text-xs leading-5 text-ink-soft">Um Check-in isolado não cria uma transformação. O crescimento acontece quando alguns momentos de cuidado começam a formar uma trajetória consistente.</p>
+          <div className="mt-6 rounded-[22px] border border-[#e3ddcf] bg-[#f7f3ea] p-4"><p className="font-serif text-lg text-forest-900">Um ritmo mais equilibrado</p><p className="mt-1 text-xs leading-5 text-ink-soft">Dias com Check-ins ou Diário formam a base. Relatórios, marcos e outras formas de cuidado complementam o crescimento. Um Check-in isolado não cria uma transformação e o jardim não mede produtividade.</p><div className="mt-4 grid grid-cols-3 gap-2"><JourneyMetric value={state.active_days||0} label="dias de cuidado"/><JourneyMetric value={state.diversity||0} label="formas de cuidado"/><JourneyMetric value={unlocked.length} label="mudanças neste jardim"/></div></div>
         </section>
 
         <section className="rounded-[28px] border border-[#355c41] bg-[#315b3e] p-6 text-white shadow-[0_18px_45px_rgba(40,70,48,.18)]">
           <p className="text-[10px] uppercase tracking-[.22em] text-white/60">Próximo elemento</p>
-          <div className="mt-5 flex items-center gap-5"><div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10">{next?<next.Icon className="h-10 w-10"/>:<Sparkles className="h-10 w-10"/>}</div><div><h2 className="font-serif text-3xl">{next?.name??'Um novo jardim'}</h2><p className="mt-2 text-sm leading-6 text-white/70">{next?'Seu jardim ainda está criando espaço para essa transformação.':'Este jardim amadureceu. O próximo surgirá automaticamente e será visualmente diferente.'}</p></div></div>
+          <div className="mt-5 flex items-center gap-5"><div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10"><NextIcon className="h-10 w-10"/></div><div><h2 className="font-serif text-3xl">{next?.name??'Um novo jardim'}</h2><p className="mt-2 text-sm leading-6 text-white/70">{next?'Seu jardim ainda está criando espaço para essa transformação.':'Este jardim amadureceu. O próximo surgirá automaticamente e será visualmente diferente.'}</p></div></div>
         </section>
       </div>
 
@@ -97,6 +98,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 }
 
 function ActionItem({Icon,label}:{Icon:typeof Sprout;label:string}){return <div className="text-center"><div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#edf0e7] text-forest-700"><Icon className="h-5 w-5"/></div><p className="mt-2 text-[11px] font-medium text-forest-900">{label}</p></div>}
+function JourneyMetric({value,label}:{value:number;label:string}){return <div className="rounded-2xl bg-white/70 px-3 py-3 text-center"><p className="font-serif text-xl text-forest-900">{value}</p><p className="mt-1 text-[10px] leading-4 text-ink-soft">{label}</p></div>}
 function MemoryCard({index}:{index:number}){const t=themeFor(index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative h-28 overflow-hidden" style={{background:`linear-gradient(145deg,${t.skyTop},${t.skyBottom})`}}><div className="absolute inset-x-0 bottom-0 h-16 rounded-[50%_50%_0_0]" style={{background:t.hillBack}}/><div className="absolute bottom-0 left-8 h-20 w-20 rounded-full" style={{background:t.canopy}}/><div className="absolute bottom-0 right-3 h-12 w-24 rounded-[50%]" style={{background:t.water}}/></div><div className="p-4"><p className="font-serif text-lg">{t.name}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
 
 function GardenScene({stage,theme,mirror}:{stage:number;theme:GardenTheme;mirror:boolean}){
