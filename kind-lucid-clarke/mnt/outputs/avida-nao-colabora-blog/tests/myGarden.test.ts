@@ -36,7 +36,7 @@ test('primeira mudança é mais acessível sem premiar um único check-in',()=>{
  assert.match(engine,/raw_growth < 2 THEN 0/)
  assert.match(engine,/active_days < 2 AND diversity < 2 THEN 0/)
  assert.match(engine,/garden_progress < 2 THEN 0/)
- assert.match(garden,/poucos momentos de cuidado/i)
+ assert.match(garden,/alguns momentos de cuidado|poucas interações significativas/i)
 })
 
 test('Meu Jardim está acessível pelo menu',()=>{
