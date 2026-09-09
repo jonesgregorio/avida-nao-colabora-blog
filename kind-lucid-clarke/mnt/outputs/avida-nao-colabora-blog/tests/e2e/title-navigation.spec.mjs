@@ -8,6 +8,17 @@ test.beforeEach(async ({ page }) => {
   await page.route('https://e2e.supabase.co/**', async (route) => {
     const { pathname } = new URL(route.request().url())
     const isRest = pathname.startsWith('/rest/v1/')
+    // PostgREST .single() não devolve [] com 200 quando nenhuma linha existe;
+    // devolve erro 406/PGRST116. Simular isso evita fabricar um "artigo" vazio
+    // que nunca existiria em produção e valida o fallback real de 404.
+    if (pathname.startsWith('/rest/v1/articles')) {
+      await route.fulfill({
+        status: 406,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned', details: 'The result contains 0 rows', hint: null }),
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

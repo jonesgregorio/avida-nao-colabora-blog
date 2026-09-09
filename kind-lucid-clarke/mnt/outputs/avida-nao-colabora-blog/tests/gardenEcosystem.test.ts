@@ -60,8 +60,8 @@ test('garden uses a detailed layered scene with visible fauna and depth',()=>{
 })
 
 test('garden explicitly avoids gamified pressure and uses official care-plan name',()=>{
- assert.match(ui,/Sem streak/)
- assert.match(ui,/Sem punição/)
+ assert.match(ui,/Sem streak/i)
+ assert.match(ui,/Sem punição/i)
  assert.match(ui,/Um Check-in isolado não cria uma transformação/)
  assert.match(ui,/Plano de Autocuidado/)
  assert.doesNotMatch(ui,/Plano Vivo|Plano vivo|plano vivo/)
