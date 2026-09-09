@@ -3,16 +3,30 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const ui=fs.readFileSync(new URL('../src/components/MyGardenPage.tsx',import.meta.url),'utf8')
-const sql=fs.readFileSync(new URL('../supabase/migrations/20260909030000_garden_ecosystem_state.sql',import.meta.url),'utf8')
+const sql=fs.readFileSync(new URL('../supabase/migrations/20260909033000_garden_infinite_cycles.sql',import.meta.url),'utf8')
 
-test('garden growth requires continuity and diversity instead of a single checkin',()=>{
- assert.match(sql,/active_days < 3 OR diversity < 2 OR score < 6 THEN 0/)
+test('garden growth blocks a single checkin but allows small changes after few meaningful moments',()=>{
+ assert.match(sql,/raw_growth < 2 THEN 0/)
+ assert.match(sql,/active_days < 2 AND diversity < 2 THEN 0/)
+ assert.match(sql,/garden_progress < 2 THEN 0/)
+ assert.match(sql,/garden_progress < 5 THEN 1/)
  assert.match(sql,/entry_type='checkin'/)
  assert.match(sql,/entry_type='diary'/)
  assert.match(sql,/questionnaire_responses/)
  assert.match(sql,/reading_history/)
  assert.match(sql,/care_plan_action_state/)
  assert.match(sql,/user_history_items/)
+})
+
+test('garden has no terminal cycle and creates a new garden automatically',()=>{
+ assert.match(sql,/floor\(growth \/ 18\.0\)::int AS garden_index/)
+ assert.match(sql,/\(growth % 18\)::int AS garden_progress/)
+ assert.match(sql,/'completed_gardens', garden_index/)
+ assert.doesNotMatch(sql,/LEAST\(COALESCE\(di\.checkin_days/)
+ assert.match(ui,/O jardim nunca termina/)
+ assert.match(ui,/outro surgirá automaticamente/)
+ assert.match(ui,/Memórias do Jardim/)
+ assert.match(ui,/themeFor\(gardenIndex\)/)
 })
 
 test('garden RPC is private to authenticated owner context',()=>{
@@ -30,10 +44,11 @@ test('garden scene has ecosystem dependencies and grounded composition',()=>{
  assert.match(ui,/stage>=5.*Banco junto ao caminho/s)
 })
 
-test('garden explicitly avoids gamified pressure',()=>{
+test('garden explicitly avoids gamified pressure and uses official care-plan name',()=>{
  assert.match(ui,/Sem streak/)
  assert.match(ui,/Sem punição/)
- assert.match(ui,/uma ação sozinha nunca cria um elemento/i)
- assert.match(ui,/nada aqui murcha/i)
- assert.doesNotMatch(ui,/CYCLE_SIZE|UNLOCK_STEPS/)
+ assert.match(ui,/Um Check-in isolado não cria sozinho/i)
+ assert.match(ui,/Plano de Autocuidado/)
+ assert.doesNotMatch(ui,/Plano Vivo|Plano vivo|plano vivo/)
+ assert.doesNotMatch(ui,/\+\d+ XP|Nível \{/)
 })
