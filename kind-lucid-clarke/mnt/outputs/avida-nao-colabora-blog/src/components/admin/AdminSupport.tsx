@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import {
   MessageSquare, Search, X, Send, Lock, AlertTriangle,
@@ -1168,19 +1169,39 @@ function DotSelect({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(null)
   const current = options.find(o => o.value === value)
 
+  // O menu é posicionado com position:fixed via portal para NUNCA ser cortado
+  // por um ancestral com overflow (o painel do ticket tem max-h + overflow-y).
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    if (!open) { setMenuRect(null); return }
+    function place() {
+      const r = btnRef.current?.getBoundingClientRect()
+      if (r) setMenuRect({ left: r.left, top: r.bottom + 4, width: r.width })
     }
-    if (open) document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
+    place()
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
   }, [open])
 
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={btnRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen(v => !v)}
@@ -1192,8 +1213,12 @@ function DotSelect({
         </div>
         <ChevronDown className={`w-3.5 h-3.5 text-stone-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-line rounded-xl shadow-lg z-30 py-1 min-w-[160px]">
+      {open && menuRect && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', left: menuRect.left, top: menuRect.top, minWidth: Math.max(menuRect.width, 180) }}
+          className="max-h-[60vh] overflow-y-auto bg-white border border-line rounded-xl shadow-lg z-[60] py-1"
+        >
           {options.map(o => (
             <button key={o.value} type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
@@ -1202,7 +1227,8 @@ function DotSelect({
               {o.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
