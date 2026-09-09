@@ -19,7 +19,21 @@ CREATE TABLE IF NOT EXISTS public.care_plan_action_state (
 ALTER TABLE public.care_plan_action_state ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "care_plan_action_state_own" ON public.care_plan_action_state;
 CREATE POLICY "care_plan_action_state_own" ON public.care_plan_action_state
-  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR ALL
+  USING (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.monthly_care_plans p
+      WHERE p.id = care_plan_id AND p.user_id = auth.uid() AND p.status = 'sent'
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.monthly_care_plans p
+      WHERE p.id = care_plan_id AND p.user_id = auth.uid() AND p.status = 'sent'
+    )
+  );
 DROP POLICY IF EXISTS "care_plan_action_state_admin" ON public.care_plan_action_state;
 CREATE POLICY "care_plan_action_state_admin" ON public.care_plan_action_state
   FOR SELECT USING (public.is_admin());
