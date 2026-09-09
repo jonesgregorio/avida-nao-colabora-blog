@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, Sparkles, Sprout, TreePine, Waves } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
@@ -73,7 +73,7 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
   const mirror = (gardenIndex + layoutVariant) % 2 === 1
   const unlocked = ELEMENTS.filter(e => stage >= e.stage)
   const detail = selected ? ELEMENTS.find(e => e.stage === selected) : unlocked[unlocked.length - 1]
-  const memories = useMemo(() => memoryIndexes(Math.max(0, state.completed_gardens || 0)), [state.completed_gardens])
+  const memories = memoryIndexes(Math.max(0, state.completed_gardens || 0))
   const treeLeft = mirror ? '66%' : '8%'
   const flowerLeft = mirror ? '54%' : '13%'
   const waterRight = mirror ? 'auto' : '7%'
