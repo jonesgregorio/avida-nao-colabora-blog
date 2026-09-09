@@ -5,28 +5,28 @@ const garden=readFileSync(new URL('../src/components/MyGardenPage.tsx',import.me
 const engine=readFileSync(new URL('../supabase/migrations/20260909123000_garden_balanced_growth_v4.sql',import.meta.url),'utf8')
 const layout=readFileSync(new URL('../src/components/user/UserLayout.tsx',import.meta.url),'utf8')
 
-test('Meu Jardim prioriza progressão visual sem streak ou XP visível',()=>{
+test('Meu Jardim segue o mockup editorial sem streak ou XP visível',()=>{
  assert.match(garden,/Meu Jardim/)
- assert.match(garden,/Um ritmo mais equilibrado/)
- assert.match(garden,/Sem streak/)
- assert.match(garden,/Crescimento contínuo/)
+ assert.match(garden,/Um espaço[\s\S]{0,80}que cresce com você/)
+ assert.match(garden,/Todo progresso, por menor que pareça, também floresce/)
+ assert.match(garden,/Ações que fazem seu jardim crescer/)
  assert.doesNotMatch(garden,/\+\d+ XP|Nível \{/)
 })
 
-test('jardim explica a jornada sem transformar o motor em placar',()=>{
- assert.match(garden,/dias de cuidado/)
- assert.match(garden,/formas de cuidado/)
- assert.match(garden,/mudanças neste jardim/)
- assert.match(garden,/não mede produtividade/i)
- assert.doesNotMatch(garden,/garden_progress\}/)
- assert.doesNotMatch(garden,/total_growth\}/)
+test('jardim comunica progressão sem transformar uso em recompensa por clique',()=>{
+ assert.match(garden,/não funciona como uma recompensa por cliques/i)
+ assert.match(garden,/momentos de cuidado ao longo do tempo/i)
+ assert.match(garden,/Um Check-in isolado não muda tudo/)
+ assert.match(garden,/Nenhuma ação simples, sozinha, completa uma transformação/)
+ assert.doesNotMatch(garden,/\+\d+ XP|streak de/i)
 })
 
-test('progressão é infinita, preserva jardins anteriores e usa ciclo histórico próximo de 60 passos',()=>{
+test('progressão é infinita, preserva jardins anteriores e usa ciclo histórico de 60 unidades',()=>{
  assert.match(garden,/THEMES/)
  assert.match(garden,/Memórias do Jardim/)
  assert.match(garden,/Jardim atual/)
  assert.match(garden,/Não existe último jardim/)
+ assert.match(garden,/O jardim jamais termina/)
  assert.match(engine,/floor\(growth \/ 60\.0\)::int AS garden_index/)
  assert.match(engine,/\(growth % 60\)::int AS garden_progress/)
  assert.match(engine,/'completed_gardens', garden_index/)
@@ -37,7 +37,18 @@ test('primeira mudança exige alguns momentos e um checkin isolado continua bloq
  assert.match(engine,/active_days < 2 AND diversity < 2 THEN 0/)
  assert.match(engine,/garden_progress < 3 THEN 0/)
  assert.match(engine,/garden_progress < 10 THEN 1/)
- assert.match(garden,/Um Check-in isolado não cria uma transformação/)
+ assert.match(garden,/Um Check-in isolado não muda tudo/)
+})
+
+test('jardim nunca nasce completo e cada camada visual respeita o stage real',()=>{
+ assert.match(garden,/stage === 0/)
+ assert.match(garden,/stage >= 1/)
+ assert.match(garden,/stage >= 2/)
+ assert.match(garden,/stage >= 3/)
+ assert.match(garden,/stage >= 4/)
+ assert.match(garden,/stage >= 5/)
+ assert.match(garden,/stage >= 6/)
+ assert.match(garden,/const stage = Math\.max\(0, Math\.min\(6, state\.stage \|\| 0\)\)/)
 })
 
 test('fórmula mantém a base histórica e limita sinais novos para não acelerar o jardim',()=>{
