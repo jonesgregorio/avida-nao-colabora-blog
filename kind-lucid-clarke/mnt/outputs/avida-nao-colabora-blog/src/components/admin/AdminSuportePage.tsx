@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { LifeBuoy, MessageSquareText } from 'lucide-react'
 import AdminSupport from './AdminSupport'
 import AdminReplyTemplates from './AdminReplyTemplates'
-import AdminSupportAttachmentsPanel from './AdminSupportAttachmentsPanel'
 
 export default function AdminSuportePage({ onViewUser, initialTicketId }: { onViewUser?: (userId: string) => void; initialTicketId?: string | null }) {
   const [managingTemplates, setManagingTemplates] = useState(false)
@@ -34,10 +33,7 @@ export default function AdminSuportePage({ onViewUser, initialTicketId }: { onVi
             <span className="admin-eyebrow">Fila de atendimento</span>
             <p className="text-sm text-ink-soft">Tickets, prioridades, responsáveis e histórico em um único espaço.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <AdminSupportAttachmentsPanel />
-            <MessageSquareText className="w-5 h-5 text-forest-600" />
-          </div>
+          <MessageSquareText className="w-5 h-5 text-forest-600" />
         </div>
         <div className="relative min-h-[calc(100vh-18rem)]">
           <AdminSupport onManageTemplates={() => setManagingTemplates(true)} onViewUser={onViewUser} initialTicketId={initialTicketId} />
