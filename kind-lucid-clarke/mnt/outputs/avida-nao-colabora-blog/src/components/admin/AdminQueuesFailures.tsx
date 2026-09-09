@@ -162,7 +162,7 @@ export default function AdminQueuesFailures() {
               })}
             </div>
             <p className="mt-3 text-[11px] text-stone-400">
-              IA e e-mail deixam de ser “ativos” quando uma tentativa posterior da mesma frente tem sucesso. O histórico de 24h continua visível como contexto, sem inflar a fila operacional.
+              Falha ativa de IA = a última geração da frente não retornou resultado. Quando a IA não responde mas o texto determinístico é aplicado (fallback), o usuário recebe o conteúdo — isso conta só no histórico de 24h, não como falha ativa. IA e e-mail saem de “ativos” quando uma tentativa posterior da mesma frente tem sucesso ou após 30 dias.
             </p>
           </section>
 

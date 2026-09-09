@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { RefreshCw, Loader2, Cpu, Download, PlayCircle, Search, X, FilterX } from 'lucide-react'
 import { providerLabel } from '../../lib/aiContent'
+import { consumeAiUsageStatusPreset } from '../../lib/adminOperationalStatus'
 import AdminAIConfig from './AdminAIConfig'
 
 interface UserHit {
@@ -99,7 +100,8 @@ export default function AdminAIUsage() {
   const [logQuery, setLogQuery] = useState('')
   const [contentTypeFilter, setContentTypeFilter] = useState('todos')
   const [providerFilter, setProviderFilter] = useState('todos')
-  const [statusFilter, setStatusFilter] = useState('todos')
+  // Vem pré-filtrada em "Erro" quando aberta por um alerta de falha de IA.
+  const [statusFilter, setStatusFilter] = useState(() => consumeAiUsageStatusPreset() ?? 'todos')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 

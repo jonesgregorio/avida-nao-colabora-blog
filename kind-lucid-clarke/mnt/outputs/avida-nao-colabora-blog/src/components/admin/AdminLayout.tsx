@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
-import { fetchOperationalSnapshot } from '../../lib/adminOperationalStatus'
+import { fetchOperationalSnapshot, markAiFailuresDeepLink } from '../../lib/adminOperationalStatus'
 import { ilikePattern, sanitizePgSearchTerm } from '../../lib/adminSearch'
 import './admin-theme.css'
 
@@ -544,7 +544,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
                       <button
                         key={item.key}
                         type="button"
-                        onClick={() => navigateTo(item.view)}
+                        onClick={() => { if (item.key === 'ai') markAiFailuresDeepLink(); navigateTo(item.view) }}
                         className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-stone-50"
                       >
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center ${item.severity === 'error' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'}`}>
