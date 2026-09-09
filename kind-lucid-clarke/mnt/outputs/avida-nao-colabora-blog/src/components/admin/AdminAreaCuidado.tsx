@@ -3,7 +3,7 @@ import { NotebookPen, ClipboardList, FileText, CalendarCheck, MessageSquare, Spa
 import AdminDiaryConfig from './AdminDiaryConfig'
 import AdminQuestionnaires from './AdminQuestionnaires'
 import AdminPDF from './AdminPDF'
-import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
+import AdminSelfCareHub from './AdminSelfCareHub'
 import AdminGuidanceRequests from './AdminGuidanceRequests'
 import AdminPersonalization from './AdminPersonalization'
 
@@ -104,7 +104,7 @@ export default function AdminAreaCuidado({ initialTab }: { initialTab?: string }
         {tab === 'diario' && <AdminDiaryConfig />}
         {tab === 'questionarios' && <AdminQuestionnaires />}
         {tab === 'relatorios' && <AdminPDF />}
-        {tab === 'autocuidado' && <AdminMonthlyCarePlans />}
+        {tab === 'autocuidado' && <AdminSelfCareHub />}
         {tab === 'orientacoes' && <AdminGuidanceRequests />}
         {tab === 'recomendacoes' && <AdminPersonalization />}
       </section>
