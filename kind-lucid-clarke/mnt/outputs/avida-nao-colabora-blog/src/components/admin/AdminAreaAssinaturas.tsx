@@ -56,7 +56,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
       </div>
 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
-        {tab === 'visao-geral' && <AdminAssinaturasOverview onGoTab={switchTab} />}
+        {tab === 'visao-geral' && <AdminAssinaturasOverview onGoTab={switchTab} onViewUser={onViewUser} />}
         {tab === 'cancelamentos' && <AdminCancellations />}
         {tab === 'planos' && <AdminPlanosPage />}
         {tab === 'alteracoes' && <AdminPlanChanges onOpenUser={onViewUser} />}

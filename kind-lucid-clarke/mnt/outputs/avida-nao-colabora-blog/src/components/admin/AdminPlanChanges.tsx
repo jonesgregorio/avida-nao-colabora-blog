@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { RefreshCw, ArrowRight, Download, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { PLAN_LABELS } from '../../lib/planConstants'
+import { isUuid, sanitizePgSearchTerm } from '../../lib/adminSearch'
 
 interface Row {
   id: string
@@ -30,8 +31,6 @@ const TYPES = [
   { id: 'stripe', label: 'Origem: Stripe' },
 ]
 
-const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim())
-
 function csvCell(v: unknown): string {
   const s = String(v ?? '')
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -46,18 +45,21 @@ export default function AdminPlanChanges({ onOpenUser }: Props) {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [err, setErr] = useState('')
-  // filtros
+  // filtros — TODOS aplicados só no clique em "Aplicar" (draft x applied).
   const [search, setSearch] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
   const [type, setType] = useState('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [applied, setApplied] = useState({ search: '', type: 'all', from: '', to: '' })
+  const appliedSearch = applied.search
 
   // Resolve o texto de busca para uma restrição server-side de user_id.
   const resolveUserIds = useCallback(async (term: string): Promise<string[] | null> => {
-    const t = term.trim()
-    if (!t) return null
-    if (isUuid(t)) return [t]
+    const raw = term.trim()
+    if (!raw) return null
+    if (isUuid(raw)) return [raw]
+    const t = sanitizePgSearchTerm(raw)
+    if (!t) return []
     const { data } = await supabase
       .from('profiles')
       .select('user_id')
@@ -71,17 +73,17 @@ export default function AdminPlanChanges({ onOpenUser }: Props) {
       .from('plan_change_history')
       .select('id, user_id, old_plan, new_plan, notes, source, change_type, created_at', forExport ? {} : { count: 'exact' })
       .order('created_at', { ascending: false })
-    if (type !== 'all') {
-      if (type === 'stripe') q = q.ilike('source', '%stripe%')
-      else if (type === 'upgrade') q = q.in('change_type', ['upgrade', 'upgrade_intent'])
-      else if (type === 'downgrade') q = q.in('change_type', ['downgrade', 'downgrade_intent'])
-      else q = q.eq('change_type', type)
+    if (applied.type !== 'all') {
+      if (applied.type === 'stripe') q = q.ilike('source', '%stripe%')
+      else if (applied.type === 'upgrade') q = q.in('change_type', ['upgrade', 'upgrade_intent'])
+      else if (applied.type === 'downgrade') q = q.in('change_type', ['downgrade', 'downgrade_intent'])
+      else q = q.eq('change_type', applied.type)
     }
-    if (from) q = q.gte('created_at', `${from}T00:00:00`)
-    if (to) q = q.lte('created_at', `${to}T23:59:59`)
+    if (applied.from) q = q.gte('created_at', `${applied.from}T00:00:00`)
+    if (applied.to) q = q.lte('created_at', `${applied.to}T23:59:59`)
     if (userIds) q = q.in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000'])
     return q
-  }, [type, from, to])
+  }, [applied])
 
   const load = useCallback(async () => {
     setLoading(true); setErr('')
@@ -101,16 +103,30 @@ export default function AdminPlanChanges({ onOpenUser }: Props) {
 
   useEffect(() => { void load() }, [load])
 
-  function applyFilters() { setPage(0); setAppliedSearch(search) }
-  function clearFilters() { setSearch(''); setAppliedSearch(''); setType('all'); setFrom(''); setTo(''); setPage(0) }
+  function applyFilters() { setPage(0); setApplied({ search, type, from, to }) }
+  function clearFilters() {
+    setSearch(''); setType('all'); setFrom(''); setTo(''); setPage(0)
+    setApplied({ search: '', type: 'all', from: '', to: '' })
+  }
+  const dirty = search !== applied.search || type !== applied.type || from !== applied.from || to !== applied.to
 
   async function exportCsv() {
     setExporting(true)
     try {
       const userIds = await resolveUserIds(appliedSearch)
-      const { data, error } = await buildQuery(userIds, true).limit(10000)
-      if (error) { setErr(error.message); return }
-      const list = (data ?? []) as Row[]
+      // Exporta TODO o recorte filtrado, em lotes, até acabar. Teto de segurança
+      // alto e explícito (não um limite silencioso).
+      const HARD_CAP = 200_000
+      const BATCH = 1000
+      const list: Row[] = []
+      for (let offset = 0; offset < HARD_CAP; offset += BATCH) {
+        const { data, error } = await buildQuery(userIds, true).range(offset, offset + BATCH - 1)
+        if (error) { setErr(error.message); return }
+        const chunk = (data ?? []) as Row[]
+        list.push(...chunk)
+        if (chunk.length < BATCH) break
+      }
+      if (list.length >= HARD_CAP) setErr(`Exportação limitada a ${HARD_CAP.toLocaleString('pt-BR')} linhas por segurança. Refine o filtro.`)
       const ids = [...new Set(list.map(r => r.user_id).filter(Boolean))] as string[]
       const byId = new Map<string, { full_name?: string; email?: string }>()
       for (let i = 0; i < ids.length; i += 300) {
@@ -133,7 +149,10 @@ export default function AdminPlanChanges({ onOpenUser }: Props) {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const hasFilters = useMemo(() => appliedSearch || type !== 'all' || from || to, [appliedSearch, type, from, to])
+  const hasFilters = useMemo(
+    () => applied.search || applied.type !== 'all' || applied.from || applied.to,
+    [applied],
+  )
 
   return (
     <div className="p-5 sm:p-6">
@@ -183,7 +202,9 @@ export default function AdminPlanChanges({ onOpenUser }: Props) {
           Até
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className="border border-line rounded-lg px-2 py-1.5 text-sm" />
         </label>
-        <button onClick={applyFilters} className="bg-forest-900 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-forest-800">Aplicar</button>
+        <button onClick={applyFilters} disabled={!dirty} className={`text-sm px-3 py-1.5 rounded-lg ${dirty ? 'bg-forest-900 text-white hover:bg-forest-800' : 'bg-stone-100 text-stone-400 cursor-default'}`}>
+          {dirty ? 'Aplicar filtros' : 'Filtros aplicados'}
+        </button>
         {hasFilters ? (
           <button onClick={clearFilters} className="inline-flex items-center gap-1 text-sm text-stone-500 px-2 py-1.5 hover:text-forest-900">
             <X className="w-3.5 h-3.5" /> Limpar

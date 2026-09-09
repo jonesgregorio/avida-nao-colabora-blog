@@ -47,5 +47,5 @@ test('a tela tem rascunho, agendamento, teste, contagem antes do envio e confirm
   assert.match(comp, /window\.confirm\(/)
   assert.match(comp, /destinatário\(s\)/)
   assert.match(comp, /logAdminAction\('config', 'communication_send'/)
-  assert.match(area, /tab === 'campanhas'\s*&& <AdminCommunicationCampaigns \/>/)
+  assert.match(area, /tab === 'campanhas'\s*&& <AdminCommunicationCampaigns initialCampaignId=\{initialCampaignId\} \/>/)
 })

@@ -135,6 +135,8 @@ export default function AdminPanel() {
   })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [pendingTicketId, setPendingTicketId] = useState<string | null>(null)
+  const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null)
 
   useEffect(() => { setMfaVerified(false) }, [user?.id])
 
@@ -212,9 +214,9 @@ export default function AdminPanel() {
       )
       case 'estudio': return <AdminEstudio />
       case 'cuidado': return <AdminAreaCuidado />
-      case 'comunicacao': return <AdminAreaComunicacao />
+      case 'comunicacao': return <AdminAreaComunicacao initialCampaignId={pendingCampaignId} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
-      case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
+      case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} initialTicketId={pendingTicketId} />
       case 'sistema': return <AdminAreaSistema />
       case 'article-editor':
         return (
@@ -242,6 +244,8 @@ export default function AdminPanel() {
       onExit={handleExit}
       onOpenUser={uid => { setPendingUserId(uid); navigate('usuarios') }}
       onOpenArticle={id => handleEditArticle(id)}
+      onOpenTicket={id => { setPendingTicketId(id); navigate('suporte') }}
+      onOpenCampaign={id => { setPendingCampaignId(id); try { localStorage.setItem('admin-comunicacao-tab', 'campanhas') } catch { /* noop */ } navigate('comunicacao') }}
       userName={profile?.full_name || profile?.display_name || profile?.preferred_name || undefined}
     >
       <Suspense fallback={<AdminSectionLoading />}>{renderView()}</Suspense>

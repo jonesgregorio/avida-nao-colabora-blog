@@ -21,7 +21,7 @@ type Tool = null | 'notificacao' | 'templates' | 'ia'
 
 const STORE = 'admin-comunicacao-tab'
 
-export default function AdminAreaComunicacao({ initialTab }: { initialTab?: string }) {
+export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: { initialTab?: string; initialCampaignId?: string | null }) {
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const saved = initialTab ?? localStorage.getItem(STORE) ?? 'campanhas'
@@ -70,7 +70,7 @@ export default function AdminAreaComunicacao({ initialTab }: { initialTab?: stri
       </div>
 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
-        {tab === 'campanhas' && <AdminCommunicationCampaigns />}
+        {tab === 'campanhas' && <AdminCommunicationCampaigns initialCampaignId={initialCampaignId} />}
         {tab === 'automaticas' && <AdminEmails initialTab="resumo" />}
         {tab === 'historico' && <AdminEmails initialTab="logs" />}
       </section>

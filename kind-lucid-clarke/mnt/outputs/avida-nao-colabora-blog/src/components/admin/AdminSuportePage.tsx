@@ -4,7 +4,7 @@ import AdminSupport from './AdminSupport'
 import AdminReplyTemplates from './AdminReplyTemplates'
 import AdminSupportAttachmentsPanel from './AdminSupportAttachmentsPanel'
 
-export default function AdminSuportePage({ onViewUser }: { onViewUser?: (userId: string) => void }) {
+export default function AdminSuportePage({ onViewUser, initialTicketId }: { onViewUser?: (userId: string) => void; initialTicketId?: string | null }) {
   const [managingTemplates, setManagingTemplates] = useState(false)
 
   if (managingTemplates) {
@@ -37,7 +37,7 @@ export default function AdminSuportePage({ onViewUser }: { onViewUser?: (userId:
           <MessageSquareText className="w-5 h-5 text-forest-600" />
         </div>
         <div className="relative min-h-[calc(100vh-18rem)]">
-          <AdminSupport onManageTemplates={() => setManagingTemplates(true)} onViewUser={onViewUser} />
+          <AdminSupport onManageTemplates={() => setManagingTemplates(true)} onViewUser={onViewUser} initialTicketId={initialTicketId} />
           <AdminSupportAttachmentsPanel />
         </div>
       </section>
