@@ -24,7 +24,10 @@ import {
   loadUser360,
   type AdminUsersFilters,
   type AdminUsersServerStats,
+  type SignupRange,
+  type SubscribedSince,
 } from './adminUsersServer'
+import { fetchNewUsersOverview, type NewUsersOverview } from '../../lib/adminActivityEvents'
 import {
   ACCOUNT_STATUS_COLORS,
   accountStatusLabel,
@@ -63,6 +66,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   const [filterPlan, setFilterPlan] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAccess, setFilterAccess] = useState('all') // discount / unlimited / tickets…
+  const [filterSignup, setFilterSignup] = useState<SignupRange>('all')
+  const [filterSubscribed, setFilterSubscribed] = useState<SubscribedSince>('all')
+  const [newOverview, setNewOverview] = useState<NewUsersOverview | null>(null)
   const [page, setPage] = useState(1)
   const [filteredTotal, setFilteredTotal] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -159,13 +165,15 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     return () => window.clearTimeout(timer)
   }, [search])
 
-  useEffect(() => { setPage(1) }, [debouncedSearch, filterPlan, filterStatus, filterAccess])
+  useEffect(() => { setPage(1) }, [debouncedSearch, filterPlan, filterStatus, filterAccess, filterSignup, filterSubscribed])
 
   const currentFilters: AdminUsersFilters = {
     search: debouncedSearch,
     plan: filterPlan,
     status: filterStatus,
     access: filterAccess,
+    signupRange: filterSignup,
+    subscribedSince: filterSubscribed,
   }
 
   const loadStats = useCallback(async () => {
@@ -185,6 +193,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         plan: filterPlan,
         status: filterStatus,
         access: filterAccess,
+        signupRange: filterSignup,
+        subscribedSince: filterSubscribed,
       }, page, PAGE_SIZE)
       setUsers(result.items)
       setFilteredTotal(result.total)
@@ -199,9 +209,10 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, filterPlan, filterStatus, filterAccess, page])
+  }, [debouncedSearch, filterPlan, filterStatus, filterAccess, filterSignup, filterSubscribed, page])
 
   useEffect(() => { void loadStats() }, [loadStats])
+  useEffect(() => { void fetchNewUsersOverview().then(setNewOverview).catch(() => {}) }, [])
   useEffect(() => { void loadUsers() }, [loadUsers])
 
   // Abre drawer automaticamente quando vindo de outra página (ex: "Ver perfil" no Suporte).
@@ -805,6 +816,9 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         filterPlan={filterPlan}
         filterStatus={filterStatus}
         filterAccess={filterAccess}
+        filterSignup={filterSignup}
+        filterSubscribed={filterSubscribed}
+        newOverview={newOverview}
         exporting={exporting}
         viewMode={viewMode}
         activeTab={activeTab}
@@ -816,6 +830,8 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
         onPlanChange={value => { setFilterPlan(value); setPage(1) }}
         onStatusChange={value => { setFilterStatus(value); setPage(1) }}
         onAccessChange={value => { setFilterAccess(value); setPage(1) }}
+        onSignupRangeChange={value => { setFilterSignup(value); setPage(1) }}
+        onSubscribedSinceChange={value => { setFilterSubscribed(value); setPage(1) }}
         onExport={() => void exportarCSV()}
         onViewModeChange={setViewMode}
         onTabFilter={setTabFilter}

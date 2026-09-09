@@ -20,6 +20,9 @@ export interface UserRow {
   open_tickets?: number
   unread_notifs?: number
   last_activity?: string | null
+  first_paid_at?: string | null
+  is_new_user?: boolean
+  is_recent_subscriber?: boolean
 }
 
 export interface AdminSubscription {
@@ -333,6 +336,14 @@ export function buildAdminUsersCsv(users: UserRow[]): string {
       header: 'Cadastro',
       get: user => new Date(user.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
     },
+    {
+      header: 'Primeira assinatura',
+      get: user => user.first_paid_at
+        ? new Date(user.first_paid_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+        : '',
+    },
+    { header: 'Novo (7d)', get: user => (user.is_new_user ? 'Sim' : 'Não') },
+    { header: 'Assinante recente (7d)', get: user => (user.is_recent_subscriber ? 'Sim' : 'Não') },
   ]
 
   const lines = [

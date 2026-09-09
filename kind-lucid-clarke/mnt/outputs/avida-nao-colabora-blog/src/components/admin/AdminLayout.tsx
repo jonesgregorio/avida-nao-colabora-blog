@@ -11,6 +11,7 @@ import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
 import { fetchOperationalSnapshot, markAiFailuresDeepLink } from '../../lib/adminOperationalStatus'
 import { ilikePattern, sanitizePgSearchTerm } from '../../lib/adminSearch'
+import AdminActivityAlerts from './AdminActivityAlerts'
 import './admin-theme.css'
 
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
@@ -506,6 +507,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
           </div>
 
           <div className="ml-auto flex items-center gap-2.5 relative">
+            <AdminActivityAlerts onOpenUser={onOpenUser} />
             <button
               type="button"
               onClick={toggleAlerts}

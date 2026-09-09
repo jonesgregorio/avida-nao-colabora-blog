@@ -15,7 +15,30 @@ type SegFilter = {
   inactive_days?: number | null
   active_within_days?: number | null
   subscription?: string | null
+  recent_signup_days?: number | null
+  recent_subscription_days?: number | null
+  subscribed_from?: string | null
+  subscribed_to?: string | null
+  converted?: 'converted' | 'not_converted' | null
 }
+
+const todayIso = () => new Date().toISOString().slice(0, 10)
+const firstOfMonthIso = () => {
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
+}
+
+const QUICK_SEGMENTS: { label: string; filter: SegFilter }[] = [
+  { label: 'Cadastrados hoje', filter: { signup_from: todayIso() } },
+  { label: 'Novos nas últimas 24h', filter: { recent_signup_days: 1 } },
+  { label: 'Novos nos últimos 7 dias', filter: { recent_signup_days: 7 } },
+  { label: 'Novos neste mês', filter: { signup_from: firstOfMonthIso() } },
+  { label: 'Assinaram hoje', filter: { subscribed_from: todayIso() } },
+  { label: 'Assinaram nos últimos 7 dias', filter: { recent_subscription_days: 7 } },
+  { label: 'Assinaram neste mês', filter: { subscribed_from: firstOfMonthIso() } },
+  { label: 'Novos que ainda não assinaram', filter: { recent_signup_days: 30, converted: 'not_converted' } },
+  { label: 'Novos que já converteram', filter: { recent_signup_days: 30, converted: 'converted' } },
+]
 
 interface SampleRow { user_id: string; full_name: string | null; email: string | null; plan: string; account_status: string }
 interface ListRow extends SampleRow { admin_tags: string[] | null; created_at: string; last_seen_at: string | null }
@@ -79,6 +102,11 @@ export default function AdminSegments() {
     if (filter.inactive_days != null) f.inactive_days = filter.inactive_days
     if (filter.active_within_days != null) f.active_within_days = filter.active_within_days
     if (filter.subscription) f.subscription = filter.subscription
+    if (filter.recent_signup_days != null) f.recent_signup_days = filter.recent_signup_days
+    if (filter.recent_subscription_days != null) f.recent_subscription_days = filter.recent_subscription_days
+    if (filter.subscribed_from) f.subscribed_from = filter.subscribed_from
+    if (filter.subscribed_to) f.subscribed_to = filter.subscribed_to
+    if (filter.converted) f.converted = filter.converted
     return f
   }, [filter])
 
@@ -231,6 +259,17 @@ export default function AdminSegments() {
 
       <div className="grid md:grid-cols-[1fr_260px] gap-6">
         <div className="space-y-4 bg-white border border-line rounded-2xl p-5">
+          <Section title="Atalhos — novos usuários e conversão">
+            {QUICK_SEGMENTS.map(q => (
+              <span
+                key={q.label}
+                className={`${box} ${off}`}
+                onClick={() => setFilter({ tags_mode: 'any', ...q.filter })}
+              >
+                {q.label}
+              </span>
+            ))}
+          </Section>
           <Section title="Plano">
             {PLANS.map(([k, l]) => (
               <span key={k} className={`${box} ${has('plans', k) ? on : off}`} onClick={() => toggle('plans', k)}>{l}</span>

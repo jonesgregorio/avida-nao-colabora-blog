@@ -35,11 +35,41 @@ export interface AdminUsersServerStats {
   cancelled: number
 }
 
+export type SignupRange = 'all' | 'today' | '24h' | '7d' | 'month' | 'custom'
+export type SubscribedSince = 'all' | 'today' | '7d' | 'month'
+
 export interface AdminUsersFilters {
   search: string
   plan: string
   status: string
   access: string
+  signupRange?: SignupRange
+  signupFrom?: string | null
+  signupTo?: string | null
+  subscribedSince?: SubscribedSince
+}
+
+/** Converte o preset de cadastro em (from, to) ISO — server-side faz o resto. */
+export function resolveSignupWindow(f: AdminUsersFilters): { from: string | null; to: string | null } {
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  switch (f.signupRange) {
+    case 'today':
+      return { from: startOfDay.toISOString(), to: null }
+    case '24h':
+      return { from: new Date(now.getTime() - 24 * 3600_000).toISOString(), to: null }
+    case '7d':
+      return { from: new Date(now.getTime() - 7 * 86_400_000).toISOString(), to: null }
+    case 'month':
+      return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), to: null }
+    case 'custom':
+      return {
+        from: f.signupFrom ? new Date(`${f.signupFrom}T00:00:00`).toISOString() : null,
+        to: f.signupTo ? new Date(`${f.signupTo}T23:59:59`).toISOString() : null,
+      }
+    default:
+      return { from: null, to: null }
+  }
 }
 
 export interface AdminUsersPage {
@@ -92,6 +122,7 @@ export async function loadAdminUsersPage(
   page: number,
   pageSize: number,
 ): Promise<AdminUsersPage> {
+  const window = resolveSignupWindow(filters)
   const { data, error } = await supabase.rpc('admin_list_users_v2', {
     p_page: page,
     p_page_size: pageSize,
@@ -99,6 +130,10 @@ export async function loadAdminUsersPage(
     p_plan: filters.plan,
     p_status: filters.status,
     p_access: filters.access,
+    p_signup_from: window.from,
+    p_signup_to: window.to,
+    p_subscribed_since:
+      filters.subscribedSince && filters.subscribedSince !== 'all' ? filters.subscribedSince : null,
   })
   if (error) throw error
   const raw = (data ?? {}) as { total?: unknown; items?: unknown }
