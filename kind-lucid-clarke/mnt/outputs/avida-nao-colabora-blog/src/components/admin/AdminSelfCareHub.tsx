@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertCircle, CheckCircle2, HeartHandshake, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
+import AdminLivingCarePlanWorkspace from './AdminLivingCarePlanWorkspace'
 
 type Dashboard = {
   month_reference?: string
@@ -110,7 +110,7 @@ export default function AdminSelfCareHub() {
         )}
       </section>
 
-      <AdminMonthlyCarePlans />
+      <AdminLivingCarePlanWorkspace />
     </div>
   )
 }
