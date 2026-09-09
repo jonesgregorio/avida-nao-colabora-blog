@@ -1,6 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Shield, RefreshCw, ChevronDown } from 'lucide-react'
+import { Shield, RefreshCw, ChevronDown, Download } from 'lucide-react'
+
+function csvCell(v: unknown): string {
+  const s = typeof v === 'string' ? v : v == null ? '' : JSON.stringify(v)
+  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
 
 interface AdminLog {
   id: string
@@ -124,6 +129,41 @@ export default function AdminLogs() {
 
   const hasFilters = fAdmin || fModule || fAction || fTarget || fFrom || fTo
   const pages = Math.max(1, Math.ceil(total / PAGE))
+  const [exporting, setExporting] = useState(false)
+
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const BATCH = 200
+      const HARD_CAP = 100_000
+      const all: AdminLog[] = []
+      for (let offset = 0; offset < HARD_CAP; offset += BATCH) {
+        const { data, error } = await supabase.rpc('admin_audit_query', {
+          p_admin: fAdmin || null, p_module: fModule || null, p_action: fAction || null,
+          p_target: fTarget.trim() || null,
+          p_from: fFrom ? new Date(fFrom).toISOString() : null,
+          p_to: fTo ? new Date(fTo + 'T23:59:59').toISOString() : null,
+          p_limit: BATCH, p_offset: offset,
+        })
+        if (error) { setErr(error.message); return }
+        const rows = ((data as { rows?: AdminLog[] })?.rows ?? []) as AdminLog[]
+        all.push(...rows)
+        if (rows.length < BATCH) break
+      }
+      const header = ['data', 'admin', 'admin_id', 'acao', 'alvo_tipo', 'alvo_id', 'detalhes']
+      const lines = all.map(l => [
+        l.created_at, l.admin_name ?? '', l.admin_id, l.action, l.target_type ?? '', l.target_id ?? '',
+        l.details ? JSON.stringify(l.details) : '',
+      ].map(csvCell).join(','))
+      const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `auditoria-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click(); URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
   const selClass = 'px-2.5 py-2 border border-line rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-stone-300'
 
   return (
@@ -135,9 +175,14 @@ export default function AdminLogs() {
             Toda ação de administrador fica registrada aqui. Estes registros não podem ser editados nem apagados.
           </p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-ink hover:border-forest-300">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => void exportCsv()} disabled={exporting || loading} className="flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-sm text-ink hover:border-forest-300 disabled:opacity-50">
+            <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-pulse' : ''}`} /> CSV
+          </button>
+          <button onClick={load} className="flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-ink hover:border-forest-300">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">

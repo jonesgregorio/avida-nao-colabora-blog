@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { LayoutDashboard, Radar, FileText, Filter, Repeat } from 'lucide-react'
 import AdminRetentionAnalytics from './AdminRetentionAnalytics'
 import AdminJourneyFunnel from './AdminJourneyFunnel'
@@ -9,11 +9,16 @@ interface AnalyticsPageProps {
   onEditArticle?: (id: string) => void
 }
 
-// Analytics em 5 áreas (Etapa 1 da reorganização). Funil / Jornada / Conversão /
-// Retenção deixam de ser abas soltas e duplicadas — cada uma vive na sua área.
-// Eventos brutos, SEO, Erros técnicos, Relatórios IA e Configurações saíram da
-// interface do Analytics (SEO → Conteúdo, Erros → Sistema, Config → Sistema).
-// Nenhuma tabela, view ou evento de analytics foi removido — só a navegação.
+// Analytics em 5 áreas. Cada área é uma composição pequena e nomeada
+// (AnalyticsOverview/Acquisition/Content/Conversion/Retention). Só a área
+// ativa é montada — nenhuma consulta de área inativa é disparada.
+//
+// O que saiu da UI do Analytics (código morto removido em set/2026):
+//   • "Eventos brutos" e "Relatórios IA" — removidos (dados intactos no banco);
+//   • "SEO" — vive em Conteúdo → Inteligência → SEO;
+//   • "Redirecionamentos" (301/404) — Conteúdo → Inteligência → Redirecionamentos;
+//   • "Configurações" (rastreamento/retenção/privacidade) — Sistema →
+//     Configurações → Analytics.
 const AREAS = [
   { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'aquisicao', label: 'Aquisição', icon: Radar },
@@ -23,13 +28,48 @@ const AREAS = [
 ] as const
 type Area = typeof AREAS[number]['id']
 
+// Cada array lista as abas do AnalyticsPageLegacy que aquela área reaproveita.
 const ONLY_OVERVIEW = ['overview'] as const
-const ONLY_ACQUISITION = ['devices'] as const
-const ONLY_CONTENT = ['pages', 'heatmap', 'performance'] as const
+const ONLY_ACQUISITION = ['devices', 'growth'] as const
+const ONLY_CONTENT = ['pages', 'heatmap', 'performance', 'errors'] as const
 const ONLY_CONVERSION = ['funnel'] as const
 const ONLY_RETENTION = ['journey'] as const
 
 const STORE = 'admin-analytics-area'
+const Card = ({ children, pad }: { children: ReactNode; pad?: boolean }) => (
+  <section className={`admin-card overflow-hidden ${pad ? 'p-5 md:p-6' : ''}`}>{children}</section>
+)
+
+function AnalyticsOverview(props: AnalyticsPageProps) {
+  return <Card><AnalyticsPageLegacy {...props} only={ONLY_OVERVIEW} hideHero /></Card>
+}
+function AnalyticsAcquisition(props: AnalyticsPageProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Card><AnalyticsPageLegacy {...props} only={ONLY_ACQUISITION} hideHero /></Card>
+      <Card pad><AdminJourneyFunnel /></Card>
+    </div>
+  )
+}
+function AnalyticsContent(props: AnalyticsPageProps) {
+  return <Card><AnalyticsPageLegacy {...props} only={ONLY_CONTENT} hideHero /></Card>
+}
+function AnalyticsConversion(props: AnalyticsPageProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Card pad><AdminConversionFunnel /></Card>
+      <Card><AnalyticsPageLegacy {...props} only={ONLY_CONVERSION} hideHero /></Card>
+    </div>
+  )
+}
+function AnalyticsRetention(props: AnalyticsPageProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Card pad><AdminRetentionAnalytics /></Card>
+      <Card><AnalyticsPageLegacy {...props} only={ONLY_RETENTION} hideHero /></Card>
+    </div>
+  )
+}
 
 export default function AnalyticsPage(props: AnalyticsPageProps) {
   const [area, setArea] = useState<Area>(() => {
@@ -75,50 +115,11 @@ export default function AnalyticsPage(props: AnalyticsPageProps) {
         </nav>
       </div>
 
-      {area === 'visao-geral' && (
-        <section className="admin-card overflow-hidden">
-          <AnalyticsPageLegacy {...props} only={ONLY_OVERVIEW} hideHero />
-        </section>
-      )}
-
-      {area === 'aquisicao' && (
-        <div className="flex flex-col gap-4">
-          <section className="admin-card overflow-hidden">
-            <AnalyticsPageLegacy {...props} only={ONLY_ACQUISITION} hideHero />
-          </section>
-          <section className="admin-card p-5 md:p-6">
-            <AdminJourneyFunnel />
-          </section>
-        </div>
-      )}
-
-      {area === 'conteudo' && (
-        <section className="admin-card overflow-hidden">
-          <AnalyticsPageLegacy {...props} only={ONLY_CONTENT} hideHero />
-        </section>
-      )}
-
-      {area === 'conversao' && (
-        <div className="flex flex-col gap-4">
-          <section className="admin-card p-5 md:p-6">
-            <AdminConversionFunnel />
-          </section>
-          <section className="admin-card overflow-hidden">
-            <AnalyticsPageLegacy {...props} only={ONLY_CONVERSION} hideHero />
-          </section>
-        </div>
-      )}
-
-      {area === 'retencao' && (
-        <div className="flex flex-col gap-4">
-          <section className="admin-card p-5 md:p-6">
-            <AdminRetentionAnalytics />
-          </section>
-          <section className="admin-card overflow-hidden">
-            <AnalyticsPageLegacy {...props} only={ONLY_RETENTION} hideHero />
-          </section>
-        </div>
-      )}
+      {area === 'visao-geral' && <AnalyticsOverview {...props} />}
+      {area === 'aquisicao' && <AnalyticsAcquisition {...props} />}
+      {area === 'conteudo' && <AnalyticsContent {...props} />}
+      {area === 'conversao' && <AnalyticsConversion {...props} />}
+      {area === 'retencao' && <AnalyticsRetention {...props} />}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 
 const migration = read('supabase/migrations/20260908190000_admin_queues_incident_key.sql')
+const entityMigration = read('supabase/migrations/20260909110000_ai_incident_entity_key.sql')
 const layout = read('src/components/admin/AdminLayout.tsx')
 const overview = read('src/components/admin/AdminOverview.tsx')
 const shared = read('src/lib/adminOperationalStatus.ts')
@@ -17,12 +18,14 @@ test('admin_queues_overview NÃO depende de notifications.status', () => {
   assert.match(migration, /notifications_draft',\s*\(select count\(\*\) from public\.admin_communications where status = 'draft'\)/)
 })
 
-test('incidente de IA é agrupado por (content_type, user_id, source_period_start)', () => {
-  assert.match(migration, /distinct on \(\s*coalesce\(content_type, 'generic'\),\s*coalesce\(user_id::text, 'none'\),\s*coalesce\(source_period_start::text, 'none'\)/s)
+test('incidente de IA é agrupado por entidade (incident_entity_key) com fallback composto', () => {
+  // A chave passou a ser incident_entity_key; linhas antigas caem no composto.
+  assert.match(entityMigration, /add column if not exists incident_entity_key text/i)
+  assert.match(entityMigration, /nullif\(btrim\(incident_entity_key\), ''\)/)
+  assert.match(entityMigration, /coalesce\(content_type, 'generic'\)\s*\n\s*\|\| ':u:' \|\| coalesce\(user_id::text, '-'\)\s*\n\s*\|\| ':p:' \|\| coalesce\(source_period_start::text, '-'\)/)
   // Fallback determinístico também conta como incidente ativo até um sucesso real.
-  assert.match(migration, /outcome in \('error','failed','fallback'\)/)
-  // Índice de apoio à leitura "última por frente".
-  assert.match(migration, /create index if not exists ai_generation_logs_incident_key/i)
+  assert.match(entityMigration, /outcome in \('error','failed','fallback'\)/)
+  assert.match(entityMigration, /create index if not exists ai_generation_logs_entity_incident/i)
 })
 
 test('o badge do sino carrega no mount e atualiza em intervalo, sem depender de clique', () => {

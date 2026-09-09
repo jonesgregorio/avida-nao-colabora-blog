@@ -365,6 +365,7 @@ ${untrustedBlock('QUESTIONÁRIOS ESTRUTURADOS', questionnairePayload)}`
       user_id: user.id,
       content_type: 'emotional_map_explanation',
       prompt_type: 'emotional_map_explanation',
+      incident_entity_key: `emotional_map_explanation:u:${user.id}:p:${current.period_start ?? '-'}`,
       provider,
       model_used: model,
       fallback_used: !aiUsed,

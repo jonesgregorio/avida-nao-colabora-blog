@@ -38,8 +38,9 @@ const ACTION_VIEWS = [
 ] as const
 const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-300'
 
-export default function AdminCommunicationCampaigns() {
+export default function AdminCommunicationCampaigns({ initialCampaignId }: { initialCampaignId?: string | null } = {}) {
   const [items, setItems] = useState<Campaign[]>([])
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [segments, setSegments] = useState<SegmentOpt[]>([])
   const [loading, setLoading] = useState(true)
   const [notAvailable, setNotAvailable] = useState(false)
@@ -75,6 +76,16 @@ export default function AdminCommunicationCampaigns() {
     setLoading(false)
   }, [])
   useEffect(() => { void load() }, [load])
+
+  // Deep-link da busca global: rola até a campanha e a destaca por alguns segundos.
+  useEffect(() => {
+    if (!initialCampaignId || loading || !items.some(c => c.id === initialCampaignId)) return
+    const el = document.getElementById(`campaign-${initialCampaignId}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightId(initialCampaignId)
+    const t = window.setTimeout(() => setHighlightId(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [initialCampaignId, loading, items])
 
   const targetArgs = useMemo(() => ({
     p_kind: targetKind,
@@ -304,7 +315,11 @@ export default function AdminCommunicationCampaigns() {
       ) : (
         <div className="space-y-2">
           {items.map(c => (
-            <div key={c.id} className="bg-white border border-line rounded-xl p-4">
+            <div
+              key={c.id}
+              id={`campaign-${c.id}`}
+              className={`bg-white border rounded-xl p-4 transition-shadow ${highlightId === c.id ? 'border-forest-400 ring-2 ring-forest-200' : 'border-line'}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">

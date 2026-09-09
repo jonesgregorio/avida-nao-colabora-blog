@@ -56,10 +56,13 @@ test('run-emotional-automations grava o provider real (nunca fica preso em "gemi
   assert.match(runnerSource, /if \(model\.startsWith\('groq:'\)\) return 'groq'/)
   assert.match(runnerSource, /if \(model\.startsWith\('openai:'\)\) return 'openai'/)
 
-  const logCalls = runnerSource.match(/await log\(admin, \{[^}]*\}\)/g) ?? []
+  // Cada log() de relatório/plano vai até "error_msg: errorMessage })"
+  const logCalls = runnerSource.match(/await log\(admin, \{[\s\S]*?error_msg: errorMessage \}\)/g) ?? []
   assert.ok(logCalls.length >= 2, 'esperava as chamadas de log() de relatório/plano')
   for (const call of logCalls) {
     assert.match(call, /provider: providerFromModel\(model\)/, `chamada de log() sem provider real: ${call}`)
+    // e todas passam a incident_entity_key da entidade.
+    assert.match(call, /incident_entity_key: `[^`]*:u:\$\{profile\.user_id\}:p:/, `chamada de log() sem incident_entity_key: ${call}`)
   }
 })
 

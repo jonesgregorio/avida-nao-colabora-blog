@@ -10,6 +10,7 @@ import {
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
 import { fetchOperationalSnapshot } from '../../lib/adminOperationalStatus'
+import { ilikePattern, sanitizePgSearchTerm } from '../../lib/adminSearch'
 import './admin-theme.css'
 
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
@@ -36,10 +37,12 @@ interface EntityArticle { id: string; title: string | null; status: string | nul
 interface EntityTicket { id: string; subject: string | null; status: string | null }
 interface EntityCampaign { id: string; title: string | null; status: string | null }
 interface EntityResults {
+  term: string
   users: EntityUser[]
   articles: EntityArticle[]
   tickets: EntityTicket[]
   campaigns: EntityCampaign[]
+  errors: { users: boolean; articles: boolean; tickets: boolean; campaigns: boolean }
 }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -127,12 +130,14 @@ interface Props {
   onExit: () => void
   onOpenUser?: (userId: string) => void
   onOpenArticle?: (articleId: string) => void
+  onOpenTicket?: (ticketId: string) => void
+  onOpenCampaign?: (campaignId: string) => void
   userEmail?: string
   userName?: string
   children: ReactNode
 }
 
-export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUser, onOpenArticle, userEmail, userName, children }: Props) {
+export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUser, onOpenArticle, onOpenTicket, onOpenCampaign, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [allowed, setAllowed] = useState<Set<string> | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -185,35 +190,44 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
   }, [searchQuery, allowed])
 
   // ── Busca global: além da navegação, procura usuários / artigos / tickets /
-  // campanhas. Debounce + limite por grupo + respeita o RBAC (allowed).
+  // campanhas. Debounce + limite por grupo + RBAC + erro por grupo +
+  // token `alive` para descartar respostas de buscas obsoletas.
   useEffect(() => {
     const q = searchQuery.trim()
-    if (q.length < 2) { setEntityResults(null); return }
+    if (q.length < 2) {
+      // Saída antecipada — nunca deixar o spinner preso.
+      setEntityResults(null)
+      setEntitySearching(false)
+      return
+    }
     let alive = true
     setEntitySearching(true)
+    const like = ilikePattern(q)
+    const term = sanitizePgSearchTerm(q)
     const id = window.setTimeout(async () => {
       const can = (mod: string) => !allowed || allowed.has(mod)
-      const like = `%${q}%`
-      const [users, articles, tickets, campaigns] = await Promise.all([
-        can('users')
-          ? supabase.from('profiles').select('user_id, full_name, email').or(`full_name.ilike.${like},email.ilike.${like}`).limit(5)
-          : Promise.resolve({ data: null }),
-        can('content')
-          ? supabase.from('articles').select('id, title, status').ilike('title', like).limit(5)
-          : Promise.resolve({ data: null }),
-        can('users')
-          ? supabase.from('support_tickets').select('id, subject, status').ilike('subject', like).limit(5)
-          : Promise.resolve({ data: null }),
-        can('communication')
-          ? supabase.from('admin_communications').select('id, title, status').ilike('title', like).limit(5)
-          : Promise.resolve({ data: null }),
+      const none = Promise.resolve({ data: [], error: null }) as unknown as PromiseLike<{ data: unknown; error: unknown }>
+      const settled = await Promise.allSettled([
+        can('users') && like ? supabase.from('profiles').select('user_id, full_name, email').or(`full_name.ilike.${like},email.ilike.${like}`).limit(6) : none,
+        can('content') && like ? supabase.from('articles').select('id, title, status').ilike('title', like).limit(6) : none,
+        can('users') && like ? supabase.from('support_tickets').select('id, subject, status').ilike('subject', like).limit(6) : none,
+        can('communication') && like ? supabase.from('admin_communications').select('id, title, status').ilike('title', like).limit(6) : none,
       ])
       if (!alive) return
+      const pick = <T,>(i: number): { rows: T[]; error: boolean } => {
+        const r = settled[i]
+        if (r.status !== 'fulfilled') return { rows: [], error: true }
+        const v = r.value as { data: unknown; error: unknown }
+        return { rows: (v.data as T[]) ?? [], error: Boolean(v.error) }
+      }
+      const u = pick<EntityUser>(0)
+      const a = pick<EntityArticle>(1)
+      const t = pick<EntityTicket>(2)
+      const c = pick<EntityCampaign>(3)
       setEntityResults({
-        users: (users.data ?? []) as EntityUser[],
-        articles: (articles.data ?? []) as EntityArticle[],
-        tickets: (tickets.data ?? []) as EntityTicket[],
-        campaigns: (campaigns.data ?? []) as EntityCampaign[],
+        term,
+        users: u.rows, articles: a.rows, tickets: t.rows, campaigns: c.rows,
+        errors: { users: u.error, articles: a.error, tickets: t.error, campaigns: c.error },
       })
       setEntitySearching(false)
     }, 300)
@@ -411,66 +425,78 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
 
                   {searchQuery.trim().length >= 2 && (
                     <>
-                      {entitySearching && !entityResults && (
-                        <div className="px-4 py-3 text-xs text-stone-400 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando registros…</div>
+                      {entitySearching && (
+                        <div className="px-4 py-3 text-xs text-stone-400 flex items-center gap-2 border-t border-line"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando registros…</div>
                       )}
-                      {entityResults?.users.length ? (
-                        <div className="border-t border-line py-1">
-                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Usuários</div>
-                          {entityResults.users.map(u => (
-                            <button key={u.user_id} type="button"
-                              onClick={() => { onOpenUser?.(u.user_id); setSearchOpen(false); setSearchQuery('') }}
-                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
-                              <p className="text-sm text-forest-900">{u.full_name || u.email || u.user_id.slice(0, 8)}</p>
-                              {u.full_name && u.email && <p className="text-xs text-stone-400">{u.email}</p>}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      {entityResults?.articles.length ? (
-                        <div className="border-t border-line py-1">
-                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Artigos</div>
-                          {entityResults.articles.map(a => (
-                            <button key={a.id} type="button"
-                              onClick={() => { if (onOpenArticle) onOpenArticle(a.id); else navigateTo('conteudos'); setSearchOpen(false); setSearchQuery('') }}
-                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
-                              <p className="text-sm text-forest-900 truncate">{a.title || '(sem título)'}</p>
-                              <p className="text-xs text-stone-400">{a.status ?? ''}</p>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      {entityResults?.tickets.length ? (
-                        <div className="border-t border-line py-1">
-                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Tickets</div>
-                          {entityResults.tickets.map(t => (
-                            <button key={t.id} type="button"
-                              onClick={() => navigateTo('support')}
-                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
-                              <p className="text-sm text-forest-900 truncate">{t.subject || '(sem assunto)'}</p>
-                              <p className="text-xs text-stone-400">{t.status ?? ''}</p>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      {entityResults?.campaigns.length ? (
-                        <div className="border-t border-line py-1">
-                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400">Campanhas</div>
-                          {entityResults.campaigns.map(c => (
-                            <button key={c.id} type="button"
-                              onClick={() => navigateTo('notifications')}
-                              className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
-                              <p className="text-sm text-forest-900 truncate">{c.title || '(sem título)'}</p>
-                              <p className="text-xs text-stone-400">{c.status ?? ''}</p>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      {entityResults && !entitySearching &&
-                        !entityResults.users.length && !entityResults.articles.length &&
-                        !entityResults.tickets.length && !entityResults.campaigns.length && (
-                        <div className="border-t border-line px-4 py-3 text-xs text-stone-400">Nenhum registro para “{searchQuery}”.</div>
-                      )}
+                      {entityResults && (() => {
+                        const R = entityResults
+                        const anyRows = R.users.length || R.articles.length || R.tickets.length || R.campaigns.length
+                        const anyError = R.errors.users || R.errors.articles || R.errors.tickets || R.errors.campaigns
+                        const GroupHead = ({ title, error }: { title: string; error: boolean }) => (
+                          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-stone-400 flex items-center justify-between">
+                            <span>{title}</span>{error && <span className="text-amber-600 normal-case">erro ao buscar</span>}
+                          </div>
+                        )
+                        return (
+                          <>
+                            {(R.users.length || R.errors.users) ? (
+                              <div className="border-t border-line py-1">
+                                <GroupHead title="Usuários" error={R.errors.users} />
+                                {R.users.map(u => (
+                                  <button key={u.user_id} type="button"
+                                    onClick={() => { onOpenUser?.(u.user_id); setSearchOpen(false); setSearchQuery('') }}
+                                    className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                                    <p className="text-sm text-forest-900">{u.full_name || u.email || u.user_id.slice(0, 8)}</p>
+                                    {u.full_name && u.email && <p className="text-xs text-stone-400">{u.email}</p>}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                            {(R.articles.length || R.errors.articles) ? (
+                              <div className="border-t border-line py-1">
+                                <GroupHead title="Artigos" error={R.errors.articles} />
+                                {R.articles.map(a => (
+                                  <button key={a.id} type="button"
+                                    onClick={() => { if (onOpenArticle) onOpenArticle(a.id); else navigateTo('conteudos'); setSearchOpen(false); setSearchQuery('') }}
+                                    className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                                    <p className="text-sm text-forest-900 truncate">{a.title || '(sem título)'}</p>
+                                    <p className="text-xs text-stone-400">{a.status ?? ''}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                            {(R.tickets.length || R.errors.tickets) ? (
+                              <div className="border-t border-line py-1">
+                                <GroupHead title="Tickets" error={R.errors.tickets} />
+                                {R.tickets.map(t => (
+                                  <button key={t.id} type="button"
+                                    onClick={() => { if (onOpenTicket) onOpenTicket(t.id); else navigateTo('support'); setSearchOpen(false); setSearchQuery('') }}
+                                    className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                                    <p className="text-sm text-forest-900 truncate">{t.subject || '(sem assunto)'}</p>
+                                    <p className="text-xs text-stone-400">{t.status ?? ''}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                            {(R.campaigns.length || R.errors.campaigns) ? (
+                              <div className="border-t border-line py-1">
+                                <GroupHead title="Campanhas" error={R.errors.campaigns} />
+                                {R.campaigns.map(c => (
+                                  <button key={c.id} type="button"
+                                    onClick={() => { if (onOpenCampaign) onOpenCampaign(c.id); else navigateTo('notifications'); setSearchOpen(false); setSearchQuery('') }}
+                                    className="w-full text-left px-4 py-2 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none">
+                                    <p className="text-sm text-forest-900 truncate">{c.title || '(sem título)'}</p>
+                                    <p className="text-xs text-stone-400">{c.status ?? ''}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                            {!entitySearching && !anyRows && !anyError && (
+                              <div className="border-t border-line px-4 py-3 text-xs text-stone-400">Nenhum registro para “{searchQuery}”.</div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </>
                   )}
                 </div>

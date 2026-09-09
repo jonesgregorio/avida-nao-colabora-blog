@@ -219,7 +219,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
   return src.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-export default function AdminSupport({ onManageTemplates, onViewUser }: { onManageTemplates?: () => void; onViewUser?: (userId: string) => void }) {
+export default function AdminSupport({ onManageTemplates, onViewUser, initialTicketId }: { onManageTemplates?: () => void; onViewUser?: (userId: string) => void; initialTicketId?: string | null }) {
   const { user } = useAuth()
   const { prices: planPricing } = usePlanPricing()
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -305,6 +305,14 @@ export default function AdminSupport({ onManageTemplates, onViewUser }: { onMana
   }, [])
 
   useEffect(() => { loadTickets() }, [loadTickets])
+
+  // Deep-link da busca global: abre o ticket alvo assim que a lista chega.
+  const initialTicketDone = useRef(false)
+  useEffect(() => {
+    if (initialTicketDone.current || !initialTicketId || tickets.length === 0) return
+    const found = tickets.find(t => t.id === initialTicketId)
+    if (found) { setSelectedTicket(found); initialTicketDone.current = true }
+  }, [initialTicketId, tickets])
 
   const loadMessages = useCallback(async (ticketId: string, silent = false) => {
     if (!silent) setLoadingMessages(true)

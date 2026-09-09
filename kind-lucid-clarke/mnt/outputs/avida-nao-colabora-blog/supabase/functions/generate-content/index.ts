@@ -628,6 +628,7 @@ Deno.serve(async (req) => {
     contentType?: string
     userId?: string
     sourcePeriodStart?: string
+    entityKey?: string
     tema?: string
     tipo?: string
     frequencia?: string
@@ -689,6 +690,15 @@ Deno.serve(async (req) => {
   const failures: ProviderFailure[] = []
   const tried: string[] = []
 
+  // Chave de incidente: explícita (entityKey do caller) > derivada de
+  // usuário+período > null (agrupa por content_type na RPC, para one-offs).
+  const ct = body.contentType ?? 'generic'
+  const incidentKey = (body.entityKey && body.entityKey.trim())
+    ? body.entityKey.trim().slice(0, 200)
+    : body.userId
+      ? `${ct}:u:${body.userId}:p:${body.sourcePeriodStart ?? '-'}`
+      : null
+
   for (const provider of chain) {
     try {
       const generated = await FN[provider](prompt, format, questionnaire)
@@ -711,6 +721,7 @@ Deno.serve(async (req) => {
         // do plano do usuário A resolve o incidente de A, não o de B.
         user_id: body.userId ?? null,
         source_period_start: body.sourcePeriodStart ?? null,
+        incident_entity_key: incidentKey,
         content_type: body.contentType ?? 'generic',
         provider,
         status: 'success',
@@ -744,6 +755,7 @@ Deno.serve(async (req) => {
     admin_id: user.id,
     user_id: body.userId ?? null,
     source_period_start: body.sourcePeriodStart ?? null,
+    incident_entity_key: incidentKey,
     content_type: body.contentType ?? 'generic',
     provider: requested,
     status: 'error',

@@ -52,6 +52,8 @@ const METRICS: { key: string; label: string; Icon: typeof Activity }[] = [
   { key: 'plan_downgrades', label: 'Downgrades de plano', Icon: TrendingDown },
 ]
 
+// Estas chaves vêm de admin_operational_dashboard.attention, que por sua vez
+// DERIVA de admin_queues_overview() (fonte única) — nenhuma regra própria aqui.
 const ATTENTION: { key: string; label: string; nav: AdminView }[] = [
   { key: 'reports_failed', label: 'Relatórios que falharam', nav: 'pdf' as AdminView },
   { key: 'care_plans_failed', label: 'Planos de autocuidado com falha', nav: 'self-care-plans' as AdminView },
@@ -60,6 +62,7 @@ const ATTENTION: { key: string; label: string; nav: AdminView }[] = [
   { key: 'tickets_stale_7d', label: 'Tickets parados há +7 dias', nav: 'support' as AdminView },
   { key: 'tickets_open', label: 'Tickets abertos', nav: 'support' as AdminView },
   { key: 'payments_failed_30d', label: 'Pagamentos recusados (30 dias)', nav: 'financeiro' as AdminView },
+  { key: 'webhooks_stuck', label: 'Webhooks do Stripe travados', nav: 'financeiro' as AdminView },
   { key: 'cancellations_to_handle', label: 'Cancelamentos a tratar', nav: 'cancelamentos' as AdminView },
   { key: 'email_failures_7d', label: 'Falhas de e-mail (7 dias)', nav: 'system-health' as AdminView },
   { key: 'ai_errors_active', label: 'Fluxos de IA com erro ativo', nav: 'system-health' as AdminView },

@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { callAI } from '../../lib/aiContent'
 import { exportElementToPdf } from '../../lib/exportPdf'
 import AdminPerformanceEditorial from './AdminPerformanceEditorial'
-import AdminSEOCockpit from './AdminSEOCockpit'
 import {
-  LayoutDashboard, FileText, Filter, MousePointerClick, Route, Search, AlertTriangle,
-  Gauge, Flame, Monitor, Sparkles, Settings2, RefreshCw, Download, Loader2,
-  Plus, Trash2, Save, ArrowRight, Check, HelpCircle, ChevronDown, FileDown,
+  LayoutDashboard, FileText, Filter, MousePointerClick, Route, AlertTriangle,
+  Gauge, Flame, Monitor, RefreshCw, Download, Loader2,
+  HelpCircle, ChevronDown, FileDown,
 } from 'lucide-react'
 
 const ANALYTICS_VERSION = 'v5 · jul/2026' // selo para confirmar que o bundle novo está no ar
@@ -20,19 +18,19 @@ const PERIODS: { id: Period; label: string; days: number }[] = [
   { id: '90d', label: '90 dias', days: 90 },
 ]
 
+// Só as abas realmente acessíveis via AnalyticsPage (prop `only`). "Eventos
+// brutos" e "Relatórios IA" saíram; "SEO" e "Configurações"/"Redirects"
+// migraram para Conteúdo e Sistema.
 const TABS = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'pages', label: 'Páginas', icon: FileText },
   { id: 'funnel', label: 'Funil', icon: Filter },
-  { id: 'events', label: 'Eventos', icon: MousePointerClick },
   { id: 'journey', label: 'Jornada', icon: Route },
-  { id: 'seo', label: 'SEO', icon: Search },
-  { id: 'errors', label: 'Erros', icon: AlertTriangle },
+  { id: 'errors', label: 'Erros 404', icon: AlertTriangle },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'heatmap', label: 'Cliques e interações', icon: Flame },
   { id: 'devices', label: 'Dispositivos', icon: Monitor },
-  { id: 'ai', label: 'Relatórios IA', icon: Sparkles },
-  { id: 'settings', label: 'Configurações', icon: Settings2 },
+  { id: 'growth', label: 'Crescimento', icon: MousePointerClick },
 ] as const
 type Tab = typeof TABS[number]['id']
 
@@ -81,25 +79,15 @@ const HELP: Record<Tab, Help> = {
     how: 'A porcentagem mostra quantos passaram de uma etapa para a próxima. A maior queda entre duas etapas é onde você perde gente — foque ali.',
     terms: [['Etapa', 'Cada passo do caminho.'], ['Taxa de conversão', 'De cada 100 pessoas de uma etapa, quantas avançaram para a seguinte.']],
   },
-  events: {
-    what: 'A lista de tudo que foi registrado: cliques, rolagens, visualizações, erros.',
-    how: 'É a visão “crua”. Serve para conferir se um botão novo está sendo clicado ou se uma ação está sendo registrada.',
-    terms: [['Evento', 'Uma ação registrada (ex.: page_view = abriu página; cta_click = clicou num botão).'], ['Sessões', 'Quantas visitas diferentes geraram aquele evento.']],
-  },
   journey: {
     what: 'A sequência de ações de cada visita, de forma anônima (sem identificar a pessoa nem mostrar conteúdo do diário).',
     how: 'Leia da esquerda para a direita: mostra o “passo a passo” que a pessoa fez. Ajuda a entender por onde as pessoas navegam.',
     terms: [['Sessão anônima', 'Um código aleatório que agrupa as ações de uma mesma visita, sem revelar quem é.'], ['→', 'Indica a ordem: fez isso, depois aquilo.']],
   },
-  seo: {
-    what: 'Como o blog aparece nas buscas do Google: títulos, descrições e palavras-chave.',
-    how: 'Preencha título e descrição de cada artigo. É isso que aparece no Google e faz a pessoa clicar.',
-    terms: [['SEO', 'Otimização para buscadores — ajustes para o Google mostrar seu site.'], ['Meta descrição', 'O textinho que aparece embaixo do título nos resultados do Google.']],
-  },
   errors: {
-    what: 'Páginas que deram erro 404 (não encontradas) e os redirecionamentos que você configurou para consertá-las.',
-    how: 'Se uma URL antiga aparece com muitos 404, clique em “Criar redirect” e aponte para a página nova. O site passa a redirecionar sozinho.',
-    terms: [['404', 'Link quebrado / página inexistente.'], ['Redirecionamento (301/302)', 'Manda quem acessa a URL antiga para a nova. 301 = mudança permanente, 302 = temporária.'], ['Hits', 'Quantas vezes o redirect foi usado.']],
+    what: 'URLs que deram erro 404 (não encontradas) no período.',
+    how: 'Se uma URL antiga aparece com muitos 404, crie um redirecionamento em Conteúdo → Inteligência → Redirecionamentos.',
+    terms: [['404', 'Link quebrado / página inexistente.']],
   },
   performance: {
     what: 'A velocidade do site medida no navegador dos visitantes (Core Web Vitals do Google).',
@@ -126,15 +114,10 @@ const HELP: Record<Tab, Help> = {
       ['Direto', 'A pessoa digitou o endereço ou usou um favorito — sem site de origem.'],
     ],
   },
-  ai: {
-    what: 'Uma análise automática, escrita pela IA, dos números reais do período — com recomendações práticas.',
-    how: 'Clique em “Gerar análise”, leia o resumo e as sugestões. Se gostar, clique em “Salvar” para guardar no histórico.',
-    terms: [['Relatório', 'Resumo + recomendações geradas a partir dos seus dados.']],
-  },
-  settings: {
-    what: 'Liga/desliga o que é rastreado, define a privacidade e por quanto tempo os dados ficam guardados.',
-    how: 'Deixe ligado o que quer acompanhar. A anonimização protege os visitantes (LGPD). Ajuste a retenção conforme sua necessidade.',
-    terms: [['Retenção', 'Quantos dias os eventos ficam salvos antes de serem apagados automaticamente.'], ['Anonimizar', 'Não guardar nada que identifique a pessoa (sem IP).'], ['Evento personalizado', 'Uma ação extra que você quer acompanhar, além das padrão.']],
+  growth: {
+    what: 'A evolução dos números ao longo do período: visitas, cadastros, conversões e pageviews por dia.',
+    how: 'Use 30 ou 90 dias para ver a tendência. Compare os picos com o que você publicou/divulgou naquelas datas.',
+    terms: [['Tendência', 'Se o número está subindo, estável ou caindo no período.'], ['Fonte de tráfego', 'De onde vieram as visitas (Instagram, Google, direto…).']],
   },
 }
 
@@ -289,11 +272,6 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
   const [signupDates, setSignupDates] = useState<string[]>([])
   const [conversionDates, setConversionDates] = useState<string[]>([])
   const [readTop, setReadTop] = useState<[string, number][]>([])
-  const [aiBusy, setAiBusy] = useState(false)
-  const [aiText, setAiText] = useState('')
-  const [aiSaving, setAiSaving] = useState(false)
-  const [aiHistoryKey, setAiHistoryKey] = useState(0)
-  const [redirectFrom, setRedirectFrom] = useState('')
   const [pdfBusy, setPdfBusy] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -429,29 +407,6 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
     finally { setPdfBusy(false) }
   }
 
-  async function genAIReport() {
-    setAiBusy(true); setAiText('')
-    try {
-      const fontes = growth.sources.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'
-      const comp = `Comparado ao período anterior de mesmo tamanho — visitantes: ${prevM.visitors}, cadastros: ${prevSignups}, conversões: ${prevConversions}.`
-      const resumo = `Período: ${PERIODS.find(p => p.id === period)!.label}. Sessões: ${m.sessions}. Visitantes: ${m.visitors}. Pageviews: ${m.pageviews}. Cliques em CTA: ${m.ctaClicks}. Cadastros: ${signups}. Conversões para plano: ${conversions}. Erros 404: ${m.errors404}. Tendência de visitas: ${growth.trend}. ${comp} Principais fontes de tráfego: ${fontes}. Artigos mais lidos: ${readTop.map(([s, n]) => `${s} (${n})`).join(', ') || 'sem dados'}.`
-      const out = await callAI(`Você é um analista de produto de um blog de saúde emocional. Com base nestes números de analytics, escreva um resumo curto e 3 a 5 recomendações práticas (melhorar CTA, atualizar artigo, criar pauta, corrigir SEO, reduzir erros). Seja específico e acionável.\n\n${resumo}`, { size: 'médio' })
-      setAiText(out)
-    } catch (e) { setAiText('Falha ao gerar: ' + (e instanceof Error ? e.message : String(e))) }
-    setAiBusy(false)
-  }
-
-  async function saveAIReport() {
-    if (!aiText) return
-    setAiSaving(true)
-    const periodLabel = PERIODS.find(p => p.id === period)!.label
-    const { error } = await supabase.from('analytics_ai_reports').insert({
-      kind: 'custom', period: periodLabel, title: `Análise · ${periodLabel} · ${new Date().toLocaleDateString('pt-BR')}`, content: aiText,
-    })
-    setAiSaving(false)
-    if (!error) setAiHistoryKey(k => k + 1)
-  }
-
   const card = 'bg-white border border-line rounded-2xl p-5'
   const metricCards = [
     { n: m.visitors, prev: prevM.visitors, label: 'Visitantes' },
@@ -507,7 +462,6 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
         <TabHelp tab={tab} />
         {/* Reaproveita Desempenho e SEO cockpit (fonte única, sem duplicar) */}
         {tab === 'pages' && <div className="-mx-6"><AdminPerformanceEditorial onEditArticle={onEditArticle} /></div>}
-        {tab === 'seo' && <div className="-mx-6"><AdminSEOCockpit onEditArticle={onEditArticle} /></div>}
 
         {tab === 'overview' && (
           <div className="space-y-6">
@@ -551,18 +505,6 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
           </div>
         )}
 
-        {tab === 'events' && (
-          <div className={card}>
-            <h2 className="font-serif text-xl text-forest-900 mb-3">Eventos ({PERIODS.find(p => p.id === period)!.label})</h2>
-            {events.length === 0 ? <Empty text="Nenhum evento no período. Assim que o site público começar a emitir eventos, eles aparecem aqui." /> : (
-              <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">Evento</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Total</th><th className="text-right px-3 py-2 text-stone-500 font-medium">% do total</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Sessões</th></tr></thead>
-                <tbody className="divide-y divide-stone-100">{topCount(events, e => e.event, 40).map(([ev, n]) => {
-                  const sess = new Set(events.filter(e => e.event === ev).map(e => e.session_id)).size
-                  return <tr key={ev}><td className="px-3 py-2 font-mono text-xs text-forest-900">{ev}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{pct(n, events.length)}</td><td className="px-3 py-2 text-right text-ink-soft">{sess}</td></tr>
-                })}</tbody></table>
-            )}
-          </div>
-        )}
 
         {tab === 'devices' && (() => {
           // Conta por sessão única para não distorcer com muitos page_views da mesma pessoa.
@@ -651,22 +593,18 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
         )}
 
         {tab === 'errors' && (
-          <div className="space-y-5">
-            <div className={card}>
-              <h2 className="font-serif text-xl text-forest-900 mb-3">Erros 404 ({PERIODS.find(p => p.id === period)!.label})</h2>
-              {(() => {
-                const errs = events.filter(e => e.event === 'error_404')
-                const top = topCount(errs, e => e.entity_id, 30); const tot = sumCounts(top)
-                return top.length === 0 ? <Empty text="Sem erros 404 no período — o site registra error_404 automaticamente quando alguém acessa um artigo inexistente." /> : (
-                  <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">URL</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ocorrências</th><th className="text-right px-3 py-2 text-stone-500 font-medium">% dos 404</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ação</th></tr></thead>
-                    <tbody className="divide-y divide-stone-100">{top.map(([u, n]) => (
-                      <tr key={u}><td className="px-3 py-2 font-mono text-xs">{u}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{pct(n, tot)}</td>
-                        <td className="px-3 py-2 text-right"><button onClick={() => setRedirectFrom(u)} className="text-xs text-forest-700 hover:underline">Criar redirect</button></td></tr>
-                    ))}</tbody></table>
-                )
-              })()}
-            </div>
-            <RedirectsManager prefillFrom={redirectFrom} onConsumePrefill={() => setRedirectFrom('')} />
+          <div className={card}>
+            <h2 className="font-serif text-xl text-forest-900 mb-3">Erros 404 ({PERIODS.find(p => p.id === period)!.label})</h2>
+            {(() => {
+              const errs = events.filter(e => e.event === 'error_404')
+              const top = topCount(errs, e => e.entity_id, 30); const tot = sumCounts(top)
+              return top.length === 0 ? <Empty text="Sem erros 404 no período. Para criar/gerir redirecionamentos, use Conteúdo → Inteligência → Redirecionamentos." /> : (
+                <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">URL</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Ocorrências</th><th className="text-right px-3 py-2 text-stone-500 font-medium">% dos 404</th></tr></thead>
+                  <tbody className="divide-y divide-stone-100">{top.map(([u, n]) => (
+                    <tr key={u}><td className="px-3 py-2 font-mono text-xs">{u}</td><td className="px-3 py-2 text-right">{n}</td><td className="px-3 py-2 text-right text-ink-soft">{pct(n, tot)}</td></tr>
+                  ))}</tbody></table>
+              )
+            })()}
           </div>
         )}
 
@@ -719,7 +657,7 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
           </div>
         )}
 
-        {tab === 'ai' && (
+        {tab === 'growth' && (
           <div className="space-y-5">
             <div>
               <h2 className="font-serif text-2xl text-forest-900">Painel de crescimento</h2>
@@ -733,23 +671,8 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
               <BarChartCard title="Fontes de tráfego" subtitle="de onde vieram as visitas" data={growth.sources} />
               <BarChartCard title="Dispositivos" subtitle="por sessão" data={growth.devices} />
             </div>
-
-            <div className={card}>
-              <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-                <h2 className="font-serif text-xl text-forest-900">Relatório com IA</h2>
-                <div className="flex gap-2">
-                  {aiText && !aiBusy && <button onClick={saveAIReport} disabled={aiSaving} className="inline-flex items-center gap-2 border border-line bg-white text-forest-800 px-4 py-2 rounded-xl text-sm font-medium hover:border-forest-300 disabled:opacity-50">{aiSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar</button>}
-                  <button onClick={genAIReport} disabled={aiBusy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">{aiBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Gerar análise do período</button>
-                </div>
-              </div>
-              <p className="text-xs text-ink-soft mb-3">A IA analisa os números reais do período (visitas, CTA, cadastros, conversões, 404, artigos lidos) e sugere ações.</p>
-              {aiText ? <div className="text-sm text-ink whitespace-pre-wrap leading-relaxed bg-paper-soft border border-line rounded-xl p-4">{aiText}</div> : <Empty text="Clique em “Gerar análise do período” para receber um resumo + recomendações acionáveis." />}
-            </div>
-            <AiReportsHistory reload={aiHistoryKey} />
           </div>
         )}
-
-        {tab === 'settings' && <AnalyticsSettingsPanel />}
       </div>
 
       {/* Relatório imprimível (oculto) — capturado no botão PDF, com gráficos e % */}
@@ -803,191 +726,6 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
               <tbody>{topCount(events, e => e.event, 15).map(([ev, n]) => <tr key={ev}><td className="py-1 font-mono text-xs text-forest-900">{ev}</td><td className="py-1 text-right">{n}</td><td className="py-1 text-right text-ink-soft">{pct(n, events.length)}</td></tr>)}</tbody></table>
           )}
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Gestão de redirecionamentos (Erros → 404) ──────────────────────────────
-interface Redirect { id: string; from_path: string; to_path: string; type: number; is_active: boolean; hits: number; created_at: string }
-function RedirectsManager({ prefillFrom, onConsumePrefill }: { prefillFrom: string; onConsumePrefill: () => void }) {
-  const [rows, setRows] = useState<Redirect[]>([])
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [type, setType] = useState(301)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  async function load() {
-    const { data } = await supabase.from('analytics_redirects').select('*').order('created_at', { ascending: false })
-    setRows((data as Redirect[]) ?? [])
-  }
-  useEffect(() => { load() }, [])
-  useEffect(() => { if (prefillFrom) { setFrom(prefillFrom); onConsumePrefill() } }, [prefillFrom]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function add() {
-    if (!from.trim() || !to.trim()) { setErr('Preencha origem e destino.'); return }
-    setBusy(true); setErr('')
-    const { error } = await supabase.from('analytics_redirects').upsert(
-      { from_path: from.trim(), to_path: to.trim(), type }, { onConflict: 'from_path' })
-    setBusy(false)
-    if (error) { setErr(error.message); return }
-    setFrom(''); setTo(''); setType(301); load()
-  }
-  async function toggle(r: Redirect) { await supabase.from('analytics_redirects').update({ is_active: !r.is_active }).eq('id', r.id); load() }
-  async function del(r: Redirect) { await supabase.from('analytics_redirects').delete().eq('id', r.id); load() }
-
-  const inp = 'border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-forest-400'
-  return (
-    <div className="bg-white border border-line rounded-2xl p-5">
-      <h2 className="font-serif text-xl text-forest-900 mb-1">Redirecionamentos</h2>
-      <p className="text-xs text-ink-soft mb-4">Uma URL antiga (ex.: <code>/blog/slug-velho</code>) é reenviada para a nova. O site aplica automaticamente ao detectar o 404.</p>
-      <div className="flex flex-wrap items-end gap-2 mb-4">
-        <div className="flex-1 min-w-[180px]"><label className="block text-xs text-ink-soft mb-1">De (origem)</label><input value={from} onChange={e => setFrom(e.target.value)} placeholder="/blog/slug-antigo" className={`${inp} w-full`} /></div>
-        <ArrowRight className="w-4 h-4 text-stone-300 mb-3" />
-        <div className="flex-1 min-w-[180px]"><label className="block text-xs text-ink-soft mb-1">Para (destino)</label><input value={to} onChange={e => setTo(e.target.value)} placeholder="/blog/slug-novo" className={`${inp} w-full`} /></div>
-        <div><label className="block text-xs text-ink-soft mb-1">Tipo</label><select value={type} onChange={e => setType(Number(e.target.value))} className={inp}><option value={301}>301 permanente</option><option value={302}>302 temporário</option></select></div>
-        <button onClick={add} disabled={busy} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Adicionar</button>
-      </div>
-      {err && <p className="text-xs text-red-600 mb-3">{err}</p>}
-      {rows.length === 0 ? <Empty text="Nenhum redirecionamento cadastrado." /> : (
-        <table className="w-full text-sm"><thead className="bg-stone-50 border-b border-line"><tr><th className="text-left px-3 py-2 text-stone-500 font-medium">De → Para</th><th className="px-3 py-2 text-stone-500 font-medium">Tipo</th><th className="text-right px-3 py-2 text-stone-500 font-medium">Hits</th><th className="px-3 py-2 text-stone-500 font-medium">Ativo</th><th className="px-3 py-2"></th></tr></thead>
-          <tbody className="divide-y divide-stone-100">{rows.map(r => (
-            <tr key={r.id}>
-              <td className="px-3 py-2 font-mono text-xs text-forest-900"><span className="text-stone-500">{r.from_path}</span> → {r.to_path}</td>
-              <td className="px-3 py-2 text-center text-xs">{r.type}</td>
-              <td className="px-3 py-2 text-right">{r.hits}</td>
-              <td className="px-3 py-2 text-center"><button onClick={() => toggle(r)} className={`text-xs px-2 py-1 rounded-lg ${r.is_active ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-400'}`}>{r.is_active ? 'ativo' : 'inativo'}</button></td>
-              <td className="px-3 py-2 text-right"><button onClick={() => del(r)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
-            </tr>
-          ))}</tbody></table>
-      )}
-    </div>
-  )
-}
-
-// ─── Histórico de relatórios de IA ──────────────────────────────────────────
-interface AiReport { id: string; title: string | null; period: string | null; content: string; created_at: string }
-function AiReportsHistory({ reload }: { reload: number }) {
-  const [rows, setRows] = useState<AiReport[]>([])
-  const [open, setOpen] = useState<string | null>(null)
-  async function load() { const { data } = await supabase.from('analytics_ai_reports').select('id, title, period, content, created_at').order('created_at', { ascending: false }).limit(30); setRows((data as AiReport[]) ?? []) }
-  useEffect(() => { load() }, [reload])
-  async function del(id: string) { await supabase.from('analytics_ai_reports').delete().eq('id', id); load() }
-  if (rows.length === 0) return null
-  return (
-    <div className="bg-white border border-line rounded-2xl p-5">
-      <h2 className="font-serif text-xl text-forest-900 mb-3">Relatórios salvos</h2>
-      <div className="space-y-2">{rows.map(r => (
-        <div key={r.id} className="border border-line rounded-xl">
-          <div className="flex items-center justify-between px-3 py-2">
-            <button onClick={() => setOpen(open === r.id ? null : r.id)} className="text-left flex-1"><span className="text-sm text-forest-900">{r.title || 'Relatório'}</span> <span className="text-xs text-stone-400">· {r.period} · {new Date(r.created_at).toLocaleDateString('pt-BR')}</span></button>
-            <button onClick={() => del(r.id)} className="text-stone-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4" /></button>
-          </div>
-          {open === r.id && <div className="px-3 pb-3 text-sm text-ink whitespace-pre-wrap leading-relaxed border-t border-line pt-3">{r.content}</div>}
-        </div>
-      ))}</div>
-    </div>
-  )
-}
-
-// ─── Configurações & eventos personalizados ─────────────────────────────────
-type SettingsConfig = { track_pageviews: boolean; track_scroll: boolean; track_cta: boolean; track_errors: boolean; track_web_vitals: boolean; anonymize: boolean; retention_days: number }
-const DEFAULT_CFG: SettingsConfig = { track_pageviews: true, track_scroll: true, track_cta: true, track_errors: true, track_web_vitals: true, anonymize: true, retention_days: 365 }
-const TOGGLES: { key: keyof SettingsConfig; label: string; hint: string }[] = [
-  { key: 'track_pageviews', label: 'Visualizações de página', hint: 'page_view a cada navegação' },
-  { key: 'track_scroll', label: 'Profundidade de leitura', hint: 'scroll_50 / 75 / 100 nos artigos' },
-  { key: 'track_cta', label: 'Cliques em CTA', hint: 'botões marcados com data-cta' },
-  { key: 'track_errors', label: 'Erros 404', hint: 'artigos inexistentes' },
-  { key: 'track_web_vitals', label: 'Core Web Vitals', hint: 'LCP, CLS, FCP, TTFB' },
-  { key: 'anonymize', label: 'Anonimizar visitante', hint: 'sem IP, sessão aleatória (LGPD)' },
-]
-type CustomInteraction = 'click' | 'submit' | 'view'
-interface CustomEvent { id: string; name: string; description: string | null; selector: string | null; url_pattern: string | null; interaction_type: CustomInteraction; is_active: boolean }
-function AnalyticsSettingsPanel() {
-  const [cfg, setCfg] = useState<SettingsConfig>(DEFAULT_CFG)
-  const [saved, setSaved] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [ces, setCes] = useState<CustomEvent[]>([])
-  const [nName, setNName] = useState(''); const [nSel, setNSel] = useState(''); const [nUrl, setNUrl] = useState(''); const [nInteraction, setNInteraction] = useState<CustomInteraction>('click')
-
-  async function load() {
-    const [sRes, cRes] = await Promise.all([
-      supabase.from('analytics_settings').select('config').eq('id', 1).maybeSingle(),
-      supabase.from('analytics_custom_events').select('*').order('created_at', { ascending: false }),
-    ])
-    if (sRes.data?.config) setCfg({ ...DEFAULT_CFG, ...(sRes.data.config as Partial<SettingsConfig>) })
-    setCes((cRes.data as CustomEvent[]) ?? [])
-  }
-  useEffect(() => { load() }, [])
-
-  async function save() {
-    setSaving(true); setSaved(false)
-    await supabase.from('analytics_settings').upsert({ id: 1, config: cfg, updated_at: new Date().toISOString() })
-    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500)
-  }
-  async function addCE() {
-    const name = nName.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
-    if (!name || !nSel.trim()) return
-    try { document.querySelector(nSel.trim()) } catch { return }
-    await supabase.from('analytics_custom_events').insert({ name, selector: nSel.trim(), url_pattern: nUrl.trim() || null, interaction_type: nInteraction })
-    setNName(''); setNSel(''); setNUrl(''); setNInteraction('click'); load()
-  }
-  async function toggleCE(c: CustomEvent) { await supabase.from('analytics_custom_events').update({ is_active: !c.is_active }).eq('id', c.id); load() }
-  async function delCE(c: CustomEvent) { await supabase.from('analytics_custom_events').delete().eq('id', c.id); load() }
-
-  const card = 'bg-white border border-line rounded-2xl p-5'
-  const inp = 'border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-forest-400'
-  return (
-    <div className="space-y-5">
-      <div className={card}>
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <h2 className="font-serif text-xl text-forest-900">Rastreamento</h2>
-          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />} {saved ? 'Salvo' : 'Salvar'}</button>
-        </div>
-        <div className="space-y-1">{TOGGLES.map(t => (
-          <label key={t.key} className="flex items-center justify-between py-2.5 border-b border-line last:border-0 cursor-pointer">
-            <span><span className="text-sm text-forest-900">{t.label}</span><span className="block text-xs text-ink-soft">{t.hint}</span></span>
-            <button type="button" onClick={() => setCfg(c => ({ ...c, [t.key]: !c[t.key] }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${cfg[t.key] ? 'bg-forest-600' : 'bg-stone-300'}`}><span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${cfg[t.key] ? 'left-[22px]' : 'left-0.5'}`} /></button>
-          </label>
-        ))}
-          <label className="flex items-center justify-between py-2.5 cursor-pointer">
-            <span><span className="text-sm text-forest-900">Retenção dos dados</span><span className="block text-xs text-ink-soft">dias antes de expurgar eventos antigos</span></span>
-            <input type="number" min={30} max={1095} value={cfg.retention_days} onChange={e => setCfg(c => ({ ...c, retention_days: Number(e.target.value) }))} className={`${inp} w-24 text-right`} />
-          </label>
-        </div>
-      </div>
-
-      <div className={card}>
-        <h2 className="font-serif text-xl text-forest-900 mb-1">Eventos personalizados</h2>
-        <p className="text-xs text-ink-soft mb-4">Defina eventos extras por seletor CSS. O site aplica somente definições ativas e ignora seletor inválido sem interromper a navegação.</p>
-        <div className="flex flex-wrap items-end gap-2 mb-4">
-          <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Nome</label><input value={nName} onChange={e => setNName(e.target.value)} placeholder="ex.: clique_whatsapp" className={`${inp} w-full`} /></div>
-          <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Seletor CSS</label><input value={nSel} onChange={e => setNSel(e.target.value)} placeholder="[data-cta='whatsapp']" className={`${inp} w-full`} /></div>
-          <div className="min-w-[120px]"><label className="block text-xs text-ink-soft mb-1">Interação</label><select value={nInteraction} onChange={e => setNInteraction(e.target.value as CustomInteraction)} className={`${inp} w-full`}><option value="click">Clique</option><option value="submit">Envio de formulário</option><option value="view">Visualização</option></select></div>
-          <div className="flex-1 min-w-[140px]"><label className="block text-xs text-ink-soft mb-1">Padrão de URL</label><input value={nUrl} onChange={e => setNUrl(e.target.value)} placeholder="/contato" className={`${inp} w-full`} /></div>
-          <button onClick={addCE} className="inline-flex items-center gap-2 bg-forest-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-forest-800"><Plus className="w-4 h-4" /> Adicionar</button>
-        </div>
-        {ces.length === 0 ? <Empty text="Nenhum evento personalizado ainda." /> : (
-          <div className="space-y-2">{ces.map(c => (
-            <div key={c.id} className="flex items-center justify-between border border-line rounded-xl px-3 py-2">
-              <div><span className="text-sm text-forest-900 font-mono text-xs">{c.name}</span>{(c.selector || c.url_pattern) && <span className="block text-xs text-ink-soft">{c.interaction_type || 'click'} · {c.selector} {c.url_pattern && `· ${c.url_pattern}`}</span>}</div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => toggleCE(c)} className={`text-xs px-2 py-1 rounded-lg ${c.is_active ? 'bg-mint text-forest-700' : 'bg-stone-100 text-stone-400'}`}>{c.is_active ? 'ativo' : 'inativo'}</button>
-                <button onClick={() => delCE(c)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-              </div>
-            </div>
-          ))}</div>
-        )}
-      </div>
-
-      <div className={card}>
-        <h2 className="font-serif text-xl text-forest-900 mb-3">Privacidade & LGPD</h2>
-        <ul className="space-y-2 text-sm text-ink">
-          <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" /> Sem IP completo — visitante anonimizado por sessão.</li>
-          <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" /> Não registra conteúdo de diário, check-in ou respostas sensíveis.</li>
-          <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" /> Dados de Analytics só o admin acessa (RLS).</li>
-        </ul>
       </div>
     </div>
   )
