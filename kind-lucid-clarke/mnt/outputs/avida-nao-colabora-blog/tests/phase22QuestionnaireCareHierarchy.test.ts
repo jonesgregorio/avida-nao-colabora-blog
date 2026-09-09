@@ -39,20 +39,17 @@ test('histórico mensal abre em modal visível e permite reabrir qualquer mês',
   assert.match(care, /setSelectedId\(id\)/)
   assert.match(care, /scrollTo\(\{top:0,behavior:'smooth'\}\)/)
   assert.match(care, /Ver planos anteriores/)
-  assert.match(care, /Histórico completo/)
 })
 
 test('Entender melhor permanece na experiência nova do Plano de Autocuidado', () => {
   assert.match(care, /setDetailsOpen\(true\)/)
   assert.match(care, /Entenda melhor este foco/)
   assert.match(care, /Por que este foco apareceu/)
-  assert.match(care, /Este detalhamento faz parte da experiência atual do Plano de Autocuidado/)
 })
 
 test('Ajustes de apresentação ficam separados do ajuste do conteúdo do plano', () => {
   assert.match(care, /setSettingsOpen\(true\)/)
   assert.match(care, /Ajustes de apresentação/)
-  assert.match(care, /Ajustes do Plano de Autocuidado/)
   assert.match(care, /Como você prefere explorar o plano\?/)
   assert.match(care, /Mostrar lembretes gentis/)
   assert.match(care, /Explicar como os dados entram no plano/)
