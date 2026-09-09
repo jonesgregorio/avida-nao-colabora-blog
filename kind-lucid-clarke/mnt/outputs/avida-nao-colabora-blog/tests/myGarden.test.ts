@@ -15,7 +15,7 @@ test('Meu Jardim segue o mockup editorial sem streak ou XP visível',()=>{
 
 test('jardim comunica progressão sem transformar uso em recompensa por clique',()=>{
  assert.match(garden,/não funciona como uma recompensa por cliques/i)
- assert.match(garden,/momentos de cuidado ao longo do tempo/i)
+ assert.match(garden,/Dias com Check-ins ou Diário formam a base/i)
  assert.match(garden,/Um Check-in isolado não muda tudo/)
  assert.match(garden,/Nenhuma ação simples, sozinha, completa uma transformação/)
  assert.doesNotMatch(garden,/\+\d+ XP|streak de/i)
@@ -26,7 +26,7 @@ test('progressão é infinita, preserva jardins anteriores e usa ciclo históric
  assert.match(garden,/Memórias do Jardim/)
  assert.match(garden,/Jardim atual/)
  assert.match(garden,/Não existe último jardim/)
- assert.match(garden,/O jardim jamais termina/)
+ assert.match(garden,/O jardim nunca termina/)
  assert.match(engine,/floor\(growth \/ 60\.0\)::int AS garden_index/)
  assert.match(engine,/\(growth % 60\)::int AS garden_progress/)
  assert.match(engine,/'completed_gardens', garden_index/)
