@@ -12,6 +12,7 @@ import type { AdminView } from './types'
 import { fetchOperationalSnapshot, markAiFailuresDeepLink } from '../../lib/adminOperationalStatus'
 import { ilikePattern, sanitizePgSearchTerm } from '../../lib/adminSearch'
 import AdminActivityAlerts from './AdminActivityAlerts'
+import AdminActivityPopup from './AdminActivityPopup'
 import './admin-theme.css'
 
 type NavItem = { id: AdminView; label: string; icon: LucideIcon }
@@ -571,6 +572,8 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
 
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
+
+      <AdminActivityPopup />
     </div>
   )
 }
