@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Bird,
   BookOpen,
@@ -189,7 +189,7 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
   const currentElement = selectedStage
     ? ELEMENTS.find((item) => item.stage === selectedStage)
     : [...ELEMENTS].reverse().find((item) => item.stage <= stage)
-  const visualProgress = useMemo(() => Math.min(100, Math.max(3, ((state.garden_progress || 0) / 60) * 100)), [state.garden_progress])
+  const visualProgress = Math.min(100, Math.max(3, ((state.garden_progress || 0) / 60) * 100))
 
   return (
     <main className="min-h-full bg-[#f7f0e5] text-[#183a2d]">
