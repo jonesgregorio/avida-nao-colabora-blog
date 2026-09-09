@@ -122,6 +122,7 @@ BEGIN
 END $$;
 
 REVOKE ALL ON FUNCTION public.care_plan_readiness_from_records(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.care_plan_readiness_from_records(jsonb) TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_care_plan_dashboard(date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_care_plan_dashboard(date) TO authenticated;
 
