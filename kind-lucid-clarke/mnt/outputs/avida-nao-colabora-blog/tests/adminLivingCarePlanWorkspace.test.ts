@@ -5,15 +5,15 @@ import { readFileSync } from 'node:fs'
 const hub = readFileSync(new URL('../src/components/admin/AdminSelfCareHub.tsx', import.meta.url), 'utf8')
 const workspace = readFileSync(new URL('../src/components/admin/AdminLivingCarePlanWorkspace.tsx', import.meta.url), 'utf8')
 
-test('Admin usa o workspace visual do Plano Vivo em vez do formulário mensal legado', () => {
+test('Admin usa o workspace visual do Plano de Autocuidado em vez do formulário mensal legado', () => {
   assert.match(hub, /AdminLivingCarePlanWorkspace/)
   assert.doesNotMatch(hub, /AdminMonthlyCarePlans/)
-  assert.match(workspace, /Revisão do Plano Vivo/)
+  assert.match(workspace, /Revisão do Plano de Autocuidado/)
   assert.match(workspace, /Da leitura estruturada ao plano que o usuário verá/)
   assert.match(workspace, /Prévia do usuário/)
 })
 
-test('Admin mostra a mesma estrutura funcional do Plano Vivo', () => {
+test('Admin mostra a mesma estrutura funcional do Plano de Autocuidado', () => {
   assert.match(workspace, /Foco atual/)
   assert.match(workspace, /Por que este foco/)
   assert.match(workspace, /Frente \{i \+ 1\}/)
