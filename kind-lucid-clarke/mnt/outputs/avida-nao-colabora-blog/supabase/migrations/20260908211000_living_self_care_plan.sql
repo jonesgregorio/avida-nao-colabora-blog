@@ -27,17 +27,41 @@ CREATE POLICY "care_plan_action_state_admin" ON public.care_plan_action_state
 CREATE INDEX IF NOT EXISTS idx_care_plan_action_state_user_plan
   ON public.care_plan_action_state(user_id, care_plan_id);
 
--- Usuário Plus pode enxergar também o motivo estruturado de um ciclo sem plano enviado.
+-- Não ampliamos a policy da tabela monthly_care_plans: ela contém campos internos
+-- (admin_notes, proveniência e erros técnicos). Para o estado sem plano, o usuário
+-- recebe SOMENTE os campos seguros abaixo por RPC.
 DROP POLICY IF EXISTS "mcp_own_readiness" ON public.monthly_care_plans;
-CREATE POLICY "mcp_own_readiness" ON public.monthly_care_plans
-  FOR SELECT USING (
-    auth.uid() = user_id
-    AND (status = 'sent' OR (status = 'skipped' AND COALESCE(readiness->>'reason_code','') = 'insufficient_activity'))
-  );
+
+CREATE OR REPLACE FUNCTION public.get_my_care_plan_readiness()
+RETURNS TABLE (
+  id uuid,
+  month_reference date,
+  period_start date,
+  period_end date,
+  status text,
+  readiness jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT p.id, p.month_reference, p.period_start, p.period_end, p.status, p.readiness
+  FROM public.monthly_care_plans p
+  WHERE p.user_id = auth.uid()
+    AND p.status = 'skipped'
+    AND COALESCE(p.readiness->>'reason_code','') = 'insufficient_activity'
+  ORDER BY p.month_reference DESC
+  LIMIT 120;
+$$;
+REVOKE ALL ON FUNCTION public.get_my_care_plan_readiness() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_care_plan_readiness() TO authenticated;
 
 COMMENT ON COLUMN public.monthly_care_plans.readiness IS
   'Explicação estruturada e não diagnóstica sobre suficiência de dados para o plano do ciclo.';
 COMMENT ON TABLE public.care_plan_action_state IS
   'Estado vivo das ações escolhidas pelo usuário no Plano de Autocuidado; não é gamificação nem prontuário.';
+COMMENT ON FUNCTION public.get_my_care_plan_readiness() IS
+  'Retorna somente o motivo seguro de ciclos sem plano para o próprio usuário; não expõe campos internos de monthly_care_plans.';
 
 NOTIFY pgrst, 'reload schema';
