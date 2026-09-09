@@ -168,9 +168,9 @@ export default function AdminLivingCarePlanWorkspace() {
       <div className="p-5 border-b border-line bg-paper-soft/70">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano Vivo</p>
+            <p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano de Autocuidado</p>
             <h2 className="font-serif text-2xl text-forest-900 mt-1">Da leitura estruturada ao plano que o usuário verá</h2>
-            <p className="text-sm text-ink-soft mt-1 max-w-3xl">O Admin mostra a mesma estrutura do Plano Vivo: contexto disponível, aprendizado do ciclo anterior, foco, três frentes de cuidado, pequenas ações e prévia final. A IA só deve gerar quando houver contexto suficiente.</p>
+            <p className="text-sm text-ink-soft mt-1 max-w-3xl">O Admin mostra a mesma estrutura do Plano de Autocuidado: contexto disponível, aprendizado do ciclo anterior, foco, três frentes de cuidado, pequenas ações e prévia final. A IA só deve gerar quando houver contexto suficiente.</p>
           </div>
           <div className="flex items-center gap-2">
             <select className="admin-input text-sm" value={monthRef} onChange={e => setMonthRef(e.target.value)}>{months.map(m => <option key={m} value={m}>{monthTitle(m)}</option>)}</select>
@@ -276,7 +276,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
       baselineRef.current = JSON.stringify({ summary: result.summary, care: { ...emptyPlan(), ...result.care_plan } })
       const resolved = await resolveRecommendedContent(result.recommended_content_tags, 'plus', 4)
       setContent(resolved)
-      notify(result.generatedByAI ? 'Plano Vivo gerado com IA. Revise a estrutura antes de enviar.' : 'A geração caiu em fallback. Não envie sem revisão humana.', !result.generatedByAI)
+      notify(result.generatedByAI ? 'Plano de Autocuidado gerado com IA. Revise a estrutura antes de enviar.' : 'A geração caiu em fallback. Não envie sem revisão humana.', !result.generatedByAI)
     } catch (error) {
       notify('Não foi possível gerar o plano: ' + (error as Error).message, true)
     } finally {
@@ -287,7 +287,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
   function validatePlan() {
     if (!care.main_focus?.trim()) return 'Defina o foco atual.'
     if (!care.why_this_focus?.trim()) return 'Explique por que esse foco foi escolhido.'
-    if (priorities.length < 3) return 'O Plano Vivo precisa de três frentes de cuidado.'
+    if (priorities.length < 3) return 'O Plano de Autocuidado precisa de três frentes de cuidado.'
     for (let i = 0; i < 3; i++) {
       const p = priorities[i]
       if (!p?.priority?.trim()) return `Preencha o nome da frente ${i + 1}.`
@@ -325,7 +325,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
       if (error) throw error
       if (next === 'send') {
         const id = (saved as { id?: string } | null)?.id
-        await createUserNotification({ userId: user.user_id, type: 'self_care_review', title: 'Seu Plano de Autocuidado do mês está disponível', message: 'Seu Plano Vivo foi revisado e está disponível na sua área.', destination: 'self-care', targetResourceType: 'monthly_care_plan', targetResourceId: id })
+        await createUserNotification({ userId: user.user_id, type: 'self_care_review', title: 'Seu Plano de Autocuidado do mês está disponível', message: 'Seu Plano de Autocuidado foi revisado e está disponível na sua área.', destination: 'self-care', targetResourceType: 'monthly_care_plan', targetResourceId: id })
         if (id) void emailSelfCarePlanForUser(user.user_id, id)
       }
       notify(next === 'send' ? 'Plano revisado e enviado.' : next === 'skip' ? 'Ciclo marcado como sem contexto suficiente.' : 'Plano salvo para revisão.')
@@ -341,7 +341,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     <button type="button" aria-label="Fechar revisão" className="absolute inset-0 bg-black/35" onClick={onClose} />
     <div className="relative w-full max-w-5xl h-full overflow-y-auto bg-[#f7f5ef] shadow-2xl">
       <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur px-5 sm:px-7 py-4 flex items-center justify-between gap-4">
-        <div className="min-w-0"><p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano Vivo</p><h2 className="font-serif text-xl sm:text-2xl text-forest-900 truncate">{user.full_name || user.email || 'Usuário'}</h2><p className="text-xs text-ink-soft mt-0.5">{monthTitle(monthRef)} · {formatPeriodShort(period)} · disponível desde {formatDateBR(period.availableAt)}</p></div>
+        <div className="min-w-0"><p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano de Autocuidado</p><h2 className="font-serif text-xl sm:text-2xl text-forest-900 truncate">{user.full_name || user.email || 'Usuário'}</h2><p className="text-xs text-ink-soft mt-0.5">{monthTitle(monthRef)} · {formatPeriodShort(period)} · disponível desde {formatDateBR(period.availableAt)}</p></div>
         <button type="button" onClick={onClose} className="h-9 w-9 rounded-xl border border-line bg-white grid place-items-center" aria-label="Fechar"><X className="w-4 h-4" /></button>
       </header>
 
@@ -357,7 +357,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
         </section>
 
         <section className="rounded-2xl border border-line bg-white p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">3. Proposta da IA · editável pelo Admin</p><h3 className="font-serif text-2xl text-forest-900 mt-1">Revise exatamente a estrutura que alimenta o Plano Vivo</h3></div><button type="button" onClick={() => void generate()} disabled={generating || loadingData || !readiness.ready || sent} className="admin-btn-primary disabled:opacity-50">{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}{generatedByAI ? 'Regerar com IA' : 'Gerar com IA'}</button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">3. Proposta da IA · editável pelo Admin</p><h3 className="font-serif text-2xl text-forest-900 mt-1">Revise exatamente a estrutura que alimenta o Plano de Autocuidado</h3></div><button type="button" onClick={() => void generate()} disabled={generating || loadingData || !readiness.ready || sent} className="admin-btn-primary disabled:opacity-50">{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}{generatedByAI ? 'Regerar com IA' : 'Gerar com IA'}</button></div>
           {sent && <div className="mt-4 rounded-xl border border-forest-200 bg-forest-50 p-3 text-xs text-forest-800">Este plano já foi enviado e está em modo de consulta. Para preservar o que o usuário já recebeu, não altere este ciclo aqui.</div>}
           {fallbackUsed && !generatedByAI && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /><span>Fallback detectado. {aiError || 'A IA não devolveu um plano válido.'} Gere novamente ou edite substancialmente antes de enviar.</span></div>}
           <div className="grid lg:grid-cols-2 gap-4 mt-5"><Field label="Foco atual" value={care.main_focus ?? ''} onChange={v => setCare({ ...care, main_focus: v, monthly_priority: v })} disabled={sent} /><Area label="Por que este foco" value={care.why_this_focus ?? ''} onChange={v => setCare({ ...care, why_this_focus: v, main_care: v })} disabled={sent} rows={3} /></div>
@@ -366,7 +366,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
           <Area label="Notas internas do Admin · não aparecem ao usuário" value={notes} onChange={setNotes} disabled={sent} rows={3} />
         </section>
 
-        <section className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">4. Prévia do usuário</p><h3 className="font-serif text-xl text-forest-900 mt-1">Confira o Plano Vivo antes de enviar</h3></div><button type="button" className="admin-btn-secondary" onClick={() => setPreview(v => !v)}><Eye className="w-4 h-4" />{preview ? 'Ocultar prévia' : 'Ver prévia'}</button></div>{preview && <UserPreview care={care} />}</section>
+        <section className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">4. Prévia do usuário</p><h3 className="font-serif text-xl text-forest-900 mt-1">Confira o Plano de Autocuidado antes de enviar</h3></div><button type="button" className="admin-btn-secondary" onClick={() => setPreview(v => !v)}><Eye className="w-4 h-4" />{preview ? 'Ocultar prévia' : 'Ver prévia'}</button></div>{preview && <UserPreview care={care} />}</section>
 
         <section className="rounded-2xl border border-line bg-white p-5"><div className="flex flex-wrap gap-3 justify-between items-center"><div><p className="text-xs font-semibold text-forest-700">5. Revisão e envio</p><p className="text-xs text-ink-soft mt-1">O envio registra a revisão humana. O usuário só vê planos com status enviado.</p></div>{!sent && <div className="flex flex-wrap gap-2">{!readiness.ready && <button type="button" className="admin-btn-secondary" disabled={saving !== null} onClick={() => void persist('skip')}><Leaf className="w-4 h-4" />Registrar contexto insuficiente</button>}<button type="button" className="admin-btn-secondary" disabled={saving !== null || !readiness.ready} onClick={() => void persist('draft')}>{saving === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar para revisão</button><button type="button" className="admin-btn-primary" disabled={saving !== null || !readiness.ready} onClick={() => void persist('send')}>{saving === 'send' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}Revisar e enviar</button></div>}</div></section>
       </div>
