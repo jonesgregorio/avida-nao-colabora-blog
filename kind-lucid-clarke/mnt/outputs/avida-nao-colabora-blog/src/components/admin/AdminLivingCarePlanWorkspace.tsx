@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, Check, ChevronRight, Eye, HeartHandshake, Leaf, Loader2, RefreshCw, Save, Send, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Eye, HeartHandshake, Leaf, Loader2, RefreshCw, Save, Send, Sparkles, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { computeEmotionalAnalysis, type DiaryRowLite, type EmotionalAnalysis, MOOD_EMOJI } from '../../lib/emotionalAnalytics'
 import { buildRecordsSummary, generateCarePlanAI, resolveRecommendedContent, type CarePlanContent, type CareSummary, type ResolvedContent } from '../../lib/careePlanAI'
@@ -26,6 +26,7 @@ type CarePlanRow = {
   ai_summary_json: CareSummary | null
   care_plan: CarePlanContent | null
   records_summary: Record<string, unknown> | null
+  recommended_content_ids: string[] | null
   admin_notes: string | null
   generated_at: string | null
   generated_by_ai: boolean | null
@@ -49,7 +50,6 @@ type PreviousInsight = {
 }
 
 type Period = { start: string; end: string; availableAt: string; activatedAfter: boolean }
-
 type Tab = 'aberto' | 'revisao' | 'pronto' | 'enviados' | 'sem_contexto' | 'todos'
 
 const TABS: Array<{ key: Tab; label: string }> = [
@@ -62,14 +62,8 @@ const TABS: Array<{ key: Tab; label: string }> = [
 ]
 
 const STATUS_LABEL: Record<string, string> = {
-  pending_generation: 'Pendente de geração',
-  generating: 'Gerando',
-  draft: 'Rascunho',
-  pending_review: 'Em revisão',
-  approved: 'Pronto para envio',
-  sent: 'Enviado',
-  skipped: 'Sem contexto suficiente',
-  failed: 'Falhou',
+  pending_generation: 'Pendente de geração', generating: 'Gerando', draft: 'Rascunho', pending_review: 'Em revisão',
+  approved: 'Pronto para envio', sent: 'Enviado', skipped: 'Sem contexto suficiente', failed: 'Falhou',
 }
 
 const emptySummary = (): CareSummary => ({
@@ -99,12 +93,7 @@ function periodForMonth(monthRef: string, activation: string | null): Period {
   const start0 = ymd(new Date(d.getFullYear(), d.getMonth(), 1, 12))
   const end = ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12))
   const act = activationYmd(activation)
-  return {
-    start: act && act > start0 && act <= end ? act : start0,
-    end,
-    availableAt: getReportAvailabilityDate(end),
-    activatedAfter: !!act && act > end,
-  }
+  return { start: act && act > start0 && act <= end ? act : start0, end, availableAt: getReportAvailabilityDate(end), activatedAfter: !!act && act > end }
 }
 
 function normPlus(plan: string | null | undefined) {
@@ -184,30 +173,24 @@ export default function AdminLivingCarePlanWorkspace() {
             <p className="text-sm text-ink-soft mt-1 max-w-3xl">O Admin mostra a mesma estrutura do Plano Vivo: contexto disponível, aprendizado do ciclo anterior, foco, três frentes de cuidado, pequenas ações e prévia final. A IA só deve gerar quando houver contexto suficiente.</p>
           </div>
           <div className="flex items-center gap-2">
-            <select className="admin-input text-sm" value={monthRef} onChange={e => setMonthRef(e.target.value)}>
-              {months.map(m => <option key={m} value={m}>{monthTitle(m)}</option>)}
-            </select>
+            <select className="admin-input text-sm" value={monthRef} onChange={e => setMonthRef(e.target.value)}>{months.map(m => <option key={m} value={m}>{monthTitle(m)}</option>)}</select>
             <button type="button" className="admin-btn-secondary" onClick={() => void load()} aria-label="Atualizar fila"><RefreshCw className="w-4 h-4" /></button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 mt-5">
-          {TABS.map(t => <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`rounded-xl border px-3 py-2 text-xs font-medium ${tab === t.key ? 'border-forest-300 bg-mint text-forest-900' : 'border-line bg-white text-ink-soft hover:border-forest-200'}`}>{t.label} <span className="ml-1 opacity-70">{counts[t.key] ?? 0}</span></button>)}
-        </div>
+        <div className="flex flex-wrap gap-2 mt-5">{TABS.map(t => <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`rounded-xl border px-3 py-2 text-xs font-medium ${tab === t.key ? 'border-forest-300 bg-mint text-forest-900' : 'border-line bg-white text-ink-soft hover:border-forest-200'}`}>{t.label} <span className="ml-1 opacity-70">{counts[t.key] ?? 0}</span></button>)}</div>
         <div className="mt-3 max-w-md"><input className="admin-input w-full text-sm" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome ou e-mail" /></div>
       </div>
 
       {loading ? <div className="py-14 flex justify-center text-sm text-ink-soft"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Carregando fila…</div> : rows.length === 0 ? <div className="py-14 text-center text-sm text-ink-soft">Nenhum plano nesta visão.</div> : (
-        <div className="divide-y divide-line">
-          {rows.map(row => {
-            const status = row.plan?.status ?? 'pending_generation'
-            return <button key={row.user.user_id} type="button" onClick={() => setOpen(row)} className="w-full text-left px-5 py-4 hover:bg-mint/20 transition flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
-              <div className="min-w-0 md:flex-1"><p className="text-sm font-medium text-forest-900 truncate">{row.user.full_name || 'Usuário sem nome'}</p><p className="text-xs text-ink-soft truncate">{row.user.email || row.user.user_id}</p></div>
-              <div className="text-xs text-ink-soft md:w-48">{formatPeriodShort(row.period)}</div>
-              <span className={`text-xs rounded-full px-2.5 py-1 md:w-44 text-center ${status === 'sent' ? 'bg-forest-100 text-forest-800' : status === 'skipped' ? 'bg-amber-100 text-amber-800' : status === 'pending_review' || status === 'draft' ? 'bg-violet-100 text-violet-800' : 'bg-stone-100 text-stone-700'}`}>{STATUS_LABEL[status] ?? status}</span>
-              <ChevronRight className="w-4 h-4 text-ink-soft" />
-            </button>
-          })}
-        </div>
+        <div className="divide-y divide-line">{rows.map(row => {
+          const status = row.plan?.status ?? 'pending_generation'
+          return <button key={row.user.user_id} type="button" onClick={() => setOpen(row)} className="w-full text-left px-5 py-4 hover:bg-mint/20 transition flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
+            <div className="min-w-0 md:flex-1"><p className="text-sm font-medium text-forest-900 truncate">{row.user.full_name || 'Usuário sem nome'}</p><p className="text-xs text-ink-soft truncate">{row.user.email || row.user.user_id}</p></div>
+            <div className="text-xs text-ink-soft md:w-48">{formatPeriodShort(row.period)}</div>
+            <span className={`text-xs rounded-full px-2.5 py-1 md:w-44 text-center ${status === 'sent' ? 'bg-forest-100 text-forest-800' : status === 'skipped' ? 'bg-amber-100 text-amber-800' : status === 'pending_review' || status === 'draft' ? 'bg-violet-100 text-violet-800' : 'bg-stone-100 text-stone-700'}`}>{STATUS_LABEL[status] ?? status}</span>
+            <ChevronRight className="w-4 h-4 text-ink-soft" />
+          </button>
+        })}</div>
       )}
 
       {open && <ReviewDrawer user={open.user} plan={open.plan} period={open.period} monthRef={monthRef} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); void load() }} notify={notify} />}
@@ -328,10 +311,11 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
       const adminId = auth.user?.id ?? null
       if (next === 'send' && !adminId) throw new Error('Sessão administrativa inválida.')
       const now = new Date().toISOString()
+      const recommendedIds = content.length ? content.map(c => c.id) : (plan?.recommended_content_ids ?? [])
       const base: Record<string, unknown> = {
         user_id: user.user_id, month_reference: monthRef, period_start: period.start, period_end: period.end, available_at: period.availableAt,
         records_summary: rs, ai_summary: next === 'skip' ? null : (summary.general_overview || null), ai_summary_json: next === 'skip' ? {} : summary, care_plan: next === 'skip' ? {} : care,
-        recommended_content_ids: next === 'skip' ? [] : content.map(c => c.id), admin_notes: notes || null, generated_at: generatedAt,
+        recommended_content_ids: next === 'skip' ? [] : recommendedIds, admin_notes: notes || null, generated_at: generatedAt,
         generated_by_ai: next === 'skip' ? false : generatedByAI, fallback_used: next === 'skip' ? false : fallbackUsed, error_message: next === 'skip' ? null : aiError,
         edited_by_human: next === 'skip' ? false : ((plan?.edited_by_human ?? false) || edited), edited_at: edited ? now : (plan?.edited_at ?? null), updated_at: now,
         status: next === 'skip' ? 'skipped' : next === 'send' ? 'sent' : 'pending_review',
@@ -376,11 +360,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
           <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">3. Proposta da IA · editável pelo Admin</p><h3 className="font-serif text-2xl text-forest-900 mt-1">Revise exatamente a estrutura que alimenta o Plano Vivo</h3></div><button type="button" onClick={() => void generate()} disabled={generating || loadingData || !readiness.ready || sent} className="admin-btn-primary disabled:opacity-50">{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}{generatedByAI ? 'Regerar com IA' : 'Gerar com IA'}</button></div>
           {sent && <div className="mt-4 rounded-xl border border-forest-200 bg-forest-50 p-3 text-xs text-forest-800">Este plano já foi enviado e está em modo de consulta. Para preservar o que o usuário já recebeu, não altere este ciclo aqui.</div>}
           {fallbackUsed && !generatedByAI && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex gap-2"><AlertTriangle className="w-4 h-4 shrink-0" /><span>Fallback detectado. {aiError || 'A IA não devolveu um plano válido.'} Gere novamente ou edite substancialmente antes de enviar.</span></div>}
-
-          <div className="grid lg:grid-cols-2 gap-4 mt-5">
-            <Field label="Foco atual" value={care.main_focus ?? ''} onChange={v => setCare({ ...care, main_focus: v, monthly_priority: v })} disabled={sent} />
-            <Area label="Por que este foco" value={care.why_this_focus ?? ''} onChange={v => setCare({ ...care, why_this_focus: v, main_care: v })} disabled={sent} rows={3} />
-          </div>
+          <div className="grid lg:grid-cols-2 gap-4 mt-5"><Field label="Foco atual" value={care.main_focus ?? ''} onChange={v => setCare({ ...care, main_focus: v, monthly_priority: v })} disabled={sent} /><Area label="Por que este foco" value={care.why_this_focus ?? ''} onChange={v => setCare({ ...care, why_this_focus: v, main_care: v })} disabled={sent} rows={3} /></div>
           <div className="grid lg:grid-cols-3 gap-4 mt-4">{[0, 1, 2].map(i => { const p = priorities[i] ?? { priority: '', why_it_matters: '', small_actions: [] }; return <div key={i} className="rounded-2xl border border-line bg-paper-soft/50 p-4"><p className="text-[10px] uppercase tracking-wider font-semibold text-forest-600">Frente {i + 1}</p><Field label="Nome da frente" value={p.priority} onChange={v => setPriority(i, { priority: v })} disabled={sent} /><Area label="Por que importa" value={p.why_it_matters} onChange={v => setPriority(i, { why_it_matters: v })} disabled={sent} rows={3} /><Area label="Pequenas ações · uma por linha" value={(p.small_actions ?? []).join('\n')} onChange={v => setPriority(i, { small_actions: v.split('\n').map(x => x.trim()).filter(Boolean) })} disabled={sent} rows={4} /></div> })}</div>
           <div className="grid lg:grid-cols-3 gap-4 mt-4"><Area label="Microações extras · uma por linha" value={(care.suggested_micro_actions ?? []).join('\n')} onChange={v => setCare({ ...care, suggested_micro_actions: v.split('\n').map(x => x.trim()).filter(Boolean) })} disabled={sent} rows={4} /><Area label="Lembretes gentis · um por linha" value={(care.gentle_reminders ?? []).join('\n')} onChange={v => setCare({ ...care, gentle_reminders: v.split('\n').map(x => x.trim()).filter(Boolean) })} disabled={sent} rows={4} /><Area label="Mensagem final" value={care.final_message ?? ''} onChange={v => setCare({ ...care, final_message: v })} disabled={sent} rows={4} /></div>
           <Area label="Notas internas do Admin · não aparecem ao usuário" value={notes} onChange={setNotes} disabled={sent} rows={3} />
@@ -397,19 +377,15 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
 function MiniStat({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-xl border border-line bg-paper-soft/60 p-3"><p className="text-[10px] uppercase tracking-wide text-ink-soft">{label}</p><p className="font-serif text-xl text-forest-900 mt-1">{value}</p></div>
 }
-
 function Signal({ label, values }: { label: string; values: string[] }) {
   return <div><span className="font-medium text-forest-800">{label}: </span>{values.length ? values.join(' · ') : '—'}</div>
 }
-
 function Field({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
   return <label className="block mt-3"><span className="text-xs font-medium text-forest-800">{label}</span><input className="admin-input w-full mt-1 text-sm" value={value} onChange={e => onChange(e.target.value)} disabled={disabled} /></label>
 }
-
 function Area({ label, value, onChange, disabled, rows = 3 }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean; rows?: number }) {
   return <label className="block mt-3"><span className="text-xs font-medium text-forest-800">{label}</span><textarea className="admin-input w-full mt-1 text-sm resize-y" rows={rows} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} /></label>
 }
-
 function UserPreview({ care }: { care: CarePlanContent }) {
   const priorities = care.three_care_priorities ?? []
   return <div className="mt-5 rounded-[28px] border border-forest-100 bg-[#f8f6ef] p-5 sm:p-7">
