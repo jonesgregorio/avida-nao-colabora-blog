@@ -39,9 +39,22 @@ test('garden RPC is private to authenticated owner context',()=>{
 test('garden scene has ecosystem dependencies and grounded composition',()=>{
  assert.match(ui,/stage>=2.*Canteiro de flores/s)
  assert.match(ui,/stage>=3.*Árvore de cuidado/s)
- assert.match(ui,/stage>=4.*Borboleta entre os canteiros/s)
+ assert.match(ui,/stage>=4.*Visitantes/s)
  assert.match(ui,/stage>=5.*Recanto de água/s)
  assert.match(ui,/stage>=5.*Banco junto ao caminho/s)
+ assert.match(ui,/Caminho do jardim/)
+})
+
+test('garden uses a layered illustrated scene instead of tiny decorative icons',()=>{
+ assert.match(ui,/function GardenScene/)
+ assert.match(ui,/viewBox="0 0 900 610"/)
+ assert.match(ui,/garden-bird/)
+ assert.match(ui,/garden-butterfly/)
+ assert.match(ui,/feDropShadow/)
+ assert.match(ui,/hillBack/)
+ assert.match(ui,/hillFront/)
+ assert.match(ui,/rx="25" ry="17"/)
+ assert.match(ui,/preserveAspectRatio="xMidYMid slice"/)
 })
 
 test('garden explicitly avoids gamified pressure and uses official care-plan name',()=>{
