@@ -369,6 +369,26 @@ async function handleEvent(
     } else if (oldPlan !== plan) {
       await sendTxEmail('plan_upgraded', email, { nome, plano_antigo: planLabel(oldPlan), plano_novo: planLabel(plan), link_meu_plano: `${SITE}/meu-plano` }, `plan_upgraded:${session.id}`, userId)
     }
+
+    // Alerta ao admin: nova assinatura confirmada. O evento administrativo
+    // (admin_activity_events / subscription_started) é criado pelo trigger de
+    // banco em subscription_events.event_type='checkout_completed' — este bloco
+    // só dispara o e-mail para a caixa oficial (ADMIN_ALERT_EMAIL), nunca para
+    // todos os perfis admin. Idempotente pela subscription do Stripe.
+    try {
+      const adminEmail = Deno.env.get('ADMIN_ALERT_EMAIL')
+      if (adminEmail) {
+        await sendTxEmail('admin_new_subscription_alert', adminEmail, {
+          usuario: nome || email || '—',
+          plano: planLabel(plan),
+          data: fmtBR(activatedAt),
+          email: email || '—',
+          link_admin: `${SITE}/admin`,
+        }, `admin_new_sub:${stripeSub.id}`, null)
+      }
+    } catch (e) {
+      console.error('admin_new_subscription_alert:', (e as Error).message)
+    }
   }
 
   // Pagamento de invoice: renova acesso e registra a trilha financeira completa.

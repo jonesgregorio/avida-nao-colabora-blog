@@ -7,13 +7,17 @@ import {
   Download,
   LayoutList,
   Search,
+  Sparkles,
   Star,
   Ticket,
+  UserPlus,
   Users,
   XCircle,
 } from 'lucide-react'
 import { OFFICIAL_PLANS } from '../../lib/officialPlans'
 import { PLAN_LABELS } from '../../lib/planConstants'
+import type { NewUsersOverview } from '../../lib/adminActivityEvents'
+import type { SignupRange, SubscribedSince } from './adminUsersServer'
 import {
   KANBAN_COLUMNS,
   PLAN_COLORS,
@@ -46,6 +50,9 @@ interface AdminUsersHeaderProps {
   filterPlan: string
   filterStatus: string
   filterAccess: string
+  filterSignup: SignupRange
+  filterSubscribed: SubscribedSince
+  newOverview: NewUsersOverview | null
   exporting: boolean
   viewMode: ViewMode
   activeTab: string
@@ -53,6 +60,8 @@ interface AdminUsersHeaderProps {
   onPlanChange: (value: string) => void
   onStatusChange: (value: string) => void
   onAccessChange: (value: string) => void
+  onSignupRangeChange: (value: SignupRange) => void
+  onSubscribedSinceChange: (value: SubscribedSince) => void
   onExport: () => void
   onViewModeChange: (mode: ViewMode) => void
   onTabFilter: (tab: string) => void
@@ -69,6 +78,9 @@ export function AdminUsersHeader({
   filterPlan,
   filterStatus,
   filterAccess,
+  filterSignup,
+  filterSubscribed,
+  newOverview,
   exporting,
   viewMode,
   activeTab,
@@ -76,6 +88,8 @@ export function AdminUsersHeader({
   onPlanChange,
   onStatusChange,
   onAccessChange,
+  onSignupRangeChange,
+  onSubscribedSinceChange,
   onExport,
   onViewModeChange,
   onTabFilter,
@@ -83,6 +97,7 @@ export function AdminUsersHeader({
   onShowTickets,
   onShowCancelled,
 }: AdminUsersHeaderProps) {
+  const conv = newOverview?.conversion_30d
   return (
     <>
       <div className="px-6 pt-6 pb-4 border-b border-line flex-shrink-0">
@@ -108,6 +123,39 @@ export function AdminUsersHeader({
             </div>
           ))}
         </div>
+
+        {newOverview && (
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-wide mb-2">Novos usuários e assinaturas</p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+              {[
+                { label: 'Cadastros hoje', value: newOverview.new_users_today, Icon: UserPlus, bg: 'bg-mint', color: 'text-forest-700' },
+                { label: 'Cadastros 7 dias', value: newOverview.new_users_7d, Icon: UserPlus, bg: 'bg-mint', color: 'text-forest-700' },
+                { label: 'Assinaturas hoje', value: newOverview.new_subs_today, Icon: Crown, bg: 'bg-coral', color: 'text-[#c05f3c]' },
+                { label: 'Assinaturas 7 dias', value: newOverview.new_subs_7d, Icon: Crown, bg: 'bg-coral', color: 'text-[#c05f3c]' },
+              ].map(c => (
+                <div key={c.label} className="bg-white border border-line rounded-xl p-3">
+                  <span className={`w-8 h-8 rounded-full ${c.bg} flex items-center justify-center mb-1.5`}>
+                    <c.Icon className={`w-3.5 h-3.5 ${c.color}`} />
+                  </span>
+                  <p className="font-serif text-xl text-forest-900 leading-tight">{c.value}</p>
+                  <p className="text-[11px] text-ink-soft mt-0.5">{c.label}</p>
+                </div>
+              ))}
+              {conv && (
+                <div className="bg-white border border-line rounded-xl p-3">
+                  <span className="w-8 h-8 rounded-full bg-sky flex items-center justify-center mb-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#3d6ea5]" />
+                  </span>
+                  <p className="font-serif text-xl text-forest-900 leading-tight">{conv.rate}%</p>
+                  <p className="text-[11px] text-ink-soft mt-0.5">
+                    Conversão 30d · {conv.converted}/{conv.signups}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {!loading && (
           <div className="mb-4">
@@ -193,6 +241,31 @@ export function AdminUsersHeader({
             <option value="unlimited">Acesso ilimitado</option>
             <option value="tickets">Com ticket aberto</option>
             <option value="admin">Administradores</option>
+          </select>
+
+          <select
+            value={filterSignup}
+            onChange={e => onSignupRangeChange(e.target.value as SignupRange)}
+            title="Filtrar por data de cadastro"
+            className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          >
+            <option value="all">Cadastro: todos</option>
+            <option value="today">Cadastro: hoje</option>
+            <option value="24h">Cadastro: últimas 24h</option>
+            <option value="7d">Cadastro: últimos 7 dias</option>
+            <option value="month">Cadastro: este mês</option>
+          </select>
+
+          <select
+            value={filterSubscribed}
+            onChange={e => onSubscribedSinceChange(e.target.value as SubscribedSince)}
+            title="Filtrar por assinatura recente"
+            className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-300"
+          >
+            <option value="all">Assinatura: qualquer</option>
+            <option value="today">Assinaram hoje</option>
+            <option value="7d">Assinaram nos últimos 7 dias</option>
+            <option value="month">Assinaram este mês</option>
           </select>
 
           <button
@@ -292,9 +365,19 @@ export function AdminUsersList({ users, selectedUserId, onOpenUser }: AdminUsers
                       {(u.full_name ?? 'U')[0]?.toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-medium text-forest-900 truncate">{u.full_name || 'Sem nome'}</p>
                         {u.role === 'admin' && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
+                        {u.is_new_user && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-mint text-forest-800 font-semibold uppercase tracking-wide flex items-center gap-0.5">
+                            <UserPlus className="w-2.5 h-2.5" /> Novo
+                          </span>
+                        )}
+                        {u.is_recent_subscriber && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-coral text-[#c05f3c] font-semibold uppercase tracking-wide flex items-center gap-0.5">
+                            <Crown className="w-2.5 h-2.5" /> Nova assinatura
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-ink-soft truncate lg:hidden">{u.email || '—'}</p>
                     </div>
@@ -385,6 +468,8 @@ export function AdminUsersKanban({ users, selectedUserId, onOpenUser }: AdminUse
                       {u.role === 'admin' && <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />}
                     </div>
                     <div className="flex flex-wrap gap-1">
+                      {u.is_new_user && <span className="text-[10px] px-1.5 rounded-full bg-mint text-forest-800 font-semibold">Novo</span>}
+                      {u.is_recent_subscriber && <span className="text-[10px] px-1.5 rounded-full bg-coral text-[#c05f3c] font-semibold">Nova assinatura</span>}
                       {isBlocked && <span className="text-[10px] px-1.5 rounded-full bg-red-100 text-red-700 font-medium">Bloqueado</span>}
                       {isSuspended && <span className="text-[10px] px-1.5 rounded-full bg-orange-100 text-orange-700 font-medium">Suspenso</span>}
                       {isUnlimited && <span className="text-[10px] px-1.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
