@@ -1,10 +1,27 @@
-import { useEffect, useState } from 'react'
-import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, Sparkles, Sprout, TreePine, Waves } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Bird,
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  Flower2,
+  LockKeyhole,
+  Sparkles,
+  Sprout,
+  Star,
+  TreePine,
+  Waves,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import type { Profile } from '../types'
 
-interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
+interface Props {
+  userId: string
+  profile?: Profile | null
+  onNavigatePricing?: () => void
+}
+
 type GardenState = {
   stage: number
   active_days: number
@@ -16,36 +33,165 @@ type GardenState = {
   total_growth: number
   growth_model_version?: number
 }
+
 type GardenTheme = {
   name: string
   subtitle: string
-  skyTop: string
-  skyBottom: string
-  hillBack: string
-  hillMid: string
-  lawn: string
-  lawnDark: string
+  skyA: string
+  skyB: string
+  mountainA: string
+  mountainB: string
+  lawnA: string
+  lawnB: string
+  foliageA: string
+  foliageB: string
   flowerA: string
   flowerB: string
   flowerC: string
-  water: string
+  waterA: string
+  waterB: string
   trunk: string
-  canopy: string
-  canopyLight: string
   glow: string
 }
 
-const EMPTY: GardenState = { stage: 0, active_days: 0, diversity: 0, signals: {}, garden_index: 0, garden_progress: 0, completed_gardens: 0, total_growth: 0 }
+const EMPTY: GardenState = {
+  stage: 0,
+  active_days: 0,
+  diversity: 0,
+  signals: {},
+  garden_index: 0,
+  garden_progress: 0,
+  completed_gardens: 0,
+  total_growth: 0,
+}
+
 const THEMES: GardenTheme[] = [
-  { name: 'Clareira Serena', subtitle: 'Um espaço aberto, claro e leve para recomeçar.', skyTop: '#d8e8e5', skyBottom: '#f5efdf', hillBack: '#b6c4a4', hillMid: '#91a87c', lawn: '#769362', lawnDark: '#56734f', flowerA: '#d99d8b', flowerB: '#f0d4a0', flowerC: '#c4a4b4', water: '#6fa3a0', trunk: '#725039', canopy: '#3f6546', canopyLight: '#66855c', glow: '#efd396' },
-  { name: 'Jardim do Lago', subtitle: 'Água, folhas e caminhos ganham mais presença.', skyTop: '#d2e5e3', skyBottom: '#f1efdc', hillBack: '#a9bca4', hillMid: '#879d78', lawn: '#708d67', lawnDark: '#4f6f54', flowerA: '#d5b088', flowerB: '#ecd1b4', flowerC: '#b7a3bd', water: '#63999f', trunk: '#6c4e3a', canopy: '#476b4c', canopyLight: '#6b8963', glow: '#e9d09a' },
-  { name: 'Bosque de Luz', subtitle: 'Sombras suaves e pontos de luz criam um novo ritmo.', skyTop: '#e4e6d2', skyBottom: '#f1e7d5', hillBack: '#a7b294', hillMid: '#7c916b', lawn: '#667f5b', lawnDark: '#425f47', flowerA: '#c79da9', flowerB: '#e3c69d', flowerC: '#d49583', water: '#789e99', trunk: '#6a4c38', canopy: '#365a3f', canopyLight: '#5f7c54', glow: '#f0c86e' },
-  { name: 'Jardim Silvestre', subtitle: 'Flores menos simétricas deixam o espaço mais espontâneo.', skyTop: '#dce9dc', skyBottom: '#f1ead9', hillBack: '#b3bd9b', hillMid: '#8da170', lawn: '#789462', lawnDark: '#56734d', flowerA: '#cc958c', flowerB: '#e7cc91', flowerC: '#b99bb0', water: '#72a09a', trunk: '#75543e', canopy: '#4f704c', canopyLight: '#718c5e', glow: '#edcf90' },
-  { name: 'Recanto do Entardecer', subtitle: 'A paisagem fica mais quente e acolhedora.', skyTop: '#eadbca', skyBottom: '#f5e5cf', hillBack: '#b7af8b', hillMid: '#8b906c', lawn: '#71845b', lawnDark: '#516b4c', flowerA: '#c88468', flowerB: '#e0b28d', flowerC: '#b998a6', water: '#77979a', trunk: '#6e4d39', canopy: '#486343', canopyLight: '#6f8056', glow: '#f0b96d' },
-  { name: 'Jardim das Folhas', subtitle: 'Texturas verdes e pequenos caminhos ocupam o cenário.', skyTop: '#dce7d7', skyBottom: '#f0ebd8', hillBack: '#aab99c', hillMid: '#849878', lawn: '#6d8b62', lawnDark: '#4a684d', flowerA: '#d0a47d', flowerB: '#e4c89f', flowerC: '#c29caf', water: '#6c9692', trunk: '#6b4f3b', canopy: '#3f6044', canopyLight: '#628056', glow: '#e8cc84' },
-  { name: 'Jardim de Brisa', subtitle: 'Um novo espaço com mais respiro entre árvores e canteiros.', skyTop: '#d5e6e4', skyBottom: '#eef0dd', hillBack: '#b0c0a7', hillMid: '#8ca17c', lawn: '#78956d', lawnDark: '#557552', flowerA: '#c89dab', flowerB: '#ead0ae', flowerC: '#d09a82', water: '#70a19d', trunk: '#77573f', canopy: '#506f4d', canopyLight: '#718d64', glow: '#eed696' },
-  { name: 'Jardim de Luz Baixa', subtitle: 'Luz suave, água e vegetação formam um canto mais íntimo.', skyTop: '#dddcd4', skyBottom: '#ede4d5', hillBack: '#9ea98f', hillMid: '#758369', lawn: '#61775b', lawnDark: '#3f5e49', flowerA: '#c5917d', flowerB: '#d9bd96', flowerC: '#aa91a6', water: '#668f90', trunk: '#654937', canopy: '#36563f', canopyLight: '#56704f', glow: '#e5b565' },
+  {
+    name: 'Jardim da Clareira',
+    subtitle: 'Um espaço aberto, quente e acolhedor para crescer no seu ritmo.',
+    skyA: '#f9e5c1',
+    skyB: '#f7f0e5',
+    mountainA: '#8f9183',
+    mountainB: '#6f786d',
+    lawnA: '#698057',
+    lawnB: '#3f5f46',
+    foliageA: '#254d39',
+    foliageB: '#54734c',
+    flowerA: '#f4f1e5',
+    flowerB: '#c89aa7',
+    flowerC: '#d8aa73',
+    waterA: '#789b98',
+    waterB: '#395f60',
+    trunk: '#70503b',
+    glow: '#f1c775',
+  },
+  {
+    name: 'Jardim das Primeiras Folhas',
+    subtitle: 'Folhagens delicadas começam a ocupar os caminhos.',
+    skyA: '#f1dfc7',
+    skyB: '#eef2e4',
+    mountainA: '#879486',
+    mountainB: '#627469',
+    lawnA: '#758b61',
+    lawnB: '#46654c',
+    foliageA: '#31533e',
+    foliageB: '#617b54',
+    flowerA: '#f2eee0',
+    flowerB: '#d4a28e',
+    flowerC: '#c5a7bb',
+    waterA: '#7ba0a0',
+    waterB: '#41666a',
+    trunk: '#73523d',
+    glow: '#eac882',
+  },
+  {
+    name: 'Jardim da Montanha',
+    subtitle: 'A paisagem ganha horizonte, sombra e novas camadas de verde.',
+    skyA: '#eadfcb',
+    skyB: '#edf0df',
+    mountainA: '#7d8981',
+    mountainB: '#586b61',
+    lawnA: '#6c825b',
+    lawnB: '#3c5a43',
+    foliageA: '#294a37',
+    foliageB: '#5a774f',
+    flowerA: '#f4eedf',
+    flowerB: '#d1a394',
+    flowerC: '#d8bb7e',
+    waterA: '#72989a',
+    waterB: '#3d6268',
+    trunk: '#6f4e39',
+    glow: '#ecc47b',
+  },
+  {
+    name: 'Jardim das Flores',
+    subtitle: 'Canteiros mais vivos deixam a paisagem mais colorida.',
+    skyA: '#f2dec7',
+    skyB: '#eff0df',
+    mountainA: '#8b8d7e',
+    mountainB: '#637066',
+    lawnA: '#74885c',
+    lawnB: '#476146',
+    foliageA: '#2f513a',
+    foliageB: '#62794f',
+    flowerA: '#f7f0df',
+    flowerB: '#cf8f9f',
+    flowerC: '#d59d67',
+    waterA: '#789b97',
+    waterB: '#436467',
+    trunk: '#73503a',
+    glow: '#f0c16d',
+  },
+  {
+    name: 'Recanto do Entardecer',
+    subtitle: 'A luz baixa deixa o jardim mais íntimo e contemplativo.',
+    skyA: '#f3d5ae',
+    skyB: '#f2e7da',
+    mountainA: '#817f78',
+    mountainB: '#5a685f',
+    lawnA: '#6b7e54',
+    lawnB: '#405a40',
+    foliageA: '#2c4b35',
+    foliageB: '#5a704a',
+    flowerA: '#f3ead8',
+    flowerB: '#bd8998',
+    flowerC: '#d18f61',
+    waterA: '#72908f',
+    waterB: '#3c5d61',
+    trunk: '#694936',
+    glow: '#e9ad5e',
+  },
+  {
+    name: 'Jardim do Lago',
+    subtitle: 'Água e vegetação formam um novo canto de pausa.',
+    skyA: '#eadfc8',
+    skyB: '#edf0e2',
+    mountainA: '#809087',
+    mountainB: '#596c64',
+    lawnA: '#6b8560',
+    lawnB: '#3e604c',
+    foliageA: '#2a503d',
+    foliageB: '#5c7855',
+    flowerA: '#f5efe1',
+    flowerB: '#c79cab',
+    flowerC: '#d7ad70',
+    waterA: '#6f9ca0',
+    waterB: '#385f68',
+    trunk: '#6f503c',
+    glow: '#e8c77f',
+  },
 ]
+
+const STAGES = [
+  { stage: 0, label: 'Semente', Icon: Sprout },
+  { stage: 1, label: 'Brotos', Icon: Sprout },
+  { stage: 2, label: 'Flores', Icon: Flower2 },
+  { stage: 3, label: 'Árvore', Icon: TreePine },
+  { stage: 4, label: 'Vida', Icon: Bird },
+  { stage: 5, label: 'Recanto', Icon: Waves },
+  { stage: 6, label: 'Luz', Icon: Sparkles },
+] as const
+
 const ELEMENTS = [
   { stage: 1, name: 'Primeiros brotos', why: 'Alguns momentos de cuidado começaram a deixar uma marca visível.', Icon: Sprout },
   { stage: 2, name: 'Canteiro de flores', why: 'A presença recorrente trouxe mais variedade e cor ao jardim.', Icon: Flower2 },
@@ -55,13 +201,28 @@ const ELEMENTS = [
   { stage: 6, name: 'Luz do jardim', why: 'O espaço amadureceu e ganhou uma atmosfera própria.', Icon: Sparkles },
 ] as const
 
-function themeFor(index: number) { return THEMES[((index % THEMES.length) + THEMES.length) % THEMES.length] }
-function memoryIndexes(completed: number) { const first = Math.max(0, completed - 6); return Array.from({ length: completed - first }, (_, i) => first + i) }
+const CONTRIBUTIONS = [
+  { label: 'Check-in', hint: 'presença no dia', Icon: CheckCircle2 },
+  { label: 'Diário', hint: 'dias de registro', Icon: BookOpen },
+  { label: 'Relatórios', hint: 'retrospectivas', Icon: FileText },
+  { label: 'Plano de Autocuidado', hint: 'ações e ciclos', Icon: Sprout },
+  { label: 'Conteúdos', hint: 'leituras concluídas', Icon: BookOpen },
+  { label: 'Marcos', hint: 'momentos importantes', Icon: Star },
+] as const
+
+function themeFor(index: number) {
+  return THEMES[((index % THEMES.length) + THEMES.length) % THEMES.length]
+}
+
+function memoryIndexes(completed: number) {
+  const first = Math.max(0, completed - 3)
+  return Array.from({ length: completed - first }, (_, i) => first + i)
+}
 
 export default function MyGardenPage({ userId, profile, onNavigatePricing }: Props) {
   const access = hasPlanAccess(getEffectivePlan(profile), 'essential')
   const [state, setState] = useState<GardenState>(EMPTY)
-  const [selected, setSelected] = useState<number | null>(null)
+  const [selectedStage, setSelectedStage] = useState<number | null>(null)
 
   useEffect(() => {
     if (!access) return
@@ -70,94 +231,334 @@ export default function MyGardenPage({ userId, profile, onNavigatePricing }: Pro
       const { data } = await supabase.rpc('get_my_garden_state')
       if (alive && data) setState(data as GardenState)
     })().catch(() => {})
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [userId, access])
 
-  if (!access) return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center"><LockKeyhole className="mx-auto h-9 w-9 text-forest-500"/><h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1><p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>{onNavigatePricing&&<button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">Ver planos</button>}</section></div>
+  if (!access) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <LockKeyhole className="mx-auto h-9 w-9 text-forest-500" />
+          <h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1>
+          <p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>
+          {onNavigatePricing && (
+            <button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">
+              Ver planos
+            </button>
+          )}
+        </section>
+      </div>
+    )
+  }
 
   const stage = Math.max(0, Math.min(6, state.stage || 0))
   const gardenIndex = Math.max(0, state.garden_index || 0)
   const theme = themeFor(gardenIndex)
-  const mirror = gardenIndex % 2 === 1
-  const variant = gardenIndex % 4
-  const unlocked = ELEMENTS.filter(e => stage >= e.stage)
-  const detail = selected ? ELEMENTS.find(e => e.stage === selected) : unlocked[unlocked.length - 1]
   const memories = memoryIndexes(Math.max(0, state.completed_gardens || 0))
+  const nextElement = ELEMENTS.find((item) => item.stage > stage)
+  const currentElement = selectedStage
+    ? ELEMENTS.find((item) => item.stage === selectedStage)
+    : [...ELEMENTS].reverse().find((item) => item.stage <= stage)
+  const visualProgress = useMemo(() => Math.min(100, Math.max(3, ((state.garden_progress || 0) / 60) * 100)), [state.garden_progress])
 
-  return <main className="min-h-full bg-[#faf6ee] px-4 py-7 text-forest-950 sm:px-6">
-    <style>{`@keyframes bird-rest{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-1deg)}}@keyframes butterfly-path{0%,100%{transform:translate(0,0) rotate(-4deg)}35%{transform:translate(24px,-16px) rotate(4deg)}70%{transform:translate(48px,2px) rotate(-2deg)}}@keyframes leaf-sway{0%,100%{transform:rotate(-.5deg)}50%{transform:rotate(.8deg)}}@keyframes firefly{0%,100%{opacity:.25}50%{opacity:1}}.garden-bird{animation:bird-rest 4.8s ease-in-out infinite}.garden-butterfly{animation:butterfly-path 9s ease-in-out infinite}.garden-crown{transform-origin:50% 90%;animation:leaf-sway 7s ease-in-out infinite}.garden-firefly{animation:firefly 3.2s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.garden-bird,.garden-butterfly,.garden-crown,.garden-firefly{animation:none!important}}`}</style>
-    <div className="mx-auto max-w-[1180px]">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs uppercase tracking-[.2em] text-forest-600">Seu espaço vivo</p><h1 className="font-serif text-4xl sm:text-5xl">Meu Jardim</h1><p className="mt-2 text-sm text-ink-soft">Sua trajetória ganha forma aos poucos, sem pressa e sem perder o que já foi construído.</p></div><p className="max-w-sm font-serif italic text-forest-700">“Não existe último jardim por aqui.”</p></header>
+  return (
+    <main className="min-h-full bg-[#f7f0e5] text-[#183a2d]">
+      <style>{`
+        @keyframes garden-bird-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+        @keyframes garden-butterfly { 0%,100% { transform: translate(0,0) rotate(-5deg) } 45% { transform: translate(28px,-12px) rotate(5deg) } 75% { transform: translate(44px,4px) rotate(-2deg) } }
+        @keyframes garden-leaf { 0%,100% { transform: rotate(-0.4deg) } 50% { transform: rotate(0.7deg) } }
+        @keyframes garden-glow { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+        .garden-birds { animation: garden-bird-float 5.5s ease-in-out infinite; }
+        .garden-butterfly { animation: garden-butterfly 8s ease-in-out infinite; }
+        .garden-tree { transform-origin: 41% 82%; animation: garden-leaf 7s ease-in-out infinite; }
+        .garden-glow { animation: garden-glow 3.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .garden-birds,.garden-butterfly,.garden-tree,.garden-glow { animation: none !important; }
+        }
+      `}</style>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_270px]">
-        <section className="overflow-hidden rounded-[34px] border border-[#d7cebf] bg-white shadow-[0_30px_80px_rgba(41,66,46,.16)]" aria-label={`Jardim atual: ${theme.name}`}>
-          <div className="relative min-h-[570px] sm:min-h-[640px]">
-            <GardenScene stage={stage} theme={theme} mirror={mirror} variant={variant}/>
-            <div className="absolute left-4 top-4 z-30 max-w-[285px] rounded-[24px] border border-white/70 bg-[#fffdf8]/90 px-5 py-4 shadow-[0_14px_35px_rgba(43,60,45,.15)] backdrop-blur-md sm:left-6 sm:top-6"><p className="text-[10px] uppercase tracking-[.18em] text-forest-600">Jardim atual</p><p className="mt-1 font-serif text-[22px] text-forest-950">{theme.name}</p><p className="mt-1 text-xs leading-5 text-ink-soft">{theme.subtitle}</p>{gardenIndex>0&&stage===0&&<p className="mt-2 text-[11px] font-semibold text-forest-700">Um novo jardim começou, sem apagar os anteriores.</p>}</div>
-            {stage===0&&<div className="absolute bottom-5 left-4 right-4 z-30 max-w-sm rounded-[22px] border border-white/70 bg-[#fffdf8]/88 p-4 shadow-lg backdrop-blur-md sm:bottom-7 sm:left-auto sm:right-7"><p className="font-serif text-lg text-forest-950">O solo está se preparando</p><p className="mt-1 text-xs leading-5 text-ink-soft">Um Check-in isolado não cria uma transformação. O jardim responde quando alguns momentos de cuidado começam a formar uma trajetória.</p></div>}
+      <section className="relative overflow-hidden border-b border-[#dfd4c3] bg-[#f8f1e7]">
+        <div className="pointer-events-none absolute inset-0 opacity-40" style={{ background: `radial-gradient(circle at 14% 24%, ${theme.glow}55 0, transparent 26%), radial-gradient(circle at 80% 16%, white 0, transparent 30%)` }} />
+        <div className="mx-auto grid max-w-[1280px] gap-8 px-5 pb-8 pt-9 sm:px-8 lg:grid-cols-[1fr_360px] lg:items-start lg:pb-10">
+          <div className="relative z-10 max-w-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[.28em] text-[#446954]">Meu Jardim</p>
+            <h1 className="mt-3 max-w-[680px] font-serif text-5xl leading-[.98] tracking-[-.025em] text-[#17372b] sm:text-6xl lg:text-[72px]">
+              Um espaço<br />que cresce com você
+            </h1>
+            <p className="mt-5 max-w-[560px] text-[15px] leading-7 text-[#5d685f] sm:text-base">
+              Cada pequeno cuidado importa. Aqui, suas ações se transformam em vida, beleza e presença. Sua trajetória ganha forma aos poucos, sem pressa e sem perder o que já foi construído.
+            </p>
+            <p className="mt-6 max-w-xl font-serif text-xl italic text-[#355a47]">Cuidar de si também é construir um lugar melhor para ficar.</p>
+          </div>
+
+          <aside className="relative z-10 rounded-[28px] border border-white/80 bg-[#fffaf2]/82 p-7 shadow-[0_22px_55px_rgba(54,61,43,.12)] backdrop-blur-md">
+            <div className="font-serif text-5xl leading-none text-[#466b50]">“</div>
+            <p className="mt-1 text-center font-serif text-[22px] leading-8 text-[#284838]">Todo progresso, por menor que pareça, também floresce.</p>
+            <Sprout className="ml-auto mt-4 h-6 w-6 text-[#315b43]" />
+          </aside>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1280px] px-5 py-7 sm:px-8">
+        <section className="relative overflow-hidden rounded-[36px] border border-[#d6cbbb] bg-[#dfe4d7] shadow-[0_28px_80px_rgba(47,65,48,.18)]" aria-label={`Jardim atual: ${theme.name}`}>
+          <GardenScene stage={stage} theme={theme} variant={gardenIndex % 4} />
+
+          <div className="absolute left-5 top-5 z-30 max-w-[300px] rounded-[24px] border border-white/80 bg-[#fffaf3]/92 px-5 py-4 shadow-[0_16px_35px_rgba(35,50,37,.12)] backdrop-blur-md sm:left-7 sm:top-7">
+            <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#52705d]">Jardim atual</p>
+            <p className="mt-1 font-serif text-2xl text-[#183a2d]">{theme.name}</p>
+            <p className="mt-1 text-xs leading-5 text-[#687168]">{theme.subtitle}</p>
+            {stage === 0 && <p className="mt-2 text-xs font-semibold text-[#355c45]">O jardim está só começando.</p>}
+          </div>
+
+          <div className="relative z-30 mx-4 mb-4 mt-[420px] rounded-[30px] border border-white/80 bg-[#fffaf4]/94 p-5 shadow-[0_20px_60px_rgba(35,50,37,.16)] backdrop-blur-md sm:mx-auto sm:mb-7 sm:mt-[460px] sm:max-w-[720px] sm:p-6">
+            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#e9eadf] text-[#315b43]"><Sprout className="h-5 w-5" /></span>
+                  <div>
+                    <h2 className="font-serif text-2xl text-[#204333]">{theme.name}</h2>
+                    <p className="text-xs text-[#667067]">Em evolução</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-left md:text-right">
+                <p className="text-[10px] uppercase tracking-[.2em] text-[#899486]">Etapa visual</p>
+                <p className="mt-1 font-serif text-lg text-[#315b43]">{stage} de 6</p>
+              </div>
+            </div>
+
+            <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e9e4d8]" aria-label="Progresso visual do jardim">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#315b43] via-[#527651] to-[#82966b] transition-[width] duration-700" style={{ width: `${visualProgress}%` }} />
+            </div>
+
+            <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {STAGES.map(({ stage: itemStage, label, Icon }) => {
+                const reached = stage >= itemStage
+                const active = stage === itemStage
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => itemStage > 0 && reached && setSelectedStage(itemStage)}
+                    disabled={!reached || itemStage === 0}
+                    className={`group flex flex-col items-center gap-1.5 rounded-2xl px-2 py-2 text-center transition ${active ? 'bg-[#315b43] text-white shadow-sm' : reached ? 'bg-[#f2eee5] text-[#47624f] hover:bg-[#e8e6db]' : 'text-[#a2aa9f]'}`}
+                  >
+                    <span className={`grid h-9 w-9 place-items-center rounded-full ${active ? 'bg-white/12' : reached ? 'bg-white' : 'bg-[#efece4]'}`}><Icon className="h-4 w-4" /></span>
+                    <span className="text-[10px] font-medium">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <p className="mt-5 text-center font-serif text-[16px] italic text-[#526356]">
+              {stage === 0 ? 'Seu espaço ainda está em preparação — e tudo bem começar devagar.' : currentElement?.why || 'Seu jardim continua ganhando forma.'}
+            </p>
           </div>
         </section>
 
-        <aside className="space-y-4"><section className="rounded-[26px] border border-line bg-white p-5"><h2 className="font-serif text-xl">Sua jornada</h2><Stat Icon={Heart} value={state.active_days} label="dias de cuidado"/><Stat Icon={Sparkles} value={state.diversity} label="formas de cuidado"/><Stat Icon={Sprout} value={unlocked.length} label="mudanças neste jardim"/>{state.completed_gardens>0&&<Stat Icon={TreePine} value={state.completed_gardens} label={state.completed_gardens===1?'jardim preservado':'jardins preservados'}/>}</section><section className="rounded-[26px] border border-[#e6dcc8] bg-[#fff8e9] p-5"><Sprout className="h-5 w-5"/><p className="mt-3 font-medium">Um ritmo mais equilibrado.</p><p className="mt-2 text-xs leading-5 text-ink-soft">O crescimento voltou a um ciclo mais longo, próximo da lógica original. Pequenas mudanças continuam acessíveis, mas completar um jardim exige uma trajetória consistente.</p></section></aside>
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+          <section className="rounded-[30px] border border-[#ded4c4] bg-[#fffaf3] p-6 shadow-[0_15px_38px_rgba(52,66,50,.08)]">
+            <h2 className="font-serif text-[26px] text-[#234333]">Ações que fazem seu jardim crescer</h2>
+            <p className="mt-1 text-sm text-[#70776f]">Diferentes áreas do AVNC contribuem para o jardim. Nenhuma ação simples, sozinha, completa uma transformação.</p>
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {CONTRIBUTIONS.map(({ label, hint, Icon }) => (
+                <div key={label} className="rounded-[20px] border border-[#e7dfd1] bg-[#fbf8f1] p-3 text-center">
+                  <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#e8eadf] text-[#315b43]"><Icon className="h-5 w-5" /></span>
+                  <p className="mt-2 text-[11px] font-semibold leading-4 text-[#315040]">{label}</p>
+                  <p className="mt-1 text-[10px] leading-4 text-[#858c83]">{hint}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="relative overflow-hidden rounded-[30px] border border-[#375d43] bg-[#2f5a3d] p-6 text-[#fffaf2] shadow-[0_18px_45px_rgba(42,72,49,.18)]">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/5" />
+            <div className="relative flex gap-5">
+              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/30 bg-[#426b4d] shadow-inner">
+                {nextElement ? <nextElement.Icon className="h-10 w-10 text-[#f1e5bd]" /> : <Sparkles className="h-10 w-10 text-[#f1e5bd]" />}
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[.2em] text-[#cdd9c7]">{nextElement ? 'Próximo elemento' : 'Jardim maduro'}</p>
+                <h2 className="mt-2 font-serif text-3xl">{nextElement?.name || 'Um novo jardim virá depois'}</h2>
+                <p className="mt-3 text-sm leading-6 text-[#dce6da]">
+                  {nextElement ? 'Ele aparecerá quando novos momentos de cuidado se somarem à sua trajetória.' : 'Quando este espaço amadurecer, ele será preservado nas Memórias do Jardim e outro surgirá automaticamente.'}
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section className="mt-7 border-t border-[#ded4c5] pt-7">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl border border-[#d7d0c3] bg-[#fffaf3]"><TreePine className="h-4 w-4 text-[#315b43]" /></span><h2 className="font-serif text-2xl text-[#234333]">Memórias do Jardim</h2></div>
+              <p className="mt-2 text-sm text-[#727a72]">Cada jardim concluído fica salvo aqui, como parte da sua história. Não existe último jardim por aqui.</p>
+            </div>
+            {memories.length > 0 && <span className="text-xs font-semibold text-[#315b43]">{state.completed_gardens} {state.completed_gardens === 1 ? 'jardim preservado' : 'jardins preservados'}</span>}
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {memories.map((index) => <GardenMemoryCard key={index} index={index} />)}
+            <div className="min-h-[185px] rounded-[24px] border border-[#dcd3c5] bg-[#f1eadf] p-5 text-center">
+              <div className="mx-auto mt-4 grid h-12 w-12 place-items-center rounded-full bg-[#e1e5da] text-[#315b43]"><Sprout className="h-5 w-5" /></div>
+              <p className="mt-4 font-serif text-lg text-[#315040]">Novo jardim em andamento…</p>
+              <p className="mt-1 text-xs text-[#858b84]">Mais histórias para viver.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-7 rounded-[28px] border border-[#e0d6c7] bg-[#fbf7ef] px-6 py-5 text-sm leading-6 text-[#69736b]">
+          O jardim não funciona como uma recompensa por cliques. Ele observa momentos de cuidado ao longo do tempo. Um Check-in isolado não muda tudo; pequenas mudanças aparecem com alguma continuidade, e completar um jardim exige uma trajetória mais consistente. O jardim jamais termina.
+        </section>
       </div>
-
-      <section className="mt-6 rounded-[30px] border border-line bg-white p-5 sm:p-7"><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs uppercase tracking-widest text-forest-600">Crescimento contínuo</p><h2 className="font-serif text-2xl">O jardim nunca termina</h2></div><p className="max-w-xl text-sm text-ink-soft">Quando este espaço amadurecer, ele será preservado nas Memórias do Jardim e outro surgirá automaticamente, com atmosfera e composição diferentes.</p></div><div className="mt-5 flex flex-wrap gap-2">{unlocked.map(e=><button key={e.stage} onClick={()=>setSelected(e.stage)} className="rounded-full border border-line bg-paper-soft px-3 py-2 text-xs text-forest-800 transition hover:border-forest-300">{e.name}</button>)}{stage<6&&<span className="rounded-full border border-dashed border-forest-200 px-3 py-2 text-xs text-ink-soft">A próxima transformação está se formando</span>}</div></section>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-2"><section className="rounded-[28px] border border-line bg-white p-6"><p className="text-xs uppercase tracking-widest text-forest-600">O que ganhou vida</p>{detail?<><div className="mt-4 flex gap-4"><div className="rounded-2xl bg-[#eef4ea] p-4"><detail.Icon className="h-8 w-8"/></div><div><h3 className="font-serif text-xl">{detail.name}</h3><p className="mt-2 text-sm leading-6 text-ink-soft">{detail.why}</p></div></div></>:<p className="mt-4 text-sm text-ink-soft">As primeiras mudanças aparecem depois de alguns momentos de cuidado, sem transformar uma ação isolada em recompensa.</p>}</section><section className="rounded-[28px] border border-line bg-white p-6"><p className="text-xs uppercase tracking-widest text-forest-600">Como ele entende sua jornada</p><h3 className="mt-2 font-serif text-xl">Cuidado, não desempenho</h3><p className="mt-2 text-sm leading-6 text-ink-soft">Dias com Check-ins ou Diário formam a base. Relatórios, marcos, questionários, conteúdos e o Plano de Autocuidado também ajudam, mas com limites para que o jardim não seja concluído rápido demais.</p><div className="mt-5 grid grid-cols-2 gap-3"><Mini Icon={CheckCircle2} label="Sem streak"/><Mini Icon={Heart} label="Sem punição"/><Mini Icon={BookOpen} label="Diversidade ajuda"/><Mini Icon={Sparkles} label="Sem placar"/></div></section></div>
-
-      {memories.length>0&&<section className="mt-5 rounded-[30px] border border-line bg-white p-5 sm:p-7"><p className="text-xs uppercase tracking-widest text-forest-600">Memórias do Jardim</p><h2 className="mt-1 font-serif text-2xl">Espaços que já amadureceram</h2><p className="mt-1 text-sm text-ink-soft">Eles não desaparecem quando um novo jardim começa.</p><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{memories.map(index=>{const t=themeFor(index);return <article key={index} className="overflow-hidden rounded-2xl border border-line bg-[#faf8f3]"><div className="h-32 overflow-hidden"><MiniGarden theme={t} mirror={index%2===1}/></div><div className="p-4"><p className="text-[10px] uppercase tracking-wider text-forest-600">Memória {index+1}</p><p className="font-serif text-lg text-forest-900">{t.name}</p><p className="mt-1 text-xs text-ink-soft">Jardim amadurecido e preservado.</p></div></article>})}</div></section>}
-
-      <p className="mt-6 text-center text-xs text-ink-soft">Seu jardim não mede produtividade. Ele acompanha sua trajetória e sempre pode abrir um novo espaço.</p>
-    </div>
-  </main>
+    </main>
+  )
 }
 
-function GardenScene({ stage, theme, mirror, variant }: { stage: number; theme: GardenTheme; mirror: boolean; variant: number }) {
-  const flip = mirror ? -1 : 1
-  const treeX = mirror ? 700 : 92
-  const bedX = mirror ? 560 : 92
-  const pondX = mirror ? 118 : 650
-  const benchX = mirror ? 500 : 420
-  return <svg viewBox="0 0 940 640" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" role="img" aria-label="Paisagem ilustrada do Meu Jardim">
-    <defs>
-      <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1"><stop stopColor={theme.skyTop}/><stop offset="1" stopColor={theme.skyBottom}/></linearGradient>
-      <linearGradient id="g-lawn" x1="0" y1="0" x2="0" y2="1"><stop stopColor={theme.lawn}/><stop offset="1" stopColor={theme.lawnDark}/></linearGradient>
-      <linearGradient id="g-water" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#b9d7d1"/><stop offset=".45" stopColor={theme.water}/><stop offset="1" stopColor="#4f7e7c"/></linearGradient>
-      <radialGradient id="g-glow"><stop stopColor={theme.glow} stopOpacity=".88"/><stop offset="1" stopColor={theme.glow} stopOpacity="0"/></radialGradient>
-      <filter id="g-shadow"><feDropShadow dx="0" dy="7" stdDeviation="7" floodColor="#27422f" floodOpacity=".22"/></filter>
-      <filter id="g-soft"><feGaussianBlur stdDeviation="12"/></filter>
-    </defs>
-    <rect width="940" height="640" fill="url(#g-sky)"/>
-    <circle cx={mirror?165:775} cy={variant===2?108:92} r="112" fill="url(#g-glow)" opacity=".9"/>
-    <g fill="#fffdf7" opacity=".68"><ellipse cx="150" cy="126" rx="64" ry="18"/><ellipse cx="205" cy="126" rx="52" ry="14"/><ellipse cx="700" cy="156" rx="74" ry="18"/><ellipse cx="758" cy="154" rx="50" ry="13"/></g>
-    <path d="M0 310 C135 244 242 240 356 292 C482 350 570 332 674 274 C780 215 850 220 940 254 V640 H0Z" fill={theme.hillBack}/>
-    <path d="M0 382 C145 322 270 334 382 377 C510 425 620 386 740 333 C822 296 884 302 940 332 V640 H0Z" fill={theme.hillMid}/>
-    <g opacity=".28" fill="#31543c">{[28,76,126,804,850,895].map((x,i)=><g key={x} transform={`translate(${x} ${342+(i%3)*7})`}><path d="M0 82 L20 30 L34 82Z"/><path d="M20 82 L40 16 L57 82Z"/><path d="M45 82 L64 27 L82 82Z"/></g>)}</g>
-    <path d="M0 445 C160 418 275 440 390 467 C522 497 655 450 770 432 C846 420 904 425 940 438 V640 H0Z" fill="url(#g-lawn)"/>
-    <path d="M0 561 C145 530 250 551 345 578 C464 611 585 567 688 548 C796 529 865 538 940 556 V640 H0Z" fill="#3f6348" opacity=".42"/>
-    <g opacity=".3" stroke="#dfe7cf" strokeWidth="2">{[90,145,205,742,802,862].map(x=><path key={x} d={`M${x} 548 q6 -22 12 0 M${x+12} 548 q4 -17 9 0`} />)}</g>
+function GardenScene({ stage, theme, variant }: { stage: number; theme: GardenTheme; variant: number }) {
+  const treeLeft = variant % 2 === 0
+  const treeX = treeLeft ? 330 : 690
+  const lakeX = treeLeft ? 760 : 245
+  return (
+    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1100 690" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Paisagem do Meu Jardim">
+      <defs>
+        <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={theme.skyA} /><stop offset="1" stopColor={theme.skyB} /></linearGradient>
+        <linearGradient id="lawn" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={theme.lawnA} /><stop offset="1" stopColor={theme.lawnB} /></linearGradient>
+        <linearGradient id="water" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={theme.waterA} /><stop offset="1" stopColor={theme.waterB} /></linearGradient>
+        <radialGradient id="sun"><stop offset="0" stopColor={theme.glow} stopOpacity=".95" /><stop offset="1" stopColor={theme.glow} stopOpacity="0" /></radialGradient>
+        <filter id="soft"><feGaussianBlur stdDeviation="18" /></filter>
+      </defs>
 
-    {stage>=3&&<g transform={`translate(${treeX} 0)`} aria-label="Árvore de cuidado" filter="url(#g-shadow)"><ellipse cx="94" cy="550" rx="125" ry="20" fill="#274b35" opacity=".24"/><path d="M78 535 C91 484 77 430 84 380 C90 337 109 302 126 273 C128 323 123 357 128 394 C152 367 169 338 183 309 C181 352 162 390 134 422 C141 468 146 506 154 541 Z" fill={theme.trunk}/><path d="M113 417 C88 386 69 366 43 348 M127 391 C153 357 174 338 204 322" stroke="#5b4232" strokeWidth="13" strokeLinecap="round"/><g className="garden-crown"><ellipse cx="86" cy="280" rx="92" ry="73" fill={theme.canopy}/><ellipse cx="160" cy="270" rx="94" ry="74" fill={theme.canopyLight}/><ellipse cx="130" cy="211" rx="82" ry="68" fill={theme.canopy}/><ellipse cx="215" cy="323" rx="70" ry="58" fill={theme.canopy}/><ellipse cx="42" cy="335" rx="74" ry="60" fill={theme.canopyLight}/><ellipse cx="124" cy="330" rx="96" ry="68" fill={theme.canopy}/><g fill="#91a77a" opacity=".5"><circle cx="94" cy="230" r="8"/><circle cx="164" cy="221" r="7"/><circle cx="202" cy="294" r="8"/><circle cx="54" cy="304" r="7"/><circle cx="128" cy="303" r="6"/></g></g></g>}
+      <rect width="1100" height="690" fill="url(#sky)" />
+      <circle cx="150" cy="130" r="145" fill="url(#sun)" opacity=".74" filter="url(#soft)" />
+      <path d="M0 334 C120 246 210 285 320 225 C440 158 548 282 664 210 C792 130 910 200 1100 142 V430 H0Z" fill={theme.mountainA} opacity=".72" />
+      <path d="M0 390 C155 285 315 362 440 290 C570 215 690 340 815 270 C930 207 1000 242 1100 221 V470 H0Z" fill={theme.mountainB} opacity=".88" />
+      <path d="M0 415 C140 370 260 430 390 382 C520 334 680 399 810 347 C925 301 1010 334 1100 321 V690 H0Z" fill="url(#lawn)" />
 
-    {stage>=3&&<g aria-label="Caminho do jardim" transform={`translate(470 0) scale(${flip} 1) translate(-470 0)`}><path d="M480 640 C476 584 540 556 550 506 C560 457 531 429 510 398" fill="none" stroke="#c9b18a" strokeWidth="96" strokeLinecap="round" opacity=".55"/><path d="M480 640 C476 584 540 556 550 506 C560 457 531 429 510 398" fill="none" stroke="#e5d2b2" strokeWidth="70" strokeLinecap="round"/><path d="M480 640 C476 584 540 556 550 506 C560 457 531 429 510 398" fill="none" stroke="#f0e2c8" strokeWidth="42" strokeLinecap="round" opacity=".82"/></g>}
+      <path d="M500 690 C520 635 545 590 582 548 C615 511 647 488 686 466" fill="none" stroke="#d8c7a7" strokeWidth="74" strokeLinecap="round" opacity=".9" />
+      <path d="M500 690 C520 635 545 590 582 548 C615 511 647 488 686 466" fill="none" stroke="#eadfc8" strokeWidth="47" strokeLinecap="round" strokeDasharray="20 17" opacity=".95" />
 
-    {stage>=1&&<g aria-label="Primeiros brotos" transform={`translate(${bedX} 0)`}>{[0,35,70,108,148,185].map((dx,i)=><g key={dx} transform={`translate(${dx} ${i%2?6:0})`}><path d="M0 551 Q5 516 12 548" fill="none" stroke="#345d3d" strokeWidth="5" strokeLinecap="round"/><ellipse cx="5" cy="526" rx="12" ry="5" transform="rotate(-30 5 526)" fill="#5c7e50"/><ellipse cx="16" cy="519" rx="12" ry="5" transform="rotate(28 16 519)" fill="#7b9667"/></g>)}</g>}
+      <g opacity=".96">
+        <path d="M0 497 C55 442 111 453 163 480 C99 484 60 515 0 548Z" fill={theme.foliageA} />
+        <path d="M1100 481 C1040 438 983 446 933 480 C996 484 1041 520 1100 546Z" fill={theme.foliageA} />
+        <g fill={theme.foliageB} opacity=".88">
+          {[70,105,142,955,995,1035].map((x, i) => <ellipse key={x} cx={x} cy={476 + (i % 2) * 7} rx="25" ry="69" />)}
+        </g>
+      </g>
 
-    {stage>=2&&<g aria-label="Canteiro de flores" transform={`translate(${bedX-20} 0)`}><ellipse cx="116" cy="571" rx="142" ry="34" fill="#4f704b"/><ellipse cx="116" cy="579" rx="136" ry="23" fill="#365d43" opacity=".33"/>{[6,34,64,95,126,157,188,220].map((dx,i)=><g key={dx} transform={`translate(${dx} ${i%3===1?5:0})`}><path d="M0 564 Q2 522 7 503" stroke="#3c6744" strokeWidth="4" fill="none"/><ellipse cx="-2" cy="506" rx="10" ry="7" fill={[theme.flowerA,theme.flowerB,theme.flowerC][i%3]}/><ellipse cx="9" cy="499" rx="10" ry="7" fill={[theme.flowerA,theme.flowerB,theme.flowerC][i%3]}/><ellipse cx="17" cy="508" rx="10" ry="7" fill={[theme.flowerA,theme.flowerB,theme.flowerC][i%3]}/><circle cx="8" cy="506" r="5" fill="#c99645"/></g>)}<g fill="#b7aa8d">{[20,58,104,168,213].map((x,i)=><ellipse key={x} cx={x} cy={582+(i%2)*3} rx="13" ry="7"/>)}</g></g>}
+      {stage >= 1 && (
+        <g>
+          {[160,205,252,807,850,900].map((x, i) => (
+            <g key={x} transform={`translate(${x} ${548 + (i % 2) * 11})`}>
+              <path d="M0 32 Q-6 14 -13 1 M0 32 Q7 13 16 2" fill="none" stroke="#365d43" strokeWidth="4" strokeLinecap="round" />
+              <ellipse cx="-13" cy="3" rx="8" ry="4" fill="#6f915e" transform="rotate(-24 -13 3)" />
+              <ellipse cx="16" cy="4" rx="8" ry="4" fill="#819d68" transform="rotate(25 16 4)" />
+            </g>
+          ))}
+        </g>
+      )}
 
-    {stage>=4&&<g aria-label="Visitantes"><g className="garden-bird" transform={`translate(${mirror?710:245} 290)`} filter="url(#g-shadow)"><ellipse cx="28" cy="22" rx="31" ry="21" fill="#f4f1e8"/><circle cx="53" cy="11" r="15" fill="#fbf8ef"/><path d="M66 12 l21 7 -21 7z" fill="#b96d43"/><circle cx="58" cy="8" r="3" fill="#203a2b"/><path d="M6 20 q19 -26 38 -3 q-19 10 -38 3z" fill="#7d9279"/><path d="M1 26 l-22 11 20 4z" fill="#627b68"/><path d="M25 43 v15 M41 42 v16" stroke="#735d45" strokeWidth="2.5"/><path d="M10 59 h28 M30 59 h28" stroke="#5b4938" strokeWidth="3.5" strokeLinecap="round"/></g><g className="garden-bird" transform={`translate(${mirror?610:345} 345) scale(.86)`}><ellipse cx="28" cy="22" rx="30" ry="20" fill="#d8dfd5"/><circle cx="52" cy="12" r="14" fill="#edf0e8"/><path d="M65 13 l19 6 -19 7z" fill="#ad6744"/><circle cx="57" cy="9" r="3" fill="#203a2b"/><path d="M7 21 q18 -23 36 -2 q-18 9 -36 2z" fill="#6e856f"/></g><g className="garden-butterfly" transform={`translate(${mirror?360:555} 470)`}><ellipse cx="-12" cy="0" rx="17" ry="23" transform="rotate(-28)" fill="#c87952"/><ellipse cx="14" cy="0" rx="17" ry="23" transform="rotate(28)" fill="#e0a052"/><ellipse cx="-11" cy="16" rx="10" ry="14" fill="#d59061"/><ellipse cx="12" cy="16" rx="10" ry="14" fill="#edba6f"/><rect x="-2.5" y="-11" width="5" height="29" rx="3" fill="#4a453c"/><path d="M0 -8 q-8 -11 -15 -11 M0 -8 q8 -11 15 -11" stroke="#4a453c" strokeWidth="2" fill="none"/></g></g>}
+      {stage >= 2 && (
+        <g>
+          <path d="M66 613 C141 562 243 560 319 608 C238 646 140 646 66 613Z" fill="#365d43" opacity=".55" />
+          {[105,140,173,209,245,277].map((x, i) => <Flower key={x} x={x} y={580 + (i % 3) * 13} color={[theme.flowerA, theme.flowerB, theme.flowerC][i % 3]} />)}
+          {[818,852,888,925,960].map((x, i) => <Flower key={x} x={x} y={560 + (i % 2) * 17} color={[theme.flowerC, theme.flowerA, theme.flowerB][i % 3]} />)}
+        </g>
+      )}
 
-    {stage>=5&&<g aria-label="Recanto de água" transform={`translate(${pondX} 0)`} filter="url(#g-shadow)"><ellipse cx="72" cy="563" rx="142" ry="51" fill="#506f55" opacity=".55"/><ellipse cx="72" cy="554" rx="128" ry="41" fill="url(#g-water)"/><ellipse cx="45" cy="544" rx="58" ry="8" fill="#d7eeea" opacity=".38"/><path d="M-44 550 q10 -46 19 0 M-32 550 q12 -57 22 0 M178 550 q-8 -43 -18 0 M162 550 q-11 -55 -21 0" stroke="#466e50" strokeWidth="5" fill="none"/><g fill="#456f58"><ellipse cx="20" cy="555" rx="24" ry="9"/><ellipse cx="118" cy="561" rx="28" ry="10"/></g><circle cx="19" cy="550" r="8" fill={theme.flowerB}/><circle cx="120" cy="555" r="8" fill={theme.flowerA}/></g>}
+      {stage >= 3 && (
+        <g className="garden-tree">
+          <ellipse cx={treeX} cy="590" rx="132" ry="24" fill="#183c2b" opacity=".18" />
+          <path d={`M${treeX - 23} 586 C${treeX - 9} 516 ${treeX - 15} 448 ${treeX - 2} 372 C${treeX + 4} 334 ${treeX + 15} 296 ${treeX + 21} 261 C${treeX + 14} 331 ${treeX + 20} 392 ${treeX + 38} 459 C${treeX + 49} 505 ${treeX + 42} 552 ${treeX + 36} 586Z`} fill={theme.trunk} />
+          <path d={`M${treeX + 2} 404 C${treeX - 60} 351 ${treeX - 92} 316 ${treeX - 126} 276 M${treeX + 10} 358 C${treeX + 66} 319 ${treeX + 92} 286 ${treeX + 122} 251 M${treeX + 18} 321 C${treeX - 19} 279 ${treeX - 28} 242 ${treeX - 36} 203`} fill="none" stroke={theme.trunk} strokeWidth="15" strokeLinecap="round" />
+          <g fill={theme.foliageA}>
+            <circle cx={treeX - 88} cy="268" r="78" /><circle cx={treeX - 25} cy="222" r="91" /><circle cx={treeX + 67} cy="255" r="89" /><circle cx={treeX + 16} cy="303" r="98" />
+          </g>
+          <g fill={theme.foliageB} opacity=".86">
+            <circle cx={treeX - 71} cy="242" r="47" /><circle cx={treeX + 3} cy="196" r="52" /><circle cx={treeX + 75} cy="238" r="50" /><circle cx={treeX + 32} cy="285" r="48" />
+          </g>
+        </g>
+      )}
 
-    {stage>=5&&<g aria-label="Banco junto ao caminho" transform={`translate(${benchX} 438)`} filter="url(#g-shadow)"><rect x="0" y="18" width="142" height="18" rx="6" fill="#8f6748"/><rect x="9" y="-4" width="124" height="17" rx="6" fill="#aa7a54"/><path d="M20 36 v54 M120 36 v54" stroke="#57412f" strokeWidth="9" strokeLinecap="round"/><path d="M4 92 h43 M95 92 h43" stroke="#57412f" strokeWidth="8" strokeLinecap="round"/></g>}
+      {stage >= 4 && (
+        <g>
+          <g className="garden-birds" fill="#223e3a" stroke="#f5ede0" strokeWidth="3">
+            <path d="M745 196 q23 -25 43 0 q-18 -9 -22 9 q-5 -17 -21 -9Z" />
+            <path d="M807 165 q21 -22 40 0 q-17 -8 -21 8 q-5 -15 -19 -8Z" />
+          </g>
+          <g className="garden-butterfly" transform="translate(250 468)">
+            <ellipse cx="-8" cy="0" rx="12" ry="19" fill={theme.flowerB} transform="rotate(-25)" />
+            <ellipse cx="8" cy="0" rx="12" ry="19" fill={theme.flowerC} transform="rotate(25)" />
+            <rect x="-2" y="-10" width="4" height="23" rx="2" fill="#31483d" />
+          </g>
+        </g>
+      )}
 
-    {stage>=6&&<g aria-label="Luz do jardim"><g transform={`translate(${mirror?520:612} 448)`} filter="url(#g-shadow)"><path d="M0 85 v-82" stroke="#554737" strokeWidth="8"/><path d="M-16 5 h32 l-5 33 h-22z" fill="#675646"/><rect x="-8" y="11" width="16" height="20" rx="4" fill={theme.glow}/><circle cx="0" cy="20" r="34" fill="url(#g-glow)"/></g>{[[600,392],[670,360],[735,410],[540,350],[805,380]].map(([x,y],i)=><circle key={`${x}-${y}`} cx={mirror?940-x:x} cy={y} r={i%2?4:3} fill={theme.glow} className="garden-firefly" style={{animationDelay:`${i*.55}s`}}/>)}</g>}
-  </svg>
+      {stage >= 5 && (
+        <g>
+          <ellipse cx={lakeX} cy="595" rx="185" ry="82" fill="#244d46" opacity=".18" />
+          <ellipse cx={lakeX} cy="584" rx="177" ry="71" fill="url(#water)" />
+          <ellipse cx={lakeX - 18} cy="565" rx="132" ry="35" fill="#b9d0c4" opacity=".17" />
+          {[lakeX - 91, lakeX - 23, lakeX + 46, lakeX + 99].map((x, i) => <g key={x}><ellipse cx={x} cy={589 + (i % 2) * 16} rx="27" ry="10" fill="#557b58" /><circle cx={x + 3} cy={582 + (i % 2) * 16} r="7" fill={i % 2 ? theme.flowerB : theme.flowerA} /></g>)}
+          <path d={`M${lakeX - 165} 523 Q${lakeX - 143} 489 ${lakeX - 126} 524 M${lakeX + 145} 523 Q${lakeX + 132} 485 ${lakeX + 119} 526`} stroke="#42684b" strokeWidth="7" fill="none" strokeLinecap="round" />
+          <g transform={`translate(${treeLeft ? 470 : 545} 526)`}>
+            <ellipse cx="0" cy="56" rx="76" ry="13" fill="#243e30" opacity=".22" />
+            <rect x="-61" y="20" width="122" height="18" rx="5" fill="#78563f" />
+            <rect x="-53" y="38" width="11" height="55" rx="3" fill="#684935" /><rect x="42" y="38" width="11" height="55" rx="3" fill="#684935" />
+            <rect x="-67" y="-2" width="12" height="47" rx="3" fill="#684935" /><rect x="55" y="-2" width="12" height="47" rx="3" fill="#684935" />
+            <rect x="-55" y="2" width="110" height="12" rx="4" fill="#8b674c" />
+          </g>
+        </g>
+      )}
+
+      {stage >= 6 && (
+        <g>
+          <circle cx="194" cy="474" r="84" fill="url(#sun)" opacity=".48" />
+          {[188,286,690,868,940].map((x, i) => <circle key={x} className="garden-glow" cx={x} cy={455 + (i % 3) * 42} r="5" fill={theme.glow} />)}
+          <g transform={`translate(${treeLeft ? 470 : 620} 471)`}>
+            <path d="M0 0 V70" stroke="#5d4935" strokeWidth="6" /><rect x="-13" y="15" width="26" height="36" rx="5" fill="#423e32" /><rect x="-8" y="20" width="16" height="24" rx="3" fill={theme.glow} opacity=".92" />
+          </g>
+        </g>
+      )}
+
+      {stage === 0 && (
+        <g transform="translate(530 548)">
+          <ellipse cx="0" cy="28" rx="60" ry="19" fill="#365a43" opacity=".22" />
+          <path d="M0 30 Q-3 15 2 0" stroke="#466d4e" strokeWidth="4" fill="none" strokeLinecap="round" />
+          <ellipse cx="-5" cy="6" rx="9" ry="5" fill="#78956d" transform="rotate(-24 -5 6)" />
+        </g>
+      )}
+    </svg>
+  )
 }
 
-function MiniGarden({ theme, mirror }: { theme: GardenTheme; mirror: boolean }) {
-  return <svg viewBox="0 0 260 128" className="h-full w-full" aria-hidden="true"><defs><linearGradient id={`mini-${theme.name.replace(/\s/g,'-')}`} x1="0" y1="0" x2="0" y2="1"><stop stopColor={theme.skyTop}/><stop offset="1" stopColor={theme.skyBottom}/></linearGradient></defs><rect width="260" height="128" fill={`url(#mini-${theme.name.replace(/\s/g,'-')})`}/><path d="M0 72 Q66 39 132 70 T260 59 V128 H0Z" fill={theme.hillBack}/><path d="M0 89 Q72 64 142 88 T260 78 V128 H0Z" fill={theme.lawn}/><g transform={`translate(${mirror?166:40} 0)`}><rect x="30" y="54" width="12" height="55" rx="5" fill={theme.trunk}/><circle cx="36" cy="48" r="34" fill={theme.canopy}/><circle cx="60" cy="52" r="27" fill={theme.canopyLight}/></g><ellipse cx={mirror?58:202} cy="105" rx="37" ry="12" fill={theme.water}/><g fill={theme.flowerA}><circle cx="110" cy="105" r="5"/><circle cx="126" cy="101" r="5"/><circle cx="142" cy="106" r="5"/></g></svg>
+function Flower({ x, y, color }: { x: number; y: number; color: string }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <path d="M0 31 V10" stroke="#345b40" strokeWidth="3" strokeLinecap="round" />
+      {[0, 72, 144, 216, 288].map((r) => <ellipse key={r} cx="0" cy="3" rx="5" ry="10" fill={color} transform={`rotate(${r}) translate(0 -7)`} />)}
+      <circle cx="0" cy="0" r="4" fill="#d7ae62" />
+    </g>
+  )
 }
 
-function Stat({ Icon, value, label }: { Icon: typeof Sprout; value: number; label: string }) { return <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#faf8f3] p-3"><Icon className="h-4 w-4"/><div><p className="font-serif text-xl">{value}</p><p className="text-[11px] text-ink-soft">{label}</p></div></div> }
-function Mini({ Icon, label }: { Icon: typeof Sprout; label: string }) { return <div className="flex items-center gap-2 rounded-xl bg-[#faf8f3] p-3 text-xs"><Icon className="h-4 w-4"/>{label}</div> }
+function GardenMemoryCard({ index }: { index: number }) {
+  const theme = themeFor(index)
+  return (
+    <article className="overflow-hidden rounded-[24px] border border-[#ddd4c6] bg-[#fffaf3] shadow-[0_10px_24px_rgba(48,62,47,.08)]">
+      <div className="relative h-[112px] overflow-hidden" style={{ background: `linear-gradient(180deg, ${theme.skyA}, ${theme.skyB})` }}>
+        <div className="absolute bottom-0 h-[58%] w-full" style={{ background: `linear-gradient(165deg, ${theme.mountainA} 0 48%, ${theme.lawnA} 49% 100%)` }} />
+        <div className="absolute bottom-3 left-7 h-14 w-14 rounded-full" style={{ background: theme.foliageA }} />
+        <div className="absolute bottom-1 right-4 h-9 w-24 rounded-[50%]" style={{ background: theme.waterA }} />
+        <div className="absolute bottom-4 left-20 h-2 w-2 rounded-full" style={{ background: theme.flowerB }} />
+        <div className="absolute bottom-6 left-24 h-2 w-2 rounded-full" style={{ background: theme.flowerC }} />
+      </div>
+      <div className="p-4">
+        <p className="font-serif text-[17px] text-[#294939]">{theme.name}</p>
+        <p className="mt-1 text-[11px] text-[#858b84]">Jardim preservado</p>
+      </div>
+    </article>
+  )
+}
