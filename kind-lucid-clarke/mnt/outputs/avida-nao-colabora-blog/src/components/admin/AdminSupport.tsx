@@ -10,6 +10,15 @@ import { emailSupportReplyForUser } from '../../lib/emailTriggers'
 import { getSupportSlaHours } from '../../lib/supportSla'
 import { usePlanPricing } from '../../lib/planPricing'
 import { resolveSupportTemplateVariables } from '../../lib/supportTemplateVariables'
+import SupportAttachmentPicker from '../support/SupportAttachmentPicker'
+import SupportAttachmentList from '../support/SupportAttachmentList'
+import AdminSupportAttachmentsPanel from './AdminSupportAttachmentsPanel'
+import {
+  normalizeSupportAttachments,
+  removeSupportAttachments,
+  uploadSupportAttachments,
+  type SupportAttachment,
+} from '../../lib/supportAttachments'
 
 interface Ticket {
   id: string
@@ -45,6 +54,7 @@ interface Message {
   content: string
   is_internal: boolean
   created_at: string
+  attachments: SupportAttachment[]
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -183,6 +193,7 @@ function descriptionAsMessage(ticket: Ticket): Message {
     content: ticket.description,
     is_internal: false,
     created_at: ticket.created_at,
+    attachments: [],
   }
 }
 
@@ -243,6 +254,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
   const [sendError, setSendError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [isInternal, setIsInternal] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState('')
@@ -318,13 +330,13 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
     if (!silent) setLoadingMessages(true)
     const { data } = await supabase
       .from('ticket_messages')
-      .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at')
+      .select('id, ticket_id, sender_id, sender_role, content, is_internal, created_at, attachments')
       .eq('ticket_id', ticketId)
       .order('created_at', { ascending: true })
 
     if (!data) { if (!silent) setLoadingMessages(false); return }
 
-    type RawMsg = { id: string; ticket_id: string; sender_id: string; sender_role: 'user' | 'admin'; content: string; is_internal: boolean; created_at: string }
+    type RawMsg = { id: string; ticket_id: string; sender_id: string; sender_role: 'user' | 'admin'; content: string; is_internal: boolean; created_at: string; attachments: unknown }
     const rawData = data as RawMsg[]
     const senderIds = [...new Set(rawData.map(m => m.sender_id))]
     const { data: profiles } = senderIds.length > 0
@@ -332,7 +344,11 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
       : { data: [] }
     const profileMap = new Map((profiles || []).map((p: { user_id: string; full_name: string | null }) => [p.user_id, p]))
 
-    const enriched: Message[] = rawData.map(m => ({ ...m, sender_name: profileMap.get(m.sender_id)?.full_name ?? null }))
+    const enriched: Message[] = rawData.map(m => ({
+      ...m,
+      sender_name: profileMap.get(m.sender_id)?.full_name ?? null,
+      attachments: normalizeSupportAttachments(m.attachments),
+    }))
 
     setMessages(prev => {
       if (silent && enriched.length === lastCountRef.current) return prev
@@ -347,6 +363,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
     let draft = ''
     try { draft = localStorage.getItem(draftKey(ticket.id)) ?? '' } catch { /* noop */ }
     setReplyContent(draft)
+    setFiles([])
     setSendError(null)
     setSavedMsg(null)
     setIsInternal(false)
@@ -363,6 +380,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
     drawerOpenRef.current = false
     setSelectedTicket(null)
     setMessages([])
+    setFiles([])
     setShowMoreMenu(false)
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
   }
@@ -398,35 +416,55 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
 
   async function handleSend() {
     const trimmed = replyContent.trim()
-    if (!trimmed || sending || !selectedTicket || !user) return
+    if ((!trimmed && files.length === 0) || sending || !selectedTicket || !user) return
 
     setSending(true)
     setSendError(null)
+
+    const originalFiles = files
+    let uploaded: SupportAttachment[] = []
+    if (originalFiles.length > 0) {
+      try {
+        // Anexos do admin vão para a pasta do dono do ticket, para que o próprio
+        // usuário também consiga visualizá-los pela política de Storage.
+        uploaded = await uploadSupportAttachments(selectedTicket.user_id, selectedTicket.id, originalFiles)
+      } catch {
+        setSendError('Não foi possível enviar os anexos. Confira os arquivos e tente novamente.')
+        setSending(false)
+        return
+      }
+    }
+
+    const finalContent = trimmed || (uploaded.length === 1 ? 'Anexo enviado.' : 'Anexos enviados.')
     const optimisticId = `opt-${Date.now()}`
     const optimistic: Message = {
       id: optimisticId, ticket_id: selectedTicket.id, sender_id: user.id,
-      sender_role: 'admin', sender_name: 'Suporte', content: trimmed,
+      sender_role: 'admin', sender_name: 'Suporte', content: finalContent,
       is_internal: isInternal, created_at: new Date().toISOString(),
+      attachments: uploaded,
     }
     setMessages(prev => [...prev, optimistic])
     setReplyContent('')
+    setFiles([])
     try { localStorage.removeItem(draftKey(selectedTicket.id)) } catch { /* noop */ }
 
     const { data: newMsg, error } = await supabase
       .from('ticket_messages')
-      .insert({ ticket_id: selectedTicket.id, sender_id: user.id, sender_role: 'admin', content: trimmed, is_internal: isInternal })
+      .insert({ ticket_id: selectedTicket.id, sender_id: user.id, sender_role: 'admin', content: finalContent, is_internal: isInternal, attachments: uploaded })
       .select()
       .single()
 
     if (error) {
+      await removeSupportAttachments(uploaded)
       setMessages(prev => prev.filter(m => m.id !== optimisticId))
       setReplyContent(trimmed)
+      setFiles(originalFiles)
       setSendError('Erro ao enviar. Tente novamente.')
       setSending(false)
       return
     }
 
-    setMessages(prev => prev.map(m => m.id === optimisticId ? { ...newMsg, sender_name: 'Suporte' } : m))
+    setMessages(prev => prev.map(m => m.id === optimisticId ? { ...newMsg, sender_name: 'Suporte', attachments: normalizeSupportAttachments(newMsg.attachments) } : m))
 
     if (!isInternal) {
       if (selectedTicket.user_id) void emailSupportReplyForUser(selectedTicket.user_id, selectedTicket.id, newMsg.id)
@@ -594,6 +632,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                   <FileText className="w-3.5 h-3.5" /> Respostas prontas
                 </button>
               )}
+              <AdminSupportAttachmentsPanel />
               <div className="flex items-center gap-1 border border-line rounded-xl p-0.5">
                 <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg ${viewMode === 'list' ? 'bg-forest-900 text-white' : 'text-stone-500 hover:bg-stone-100'}`} title="Lista"><LayoutList className="w-4 h-4" /></button>
                 <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-lg ${viewMode === 'kanban' ? 'bg-forest-900 text-white' : 'text-stone-500 hover:bg-stone-100'}`} title="Kanban"><Columns className="w-4 h-4" /></button>
@@ -992,6 +1031,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 max-w-[85%]">
                           <div className="flex items-center gap-1.5 mb-1"><Lock className="w-3 h-3 text-amber-500" /><span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Nota interna</span></div>
                           <p className="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                          <SupportAttachmentList attachments={msg.attachments} />
                           <p className="text-[10px] text-amber-500 mt-1 text-right">{formatDateTime(msg.created_at)}</p>
                         </div>
                       </div>
@@ -1002,6 +1042,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                       <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-forest-700 text-white' : 'bg-white border border-line text-forest-900'}`}>
                         <p className={`text-[10px] font-semibold mb-1 ${isAdminMsg ? 'text-forest-100' : 'text-forest-600'}`}>{isAdminMsg ? 'Suporte' : (msg.sender_name ?? 'Usuário')}</p>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                        <SupportAttachmentList attachments={msg.attachments} inverse={isAdminMsg} />
                         <p className={`text-[10px] mt-1.5 text-right ${isAdminMsg ? 'text-forest-200' : 'text-stone-300'}`}>{formatDateTime(msg.created_at)}</p>
                       </div>
                     </div>
@@ -1095,11 +1136,14 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                     disabled={sending}
                     className={`w-full resize-none px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${isInternal ? 'border-amber-300 focus:ring-amber-200' : 'border-line focus:ring-forest-300'}`}
                   />
+                  <div className="mt-2">
+                    <SupportAttachmentPicker files={files} onChange={setFiles} onError={setSendError} disabled={sending} compact />
+                  </div>
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <button onClick={saveDraft} disabled={!replyContent.trim()} className="inline-flex items-center gap-1.5 text-xs px-3 py-2 border border-line rounded-xl text-stone-600 hover:bg-stone-50 disabled:opacity-40">
                       <Save className="w-3.5 h-3.5" /> Salvar rascunho
                     </button>
-                    <button onClick={handleSend} disabled={sending || !replyContent.trim()}
+                    <button onClick={handleSend} disabled={sending || (!replyContent.trim() && files.length === 0)}
                       className={`inline-flex items-center gap-2 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-40 ${isInternal ? 'bg-amber-500 hover:bg-amber-600' : 'bg-forest-700 hover:bg-forest-800'}`}>
                       <Send className="w-4 h-4" /> {isInternal ? 'Salvar nota' : 'Enviar resposta'}
                     </button>

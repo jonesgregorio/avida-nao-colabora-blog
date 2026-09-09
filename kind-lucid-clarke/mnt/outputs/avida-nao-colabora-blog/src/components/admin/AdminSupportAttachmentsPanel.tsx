@@ -65,9 +65,9 @@ export default function AdminSupportAttachmentsPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-medium text-forest-800 hover:bg-stone-50"
+        className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs text-forest-800 hover:border-forest-300"
       >
-        <Paperclip className="h-4 w-4" /> Anexos dos chamados
+        <Paperclip className="h-3.5 w-3.5" /> Anexos dos chamados
       </button>
 
       {open && (
