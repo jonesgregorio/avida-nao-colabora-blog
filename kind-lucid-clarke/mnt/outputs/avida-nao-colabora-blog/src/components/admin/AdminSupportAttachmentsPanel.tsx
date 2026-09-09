@@ -65,13 +65,13 @@ export default function AdminSupportAttachmentsPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="absolute bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-forest-800"
+        className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-medium text-forest-800 hover:bg-stone-50"
       >
         <Paperclip className="h-4 w-4" /> Anexos dos chamados
       </button>
 
       {open && (
-        <div className="absolute inset-0 z-40 flex justify-end bg-black/20" role="dialog" aria-modal="true" aria-label="Anexos dos chamados">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="Anexos dos chamados">
           <div className="flex h-full w-full max-w-md flex-col border-l border-line bg-white shadow-xl">
             <div className="flex items-center gap-3 border-b border-line px-5 py-4">
               <div className="flex-1">
