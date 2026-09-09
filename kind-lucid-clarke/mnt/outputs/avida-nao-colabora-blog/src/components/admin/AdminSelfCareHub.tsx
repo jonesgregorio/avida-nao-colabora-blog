@@ -66,7 +66,7 @@ export default function AdminSelfCareHub() {
       <section className="rounded-2xl border border-line bg-paper-soft p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Plano vivo · visão operacional</p>
+            <p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Plano de Autocuidado · visão operacional</p>
             <h2 className="font-serif text-2xl text-forest-900 mt-1">O plano está sendo útil ou só entregue?</h2>
             <p className="text-sm text-ink-soft mt-1 max-w-3xl">Acompanhe se houve contexto suficiente para personalização, quantos planos chegaram ao usuário e como as ações escolhidas estão funcionando. Os números abaixo são agregados e não exibem texto íntimo do Diário.</p>
           </div>

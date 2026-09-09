@@ -16,8 +16,9 @@ test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', ()
   assert.match(questionnaireLegacy, /Suas avaliações/)
 })
 
-test('Plano de Autocuidado usa somente a experiência mensal viva na navegação do usuário', () => {
-  assert.match(care, /Plano vivo de autocuidado/i)
+test('Plano de Autocuidado usa somente a experiência mensal atual na navegação do usuário', () => {
+  assert.match(care, /Plano de Autocuidado/i)
+  assert.doesNotMatch(care, /Plano Vivo|Plano vivo|plano vivo/)
   assert.match(care, /Seu foco atual/)
   assert.match(care, /Para experimentar/)
   assert.match(care, /Outras possibilidades para este mês/)
@@ -59,7 +60,7 @@ test('Ajustes de apresentação ficam separados do ajuste do conteúdo do plano'
   assert.match(care, /care-plan-preferences:/)
 })
 
-test('feedback do plano vivo não usa mecânicas de performance', () => {
+test('feedback do Plano de Autocuidado não usa mecânicas de performance', () => {
   assert.match(care, /Fiz e me ajudou/)
   assert.match(care, /Fiz, mas não mudou muito/)
   assert.match(care, /Ainda não tentei/)
