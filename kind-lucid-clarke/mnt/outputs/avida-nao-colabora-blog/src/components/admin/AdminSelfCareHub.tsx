@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertCircle, CheckCircle2, HeartHandshake, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import AdminMonthlyCarePlans from './AdminMonthlyCarePlans'
@@ -42,7 +42,7 @@ export default function AdminSelfCareHub() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     const { data: raw, error: rpcError } = await supabase.rpc('admin_care_plan_dashboard', { p_month: month })
@@ -53,9 +53,9 @@ export default function AdminSelfCareHub() {
       setData((raw ?? {}) as Dashboard)
     }
     setLoading(false)
-  }
+  }, [month])
 
-  useEffect(() => { void load() }, [month])
+  useEffect(() => { void load() }, [load])
 
   const actions = data?.actions ?? {}
   const feedbackTotal = (actions.helped ?? 0) + (actions.neutral ?? 0) + (actions.could_not ?? 0) + (actions.adapt_requests ?? 0) + (actions.not_for_me ?? 0)
