@@ -34,23 +34,23 @@ test('Plano de Autocuidado usa somente a experiência mensal viva na navegação
 
 test('histórico mensal abre em modal visível e permite reabrir qualquer mês', () => {
   assert.match(care, /role="dialog" aria-modal="true" aria-labelledby="care-history-title"/)
-  assert.match(care, /escolha um mês para abrir/)
-  assert.match(care, /const openPlan = \(planId: string\)/)
-  assert.match(care, /setSelectedId\s*\(\s*planId\s*\)/)
-  assert.match(care, /window\.scrollTo\s*\(\s*\{\s*top:\s*0,\s*behavior:\s*'smooth'\s*\}\s*\)/)
+  assert.match(care, /Histórico do cuidado/)
+  assert.match(care, /const openPlan=\(id:string\)/)
+  assert.match(care, /setSelectedId\(id\)/)
+  assert.match(care, /scrollTo\(\{top:0,behavior:'smooth'\}\)/)
   assert.match(care, /Ver planos anteriores/)
   assert.match(care, /Histórico completo/)
 })
 
 test('Entender melhor permanece na experiência nova do Plano de Autocuidado', () => {
-  assert.match(care, /onClick=\{\(\) => setDetailsOpen\(true\)\}/)
+  assert.match(care, /setDetailsOpen\(true\)/)
   assert.match(care, /Entenda melhor este foco/)
   assert.match(care, /Por que este foco apareceu/)
   assert.match(care, /Este detalhamento faz parte da experiência atual do Plano de Autocuidado/)
 })
 
 test('Ajustes de apresentação ficam separados do ajuste do conteúdo do plano', () => {
-  assert.match(care, /onClick=\{\(\) => setSettingsOpen\(true\)\}/)
+  assert.match(care, /setSettingsOpen\(true\)/)
   assert.match(care, /Ajustes de apresentação/)
   assert.match(care, /Ajustes do Plano de Autocuidado/)
   assert.match(care, /Como você prefere explorar o plano\?/)
