@@ -122,6 +122,12 @@ export interface GenerationMeta {
   userId?: string
   /** Início do período de origem (YYYY-MM-DD), quando aplicável. */
   sourcePeriodStart?: string
+  /**
+   * Chave explícita da operação lógica (incident_entity_key). Use para fluxos
+   * SEM usuário/período — ex.: geração editorial: `editorial:<opId>`. Sem isso,
+   * o servidor deriva de contentType+userId+período (fluxos emocionais).
+   */
+  entityKey?: string
 }
 
 export async function generateWithFailover(prompt: string, meta?: GenerationMeta): Promise<string> {
@@ -132,6 +138,7 @@ export async function generateWithFailover(prompt: string, meta?: GenerationMeta
       ...(meta?.contentType ? { contentType: meta.contentType } : {}),
       ...(meta?.userId ? { userId: meta.userId } : {}),
       ...(meta?.sourcePeriodStart ? { sourcePeriodStart: meta.sourcePeriodStart } : {}),
+      ...(meta?.entityKey ? { entityKey: meta.entityKey } : {}),
     },
   })
   const out = data as { text?: string; provider?: AIProvider; error?: string } | null

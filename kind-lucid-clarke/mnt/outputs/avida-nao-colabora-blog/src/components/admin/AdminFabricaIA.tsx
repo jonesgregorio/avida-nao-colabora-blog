@@ -65,6 +65,7 @@ async function generateArticleContract(input: {
   audience?: string
   keyword?: string
   extraInstructions?: string
+  operationId: string
 }): Promise<ArticleDraftState> {
   const prompt = buildArticleGenerationPrompt({
     quantity: 1,
@@ -75,7 +76,10 @@ async function generateArticleContract(input: {
     keyword: input.keyword,
     extraInstructions: input.extraInstructions,
   })
-  const raw = await generateWithFailover(prompt)
+  // incident_entity_key estável por sessão de geração deste tema: retries
+  // resolvem o mesmo incidente; um tema novo é uma operação nova.
+  const meta = { contentType: 'editorial_article', entityKey: `editorial_article:${input.operationId}` }
+  const raw = await generateWithFailover(prompt, meta)
   const parsed = parseArticlePackages(raw, [input.theme], input.category || '')
   if (!parsed.length) throw new Error('A IA não retornou o contrato JSON válido do artigo.')
 
@@ -83,7 +87,7 @@ async function generateArticleContract(input: {
   // Etapa 5.1: UMA única tentativa de expansão. Sem loop.
   if (articleWordCount(pkg.content) < MIN_ARTICLE_WORDS && pkg.content.trim()) {
     try {
-      const expanded = await generateWithFailover(buildArticleExpansionPrompt(pkg.content))
+      const expanded = await generateWithFailover(buildArticleExpansionPrompt(pkg.content), meta)
       if (expanded.trim()) pkg = { ...pkg, content: expanded.trim() }
     } catch { /* permanece curto e será salvo como draft com o motivo */ }
   }
@@ -148,6 +152,7 @@ export default function AdminFabricaIA() {
           audience: publico,
           keyword,
           extraInstructions: selectedTemplate ? fill(selectedTemplate.prompt, vars) : undefined,
+          operationId: `single:${tema}`.slice(0, 120),
         })
         setArticleDraft(draft)
         setResultado(draft.pkg.content)
@@ -225,7 +230,7 @@ export default function AdminFabricaIA() {
       setMassProg(`Gerando ${i + 1}/${temas.length}: ${temas[i]}`)
       try {
         if (massTipo === 'article') {
-          const draft = await generateArticleContract({ theme: temas[i], tone: 'acolhedor' })
+          const draft = await generateArticleContract({ theme: temas[i], tone: 'acolhedor', operationId: `mass:${temas[i]}`.slice(0, 120) })
           const pkg = draft.pkg
           const { data: duplicateRows } = await supabase.from('articles').select('id').ilike('title', pkg.title).limit(1)
           const validationErrors = validateArticlePackage(pkg, { imageUrl: draft.cover?.url, duplicate: !!duplicateRows?.length })
