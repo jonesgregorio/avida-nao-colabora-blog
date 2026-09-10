@@ -30,20 +30,29 @@ test('hotfix: notifications_draft não usa notifications.status (coluna inexiste
   assert.match(hotfix, /grant execute on function public\.admin_operational_dashboard\(timestamptz, timestamptz\) to authenticated/i)
 })
 
-test('Central da Jornada tem seletor segmentado, KPIs prioritários e grupos visuais', () => {
+test('Central da Jornada é compacta, segmentada e sem duplicar o bloco de atenção', () => {
   assert.match(dash, /'today' \| '7d' \| '30d' \| 'month' \| 'custom'/)
   assert.match(dash, /supabase\.rpc\('admin_operational_dashboard'/)
   assert.doesNotMatch(dash, /após o deploy desta etapa|ficam disponíveis após/)
   assert.match(dash, /code === 'PGRST202'/); assert.match(dash, /period === 'custom'/)
   assert.match(dash, /animate-pulse/); assert.match(dash, /typeof raw === 'number'/)
-  assert.match(dash, /const PRIMARY =/); assert.match(dash, /Novas assinaturas/)
-  assert.match(dash, /Cuidado e acompanhamento/); assert.match(dash, /Conteúdo e suporte/); assert.match(dash, /Movimento de assinaturas/)
-  assert.match(dash, /Panorama do período/); assert.match(dash, /Prioridade operacional/); assert.match(dash, /Requer atenção/)
-  assert.match(dash, /rounded-xl border border-line bg-stone-50 p-1/)
+  assert.match(dash, /const FOCUS =/); assert.match(dash, /Plano de Autocuidado/)
+  assert.match(dash, /Participação/); assert.match(dash, /Conteúdo e suporte/); assert.match(dash, /Negócio/)
+  assert.doesNotMatch(dash, /Prioridade operacional/)
+  assert.doesNotMatch(dash, /<h3[^>]*>Requer atenção/)
 })
 
-test('a Central da Jornada é renderizada na Visão geral, sem remover o que já existia', () => {
+test('Visão geral tem hierarquia editorial 12 colunas e elimina repetição visual', () => {
   assert.match(overview, /import AdminOperationalDashboard from '\.\/AdminOperationalDashboard'/)
   assert.match(overview, /<AdminOperationalDashboard onNavigate=\{onNavigate\} \/>/)
+  assert.match(overview, /max-w-\[1500px\]/)
+  assert.match(overview, /xl:grid-cols-12/)
+  assert.match(overview, /xl:col-span-8/)
+  assert.match(overview, /xl:col-span-4/)
+  assert.match(overview, /Painel administrativo/)
+  assert.match(overview, /Resumo operacional/)
+  assert.match(overview, /Ver todas as pendências/)
+  assert.match(overview, /before:absolute/)
+  assert.doesNotMatch(overview, /Ir para todas as pendências/)
   assert.match(overview, /Requer ação/); assert.match(overview, /Falhas técnicas ativas/); assert.match(overview, /Atividade recente/); assert.match(overview, /Saúde do sistema/)
 })
