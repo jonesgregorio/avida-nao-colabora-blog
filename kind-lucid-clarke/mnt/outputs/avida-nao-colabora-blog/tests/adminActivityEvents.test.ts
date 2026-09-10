@@ -34,7 +34,6 @@ test('tabela admin_activity_events: campos mínimos, índices e RLS restritiva',
   assert.match(evMig, /idx_admin_activity_user/)
   assert.match(evMig, /idx_admin_activity_unread\s+on public\.admin_activity_events \(read_at\) where read_at is null/)
   assert.match(evMig, /alter table public\.admin_activity_events enable row level security/)
-  // SELECT só admin; nenhuma policy de insert/update/delete
   assert.match(evMig, /for select\s*\n\s*to authenticated\s*\n\s*using \(public\.is_admin\(\)\)/)
   assert.doesNotMatch(evMig, /for (insert|update|delete)/i)
 })
@@ -44,7 +43,6 @@ test('novo profile gera user_signup idempotente (trigger de banco, não frontend
   assert.match(evMig, /'user_signup'/)
   assert.match(evMig, /'user_signup:' \|\| new\.user_id::text/)
   assert.match(evMig, /on conflict \(idempotency_key\) do nothing/)
-  // metadata só com dados administrativos
   assert.match(evMig, /'plan', v_plan/)
   assert.match(evMig, /'account_status'/)
 })
@@ -54,7 +52,6 @@ test('nova assinatura nasce só de checkout_completed (sem duplicar subscription
   assert.match(evMig, /if new\.event_type <> 'checkout_completed' then\s*\n\s*return new;/)
   assert.match(evMig, /'subscription_started:' \|\| v_sub_key/)
   assert.match(evMig, /v_sub_key text := coalesce\(nullif\(btrim\(new\.stripe_subscription_id\), ''\), new\.id::text\)/)
-  // carimba a primeira ativação paga sem sobrescrever
   assert.match(evMig, /set first_paid_at = coalesce\(first_paid_at,/)
   assert.match(evMig, /add column if not exists first_paid_at timestamptz/, 'coluna first_paid_at ausente')
 })
@@ -74,9 +71,9 @@ test('RPCs do alert center são admin-only e cobrem contador / lista / marcar li
     assert.match(evMig, new RegExp(`grant execute on function public\\.${fn}`))
   }
   assert.match(evMig, /if not public\.is_admin\(\) then\s*\n\s*raise exception 'not authorized'/)
-  // lista aceita filtros all | tipo | unread
   assert.match(evMig, /v_filter = 'unread' and e\.read_at is null/)
   assert.match(evMig, /e\.event_type = v_filter/)
+  assert.match(evMig, /p\.full_name as user_name, p\.email as user_email/)
 })
 
 test('AdminActivityAlerts: sino próprio, badge de não lidos, filtros, marcar lido, ver usuário, realtime', () => {
@@ -87,18 +84,36 @@ test('AdminActivityAlerts: sino próprio, badge de não lidos, filtros, marcar l
   assert.match(bell, /markActivityEventRead/)
   assert.match(bell, /Ver usuário/)
   assert.match(bell, /Marcar tudo/)
-  // filtros: tudo / cadastros / assinaturas / não lidos
   assert.match(bell, /key: 'user_signup'/)
   assert.match(bell, /key: 'subscription_started'/)
   assert.match(bell, /key: 'unread'/)
-  // "carregar mais"
   assert.match(bell, /Carregar mais/)
-  // nome de canal ÚNICO por assinante — dois assinantes (sino + pop-up) não podem
-  // colidir no mesmo tópico realtime (isso lança "cannot add postgres_changes
-  // callbacks ... after subscribe()" e derruba o Admin).
   assert.match(lib, /\.channel\(`admin_activity_events:\$\{Math\.random\(\)/)
   assert.match(lib, /event: 'INSERT', schema: 'public', table: 'admin_activity_events'/)
   assert.doesNotMatch(lib, /\.channel\('admin_activity_events_stream'\)/)
+})
+
+test('popup e alert center exibem nome e e-mail e usam textos administrativos em português', () => {
+  assert.match(lib, /export function activityUserIdentity/)
+  assert.match(lib, /export function activityEventCopy/)
+  assert.match(lib, /title: 'Novo usuário cadastrado'/)
+  assert.match(lib, /title: 'Plano alterado'/)
+  assert.match(lib, /title: 'Assinatura cancelada'/)
+  assert.match(lib, /Uma nova conta foi criada/)
+  assert.match(popup, /activityUserIdentity\(ev\)/)
+  assert.match(popup, />Nome<\/span>/)
+  assert.match(popup, />E-mail<\/span>/)
+  assert.match(popup, /identity\.name \|\| 'Não informado'/)
+  assert.match(popup, /identity\.email \|\| 'Não informado'/)
+  assert.match(bell, /activityUserIdentity\(ev\)/)
+  assert.match(bell, /identity\.name \|\| 'Nome não informado'/)
+  assert.match(bell, /identity\.email \|\| 'E-mail não informado'/)
+  assert.match(popup, /Conta técnica/)
+  assert.match(bell, /Conta técnica/)
+  assert.doesNotMatch(popup, /\{ev\.title\}/)
+  assert.doesNotMatch(popup, /\{ev\.message\}/)
+  assert.doesNotMatch(bell, /\{ev\.title\}/)
+  assert.doesNotMatch(bell, /\{ev\.message\}/)
 })
 
 // 7–8 · filtros e badges em Usuários --------------------------------------------
@@ -111,7 +126,6 @@ test('admin_list_users_v2 ganha filtros de cadastro e assinatura recente + campo
   assert.match(usersMig, /v_sub = 'today' and p\.first_paid_at >= date_trunc\('day', now\(\)\)/)
   assert.match(usersMig, /\(p\.created_at >= now\(\) - interval '7 days'\) as is_new_user/)
   assert.match(usersMig, /is_recent_subscriber/)
-  // server-side: nada de filtro client-side novo
   assert.match(usersServer, /p_signup_from: window\.from/)
   assert.match(usersServer, /p_subscribed_since:/)
   assert.match(usersModel, /is_new_user\?: boolean/)
@@ -127,7 +141,6 @@ test('lista de usuários mostra badges NOVO e NOVA ASSINATURA e selects de filtr
   assert.match(usersOverview, /Assinaram nos últimos 7 dias/)
   assert.match(usersImpl, /filterSignup/)
   assert.match(usersImpl, /filterSubscribed/)
-  // CSV respeita os novos campos
   assert.match(usersModel, /Primeira assinatura/)
   assert.match(usersModel, /Assinante recente \(7d\)/)
 })
@@ -168,10 +181,8 @@ test('trigger de subscription_events também emite upgrade / downgrade / cancela
   assert.match(planMig, /v_type := 'plan_upgraded'/)
   assert.match(planMig, /v_type := 'plan_downgraded'/)
   assert.match(planMig, /v_type := 'subscription_cancelled'/)
-  // idempotência por evento do Stripe
   assert.match(planMig, /v_type \|\| ':' \|\| v_evt_key/)
   assert.match(planMig, /'subscription_started:' \|\| v_sub_key/)
-  // only checkout carimba first_paid_at
   assert.match(planMig, /if new\.event_type = 'checkout_completed' then\s*\n\s*update public\.profiles\s*\n\s*set first_paid_at/)
 })
 
@@ -181,17 +192,12 @@ test('AdminActivityPopup é bloqueante, cobre todos os tipos e só fecha no X ou
   for (const t of ['user_signup', 'subscription_started', 'plan_upgraded', 'plan_downgraded', 'subscription_cancelled']) {
     assert.match(popup, new RegExp(`'${t}'`), `tipo ausente do pop-up: ${t}`)
   }
-  // consome eventos NÃO LIDOS via a mesma RPC admin
   assert.match(popup, /fetchActivityEvents\('unread', 50, 0\)/)
-  // não fecha por clique fora: sem onClick no backdrop
   assert.match(popup, /className="fixed inset-0 z-\[100\][^"]*"\s*\n\s*role="dialog"/)
   assert.doesNotMatch(popup, /onClick=\{closeOnly\}[\s\S]{0,40}fixed inset-0/)
-  // bloqueia Esc
   assert.match(popup, /if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\) \}/)
-  // OK marca como lido; X (Fechar) só descarta na sessão
   assert.match(popup, /await Promise\.all\(ids\.map\(id => markActivityEventRead\(id\)\)\)/)
   assert.match(popup, /function closeOnly\(\) \{\s*\n\s*queue\.forEach\(ev => dismissedRef\.current\.add\(ev\.id\)\)/)
-  // realtime + poll
   assert.match(popup, /subscribeActivityEvents/)
 })
 
