@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const migration = read('supabase/migrations/20260909100000_admin_subscriptions_overview.sql')
+const fixMigration = read('supabase/migrations/20260909214500_fix_admin_subscriptions_provider_subscription_id.sql')
 const comp = read('src/components/admin/AdminAssinaturasOverview.tsx')
 
 test('a RPC separa "usuário em plano" (profiles) de "assinatura Stripe ativa"', () => {
@@ -16,6 +17,18 @@ test('a RPC separa "usuário em plano" (profiles) de "assinatura Stripe ativa"',
   assert.match(migration, /coalesce\(s\.payment_status, s\.status/)
   assert.match(migration, /'divergences'/)
   assert.match(migration, /paid_profile_no_active_stripe/)
+})
+
+test('a correção usa o identificador que existe no schema atual de user_subscriptions', () => {
+  assert.match(fixMigration, /create or replace function public\.admin_subscriptions_overview\(\)/i)
+  assert.match(fixMigration, /s\.provider_subscription_id/i)
+  assert.match(fixMigration, /su\.provider_subscription_id/i)
+  assert.doesNotMatch(fixMigration, /s\.stripe_subscription_id/i)
+  assert.doesNotMatch(fixMigration, /su\.stripe_subscription_id/i)
+  assert.match(fixMigration, /if not public\.is_admin\(\) then/i)
+  assert.match(fixMigration, /set search_path = public, auth/i)
+  assert.match(fixMigration, /revoke all on function public\.admin_subscriptions_overview\(\) from public, anon/i)
+  assert.match(fixMigration, /grant execute on function public\.admin_subscriptions_overview\(\) to authenticated/i)
 })
 
 test('a tela NÃO transforma erro de RPC em zero', () => {
