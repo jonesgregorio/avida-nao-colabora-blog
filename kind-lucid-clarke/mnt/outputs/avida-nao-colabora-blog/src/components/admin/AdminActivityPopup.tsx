@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { UserPlus, Crown, ArrowUpRight, ArrowDownRight, Ban, X } from 'lucide-react'
+import { UserPlus, Crown, ArrowUpRight, ArrowDownRight, Ban, X, Mail, UserRound } from 'lucide-react'
 import {
   fetchActivityEvents,
   markActivityEventRead,
   subscribeActivityEvents,
   activityRelativeTime,
+  activityEventCopy,
+  activityUserIdentity,
   type AdminActivityEvent,
 } from '../../lib/adminActivityEvents'
 import { PLAN_LABELS } from '../../lib/planConstants'
@@ -65,7 +67,6 @@ export default function AdminActivityPopup() {
     }
   }, [queue.length])
 
-  // Bloqueia o Esc enquanto o pop-up está aberto.
   useEffect(() => {
     if (queue.length === 0) return
     function onKey(e: KeyboardEvent) {
@@ -101,13 +102,13 @@ export default function AdminActivityPopup() {
       aria-modal="true"
       aria-labelledby="admin-activity-popup-title"
     >
-      <div className="w-full max-w-md rounded-2xl border border-line bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg rounded-2xl border border-line bg-white shadow-2xl overflow-hidden">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line">
           <div>
             <p id="admin-activity-popup-title" className="font-serif text-lg text-forest-900">
               {queue.length === 1 ? 'Nova atividade' : `${queue.length} novas atividades`}
             </p>
-            <p className="text-[11px] text-stone-400 mt-0.5">Novos usuários e mudanças de plano</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">Novos usuários, assinaturas e mudanças de plano</p>
           </div>
           <button
             type="button"
@@ -119,26 +120,47 @@ export default function AdminActivityPopup() {
           </button>
         </div>
 
-        <div className="max-h-[52vh] overflow-y-auto divide-y divide-line">
+        <div className="max-h-[58vh] overflow-y-auto divide-y divide-line">
           {queue.map(ev => {
             const { Icon, cls } = visual(ev.event_type)
             const plan = (ev.metadata?.plan as string | undefined) ?? ev.user_plan ?? null
+            const copy = activityEventCopy(ev)
+            const identity = activityUserIdentity(ev)
             return (
-              <div key={ev.id} className="flex items-start gap-3 px-5 py-3.5">
-                <span className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${cls}`} aria-hidden="true">
+              <div key={ev.id} className="flex items-start gap-3 px-5 py-4">
+                <span className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${cls}`} aria-hidden="true">
                   <Icon className="w-4 h-4" />
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-medium text-forest-900">{ev.title}</p>
+                    <p className="text-sm font-semibold text-forest-900">{copy.title}</p>
                     {plan && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                         {PLAN_LABELS[plan] ?? plan}
                       </span>
                     )}
+                    {identity.technical && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#eef1ed] text-[#5f6d63] font-medium">
+                        Conta técnica
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-stone-500 mt-0.5">{ev.message}</p>
-                  <p className="text-[11px] text-stone-400 mt-1">{activityRelativeTime(ev.created_at)}</p>
+                  <p className="text-xs text-stone-500 mt-1">{copy.message}</p>
+
+                  <div className="mt-3 rounded-xl border border-line bg-stone-50 px-3 py-2.5 space-y-1.5">
+                    <div className="flex items-start gap-2 text-xs">
+                      <UserRound className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-forest-600" aria-hidden="true" />
+                      <span className="text-stone-400 w-12 flex-shrink-0">Nome</span>
+                      <span className="font-medium text-stone-700 break-words">{identity.name || 'Não informado'}</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-xs">
+                      <Mail className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-forest-600" aria-hidden="true" />
+                      <span className="text-stone-400 w-12 flex-shrink-0">E-mail</span>
+                      <span className="font-medium text-stone-700 break-all">{identity.email || 'Não informado'}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-stone-400 mt-2">{activityRelativeTime(ev.created_at)}</p>
                 </div>
               </div>
             )

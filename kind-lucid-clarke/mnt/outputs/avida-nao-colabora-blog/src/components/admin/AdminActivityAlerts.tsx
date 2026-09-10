@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { UserPlus, Crown, Loader2, CheckCheck, Sparkles } from 'lucide-react'
+import { UserPlus, Crown, Loader2, CheckCheck, Sparkles, Mail, UserRound } from 'lucide-react'
 import {
   fetchActivityEvents,
   fetchActivityUnreadCount,
@@ -7,6 +7,8 @@ import {
   markAllActivityEventsRead,
   subscribeActivityEvents,
   activityRelativeTime,
+  activityEventCopy,
+  activityUserIdentity,
   type AdminActivityEvent,
   type AdminActivityFilter,
 } from '../../lib/adminActivityEvents'
@@ -22,7 +24,6 @@ const FILTERS: { key: AdminActivityFilter; label: string }[] = [
 ]
 
 function isSubscription(t: string) {
-  // tudo que não é cadastro é evento de assinatura/plano
   return t !== 'user_signup'
 }
 
@@ -35,8 +36,10 @@ function EventRow({
 }) {
   const sub = isSubscription(ev.event_type)
   const plan = (ev.metadata?.plan as string | undefined) ?? ev.user_plan ?? null
+  const copy = activityEventCopy(ev)
+  const identity = activityUserIdentity(ev)
   return (
-    <div className={`px-4 py-3 flex items-start gap-3 ${ev.read_at ? '' : 'bg-mint/25'}`}>
+    <div className={`px-4 py-3.5 flex items-start gap-3 ${ev.read_at ? '' : 'bg-mint/25'}`}>
       <span
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
           sub ? 'bg-coral text-[#c05f3c]' : 'bg-mint text-forest-700'
@@ -47,15 +50,28 @@ function EventRow({
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm font-medium text-forest-900">{ev.title}</p>
+          <p className="text-sm font-medium text-forest-900">{copy.title}</p>
           {plan && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
               {PLAN_LABELS[plan] ?? plan}
             </span>
           )}
+          {identity.technical && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#eef1ed] text-[#5f6d63] font-medium">Conta técnica</span>
+          )}
           {!ev.read_at && <span className="w-1.5 h-1.5 rounded-full bg-forest-600" aria-label="não lido" />}
         </div>
-        <p className="text-xs text-stone-500 mt-0.5">{ev.message}</p>
+        <p className="text-xs text-stone-500 mt-0.5">{copy.message}</p>
+        <div className="mt-2 grid gap-1 rounded-lg border border-line/80 bg-white/70 px-2.5 py-2">
+          <div className="flex items-start gap-1.5 text-[11px] text-stone-600">
+            <UserRound className="mt-0.5 h-3 w-3 flex-shrink-0 text-forest-600" aria-hidden="true" />
+            <span className="font-medium text-stone-700 break-words">{identity.name || 'Nome não informado'}</span>
+          </div>
+          <div className="flex items-start gap-1.5 text-[11px] text-stone-500">
+            <Mail className="mt-0.5 h-3 w-3 flex-shrink-0 text-forest-600" aria-hidden="true" />
+            <span className="break-all">{identity.email || 'E-mail não informado'}</span>
+          </div>
+        </div>
         <div className="flex items-center gap-3 mt-1.5">
           <span className="text-[11px] text-stone-400">{activityRelativeTime(ev.created_at)}</span>
           {ev.user_id && onOpenUser && (
@@ -118,7 +134,6 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
 
   useEffect(() => { void refreshCount() }, [refreshCount])
 
-  // Realtime + fallback de polling leve (3 min) caso o canal não conecte.
   useEffect(() => {
     const unsub = subscribeActivityEvents(() => {
       void (async () => {
@@ -127,7 +142,9 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
         setUnread(page.unread)
         const fresh = page.rows.find(r => !before.has(r.id))
         if (fresh && !firstLoadRef.current) {
-          setToast(fresh.title + (fresh.user_name ? ` — ${fresh.user_name}` : ''))
+          const copy = activityEventCopy(fresh)
+          const identity = activityUserIdentity(fresh)
+          setToast(copy.title + (identity.name ? ` — ${identity.name}` : ''))
           window.setTimeout(() => setToast(null), 6000)
         }
         page.rows.forEach(r => before.add(r.id))
@@ -190,11 +207,11 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
       )}
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+12px)] w-[min(420px,90vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
+        <div className="absolute right-0 top-[calc(100%+12px)] w-[min(440px,92vw)] rounded-2xl border border-line bg-white shadow-xl overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-line flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-forest-900">Novidades</p>
-              <p className="text-[11px] text-stone-400">Novos cadastros e novas assinaturas</p>
+              <p className="text-[11px] text-stone-400">Novos cadastros, assinaturas e mudanças de plano</p>
             </div>
             <button
               type="button"
@@ -231,7 +248,7 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
               Nenhum evento por aqui ainda.
             </div>
           ) : (
-            <div className="max-h-[420px] overflow-y-auto divide-y divide-line">
+            <div className="max-h-[460px] overflow-y-auto divide-y divide-line">
               {rows.map(ev => (
                 <EventRow key={ev.id} ev={ev} onOpenUser={onOpenUser} onRead={handleRead} />
               ))}
