@@ -81,11 +81,6 @@ export async function fetchNewUsersOverview(): Promise<NewUsersOverview | null> 
 /**
  * Assina INSERT em admin_activity_events (Realtime). O stream respeita a RLS de
  * SELECT (is_admin()). Devolve a função de cleanup.
- *
- * Cada chamada usa um nome de canal ÚNICO — dois assinantes (sino + pop-up) ou
- * um remount não podem colidir no mesmo tópico (isso faz o supabase-js lançar
- * "tried to subscribe multiple times"). Tudo é best-effort: se o Realtime não
- * estiver disponível, o polling leve de cada componente assume.
  */
 export function subscribeActivityEvents(onInsert: () => void): () => void {
   try {
@@ -100,6 +95,71 @@ export function subscribeActivityEvents(onInsert: () => void): () => void {
     return () => { try { void supabase.removeChannel(channel) } catch { /* noop */ } }
   } catch {
     return () => {}
+  }
+}
+
+const PLAN_PT: Record<string, string> = {
+  free: 'Gratuito',
+  essential: 'Essencial',
+  plus: 'Plus',
+  therapeutic: 'Plus',
+  'therapeutic-plus': 'Plus',
+  therapeutic_plus: 'Plus',
+}
+
+export function activityUserIdentity(ev: AdminActivityEvent) {
+  const metadataEmail = typeof ev.metadata?.email === 'string' ? ev.metadata.email : null
+  const name = ev.user_name?.trim() || null
+  const email = ev.user_email?.trim() || metadataEmail?.trim() || null
+  const technical = /production\s+smoke/i.test(name ?? '') || /^prod-smoke-/i.test(email ?? '')
+  return { name, email, technical }
+}
+
+function planLabel(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const normalized = value.trim().toLowerCase()
+  return PLAN_PT[normalized] ?? value.trim()
+}
+
+export function activityEventCopy(ev: AdminActivityEvent): { title: string; message: string } {
+  const plan = planLabel(ev.metadata?.plan ?? ev.user_plan)
+  const previousPlan = planLabel(ev.metadata?.previous_plan)
+
+  switch (ev.event_type) {
+    case 'user_signup':
+      return {
+        title: 'Novo usuário cadastrado',
+        message: plan ? `Uma nova conta foi criada no plano ${plan}.` : 'Uma nova conta foi criada.',
+      }
+    case 'subscription_started':
+      return {
+        title: plan ? `Nova assinatura ${plan}` : 'Nova assinatura',
+        message: plan ? `Uma nova assinatura do plano ${plan} foi confirmada.` : 'Uma nova assinatura foi confirmada.',
+      }
+    case 'plan_upgraded':
+      return {
+        title: 'Plano alterado',
+        message: previousPlan && plan
+          ? `O plano foi alterado de ${previousPlan} para ${plan}.`
+          : plan ? `O plano foi alterado para ${plan}.` : 'O plano do usuário foi alterado.',
+      }
+    case 'plan_downgraded':
+      return {
+        title: 'Plano alterado',
+        message: previousPlan && plan
+          ? `O plano foi alterado de ${previousPlan} para ${plan}.`
+          : plan ? `O plano foi alterado para ${plan}.` : 'O plano do usuário foi alterado.',
+      }
+    case 'subscription_cancelled':
+      return {
+        title: 'Assinatura cancelada',
+        message: previousPlan ? `A assinatura do plano ${previousPlan} foi cancelada.` : 'A assinatura do usuário foi cancelada.',
+      }
+    default:
+      return {
+        title: ev.title || 'Atividade do usuário',
+        message: ev.message || 'Uma nova atividade administrativa foi registrada.',
+      }
   }
 }
 
