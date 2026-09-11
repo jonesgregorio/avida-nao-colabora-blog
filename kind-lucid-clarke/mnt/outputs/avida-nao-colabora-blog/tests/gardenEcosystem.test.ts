@@ -77,3 +77,22 @@ test('garden explicitly avoids gamified pressure and uses official care-plan nam
  assert.doesNotMatch(ui,/Plano Vivo|Plano vivo|plano vivo/)
  assert.doesNotMatch(ui,/\+\d+ XP|Nível \{/)
 })
+
+test('linha do tempo revela o que vem a seguir mesmo antes de desbloquear (sem esconder os próximos passos)',()=>{
+ // as 6 etapas têm uma prévia (forward-looking), diferente do texto de "por que já aconteceu"
+ assert.match(ui,/preview:'Quando alguns momentos de cuidado se acumularem/)
+ assert.match(ui,/preview:'No auge, o espaço amadurece e ganha uma atmosfera própria de luz\.'/)
+ // etapas travadas continuam clicáveis (sem o guard antigo que só permitia ver as já desbloqueadas)
+ assert.match(ui,/onClick=\{\(\)=>setSelected\(itemStage\)\}/)
+ assert.doesNotMatch(ui,/if\(active\)setSelected\(itemStage\)/)
+ assert.match(ui,/detailLocked\?`Em breve: \$\{detail\.preview\}`:detail\.why/)
+ // o card "Próximo elemento" também usa a prévia, não um texto genérico
+ assert.match(ui,/next\?next\.preview:/)
+})
+
+test('histórico de jardins é completo, ordenado do mais recente e numerado (evita confusão entre temas repetidos)',()=>{
+ assert.match(ui,/function memoryIndexes\(completed:number\)\{return Array\.from\(\{length:Math\.max\(0,completed\)\},\(_,i\)=>completed-1-i\)\}/)
+ assert.match(ui,/Você já completou/)
+ assert.match(ui,/Jardim nº \{index\+1\}/)
+ assert.match(ui,/Ver todos os \$\{allMemories\.length\} jardins/)
+})
