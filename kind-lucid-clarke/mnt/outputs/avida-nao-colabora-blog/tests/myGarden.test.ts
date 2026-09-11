@@ -23,7 +23,7 @@ test('jardim explica a jornada sem transformar o motor em placar',()=>{
 })
 
 test('progressão é infinita, preserva jardins anteriores e usa ciclo histórico próximo de 60 passos',()=>{
- assert.match(garden,/THEMES/)
+ assert.match(garden,/gardenThemeFor/)
  assert.match(garden,/Memórias do Jardim/)
  assert.match(garden,/Jardim atual/)
  assert.match(garden,/Não existe último jardim/)
