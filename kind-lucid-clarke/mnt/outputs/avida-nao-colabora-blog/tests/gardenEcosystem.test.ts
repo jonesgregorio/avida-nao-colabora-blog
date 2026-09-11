@@ -4,6 +4,8 @@ import fs from 'node:fs'
 
 const ui=fs.readFileSync(new URL('../src/components/MyGardenPage.tsx',import.meta.url),'utf8')
 const sql=fs.readFileSync(new URL('../supabase/migrations/20260909123000_garden_balanced_growth_v4.sql',import.meta.url),'utf8')
+const engine=fs.readFileSync(new URL('../src/lib/livingGardenEngine.ts',import.meta.url),'utf8')
+const livingGarden=fs.readFileSync(new URL('../src/components/garden/LivingGarden.tsx',import.meta.url),'utf8')
 
 test('garden growth blocks a single checkin and uses balanced 60-step cycles',()=>{
  assert.match(sql,/raw_growth < 3 THEN 0/)
@@ -37,26 +39,34 @@ test('garden RPC is private to authenticated owner context',()=>{
 })
 
 test('garden scene has ecosystem dependencies and grounded composition',()=>{
- assert.match(ui,/stage>=2.*Canteiro de flores/s)
- assert.match(ui,/stage>=3.*Árvore de cuidado/s)
- assert.match(ui,/stage>=4.*Visitantes/s)
- assert.match(ui,/stage>=5.*Recanto de água/s)
- assert.match(ui,/stage>=5.*Banco junto ao caminho/s)
- assert.match(ui,/Caminho do jardim/)
+ // cada elemento só aparece depois do anterior — composição com dependências reais, do
+ // primeiro broto até um canto de descanso junto à água (substitui o SVG por estágios fixos).
+ assert.match(ui,/stage:1,name:'Primeiros brotos'/)
+ assert.match(ui,/stage:2,name:'Flores'/)
+ assert.match(ui,/stage:3,name:'Árvore'/)
+ assert.match(ui,/stage:4,name:'Vida'/)
+ assert.match(ui,/stage:5,name:'Recanto'/)
+ assert.match(ui,/stage:6,name:'Luz'/)
+ assert.match(ui,/unlocked=ELEMENTS\.filter\(e=>stage>=e\.stage\)/)
+ // a cena de fundo (imagem + movimento) é a mesma composição, ancorada ao jardim e ao
+ // progresso contínuo — não um enfeite solto.
+ assert.match(ui,/<LivingGarden theme=\{theme\} progress=\{gardenProgress\}\/>/)
 })
 
 test('garden uses a detailed layered scene with visible fauna and depth',()=>{
- assert.match(ui,/function GardenScene/)
- assert.match(ui,/viewBox="0 0 940 640"/)
- assert.match(ui,/garden-bird/)
- assert.match(ui,/garden-butterfly/)
- assert.match(ui,/garden-crown/)
- assert.match(ui,/garden-firefly/)
- assert.match(ui,/feDropShadow/)
- assert.match(ui,/hillBack/)
- assert.match(ui,/hillMid/)
- assert.match(ui,/preserveAspectRatio="xMidYMid slice"/)
- assert.match(ui,/rx="31" ry="21"/)
+ // a cena real (fotorrealista + canvas) tem fauna própria — não é mais SVG estático.
+ assert.match(engine,/function drawFlyer/)
+ assert.match(engine,/function drawSwallows/)
+ assert.match(engine,/function drawKoi/)
+ assert.match(engine,/function drawWater/)
+ // profundidade real: cada partícula/animal tem seu próprio campo de profundidade (paralaxe
+ // individual), não uma sombra estática por camada.
+ assert.match(engine,/depth: 0\.\d+ \+ R\(\) \* 0\.\d+/)
+ assert.match(engine,/pointer\.tx \* \d+ \* p\.depth/)
+ // as camadas (imagem em 4 estágios + água + ar) são montadas pelo componente React.
+ assert.match(livingGarden,/theme\.stages\.map/)
+ assert.match(livingGarden,/canvas ref=\{waterRef\}/)
+ assert.match(livingGarden,/canvas ref=\{airRef\}/)
 })
 
 test('garden explicitly avoids gamified pressure and uses official care-plan name',()=>{
