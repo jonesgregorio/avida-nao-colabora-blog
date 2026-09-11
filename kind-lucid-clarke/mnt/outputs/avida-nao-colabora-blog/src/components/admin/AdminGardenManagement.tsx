@@ -72,6 +72,15 @@ type AuditRow = {
   created_at: string
 }
 
+type GardenStats = {
+  total: number
+  complete: number
+  near: number
+  inactive: number
+  avg: number
+  popular: string
+}
+
 const TABS: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
   { id: 'users', label: 'Usuários', icon: Users },
@@ -141,7 +150,7 @@ export default function AdminGardenManagement() {
     return users.filter(u => `${u.full_name ?? ''} ${u.email ?? ''} ${u.garden_label ?? ''}`.toLowerCase().includes(q))
   }, [users, query])
 
-  const stats = useMemo(() => {
+  const stats = useMemo<GardenStats>(() => {
     const total = users.length
     const complete = users.filter(u => u.progress_pct >= 83 || u.stage === 6).length
     const near = users.filter(u => u.progress_pct >= 75 && u.stage < 6).length
@@ -271,7 +280,7 @@ export default function AdminGardenManagement() {
   )
 }
 
-function Overview({ stats, users, queue, campaigns, onTab }: { stats: ReturnType<typeof useStatsPlaceholder>; users: UserGarden[]; queue: Garden[]; campaigns: Campaign[]; onTab:(t:Tab)=>void }) {
+function Overview({ stats, users, queue, campaigns, onTab }: { stats: GardenStats; users: UserGarden[]; queue: Garden[]; campaigns: Campaign[]; onTab:(t:Tab)=>void }) {
   const activeCampaigns = campaigns.filter(c=>c.status==='active'||c.status==='scheduled').length
   const cards = [
     ['Usuários com jardim', stats.total, Users], ['Progresso médio', pct(stats.avg), Activity], ['Próximos de 100%', stats.near, Sprout], ['Jardins completos', stats.complete, CheckCircle2], ['Sem evolução há 7 dias', stats.inactive, History], ['Campanhas ativas/agendadas', activeCampaigns, Megaphone],
@@ -284,7 +293,6 @@ function Overview({ stats, users, queue, campaigns, onTab }: { stats: ReturnType
     </div>
   </div>
 }
-function useStatsPlaceholder(){ return {total:0,complete:0,near:0,inactive:0,avg:0,popular:'—'} }
 
 function ProgressBuckets({ users }: {users:UserGarden[]}) {
   const groups = [[0,25],[26,50],[51,75],[76,99],[100,100]].map(([a,b]) => ({label:`${a}–${b}%`,count:users.filter(u=>u.progress_pct>=a&&u.progress_pct<=b).length}))
