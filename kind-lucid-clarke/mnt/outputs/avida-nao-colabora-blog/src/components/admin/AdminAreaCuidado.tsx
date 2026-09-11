@@ -1,22 +1,21 @@
 import { useState } from 'react'
-import { NotebookPen, ClipboardList, FileText, CalendarCheck, MessageSquare, Sparkles, Database, HeartHandshake } from 'lucide-react'
+import { NotebookPen, ClipboardList, FileText, CalendarCheck, MessageSquare, Sparkles, Database, HeartHandshake, Sprout } from 'lucide-react'
 import AdminDiaryConfig from './AdminDiaryConfig'
 import AdminQuestionnaires from './AdminQuestionnaires'
 import AdminPDF from './AdminPDF'
 import AdminSelfCareHub from './AdminSelfCareHub'
 import AdminGuidanceRequests from './AdminGuidanceRequests'
 import AdminPersonalization from './AdminPersonalization'
+import AdminGardenManagement from './AdminGardenManagement'
 
-// CUIDADO — reúne o que antes eram DUAS áreas ("Diário e mapa emocional" +
-// "IA Emocional"). Mesmo domínio, uma área só. O monitoramento técnico de IA
-// (antiga "Central de IA") saiu daqui para Sistema → Monitoramento → IA.
-//
-// Navegação em 2 níveis (grupo → aba) para reduzir a fragmentação das 6 abas
-// planas, sem esconder nada.
+// CUIDADO — reúne a jornada de cuidado e a gestão do ecossistema de jardins.
+// Navegação em 2 níveis (grupo → aba) para reduzir fragmentação sem esconder
+// funções operacionais importantes do admin.
 const GROUPS = [
   { id: 'dados', label: 'Dados do usuário', icon: Database },
   { id: 'entregas', label: 'Entregas de cuidado', icon: HeartHandshake },
   { id: 'personalizacao', label: 'Personalização', icon: Sparkles },
+  { id: 'jardins', label: 'Jardins', icon: Sprout },
 ] as const
 type Group = typeof GROUPS[number]['id']
 
@@ -27,6 +26,7 @@ const TABS = [
   { id: 'autocuidado', label: 'Autocuidado', icon: CalendarCheck, group: 'entregas' },
   { id: 'orientacoes', label: 'Orientações', icon: MessageSquare, group: 'entregas' },
   { id: 'recomendacoes', label: 'Recomendações', icon: Sparkles, group: 'personalizacao' },
+  { id: 'jardins', label: 'Gestão de Jardins', icon: Sprout, group: 'jardins' },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -64,7 +64,7 @@ export default function AdminAreaCuidado({ initialTab }: { initialTab?: string }
         <p className="admin-kicker">Cuidado</p>
         <h1 className="font-serif text-3xl text-forest-900">Cuidado</h1>
         <p className="admin-subtitle mt-1">
-          Diário, mapa emocional, questionários, relatórios, planos de autocuidado, orientações e recomendações — tudo o que sustenta a jornada de cuidado do usuário, com revisão humana antes de qualquer entrega.
+          Diário, mapa emocional, questionários, relatórios, planos de autocuidado, orientações, recomendações e gestão dos jardins — tudo o que sustenta a jornada de cuidado do usuário.
         </p>
       </section>
 
@@ -107,6 +107,7 @@ export default function AdminAreaCuidado({ initialTab }: { initialTab?: string }
         {tab === 'autocuidado' && <AdminSelfCareHub />}
         {tab === 'orientacoes' && <AdminGuidanceRequests />}
         {tab === 'recomendacoes' && <AdminPersonalization />}
+        {tab === 'jardins' && <AdminGardenManagement />}
       </section>
     </div>
   )
