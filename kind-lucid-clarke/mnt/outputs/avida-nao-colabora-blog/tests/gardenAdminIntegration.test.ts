@@ -1,0 +1,69 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { GARDEN_THEMES, gardenThemeBySlug, resolveGardenTheme } from '../src/lib/gardenThemes.ts'
+
+const garden = readFileSync(new URL('../src/components/MyGardenPage.tsx', import.meta.url), 'utf8')
+const adminPanel = readFileSync(new URL('../src/components/admin/AdminGardenManagement.tsx', import.meta.url), 'utf8')
+const fixMigration = readFileSync(new URL('../supabase/migrations/20260912000000_garden_admin_operational_fixes.sql', import.meta.url), 'utf8')
+
+// "Gestão de Jardins" (Admin) só consegue administrar "Meu Jardim" (blog) se o garden_slug que
+// a RPC resolve (fila/override do admin) realmente decidir qual tema aparece na tela do usuário.
+
+test('gardenThemeBySlug resolve um tema real pelo slug do catálogo administrável, e undefined pra slug desconhecido', () => {
+  for (const t of GARDEN_THEMES) assert.equal(gardenThemeBySlug(t.slug), t)
+  assert.equal(gardenThemeBySlug('jardim-que-nao-existe'), undefined)
+  assert.equal(gardenThemeBySlug(null), undefined)
+  assert.equal(gardenThemeBySlug(undefined), undefined)
+})
+
+test('resolveGardenTheme prioriza o slug autoritativo e só cai pro índice quando não há slug (ou é desconhecido)', () => {
+  const bySlug = resolveGardenTheme('nordico', 0) // índice diria "japones" (0%8) — slug deve vencer
+  assert.equal(bySlug.slug, 'nordico')
+  const fallbackNull = resolveGardenTheme(null, 3)
+  assert.equal(fallbackNull.slug, GARDEN_THEMES[3].slug) // sem slug (1º load) → aproxima pelo índice
+  const fallbackUnknown = resolveGardenTheme('jardim-novo-do-admin-sem-config', 3)
+  assert.equal(fallbackUnknown.slug, GARDEN_THEMES[3].slug) // slug de catálogo sem engine aqui → não quebra, aproxima
+})
+
+test('MyGardenPage usa garden_slug (não só o índice) pra escolher o tema e pra celebração', () => {
+  assert.match(garden, /const theme=resolveGardenTheme\(state\.garden_slug,gardenIndex\)/)
+  // guarda o slug anterior (não só o índice) — reordenar a fila do admin não deve confundir
+  // "qual jardim acabou de virar" na hora de celebrar.
+  assert.match(garden, /LAST_GARDEN_SLUG_KEY_PREFIX/)
+  assert.match(garden, /setCelebrateTheme\(prevSlug\?resolveGardenTheme\(prevSlug,nextIndex-1\):themeFor\(nextIndex-1\)\)/)
+})
+
+test('Meu Jardim busca e exibe a campanha ativa vinda do Admin (antes não existia nenhuma leitura)', () => {
+  assert.match(garden, /get_my_garden_campaign/)
+  assert.match(garden, /type GardenCampaign/)
+  assert.match(garden, /\{campaign&&<div/) // banner só renderiza quando alguma campanha bate
+  assert.match(garden, /\{campaign\.headline\}/)
+})
+
+test('admin_garden_users() para de ignorar garden_settings (pontos por ciclo e marcos visuais)', () => {
+  // o bug: cyc/gp fixos em 60, thresholds fixos no CASE — sumiram
+  assert.doesNotMatch(fixMigration, /floor\(growth\/60\.0\)::int cyc,\(growth%60\)::int gp/)
+  assert.doesNotMatch(fixMigration, /WHEN c\.gp<3 THEN 0 WHEN c\.gp<10 THEN 1/)
+  // a correção: lê garden_settings dinamicamente, mesma normalização 0..59 de get_my_garden_state()
+  assert.match(fixMigration, /FROM qualified q CROSS JOIN conf c/)
+  assert.match(fixMigration, /COALESCE\(points_per_cycle,60\)::int ppc,COALESCE\(stage_thresholds/)
+  assert.match(fixMigration, /WHEN c\.gp < COALESCE\(\(c\.thresholds->>0\)::int,3\) THEN 0/)
+})
+
+test('get_my_garden_campaign() existe, é restrita a authenticated, e casa audience com o estado real do usuário chamando', () => {
+  assert.match(fixMigration, /CREATE OR REPLACE FUNCTION public\.get_my_garden_campaign\(\)/)
+  assert.match(fixMigration, /SECURITY DEFINER/)
+  assert.match(fixMigration, /REVOKE ALL ON FUNCTION public\.get_my_garden_campaign\(\) FROM PUBLIC, anon/)
+  assert.match(fixMigration, /GRANT EXECUTE ON FUNCTION public\.get_my_garden_campaign\(\) TO authenticated/)
+  // reaproveita get_my_garden_state() em vez de duplicar a fórmula de crescimento pela 3ª vez
+  assert.match(fixMigration, /v_state := public\.get_my_garden_state\(\)/)
+  for (const audience of ["c.audience = 'all'", "c.audience = 'completed_one'", "c.audience = 'at_100'", "c.audience = 'inactive'", "c.audience = 'new_users'", "c.audience = 'garden_users'"]) {
+    assert.ok(fixMigration.includes(audience), `público-alvo não tratado: ${audience}`)
+  }
+})
+
+test('painel admin avisa que "Limite diário" ainda não é aplicado, em vez de fingir que funciona', () => {
+  assert.match(adminPanel, /Limite diário/)
+  assert.match(adminPanel, /Ainda não aplicado no cálculo/)
+})

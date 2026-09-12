@@ -28,7 +28,7 @@ test('garden has no terminal cycle and creates a new garden automatically',()=>{
  assert.match(ui,/O jardim nunca termina/)
  assert.match(ui,/outro surgirá automaticamente/)
  assert.match(ui,/Memórias do Jardim/)
- assert.match(ui,/themeFor\(gardenIndex\)/)
+ assert.match(ui,/resolveGardenTheme\(state\.garden_slug,gardenIndex\)/) // garden_slug (Admin) manda; índice é só aproximação
 })
 
 test('garden RPC is private to authenticated owner context',()=>{
