@@ -95,6 +95,9 @@ export interface MonthlyContent extends Omit<DeepReport, 'bridgeToSelfCarePlan' 
   /** Pontes curtas; o plano e a orientação permanecem em suas próprias áreas. */
   bridgeToSelfCarePlan?: string
   bridgeToProfessionalGuidance?: string
+  /** Estrutura usada pela automação v10; normalizada ao carregar. */
+  attention_days?: Array<{ date?: string; day?: number; reason: string; markers?: string[] }>
+  improvement_signals?: string[]
 }
 
 export type ReportContent = WeeklyContent | MonthlyContent
@@ -113,7 +116,26 @@ export interface StoredReport {
   content: ReportContent
 }
 
-function normalizeStoredReport(report: StoredReport): StoredReport {
+export function normalizeStoredReport(report: StoredReport): StoredReport {
+  if (report.content?.kind === 'monthly') {
+    const content = report.content as MonthlyContent
+    const attentionDays = (content.attention_days ?? content.attentionDays ?? [])
+      .map(item => {
+        const date = 'date' in item ? item.date : undefined
+        return { ...item, day: Number(item.day || (date ? date.slice(-2) : 0)) }
+      })
+      .filter(item => item.day > 0 && item.reason)
+    const improvements = [...new Set((content.improvement_signals ?? []).map(text => text.trim()).filter(Boolean))]
+    return {
+      ...report,
+      content: {
+        ...content,
+        attentionDays,
+        improvement_signals: improvements,
+        improvementMoments: improvements.length ? improvements.join('\n') : content.improvementMoments,
+      },
+    }
+  }
   if (report.content?.kind !== 'weekly') return report
   const normalized = normalizeWeeklyNarrative(report.content as WeeklyContent)
   return {

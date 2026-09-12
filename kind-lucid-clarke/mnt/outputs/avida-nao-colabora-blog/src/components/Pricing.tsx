@@ -179,9 +179,9 @@ const FEATURES: Record<FeatureId, PlanFeature> = {
     short: 'Leve uma questão importante do seu momento e receba uma orientação personalizada.',
     info: {
       title: 'Orientação Mensal',
-      what: 'Um espaço para levar uma questão importante do seu momento e receber uma orientação personalizada.',
-      how: 'Você escolhe o tipo de apoio que deseja, envia sua questão e acompanha o status até a resposta.',
-      note: 'Uma orientação pode ser solicitada por mês, conforme as regras do recurso.',
+      what: 'Um espaço para levar uma questão específica e receber uma resposta preparada por profissional habilitado.',
+      how: 'Você escolhe o apoio desejado e o contexto necessário. O profissional analisa cuidadosamente esses pontos antes de responder.',
+      note: 'Uma orientação por mês, enviada até o dia 23 e respondida em até 7 dias corridos. Não é psicoterapia nem atendimento de emergência.',
     },
   },
 }
@@ -219,7 +219,7 @@ const PLAN_PRESENTATION: Record<PlanKey, {
       { id: 'discoveries' },
       { id: 'history', value: 'Completa' },
       { id: 'weekly' },
-      { id: 'guided', value: 'Acesso completo' },
+      { id: 'guided', value: 'Catálogo Essencial' },
       { id: 'garden' },
     ],
   },
@@ -249,7 +249,7 @@ const COMPARISON_ROWS: Array<{ id: FeatureId; values: Record<PlanKey, PlanCompar
   { id: 'deepening', values: { free: false, essential: false, plus: 'Até 3 por dia' } },
   { id: 'questionnaires', values: { free: 'Seleção', essential: 'Ampliados', plus: 'Do Plus' } },
   { id: 'articles', values: { free: true, essential: true, plus: true } },
-  { id: 'guided', values: { free: 'Seleção', essential: 'Completo', plus: 'Completo' } },
+  { id: 'guided', values: { free: 'Seleção', essential: 'Catálogo Essencial', plus: 'Completo + exclusivos' } },
   { id: 'map', values: { free: false, essential: 'Completo', plus: 'Completo' } },
   { id: 'discoveries', values: { free: false, essential: true, plus: true } },
   { id: 'history', values: { free: 'Visão inicial', essential: 'Completa', plus: 'Completa' } },
@@ -261,8 +261,8 @@ const COMPARISON_ROWS: Array<{ id: FeatureId; values: Record<PlanKey, PlanCompar
 ]
 
 function ComparisonCell({ value }: { value: PlanCompareValue }) {
-  if (value === true) return <Check className="w-4 h-4 text-forest-700 inline" aria-label="incluído" />
-  if (value === false || value === '—') return <span className="text-ink-soft/45">—</span>
+  if (value === true) return <Check className="w-4 h-4 text-forest-700 inline" aria-label="Incluído" />
+  if (value === false || value === '—') return <span className="text-ink-soft/45" aria-label="Não incluído">—</span>
   return <span className="text-ink">{value}</span>
 }
 

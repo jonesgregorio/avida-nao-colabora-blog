@@ -223,7 +223,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
           </span>
           <div>
             <h1 className="font-serif text-3xl sm:text-4xl text-forest-900">Orientação mensal</h1>
-            <p className="text-sm text-ink-soft capitalize mt-0.5">{currentMonthLabel()}</p>
+            <p className="text-sm text-ink-soft mt-0.5">{currentMonthLabel()}</p>
           </div>
         </div>
         <span className="self-start inline-flex items-center gap-1.5 rounded-full bg-[#fff0e7] px-3 py-1.5 text-xs font-medium text-[#a4552f]">
@@ -232,7 +232,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
       </header>
 
       <p className="max-w-3xl text-sm sm:text-base text-ink-soft leading-relaxed">
-        Um espaço mensal para você pedir uma orientação individual a partir do que está vivendo e dos registros que escolheu compartilhar.
+        Um espaço mensal para enviar uma questão específica e receber uma resposta preparada cuidadosamente por profissional habilitado, a partir do que você pediu e do contexto que escolheu compartilhar.
       </p>
 
       <section className="grid md:grid-cols-3 rounded-[26px] border border-line bg-white/70 overflow-hidden">
@@ -320,7 +320,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
       )}
 
       <section className="rounded-[26px] border border-line bg-white/80 p-4 sm:p-5">
-        <SectionHeading number="2" title="O que será considerado na resposta" subtitle="Análise cuidadosa antes da resposta: usamos o que está disponível para preparar uma orientação coerente com o seu momento." />
+        <SectionHeading number="2" title="O que será considerado na resposta" subtitle="Análise cuidadosa antes da resposta: um profissional habilitado considera sua solicitação e apenas o contexto necessário que você escolheu compartilhar." />
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
           <DataSource icon={MessageSquare} label="Sua mensagem" badge="Sempre considerado" />
           <DataSource icon={FileText} label="Registros agregados do mês" badge="Disponível" />
@@ -328,7 +328,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
           <DataSource icon={FileText} label="Relatório mensal" badge="Disponível" />
           <DataSource icon={ListChecks} label="Plano de Autocuidado" badge="Disponível" />
         </div>
-        <p className="mt-4 text-xs text-ink-soft flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-forest-500 flex-shrink-0" /> Seus dados são usados para preparar esta orientação e seguem as regras de privacidade do serviço.</p>
+        <p className="mt-4 text-xs text-ink-soft flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-forest-500 flex-shrink-0" /> Mapas, relatórios e planos são organizados automaticamente a partir do seu uso. Nesta funcionalidade, a resposta final é preparada por profissional habilitado com base nos pontos solicitados por você. Seus dados seguem as regras de privacidade do serviço.</p>
       </section>
 
       {!request && !cycle.isPastDeadline && (
@@ -336,7 +336,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
           <SectionHeading number="3" title="Antes de enviar" />
           <div className="grid md:grid-cols-2 gap-3">
             <SafetyCard icon={ShieldCheck} title="Este espaço não é um canal de emergência." text="Se estiver em crise ou em risco imediato, procure ajuda de emergência ou ligue 188 (CVV) ou 192." />
-            <SafetyCard icon={Info} title="A orientação não substitui acompanhamento profissional." text="As respostas são baseadas nas informações disponíveis e não têm caráter de diagnóstico." />
+            <SafetyCard icon={Info} title="É uma orientação pontual, não acompanhamento clínico." text="A resposta de profissional habilitado é baseada na sua solicitação, não faz diagnóstico e não substitui psicoterapia, consulta ou tratamento." />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -423,7 +423,7 @@ function SafetyCard({ icon: Icon, title, text }: { icon: LucideIcon; title: stri
 }
 
 function HistoryEmptyCurrent({ monthKey, deadline, expired }: { monthKey: string; deadline: string; expired: boolean }) {
-  return <div className="px-4 py-3 flex items-center gap-3 border-b border-line last:border-b-0"><span className="w-9 h-9 rounded-full bg-mint/60 flex items-center justify-center text-forest-700"><CalendarDays className="w-4 h-4" /></span><div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900 capitalize">{monthKeyLabel(monthKey)}</p><p className="text-[11px] text-ink-soft">{expired ? 'Prazo encerrado' : `Prazo para enviar: ${deadline}`}</p></div><span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] text-stone-600">{expired ? 'Prazo encerrado' : 'Não enviada'}</span></div>
+  return <div className="px-4 py-3 flex items-center gap-3 border-b border-line last:border-b-0"><span className="w-9 h-9 rounded-full bg-mint/60 flex items-center justify-center text-forest-700"><CalendarDays className="w-4 h-4" /></span><div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900">{monthKeyLabel(monthKey)}</p><p className="text-[11px] text-ink-soft">{expired ? 'Prazo encerrado' : `Prazo para enviar: ${deadline}`}</p></div><span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] text-stone-600">{expired ? 'Prazo encerrado' : 'Não enviada'}</span></div>
 }
 
 function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; userId: string; open: boolean; onToggle: () => void }) {
@@ -437,7 +437,7 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
     <div className="border-b border-line last:border-b-0">
       <button type="button" onClick={onToggle} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-paper-soft/70 transition-colors">
         <span className="w-9 h-9 rounded-full bg-mint/60 flex items-center justify-center text-forest-700 flex-shrink-0"><CalendarDays className="w-4 h-4" /></span>
-        <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900 capitalize">{monthKeyLabel(req.month_key)}</p><p className="text-[11px] text-ink-soft">Enviada em {formatShort(req.created_at)}{answered && req.responded_at ? ` · Respondida em ${formatShort(req.responded_at)}` : ''}</p></div>
+        <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900">{monthKeyLabel(req.month_key)}</p><p className="text-[11px] text-ink-soft">Enviada em {formatShort(req.created_at)}{answered && req.responded_at ? ` · Respondida em ${formatShort(req.responded_at)}` : ''}</p></div>
         <span className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[10px] ${answered ? 'bg-[#e5f2e8] text-forest-700' : 'bg-[#fff0dc] text-amber-700'}`}>{answered ? 'Respondida' : 'Em análise'}</span>
         {answered && <span className="hidden md:inline-flex rounded-xl border border-line px-3 py-2 text-xs text-forest-800">Ler orientação</span>}
         <ChevronDown className={`w-4 h-4 text-forest-600 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -450,7 +450,7 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
           {answered ? (
             <>
               <div className="rounded-2xl border border-forest-100 bg-white p-4">
-                <div className="flex items-center gap-2 mb-3"><p className="text-xs font-semibold text-forest-700">Sua orientação mensal</p><span className="text-[10px] rounded-full bg-mint px-2 py-1 text-forest-800">Orientação respondida</span></div>
+                <div className="flex flex-wrap items-center gap-2 mb-3"><p className="text-xs font-semibold text-forest-700">Sua orientação mensal</p><span className="text-[10px] rounded-full bg-mint px-2 py-1 text-forest-800">Orientação respondida</span><span className="text-[10px] text-ink-soft">Preparada por profissional habilitado</span></div>
                 <GuidanceLetterView letter={resolvedResponse?.letter} fallback={resolvedResponse?.fallback ?? ''} />
                 {req.responded_at && <p className="text-[10px] text-ink-soft mt-3">Respondida em {formatDate(req.responded_at)}</p>}
               </div>

@@ -134,6 +134,14 @@ export function formatPeriodShort(p: { start: string; end: string }): string {
   const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
   return `${f(s)} a ${f(e)}`
 }
+export function formatPeriodLong(p: { start: string; end: string }): string {
+  const start = parseYmd(p.start), end = parseYmd(p.end)
+  const month = (date: Date) => date.toLocaleString('pt-BR', { timeZone: REPORT_TIME_ZONE, month: 'long' })
+  const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()
+  if (sameMonth) return `${start.getUTCDate()} a ${end.getUTCDate()} de ${month(end)} de ${end.getUTCFullYear()}`
+  const startYear = start.getUTCFullYear() === end.getUTCFullYear() ? '' : ` de ${start.getUTCFullYear()}`
+  return `${start.getUTCDate()} de ${month(start)}${startYear} a ${end.getUTCDate()} de ${month(end)} de ${end.getUTCFullYear()}`
+}
 export function formatDateBR(s: string): string {
   const d = parseYmd(s)
   return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`

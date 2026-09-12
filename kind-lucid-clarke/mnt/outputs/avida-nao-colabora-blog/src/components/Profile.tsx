@@ -190,7 +190,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
             <div className="text-center sm:text-left flex-1 min-w-0">
               <h2 className="font-serif text-2xl text-forest-900">{name}</h2>
               <p className="text-sm text-ink-soft mt-0.5 break-words">{user?.email}</p>
-              {memberSince && <p className="text-xs text-ink-soft mt-1 capitalize">Membro desde {memberSince}</p>}
+              {memberSince && <p className="text-xs text-ink-soft mt-1">Membro desde {memberSince}</p>}
               <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <PlanBadge plan={profile?.plan} member size="sm" />
                 {uploadingAvatar && <span className="text-xs text-ink-soft">Enviando foto…</span>}

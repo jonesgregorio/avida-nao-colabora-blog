@@ -7,6 +7,7 @@ import {
   getPreviousWeeklyPeriod,
   getPreviousMonthlyPeriod,
   getReportAvailabilityDate,
+  formatPeriodLong,
   resolveReportActivation,
   shouldGenerateReport,
 } from '../src/lib/reportPeriods.ts'
@@ -17,6 +18,17 @@ test('primeira semana começa na ativação quando assinatura ocorre no meio do 
   assert.equal(p.start, '2026-08-19')
   assert.equal(p.end, '2026-08-22')
   assert.equal(p.clampedToActivation, true)
+})
+
+test('período semanal longo identifica corretamente meses diferentes', () => {
+  assert.equal(
+    formatPeriodLong({ start: '2026-08-30', end: '2026-09-05' }),
+    '30 de agosto a 5 de setembro de 2026',
+  )
+  assert.equal(
+    formatPeriodLong({ start: '2026-09-06', end: '2026-09-12' }),
+    '6 a 12 de setembro de 2026',
+  )
 })
 
 test('primeiro mês começa na ativação quando Plus inicia no meio do mês', () => {
