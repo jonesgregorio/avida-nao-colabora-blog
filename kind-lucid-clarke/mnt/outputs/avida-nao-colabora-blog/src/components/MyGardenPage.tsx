@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, Sparkles, Sprout, TreePine, Waves } from 'lucide-react'
+import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, MoonStar, Snowflake, Sparkles, Sprout, TreePine, Waves, Wind } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import type { Profile } from '../types'
@@ -23,8 +23,27 @@ const ELEMENTS=[
 // elemento acima aparece — mesmos números do CASE que calcula `stage` na RPC.
 const STAGE_THRESHOLDS:Record<number,number>={1:3,2:10,3:18,4:28,5:39,6:50}
 const LAST_GARDEN_KEY_PREFIX='avnc:garden:lastIndex:'
+// "Flores" (queda de pétalas) e "Vida" (fauna) descrevem algo que só existe em ALGUNS jardins —
+// deserto não tem nenhuma partícula caindo (fall.count:0 em gardenThemes.ts) e nórdico só tem
+// neve, sem fauna nenhuma (flyers:{}). Nesses dois casos o marco genérico prometeria algo que
+// nunca aparece na tela, então trocamos por um equivalente real daquele jardim (calor/vento no
+// deserto, neve/aurora no nórdico) — os outros 6 jardins continuam com o texto genérico.
+const ELEMENT_OVERRIDES:Record<string,Partial<Record<number,{name:string;why:string;preview:string;Icon:typeof Sprout}>>>={
+  deserto:{
+    2:{name:'Calor',why:'O vento e o calor do deserto começaram a dar movimento ao ar do jardim.',preview:'Com mais tempo, o ar ao redor do jardim ganha o tremular do calor do deserto.',Icon:Wind},
+  },
+  nordico:{
+    2:{name:'Neve',why:'A neve começou a cobrir o jardim, dando um brilho novo ao espaço.',preview:'Quando a neve se acumular, um brilho novo cobre o jardim.',Icon:Snowflake},
+    4:{name:'Aurora',why:'A aurora começou a aparecer no céu, trazendo companhia às noites frias.',preview:'Com o inverno mais presente, a aurora começa a colorir o céu do jardim.',Icon:MoonStar},
+  },
+}
 
 function themeFor(index:number){return gardenThemeFor(index)}
+function elementsForTheme(slug:string){
+  const overrides=ELEMENT_OVERRIDES[slug]
+  if(!overrides)return ELEMENTS
+  return ELEMENTS.map(e=>overrides[e.stage]?{...e,...overrides[e.stage]}:e)
+}
 function memoryIndexes(completed:number){return Array.from({length:Math.max(0,completed)},(_,i)=>completed-1-i)}
 
 export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
@@ -62,10 +81,11 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const stage=Math.max(0,Math.min(6,state.stage||0))
   const gardenIndex=Math.max(0,state.garden_index||0)
   const theme=themeFor(gardenIndex)
-  const unlocked=ELEMENTS.filter(e=>stage>=e.stage)
-  const detail=selected?ELEMENTS.find(e=>e.stage===selected):unlocked[unlocked.length-1]
+  const elements=elementsForTheme(theme.slug)
+  const unlocked=elements.filter(e=>stage>=e.stage)
+  const detail=selected?elements.find(e=>e.stage===selected):unlocked[unlocked.length-1]
   const detailLocked=!!detail&&stage<detail.stage
-  const next=ELEMENTS.find(e=>e.stage>stage)
+  const next=elements.find(e=>e.stage>stage)
   const NextIcon=next?.Icon??Sparkles
   const remainingToNext=next?Math.max(0,STAGE_THRESHOLDS[next.stage]-(state.garden_progress||0)):0
   const completedGardens=Math.max(0,state.completed_gardens||0)
@@ -106,7 +126,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         <div className="relative mt-6">
           <div className="absolute left-[8.34%] right-[8.34%] top-[22px] h-0.5 bg-[#e7e3d8]"/>
           <div className="absolute left-[8.34%] top-[22px] h-0.5 bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${(visualProgress*0.8334).toFixed(2)}%`}}/>
-          <div className="relative grid grid-cols-6 gap-2">{ELEMENTS.map(({stage:itemStage,name,Icon})=>{
+          <div className="relative grid grid-cols-6 gap-2">{elements.map(({stage:itemStage,name,Icon})=>{
             const achieved=stage>itemStage
             const current=stage>=itemStage&&!achieved
             const active=stage>=itemStage

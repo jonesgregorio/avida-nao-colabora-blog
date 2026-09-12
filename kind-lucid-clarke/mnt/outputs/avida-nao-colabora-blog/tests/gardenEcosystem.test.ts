@@ -47,7 +47,7 @@ test('garden scene has ecosystem dependencies and grounded composition',()=>{
  assert.match(ui,/stage:4,name:'Vida'/)
  assert.match(ui,/stage:5,name:'Recanto'/)
  assert.match(ui,/stage:6,name:'Luz'/)
- assert.match(ui,/unlocked=ELEMENTS\.filter\(e=>stage>=e\.stage\)/)
+ assert.match(ui,/unlocked=elements\.filter\(e=>stage>=e\.stage\)/) // elements = ELEMENTS já resolvido por tema (ver ELEMENT_OVERRIDES)
  // a cena de fundo (imagem + movimento) é a mesma composição, ancorada ao jardim e ao
  // progresso contínuo — não um enfeite solto.
  assert.match(ui,/<LivingGarden theme=\{theme\} progress=\{gardenProgress\}\/>/)
@@ -95,4 +95,15 @@ test('histórico de jardins é completo, ordenado do mais recente e numerado (ev
  assert.match(ui,/Você já completou/)
  assert.match(ui,/Jardim nº \{index\+1\}/)
  assert.match(ui,/Ver todos os \$\{allMemories\.length\} jardins/)
+})
+
+test('marcos "Flores" e "Vida" só aparecem se o jardim realmente tiver queda de pétala/fauna — deserto e nórdico usam um equivalente real',()=>{
+ // deserto: fall.count é 0 (nada cai) — "Flores" prometeria algo que nunca acontece na tela.
+ assert.match(ui,/deserto:\{[\s\S]*?2:\{name:'Calor'/)
+ // nórdico: só neve cai (nunca flor) e flyers é {} (nenhuma fauna) — "Flores" e "Vida" também
+ // prometeriam algo que nunca aparece.
+ assert.match(ui,/nordico:\{[\s\S]*?2:\{name:'Neve'[\s\S]*?4:\{name:'Aurora'/)
+ // a função de resolução existe e é usada no lugar do array genérico fixo
+ assert.match(ui,/function elementsForTheme\(slug:string\)\{/)
+ assert.match(ui,/const elements=elementsForTheme\(theme\.slug\)/)
 })
