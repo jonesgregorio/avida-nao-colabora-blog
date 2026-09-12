@@ -56,11 +56,11 @@ const STATUS_COLOR: Record<string, string> = {
 const HELP_TOPICS: { q: string; a: string }[] = [
   {
     q: 'Como funciona o Plano Plus?',
-    a: 'O Plus inclui tudo do Essencial e adiciona Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal por mensagem. A orientação parte de uma pergunta específica que você envia. É não emergencial e não substitui acompanhamento clínico. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
+    a: 'O Plus inclui tudo do Essencial e adiciona Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal. Nessa orientação, uma questão específica é respondida cuidadosamente por profissional habilitado a partir do contexto que você escolheu compartilhar. É pontual, não emergencial e não substitui acompanhamento clínico.',
   },
   {
     q: 'Como cancelar assinatura?',
-    a: 'Acesse "Meu Plano" no menu e escolha cancelar a assinatura. O cancelamento é agendado para o fim do período já pago — você continua com acesso até lá, sem multa. Depois disso, sua conta volta para o plano Gratuito e todos os seus registros continuam salvos.',
+    a: 'Acesse "Meu Plano" e envie o pedido de cancelamento. Ele passa por análise e, quando confirmado, fica programado para o fim do período já pago. Até lá, o acesso continua normal e sem multa. Depois, a conta volta ao Gratuito e todos os registros continuam salvos.',
   },
   {
     q: 'Privacidade e segurança',

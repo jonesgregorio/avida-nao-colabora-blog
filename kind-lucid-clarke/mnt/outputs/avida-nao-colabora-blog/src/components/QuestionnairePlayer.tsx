@@ -523,7 +523,7 @@ export default function QuestionnairePlayer({
           )}
 
           <div className="flex items-center justify-center gap-6 text-xs text-stone-400 mb-6">
-            {questionnaire.estimated_time && <span>⏱ {questionnaire.estimated_time}</span>}
+            {questionnaire.estimated_time && <span>⏱ {questionnaire.estimated_time} min</span>}
             {questions.length > 0 && <span>📋 {questions.length} perguntas</span>}
           </div>
 

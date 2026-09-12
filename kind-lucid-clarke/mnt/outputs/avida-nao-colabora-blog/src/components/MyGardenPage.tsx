@@ -241,7 +241,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         <section className="rounded-[28px] border border-[#355c41] bg-[#315b3e] p-6 text-white shadow-[0_18px_45px_rgba(40,70,48,.18)]">
           <p className="text-[10px] uppercase tracking-[.22em] text-white/60">Próximo elemento</p>
           <div className="mt-5 flex items-center gap-5"><div className="grid h-24 w-24 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10"><NextIcon className="h-10 w-10"/></div><div><h2 className="font-serif text-3xl">{next?.name??'Um novo jardim'}</h2><p className="mt-2 text-sm leading-6 text-white/70">{next?next.preview:'Este jardim amadureceu. O próximo surgirá automaticamente e será visualmente diferente.'}</p></div></div>
-          {next&&<p className="mt-5 rounded-2xl bg-white/10 px-4 py-3 text-xs leading-5 text-white/70">{remainingToNext>0?`Ainda restam cerca de ${remainingToNext} sinais de cuidado até aqui — sem pressa, sem prazo.`:'Este passo já está próximo de aparecer.'}</p>}
+          {next&&<p className="mt-5 rounded-2xl bg-white/10 px-4 py-3 text-xs leading-5 text-white/70">{remainingToNext>0?`Ainda restam cerca de ${remainingToNext} sinais de cuidado para o próximo estágio — sem pressa, sem prazo.`:'Este passo já está próximo de aparecer.'}</p>}
         </section>
       </div>
 

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { exportReportPdf } from '../lib/reportPdf'
-import { parseYmd, REPORT_TIME_ZONE } from '../lib/reportPeriods'
+import { formatPeriodLong, parseYmd } from '../lib/reportPeriods'
 import { recommendGuidedContent, type RecommendedContent } from '../lib/questionnaireResult'
 import type { StoredReport, WeeklyContent, DayPoint } from '../lib/reportGeneration'
 
@@ -38,12 +38,6 @@ interface Props {
 
 const WEEK = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 const palette = ['bg-[#fde7e2] text-[#cf5548]', 'bg-[#fff0dc] text-[#b9682a]', 'bg-[#e8eef6] text-[#4d789e]', 'bg-[#e8f2e6] text-[#5f8468]', 'bg-[#f5efcf] text-[#997d28]']
-
-function formatLongPeriod(start: string, end: string) {
-  const s = parseYmd(start); const e = parseYmd(end)
-  const month = e.toLocaleString('pt-BR', { timeZone: REPORT_TIME_ZONE, month: 'long' })
-  return `${s.getUTCDate()} a ${e.getUTCDate()} de ${month} de ${e.getUTCFullYear()}`
-}
 
 function Card({ title, number, children, className = '' }: { title: string; number?: number; children: React.ReactNode; className?: string }) {
   return <section className={`rounded-[22px] border border-line bg-white p-5 sm:p-6 ${className}`}>
@@ -104,7 +98,7 @@ export default function WeeklyReportMockup({ report, plan, onOpenArticle, onNavi
   }, [c.energyByDay, c.anxietyByDay, c.sleep_by_day, c.mood_by_day, report.period_start])
 
   const share = async () => {
-    const text = `Minha leitura semanal — ${formatLongPeriod(report.period_start, report.period_end)}`
+    const text = `Minha leitura semanal — ${formatPeriodLong({ start: report.period_start, end: report.period_end })}`
     try {
       if (navigator.share) await navigator.share({ title: 'Sua leitura semanal', text })
       else await navigator.clipboard.writeText(text)
@@ -125,11 +119,11 @@ export default function WeeklyReportMockup({ report, plan, onOpenArticle, onNavi
     </header>
 
     <section className="rounded-[22px] border border-line bg-white p-5 sm:p-6 mb-4 grid gap-4 lg:grid-cols-[1fr_280px] lg:items-center">
-      <div className="flex items-center gap-4"><span className="w-12 h-12 rounded-full bg-forest-900 text-white flex items-center justify-center"><CalendarDays className="w-5 h-5" /></span><div><p className="text-lg font-semibold text-ink">{formatLongPeriod(report.period_start, report.period_end)}</p><p className="text-xs text-ink-soft mt-1">Semana encerrada no sábado</p></div></div>
+      <div className="flex items-center gap-4"><span className="w-12 h-12 rounded-full bg-forest-900 text-white flex items-center justify-center"><CalendarDays className="w-5 h-5" /></span><div><p className="text-lg font-semibold text-ink">{formatPeriodLong({ start: report.period_start, end: report.period_end })}</p><p className="text-xs text-ink-soft mt-1">Semana encerrada no sábado</p></div></div>
       <div><div className="flex items-center gap-2 text-sm font-medium">Qualidade dos dados <Info className="w-3.5 h-3.5 text-ink-soft" /></div><span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${hasEnough ? 'bg-mint text-forest-800' : 'bg-[#fff0dc] text-[#9b5b22]'}`}><CheckCircle2 className="w-3.5 h-3.5" /> {qualityLabel}</span><p className="mt-2 text-xs text-ink-soft">{numbers.active_days ?? 0} dias ativos e {numbers.total_entries ?? 0} registros.</p></div>
     </section>
 
-    <Card number={2} title="Resumo da semana">
+    <Card number={1} title="Resumo da semana">
       <div className="grid md:grid-cols-[120px_1fr] gap-5 items-center"><div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#eef4ea] to-[#f8efe7] flex items-center justify-center"><Sprout className="w-11 h-11 text-forest-500" strokeWidth={1.4} /></div><p className="text-[15px] leading-7 text-ink">{c.short_summary ?? c.summary}</p></div>
     </Card>
 

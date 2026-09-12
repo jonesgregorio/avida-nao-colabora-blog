@@ -119,8 +119,8 @@ export default function Hero({ onNavigate }: HeroProps) {
             },
             {
               icon: Users,
-              title: 'Uma comunidade de apoio',
-              text: 'Você não está só nessa. Aqui tem gente real, como você.',
+              title: 'Um espaço feito para a vida real',
+              text: 'Recursos acolhedores para observar seu momento sem julgamentos ou comparações.',
             },
           ].map(({ icon: Icon, title: itemTitle, text }) => (
             <div key={itemTitle} className="px-6 py-8 text-center lg:px-8">

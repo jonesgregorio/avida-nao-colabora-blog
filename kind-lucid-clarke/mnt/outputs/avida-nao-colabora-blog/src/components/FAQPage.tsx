@@ -130,7 +130,7 @@ export default function FAQPage({ onNavigate: _onNavigate }: FAQPageProps) {
               <MessageCircle className="w-5 h-5 text-forest-700" />
             </div>
             <h2 className="font-serif text-2xl text-forest-900 mb-2">Não encontrou sua resposta?</h2>
-            <p className="text-ink-soft text-sm">Envie sua dúvida e retornaremos em até 2 dias úteis.</p>
+            <p className="text-ink-soft text-sm">Dúvidas por este formulário público recebem retorno em até 3 dias úteis. Usuários logados veem no Suporte o prazo correspondente ao plano.</p>
           </div>
 
           {sent ? (

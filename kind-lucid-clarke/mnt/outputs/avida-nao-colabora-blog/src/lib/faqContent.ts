@@ -48,7 +48,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Planos e pagamento',
     question: 'Qual a diferença entre os planos?',
-    answer: 'Gratuito — começar a se observar: Check-in diário (1 por dia), Diário emocional em até 5 dias por mês, Diário por voz, questionários disponíveis para o Gratuito, Artigos e conteúdos, uma seleção de Conteúdos Guiados e visão inicial da Minha História. Essencial — entender seus padrões: inclui os recursos do Gratuito e amplia a experiência com Diário sem limite mensal, questionários do Essencial, Conteúdos Guiados completos, Mapa Emocional, Descobertas, Minha História completa, Relatório Semanal e Meu Jardim. Plus — transformar entendimento em cuidado: inclui os recursos do Essencial e acrescenta Aprofundamentos do Diário (até 3 por dia), questionários do Plus, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal.',
+    answer: 'Gratuito — começar a se observar: Check-in diário (1 por dia), Diário emocional em até 5 dias por mês, Diário por voz, questionários do Gratuito, Artigos e conteúdos, seleção de Conteúdos Guiados e visão inicial da Minha História. Essencial — entender seus padrões: inclui o Gratuito e amplia com Diário sem limite mensal, questionários e catálogo de Conteúdos Guiados do Essencial, Mapa Emocional, Descobertas, Minha História completa, Relatório Semanal e Meu Jardim. Plus — transformar entendimento em cuidado: inclui o Essencial, todo o catálogo de Conteúdos Guiados com exclusivos Plus, Aprofundamentos do Diário (até 3 por dia), questionários do Plus, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal por profissional habilitado.',
   },
   {
     category: 'Planos e pagamento',
@@ -73,7 +73,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Planos e pagamento',
     question: 'Posso cancelar quando quiser?',
-    answer: 'Sim, sem multa. Ao cancelar, seu acesso ao plano pago continua até o final do período já pago. Depois dessa data, a conta volta ao plano Gratuito e seus dados permanecem preservados.',
+    answer: 'Sim, sem multa. Em Meu Plano, você envia o pedido de cancelamento para análise e recebe a confirmação da data de encerramento, sempre no fim do ciclo já pago. Até essa confirmação e até o final do período pago, o acesso continua normal. Depois, a conta volta ao Gratuito e seus dados permanecem preservados.',
   },
   {
     category: 'Planos e pagamento',
@@ -117,12 +117,12 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Recursos e funcionalidades',
     question: 'Os Conteúdos Guiados são iguais em todos os planos?',
-    answer: 'Não. O Gratuito recebe uma seleção para começar. Essencial e Plus têm acesso completo aos Conteúdos Guiados disponíveis para esses planos, com exercícios, reflexões e práticas para diferentes momentos.',
+    answer: 'Não. O Gratuito recebe uma seleção para começar. O Essencial acessa os conteúdos do Gratuito e o catálogo Essencial. O Plus acessa todo esse catálogo e também os conteúdos exclusivos do Plus. Cada nível reúne exercícios, reflexões e práticas compatíveis com o plano.',
   },
   {
     category: 'Recursos e funcionalidades',
     question: 'O que é o Mapa Emocional?',
-    answer: 'O Mapa Emocional ajuda a visualizar como seus registros se distribuíram ao longo do tempo. Ele organiza emoções, contextos, sintomas, evolução e conexões presentes nos seus próprios registros. Está disponível no Essencial e no Plus e não faz diagnóstico nem afirma relações de causa e efeito.',
+    answer: 'O Mapa Emocional responde principalmente “como meus registros se distribuíram?”. Ele apresenta visualmente emoções, contextos, faixas de humor, evolução e conexões presentes nos seus próprios registros. Está disponível no Essencial e no Plus e não faz diagnóstico nem afirma relações de causa e efeito.',
   },
   {
     category: 'Recursos e funcionalidades',
@@ -132,7 +132,12 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Recursos e funcionalidades',
     question: 'Qual a diferença entre Mapa Emocional, Descobertas e Minha História?',
-    answer: 'O Mapa Emocional responde principalmente “como meus registros se distribuíram?”, com visualizações de emoções, contextos, sintomas e evolução. Descobertas responde “o que está se repetindo?”, destacando padrões e conexões observáveis. Minha História responde “como minha trajetória foi mudando ao longo do tempo?”, organizando períodos, marcos e temas da sua jornada.',
+    answer: 'O Mapa Emocional responde principalmente “como meus registros se distribuíram?”, com visualizações de emoções, contextos, faixas de humor e evolução. Descobertas responde “o que está se repetindo?”, destacando padrões e conexões observáveis. Minha História responde “como minha trajetória foi mudando ao longo do tempo?”, organizando períodos, marcos e temas da sua jornada.',
+  },
+  {
+    category: 'Recursos e funcionalidades',
+    question: 'Como cada análise personalizada se diferencia?',
+    answer: 'Os recursos usam os dados gerados pelo seu uso, mas cumprem papéis diferentes. O Mapa Emocional é visual e mostra distribuições; Descobertas acompanha repetições e conexões em formação; o Relatório Semanal resume um período fechado; o Relatório Mensal aprofunda o mês; Minha História organiza a trajetória entre meses; Meu Jardim representa simbolicamente momentos de cuidado; e o Plano de Autocuidado transforma a análise automática do ciclo em possibilidades de ação. A Orientação Mensal é a exceção: responde a uma questão específica e é preparada por profissional habilitado.',
   },
   {
     category: 'Recursos e funcionalidades',
@@ -162,7 +167,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Recursos e funcionalidades',
     question: 'Como funciona a Orientação Mensal?',
-    answer: 'A Orientação Mensal é um recurso do Plus para enviar uma questão específica sobre o seu momento e receber uma resposta organizada a partir da solicitação e do contexto que você escolheu compartilhar. É possível enviar 1 orientação por mês até o dia 23, e o prazo de resposta é de até 7 dias corridos após o envio. Não é psicoterapia nem acompanhamento profissional continuado.',
+    answer: 'A Orientação Mensal é um recurso do Plus para enviar uma questão específica e receber uma resposta preparada cuidadosamente por profissional habilitado, com base nos pontos solicitados e apenas no contexto necessário que você escolheu compartilhar. É possível enviar 1 orientação por mês até o dia 23, com resposta em até 7 dias corridos após o envio. É uma orientação pontual: não é psicoterapia, consulta, diagnóstico ou acompanhamento continuado.',
   },
   {
     category: 'Recursos e funcionalidades',
@@ -184,7 +189,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Privacidade e dados',
     question: 'Como meus dados são usados para gerar recursos personalizados?',
-    answer: 'A plataforma pode usar registros, check-ins, respostas de questionários, preferências e outros dados da sua própria conta para gerar mapas, relatórios, planos, recomendações e conteúdos personalizados. Quando há processamento por inteligência artificial, o objetivo é enviar apenas o contexto necessário para aquela funcionalidade. Esses recursos são de autoconhecimento e não produzem diagnóstico clínico.',
+    answer: 'A plataforma analisa continuamente os dados gerados pelo seu uso — como registros, check-ins, respostas estruturadas e preferências — para organizar automaticamente mapas, descobertas, relatórios, planos e recomendações. Quando há inteligência artificial, é usado apenas o contexto necessário para a funcionalidade. A exceção é a Orientação Mensal: a resposta final é preparada por profissional habilitado a partir da sua solicitação e do contexto escolhido. Nenhum desses recursos produz diagnóstico clínico.',
   },
 
   // Saúde e segurança
@@ -196,7 +201,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Saúde e segurança',
     question: 'O Plano Plus substitui o acompanhamento com psicólogo?',
-    answer: 'Não. O Plus reúne recursos adicionais de autoconhecimento — Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal. A Orientação Mensal parte de uma solicitação específica e não representa psicoterapia, avaliação clínica ou acompanhamento profissional continuado.',
+    answer: 'Não. O Plus reúne recursos adicionais de autoconhecimento — Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal. Embora a Orientação Mensal seja preparada por profissional habilitado, ela responde a uma solicitação pontual e não representa psicoterapia, consulta, avaliação clínica ou acompanhamento continuado.',
   },
   {
     category: 'Saúde e segurança',

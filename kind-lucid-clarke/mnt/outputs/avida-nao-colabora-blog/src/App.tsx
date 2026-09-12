@@ -97,6 +97,7 @@ export default function App() {
 
   const saved = restoreNav()
   const [view, setView] = useState<View>(saved?.view ?? 'home')
+  const isAuthView = (['auth'] as View[]).includes(view)
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(saved?.articleSlug ?? null)
   const [activeQuestionnaireId, setActiveQuestionnaireId] = useState<string | null>(saved?.questionnaireId ?? null)
   const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(saved?.ticketId ?? null)
@@ -251,7 +252,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return
     const pending = getPendingAction()
-    if (!pending) return
+    if (!pending) {
+      if (isAuthView) navigate('home')
+      return
+    }
     clearPendingAction()
     if (pending.diaryContext) setDiaryPromptContext(pending.diaryContext)
     if (pending.mood) setDiaryMood(pending.mood)
@@ -269,7 +273,7 @@ export default function App() {
     } else {
       navigate(pending.view)
     }
-  }, [user, navigate])
+  }, [user, isAuthView, navigate])
 
   // Suporte ao botão Voltar/Avançar do navegador
   useEffect(() => {

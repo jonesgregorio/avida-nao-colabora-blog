@@ -152,7 +152,11 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
       (plansActivity.data || []).forEach((p: { new_plan?: string; change_type?: string; created_at: string }) => {
         acts.push({
           icon: TrendingUp,
-          text: p.change_type === 'downgrade' ? 'Downgrade de plano' : 'Upgrade de plano',
+          text: p.change_type === 'downgrade' || p.change_type === 'downgrade_intent' || p.new_plan === 'free'
+            ? 'Downgrade de plano'
+            : p.change_type === 'cancel' || p.change_type === 'cancellation'
+              ? 'Cancelamento de plano'
+              : 'Upgrade de plano',
           sub: `Para o plano ${getPlanLabel(p.new_plan)}`,
           at: p.created_at,
         })

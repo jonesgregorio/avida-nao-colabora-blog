@@ -317,7 +317,7 @@ export const OFFICIAL_PLAN_COMPARISON: OfficialPlanCompareRow[] = [
     key: 'guided-content',
     label: 'Conteúdos Guiados',
     catalogKey: 'emotional_exercise_library',
-    values: { free: 'Seleção', essential: 'Completo', plus: 'Completo' },
+    values: { free: 'Seleção', essential: 'Catálogo Essencial', plus: 'Completo + exclusivos Plus' },
   },
   {
     key: 'emotional-map',

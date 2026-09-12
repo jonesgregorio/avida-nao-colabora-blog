@@ -335,10 +335,10 @@ export default function MyEvolutionPage(props: Props) {
           hint="Mostra em quais contextos — trabalho, rotina, vida pessoal, estudos… — você mais registrou algo neste mês."
         />
         <RankedSection
-          title="Sintomas e sinais"
+          title="Como os dias foram percebidos"
           items={signals}
           moreLabel="Ver todos"
-          empty="Os sinais estruturados aparecerão aqui conforme seus registros."
+          empty="As faixas de humor aparecerão aqui conforme seus registros."
           hint="Agrupa os seus dias com registro por faixa de humor médio, de muito difícil a muito leve."
         />
       </div>

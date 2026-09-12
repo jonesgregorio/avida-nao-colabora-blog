@@ -11,11 +11,12 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 ```
 
 - **Diário** registra o que aconteceu.
-- **Mapa emocional** mostra padrões e evolução a partir dos registros.
+- **Mapa emocional** mostra visualmente como emoções, contextos e faixas de humor se distribuíram.
+- **Descobertas** destaca repetições e conexões que ganham contexto com o uso contínuo.
 - **Relatório semanal** resume a semana para Essencial e Plus.
 - **Relatório mensal aprofundado** aprofunda o mês para Plus.
-- **Plano de autocuidado** transforma a leitura mensal em pequenos passos e passa por revisão antes de ser liberado.
-- **Orientação mensal** acolhe uma pergunta específica do usuário Plus e passa por revisão humana.
+- **Plano de autocuidado** transforma análises automáticas do ciclo em pequenos passos e passa por revisão antes de ser liberado.
+- **Orientação mensal** responde a uma pergunta específica do usuário Plus e é preparada por profissional habilitado com base nos pontos solicitados.
 - **Conteúdos guiados** oferecem exercícios, reflexões, pausas emocionais e recursos de apoio não clínico.
 
 ## Planos oficiais
@@ -34,7 +35,7 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 - Tudo do Gratuito.
 - Diário emocional sem limite mensal.
 - Questionários configurados para o Essencial.
-- Conteúdos Guiados completos.
+- Conteúdos Guiados do catálogo Essencial (inclui os níveis anteriores).
 - Mapa Emocional completo.
 - Descobertas (o que está se repetindo, sem linguagem diagnóstica).
 - Minha História completa.
@@ -43,11 +44,12 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 
 ### Plus
 - Tudo do Essencial.
+- Conteúdos Guiados do catálogo completo, incluindo exclusivos Plus.
 - Aprofundamentos do Diário: até 3 por dia (extensão do mesmo registro, não um novo check-in).
 - Questionários configurados para o Plus.
 - Relatório mensal aprofundado.
 - Plano de autocuidado mensal com revisão.
-- Orientação mensal por mensagem, solicitada pelo usuário e revisada antes do envio.
+- Orientação mensal por mensagem, preparada cuidadosamente por profissional habilitado a partir da solicitação e do contexto escolhido pelo usuário.
 
 `unlimited_access` é um entitlement administrativo (equivale ao Plus para autorização de recursos) e não é um plano comercial.
 

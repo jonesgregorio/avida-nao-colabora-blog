@@ -69,7 +69,7 @@ export default function DiaryHistorySection(p: Props) {
   const calendar = (mobile = false) => <>
     <div className="flex items-center justify-between gap-3" aria-label="Filtrar período do histórico">
       <button type="button" onClick={() => setViewMonth(value => shiftMonth(value, -1))} aria-label="Mês anterior" className="rounded-full border border-[#d9cebb] bg-white p-2 text-forest-800 hover:bg-[#f5efe3]"><ChevronLeft className="h-4 w-4" /></button>
-      <div className="text-center"><p className="text-[10px] uppercase tracking-[0.16em] text-forest-600">Agenda do diário</p><h2 className="mt-1 font-serif text-2xl capitalize text-forest-900">{monthTitle(viewMonth)}</h2></div>
+      <div className="text-center"><p className="text-[10px] uppercase tracking-[0.16em] text-forest-600">Agenda do diário</p><h2 className="mt-1 font-serif text-2xl text-forest-900">{monthTitle(viewMonth)}</h2></div>
       <button type="button" disabled={!canGoNext} onClick={() => setViewMonth(value => shiftMonth(value, 1))} aria-label="Próximo mês" className="rounded-full border border-[#d9cebb] bg-white p-2 text-forest-800 hover:bg-[#f5efe3] disabled:cursor-not-allowed disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
     </div>
     <h3 className="mt-5 font-serif text-2xl text-forest-900">Sua história deste mês, até aqui</h3>

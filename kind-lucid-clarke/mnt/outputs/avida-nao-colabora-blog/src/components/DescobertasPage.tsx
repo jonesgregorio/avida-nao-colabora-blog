@@ -330,10 +330,11 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
       ) : (
         <>
           <section className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Resumo das descobertas">
-            <SummaryMetric value={discoveries.length} label="ativas" />
+            <SummaryMetric value={discoveries.length} label="ativas no total" />
             <SummaryMetric value={observingDiscoveries.filter(discovery => discovery.status === 'forming').length} label="ganhando contexto" />
-            <SummaryMetric value={observedPatterns} label="padrões observados" />
+            <SummaryMetric value={observedPatterns} label="padrões consolidados" />
           </section>
+          <p className="-mt-5 text-[11px] text-ink-soft">As categorias descrevem estágios e tipos diferentes; conexões e itens ganhando contexto podem fazer parte do total de descobertas ativas.</p>
 
           {(strongestSignal || strongestContext || strongestConnection) && (
             <section className="rounded-3xl border border-line bg-paper-soft/70 p-5 sm:p-6">
