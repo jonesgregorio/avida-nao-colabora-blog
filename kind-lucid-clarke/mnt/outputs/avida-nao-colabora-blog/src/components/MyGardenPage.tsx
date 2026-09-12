@@ -83,18 +83,20 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   return <main className="min-h-full bg-[#f7f0e5] text-forest-950">
     {celebrationTheme&&<GardenCelebration theme={celebrationTheme} onViewHistory={goToHistory} onClose={()=>setCelebrateIndex(null)}/>}
 
-    <section className="relative h-[clamp(260px,45vw,620px)] overflow-hidden border-b border-[#ded3c3] bg-[#efe4d4]">
-      <LivingGarden theme={theme} progress={gardenProgress}/>
-      <div className="relative z-10 mx-auto flex h-full max-w-[1240px] items-start px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
-        <div className="flex w-[220px] flex-col justify-between gap-5 rounded-[22px] border border-white/35 bg-[#fffaf1]/[0.72] p-5 shadow-[0_20px_60px_rgba(47,62,43,.16)] backdrop-blur-sm sm:w-[260px] sm:gap-6 sm:rounded-[26px] sm:p-6 lg:w-[300px] lg:p-7">
+    <div className="border-b border-[#ded3c3] bg-[#efe4d4]">
+      <div className="mx-auto max-w-[1240px] px-5 py-6 sm:px-8 lg:px-10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-forest-700 sm:text-xs sm:tracking-[.24em]">Meu Jardim</p>
-            <h1 className="mt-2 font-serif text-2xl leading-[1.12] text-[#173e2d] sm:text-3xl lg:text-4xl">Um espaço que cresce com você</h1>
-            <p className="mt-3 text-xs leading-5 text-[#5f655f] sm:text-sm sm:leading-6">Sua trajetória ganha forma aos poucos. Cada pequeno cuidado importa e, com o tempo, transforma este espaço em vida, beleza e presença.</p>
+            <p className="text-xs font-semibold uppercase tracking-[.24em] text-forest-700">Meu Jardim</p>
+            <h1 className="mt-1 font-serif text-3xl leading-[1.08] text-[#173e2d] sm:text-4xl">Um espaço que cresce com você</h1>
           </div>
-          <p className="hidden font-serif text-sm italic text-forest-700 sm:block sm:text-base">Cuidar de si também é construir um lugar melhor para ficar.</p>
+          <p className="max-w-md text-sm leading-6 text-[#5f655f] sm:text-right">Sua trajetória ganha forma aos poucos. Cada pequeno cuidado importa e, com o tempo, transforma este espaço em vida, beleza e presença. <span className="italic text-forest-700">Cuidar de si também é construir um lugar melhor para ficar.</span></p>
         </div>
       </div>
+    </div>
+
+    <section className="relative aspect-[1672/941] overflow-hidden">
+      <LivingGarden theme={theme} progress={gardenProgress}/>
     </section>
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
