@@ -67,3 +67,26 @@ test('painel admin avisa que "Limite diário" ainda não é aplicado, em vez de 
   assert.match(adminPanel, /Limite diário/)
   assert.match(adminPanel, /Ainda não aplicado no cálculo/)
 })
+
+test('admin consegue cadastrar um jardim novo no Catálogo (linha no banco) — com aviso claro do que isso NÃO resolve sozinho', () => {
+  assert.match(adminPanel, /async function createGarden/)
+  assert.match(adminPanel, /supabase\.from\('garden_catalog'\)\.insert/)
+  assert.match(adminPanel, /status: 'draft'/) // nunca nasce visível pra usuários sem o admin promover
+  assert.match(adminPanel, /onCreate:\(g:\{slug:string;label:string;description:string;theme_index:number;cover_image:string;stage_images:string\[\]\}\)/)
+  assert.match(adminPanel, /Novo jardim/)
+  // avisa explicitamente que fotos+engine continuam sendo trabalho à parte
+  assert.match(adminPanel, /a configuração de água\/fauna\/luz continuam sendo um trabalho à parte/)
+})
+
+test('Memórias do Jardim usa o garden_slug REAL de cada ciclo passado (garden_user_cycles), não só o índice aproximado', () => {
+  assert.match(garden, /supabase\.from\('garden_user_cycles'\)\.select\('cycle_number,garden_slug'\)\.eq\('user_id',userId\)/)
+  assert.match(garden, /const \[cycleSlugs,setCycleSlugs\]=useState<Record<number,string>>\(\{\}\)/)
+  assert.match(garden, /<MemoryCard key=\{index\} index=\{index\} slug=\{cycleSlugs\[index\]\}\/>/)
+  assert.match(garden, /function MemoryCard\(\{index,slug\}:\{index:number;slug\?:string\}\)\{const t=resolveGardenTheme\(slug,index\)/)
+})
+
+test('a dica "faltam N sinais" usa os Marcos visuais REAIS configurados pelo admin (garden_settings), com o padrão fixo só como reserva', () => {
+  assert.match(garden, /supabase\.from\('garden_settings'\)\.select\('stage_thresholds'\)\.eq\('id',true\)\.maybeSingle\(\)/)
+  assert.match(garden, /const \[stageThresholds,setStageThresholds\]=useState<number\[\]\|null>\(null\)/)
+  assert.match(garden, /const nextThreshold=next\?\(stageThresholds\?\.\[next\.stage-1\]\?\?STAGE_THRESHOLDS\[next\.stage\]\):0/)
+})

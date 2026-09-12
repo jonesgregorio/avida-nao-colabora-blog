@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, MoonStar, Snowflake, Sparkles, Sprout, TreePine, Waves, Wind } from 'lucide-react'
+import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, MoonStar, Snowflake, Sparkles, Sprout, TreePine, Waves, Wind, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import type { Profile } from '../types'
 import { gardenThemeFor, gardenVisualProgress, resolveGardenTheme, type GardenTheme } from '../lib/gardenThemes'
 import LivingGarden from './garden/LivingGarden'
 import GardenCelebration from './garden/GardenCelebration'
+import GardenGrowthCompare from './garden/GardenGrowthCompare'
 
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
 // vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
@@ -30,6 +31,7 @@ const ELEMENTS=[
 const STAGE_THRESHOLDS:Record<number,number>={1:3,2:10,3:18,4:28,5:39,6:50}
 const LAST_GARDEN_KEY_PREFIX='avnc:garden:lastIndex:'
 const LAST_GARDEN_SLUG_KEY_PREFIX='avnc:garden:lastSlug:'
+const LAST_GARDEN_PROGRESS_KEY_PREFIX='avnc:garden:lastProgress:'
 // "Flores" (queda de pétalas) e "Vida" (fauna) descrevem algo que só existe em ALGUNS jardins —
 // deserto não tem nenhuma partícula caindo (fall.count:0 em gardenThemes.ts) e nórdico só tem
 // neve, sem fauna nenhuma (flyers:{}). Nesses dois casos o marco genérico prometeria algo que
@@ -60,6 +62,10 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [showAllMemories,setShowAllMemories]=useState(false)
   const [celebrateTheme,setCelebrateTheme]=useState<GardenTheme|null>(null)
   const [campaign,setCampaign]=useState<GardenCampaign|null>(null)
+  const [stageThresholds,setStageThresholds]=useState<number[]|null>(null)
+  const [cycleSlugs,setCycleSlugs]=useState<Record<number,string>>({})
+  const [growthChange,setGrowthChange]=useState<{theme:GardenTheme;from:number;to:number}|null>(null)
+  const [compareOpen,setCompareOpen]=useState(false)
   const memoriesRef=useRef<HTMLDivElement|null>(null)
 
   useEffect(()=>{
@@ -79,17 +85,62 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       try{
         const key=LAST_GARDEN_KEY_PREFIX+userId
         const slugKey=LAST_GARDEN_SLUG_KEY_PREFIX+userId
+        const progressKey=LAST_GARDEN_PROGRESS_KEY_PREFIX+userId
         const prevRaw=window.localStorage.getItem(key)
         const prevSlug=window.localStorage.getItem(slugKey)
+        const prevProgressRaw=window.localStorage.getItem(progressKey)
         const prev=prevRaw==null?null:Number(prevRaw)
+        const prevProgress=prevProgressRaw==null?null:Number(prevProgressRaw)
         const nextIndex=Math.max(0,next.garden_index||0)
+        const nextProgress=Math.max(0,Math.min(59,next.garden_progress||0))
+        const sameGarden=prev!=null&&!Number.isNaN(prev)&&nextIndex===prev
         if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev){
+          // o jardim virou — a celebração de tela cheia cuida desse momento; não soma com o
+          // aviso de "mudou desde sua última visita" abaixo, que é sobre o MESMO jardim.
           setCelebrateTheme(prevSlug?resolveGardenTheme(prevSlug,nextIndex-1):themeFor(nextIndex-1))
+        } else if(sameGarden&&prevProgress!=null&&!Number.isNaN(prevProgress)&&nextProgress>prevProgress){
+          // mesmo jardim, progresso avançou desde a última visita — notícia leve (não é a
+          // celebração de 100%), com um botão pra comparar visualmente antes/depois.
+          setGrowthChange({theme:resolveGardenTheme(next.garden_slug,nextIndex),from:prevProgress,to:nextProgress})
         }
         window.localStorage.setItem(key,String(nextIndex))
+        window.localStorage.setItem(progressKey,String(nextProgress))
         if(next.garden_slug)window.localStorage.setItem(slugKey,next.garden_slug)
         else window.localStorage.removeItem(slugKey)
-      }catch{/* localStorage indisponível (modo privado etc.) — só não celebra, sem quebrar a página */}
+      }catch{/* localStorage indisponível (modo privado etc.) — só não notifica, sem quebrar a página */}
+    })().catch(()=>{})
+    return()=>{alive=false}
+  },[userId,access])
+
+  useEffect(()=>{
+    // "Marcos visuais" (Admin → Gestão de Jardins → Regras) — se o admin mudar os limiares
+    // padrão, a dica "faltam N sinais" abaixo passa a refletir o valor real configurado em vez
+    // do padrão fixo no código. Leitura pública (garden_settings_read permite authenticated).
+    if(!access)return
+    let alive=true
+    ;(async()=>{
+      const {data}=await supabase.from('garden_settings').select('stage_thresholds').eq('id',true).maybeSingle()
+      const thresholds=data?.stage_thresholds
+      if(alive&&Array.isArray(thresholds))setStageThresholds(thresholds as number[])
+    })().catch(()=>{})
+    return()=>{alive=false}
+  },[access])
+
+  useEffect(()=>{
+    // Memórias do Jardim: cada ciclo já concluído pode ter um garden_slug real gravado (o
+    // usuário só lê o próprio, garden_cycles_owner permite) — reflete fila/override do admin
+    // no momento em que aquele jardim aconteceu. Quando um ciclo não tem linha (ex.: o total
+    // de crescimento pulou vários ciclos de uma vez, como num ajuste manual do admin, e o
+    // resolvedor nunca rodou pra esse ciclo intermediário), MemoryCard cai pro índice — nunca
+    // fica sem imagem.
+    if(!access)return
+    let alive=true
+    ;(async()=>{
+      const {data}=await supabase.from('garden_user_cycles').select('cycle_number,garden_slug').eq('user_id',userId)
+      if(!alive||!data)return
+      const map:Record<number,string>={}
+      for(const row of data as {cycle_number:number;garden_slug:string}[])map[row.cycle_number]=row.garden_slug
+      setCycleSlugs(map)
     })().catch(()=>{})
     return()=>{alive=false}
   },[userId,access])
@@ -108,7 +159,8 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const detailLocked=!!detail&&stage<detail.stage
   const next=elements.find(e=>e.stage>stage)
   const NextIcon=next?.Icon??Sparkles
-  const remainingToNext=next?Math.max(0,STAGE_THRESHOLDS[next.stage]-(state.garden_progress||0)):0
+  const nextThreshold=next?(stageThresholds?.[next.stage-1]??STAGE_THRESHOLDS[next.stage]):0
+  const remainingToNext=next?Math.max(0,nextThreshold-(state.garden_progress||0)):0
   const completedGardens=Math.max(0,state.completed_gardens||0)
   const allMemories=memoryIndexes(completedGardens)
   const memories=showAllMemories?allMemories:allMemories.slice(0,8)
@@ -122,6 +174,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
   return <main className="min-h-full bg-[#f7f0e5] text-forest-950">
     {celebrateTheme&&<GardenCelebration theme={celebrateTheme} onViewHistory={goToHistory} onClose={()=>setCelebrateTheme(null)}/>}
+    {compareOpen&&growthChange&&<GardenGrowthCompare theme={growthChange.theme} from={growthChange.from} to={growthChange.to} onClose={()=>setCompareOpen(false)}/>}
 
     <div className="border-b border-[#ded3c3] bg-[#efe4d4]">
       <div className="mx-auto max-w-[1240px] px-5 py-6 sm:px-8 lg:px-10">
@@ -141,6 +194,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
       {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>}</div>}
+      {growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">Seu jardim mudou desde sua última visita.</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={()=>setCompareOpen(true)} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button><button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button></div></div>}
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.label}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro — todo progresso, por menor que pareça, também floresce.':'Em evolução'}</p></div></div><div className="shrink-0 rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>
@@ -178,7 +232,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
       <section ref={memoriesRef} className="mt-7 scroll-mt-6 border-t border-[#dfd4c4] pt-7"><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs uppercase tracking-[.2em] text-forest-600">Memórias do Jardim</p><h2 className="mt-1 font-serif text-3xl">O jardim nunca termina</h2></div><p className="max-w-xl text-sm leading-6 text-ink-soft">Quando este espaço amadurecer, ele será preservado nas Memórias do Jardim e outro surgirá automaticamente, com atmosfera e composição diferentes. Não existe último jardim por aqui.</p></div>
         {completedGardens>0&&<p className="mt-4 text-xs text-forest-600">Você já completou <strong className="font-semibold text-forest-800">{completedGardens}</strong> {completedGardens===1?'jardim':'jardins'}. Cada um fica guardado aqui, na ordem em que aconteceu.</p>}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{memories.map(index=><MemoryCard key={index} index={index}/>) }<div className="flex min-h-[190px] flex-col items-center justify-center rounded-[24px] border border-[#d8cebd] bg-[#f3eadc] p-5 text-center"><Sprout className="h-7 w-7 text-forest-700"/><p className="mt-3 font-serif text-lg">{state.completed_gardens>0?'Novo jardim em andamento':'Seu primeiro jardim está crescendo'}</p><p className="mt-1 text-xs text-ink-soft">Mais histórias para viver.</p></div></div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{memories.map(index=><MemoryCard key={index} index={index} slug={cycleSlugs[index]}/>) }<div className="flex min-h-[190px] flex-col items-center justify-center rounded-[24px] border border-[#d8cebd] bg-[#f3eadc] p-5 text-center"><Sprout className="h-7 w-7 text-forest-700"/><p className="mt-3 font-serif text-lg">{state.completed_gardens>0?'Novo jardim em andamento':'Seu primeiro jardim está crescendo'}</p><p className="mt-1 text-xs text-ink-soft">Mais histórias para viver.</p></div></div>
         {allMemories.length>8&&<div className="mt-5 text-center"><button type="button" onClick={()=>setShowAllMemories(v=>!v)} className="rounded-2xl border border-[#d8cebd] bg-[#fffaf3] px-5 py-2.5 text-xs font-medium text-forest-700 transition hover:bg-[#f3eadc]">{showAllMemories?'Mostrar menos':`Ver todos os ${allMemories.length} jardins`}</button></div>}
       </section>
     </div>
@@ -187,4 +241,4 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
 function ActionItem({Icon,label}:{Icon:typeof Sprout;label:string}){return <div className="text-center"><div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#edf0e7] text-forest-700"><Icon className="h-5 w-5"/></div><p className="mt-2 text-[11px] font-medium text-forest-900">{label}</p></div>}
 function JourneyMetric({value,label}:{value:number;label:string}){return <div className="rounded-2xl bg-white/70 px-3 py-3 text-center"><p className="font-serif text-xl text-forest-900">{value}</p><p className="mt-1 text-[10px] leading-4 text-ink-soft">{label}</p></div>}
-function MemoryCard({index}:{index:number}){const t=themeFor(index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative aspect-[4/3] overflow-hidden"><img src={t.stages[3]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
+function MemoryCard({index,slug}:{index:number;slug?:string}){const t=resolveGardenTheme(slug,index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative aspect-[4/3] overflow-hidden"><img src={t.stages[3]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
