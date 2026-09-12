@@ -51,6 +51,10 @@ export function TagGroup({
   const [addingCustom, setAddingCustom] = useState(false)
   const [custom, setCustom] = useState('')
   const visible = open ? options : unique([...options.slice(0, 6), ...selected.filter(item => options.includes(item))])
+  // tags digitados em "+ outro" não existem em `options` — sem isso, ficavam gravados no
+  // registro normalmente, mas nunca voltavam como chip na tela (parecia que a escrita tinha
+  // se perdido, mesmo estando salva).
+  const customSelected = selected.filter(item => !options.includes(item))
   const canAdd = !maxSelected || selected.length < maxSelected
   const toggleTag = (tag: string) => { if (selected.includes(tag) || canAdd) onToggle(tag) }
   const addCustom = () => {
@@ -95,6 +99,14 @@ export function TagGroup({
           }
           return <DiaryTagChip key={tag} label={tag} category={category} selected={isSelected} disabled={!isSelected && !canAdd} onClick={() => toggleTag(tag)} />
         })}
+        {customSelected.map(tag => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => toggleTag(tag)}
+            className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100"
+          >{tag}</button>
+        ))}
         {allowCustom && !addingCustom && (
           <button type="button" onClick={() => setAddingCustom(true)} disabled={!canAdd} className={`rounded-full border border-dashed px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${customButtonClass}`}>+ outro</button>
         )}
