@@ -98,21 +98,21 @@ export default function GardenCelebration({ theme, onViewHistory, onClose }: Pro
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative z-[1] flex flex-col items-center gap-5 px-8 py-14 text-center text-white sm:px-12 sm:py-16">
-          <p className={reduced ? 'text-[11px] font-semibold uppercase tracking-[.28em] text-white/70' : 'gc-line1 text-[11px] font-semibold uppercase tracking-[.28em] text-white/70'}>
+        <div className="relative z-[1] flex flex-col items-center gap-3 px-6 py-9 text-center text-white sm:gap-5 sm:px-12 sm:py-16">
+          <p className={reduced ? 'text-[10px] font-semibold uppercase tracking-[.24em] text-white/70 sm:text-[11px] sm:tracking-[.28em]' : 'gc-line1 text-[10px] font-semibold uppercase tracking-[.24em] text-white/70 sm:text-[11px] sm:tracking-[.28em]'}>
             Jardim concluído
           </p>
-          <div className="space-y-3">
-            <p className={reduced ? 'font-serif text-[26px] leading-[1.25] sm:text-[30px]' : 'gc-line1 font-serif text-[26px] leading-[1.25] sm:text-[30px]'}>
+          <div className="space-y-2 sm:space-y-3">
+            <p className={reduced ? 'font-serif text-xl leading-[1.2] sm:text-[30px] sm:leading-[1.25]' : 'gc-line1 font-serif text-xl leading-[1.2] sm:text-[30px] sm:leading-[1.25]'}>
               Seu jardim floresceu por completo.
             </p>
-            <p className={reduced ? 'font-serif text-lg text-white/90' : 'gc-line2 font-serif text-lg text-white/90'}>
+            <p className={reduced ? 'font-serif text-base text-white/90 sm:text-lg' : 'gc-line2 font-serif text-base text-white/90 sm:text-lg'}>
               Você chegou aos 100%.
             </p>
-            <p className={reduced ? 'mx-auto max-w-sm text-sm leading-6 text-white/75' : 'gc-line3 mx-auto max-w-sm text-sm leading-6 text-white/75'}>
+            <p className={reduced ? 'mx-auto max-w-sm text-xs leading-5 text-white/75 sm:text-sm sm:leading-6' : 'gc-line3 mx-auto max-w-sm text-xs leading-5 text-white/75 sm:text-sm sm:leading-6'}>
               O que começou com pequenos cuidados agora ocupa todo esse espaço.
             </p>
-            <p className={reduced ? 'font-serif text-lg text-[#ffe08c]' : 'gc-line4 font-serif text-lg text-[#ffe08c]'}>
+            <p className={reduced ? 'font-serif text-base text-[#ffe08c] sm:text-lg' : 'gc-line4 font-serif text-base text-[#ffe08c] sm:text-lg'}>
               Parabéns por cultivar até aqui. 🌿
             </p>
           </div>
