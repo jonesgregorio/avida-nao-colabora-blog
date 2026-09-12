@@ -44,26 +44,32 @@ test('"Ver minha jornada" fecha a celebração e rola até Memórias do Jardim',
   assert.match(garden, /<GardenCelebration theme=\{celebrationTheme\} onViewHistory=\{goToHistory\}/)
 })
 
-test('hero do Meu Jardim libera a foto do jardim — menos cartões flutuando sobre a imagem', () => {
-  assert.doesNotMatch(garden, /Todo progresso,/) // cartão decorativo saiu de cima da foto
-  assert.doesNotMatch(garden, /absolute bottom-8 left-5 right-5/) // "Jardim atual" não flutua mais sobre a imagem
-  assert.match(garden, /bg-\[#fffaf1\]\/\[0\.72\]/) // resta só o cartão de introdução, sobre a foto
+test('cabeçalho do Meu Jardim é uma faixa curta e larga ANTES da foto, não um cartão sobre ela', () => {
+  // "Meu Jardim" e o H1 ficam numa faixa própria, em fluxo normal, antes da <section> do hero —
+  // não mais dentro dela nem posicionados de forma absoluta por cima da imagem.
+  const headerIdx = garden.indexOf('Um espaço que cresce com você')
+  const heroSectionIdx = garden.indexOf('aspect-[1672/941]')
+  assert.ok(headerIdx > -1 && heroSectionIdx > -1 && headerIdx < heroSectionIdx, 'o texto de introdução precisa vir ANTES da seção do hero no markup')
+  assert.doesNotMatch(garden, /absolute[^"]*bg-\[#fffaf1\]/) // nada flutuando sobre a foto com fundo de cartão
+  assert.doesNotMatch(garden, /backdrop-blur-sm[^"]*bg-\[#fffaf1\]|bg-\[#fffaf1\][^"]*backdrop-blur-sm/) // sem cartão translúcido sobre a imagem
   assert.match(garden, /Sua trajetória ganha forma aos poucos/) // texto editorial preservado (tests/desktopAuditFixes.test.ts)
 })
 
-test('cartão de introdução no hero é estreito e alto (não largo), como pedido', () => {
-  // largura fixa e estreita em vez do max-w largo anterior — o card fica em pé, não deitado
-  assert.match(garden, /w-\[220px\][^"]*flex-col[^"]*justify-between/)
-  assert.doesNotMatch(garden, /max-w-\[460px\]/)
+test('cabeçalho é baixo e ocupa a largura toda (layout deitado, não em pé)', () => {
+  // flex-row (não flex-col) a partir de sm: título de um lado, texto do outro — largo, não alto.
+  assert.match(garden, /sm:flex-row sm:items-end sm:justify-between/)
+  assert.doesNotMatch(garden, /w-\[220px\]/) // não existe mais o cartão estreito
+  assert.doesNotMatch(garden, /flex-col justify-between gap-5 rounded-\[22px\]/) // não existe mais o cartão em pé
 })
 
-test('a altura do hero e das miniaturas usa proporção que corta bem menos da foto original (16:9)', () => {
-  // clamp() com um vw preferencial mantém a largura cheia da seção (evita o bug de
-  // aspect-ratio+max-height encolher a LARGURA pra manter a proporção) enquanto limita
-  // o quanto a altura cresce em telas muito largas — reduz o corte de topo/base.
-  assert.match(garden, /h-\[clamp\(\d+px,\d+vw,\d+px\)\]/)
-  assert.doesNotMatch(garden, /\baspect-\[[^\]]+\][^"]*\bmax-h-\[/) // não repetir o bug aspect-ratio+max-height
-  // miniaturas de "Memórias do Jardim": aspect-ratio mais próximo da foto original em vez de h-28 fixo
+test('o hero mostra a foto inteira, sem cortar nada — proporção trava no tamanho exato da imagem-base', () => {
+  // 1672×941 é o quadro exato em que as imagens dos 8 jardins foram compostas (VW/VH em
+  // livingGardenEngine.ts). Travar a seção nessa proporção elimina qualquer corte de
+  // object-cover, porque a caixa nunca fica desproporcional à imagem.
+  assert.match(garden, /aspect-\[1672\/941\]/)
+  assert.doesNotMatch(garden, /\baspect-\[[^\]]+\][^"]*\bmax-h-\[/) // não reintroduzir aspect-ratio+max-height (encolhe a largura)
+  assert.doesNotMatch(garden, /h-\[clamp\(/) // técnica anterior (ainda cortava em telas largas) foi substituída
+  // miniaturas de "Memórias do Jardim" continuam com proporção próxima à foto original em vez de h-28 fixo
   assert.match(garden, /aspect-\[4\/3\]/)
   assert.doesNotMatch(garden, /relative h-28 overflow-hidden/)
 })
