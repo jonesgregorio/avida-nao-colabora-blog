@@ -47,6 +47,23 @@ test('"Ver minha jornada" fecha a celebração e rola até Memórias do Jardim',
 test('hero do Meu Jardim libera a foto do jardim — menos cartões flutuando sobre a imagem', () => {
   assert.doesNotMatch(garden, /Todo progresso,/) // cartão decorativo saiu de cima da foto
   assert.doesNotMatch(garden, /absolute bottom-8 left-5 right-5/) // "Jardim atual" não flutua mais sobre a imagem
-  assert.match(garden, /bg-\[#fffaf1\]\/\[0\.68\]/) // resta só o cartão de introdução, compacto
+  assert.match(garden, /bg-\[#fffaf1\]\/\[0\.72\]/) // resta só o cartão de introdução, sobre a foto
   assert.match(garden, /Sua trajetória ganha forma aos poucos/) // texto editorial preservado (tests/desktopAuditFixes.test.ts)
+})
+
+test('cartão de introdução no hero é estreito e alto (não largo), como pedido', () => {
+  // largura fixa e estreita em vez do max-w largo anterior — o card fica em pé, não deitado
+  assert.match(garden, /w-\[220px\][^"]*flex-col[^"]*justify-between/)
+  assert.doesNotMatch(garden, /max-w-\[460px\]/)
+})
+
+test('a altura do hero e das miniaturas usa proporção que corta bem menos da foto original (16:9)', () => {
+  // clamp() com um vw preferencial mantém a largura cheia da seção (evita o bug de
+  // aspect-ratio+max-height encolher a LARGURA pra manter a proporção) enquanto limita
+  // o quanto a altura cresce em telas muito largas — reduz o corte de topo/base.
+  assert.match(garden, /h-\[clamp\(\d+px,\d+vw,\d+px\)\]/)
+  assert.doesNotMatch(garden, /\baspect-\[[^\]]+\][^"]*\bmax-h-\[/) // não repetir o bug aspect-ratio+max-height
+  // miniaturas de "Memórias do Jardim": aspect-ratio mais próximo da foto original em vez de h-28 fixo
+  assert.match(garden, /aspect-\[4\/3\]/)
+  assert.doesNotMatch(garden, /relative h-28 overflow-hidden/)
 })

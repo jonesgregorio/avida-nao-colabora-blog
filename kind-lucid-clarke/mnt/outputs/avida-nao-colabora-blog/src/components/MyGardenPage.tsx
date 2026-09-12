@@ -83,13 +83,16 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   return <main className="min-h-full bg-[#f7f0e5] text-forest-950">
     {celebrationTheme&&<GardenCelebration theme={celebrationTheme} onViewHistory={goToHistory} onClose={()=>setCelebrateIndex(null)}/>}
 
-    <section className="relative overflow-hidden border-b border-[#ded3c3] bg-[#efe4d4]">
+    <section className="relative h-[clamp(260px,45vw,620px)] overflow-hidden border-b border-[#ded3c3] bg-[#efe4d4]">
       <LivingGarden theme={theme} progress={gardenProgress}/>
-      <div className="relative z-10 mx-auto flex min-h-[420px] max-w-[1240px] items-start px-5 py-8 sm:px-8 sm:py-10 lg:min-h-[480px] lg:px-10">
-        <div className="max-w-[460px] rounded-[26px] border border-white/35 bg-[#fffaf1]/[0.68] p-6 shadow-[0_20px_60px_rgba(47,62,43,.14)] backdrop-blur-sm sm:p-7">
-          <p className="text-xs font-semibold uppercase tracking-[.24em] text-forest-700">Meu Jardim</p>
-          <h1 className="mt-2 font-serif text-4xl leading-[1.02] text-[#173e2d] sm:text-5xl">Um espaço que cresce com você</h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-[#5f655f]">Sua trajetória ganha forma aos poucos. Cada pequeno cuidado importa e, com o tempo, transforma este espaço em vida, beleza e presença.</p>
+      <div className="relative z-10 mx-auto flex h-full max-w-[1240px] items-start px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+        <div className="flex w-[220px] flex-col justify-between gap-5 rounded-[22px] border border-white/35 bg-[#fffaf1]/[0.72] p-5 shadow-[0_20px_60px_rgba(47,62,43,.16)] backdrop-blur-sm sm:w-[260px] sm:gap-6 sm:rounded-[26px] sm:p-6 lg:w-[300px] lg:p-7">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-forest-700 sm:text-xs sm:tracking-[.24em]">Meu Jardim</p>
+            <h1 className="mt-2 font-serif text-2xl leading-[1.12] text-[#173e2d] sm:text-3xl lg:text-4xl">Um espaço que cresce com você</h1>
+            <p className="mt-3 text-xs leading-5 text-[#5f655f] sm:text-sm sm:leading-6">Sua trajetória ganha forma aos poucos. Cada pequeno cuidado importa e, com o tempo, transforma este espaço em vida, beleza e presença.</p>
+          </div>
+          <p className="hidden font-serif text-sm italic text-forest-700 sm:block sm:text-base">Cuidar de si também é construir um lugar melhor para ficar.</p>
         </div>
       </div>
     </section>
@@ -141,4 +144,4 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
 function ActionItem({Icon,label}:{Icon:typeof Sprout;label:string}){return <div className="text-center"><div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#edf0e7] text-forest-700"><Icon className="h-5 w-5"/></div><p className="mt-2 text-[11px] font-medium text-forest-900">{label}</p></div>}
 function JourneyMetric({value,label}:{value:number;label:string}){return <div className="rounded-2xl bg-white/70 px-3 py-3 text-center"><p className="font-serif text-xl text-forest-900">{value}</p><p className="mt-1 text-[10px] leading-4 text-ink-soft">{label}</p></div>}
-function MemoryCard({index}:{index:number}){const t=themeFor(index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative h-28 overflow-hidden"><img src={t.stages[3]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
+function MemoryCard({index}:{index:number}){const t=themeFor(index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative aspect-[4/3] overflow-hidden"><img src={t.stages[3]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
