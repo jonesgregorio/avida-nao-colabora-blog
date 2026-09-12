@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import DiaryTagChip from './DiaryTagChip'
 import type { TagCategory } from '../lib/tagCategories'
 
@@ -82,8 +83,8 @@ export function TagGroup({
                 type="button"
                 onClick={() => toggleTag(tag)}
                 disabled={!isSelected && !canAdd}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-45 ${isSelected ? 'border-forest-300 bg-[#e9f1eb] text-forest-900' : 'border-forest-100 bg-[#f4f8f4] text-forest-700 hover:bg-[#edf4ee]'}`}
-              >{tag}</button>
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-45 ${isSelected ? 'border-forest-800 bg-forest-800 text-white' : 'border-forest-100 bg-[#f4f8f4] text-forest-700 hover:bg-[#edf4ee]'}`}
+              >{isSelected && <Check className="h-3 w-3" />}{tag}</button>
             )
           }
           if (neutralLight) {
@@ -93,8 +94,8 @@ export function TagGroup({
                 type="button"
                 onClick={() => toggleTag(tag)}
                 disabled={!isSelected && !canAdd}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-45 ${isSelected ? 'border-[#c9c2b6] bg-[#f1eee8] text-forest-900' : 'border-[#ddd7cc] bg-[#faf8f4] text-[#5f625c] hover:bg-[#f4f1eb]'}`}
-              >{tag}</button>
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-45 ${isSelected ? 'border-forest-800 bg-forest-800 text-white' : 'border-[#ddd7cc] bg-[#faf8f4] text-[#5f625c] hover:bg-[#f4f1eb]'}`}
+              >{isSelected && <Check className="h-3 w-3" />}{tag}</button>
             )
           }
           return <DiaryTagChip key={tag} label={tag} category={category} selected={isSelected} disabled={!isSelected && !canAdd} onClick={() => toggleTag(tag)} />
