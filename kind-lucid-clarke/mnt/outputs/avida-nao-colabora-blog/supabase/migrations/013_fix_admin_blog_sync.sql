@@ -39,8 +39,18 @@ CREATE POLICY "Admin escreve artigos" ON articles
   FOR ALL USING (is_admin());
 
 -- ─────────────────────────────────────────────────────────────
--- 2. CATEGORIES – colunas faltando + RLS
+-- 2. CATEGORIES – garantir existência + colunas faltando + RLS
+-- A tabela existia historicamente em scripts legacy antes desta migration.
+-- Para uma instalação limpa, a própria cadeia oficial precisa criá-la.
 -- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS categories (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+  slug        TEXT,
+  description TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active   BOOLEAN DEFAULT true;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ DEFAULT now();
@@ -57,7 +67,11 @@ CREATE POLICY "Admin gerencia categorias" ON categories
 
 -- ─────────────────────────────────────────────────────────────
 -- 3. QUESTIONNAIRES – colunas faltando + RLS
+-- `active` e `published_at` existiam no schema produtivo/legacy e são usados
+-- abaixo; declará-los aqui torna a migration autossuficiente em banco limpo.
 -- ─────────────────────────────────────────────────────────────
+ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS active           BOOLEAN DEFAULT true;
+ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS published_at     TIMESTAMPTZ;
 ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS allow_anonymous  BOOLEAN DEFAULT true;
 ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS allow_retake     BOOLEAN DEFAULT true;
 ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS show_score       BOOLEAN DEFAULT true;
@@ -83,6 +97,7 @@ CREATE POLICY "Admin gerencia questionários" ON questionnaires
 -- ─────────────────────────────────────────────────────────────
 -- 4. TRAILS – colunas faltando + RLS
 -- ─────────────────────────────────────────────────────────────
+ALTER TABLE trails ADD COLUMN IF NOT EXISTS active    BOOLEAN DEFAULT true;
 ALTER TABLE trails ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 ALTER TABLE trails ADD COLUMN IF NOT EXISTS category  TEXT;
 
