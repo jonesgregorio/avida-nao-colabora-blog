@@ -41,6 +41,18 @@ test('comparação mostra Antes/Agora e fecha por Escape, clique fora, ou botão
 test('botão de comparar é FIXO no card "Jardim atual" (não só dentro do aviso temporário que pode passar despercebido)', () => {
   assert.match(garden, /const \[priorProgress,setPriorProgress\]=useState<number\|null>\(null\)/)
   assert.match(garden, /if\(sameGarden&&prevProgress!=null&&!Number\.isNaN\(prevProgress\)\)setPriorProgress\(prevProgress\)/)
-  assert.match(garden, /\{priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)&&<button/)
+  assert.match(garden, /\{\(state\.garden_progress\|\|0\)>0&&<button/)
   assert.match(garden, /Comparar crescimento com a última visita/)
+})
+
+test('botão de comparar aparece já na PRIMEIRA visita (sem histórico salvo), não só quando existe uma visita anterior diferente registrada', () => {
+  // bug relatado 2x: antes o botão só existia dentro de `priorProgress!=null&&priorProgress!==...`,
+  // impossível de satisfazer na primeira visita após o deploy (chave nova, sem baseline) ou em
+  // qualquer visita sem crescimento real desde a anterior. Agora a visibilidade só depende de
+  // haver progresso (>0) no jardim atual — o "de onde comparar" é que se ajusta.
+  assert.match(garden, /const compareFrom=priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)\?priorProgress:0/)
+  assert.match(garden, /const compareLabel=compareFrom!==0\?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'/)
+  assert.match(garden, /from:compareFrom,to:state\.garden_progress\|\|0/)
+  assert.match(garden, /Comparar crescimento desde o início/)
+  assert.doesNotMatch(garden, /\{priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)&&<button/)
 })

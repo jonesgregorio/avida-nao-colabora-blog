@@ -173,6 +173,13 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const memories=showAllMemories?allMemories:allMemories.slice(0,8)
   const visualProgress=Math.max(0,Math.min(100,Math.round((state.garden_progress||0)/60*100)))
   const gardenProgress=gardenVisualProgress(state.garden_progress||0)
+  // botão fixo de comparação: prefere "desde a última visita" quando já existe um registro
+  // real de uma visita anterior com progresso DIFERENTE do atual — mas nunca fica escondido
+  // esperando por isso (a versão anterior só aparecia depois de 2 visitas em dias diferentes
+  // com crescimento real entre elas, o que raramente acontece; por padrão sempre existe uma
+  // comparação disponível "desde o início" deste jardim, a partir do progresso 0).
+  const compareFrom=priorProgress!=null&&priorProgress!==(state.garden_progress||0)?priorProgress:0
+  const compareLabel=compareFrom!==0?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'
 
   function goToHistory(){
     setCelebrateTheme(null)
@@ -205,7 +212,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.label}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro — todo progresso, por menor que pareça, também floresce.':'Em evolução'}</p></div></div><div className="shrink-0 rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>
-        {priorProgress!=null&&priorProgress!==(state.garden_progress||0)&&<button type="button" onClick={()=>{setGrowthChange({theme,from:priorProgress,to:state.garden_progress||0});setCompareOpen(true)}} className="mt-2 text-xs font-medium text-forest-700 underline decoration-[#a9b89c] underline-offset-4 transition hover:text-forest-900">Comparar crescimento com a última visita</button>}
+        {(state.garden_progress||0)>0&&<button type="button" onClick={()=>{setGrowthChange({theme,from:compareFrom,to:state.garden_progress||0});setCompareOpen(true)}} className="mt-2 text-xs font-medium text-forest-700 underline decoration-[#a9b89c] underline-offset-4 transition hover:text-forest-900">{compareLabel}</button>}
         <div className="relative mt-6">
           <div className="absolute left-[8.34%] right-[8.34%] top-[22px] h-0.5 bg-[#e7e3d8]"/>
           <div className="absolute left-[8.34%] top-[22px] h-0.5 bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${(visualProgress*0.8334).toFixed(2)}%`}}/>
