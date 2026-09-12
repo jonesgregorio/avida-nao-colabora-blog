@@ -6,6 +6,7 @@ import { GARDEN_THEMES, gardenThemeBySlug, resolveGardenTheme } from '../src/lib
 const garden = readFileSync(new URL('../src/components/MyGardenPage.tsx', import.meta.url), 'utf8')
 const adminPanel = readFileSync(new URL('../src/components/admin/AdminGardenManagement.tsx', import.meta.url), 'utf8')
 const fixMigration = readFileSync(new URL('../supabase/migrations/20260912000000_garden_admin_operational_fixes.sql', import.meta.url), 'utf8')
+const ctaMigration = readFileSync(new URL('../supabase/migrations/20260912010000_garden_campaign_cta_url.sql', import.meta.url), 'utf8')
 
 // "Gestão de Jardins" (Admin) só consegue administrar "Meu Jardim" (blog) se o garden_slug que
 // a RPC resolve (fila/override do admin) realmente decidir qual tema aparece na tela do usuário.
@@ -89,4 +90,20 @@ test('a dica "faltam N sinais" usa os Marcos visuais REAIS configurados pelo adm
   assert.match(garden, /supabase\.from\('garden_settings'\)\.select\('stage_thresholds'\)\.eq\('id',true\)\.maybeSingle\(\)/)
   assert.match(garden, /const \[stageThresholds,setStageThresholds\]=useState<number\[\]\|null>\(null\)/)
   assert.match(garden, /const nextThreshold=next\?\(stageThresholds\?\.\[next\.stage-1\]\?\?STAGE_THRESHOLDS\[next\.stage\]\):0/)
+})
+
+test('botão de campanha vira link de verdade quando tem cta_url — sem link, continua só selo (não finge ser clicável)', () => {
+  assert.match(ctaMigration, /ALTER TABLE public\.garden_campaigns ADD COLUMN IF NOT EXISTS cta_url text/)
+  assert.match(ctaMigration, /'cta_url', c\.cta_url/) // get_my_garden_campaign() devolve o campo novo
+  assert.match(garden, /cta_url\?:string\|null/)
+  assert.match(garden, /campaign\.cta_url\?<a href=\{campaign\.cta_url\}/)
+  assert.match(garden, /target="_blank" rel="noopener noreferrer"/)
+  assert.match(garden, /:<span className="shrink-0 self-start rounded-2xl bg-forest-900\/90/) // fallback sem link continua span, não <a>
+})
+
+test('admin consegue definir texto e link do botão da campanha; "Desbloqueio temporário" continua avisado como não aplicado (não mexi em plano/acesso)', () => {
+  assert.match(adminPanel, /cta_label: string\s*\n\s*cta_url: string \| null/)
+  assert.match(adminPanel, /Input label="Texto do botão"/)
+  assert.match(adminPanel, /Input label="Link do botão/)
+  assert.match(adminPanel, /Ainda não aplicado — fica salvo, mas nenhuma tela hoje libera acesso com base nisso\./)
 })

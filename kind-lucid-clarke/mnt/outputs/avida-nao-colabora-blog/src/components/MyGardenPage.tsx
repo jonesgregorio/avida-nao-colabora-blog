@@ -11,7 +11,7 @@ import GardenGrowthCompare from './garden/GardenGrowthCompare'
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
 // vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
 // público-alvo bate com o estado real deste usuário, ou null se nenhuma bater.
-type GardenCampaign = { id:string; name:string; headline:string; body:string; cta_label:string; garden_slug:string|null; campaign_type:string; temporary_unlock:boolean }
+type GardenCampaign = { id:string; name:string; headline:string; body:string; cta_label:string; cta_url?:string|null; garden_slug:string|null; campaign_type:string; temporary_unlock:boolean }
 // garden_slug: autoritativo, vem do catálogo administrável ("Gestão de Jardins" no Admin — fila,
 // jardim forçado por usuário). Pode ser null (jardim novo no catálogo do admin sem config rica
 // aqui, ou dado antigo antes dessa coluna existir) — nesse caso caímos para o cálculo por índice.
@@ -66,6 +66,10 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [cycleSlugs,setCycleSlugs]=useState<Record<number,string>>({})
   const [growthChange,setGrowthChange]=useState<{theme:GardenTheme;from:number;to:number}|null>(null)
   const [compareOpen,setCompareOpen]=useState(false)
+  // último progresso visto neste MESMO jardim (não só quando ele avançou) — permite um botão
+  // fixo de comparação sempre que existir uma visita anterior pra comparar, além do aviso
+  // reativo abaixo (que só aparece no momento em que o progresso avança).
+  const [priorProgress,setPriorProgress]=useState<number|null>(null)
   const memoriesRef=useRef<HTMLDivElement|null>(null)
 
   useEffect(()=>{
@@ -103,6 +107,9 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
           // celebração de 100%), com um botão pra comparar visualmente antes/depois.
           setGrowthChange({theme:resolveGardenTheme(next.garden_slug,nextIndex),from:prevProgress,to:nextProgress})
         }
+        // guarda o progresso anterior sempre que é o mesmo jardim (avançou ou não), pra um
+        // botão FIXO de comparação — o aviso acima é só reativo e pode passar despercebido.
+        if(sameGarden&&prevProgress!=null&&!Number.isNaN(prevProgress))setPriorProgress(prevProgress)
         window.localStorage.setItem(key,String(nextIndex))
         window.localStorage.setItem(progressKey,String(nextProgress))
         if(next.garden_slug)window.localStorage.setItem(slugKey,next.garden_slug)
@@ -193,11 +200,12 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     </section>
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
-      {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>}</div>}
+      {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&(campaign.cta_url?<a href={campaign.cta_url} target="_blank" rel="noopener noreferrer" className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">{campaign.cta_label}</a>:<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>)}</div>}
       {growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">Seu jardim mudou desde sua última visita.</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={()=>setCompareOpen(true)} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button><button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button></div></div>}
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.label}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro — todo progresso, por menor que pareça, também floresce.':'Em evolução'}</p></div></div><div className="shrink-0 rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>
+        {priorProgress!=null&&priorProgress!==(state.garden_progress||0)&&<button type="button" onClick={()=>{setGrowthChange({theme,from:priorProgress,to:state.garden_progress||0});setCompareOpen(true)}} className="mt-2 text-xs font-medium text-forest-700 underline decoration-[#a9b89c] underline-offset-4 transition hover:text-forest-900">Comparar crescimento com a última visita</button>}
         <div className="relative mt-6">
           <div className="absolute left-[8.34%] right-[8.34%] top-[22px] h-0.5 bg-[#e7e3d8]"/>
           <div className="absolute left-[8.34%] top-[22px] h-0.5 bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${(visualProgress*0.8334).toFixed(2)}%`}}/>

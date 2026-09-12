@@ -37,3 +37,10 @@ test('comparação mostra Antes/Agora e fecha por Escape, clique fora, ou botão
   assert.match(compare, /onClick=\{onClose\}/)
   assert.match(compare, /onClick=\{\(e\) => e\.stopPropagation\(\)\}/) // clique dentro do card não fecha
 })
+
+test('botão de comparar é FIXO no card "Jardim atual" (não só dentro do aviso temporário que pode passar despercebido)', () => {
+  assert.match(garden, /const \[priorProgress,setPriorProgress\]=useState<number\|null>\(null\)/)
+  assert.match(garden, /if\(sameGarden&&prevProgress!=null&&!Number\.isNaN\(prevProgress\)\)setPriorProgress\(prevProgress\)/)
+  assert.match(garden, /\{priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)&&<button/)
+  assert.match(garden, /Comparar crescimento com a última visita/)
+})
