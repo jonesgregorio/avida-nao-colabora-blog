@@ -45,6 +45,11 @@ test('novo check-in permite tags personalizadas curtas sem virar texto de Diári
   assert.match(checkinMigration, /cardinality\(custom_tags\) <= 5/)
 })
 
+test('tag personalizada do check-in de hoje aparece com destaque leve (âmbar), igual ao resto do site', () => {
+  assert.match(home, /customTags\.map\(tag => <span key=\{tag\} className="rounded-full border border-amber-200 bg-amber-50/)
+  assert.match(home, /customTags\.map\(tag => <span key=\{tag\} className="inline-flex items-center gap-1\.5 rounded-full border border-amber-200 bg-amber-50/)
+})
+
 test('blocos antigos continuam disponíveis somente após aprofundamento explícito', () => {
   assert.match(legacyHome, /HomeDiscoveryCard/)
   assert.match(legacyHome, /TodaySmallActionCard/)

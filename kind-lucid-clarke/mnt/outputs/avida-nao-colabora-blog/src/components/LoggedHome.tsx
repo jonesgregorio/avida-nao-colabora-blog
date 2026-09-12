@@ -146,7 +146,10 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-600">Check-in de hoje registrado</p>
                 <h2 className="mt-1 font-serif text-2xl text-forest-900">{selected ? `${selected.emoji} ${selected.label}` : 'Seu check-in ficou guardado'}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft">Ele já está salvo e também faz parte do seu histórico. Para escrever mais sobre o dia, abra um registro separado no Diário.</p>
-                {(savedFeelingLabels.length > 0 || customTags.length > 0) && <div className="mt-3 flex flex-wrap gap-2">{[...savedFeelingLabels, ...customTags].map(tag => <span key={tag} className="rounded-full border border-line bg-paper-soft px-3 py-1 text-xs text-forest-800">{tag}</span>)}</div>}
+                {(savedFeelingLabels.length > 0 || customTags.length > 0) && <div className="mt-3 flex flex-wrap gap-2">
+                  {savedFeelingLabels.map(tag => <span key={tag} className="rounded-full border border-line bg-paper-soft px-3 py-1 text-xs text-forest-800">{tag}</span>)}
+                  {customTags.map(tag => <span key={tag} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">{tag}</span>)}
+                </div>}
                 <button type="button" onClick={() => onNavigate('diary')} className="mt-4 rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Fazer meu registro</button>
               </div>
             </div>
@@ -177,7 +180,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
               </div>
 
               {customTags.length > 0 && <div className="mt-3 flex flex-wrap gap-2" aria-label="Tags personalizadas">
-                {customTags.map(tag => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper-soft px-3 py-1.5 text-sm text-forest-800">{tag}<button type="button" onClick={() => removeCustomTag(tag)} aria-label={`Remover tag ${tag}`} className="rounded-full p-0.5 text-ink-soft hover:text-forest-900"><X className="h-3.5 w-3.5" /></button></span>)}
+                {customTags.map(tag => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-900">{tag}<button type="button" onClick={() => removeCustomTag(tag)} aria-label={`Remover tag ${tag}`} className="rounded-full p-0.5 text-amber-700 hover:text-amber-900"><X className="h-3.5 w-3.5" /></button></span>)}
               </div>}
 
               {showCustomTag && <div className="mt-3 flex flex-col sm:flex-row gap-2 max-w-xl">

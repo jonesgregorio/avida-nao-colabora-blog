@@ -27,3 +27,18 @@ test('sentimentos usam uma única cor clara e os demais grupos usam tons neutros
   assert.match(fields, /selected\.length < maxSelected/)
   assert.match(fields, /disabled=\{!isSelected && !canAdd\}/)
 })
+
+test('tag digitada em "+ outro" sempre volta como chip (bug: ficava salva mas nunca aparecia na tela)', () => {
+  // a causa: `visible` (lista fechada/aberta) só incluía itens de `selected` que também
+  // estivessem em `options` — um texto digitado nunca está em `options`, então sumia da tela
+  // mesmo indo pro registro normalmente.
+  assert.match(fields, /const customSelected = selected\.filter\(item => !options\.includes\(item\)\)/)
+  assert.match(fields, /customSelected\.map\(tag =>/)
+  // renderizado incondicionalmente (fora do `open ? ... : ...` que fecha a lista padrão) —
+  // não fica escondido atrás de "Ver mais opções" nem exige nada além de estar selecionado.
+  assert.doesNotMatch(fields, /open \? options : unique\(\[\.\.\.options\.slice\(0, 6\), \.\.\.selected\.filter\(item => options\.includes\(item\)\)\]\)\)[\s\S]{0,40}customSelected/)
+})
+
+test('tag personalizada aparece com destaque leve (âmbar), distinto das opções pré-definidas', () => {
+  assert.match(fields, /customSelected\.map\(tag => \([\s\S]{0,220}border-amber-200 bg-amber-50[\s\S]{0,60}text-amber-900/)
+})
