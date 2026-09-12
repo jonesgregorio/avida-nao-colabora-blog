@@ -3,12 +3,18 @@ import { Bird, BookOpen, CheckCircle2, Flower2, Heart, LockKeyhole, MoonStar, Sn
 import { supabase } from '../lib/supabase'
 import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import type { Profile } from '../types'
-import { gardenThemeFor, gardenVisualProgress } from '../lib/gardenThemes'
+import { gardenThemeFor, gardenVisualProgress, resolveGardenTheme, type GardenTheme } from '../lib/gardenThemes'
 import LivingGarden from './garden/LivingGarden'
 import GardenCelebration from './garden/GardenCelebration'
 
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
-type GardenState = { stage:number; active_days:number; diversity:number; signals:Record<string,number>; garden_index:number; garden_progress:number; completed_gardens:number; total_growth:number; growth_model_version?:number }
+// vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
+// público-alvo bate com o estado real deste usuário, ou null se nenhuma bater.
+type GardenCampaign = { id:string; name:string; headline:string; body:string; cta_label:string; garden_slug:string|null; campaign_type:string; temporary_unlock:boolean }
+// garden_slug: autoritativo, vem do catálogo administrável ("Gestão de Jardins" no Admin — fila,
+// jardim forçado por usuário). Pode ser null (jardim novo no catálogo do admin sem config rica
+// aqui, ou dado antigo antes dessa coluna existir) — nesse caso caímos para o cálculo por índice.
+type GardenState = { stage:number; active_days:number; diversity:number; signals:Record<string,number>; garden_index:number; garden_slug?:string|null; garden_cycle?:number; garden_progress:number; completed_gardens:number; total_growth:number; growth_model_version?:number }
 
 const EMPTY:GardenState={stage:0,active_days:0,diversity:0,signals:{},garden_index:0,garden_progress:0,completed_gardens:0,total_growth:0}
 const ELEMENTS=[
@@ -23,6 +29,7 @@ const ELEMENTS=[
 // elemento acima aparece — mesmos números do CASE que calcula `stage` na RPC.
 const STAGE_THRESHOLDS:Record<number,number>={1:3,2:10,3:18,4:28,5:39,6:50}
 const LAST_GARDEN_KEY_PREFIX='avnc:garden:lastIndex:'
+const LAST_GARDEN_SLUG_KEY_PREFIX='avnc:garden:lastSlug:'
 // "Flores" (queda de pétalas) e "Vida" (fauna) descrevem algo que só existe em ALGUNS jardins —
 // deserto não tem nenhuma partícula caindo (fall.count:0 em gardenThemes.ts) e nórdico só tem
 // neve, sem fauna nenhuma (flyers:{}). Nesses dois casos o marco genérico prometeria algo que
@@ -51,26 +58,37 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [state,setState]=useState<GardenState>(EMPTY)
   const [selected,setSelected]=useState<number|null>(null)
   const [showAllMemories,setShowAllMemories]=useState(false)
-  const [celebrateIndex,setCelebrateIndex]=useState<number|null>(null)
+  const [celebrateTheme,setCelebrateTheme]=useState<GardenTheme|null>(null)
+  const [campaign,setCampaign]=useState<GardenCampaign|null>(null)
   const memoriesRef=useRef<HTMLDivElement|null>(null)
 
   useEffect(()=>{
     if(!access)return
     let alive=true
+    // campanha e estado do jardim são independentes — uma falhar não deve derrubar a outra.
+    ;(async()=>{const {data}=await supabase.rpc('get_my_garden_campaign');if(alive&&data)setCampaign(data as GardenCampaign)})().catch(()=>{})
     ;(async()=>{
       const {data}=await supabase.rpc('get_my_garden_state')
       if(!alive||!data)return
       const next=data as GardenState
       setState(next)
       // um jardim "vira" quando garden_index sobe — comparamos com o último índice visto
-      // (guardado no navegador) pra celebrar só uma vez, no momento da conclusão.
+      // (guardado no navegador) pra celebrar só uma vez, no momento da conclusão. Guardamos
+      // também o slug anterior: se a fila do admin foi reordenada nesse meio-tempo, o slug é
+      // a fonte da verdade de qual jardim o usuário via antes (o índice sozinho pode não bater).
       try{
         const key=LAST_GARDEN_KEY_PREFIX+userId
+        const slugKey=LAST_GARDEN_SLUG_KEY_PREFIX+userId
         const prevRaw=window.localStorage.getItem(key)
+        const prevSlug=window.localStorage.getItem(slugKey)
         const prev=prevRaw==null?null:Number(prevRaw)
         const nextIndex=Math.max(0,next.garden_index||0)
-        if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev)setCelebrateIndex(nextIndex-1)
+        if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev){
+          setCelebrateTheme(prevSlug?resolveGardenTheme(prevSlug,nextIndex-1):themeFor(nextIndex-1))
+        }
         window.localStorage.setItem(key,String(nextIndex))
+        if(next.garden_slug)window.localStorage.setItem(slugKey,next.garden_slug)
+        else window.localStorage.removeItem(slugKey)
       }catch{/* localStorage indisponível (modo privado etc.) — só não celebra, sem quebrar a página */}
     })().catch(()=>{})
     return()=>{alive=false}
@@ -80,7 +98,10 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
   const stage=Math.max(0,Math.min(6,state.stage||0))
   const gardenIndex=Math.max(0,state.garden_index||0)
-  const theme=themeFor(gardenIndex)
+  // garden_slug é a fonte da verdade (reflete fila/override de "Gestão de Jardins" no Admin);
+  // o índice só entra como aproximação quando não há slug ainda (1º carregamento) ou o slug é
+  // de um jardim do catálogo sem config de engine aqui (ver resolveGardenTheme).
+  const theme=resolveGardenTheme(state.garden_slug,gardenIndex)
   const elements=elementsForTheme(theme.slug)
   const unlocked=elements.filter(e=>stage>=e.stage)
   const detail=selected?elements.find(e=>e.stage===selected):unlocked[unlocked.length-1]
@@ -93,15 +114,14 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const memories=showAllMemories?allMemories:allMemories.slice(0,8)
   const visualProgress=Math.max(0,Math.min(100,Math.round((state.garden_progress||0)/60*100)))
   const gardenProgress=gardenVisualProgress(state.garden_progress||0)
-  const celebrationTheme=celebrateIndex!=null?themeFor(celebrateIndex):null
 
   function goToHistory(){
-    setCelebrateIndex(null)
+    setCelebrateTheme(null)
     memoriesRef.current?.scrollIntoView({behavior:'smooth',block:'start'})
   }
 
   return <main className="min-h-full bg-[#f7f0e5] text-forest-950">
-    {celebrationTheme&&<GardenCelebration theme={celebrationTheme} onViewHistory={goToHistory} onClose={()=>setCelebrateIndex(null)}/>}
+    {celebrateTheme&&<GardenCelebration theme={celebrateTheme} onViewHistory={goToHistory} onClose={()=>setCelebrateTheme(null)}/>}
 
     <div className="border-b border-[#ded3c3] bg-[#efe4d4]">
       <div className="mx-auto max-w-[1240px] px-5 py-6 sm:px-8 lg:px-10">
@@ -120,6 +140,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     </section>
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
+      {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>}</div>}
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.label}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro — todo progresso, por menor que pareça, também floresce.':'Em evolução'}</p></div></div><div className="shrink-0 rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>

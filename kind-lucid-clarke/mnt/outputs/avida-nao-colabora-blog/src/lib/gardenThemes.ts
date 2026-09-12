@@ -356,3 +356,25 @@ export function gardenThemeFor(gardenIndex: number): GardenTheme {
   const i = ((gardenIndex % GARDEN_THEMES.length) + GARDEN_THEMES.length) % GARDEN_THEMES.length
   return GARDEN_THEMES[i]
 }
+
+/**
+ * Busca um tema pelo slug do catálogo administrável (garden_catalog / get_my_garden_state
+ * → campo `garden_slug`). `undefined` se o slug não existir aqui — isso é esperado quando um
+ * admin cadastra um jardim novo em "Gestão de Jardins" que ainda não tem uma config de
+ * água/fauna/luz correspondente (só existe cover_image/stage_images genéricas no catálogo).
+ */
+export function gardenThemeBySlug(slug: string | null | undefined): GardenTheme | undefined {
+  if (!slug) return undefined
+  return GARDEN_THEMES.find((t) => t.slug === slug)
+}
+
+/**
+ * Resolve o tema a exibir: prioriza o `garden_slug` autoritativo devolvido pela RPC (reflete
+ * fila/override do admin em "Gestão de Jardins") e só cai para o cálculo por índice
+ * (gardenThemeFor) quando não há slug (estado ainda carregando) ou o slug aponta pra um jardim
+ * do catálogo sem config rica aqui — nesses casos a foto/engine do jardim "irmão" por índice é
+ * uma aproximação razoável, nunca uma tela quebrada.
+ */
+export function resolveGardenTheme(slug: string | null | undefined, gardenIndex: number): GardenTheme {
+  return gardenThemeBySlug(slug) ?? gardenThemeFor(gardenIndex)
+}

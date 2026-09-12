@@ -41,7 +41,7 @@ test('"Ver minha jornada" fecha a celebração e rola até Memórias do Jardim',
   assert.match(garden, /function goToHistory\(\)\{/)
   assert.match(garden, /memoriesRef\.current\?\.scrollIntoView/)
   assert.match(garden, /<section ref=\{memoriesRef\}/)
-  assert.match(garden, /<GardenCelebration theme=\{celebrationTheme\} onViewHistory=\{goToHistory\}/)
+  assert.match(garden, /<GardenCelebration theme=\{celebrateTheme\} onViewHistory=\{goToHistory\}/)
 })
 
 test('cabeçalho do Meu Jardim é uma faixa curta e larga ANTES da foto, não um cartão sobre ela', () => {
