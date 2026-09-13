@@ -339,7 +339,8 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
         <p className="text-stone-400 text-sm">{copy.vazio}</p>
       ) : (
         <div className="bg-white rounded-xl border border-line overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-stone-50 border-b border-line">
               <tr>
                 <th className="w-10 px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" className="accent-forest-700" /></th>
@@ -400,6 +401,7 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

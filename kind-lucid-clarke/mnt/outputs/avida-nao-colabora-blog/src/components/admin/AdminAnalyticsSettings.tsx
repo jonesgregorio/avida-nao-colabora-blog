@@ -54,7 +54,12 @@ export default function AdminAnalyticsSettings() {
     setNName(''); setNSel(''); setNUrl(''); setNInteraction('click'); load()
   }
   async function toggleCE(c: CustomEvent) { await supabase.from('analytics_custom_events').update({ is_active: !c.is_active }).eq('id', c.id); load() }
-  async function delCE(c: CustomEvent) { await supabase.from('analytics_custom_events').delete().eq('id', c.id); load() }
+  async function delCE(c: CustomEvent) {
+    if (!window.confirm(`Excluir o evento personalizado "${c.name}"? Essa ação não pode ser desfeita.`)) return
+    const { error } = await supabase.from('analytics_custom_events').delete().eq('id', c.id)
+    if (error) { window.alert('Erro ao excluir: ' + error.message); return }
+    load()
+  }
 
   const card = 'bg-white border border-line rounded-2xl p-5'
   const inp = 'border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-forest-400'

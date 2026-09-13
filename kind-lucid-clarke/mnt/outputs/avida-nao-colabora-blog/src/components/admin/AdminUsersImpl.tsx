@@ -445,17 +445,34 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
     setAdminSubMsg(null)
     const { error } = await supabase.from('profiles').update({ plan: targetPlan }).eq('user_id', userId)
     if (error) { setAdminSubMsg({ type: 'err', text: 'Erro ao alterar plano: ' + error.message }); setAdminSubActing(false); return }
-    await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
-    await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: adminSubPlanReason || null })
+
+    // profiles.plan já mudou (fonte de verdade do acesso) — os 3 registros abaixo são
+    // secundários (assinatura interna, e dois históricos). Uma falha aqui não desfaz o
+    // ajuste de plano, mas o admin precisa SABER que algo ficou incompleto em vez de ver
+    // "sucesso" com dado dessincronizado (ex.: histórico de planos faltando uma linha).
+    const secondaryErrors: string[] = []
+    const subRes = await supabase.from('user_subscriptions').upsert({ user_id: userId, plan_key: targetPlan, status: targetPlan === 'free' ? 'inactive' : 'active', cancel_at_period_end: false, pending_plan: null, pending_plan_starts_at: null }, { onConflict: 'user_id' })
+    if (subRes.error) secondaryErrors.push('assinatura interna (user_subscriptions): ' + subRes.error.message)
+    const changeHistRes = await supabase.from('plan_change_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, change_type: 'admin_change', changed_by: adminUser?.id ?? null, source: 'admin', notes: adminSubPlanReason || null })
+    if (changeHistRes.error) secondaryErrors.push('histórico de mudança de plano (plan_change_history): ' + changeHistRes.error.message)
     // Mantém user_plan_history em sincronia (fonte do "Histórico de planos" da aba Plano).
-    await supabase.from('user_plan_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, changed_by: adminUser?.id ?? null, reason: adminSubPlanReason || null })
+    const planHistRes = await supabase.from('user_plan_history').insert({ user_id: userId, old_plan: oldPlan, new_plan: targetPlan, changed_by: adminUser?.id ?? null, reason: adminSubPlanReason || null })
+    if (planHistRes.error) secondaryErrors.push('histórico de planos (user_plan_history): ' + planHistRes.error.message)
     await createUserNotification({ userId, type: 'plan_change', title: 'Plano atualizado pelo suporte', message: `Seu plano foi alterado para ${PLAN_LABELS[targetPlan] ?? targetPlan}.`, destination: 'my-plan' })
     void logAdminAction('update', 'user_plan', userId, { from: oldPlan, to: targetPlan, reason: adminSubPlanReason || null })
     setUsers(u => u.map(r => r.user_id === userId ? { ...r, plan: targetPlan } : r))
     setSelectedUser(s => s ? { ...s, plan: targetPlan } : s)
     setPlanHistory(prev => [{ id: Date.now().toString(), old_plan: oldPlan, new_plan: targetPlan, reason: adminSubPlanReason || null, created_at: new Date().toISOString() }, ...prev])
     setAdminSubInfo({ hasStripe: false, active: false, planKey: targetPlan })
-    setAdminSubMsg({ type: 'ok', text: `Plano ajustado para ${PLAN_LABELS[targetPlan] ?? targetPlan} (sem efeito no Stripe).` })
+    if (secondaryErrors.length > 0) {
+      console.error('Ajuste de plano com registros secundários incompletos:', secondaryErrors)
+      setAdminSubMsg({
+        type: 'err',
+        text: `Plano ajustado para ${PLAN_LABELS[targetPlan] ?? targetPlan}, mas houve falha ao gravar: ${secondaryErrors.join('; ')}. O acesso do usuário já mudou; verifique/repita os registros afetados.`,
+      })
+    } else {
+      setAdminSubMsg({ type: 'ok', text: `Plano ajustado para ${PLAN_LABELS[targetPlan] ?? targetPlan} (sem efeito no Stripe).` })
+    }
     setAdminSubPlanReason('')
     void loadStats()
     setAdminSubActing(false)
