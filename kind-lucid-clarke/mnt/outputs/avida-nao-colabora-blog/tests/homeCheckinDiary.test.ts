@@ -39,7 +39,7 @@ test('depois de salvo o check-in fica fechado e o Diário abre um registro separ
   assert.match(home, /checkinSaved \? <div/)
   assert.match(home, /Check-in de hoje registrado/)
   assert.match(home, /Ele já faz parte do seu histórico e pode alimentar suas descobertas, mapa e relatórios/)
-  assert.match(home, /Fazer meu registro/)
+  assert.match(home, /Escrever no Diário/)
   assert.match(home, /if \(checkinSaved\) return/)
   assert.match(home, /onNavigate\('diary'\)/)
 })
