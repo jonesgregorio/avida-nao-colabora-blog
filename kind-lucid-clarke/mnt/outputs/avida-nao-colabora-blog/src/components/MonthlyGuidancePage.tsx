@@ -94,6 +94,21 @@ function isRequestAnswered(req: GuidanceRequest) {
   })
 }
 
+// Os 3 estados possíveis de uma orientação, na ordem em que acontecem de verdade — "Em análise"
+// só aparece quando um profissional realmente abriu o pedido pra trabalhar nele (sinal real,
+// setado pelo admin em AdminGuidanceRequests.tsx), nunca estimado por tempo decorrido.
+type GuidanceStage = 'received' | 'in_review' | 'answered'
+function guidanceStage(req: GuidanceRequest): GuidanceStage {
+  if (isRequestAnswered(req)) return 'answered'
+  if (req.status === 'in_review') return 'in_review'
+  return 'received'
+}
+function guidanceStageLabel(stage: GuidanceStage): string {
+  if (stage === 'answered') return 'Respondida'
+  if (stage === 'in_review') return 'Em análise'
+  return 'Recebida'
+}
+
 export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPlan, onNavigatePricing }: Props) {
   const [loading, setLoading] = useState(true)
   const [request, setRequest] = useState<GuidanceRequest | null>(null)
@@ -208,6 +223,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
   const deadline = formatShort(cycle.deadline)
   const reopen = formatShort(cycle.nextOpen)
   const currentAnswered = request ? isRequestAnswered(request) : false
+  const currentStage = request ? guidanceStage(request) : null
   const dueDate = request ? formatShort(guidanceResponseDueDate(request.created_at).toISOString()) : null
 
   return (
@@ -357,6 +373,21 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
 
       <section aria-labelledby="guidance-tracking-title" className="space-y-3">
         <h2 id="guidance-tracking-title" className="font-serif text-xl text-forest-900">Acompanhamento da sua orientação</h2>
+        {request && currentStage && (
+          <ol className="flex items-center gap-2 px-1" aria-label="Etapas da sua orientação">
+            {(['received', 'in_review', 'answered'] as const).map((stage, i) => {
+              const stageIndex = { received: 0, in_review: 1, answered: 2 }[currentStage]
+              const reached = i <= stageIndex
+              return (
+                <li key={stage} className="flex flex-1 items-center gap-2">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${reached ? 'bg-forest-900 text-white' : 'border border-line bg-white text-ink-soft'}`} aria-current={i === stageIndex ? 'step' : undefined}>{i + 1}</span>
+                  <span className={`text-xs ${reached ? 'font-medium text-forest-900' : 'text-ink-soft'}`}>{guidanceStageLabel(stage)}</span>
+                  {i < 2 && <span className={`h-px flex-1 ${i < stageIndex ? 'bg-forest-900' : 'bg-line'}`} aria-hidden="true" />}
+                </li>
+              )
+            })}
+          </ol>
+        )}
         <div className="rounded-[24px] border border-line bg-white/75 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex gap-3 items-start">
             <span className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${request ? (currentAnswered ? 'bg-mint text-forest-700' : 'bg-amber-50 text-amber-700') : 'border border-dashed border-forest-400 text-forest-600'}`}>
@@ -367,8 +398,10 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
                 <><p className="font-medium text-forest-900">Nenhuma orientação enviada neste mês.</p><p className="text-xs text-ink-soft mt-1">{cycle.isPastDeadline ? `O próximo período abre em ${reopen}.` : `Envie sua solicitação até ${deadline} para receber sua orientação.`}</p></>
               ) : currentAnswered ? (
                 <><p className="font-medium text-forest-900">Sua orientação de {currentMonthLabel()} está respondida.</p><p className="text-xs text-ink-soft mt-1">Sua orientação já está disponível no histórico abaixo. Ela fica guardada para você revisitar quando quiser.</p></>
+              ) : currentStage === 'in_review' ? (
+                <><p className="font-medium text-forest-900">Seu pedido está em análise.</p><p className="text-xs text-ink-soft mt-1">Um profissional já começou a olhar sua solicitação, enviada em {formatShort(request.created_at)} · resposta prevista até {dueDate}.</p></>
               ) : (
-                <><p className="font-medium text-forest-900">Seu pedido está em análise.</p><p className="text-xs text-ink-soft mt-1">Enviada em {formatShort(request.created_at)} · resposta prevista até {dueDate}.</p></>
+                <><p className="font-medium text-forest-900">Recebemos seu pedido.</p><p className="text-xs text-ink-soft mt-1">Enviada em {formatShort(request.created_at)} · ainda não entrou em análise · resposta prevista até {dueDate}.</p></>
               )}
             </div>
           </div>
@@ -433,12 +466,14 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
     response: req.response,
   })
   const answered = isRequestAnswered(req)
+  const stage = guidanceStage(req)
+  const stageBadgeClass = stage === 'answered' ? 'bg-[#e5f2e8] text-forest-700' : stage === 'in_review' ? 'bg-[#e3ecfa] text-[#3a5a8f]' : 'bg-[#fff0dc] text-amber-700'
   return (
     <div className="border-b border-line last:border-b-0">
       <button type="button" onClick={onToggle} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-paper-soft/70 transition-colors">
         <span className="w-9 h-9 rounded-full bg-mint/60 flex items-center justify-center text-forest-700 flex-shrink-0"><CalendarDays className="w-4 h-4" /></span>
         <div className="flex-1 min-w-0"><p className="text-sm font-medium text-forest-900">{monthKeyLabel(req.month_key)}</p><p className="text-[11px] text-ink-soft">Enviada em {formatShort(req.created_at)}{answered && req.responded_at ? ` · Respondida em ${formatShort(req.responded_at)}` : ''}</p></div>
-        <span className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[10px] ${answered ? 'bg-[#e5f2e8] text-forest-700' : 'bg-[#fff0dc] text-amber-700'}`}>{answered ? 'Respondida' : 'Em análise'}</span>
+        <span className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[10px] ${stageBadgeClass}`}>{guidanceStageLabel(stage)}</span>
         {answered && <span className="hidden md:inline-flex rounded-xl border border-line px-3 py-2 text-xs text-forest-800">Ler orientação</span>}
         <ChevronDown className={`w-4 h-4 text-forest-600 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -457,7 +492,7 @@ function RequestRow({ req, userId, open, onToggle }: { req: GuidanceRequest; use
               {userId && <MonthlyGuidanceFeedback userId={userId} guidanceRequestId={req.id} />}
             </>
           ) : (
-            <div className="rounded-2xl border border-line bg-white p-4 flex items-center gap-2 text-xs text-ink-soft"><Loader2 className="w-4 h-4 text-forest-500" /> Seu pedido está em análise. A resposta está prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.</div>
+            <div className="rounded-2xl border border-line bg-white p-4 flex items-center gap-2 text-xs text-ink-soft"><Loader2 className="w-4 h-4 text-forest-500" /> {stage === 'in_review' ? 'Um profissional já começou a analisar seu pedido.' : 'Recebemos seu pedido; ainda não entrou em análise.'} A resposta está prevista até {formatDate(guidanceResponseDueDate(req.created_at).toISOString())}.</div>
           )}
         </div>
       )}
