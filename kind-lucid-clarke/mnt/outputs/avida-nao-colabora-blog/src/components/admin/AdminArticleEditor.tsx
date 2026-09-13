@@ -53,6 +53,16 @@ interface ArticleData {
   estimated_time_minutes: number | ''
   is_guided_content: boolean
   is_recommendable: boolean
+  // Player por etapas — objetivo/intensidade só valem quando existem etapas (abaixo).
+  objective: string
+  intensity: string
+}
+
+interface StepDraft {
+  id?: string
+  title: string
+  instruction: string
+  duration_seconds: number | ''
 }
 
 const EMPTY: ArticleData = {
@@ -67,6 +77,7 @@ const EMPTY: ArticleData = {
   read_time: 5,
   keywords: '', emotional_themes: '', estimated_time_minutes: '',
   is_guided_content: true, is_recommendable: true,
+  objective: '', intensity: '',
 }
 
 // "a, b, c" ↔ ['a','b','c'] — colunas TEXT[] no banco, string na UI.
@@ -103,6 +114,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [categories, setCategories] = useState<string[]>([])
   const [aiModal, setAiModal] = useState<{ type: AIContentType; label?: string } | null>(null)
   const [versions, setVersions] = useState<ArticleVersion[]>([])
+  const [steps, setSteps] = useState<StepDraft[]>([])
   const [review, setReview] = useState<{ at: string | null; note: string }>({ at: null, note: '' })
   const [previewOpen, setPreviewOpen] = useState(false)
   const [ctaBusy, setCtaBusy] = useState(false)
@@ -178,6 +190,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           estimated_time_minutes: (a.estimated_time_minutes ?? '') as number | '',
           is_guided_content: a.is_guided_content ?? true,
           is_recommendable: a.is_recommendable ?? true,
+          objective: a.objective || '',
+          intensity: a.intensity || '',
         })
         setReview({ at: a.reviewed_at ?? null, note: a.review_notes ?? '' })
       }
@@ -194,6 +208,25 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       .limit(20)
       .then(({ data }) => setVersions((data as ArticleVersion[]) ?? []), () => { /* tabela ainda não migrada */ })
   }, [articleId])
+
+  useEffect(() => {
+    if (!articleId) { setSteps([]); return }
+    supabase.from('guided_content_steps').select('id,title,instruction,duration_seconds').eq('article_id', articleId).order('step_order', { ascending: true })
+      .then(({ data: rows }) => setSteps(((rows ?? []) as { id: string; title: string; instruction: string; duration_seconds: number | null }[]).map(r => ({ id: r.id, title: r.title, instruction: r.instruction, duration_seconds: r.duration_seconds ?? '' }))), () => setSteps([]))
+  }, [articleId])
+
+  function addStep() { setSteps(s => [...s, { title: '', instruction: '', duration_seconds: '' }]) }
+  function removeStep(index: number) { setSteps(s => s.filter((_, i) => i !== index)) }
+  function updateStep(index: number, patch: Partial<StepDraft>) { setSteps(s => s.map((step, i) => i === index ? { ...step, ...patch } : step)) }
+  function moveStep(index: number, delta: number) {
+    setSteps(s => {
+      const target = index + delta
+      if (target < 0 || target >= s.length) return s
+      const next = [...s]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
 
   function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
     setData(d => {
@@ -251,6 +284,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       estimated_time_minutes: data.estimated_time_minutes === '' ? null : Number(data.estimated_time_minutes),
       is_guided_content: data.is_guided_content,
       is_recommendable: data.is_recommendable,
+      objective: data.objective || null,
+      intensity: data.intensity || null,
       emotion: data.emotion,
       journey_stage: data.journey_stage,
       intent: data.intent,
@@ -278,7 +313,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
     // Salva; se a migration dos campos novos ainda não aplicou, faz fallback
     // gravando só o essencial (o editor não pode quebrar por causa do deploy).
-    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'related_slugs', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable']
+    const EXTRA_KEYS = ['content_type', 'keyword', 'secondary_keywords', 'tags', 'related_slugs', 'emotion', 'journey_stage', 'intent', 'audience', 'og_image', 'origin', 'internal_notes', 'keywords', 'emotional_themes', 'estimated_time_minutes', 'is_guided_content', 'is_recommendable', 'objective', 'intensity']
     const writeArticle = (p: Record<string, unknown>) =>
       effectiveId
         ? supabase.from('articles').update(p).eq('id', effectiveId)
@@ -317,6 +352,21 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           .eq('article_id', savedId).order('version', { ascending: false }).limit(20)
         setVersions((vs as ArticleVersion[]) ?? [])
       } catch { /* content_versions indisponível */ }
+    }
+
+    // Etapas do player guiado (best-effort — se a migration ainda não aplicou, ignora sem
+    // travar o salvamento do artigo, que já concluiu com sucesso acima).
+    if (savedId) {
+      try {
+        await supabase.from('guided_content_steps').delete().eq('article_id', savedId)
+        const validSteps = steps.filter(s => s.title.trim() && s.instruction.trim())
+        if (validSteps.length) {
+          await supabase.from('guided_content_steps').insert(validSteps.map((s, index) => ({
+            article_id: savedId, step_order: index, title: s.title.trim(), instruction: s.instruction.trim(),
+            duration_seconds: s.duration_seconds === '' ? null : Number(s.duration_seconds),
+          })))
+        }
+      } catch { /* guided_content_steps ainda não migrada */ }
     }
 
     // Guarda o id gerado (artigo novo) para não duplicar e refletir o estado salvo.
@@ -855,6 +905,47 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <input type="checkbox" checked={data.is_recommendable} onChange={e => set('is_recommendable', e.target.checked)} className="accent-forest-600" />
                 Pode ser recomendado
               </label>
+            </div>
+          </div>
+
+          {/* Player por etapas — só faz diferença pra quem lê quando existe pelo menos 1 etapa.
+              Sem etapas, o conteúdo é lido normalmente, como qualquer outro artigo. */}
+          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Prática guiada por etapas</h2>
+            <p className="text-xs text-stone-500 -mt-2">
+              Opcional. Cadastre etapas para transformar este conteúdo numa prática com progresso,
+              pausar/retomar e reflexão final. Sem etapas, ele continua sendo um artigo comum.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Objetivo desta prática">
+                <input value={data.objective} onChange={e => set('objective', e.target.value)} placeholder="Ex: Acalmar a respiração antes de dormir" className={inputCls} />
+              </Field>
+              <Field label="Intensidade">
+                <select value={data.intensity} onChange={e => set('intensity', e.target.value)} className={inputCls}>
+                  <option value="">Não definida</option>
+                  <option value="leve">Leve</option>
+                  <option value="moderada">Moderada</option>
+                  <option value="intensa">Intensa</option>
+                </select>
+              </Field>
+            </div>
+            <div className="space-y-3">
+              {steps.map((step, index) => (
+                <div key={step.id ?? index} className="rounded-xl border border-line p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-stone-500">Etapa {index + 1}</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} className="text-xs text-stone-500 disabled:opacity-30 px-1.5">↑</button>
+                      <button type="button" onClick={() => moveStep(index, 1)} disabled={index === steps.length - 1} className="text-xs text-stone-500 disabled:opacity-30 px-1.5">↓</button>
+                      <button type="button" onClick={() => removeStep(index)} className="text-xs text-red-600 px-1.5">Remover</button>
+                    </div>
+                  </div>
+                  <input value={step.title} onChange={e => updateStep(index, { title: e.target.value })} placeholder="Título da etapa" className={inputCls} />
+                  <textarea value={step.instruction} onChange={e => updateStep(index, { instruction: e.target.value })} placeholder="Instrução prática desta etapa" rows={2} className={inputCls} />
+                  <input type="number" min={0} value={step.duration_seconds} onChange={e => updateStep(index, { duration_seconds: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="Duração em segundos (opcional)" className={`${inputCls} sm:max-w-xs`} />
+                </div>
+              ))}
+              <button type="button" onClick={addStep} className="text-sm font-medium text-forest-700 hover:text-forest-900">+ Adicionar etapa</button>
             </div>
           </div>
 

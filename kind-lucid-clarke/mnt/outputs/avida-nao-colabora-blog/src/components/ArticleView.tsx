@@ -9,6 +9,7 @@ import { renderArticleContent, estimateReadTime } from '../lib/renderArticle'
 import { setPendingAction } from '../lib/pendingAction'
 import { DEFAULT_CTA } from '../lib/articleCta'
 import { ARTICLE_FALLBACK_TITLE } from '../lib/pageTitles'
+import GuidedContentPlayer from './GuidedContentPlayer'
 
 interface ArticleViewProps {
   slug?: string
@@ -83,6 +84,7 @@ export default function ArticleView({
   article: initialArticle,
   onBack,
   user,
+  profile,
   navigate,
   onSelectArticle,
   onSavePromptToDiary,
@@ -212,7 +214,7 @@ export default function ArticleView({
     setLoading(true)
     setLocked(null)
     try {
-      const articleCols = 'id,slug,title,category,content,author,created_at,published_at,updated_at,reviewed_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords,seo_title,seo_description,og_image'
+      const articleCols = 'id,slug,title,category,content,author,created_at,published_at,updated_at,reviewed_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords,seo_title,seo_description,og_image,objective,intensity'
       const { data, error } = await supabase.from('articles').select(articleCols).eq('slug', s).single()
       if (error || !data) {
         setArticle(null)
@@ -512,6 +514,10 @@ export default function ArticleView({
         <a href="/politica-editorial" onClick={(event) => { event.preventDefault(); doNavigate('editorial-policy') }} className="font-medium text-forest-700 underline underline-offset-2">Como cuidamos deste conteúdo</a>
         {article.reviewed_at && <><span aria-hidden="true">·</span><span>Revisão editorial registrada</span></>}
       </div>
+
+      {/* Player por etapas — só renderiza algo quando o conteúdo tem etapas
+          cadastradas (guided_content_steps). Sem etapas, isto é um no-op. */}
+      <GuidedContentPlayer article={article} user={user} plan={profile?.plan ?? 'free'} onOpenArticle={onSelectArticle} />
 
       {/* A) Quick Summary Card */}
       {showSummary && (
