@@ -34,10 +34,10 @@ test('Evolução possui navegação contextual própria sem fundir funcionalidad
 test('mobile usa Hoje, Registrar, Evolução, Cuidar e Menu explícito', () => {
   assert.match(source, /const MOBILE_MAIN/)
   assert.match(source, /aria-label="Navegação principal"/)
-  assert.match(source, />Menu<\/button>/)
+  assert.match(source, />Menu\s*<\/button>/)
   assert.match(source, /Recursos e conta/)
   assert.match(source, /Conta e suporte/)
-  assert.doesNotMatch(source, />Mais<\/button>/)
+  assert.doesNotMatch(source, />Mais\s*<\/button>/)
   assert.match(source, /pb-24 lg:pb-0/)
 })
 
