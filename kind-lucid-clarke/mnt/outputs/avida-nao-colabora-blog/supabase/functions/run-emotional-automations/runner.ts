@@ -71,10 +71,21 @@ type QuestionnaireSignal = {
   completed_at: string
 }
 
-type CarePlanFeedbackValue = 'helpful' | 'later' | 'not_for_me'
+type CarePlanFeedbackValue =
+  | 'helped'
+  | 'neutral'
+  | 'not_tried'
+  | 'could_not'
+  | 'adapt'
+  | 'not_for_me'
+  | 'helpful'
+  | 'later'
 type CarePlanFeedbackEntry = {
   action: string
   feedback: CarePlanFeedbackValue
+  adapted_action?: string | null
+  state?: 'active' | 'considering' | 'paused' | 'removed'
+  source: 'living' | 'legacy'
 }
 
 function questionnaireTags(value: unknown): string[] {
@@ -224,7 +235,7 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
   // Feedback é uma preferência declarada sobre ações que o próprio sistema já
   // sugeriu no roteiro anterior. Não é evidência de eficácia, adesão ou melhora.
   const feedbackContext = kind === 'self_care_plan' && careFeedback.length
-    ? ` Considere também estas percepções opcionais sobre ações do roteiro anterior: ${JSON.stringify(careFeedback)}. Interprete helpful apenas como "fez sentido" e use isso para inspirar ações semelhantes sem assumir eficácia. Interprete later como "talvez depois": adapte intensidade ou momento, sem tratar como recusa. Interprete not_for_me como "não combinou comigo": evite repetir a mesma ação ou uma formulação praticamente idêntica e escolha outra abordagem. Essas percepções não são progresso, conclusão, diagnóstico ou prova de melhora. Não mencione mecanismo de feedback, pontuação, sistema interno ou bastidores na resposta.`
+    ? ` Considere também estas percepções opcionais sobre ações do Plano de Autocuidado anterior: ${JSON.stringify(careFeedback)}. Trate cada retorno como preferência contextual, nunca como prova de eficácia, adesão ou melhora. Para feedback=helped, a ação pareceu útil à pessoa: você pode se inspirar na abordagem, sem prometer o mesmo resultado. Para feedback=neutral, houve pouco efeito: reduza a prioridade de uma repetição idêntica e considere outra abordagem. Para feedback=not_tried, não houve experiência suficiente: não conclua se a ação combina ou não; só reapresente se os dados atuais justificarem, de preferência de modo simples. Para feedback=could_not, a ação ficou difícil naquele momento: diminua duração, esforço, etapas ou exigência e ofereça uma versão mínima. Para feedback=adapt, priorize adapted_action quando existir como sinal explícito de preferência e use a direção dessa adaptação para tornar a nova ação mais realista. Para feedback=not_for_me, evite repetir a mesma ação ou formulação quase idêntica e escolha outra abordagem. Em registros legados, helpful equivale a uma percepção positiva e later apenas indica que vale adaptar intensidade ou momento. Se state estiver paused ou removed, respeite essa decisão e não trate a ação como ativa. Essas percepções não são progresso, conclusão, diagnóstico ou prova de melhora. Não mencione mecanismo de feedback, pontuação, sistema interno ou bastidores na resposta.`
     : ''
   // §6.2/6.3 do audit: além do texto-base (summary/patterns/...), a IA também
   // lê em prosa curta os dados já agregados em código (marcadores, contextos,
@@ -391,9 +402,11 @@ function reportContent(kind: 'weekly' | 'monthly', s: Summary, ai: Record<string
 type AdminClient = any
 
 async function loadPreviousCarePlanFeedback(admin: AdminClient, userId: string, beforeStart: string): Promise<CarePlanFeedbackEntry[]> {
-  // Usa somente o roteiro anterior já enviado e a escolha estruturada do usuário.
-  // Falha aberta: se a migration ainda não tiver chegado ao banco durante deploy,
-  // a automação continua gerando o plano sem esse contexto opcional.
+  // Usa apenas o Plano de Autocuidado anterior já enviado. O caminho principal lê
+  // o estado vivo da ação, porque ele preserva as seis respostas atuais e a versão
+  // adaptada escrita explicitamente pela pessoa. Nenhum texto livre do Diário entra
+  // aqui. Se a tabela viva não estiver disponível, mantém compatibilidade com o
+  // feedback legado de três estados sem bloquear a geração mensal.
   const { data: previous, error: previousError } = await admin
     .from('monthly_care_plans')
     .select('id,care_plan,period_end')
@@ -405,6 +418,35 @@ async function loadPreviousCarePlanFeedback(admin: AdminClient, userId: string, 
     .maybeSingle()
   if (previousError || !previous) return []
 
+  const allowedLiving = new Set<CarePlanFeedbackValue>(['helped', 'neutral', 'not_tried', 'could_not', 'adapt', 'not_for_me'])
+  const allowedStates = new Set(['active', 'considering', 'paused', 'removed'])
+  const { data: livingRows, error: livingError } = await admin
+    .from('care_plan_action_state')
+    .select('action_key,action_text,state,outcome,adapted_text,updated_at')
+    .eq('user_id', userId)
+    .eq('care_plan_id', previous.id)
+    .order('updated_at', { ascending: false })
+    .limit(20)
+
+  if (!livingError && livingRows?.length) {
+    const living = livingRows.flatMap((row: Record<string, unknown>) => {
+      const action = typeof row.action_text === 'string' ? row.action_text.trim().slice(0, 260) : ''
+      const feedback = String(row.outcome || '') as CarePlanFeedbackValue
+      const state = String(row.state || '')
+      if (!action || !allowedLiving.has(feedback)) return []
+      const adapted = typeof row.adapted_text === 'string' ? row.adapted_text.trim().slice(0, 260) : ''
+      return [{
+        action,
+        feedback,
+        adapted_action: adapted || null,
+        state: allowedStates.has(state) ? state as CarePlanFeedbackEntry['state'] : undefined,
+        source: 'living' as const,
+      }]
+    })
+    if (living.length) return living.slice(0, 12)
+  }
+
+  // Compatibilidade para planos antigos, anteriores ao estado vivo.
   const carePlan = previous.care_plan && typeof previous.care_plan === 'object'
     ? previous.care_plan as Record<string, unknown>
     : {}
@@ -418,21 +460,26 @@ async function loadPreviousCarePlanFeedback(admin: AdminClient, userId: string, 
     .eq('care_plan_id', previous.id)
   if (feedbackError || !rows?.length) return []
 
-  const allowed = new Set<CarePlanFeedbackValue>(['helpful', 'later', 'not_for_me'])
+  const allowedLegacy = new Set<CarePlanFeedbackValue>(['helpful', 'later', 'not_for_me'])
   return rows.flatMap((row: Record<string, unknown>) => {
     const actionIndex = Number(row.action_index)
     const feedback = String(row.feedback || '') as CarePlanFeedbackValue
-    if (!Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex >= actions.length || !allowed.has(feedback)) return []
-    return [{ action: actions[actionIndex], feedback }]
+    if (!Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex >= actions.length || !allowedLegacy.has(feedback)) return []
+    return [{ action: actions[actionIndex], feedback, source: 'legacy' as const }]
   }).slice(0, 5)
 }
 
 function careFeedbackSummary(items: CarePlanFeedbackEntry[]) {
   return {
     total: items.length,
-    helpful: items.filter(item => item.feedback === 'helpful').length,
-    later: items.filter(item => item.feedback === 'later').length,
+    helped: items.filter(item => item.feedback === 'helped' || item.feedback === 'helpful').length,
+    neutral: items.filter(item => item.feedback === 'neutral').length,
+    not_tried: items.filter(item => item.feedback === 'not_tried').length,
+    could_not: items.filter(item => item.feedback === 'could_not').length,
+    adapt: items.filter(item => item.feedback === 'adapt').length,
     not_for_me: items.filter(item => item.feedback === 'not_for_me').length,
+    legacy_later: items.filter(item => item.feedback === 'later').length,
+    adapted_actions: items.filter(item => Boolean(item.adapted_action)).length,
   }
 }
 
