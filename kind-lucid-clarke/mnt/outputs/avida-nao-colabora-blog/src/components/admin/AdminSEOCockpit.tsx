@@ -132,6 +132,8 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
     }
   }
 
+  // A carga inicial é intencionalmente única; os botões fazem as recargas subsequentes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     void Promise.all([loadArticles(), loadDashboard()])
   }, [])
