@@ -22,7 +22,7 @@ export default function TodayJourney({ profile, onNavigate }: Props) {
       action: 'Abrir Diário',
     },
     {
-      id: hasEvolution ? 'evolution' : 'pricing',
+      id: hasEvolution ? 'descobertas' : 'pricing',
       eyebrow: 'Entender',
       title: hasEvolution ? 'Quero olhar o que está mudando' : 'Conheça sua evolução completa',
       description: hasEvolution
