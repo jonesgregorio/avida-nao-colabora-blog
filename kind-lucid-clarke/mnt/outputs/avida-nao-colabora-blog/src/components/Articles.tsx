@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { Search, Clock, ArrowRight, X, BookOpen, Lock } from 'lucide-react'
+import { Search, Clock, ArrowRight, X, BookOpen, Lock, Compass } from 'lucide-react'
 import type { Article } from '../types'
 import { isContentLocked } from '../lib/officialPlans'
 import { fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
@@ -166,6 +166,12 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
           Práticas, reflexões e leituras para apoiar sua organização emocional.
         </p>
       </header>
+
+      <a href="/guias" className="mb-8 flex items-center gap-4 rounded-2xl border border-forest-200 bg-mint/45 p-5 transition-colors hover:bg-mint/70">
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-forest-700"><Compass className="h-5 w-5" /></span>
+        <span className="flex-1"><strong className="block font-serif text-lg text-forest-900">Não sabe por onde começar?</strong><span className="mt-0.5 block text-sm leading-5 text-ink-soft">Veja os oito guias essenciais de diário emocional, padrões, ansiedade, limites e autocuidado.</span></span>
+        <ArrowRight className="h-5 w-5 flex-shrink-0 text-forest-700" />
+      </a>
 
       {/* ── Bloco 1 — Recomendados para você (só logado) ── */}
       {user && (

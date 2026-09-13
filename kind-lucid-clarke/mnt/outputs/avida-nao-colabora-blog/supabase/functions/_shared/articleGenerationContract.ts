@@ -157,6 +157,7 @@ Cada corpo precisa ter entre 1100 e 1500 palavras, com introdução acolhedora, 
 Use subtítulos ## e ### quando ajudarem a leitura. Não use título H1 dentro do corpo. Prefira parágrafos corridos e não abuse de listas.
 ${quantity > 1 ? 'Varie temas e ângulos; não gere títulos quase iguais.' : ''}
 Não diagnostique, não prescreva, não prometa cura e não invente pesquisas ou estatísticas.
+Quando o briefing fornecer fontes verificadas e o texto fizer afirmações factuais de saúde, inclua ao final uma seção "## Fontes consultadas" com os links recebidos. Nunca invente autor, credencial, estudo, instituição ou URL; sem fonte fornecida, mantenha o conteúdo educativo e não clínico.
 Evite clichês de texto gerado por IA como “em conclusão”, “é importante ressaltar”, “em suma”, “não podemos esquecer que”, “em um mundo cada vez mais”, “convido você a refletir” e “ao longo deste artigo, vamos explorar”. Não repita fórmulas de introdução.
 
 Retorne SOMENTE JSON válido, sem markdown em volta. Cada artigo deve conter EXATAMENTE estes campos editoriais obrigatórios:

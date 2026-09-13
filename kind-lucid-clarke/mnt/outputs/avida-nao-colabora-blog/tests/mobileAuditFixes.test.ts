@@ -65,12 +65,12 @@ test('App e o Player estão preparados para slug (e ainda aceitam UUID)', () => 
 // 3. document.title centralizado por rota
 // ─────────────────────────────────────────────────────────────────────────────
 test('titleForView cobre as rotas principais e não repete o site duas vezes', () => {
-  assert.equal(titleForView('home'), 'A Vida Não Colabora — Bem-estar emocional e autoconhecimento')
+  assert.equal(titleForView('home'), 'A Vida Não Colabora — Diário emocional e autocuidado')
   assert.equal(titleForView('my-history'), 'Minha História — A Vida Não Colabora')
   assert.equal(titleForView('responsibility'), 'Aviso de Responsabilidade — A Vida Não Colabora')
   assert.equal(titleForView('questionnaire'), 'Questionário — A Vida Não Colabora')
   // rota desconhecida cai no título do site
-  assert.equal(titleForView('rota-que-nao-existe'), 'A Vida Não Colabora — Bem-estar emocional e autoconhecimento')
+  assert.equal(titleForView('rota-que-nao-existe'), 'A Vida Não Colabora — Diário emocional e autocuidado')
 })
 
 test('App reaplica os metadados a cada troca de view (não fica preso no artigo)', () => {

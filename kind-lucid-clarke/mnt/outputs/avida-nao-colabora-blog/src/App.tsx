@@ -38,6 +38,8 @@ import type { Tab } from './components/MyEvolutionPage'
 // a home leve, sem mudar URLs, permissões ou a experiência de navegação.
 const Articles = lazy(() => import('./components/Articles'))
 const ArticleView = lazy(() => import('./components/ArticleView'))
+const GuidesPage = lazy(() => import('./components/GuidesPage'))
+const EditorialPolicyPage = lazy(() => import('./components/EditorialPolicyPage'))
 const DiaryPage = lazy(() => import('./components/DiaryPage'))
 const ProfilePage = lazy(() => import('./components/Profile'))
 const QuestionnairesPage = lazy(() => import('./components/QuestionnairesPage'))
@@ -377,6 +379,14 @@ export default function App() {
         onSavePromptToDiary={handleSavePromptToDiary}
       />
     )
+  }
+
+  if (view === 'guides') {
+    return appShell(<GuidesPage onNavigate={navigate} onSelectArticle={(slug) => navigate('article', slug)} />)
+  }
+
+  if (view === 'editorial-policy') {
+    return appShell(<EditorialPolicyPage onNavigate={navigate} />)
   }
 
   if (view === 'diary') {

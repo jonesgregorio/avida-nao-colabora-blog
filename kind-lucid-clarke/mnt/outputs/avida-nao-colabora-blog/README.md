@@ -148,6 +148,15 @@ O Admin possui diagnóstico de infraestrutura e automações. As RPCs administra
 
 Elas expõem status, agenda e últimas execuções **sem retornar tokens ou secrets**.
 
+## SEO público
+
+O site entrega HTML server-side para home, blog, guias, páginas institucionais e artigos gratuitos. Conteúdos fechados e rotas pessoais recebem `noindex`; diário, check-ins, relatórios e demais dados emocionais nunca entram no sitemap público.
+
+- Sitemap: `https://www.avidanaocolabora.com/sitemap.xml`
+- Hub de pilares: `/guias`
+- Critérios de confiança: `/politica-editorial`
+- Operação e ativação nos buscadores: `docs/SEO_OPERACAO.md`
+
 ## Migrations e Edge Functions
 
 Não aplique uma lista antiga de migrations manualmente. O repositório possui workflows oficiais:

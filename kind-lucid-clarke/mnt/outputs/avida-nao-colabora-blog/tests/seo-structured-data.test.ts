@@ -10,6 +10,7 @@ const vercelConfig = JSON.parse(
   readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
 ) as {
   rewrites?: Array<{ source?: string; destination?: string }>
+  redirects?: Array<{ source?: string; destination?: string; permanent?: boolean }>
 }
 
 function rewriteFor(source: string) {
@@ -46,16 +47,17 @@ test('home possui canonical e identidade estruturada global', () => {
 
 test('páginas públicas principais passam pelo renderer SEO específico', () => {
   const expected: Record<string, string> = {
+    '/': '/api/page?route=home',
     '/blog': '/api/page?route=blog',
-    '/conteudos': '/api/page?route=blog',
+    '/guias': '/api/page?route=guides',
     '/planos': '/api/page?route=pricing',
     '/faq': '/api/page?route=faq',
-    '/perguntas-frequentes': '/api/page?route=faq',
     '/sobre': '/api/page?route=about',
     '/contato': '/api/page?route=contact',
     '/privacidade': '/api/page?route=privacy',
     '/termos': '/api/page?route=terms',
     '/aviso-de-responsabilidade': '/api/page?route=responsibility',
+    '/politica-editorial': '/api/page?route=editorial',
   }
 
   for (const [source, destination] of Object.entries(expected)) {
@@ -109,9 +111,10 @@ test('HTML server-side usa metadata específica sem canonical ou hreflang duplic
   }
 })
 
-test('aliases públicos apontam canonical para a rota oficial', () => {
-  assert.match(pageRenderer, /blog:\s*\{[\s\S]*?path: '\/blog'/)
-  assert.match(pageRenderer, /faq:\s*\{[\s\S]*?path: '\/faq'/)
+test('aliases públicos redirecionam permanentemente para a rota oficial', () => {
+  const aliases = new Map((vercelConfig.redirects ?? []).map(item => [item.source, item]))
+  assert.deepEqual(aliases.get('/conteudos'), { source: '/conteudos', destination: '/blog', permanent: true })
+  assert.deepEqual(aliases.get('/perguntas-frequentes'), { source: '/perguntas-frequentes', destination: '/faq', permanent: true })
 })
 
 test('artigos substituem canonical global inclusive no fallback e removem canonical em 404', () => {
