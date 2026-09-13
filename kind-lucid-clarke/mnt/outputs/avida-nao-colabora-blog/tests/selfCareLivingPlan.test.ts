@@ -6,9 +6,13 @@ const page = fs.readFileSync(new URL('../src/components/SelfCarePlanPage.tsx', i
 const migration = fs.readFileSync(new URL('../supabase/migrations/20260908211000_living_self_care_plan.sql', import.meta.url), 'utf8')
 
 test('living self-care plan is action-oriented rather than a second report', () => {
-  assert.match(page, /Para experimentar/)
+  assert.match(page, /Como usar seu plano/)
+  assert.match(page, /Três passos, sem obrigação de completar tudo/)
+  assert.match(page, /1\. Escolha/)
+  assert.match(page, /2\. Experimente/)
+  assert.match(page, /3\. Conte como foi/)
   assert.match(page, /Frente \{pi\+1\}/)
-  assert.match(page, /Seu plano neste ciclo/)
+  assert.match(page, /Em prática neste ciclo/)
   assert.match(page, /Hoje está difícil\?/)
   assert.match(page, /Ajustar meu plano/)
   assert.match(page, /Fiz e me ajudou/)
