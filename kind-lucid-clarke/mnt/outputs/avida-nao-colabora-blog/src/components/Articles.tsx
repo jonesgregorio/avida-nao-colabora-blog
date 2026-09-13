@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { Search, Clock, ArrowRight, X, BookOpen, Lock, Compass } from 'lucide-react'
+import { Search, Clock, ArrowRight, X, BookOpen, Lock, Compass, PlayCircle, Layers3 } from 'lucide-react'
 import type { Article } from '../types'
 import { isContentLocked } from '../lib/officialPlans'
 import { fetchGuidedCatalog, type CatalogItem } from '../lib/contentRecommendation'
@@ -15,16 +15,13 @@ interface ArticlesProps {
   onNavigatePricing?: () => void
 }
 
+type LibraryMode = 'all' | 'read' | 'practice'
+type GuidedCatalogItem = CatalogItem & { has_steps?: boolean; objective?: string | null; intensity?: string | null }
+
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
 
-// Filtros por tema (§3 / §10). Cada filtro casa por radicais no "haystack" do
-// conteúdo (categoria + tags + temas emocionais + palavras-chave + título).
 interface Filter { label: string; match: string[] }
 
-// Os temas agora vêm da tabela `categories` (admin → Conteúdo & IA → Categorias):
-// nome = rótulo do chip; match_terms = radicais buscados. Esta lista é só o
-// FALLBACK, usado se a busca das categorias falhar ou vier vazia — assim o blog
-// nunca fica sem filtros.
 const FALLBACK_FILTERS: Filter[] = [
   { label: 'Todos', match: [] },
   { label: 'Ansiedade', match: ['ansiedad', 'respira'] },
@@ -41,7 +38,6 @@ const FALLBACK_FILTERS: Filter[] = [
   { label: 'Descanso emocional', match: ['descanso', 'pausa', 'acolhiment'] },
 ]
 
-// Quebra "ansiedad, respira" (match_terms) em radicais normalizados.
 function parseTerms(raw: string | null | undefined): string[] {
   return (raw || '').split(/[,;\n]/).map(t => deburr(t.trim())).filter(Boolean)
 }
@@ -62,6 +58,10 @@ function planBadge(planRequired: string | null | undefined) {
   if (!planRequired || planRequired === 'free') return null
   return PLAN_BADGE[planRequired] ?? PLAN_BADGE.plus
 }
+function isPracticeItem(item: CatalogItem): boolean {
+  const guided = item as GuidedCatalogItem
+  return Boolean(guided.has_steps) || item.content_type === 'practice' || item.content_type === 'meditation'
+}
 
 export default function Articles({ onSelectArticle, user, profile, onNavigateDiary, onNavigatePricing }: ArticlesProps) {
   const { track } = useAnalytics()
@@ -70,6 +70,7 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
   const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Todos')
+  const [mode, setMode] = useState<LibraryMode>('all')
   const [filters, setFilters] = useState<Filter[]>(FALLBACK_FILTERS)
 
   const plan = profile?.plan
@@ -87,8 +88,6 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
     }
   }
 
-  // Monta os chips de tema a partir das categorias ativas do admin. "Todos" é
-  // sempre o primeiro (opção do próprio blog). Se falhar, mantém o FALLBACK.
   const loadFilters = async () => {
     try {
       const { data } = await supabase
@@ -113,11 +112,11 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
 
   const filtered = useMemo(() => {
     let result = catalog
+    if (mode === 'read') result = result.filter(item => !isPracticeItem(item))
+    if (mode === 'practice') result = result.filter(isPracticeItem)
+
     const f = filters.find(x => x.label === filter)
     if (f && f.label !== 'Todos') {
-      // Casa pela categoria do artigo (igualdade) OU por qualquer radical do tema.
-      // A igualdade garante que todo artigo marcado com a categoria apareça no
-      // chip dela, mesmo que a categoria não tenha match_terms cadastrados.
       const label = deburr(f.label)
       result = result.filter(it => {
         if (deburr(it.category || '') === label) return true
@@ -131,12 +130,14 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
       result = result.filter(it => itemHaystack(it).includes(q))
     }
     return result
-  }, [catalog, filter, search, filters])
+  }, [catalog, filter, search, filters, mode])
 
-  // Analytics: registra o termo buscado para o relatório "Termos mais buscados"
-  // no admin. Debounce de 900ms para gravar só a busca "final", não cada tecla.
-  // Grava APENAS o termo (nunca dado sensível): entity_id normalizado (sem acento,
-  // minúsculo) agrupa variações; entity_title guarda o texto exibível.
+  const counts = useMemo(() => ({
+    all: catalog.length,
+    read: catalog.filter(item => !isPracticeItem(item)).length,
+    practice: catalog.filter(isPracticeItem).length,
+  }), [catalog])
+
   useEffect(() => {
     const q = search.trim()
     if (q.length < 2) return
@@ -144,36 +145,42 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
       track('blog_search', {
         entity_id: deburr(q).slice(0, 60),
         entity_title: q.slice(0, 60),
-        metadata: { results: filtered.length, filter },
+        metadata: { results: filtered.length, filter, mode },
       })
     }, 900)
     return () => clearTimeout(t)
-  }, [search, filtered.length, filter, track])
+  }, [search, filtered.length, filter, mode, track])
 
   const handleSelect = (it: CatalogItem) => {
     if (!it.slug) return
-    track('article_click', { entity_id: it.id, entity_title: it.title })
+    track('article_click', { entity_id: it.id, entity_title: it.title, metadata: { experience: isPracticeItem(it) ? 'practice' : 'reading' } })
     onSelectArticle(it.slug)
   }
 
-  const isDefault = filter === 'Todos' && !search
+  const isDefault = filter === 'Todos' && !search && mode === 'all'
 
   return (
     <section id="articles" className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      <header className="mb-6 sm:mb-8">
-        <h1 className="font-serif text-3xl md:text-4xl text-forest-900">Conteúdos Guiados</h1>
-        <p className="mt-2 text-ink-soft max-w-xl leading-relaxed">
-          Práticas, reflexões e leituras para apoiar sua organização emocional.
+      <header className="mb-7 border-b border-line pb-7 sm:mb-9 sm:pb-9">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-forest-600">Conteúdos</p>
+        <h1 className="mt-1 font-serif text-3xl md:text-4xl lg:text-5xl text-forest-900">Você quer ler ou praticar?</h1>
+        <p className="mt-3 text-ink-soft max-w-2xl leading-relaxed">
+          Leituras ajudam a compreender um tema. Práticas guiadas oferecem etapas para fazer algo no seu ritmo — iniciar, pausar e retomar quando quiser.
         </p>
+
+        <div className="mt-6 grid gap-2 sm:grid-cols-3" role="group" aria-label="Tipo de conteúdo">
+          <ModeButton active={mode === 'all'} icon={<Layers3 className="h-5 w-5" />} title="Todos" description="Ver a biblioteca completa" count={counts.all} onClick={() => setMode('all')} />
+          <ModeButton active={mode === 'read'} icon={<BookOpen className="h-5 w-5" />} title="Ler" description="Artigos, reflexões e explicações" count={counts.read} onClick={() => setMode('read')} />
+          <ModeButton active={mode === 'practice'} icon={<PlayCircle className="h-5 w-5" />} title="Praticar" description="Práticas e pausas guiadas" count={counts.practice} onClick={() => setMode('practice')} />
+        </div>
       </header>
 
-      <a href="/guias" className="mb-8 flex items-center gap-4 rounded-2xl border border-forest-200 bg-mint/45 p-5 transition-colors hover:bg-mint/70">
-        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-forest-700"><Compass className="h-5 w-5" /></span>
-        <span className="flex-1"><strong className="block font-serif text-lg text-forest-900">Não sabe por onde começar?</strong><span className="mt-0.5 block text-sm leading-5 text-ink-soft">Veja os oito guias essenciais de diário emocional, padrões, ansiedade, limites e autocuidado.</span></span>
+      <a href="/guias" className="mb-8 flex items-center gap-4 border-y border-line py-4 transition-colors hover:bg-mint/25 sm:px-2">
+        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-mint text-forest-700"><Compass className="h-5 w-5" /></span>
+        <span className="flex-1"><strong className="block font-serif text-lg text-forest-900">Não sabe por onde começar?</strong><span className="mt-0.5 block text-sm leading-5 text-ink-soft">Veja os guias essenciais de diário emocional, padrões, ansiedade, limites e autocuidado.</span></span>
         <ArrowRight className="h-5 w-5 flex-shrink-0 text-forest-700" />
       </a>
 
-      {/* ── Bloco 1 — Recomendados para você (só logado) ── */}
       {user && (
         <div className="mb-10">
           <RecommendedContent
@@ -186,16 +193,23 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
             onOpen={onSelectArticle}
             onCheckin={onNavigateDiary}
             onDiary={onNavigateDiary}
-            onSeeAll={() => { setFilter('Todos'); setSearch('') }}
+            onSeeAll={() => { setMode('all'); setFilter('Todos'); setSearch('') }}
           />
         </div>
       )}
 
-      {/* ── Bloco 2 — Todos os conteúdos guiados ── */}
-      <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mb-1">Todos os conteúdos guiados</h2>
-      <p className="text-sm text-ink-soft mb-4">Explore por tema ou busque pelo que faz sentido para o seu momento.</p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-4">
+        <div>
+          <h2 className="font-serif text-xl sm:text-2xl text-forest-900">
+            {mode === 'read' ? 'Leituras' : mode === 'practice' ? 'Práticas guiadas' : 'Biblioteca completa'}
+          </h2>
+          <p className="text-sm text-ink-soft mt-1">
+            {mode === 'read' ? 'Conteúdos para entender, refletir e encontrar palavras para o que você vive.' : mode === 'practice' ? 'Experiências com intenção prática, incluindo conteúdos com etapas quando disponíveis.' : 'Explore por tipo, tema ou busque pelo que faz sentido para o seu momento.'}
+          </p>
+        </div>
+        {!loading && <p className="text-xs text-ink-soft">{filtered.length} {filtered.length === 1 ? 'conteúdo' : 'conteúdos'}</p>}
+      </div>
 
-      {/* Busca */}
       <div className="relative mb-4">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none" />
         <input
@@ -212,7 +226,6 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
         )}
       </div>
 
-      {/* Filtros por tema */}
       <div className="flex flex-wrap gap-2 mb-8">
         {filters.map(f => {
           const active = filter === f.label
@@ -221,10 +234,7 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
               key={f.label}
               onClick={() => setFilter(f.label)}
               aria-pressed={active}
-              className={`px-3.5 py-1.5 rounded-full text-sm transition-colors border focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${
-                active ? 'bg-forest-900 text-white border-forest-900'
-                       : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'
-              }`}
+              className={`px-3.5 py-1.5 rounded-full text-sm transition-colors border focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-paper-soft border-line text-ink-soft hover:border-forest-300 hover:text-forest-900'}`}
             >
               {f.label}
             </button>
@@ -243,9 +253,9 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-ink-soft">
-          <p className="mb-2 font-medium text-forest-900">Nenhum conteúdo encontrado.</p>
-          {(!isDefault) ? (
-            <button onClick={() => { setFilter('Todos'); setSearch('') }} className="text-sm text-forest-700 underline underline-offset-2">Ver todos os conteúdos</button>
+          <p className="mb-2 font-medium text-forest-900">Nenhum conteúdo encontrado neste recorte.</p>
+          {!isDefault ? (
+            <button onClick={() => { setMode('all'); setFilter('Todos'); setSearch('') }} className="text-sm text-forest-700 underline underline-offset-2">Ver biblioteca completa</button>
           ) : (
             <p className="text-sm">Novos conteúdos são publicados regularmente. Volte em breve.</p>
           )}
@@ -270,15 +280,23 @@ export default function Articles({ onSelectArticle, user, profile, onNavigateDia
   )
 }
 
+function ModeButton({ active, icon, title, description, count, onClick }: { active: boolean; icon: React.ReactNode; title: string; description: string; count: number; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 ${active ? 'border-forest-900 bg-forest-900 text-white shadow-sm' : 'border-line bg-white text-forest-900 hover:border-forest-300'}`}>
+      <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white/15' : 'bg-mint text-forest-700'}`}>{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{title}</span><span className={`block text-[11px] mt-0.5 ${active ? 'text-white/70' : 'text-ink-soft'}`}>{description}</span></span>
+      <span className={`text-xs font-semibold ${active ? 'text-white/75' : 'text-ink-soft'}`}>{count}</span>
+    </button>
+  )
+}
+
 function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; locked: boolean; onOpen: () => void; onUpgrade?: () => void }) {
   const time = item.estimated_time_minutes ?? item.read_time ?? null
   const badge = planBadge(item.plan_required)
+  const practice = isPracticeItem(item)
   const handleCardClick = locked && item.plan_required !== 'account' ? onUpgrade : onOpen
   return (
-    <div
-      onClick={handleCardClick}
-      className="group flex flex-col text-left bg-paper-soft border border-line rounded-2xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all cursor-pointer"
-    >
+    <div onClick={handleCardClick} className="group flex flex-col text-left bg-paper-soft border border-line rounded-2xl overflow-hidden hover:shadow-md hover:border-forest-200 transition-all cursor-pointer">
       <div className="relative aspect-video bg-mint overflow-hidden">
         <img
           src={item.image_url || FALLBACK_IMAGE}
@@ -286,6 +304,9 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
           className={`w-full h-full object-cover transition-transform duration-500 ${locked ? 'opacity-60' : 'group-hover:scale-105'}`}
           onError={e => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE }}
         />
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-forest-800 shadow-sm">
+          {practice ? <PlayCircle size={12} /> : <BookOpen size={12} />} {practice ? 'Praticar' : 'Ler'}
+        </span>
         {locked && (
           <div className="absolute inset-0 flex items-center justify-center bg-forest-900/25">
             <span className="inline-flex items-center gap-1.5 bg-white/90 text-forest-800 text-xs font-medium px-3 py-1.5 rounded-full">
@@ -297,11 +318,9 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
       <div className="p-5 flex flex-col flex-1">
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-forest-600">
-            <BookOpen size={12} /> {item.content_type === 'practice' ? 'Prática' : item.content_type === 'meditation' ? 'Pausa emocional' : 'Conteúdo'}
+            {practice ? <PlayCircle size={12} /> : <BookOpen size={12} />} {practice ? 'Prática guiada' : 'Leitura'}
           </span>
-          {badge
-            ? <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
-            : time && <span className="text-xs text-ink-soft flex items-center gap-1"><Clock size={12} /> {time} min</span>}
+          {badge ? <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span> : time && <span className="text-xs text-ink-soft flex items-center gap-1"><Clock size={12} /> {time} min</span>}
         </div>
         <h3 className="font-serif text-lg text-forest-900 leading-snug mb-2 line-clamp-2">{item.title}</h3>
         {item.summary && <p className="text-ink-soft text-sm leading-relaxed line-clamp-3 mb-4">{item.summary}</p>}
@@ -310,7 +329,7 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
           {locked ? (
             item.plan_required === 'account' ? (
               <button onClick={e => { e.stopPropagation(); onOpen() }} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 hover:gap-1.5 transition-all flex-shrink-0">
-                Criar conta para ler <ArrowRight size={14} />
+                Criar conta <ArrowRight size={14} />
               </button>
             ) : (
               <button onClick={e => { e.stopPropagation(); onUpgrade?.() }} className="inline-flex items-center gap-1 text-sm font-medium text-[#7a3320] hover:gap-1.5 transition-all flex-shrink-0">
@@ -319,7 +338,7 @@ function LibraryCard({ item, locked, onOpen, onUpgrade }: { item: CatalogItem; l
             )
           ) : (
             <button onClick={e => { e.stopPropagation(); onOpen() }} className="inline-flex items-center gap-1 text-sm font-medium text-forest-700 group-hover:gap-1.5 transition-all flex-shrink-0">
-              Abrir conteúdo <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              {practice ? 'Iniciar prática' : 'Ler conteúdo'} <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           )}
         </div>
