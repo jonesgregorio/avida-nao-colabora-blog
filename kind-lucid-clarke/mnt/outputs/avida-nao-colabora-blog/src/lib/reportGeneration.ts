@@ -7,9 +7,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase } from './supabase'
 import {
-  computeEmotionalAnalysis, buildDeepReport,
+  computeEmotionalAnalysis, buildDeepReport, deriveMonthlyTrends,
   derivePatterns, deriveAttentionPoints, deriveImprovement, deriveRelations, deriveNarrative,
-  type DiaryRowLite, type EmotionalAnalysis, type DeepReport,
+  type DiaryRowLite, type EmotionalAnalysis, type DeepReport, type MonthlyTrendItem,
 } from './emotionalAnalytics'
 import {
   deriveWeeklyInterpretationFallback,
@@ -105,6 +105,13 @@ export interface MonthlyContent extends Omit<DeepReport, 'bridgeToSelfCarePlan' 
   /** Estrutura usada pela automação v10; normalizada ao carregar. */
   attention_days?: Array<{ date?: string; day?: number; reason: string; markers?: string[] }>
   improvement_signals?: string[]
+  /**
+   * Rótulo de tendência (fortaleceu/enfraqueceu/manteve) por sinal, comparando
+   * este mês com o anterior. Ausente em relatórios gerados antes deste campo
+   * existir ou quando não havia mês anterior com dados — nunca preenchido com
+   * um valor inventado nesses casos.
+   */
+  monthlyTrends?: MonthlyTrendItem[]
 }
 
 export type ReportContent = WeeklyContent | MonthlyContent
@@ -223,7 +230,7 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
   })
 }
 
-export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string): MonthlyContent {
+export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: string, previousAnalysis?: EmotionalAnalysis): MonthlyContent {
   const deep = buildDeepReport(analysis, periodLabel)
   const retrospective = { ...deep }
   return {
@@ -238,6 +245,8 @@ export function buildMonthlyContent(analysis: EmotionalAnalysis, periodLabel: st
     checkinCount: analysis.checkinCount, diaryCount: analysis.diaryCount,
     bridgeToSelfCarePlan: 'Com base nesta leitura, seu plano de autocuidado pode transformar um ponto de atenção em uma ação leve para o próximo ciclo.',
     bridgeToProfessionalGuidance: 'Se fizer sentido, leve um ponto deste mês para sua orientação mensal.',
+    // Só compara quando existe um mês anterior de verdade — nunca inferido, nunca inventado.
+    monthlyTrends: previousAnalysis ? deriveMonthlyTrends(analysis, previousAnalysis) : undefined,
   }
 }
 
@@ -257,7 +266,10 @@ export function buildReport(
     }
   }
   const label = monthTitle(period.start)
-  const content = buildMonthlyContent(analysis, label)
+  // Análise própria do mês anterior (não só as médias de `analysis.prev`) — precisa dos
+  // rankings de emoção/marcador/contexto do mês anterior pra comparar sinal a sinal.
+  const previousAnalysis = prevEntries.length ? computeEmotionalAnalysis(prevEntries, []) : undefined
+  const content = buildMonthlyContent(analysis, label, previousAnalysis)
   return {
     report_type: 'monthly', plan_required: 'plus',
     period_start: period.start, period_end: period.end, available_at: period.availableAt,

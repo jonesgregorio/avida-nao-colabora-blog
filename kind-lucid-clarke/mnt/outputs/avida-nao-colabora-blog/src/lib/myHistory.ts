@@ -70,8 +70,21 @@ export interface HistoryMilestone {
   description: string
 }
 
+// Resumo de um ano inteiro — só aparece quando esse ano tem dados o bastante pra dizer algo
+// (>= 20 dias ativos espalhados em pelo menos 2 meses). Nunca preenchido pra um ano com poucos
+// registros; nesse caso o ano simplesmente não entra em `years`.
+export interface HistoryYearSummary {
+  year: string
+  activeDays: number
+  entryCount: number
+  monthsWithData: number
+  topEmotion: { label: string; days: number } | null
+  topContext: { label: string; days: number } | null
+}
+
 export interface MyHistoryModel {
   months: HistoryMonth[]
+  years: HistoryYearSummary[]
   memories: HistoryMemory[]
   milestones: HistoryMilestone[]
   totals: {
@@ -231,6 +244,27 @@ export function buildMyHistory(
       }
     })
 
+  // Resumo anual: agrupa os mesmos dias por ano (não por mês) e só entra na lista quando o ano
+  // tem massa de dados real — >= 20 dias ativos em pelo menos 2 meses diferentes. Evita um
+  // "resumo do ano" vazio ou de um único mês isolado, que não diz nada além do que o mês já diz.
+  const yearKeys = new Set(days.map(day => day.date.slice(0, 4)))
+  const years: HistoryYearSummary[] = [...yearKeys]
+    .sort((a, b) => b.localeCompare(a))
+    .map(year => {
+      const yearDays = days.filter(day => day.date.startsWith(year))
+      const yearEntries = yearDays.flatMap(day => day.entries)
+      const monthsWithData = new Set(yearDays.map(day => day.date.slice(0, 7))).size
+      return {
+        year,
+        activeDays: yearDays.length,
+        entryCount: yearEntries.length,
+        monthsWithData,
+        topEmotion: topByDays(yearDays, day => new Set([...day.moods, ...day.emotions])),
+        topContext: topByDays(yearDays, day => day.contexts),
+      }
+    })
+    .filter(summary => summary.activeDays >= 20 && summary.monthsWithData >= 2)
+
   const memoryCutoff = new Date(now)
   memoryCutoff.setHours(12, 0, 0, 0)
   memoryCutoff.setDate(memoryCutoff.getDate() - 14)
@@ -310,6 +344,7 @@ export function buildMyHistory(
 
   return {
     months,
+    years,
     memories,
     milestones,
     totals: {
