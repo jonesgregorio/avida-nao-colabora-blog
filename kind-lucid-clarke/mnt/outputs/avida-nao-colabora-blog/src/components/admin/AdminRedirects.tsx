@@ -36,7 +36,12 @@ export default function AdminRedirects() {
     setFrom(''); setTo(''); setType(301); load()
   }
   async function toggle(r: Redirect) { await supabase.from('analytics_redirects').update({ is_active: !r.is_active }).eq('id', r.id); load() }
-  async function del(r: Redirect) { await supabase.from('analytics_redirects').delete().eq('id', r.id); load() }
+  async function del(r: Redirect) {
+    if (!window.confirm(`Excluir o redirecionamento de "${r.from_path}" para "${r.to_path}"? Essa ação não pode ser desfeita.`)) return
+    const { error } = await supabase.from('analytics_redirects').delete().eq('id', r.id)
+    if (error) { window.alert('Erro ao excluir: ' + error.message); return }
+    load()
+  }
 
   const inp = 'border border-line rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-forest-400'
   return (

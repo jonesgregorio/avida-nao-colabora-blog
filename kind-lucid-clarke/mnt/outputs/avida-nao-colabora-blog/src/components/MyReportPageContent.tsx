@@ -720,6 +720,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfError, setPdfError] = useState(false)
   const [viewer, setViewer] = useState<ViewerState>(null)
   const [essTab, setEssTab] = useState<'atual' | 'anteriores'>('anteriores')
   const [essPeriod, setEssPeriod] = useState('all')
@@ -732,7 +733,14 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
   const handlePdf = useCallback(async (r: StoredReport) => {
     setPdfBusy(true)
-    try { await exportReportPdf(r, planKey, `relatorio-${r.report_type}-${r.period_start}.pdf`) } catch { /* noop */ }
+    setPdfError(false)
+    try {
+      await exportReportPdf(r, planKey, `relatorio-${r.report_type}-${r.period_start}.pdf`)
+    } catch (error) {
+      console.error('exportReportPdf falhou:', error)
+      setPdfError(true)
+      window.setTimeout(() => setPdfError(false), 5000)
+    }
     setPdfBusy(false)
   }, [planKey])
 
@@ -825,6 +833,13 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
   const viewerModal = viewer && (
     <ReportViewerModal viewer={viewer} plan={planKey} onClose={() => setViewer(null)}
       onPdf={handlePdf} pdfBusy={pdfBusy} onRefresh={() => setRefreshKey(k => k + 1)} nav={navProps} />
+  )
+
+  const pdfErrorToast = pdfError && (
+    <div role="alert" className="fixed z-[90] bottom-5 right-5 left-5 sm:left-auto sm:max-w-sm flex items-start gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm text-white shadow-xl">
+      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+      <span>Não foi possível gerar o PDF agora. Tente novamente em instantes.</span>
+    </div>
   )
 
   if (isPlus) {
@@ -973,6 +988,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
         <ReportDisclaimer />
         {viewerModal}
+        {pdfErrorToast}
       </div>
     )
   }
@@ -1117,6 +1133,7 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
 
       <ReportDisclaimer />
       {viewerModal}
+      {pdfErrorToast}
     </div>
   )
 }
