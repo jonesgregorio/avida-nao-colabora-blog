@@ -21,6 +21,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
     title: 'Navegação',
     links: [
       { label: 'Conteúdos', id: 'articles' },
+      { label: 'Guias essenciais', id: 'guides' },
       { label: 'Diário', id: 'diary' },
       { label: 'Mapa emocional', id: 'my-evolution' },
       { label: 'Planos', id: 'pricing' },
@@ -33,6 +34,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
       { label: 'Privacidade', id: 'privacy' },
       { label: 'Termos de uso', id: 'terms' },
       { label: 'Segurança', id: 'responsibility' },
+      { label: 'Política editorial', id: 'editorial-policy' },
     ],
   },
   {
