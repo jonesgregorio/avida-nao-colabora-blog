@@ -129,7 +129,14 @@ function renderSnapshot(page, articles = []) {
 
   let collection = ''
   if (page === PAGE_META.guides) {
-    collection = `<section><h2>Escolha por onde começar</h2><ul>${GUIDE_LINKS.map(([title, slug, text]) => `<li><a href="/blog/${escapeHtml(slug)}"><strong>${escapeHtml(title)}</strong></a><p>${escapeHtml(text)}</p></li>`).join('')}</ul></section>`
+    // Só apontamos para artigos confirmados como públicos pela mesma consulta
+    // usada no índice do blog. Isso evita enviar leitores e robôs a URLs que
+    // pertencem a conteúdos fechados e terminariam em uma tela de login.
+    const publicSlugs = new Set(articles.map((article) => article.slug))
+    const availableGuides = GUIDE_LINKS.filter(([, slug]) => publicSlugs.has(slug))
+    collection = availableGuides.length
+      ? `<section><h2>Escolha por onde começar</h2><ul>${availableGuides.map(([title, slug, text]) => `<li><a href="/blog/${escapeHtml(slug)}"><strong>${escapeHtml(title)}</strong></a><p>${escapeHtml(text)}</p></li>`).join('')}</ul></section>`
+      : '<section><h2>Conteúdos em atualização</h2><p>Estamos preparando os guias detalhados para publicação aberta no blog. Enquanto isso, explore os recursos de organização emocional da plataforma.</p></section>'
   } else if (page === PAGE_META.blog && articles.length) {
     collection = `<section><h2>Conteúdos publicados</h2><ul>${articles.slice(0, 50).map((article) => `<li><a href="/blog/${escapeHtml(article.slug)}"><strong>${escapeHtml(article.title)}</strong></a>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</li>`).join('')}</ul></section>`
   }
