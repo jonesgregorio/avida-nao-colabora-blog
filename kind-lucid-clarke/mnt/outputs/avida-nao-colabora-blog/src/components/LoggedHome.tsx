@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { supabase } from '../lib/supabase'
 import { syncHomeCheckinToDiary } from '../lib/homeCheckinDiary'
-import { CalendarDays, Check, Leaf, X } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarDays, Check, Compass, Flower2, Leaf, Sprout, X } from 'lucide-react'
 import LoggedHomeLegacy from './LoggedHomeLegacy'
 import { MOODS } from './user/moods'
 import { MoodChip } from './user/ui'
@@ -96,14 +96,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
     setSavingDetails(true)
     setSaveError('')
     const date = todayKey()
-    const payload = {
-      user_id: user.id,
-      date,
-      score,
-      feeling_tags: selectedFeelings,
-      custom_tags: customTags,
-      updated_at: new Date().toISOString(),
-    } as never
+    const payload = { user_id: user.id, date, score, feeling_tags: selectedFeelings, custom_tags: customTags, updated_at: new Date().toISOString() } as never
     const { error } = await supabase.from('daily_life_collaboration').upsert(payload, { onConflict: 'user_id,date' })
     if (error) {
       setSaveError('Não foi possível salvar seu check-in agora. Tente novamente em instantes.')
@@ -137,86 +130,54 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
 
           <p className="text-sm font-medium text-forest-700">{greeting()}, <span className="capitalize">{name}</span>.</p>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] leading-[1.08] text-forest-900 mt-1.5">E aí, a vida colaborou hoje?</h1>
-          <p className="text-sm sm:text-base text-ink-soft mt-3 max-w-2xl leading-relaxed">Escolha o que chega mais perto do seu dia. Você pode seguir sem explicar nada.</p>
+          <p className="text-sm sm:text-base text-ink-soft mt-3 max-w-2xl leading-relaxed">Comece registrando como você está. O restante da jornada se organiza a partir daqui.</p>
 
-          {checkinSaved ? <div className="mt-6 rounded-3xl border border-forest-100 bg-white/80 p-5 sm:p-6">
+          {checkinSaved ? <div className="mt-6 border-t border-forest-100 pt-5 sm:pt-6">
             <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-mint text-forest-800"><Check className="h-5 w-5" /></span>
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white text-forest-800"><Check className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-600">Check-in de hoje registrado</p>
                 <h2 className="mt-1 font-serif text-2xl text-forest-900">{selected ? `${selected.emoji} ${selected.label}` : 'Seu check-in ficou guardado'}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-ink-soft">Ele já está salvo e também faz parte do seu histórico. Para escrever mais sobre o dia, abra um registro separado no Diário.</p>
-                {(savedFeelingLabels.length > 0 || customTags.length > 0) && <div className="mt-3 flex flex-wrap gap-2">
-                  {savedFeelingLabels.map(tag => <span key={tag} className="rounded-full border border-line bg-paper-soft px-3 py-1 text-xs text-forest-800">{tag}</span>)}
-                  {customTags.map(tag => <span key={tag} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">{tag}</span>)}
-                </div>}
-                <button type="button" onClick={() => onNavigate('diary')} className="mt-4 rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Fazer meu registro</button>
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">Ele já faz parte do seu histórico e pode alimentar suas descobertas, mapa e relatórios.</p>
+                {(savedFeelingLabels.length > 0 || customTags.length > 0) && <div className="mt-3 flex flex-wrap gap-2">{savedFeelingLabels.map(tag => <span key={tag} className="rounded-full border border-line bg-white/80 px-3 py-1 text-xs text-forest-800">{tag}</span>)}{customTags.map(tag => <span key={tag} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">{tag}</span>)}</div>}
+                <button type="button" onClick={() => onNavigate('diary')} className="mt-4 rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white">Escrever no Diário</button>
               </div>
             </div>
           </div> : <>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-6" aria-label="Quanto a vida colaborou hoje">
-              {COLLABORATION.map(item => {
-                const active = score === item.score
-                return <button key={item.score} type="button" onClick={() => chooseScore(item.score)} aria-pressed={active} className={`relative rounded-2xl border px-3 py-4 text-center transition-all ${active ? 'border-forest-900 bg-forest-900 text-white shadow-sm' : 'border-line bg-white/80 text-forest-900 hover:border-forest-300 hover:bg-white'}`}>
-                  {active && <Check className="absolute right-2 top-2 w-3.5 h-3.5" />}
-                  <span className="block text-2xl" aria-hidden>{item.emoji}</span>
-                  <span className="block text-sm font-medium mt-1.5">{item.label}</span>
-                </button>
-              })}
+              {COLLABORATION.map(item => { const active = score === item.score; return <button key={item.score} type="button" onClick={() => chooseScore(item.score)} aria-pressed={active} className={`relative rounded-2xl border px-3 py-4 text-center transition-all ${active ? 'border-forest-900 bg-forest-900 text-white shadow-sm' : 'border-line bg-white/80 text-forest-900 hover:border-forest-300 hover:bg-white'}`}>{active && <Check className="absolute right-2 top-2 w-3.5 h-3.5" />}<span className="block text-2xl" aria-hidden>{item.emoji}</span><span className="block text-sm font-medium mt-1.5">{item.label}</span></button> })}
             </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-2.5">
-              <button type="button" onClick={() => setShowFeelings(value => !value)} disabled={score == null} className="rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">Registrar meu check-in</button>
-              <button type="button" onClick={() => onNavigate('diary')} className="rounded-2xl border border-line bg-white/85 px-4 py-2.5 text-sm font-medium text-forest-800">Quero escrever no diário</button>
-              {selected && <span className="text-xs text-ink-soft sm:ml-1">Hoje: {selected.emoji} {selected.label}</span>}
-            </div>
-
-            {showFeelings && <div className="mt-4 rounded-2xl border border-white bg-white/65 p-4">
-              <p className="text-sm font-semibold text-forest-900">O que mais marcou como você se sentiu hoje?</p>
-              <p className="text-xs text-ink-soft mt-1">Opcional. Escolha as opções que mais combinaram com o seu dia.</p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {featuredMoods.map(mood => <MoodChip key={mood.key} mood={mood} active={selectedFeelings.includes(mood.key)} onClick={() => toggleFeeling(mood.key)} />)}
-                <button type="button" onClick={() => setShowCustomTag(value => !value)} className="inline-flex items-center rounded-full border border-dashed border-forest-300 bg-white px-3.5 py-2 text-sm font-medium text-forest-800 hover:bg-mint/40">+ Outro</button>
-              </div>
-
-              {customTags.length > 0 && <div className="mt-3 flex flex-wrap gap-2" aria-label="Tags personalizadas">
-                {customTags.map(tag => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-900">{tag}<button type="button" onClick={() => removeCustomTag(tag)} aria-label={`Remover tag ${tag}`} className="rounded-full p-0.5 text-amber-700 hover:text-amber-900"><X className="h-3.5 w-3.5" /></button></span>)}
-              </div>}
-
-              {showCustomTag && <div className="mt-3 flex flex-col sm:flex-row gap-2 max-w-xl">
-                <div className="flex-1">
-                  <label htmlFor="home-checkin-custom-tag" className="sr-only">Como você se sentiu?</label>
-                  <input id="home-checkin-custom-tag" value={customTagInput} maxLength={MAX_CUSTOM_TAG_LENGTH} onChange={event => setCustomTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCustomTag() } }} placeholder="Ex.: alívio, preocupação, desânimo" className="w-full rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900 outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100" />
-                  <p className="mt-1 text-[11px] text-ink-soft">Até {MAX_CUSTOM_TAGS} opções personalizadas, com no máximo {MAX_CUSTOM_TAG_LENGTH} caracteres cada.</p>
-                </div>
-                <button type="button" onClick={addCustomTag} disabled={!customTagInput.trim() || customTags.length >= MAX_CUSTOM_TAGS} className="h-fit rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 disabled:opacity-50">Adicionar</button>
-              </div>}
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={() => void saveCheckinDetails()} disabled={score == null || savingDetails} className="rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{savingDetails ? 'Salvando…' : 'Salvar meu check-in'}</button>
-                {score == null && <span className="text-xs text-ink-soft">Escolha primeiro como a vida colaborou hoje.</span>}
-              </div>
+            <div className="mt-5 flex flex-wrap items-center gap-2.5"><button type="button" onClick={() => setShowFeelings(value => !value)} disabled={score == null} className="rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">Registrar meu check-in</button><button type="button" onClick={() => onNavigate('diary')} className="rounded-2xl border border-line bg-white/85 px-4 py-2.5 text-sm font-medium text-forest-800">Quero escrever no Diário</button>{selected && <span className="text-xs text-ink-soft sm:ml-1">Hoje: {selected.emoji} {selected.label}</span>}</div>
+            {showFeelings && <div className="mt-4 border-t border-white/80 pt-4"><p className="text-sm font-semibold text-forest-900">O que mais marcou como você se sentiu hoje?</p><p className="text-xs text-ink-soft mt-1">Opcional. Escolha as opções que mais combinaram com o seu dia.</p><div className="flex flex-wrap gap-2 mt-3">{featuredMoods.map(mood => <MoodChip key={mood.key} mood={mood} active={selectedFeelings.includes(mood.key)} onClick={() => toggleFeeling(mood.key)} />)}<button type="button" onClick={() => setShowCustomTag(value => !value)} className="inline-flex items-center rounded-full border border-dashed border-forest-300 bg-white px-3.5 py-2 text-sm font-medium text-forest-800 hover:bg-mint/40">+ Outro</button></div>
+              {customTags.length > 0 && <div className="mt-3 flex flex-wrap gap-2" aria-label="Tags personalizadas">{customTags.map(tag => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-900">{tag}<button type="button" onClick={() => removeCustomTag(tag)} aria-label={`Remover tag ${tag}`} className="rounded-full p-0.5 text-amber-700 hover:text-amber-900"><X className="h-3.5 w-3.5" /></button></span>)}</div>}
+              {showCustomTag && <div className="mt-3 flex flex-col sm:flex-row gap-2 max-w-xl"><div className="flex-1"><label htmlFor="home-checkin-custom-tag" className="sr-only">Como você se sentiu?</label><input id="home-checkin-custom-tag" value={customTagInput} maxLength={MAX_CUSTOM_TAG_LENGTH} onChange={event => setCustomTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCustomTag() } }} placeholder="Ex.: alívio, preocupação, desânimo" className="w-full rounded-2xl border border-line bg-white px-4 py-2.5 text-sm text-forest-900 outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100" /><p className="mt-1 text-[11px] text-ink-soft">Até {MAX_CUSTOM_TAGS} opções personalizadas, com no máximo {MAX_CUSTOM_TAG_LENGTH} caracteres cada.</p></div><button type="button" onClick={addCustomTag} disabled={!customTagInput.trim() || customTags.length >= MAX_CUSTOM_TAGS} className="h-fit rounded-2xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-forest-900 disabled:opacity-50">Adicionar</button></div>}
+              <div className="mt-4 flex flex-wrap items-center gap-3"><button type="button" onClick={() => void saveCheckinDetails()} disabled={score == null || savingDetails} className="rounded-2xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{savingDetails ? 'Salvando…' : 'Salvar meu check-in'}</button>{score == null && <span className="text-xs text-ink-soft">Escolha primeiro como a vida colaborou hoje.</span>}</div>
             </div>}
           </>}
           {saveError && <p className="mt-3 text-sm text-[#8a3b23]">{saveError}</p>}
         </div>
       </section>
     </div>
+
+    <JourneyOrchestrator onNavigate={onNavigate} />
+
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
-      <section className="rounded-3xl border border-line bg-white overflow-hidden">
-        <button type="button" onClick={() => setDetailsOpen(value => !value)} aria-expanded={detailsOpen} className="w-full text-left p-5 sm:p-6 flex items-start sm:items-center justify-between gap-4 hover:bg-mint/20 transition-colors">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Quando quiser olhar com mais distância</p>
-            <h2 className="font-serif text-xl sm:text-2xl text-forest-900 mt-1">Olhar minha semana</h2>
-            <p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-3xl">Continuidade, descobertas, foco e conteúdos continuam aqui — mas só aparecem quando você quiser aprofundar.</p>
-          </div>
-          <span className="w-10 h-10 rounded-2xl bg-mint text-forest-700 flex items-center justify-center flex-shrink-0"><CalendarDays className="w-5 h-5" /></span>
+      <section className="border-y border-line bg-white/45">
+        <button type="button" onClick={() => setDetailsOpen(value => !value)} aria-expanded={detailsOpen} className="w-full text-left px-1 py-5 sm:py-6 flex items-start sm:items-center justify-between gap-4 hover:bg-mint/20 transition-colors">
+          <div><p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Quando quiser olhar com mais distância</p><h2 className="font-serif text-xl sm:text-2xl text-forest-900 mt-1">Olhar minha semana</h2><p className="text-sm text-ink-soft mt-2 leading-relaxed max-w-3xl">Continuidade, descobertas, foco e conteúdos aparecem aqui somente quando você quiser aprofundar.</p></div><span className="w-10 h-10 rounded-2xl bg-mint text-forest-700 flex items-center justify-center flex-shrink-0"><CalendarDays className="w-5 h-5" /></span>
         </button>
-        {detailsOpen && <div className="border-t border-line">
-          <style>{`.avnc-legacy-home > div > section:first-child { display: none !important; } .avnc-legacy-home > div { padding-top: 1rem !important; }`}</style>
-          <div className="avnc-legacy-home"><LoggedHomeLegacy user={user} profile={profile} onNavigate={onNavigate} /></div>
-        </div>}
+        {detailsOpen && <div className="border-t border-line"><style>{`.avnc-legacy-home > div > section:first-child { display: none !important; } .avnc-legacy-home > div { padding-top: 1rem !important; }`}</style><div className="avnc-legacy-home"><LoggedHomeLegacy user={user} profile={profile} onNavigate={onNavigate} /></div></div>}
       </section>
     </div>
   </>
+}
+
+function JourneyOrchestrator({ onNavigate }: { onNavigate: (section: string) => void }) {
+  const items = [
+    { id: 'descobertas', label: 'Entender', title: 'O que está se repetindo?', description: 'Veja descobertas e depois aprofunde no mapa, relatórios ou história.', Icon: Compass },
+    { id: 'self-care', label: 'Cuidar', title: 'O que pode ajudar agora?', description: 'Transforme percepção em uma ação pequena e possível.', Icon: Sprout },
+    { id: 'my-garden', label: 'Cultivar', title: 'Como está seu jardim?', description: 'Acompanhe a constância que você vem cultivando.', Icon: Flower2 },
+    { id: 'articles', label: 'Aprender', title: 'Quer ler ou praticar algo?', description: 'Escolha entre leituras e práticas guiadas.', Icon: BookOpen },
+  ]
+  return <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8"><div className="flex items-end justify-between gap-4 mb-3"><div><p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600">Sua jornada</p><h2 className="font-serif text-2xl sm:text-3xl text-forest-900 mt-1">Para onde faz sentido seguir?</h2></div><p className="hidden md:block text-xs text-ink-soft max-w-xs text-right">Registrar → entender → cuidar → cultivar. Você não precisa abrir tudo.</p></div><div className="divide-y divide-line border-y border-line">{items.map(({ id, label, title, description, Icon }) => <button key={id} type="button" onClick={() => onNavigate(id)} className="w-full flex items-center gap-4 py-4 sm:py-5 text-left group"><span className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-paper-soft text-forest-700 flex items-center justify-center flex-shrink-0 group-hover:bg-mint transition-colors"><Icon className="w-5 h-5" /></span><span className="min-w-0 flex-1"><span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">{label}</span><span className="block font-serif text-lg text-forest-900 mt-0.5">{title}</span><span className="block text-xs sm:text-sm text-ink-soft mt-1 leading-relaxed">{description}</span></span><ArrowRight className="w-4 h-4 text-forest-600 flex-shrink-0 group-hover:translate-x-1 transition-transform" /></button>)}</div></section>
 }

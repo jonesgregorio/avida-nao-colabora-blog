@@ -8,7 +8,7 @@ const checkinMigration = readFileSync(new URL('../supabase/migrations/2026090221
 
 test('Home logada prioriza o dia e recolhe a experiência analítica', () => {
   assert.match(home, /E aí, a vida colaborou hoje\?/)
-  assert.match(home, /Escolha o que chega mais perto do seu dia/)
+  assert.match(home, /Comece registrando como você está/)
   assert.match(home, /daily_life_collaboration/)
   assert.match(home, /Olhar minha semana/)
   assert.match(home, /aria-expanded=\{detailsOpen\}/)
@@ -21,7 +21,7 @@ test('Home Hoje usa o novo check-in e mantém o Diário separado', () => {
   assert.match(home, /Sobrevivemos/)
   assert.match(home, /Até que tentou/)
   assert.match(home, /Registrar meu check-in/)
-  assert.match(home, /Quero escrever no diário/)
+  assert.match(home, /Quero escrever no Diário/)
   assert.match(home, /O que mais marcou como você se sentiu hoje\?/)
   assert.match(home, /Opcional\. Escolha as opções que mais combinaram com o seu dia\./)
   assert.match(home, /featuredMoodKeys = new Set\(\['alegria'/)

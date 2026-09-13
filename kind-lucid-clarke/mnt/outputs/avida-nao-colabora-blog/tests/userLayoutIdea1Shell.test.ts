@@ -4,49 +4,65 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('../src/components/user/UserLayout.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-test('área logada preserva logo oficial e mantém a entrada principal como Hoje', () => {
+test('área logada preserva logo oficial e mantém Hoje como ponto de partida', () => {
   assert.match(source, /import \{ LogoIcon \} from '\.\.\/Logo'/)
   assert.match(source, /label: 'Hoje'/)
   assert.match(source, /<LogoIcon className=/)
 })
 
-test('desktop recupera o menu direto anterior e acrescenta Descobertas e Meu Jardim', () => {
-  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios', 'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support']) {
-    assert.match(source, new RegExp(`id: '${id}'`), `destino ausente da navegação desktop: ${id}`)
+test('desktop consolida a arquitetura e resume Conta em um único destino', () => {
+  for (const label of ['Hoje', 'Registrar', 'Evolução', 'Meu Jardim', 'Conteúdos', 'Cuidar']) {
+    assert.match(source, new RegExp(`label: '${label}'`), `destino ausente: ${label}`)
   }
-
-  for (const group of ['Seu espaço', 'Entender', 'Cuidar', 'Conta']) {
-    assert.match(source, new RegExp(`label: '${group}'`), `grupo desktop ausente: ${group}`)
-  }
-
-  assert.match(source, /\['descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios'\]/)
+  assert.match(source, /const ACCOUNT_NAV: NavItem\[] = \[\s*\{ id: 'my-plan', label: 'Conta'/)
+  assert.match(source, /description: 'Meu Plano e Suporte'/)
+  assert.doesNotMatch(source, /const ACCOUNT_NAV:[\s\S]*?label: 'Perfil'/)
+  assert.match(source, /const EVOLUTION_VIEWS = \['descobertas', 'my-evolution', 'my-report', 'my-history'\]/)
+  assert.match(source, /label: 'Sua jornada'/)
   assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
 })
 
-test('mobile expõe Plano de Autocuidado e Orientação como itens diretos (sem o intermediário "Cuidar")', () => {
-  // O menu do mobile deixou de ter um item "Cuidar" que abria uma subtela;
-  // Plano de Autocuidado e Orientação agora são opções próprias, como no desktop.
-  assert.doesNotMatch(source, /id: 'cuidar'/)
-  assert.doesNotMatch(source, /label: 'Cuidar',\s+Icon/)
-  assert.match(source, /const PRIMARY_NAV[\s\S]*id: 'self-care'[\s\S]*id: 'monthly-guidance'[\s\S]*\]/)
-  assert.match(source, /id: 'mais'/)
-  assert.match(source, /const NAV_GROUPS/)
-  assert.match(source, /groups=\{NAV_GROUPS\}/)
+test('Evolução possui navegação contextual própria e nomes completos', () => {
+  for (const id of ['descobertas', 'my-evolution', 'my-report', 'my-history']) {
+    assert.match(source, new RegExp(`id: '${id}'`))
+  }
+  assert.match(source, /const EVOLUTION_TABS/)
+  assert.match(source, /label: 'Minha História'/)
+  assert.match(source, /title: 'Descobertas'/)
+  assert.match(source, /title: 'Mapa Emocional'/)
+  assert.match(source, /title: 'Relatórios'/)
+  assert.match(source, /title: 'Minha História'/)
 })
 
-test('Ideia 1 não ressuscita módulos legados nem gamificação', () => {
-  assert.doesNotMatch(source, /label: 'Caixa de Cuidado'/)
-  assert.doesNotMatch(source, /label: 'Trilhas'/)
-  assert.doesNotMatch(source, /label: 'Meditações'/)
-  assert.doesNotMatch(source, /label: 'Jornada'/)
+test('Cuidar identifica Plano de Autocuidado e explica seu ciclo', () => {
+  assert.match(source, /label: 'Plano de Autocuidado'/)
+  assert.match(source, /title: 'Plano de Autocuidado'/)
+  assert.match(source, /Como o plano funciona/)
+  assert.match(source, /Foco do ciclo/)
+  assert.match(source, /Escolha ações/)
+  assert.match(source, /Adapte sem culpa/)
+  assert.match(source, /Dê retorno/)
 })
 
-test('mobile mantém Hoje, Diário, Descobertas, Mapa + Mais', () => {
-  assert.match(source, /const MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
+test('mobile usa Hoje, Registrar, Evolução, Cuidar e Menu explícito', () => {
+  assert.match(source, /const MOBILE_MAIN/)
   assert.match(source, /aria-label="Navegação principal"/)
-  assert.match(source, />\s*Mais\s*<\/button>/)
-  assert.match(source, /aria-label="Mais recursos"/)
+  assert.match(source, />Menu\s*<\/button>/)
+  assert.match(source, /Recursos e conta/)
+  assert.match(source, /label: 'Conta'/)
+  assert.match(source, /Seu perfil fica na sua foto no topo/)
+  assert.doesNotMatch(source, />Mais\s*<\/button>/)
   assert.match(source, /pb-24 lg:pb-0/)
+})
+
+test('menu mobile mantém recursos e retira Perfil da grade de Conta', () => {
+  assert.match(source, /id: 'my-garden', label: 'Meu Jardim'/)
+  assert.match(source, /id: 'articles', label: 'Conteúdos'/)
+  assert.match(source, /id: 'questionarios', label: 'Questionários'/)
+  const mobileGroups = source.match(/const MOBILE_MENU_GROUPS:[\s\S]*?const DESKTOP_NAV_GROUPS/)?.[0] || ''
+  assert.match(mobileGroups, /id: 'my-plan', label: 'Meu Plano'/)
+  assert.match(mobileGroups, /id: 'support', label: 'Suporte'/)
+  assert.doesNotMatch(mobileGroups, /id: 'profile'/)
 })
 
 test('shell continua usando exclusivamente os tokens visuais oficiais do projeto', () => {

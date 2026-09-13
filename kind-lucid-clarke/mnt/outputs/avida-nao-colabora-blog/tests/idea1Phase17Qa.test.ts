@@ -16,13 +16,14 @@ test('Perfil mostra continuidade recente sem streak, chama ou pressão por sequ�
   assert.doesNotMatch(profile, /<Flame\b/)
 })
 
-test('menu Mais mobile é um diálogo acessível com foco e Escape', () => {
+test('menu mobile é um diálogo acessível com foco e Escape', () => {
   assert.match(layout, /useModalA11y\(onClose\)/)
   assert.match(layout, /role="dialog"/)
   assert.match(layout, /aria-modal="true"/)
-  assert.match(layout, /aria-labelledby="mobile-more-title"/)
+  assert.match(layout, /aria-labelledby="mobile-menu-title"/)
   assert.match(layout, /tabIndex=\{-1\}/)
   assert.match(layout, /aria-haspopup="dialog"/)
+  assert.match(layout, /Recursos e conta/)
 })
 
 test('cabeçalho de Notificações empilha no mobile e preserva filtros estreitos', () => {
@@ -42,6 +43,6 @@ test('CI autenticado cobre a jornada principal em desktop e mobile', () => {
   assert.match(journeyE2e, /width: 320, height: 760/)
   assert.match(journeyE2e, /AxeBuilder/)
   assert.match(journeyE2e, /scrollWidth - window\.innerWidth/)
-  assert.match(journeyE2e, /getByRole\('dialog', \{ name: 'Mais recursos' \}\)/)
+  assert.match(journeyE2e, /getByRole\('dialog', \{ name: 'Recursos e conta' \}\)/)
   assert.match(journeyE2e, /keyboard\.press\('Escape'\)/)
 })
