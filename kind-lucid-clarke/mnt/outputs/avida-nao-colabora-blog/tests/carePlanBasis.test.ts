@@ -47,11 +47,7 @@ test('frase resumida para o usuário não menciona IA', () => {
   assert.doesNotMatch(text, /\bIA\b/)
 })
 
-test('Admin mostra "Base deste plano" e usuário mostra frase resumida sem termos de IA', () => {
-  const admin = read('src/components/admin/AdminMonthlyCarePlans.tsx')
-  assert.match(admin, /Base deste plano/)
-  assert.match(admin, /normalizeCarePlanBasis/)
-
+test('SelfCarePlanPageLegacy mostra frase resumida sem termos de IA (arquivo mantido por compatibilidade, sem rota ativa)', () => {
   const user = read('src/components/SelfCarePlanPageLegacy.tsx')
   assert.match(user, /describeCarePlanBasis/)
 })

@@ -101,9 +101,9 @@ test('botão de campanha vira link de verdade quando tem cta_url — sem link, c
   assert.match(garden, /:<span className="shrink-0 self-start rounded-2xl bg-forest-900\/90/) // fallback sem link continua span, não <a>
 })
 
-test('admin consegue definir texto e link do botão da campanha; "Desbloqueio temporário" continua avisado como não aplicado (não mexi em plano/acesso)', () => {
+test('admin consegue definir texto e link do botão da campanha, e o card mostra o selo de "Desbloqueio temporário" quando ativo', () => {
   assert.match(adminPanel, /cta_label: string\s*\n\s*cta_url: string \| null/)
   assert.match(adminPanel, /Input label="Texto do botão"/)
   assert.match(adminPanel, /Input label="Link do botão/)
-  assert.match(adminPanel, /Ainda não aplicado — fica salvo, mas nenhuma tela hoje libera acesso com base nisso\./)
+  assert.match(adminPanel, /\{c\.temporary_unlock&&<span[^>]*>Desbloqueio temporário<\/span>\}/)
 })

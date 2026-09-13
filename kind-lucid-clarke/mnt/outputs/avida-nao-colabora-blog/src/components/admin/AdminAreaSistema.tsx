@@ -6,16 +6,18 @@ import AdminIntegrations from './AdminIntegrations'
 import AdminLogs from './AdminLogs'
 import AdminPermissions from './AdminPermissions'
 import AdminAutomationsHealth from './AdminAutomationsHealth'
-import AdminIdea1Rollout from './AdminIdea1Rollout'
 import AdminFeatureFlags from './AdminFeatureFlags'
 import AdminInfraReference from './AdminInfraReference'
 import AdminAIUsage from './AdminAIUsage'
 import AdminAnalyticsSettings from './AdminAnalyticsSettings'
 
-// SISTEMA — de 9 abas soltas para 5 áreas. Nada foi removido: "Saúde", "Filas",
+// SISTEMA — de 9 abas soltas para 5 áreas. "Saúde", "Filas",
 // "Automações" e a antiga "Central de IA" (que estava em Cuidado) viraram
 // subseções de Monitoramento; "Infra & externas" entrou em Integrações;
-// "Liberação" + "Funcionalidades" viraram Recursos.
+// "Funcionalidades" virou Recursos. O painel de "Liberação progressiva"
+// (rollout do Idea1) foi removido daqui: a rolagem já estava 100% concluída
+// e sem essa tela; o flag em si (src/lib/idea1Rollout*.ts) continua ativo
+// e gating o WeeklyFocusCard, só não é mais editável pela UI do Admin.
 type Sub = { id: string; label: string; Component: ComponentType }
 
 const AREAS: { id: string; label: string; icon: typeof Activity; subs: Sub[] }[] = [
@@ -30,7 +32,6 @@ const AREAS: { id: string; label: string; icon: typeof Activity; subs: Sub[] }[]
     { id: 'infra', label: 'Infra & externas', Component: AdminInfraReference },
   ]},
   { id: 'recursos', label: 'Recursos', icon: Gauge, subs: [
-    { id: 'liberacao', label: 'Liberação progressiva', Component: AdminIdea1Rollout },
     { id: 'flags', label: 'Feature flags', Component: AdminFeatureFlags },
   ]},
   { id: 'administradores', label: 'Administradores', icon: Shield, subs: [

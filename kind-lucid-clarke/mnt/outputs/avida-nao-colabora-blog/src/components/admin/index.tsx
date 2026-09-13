@@ -107,7 +107,9 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   integracoes: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'servicos' },
   integrations: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'servicos' },
   infra: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'infra' },
-  liberacao: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'liberacao' },
+  // "Liberação progressiva" (rollout do Idea1) foi removida do Admin — a rolagem
+  // já estava 100% concluída. Alias antigo cai em Recursos (única sub-aba: flags).
+  liberacao: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'flags' },
   flags: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'flags' },
   logs: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'logs' },
   permissions: { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'permissoes' },

@@ -24,9 +24,9 @@ test('prévia de e-mail no Admin usa o mesmo link correto (/meu-relatorio)', () 
 // generated_by_ai:true de forma fixa, mesmo quando o admin nunca gerou por
 // IA (texto todo manual) ou quando a IA caiu no fallback determinístico.
 test('Plano de Autocuidado só marca generated_by_ai=true quando a IA de fato gerou (não fixo)', () => {
-  const src = read('src/components/admin/AdminMonthlyCarePlans.tsx')
+  const src = read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
   assert.doesNotMatch(src, /generated_by_ai: true,/)
-  assert.match(src, /generated_by_ai: generatedByAI,/)
+  assert.match(src, /generated_by_ai:\s*next === 'skip' \? false : generatedByAI,/)
   assert.match(src, /const \[generatedByAI, setGeneratedByAI\] = useState\(plan\?\.generated_by_ai \?\? false\)/)
   assert.match(src, /setGeneratedByAI\(result\.generatedByAI\)/)
 })

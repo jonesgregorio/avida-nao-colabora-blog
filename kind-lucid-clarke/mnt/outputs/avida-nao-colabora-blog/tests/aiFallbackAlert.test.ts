@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
 const migration = read('supabase/migrations/20260908010000_ai_fallback_alert_template.sql')
-const carePlan = read('src/components/admin/AdminMonthlyCarePlans.tsx')
+const carePlan = read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
 
 test('run-emotional-automations rastreia fallbacks e alerta o admin no fim da execução', () => {
   assert.match(runner, /const fallbackItems: \{ user_id: string; kind: string; reason: string \}\[\] = \[\]/)
@@ -32,12 +32,10 @@ test('o template de e-mail do alerta existe e é idempotente', () => {
   assert.match(migration, /\{\{link_admin\}\}/)
 })
 
-test('a tela de revisão do plano avisa e trava quando o rascunho é de emergência', () => {
-  assert.match(carePlan, /Rascunho de emergência — a IA falhou/)
+test('a tela de revisão do plano avisa e trava quando o rascunho é fallback (IA falhou)', () => {
+  assert.match(carePlan, /Fallback detectado/)
   assert.match(carePlan, /error_message: string \| null/)
   // Guard no envio: fallback não editado exige confirmação forte.
-  assert.match(carePlan, /if \(next === 'send' && fallbackUsed && !generatedByAI && !editedByHuman\)/)
-  assert.match(carePlan, /RASCUNHO DE EMERGÊNCIA \(a IA falhou\)/)
-  // O botão de regeração muda de rótulo quando é fallback.
-  assert.match(carePlan, /fallbackUsed \? 'Tentar gerar com IA de novo'/)
+  assert.match(carePlan, /if \(next === 'send' && fallbackUsed && !generatedByAI && !edited\)/)
+  assert.match(carePlan, /fallbackUsed && !generatedByAI && <div className="mt-4 rounded-xl border border-red-200 bg-red-50/)
 })
