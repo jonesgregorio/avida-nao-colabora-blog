@@ -26,6 +26,18 @@ export interface CareSummary {
   patterns: string[]
   attention_points: string[]
 }
+/**
+ * Metadados por ação (frequência sugerida, dificuldade, duração estimada) — sempre estimativas
+ * possíveis, nunca uma cobrança. Opcional e paralelo a `small_actions`: um plano salvo antes
+ * deste campo existir (ou uma resposta da IA sem isso) simplesmente não tem `action_plan`, e a
+ * tela cai para a lista simples de `small_actions` — nunca inventa um valor pra plano antigo.
+ */
+export interface CareActionDetail {
+  text: string
+  frequency?: string
+  difficulty?: 'leve' | 'moderado' | 'dificil'
+  duration_minutes?: number
+}
 export interface CarePlanContent {
   /** Contrato atual do roteiro mensal. Os campos legados abaixo continuam para planos já persistidos. */
   title?: string
@@ -33,7 +45,7 @@ export interface CarePlanContent {
   based_on_period?: string
   main_focus?: string
   why_this_focus?: string
-  three_care_priorities?: Array<{ priority: string; why_it_matters: string; small_actions: string[] }>
+  three_care_priorities?: Array<{ priority: string; why_it_matters: string; small_actions: string[]; action_plan?: CareActionDetail[] }>
   weekly_rhythm?: { week_1?: string; week_2?: string; week_3?: string; week_4?: string }
   suggested_micro_actions?: string[]
   recommended_guided_contents?: string[]
@@ -227,6 +239,24 @@ function asStringArray(v: unknown): string[] {
 function asString(v: unknown): string {
   return typeof v === 'string' ? v.trim() : ''
 }
+const DIFFICULTIES = new Set(['leve', 'moderado', 'dificil'])
+function asActionDetails(v: unknown): CareActionDetail[] {
+  if (!Array.isArray(v)) return []
+  return v.map(item => {
+    if (typeof item === 'string') { const text = item.trim(); return text ? { text } : null }
+    const row = (item ?? {}) as Record<string, unknown>
+    const text = asString(row.text ?? row.action)
+    if (!text) return null
+    const difficulty = asString(row.difficulty).toLowerCase()
+    const duration = Number(row.duration_minutes)
+    return {
+      text,
+      frequency: asString(row.frequency) || undefined,
+      difficulty: DIFFICULTIES.has(difficulty) ? difficulty as CareActionDetail['difficulty'] : undefined,
+      duration_minutes: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : undefined,
+    }
+  }).filter((x): x is CareActionDetail => Boolean(x))
+}
 
 function validate(parsed: unknown, reasons?: string[]): CarePlanResult | null {
   const fail = (why: string) => { reasons?.push(why); return null }
@@ -249,7 +279,13 @@ function validate(parsed: unknown, reasons?: string[]): CarePlanResult | null {
     three_care_priorities: Array.isArray(c.three_care_priorities)
       ? c.three_care_priorities.map(item => {
         const row = (item ?? {}) as Record<string, unknown>
-        return { priority: asString(row.priority ?? row.title), why_it_matters: asString(row.why_it_matters ?? row.reason), small_actions: asStringArray(row.small_actions ?? row.actions) }
+        const actionPlan = asActionDetails(row.action_plan)
+        return {
+          priority: asString(row.priority ?? row.title),
+          why_it_matters: asString(row.why_it_matters ?? row.reason),
+          small_actions: asStringArray(row.small_actions ?? row.actions),
+          action_plan: actionPlan.length ? actionPlan : undefined,
+        }
       })
         // Só exige o rótulo da prioridade; completa o resto se a IA não mandou.
         .filter(item => item.priority)
@@ -257,6 +293,7 @@ function validate(parsed: unknown, reasons?: string[]): CarePlanResult | null {
           priority: item.priority,
           why_it_matters: item.why_it_matters || 'Isto apareceu nos seus registros do mês e merece um cuidado leve.',
           small_actions: item.small_actions.length ? item.small_actions : ['Escolha um passo pequeno e possível para esta semana.'],
+          action_plan: item.action_plan,
         }))
       : [],
     weekly_rhythm: (c.weekly_rhythm && typeof c.weekly_rhythm === 'object')
@@ -370,9 +407,30 @@ export function fallbackCarePlan(a: EmotionalAnalysis, monthLabel: string): Care
       main_focus: 'Escolher um pequeno passo de cuidado possível.',
       why_this_focus: 'Use o que o mês mostrou como uma pista, sem transformar esse plano em uma cobrança.',
       three_care_priorities: [
-        { priority: 'Observar seus sinais', why_it_matters: 'Perceber os momentos que merecem atenção pode ajudar a escolher um cuidado possível.', small_actions: ['Faça um check-in breve quando fizer sentido.', 'Anote um momento que mereça atenção, sem precisar explicar tudo.'] },
-        { priority: 'Escolher uma pausa possível', why_it_matters: 'Pequenas pausas podem criar espaço para perceber o que ajuda no seu ritmo.', small_actions: ['Escolha uma pausa curta em um dia da semana.', 'Escolha uma ação leve que caiba no seu dia.'] },
-        { priority: 'Revisar com gentileza', why_it_matters: 'O plano é um apoio, não uma cobrança de desempenho.', small_actions: ['Reserve um momento para olhar seus registros.', 'No fim da semana, note o que fez sentido manter.'] },
+        {
+          priority: 'Observar seus sinais', why_it_matters: 'Perceber os momentos que merecem atenção pode ajudar a escolher um cuidado possível.',
+          small_actions: ['Faça um check-in breve quando fizer sentido.', 'Anote um momento que mereça atenção, sem precisar explicar tudo.'],
+          action_plan: [
+            { text: 'Faça um check-in breve quando fizer sentido.', frequency: 'Quando fizer sentido', difficulty: 'leve', duration_minutes: 2 },
+            { text: 'Anote um momento que mereça atenção, sem precisar explicar tudo.', frequency: 'Alguns dias na semana', difficulty: 'leve', duration_minutes: 5 },
+          ],
+        },
+        {
+          priority: 'Escolher uma pausa possível', why_it_matters: 'Pequenas pausas podem criar espaço para perceber o que ajuda no seu ritmo.',
+          small_actions: ['Escolha uma pausa curta em um dia da semana.', 'Escolha uma ação leve que caiba no seu dia.'],
+          action_plan: [
+            { text: 'Escolha uma pausa curta em um dia da semana.', frequency: '1x por semana', difficulty: 'leve', duration_minutes: 10 },
+            { text: 'Escolha uma ação leve que caiba no seu dia.', frequency: 'Quando fizer sentido', difficulty: 'leve', duration_minutes: 5 },
+          ],
+        },
+        {
+          priority: 'Revisar com gentileza', why_it_matters: 'O plano é um apoio, não uma cobrança de desempenho.',
+          small_actions: ['Reserve um momento para olhar seus registros.', 'No fim da semana, note o que fez sentido manter.'],
+          action_plan: [
+            { text: 'Reserve um momento para olhar seus registros.', frequency: 'Quinzenal', difficulty: 'moderado', duration_minutes: 15 },
+            { text: 'No fim da semana, note o que fez sentido manter.', frequency: 'Semanal', difficulty: 'leve', duration_minutes: 5 },
+          ],
+        },
       ],
       weekly_rhythm: { week_1: 'Observar sem se cobrar.', week_2: 'Escolher uma pequena ação possível.', week_3: 'Ajustar o que funcionou.', week_4: 'Revisar com gentileza.' },
       suggested_micro_actions: dr.patterns.length > 0 ? dr.patterns.slice(0, 4) : undefined,

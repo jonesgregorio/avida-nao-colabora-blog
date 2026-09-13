@@ -124,6 +124,7 @@ export function buildSelfCarePlanPrompt(summary: EmotionalSummary): string {
   return `${base('self_care_plan', summary)}
 TAREFA: crie um roteiro prospectivo, realista e pequeno para o próximo mês. A pergunta central é: "O que posso fazer agora com base nos meus registros?".
 Transforme leitura em pequenas ações. Não repita o relatório inteiro. Não imponha metas rígidas.
+Para cada ação em "action_plan", sugira frequência realista, dificuldade (leve/moderado/dificil) e duração em minutos — sempre como estimativas possíveis para ajudar a pessoa a se organizar, nunca como uma cobrança ou meta rígida.
 
 FORMATO EXATO:
 {
@@ -133,9 +134,13 @@ FORMATO EXATO:
   "main_focus": "foco leve",
   "why_this_focus": "1 a 3 frases",
   "three_care_priorities": [
-    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"] },
-    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"] },
-    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"] }
+    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"],
+      "action_plan": [
+        { "text": "ação pequena 1 (igual ao texto de small_actions)", "frequency": "ex: diariamente / 3x por semana / quando fizer sentido", "difficulty": "leve|moderado|dificil", "duration_minutes": 5 },
+        { "text": "ação pequena 2", "frequency": "...", "difficulty": "leve|moderado|dificil", "duration_minutes": 10 }
+      ] },
+    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"], "action_plan": [ /* mesmo formato acima */ ] },
+    { "priority": "prioridade", "why_it_matters": "por que importa", "small_actions": ["ação pequena 1", "ação pequena 2"], "action_plan": [ /* mesmo formato acima */ ] }
   ],
   "weekly_rhythm": {
     "week_1": "observar sem se cobrar",
