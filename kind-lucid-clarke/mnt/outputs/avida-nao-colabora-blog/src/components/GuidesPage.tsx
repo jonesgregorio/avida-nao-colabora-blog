@@ -2,11 +2,10 @@ import { ArrowRight, BookOpen, Compass, ShieldCheck } from 'lucide-react'
 import { SEO_PILLAR_GUIDES } from '../lib/seoGuides'
 
 interface GuidesPageProps {
-  onSelectArticle: (slug: string) => void
   onNavigate: (section: string) => void
 }
 
-export default function GuidesPage({ onSelectArticle, onNavigate }: GuidesPageProps) {
+export default function GuidesPage({ onNavigate }: GuidesPageProps) {
   return (
     <main className="min-h-screen bg-paper">
       <header className="border-b border-line bg-[#fffdf9]">
@@ -27,7 +26,7 @@ export default function GuidesPage({ onSelectArticle, onNavigate }: GuidesPagePr
         <section aria-labelledby="guide-list-title">
           <div className="mb-6 flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-mint text-forest-700"><Compass className="h-5 w-5" /></span>
-            <div><h2 id="guide-list-title" className="font-serif text-2xl text-forest-900">Escolha por onde começar</h2><p className="text-sm text-ink-soft">Oito portas de entrada para os temas centrais do blog.</p></div>
+            <div><h2 id="guide-list-title" className="font-serif text-2xl text-forest-900">Temas que estamos preparando</h2><p className="text-sm text-ink-soft">Os guias completos serão publicados abertamente no blog.</p></div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -36,13 +35,7 @@ export default function GuidesPage({ onSelectArticle, onNavigate }: GuidesPagePr
                 <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-forest-600">{guide.cluster}</p>
                 <h3 className="mt-2 font-serif text-2xl text-forest-900">{guide.title}</h3>
                 <p className="mt-3 flex-1 text-sm leading-6 text-ink-soft">{guide.description}</p>
-                <a
-                  href={`/blog/${guide.slug}`}
-                  onClick={(event) => { event.preventDefault(); onSelectArticle(guide.slug) }}
-                  className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-forest-800"
-                >
-                  Ler guia <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </a>
+                <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-forest-800">Em preparação <ArrowRight className="h-4 w-4" /></p>
               </article>
             ))}
           </div>
@@ -50,7 +43,7 @@ export default function GuidesPage({ onSelectArticle, onNavigate }: GuidesPagePr
 
         <aside className="mt-10 grid gap-5 rounded-3xl bg-forest-900 p-7 text-white sm:grid-cols-[auto_1fr_auto] sm:items-center">
           <BookOpen className="h-7 w-7 text-mint" />
-          <div><h2 className="font-serif text-2xl">Quer explorar todos os conteúdos?</h2><p className="mt-1 text-sm leading-6 text-white/75">Use os filtros do blog para encontrar leituras por emoção, contexto ou tema.</p></div>
+          <div><h2 className="font-serif text-2xl">Quer acompanhar as publicações?</h2><p className="mt-1 text-sm leading-6 text-white/75">Os conteúdos abertos aparecerão no blog assim que forem revisados e publicados.</p></div>
           <a href="/blog" onClick={(event) => { event.preventDefault(); onNavigate('articles') }} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-forest-900">Ver o blog <ArrowRight className="h-4 w-4" /></a>
         </aside>
 
