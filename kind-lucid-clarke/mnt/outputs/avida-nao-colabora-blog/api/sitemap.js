@@ -3,6 +3,7 @@ const SITE_ORIGIN = 'https://www.avidanaocolabora.com'
 const STATIC_URLS = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/blog', changefreq: 'daily', priority: '0.9' },
+  { path: '/guias', changefreq: 'monthly', priority: '0.9' },
   { path: '/planos', changefreq: 'monthly', priority: '0.8' },
   { path: '/faq', changefreq: 'monthly', priority: '0.7' },
   { path: '/sobre', changefreq: 'monthly', priority: '0.7' },
@@ -10,6 +11,7 @@ const STATIC_URLS = [
   { path: '/privacidade', changefreq: 'monthly', priority: '0.4' },
   { path: '/termos', changefreq: 'monthly', priority: '0.4' },
   { path: '/aviso-de-responsabilidade', changefreq: 'monthly', priority: '0.3' },
+  { path: '/politica-editorial', changefreq: 'monthly', priority: '0.5' },
 ]
 
 function xmlEscape(value = '') {

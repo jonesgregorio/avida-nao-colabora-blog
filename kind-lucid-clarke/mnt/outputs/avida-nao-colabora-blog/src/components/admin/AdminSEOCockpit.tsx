@@ -15,23 +15,36 @@ interface Row {
   cover_image_url: string | null
   keyword: string | null
   content: string | null
+  author: string | null
+  image_alt: string | null
+  related_slugs: string[] | null
+  reviewed_at: string | null
+  published: boolean | null
   published_at: string | null
   updated_at: string | null
   created_at: string
 }
 
-type Issue = 'no_seo' | 'no_image' | 'bad_slug' | 'old'
+type Issue = 'no_seo' | 'no_image' | 'bad_slug' | 'thin' | 'no_author' | 'no_review' | 'no_links' | 'old'
 
-const seoOk = (a: Row) => !!(a.seo_title && a.seo_description)
-const imgOk = (a: Row) => !!(a.image_url || a.cover_image || a.cover_image_url)
+const seoOk = (a: Row) => !!(a.seo_title && a.seo_title.trim().length >= 25 && a.seo_title.trim().length <= 60 && a.seo_description && a.seo_description.trim().length >= 90 && a.seo_description.trim().length <= 155 && a.keyword)
+const imgOk = (a: Row) => !!((a.image_url || a.cover_image || a.cover_image_url) && a.image_alt?.trim())
 const badSlug = (s: string) => !s || /[^a-z0-9-]/.test(s) || s.length > 60 || s.includes('--')
+const wordCount = (content: string | null) => String(content || '').trim().split(/\s+/).filter(Boolean).length
 function isOld(a: Row) {
-  const d = a.published_at || a.updated_at || a.created_at
+  const d = a.updated_at || a.published_at || a.created_at
   if (!d) return false
   return Date.now() - new Date(d).getTime() > 180 * 86400000
 }
 const hasIssue = (a: Row, i: Issue) =>
-  i === 'no_seo' ? !seoOk(a) : i === 'no_image' ? !imgOk(a) : i === 'bad_slug' ? badSlug(a.slug) : isOld(a)
+  i === 'no_seo' ? !seoOk(a)
+    : i === 'no_image' ? !imgOk(a)
+      : i === 'bad_slug' ? badSlug(a.slug)
+        : i === 'thin' ? wordCount(a.content) < 800
+          : i === 'no_author' ? !a.author?.trim()
+            : i === 'no_review' ? !a.reviewed_at
+              : i === 'no_links' ? !a.related_slugs?.length && !/\]\(\/blog\//.test(a.content || '')
+                : isOld(a)
 
 export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id: string) => void }) {
   const [rows, setRows] = useState<Row[]>([])
@@ -43,20 +56,25 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('articles').select('*').order('created_at', { ascending: false }).limit(500)
+    const { data } = await supabase.from('articles').select('id,title,slug,status,published,seo_title,seo_description,image_url,cover_image,cover_image_url,image_alt,keyword,content,author,related_slugs,reviewed_at,published_at,updated_at,created_at').order('created_at', { ascending: false }).limit(500)
     setRows((data as Row[]) ?? [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
 
   const cards: { key: Issue; label: string }[] = [
-    { key: 'no_seo', label: 'Sem SEO' },
-    { key: 'no_image', label: 'Sem imagem' },
+    { key: 'no_seo', label: 'Metadados incompletos' },
+    { key: 'no_image', label: 'Imagem ou alt ausente' },
     { key: 'bad_slug', label: 'Slug ruim' },
+    { key: 'thin', label: 'Conteúdo curto' },
+    { key: 'no_author', label: 'Sem autoria' },
+    { key: 'no_review', label: 'Sem revisão registrada' },
+    { key: 'no_links', label: 'Sem links internos' },
     { key: 'old', label: 'Antigos (6+ meses)' },
   ]
-  const count = (i: Issue) => rows.filter(a => hasIssue(a, i)).length
-  const list = rows.filter(a => hasIssue(a, issue))
+  const publishedRows = rows.filter(a => a.published === true || a.status === 'published')
+  const count = (i: Issue) => publishedRows.filter(a => hasIssue(a, i)).length
+  const list = publishedRows.filter(a => hasIssue(a, issue))
 
   async function genSEO(a: Row) {
     setBusyId(a.id)
@@ -83,16 +101,16 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="font-serif text-3xl text-forest-900">SEO</h1>
-          <p className="text-sm text-ink-soft mt-1">Encontre e corrija lacunas de SEO — gere metadados com IA em 1 clique.</p>
+          <p className="text-sm text-ink-soft mt-1">Qualidade técnica dos conteúdos publicados: metadados, imagem, autoria, profundidade, links internos e atualização.</p>
         </div>
         <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar</button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
         {cards.map(c => (
           <button key={c.key} onClick={() => setIssue(c.key)} className={`text-left bg-white border rounded-2xl p-5 transition-colors ${issue === c.key ? 'border-forest-700 shadow-sm' : 'border-line hover:border-forest-300'}`}>
-            <p className="font-serif text-3xl text-forest-900">{loading ? '—' : count(c.key)}</p>
-            <p className="text-sm text-ink-soft mt-1">{c.label}</p>
+            <p className="font-serif text-2xl text-forest-900">{loading ? '—' : count(c.key)}</p>
+            <p className="text-xs leading-4 text-ink-soft mt-1">{c.label}</p>
           </button>
         ))}
       </div>
@@ -120,7 +138,7 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
                 <tr key={a.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3">
                     <p className="font-medium text-forest-900 leading-snug">{a.title}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">{a.slug}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">{a.slug} · {wordCount(a.content)} palavras</p>
                   </td>
                   <td className="px-3 py-3 text-center hidden sm:table-cell">{seoOk(a) ? <span className="text-green-600">✓</span> : <span className="text-amber-500">—</span>}</td>
                   <td className="px-3 py-3 text-center hidden sm:table-cell">{imgOk(a) ? <span className="text-green-600">✓</span> : <span className="text-amber-500">—</span>}</td>

@@ -17,9 +17,69 @@ function absoluteUrl(value) {
   return `${SITE_ORIGIN}${raw.startsWith('/') ? '' : '/'}${raw}`
 }
 
+function imageMime(value) {
+  const pathname = String(value || '').split('?')[0].toLowerCase()
+  if (pathname.endsWith('.png')) return 'image/png'
+  if (pathname.endsWith('.webp')) return 'image/webp'
+  if (pathname.endsWith('.gif')) return 'image/gif'
+  return 'image/jpeg'
+}
+
 function replaceOrAppendHead(html, pattern, replacement) {
   if (pattern.test(html)) return html.replace(pattern, replacement)
   return html.replace('</head>', `    ${replacement}\n  </head>`)
+}
+
+function renderInlineMarkdown(value = '') {
+  return escapeHtml(value)
+    .replace(/\[([^\]]+)\]\((\/blog\/[a-z0-9-]+)\)/gi, '<a href="$2">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+}
+
+function renderPublicArticleContent(content = '') {
+  const lines = String(content).replace(/\r\n/g, '\n').split('\n')
+  const output = []
+  let listType = null
+  const closeList = () => { if (listType) output.push(`</${listType}>`); listType = null }
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line || /^::video/.test(line)) { closeList(); continue }
+    if (/^(---|\*\*\*|___)$/.test(line)) { closeList(); output.push('<hr />'); continue }
+    if (line.startsWith('### ')) { closeList(); output.push(`<h3>${renderInlineMarkdown(line.slice(4))}</h3>`); continue }
+    if (line.startsWith('## ')) { closeList(); output.push(`<h2>${renderInlineMarkdown(line.slice(3))}</h2>`); continue }
+    if (line.startsWith('> ')) { closeList(); output.push(`<blockquote>${renderInlineMarkdown(line.slice(2))}</blockquote>`); continue }
+    const unordered = line.match(/^[-*]\s+(.+)/)
+    const ordered = line.match(/^\d+\.\s+(.+)/)
+    if (unordered || ordered) {
+      const nextType = unordered ? 'ul' : 'ol'
+      if (listType !== nextType) { closeList(); output.push(`<${nextType}>`); listType = nextType }
+      output.push(`<li>${renderInlineMarkdown((unordered || ordered)[1])}</li>`)
+      continue
+    }
+    closeList()
+    output.push(`<p>${renderInlineMarkdown(line)}</p>`)
+  }
+  closeList()
+  return output.join('')
+}
+
+function injectArticleSnapshot(html, article, canonical) {
+  const title = String(article.title || article.seo_title || 'Artigo').trim()
+  const description = String(article.summary || article.excerpt || article.seo_description || '').trim()
+  const author = String(article.author || 'Equipe editorial A Vida Não Colabora').trim()
+  const published = article.published_at ? new Date(article.published_at).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
+  const reviewed = article.reviewed_at ? new Date(article.reviewed_at).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
+  const articleBody = article.content ? renderPublicArticleContent(article.content) : ''
+  const related = Array.isArray(article.related_slugs) && article.related_slugs.length
+    ? `<aside><h2>Continue lendo</h2><ul>${article.related_slugs.slice(0, 6).filter((slug) => /^[a-z0-9-]+$/i.test(slug)).map((slug) => {
+      const label = slug.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase())
+      return `<li><a href="/blog/${escapeHtml(slug)}">${escapeHtml(label)}</a></li>`
+    }).join('')}</ul></aside>`
+    : ''
+  const markup = `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a></nav><article><header><p>${escapeHtml(article.category || 'Bem-estar emocional')}</p><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ''}<p>Por ${escapeHtml(author)}${published ? ` · Publicado em ${escapeHtml(published)}` : ''}${reviewed ? ` · Revisão editorial em ${escapeHtml(reviewed)}` : ''}</p></header>${articleBody || `<p>${escapeHtml(description)}</p>`}<footer><p>Conteúdo educativo. Não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p></footer></article>${related}<p><a href="${escapeHtml(canonical)}">Ler este conteúdo na A Vida Não Colabora</a></p></main>`
+  return html.replace('<div id="root"></div>', `<div id="root">${markup}</div>`)
 }
 
 function applyCanonicalLinks(html, canonical) {
@@ -39,17 +99,19 @@ function setArticleHead(shell, article, slug) {
   const imageAlt = String(article.image_alt || article.title || 'Imagem do artigo').trim()
   const publishedAt = article.published_at ? new Date(article.published_at).toISOString() : null
   const modifiedAt = article.updated_at ? new Date(article.updated_at).toISOString() : publishedAt
+  const isPublic = !article.plan_required || String(article.plan_required) === 'free'
 
   let html = shell
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']description["'][^>]*>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
-  html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, '<meta name="robots" content="index, follow, max-image-preview:large" />')
+  html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, `<meta name="robots" content="${isPublic ? 'index, follow, max-image-preview:large' : 'noindex, follow'}" />`)
   html = applyCanonicalLinks(html, canonical)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:title["'][^>]*>/i, `<meta property="og:title" content="${escapeHtml(title)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:description["'][^>]*>/i, `<meta property="og:description" content="${escapeHtml(description)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:type["'][^>]*>/i, '<meta property="og:type" content="article" />')
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:url["'][^>]*>/i, `<meta property="og:url" content="${escapeHtml(canonical)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:image["'][^>]*>/i, `<meta property="og:image" content="${escapeHtml(image)}" />`)
+  html = replaceOrAppendHead(html, /<meta\s+property=["']og:image:type["'][^>]*>/i, `<meta property="og:image:type" content="${imageMime(image)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:image:alt["'][^>]*>/i, `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:card["'][^>]*>/i, '<meta name="twitter:card" content="summary_large_image" />')
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:title["'][^>]*>/i, `<meta name="twitter:title" content="${escapeHtml(title)}" />`)
@@ -62,14 +124,22 @@ function setArticleHead(shell, article, slug) {
     article.category ? `<meta property="article:section" content="${escapeHtml(article.category)}" />` : '',
   ].filter(Boolean).join('\n    ')
 
+  const authorName = String(article.author || 'Equipe editorial A Vida Não Colabora').trim()
   const structuredData = JSON.stringify({
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': 'BlogPosting',
+    '@id': `${canonical}#article`,
     headline: title,
     description,
     image: [image],
     datePublished: publishedAt || undefined,
     dateModified: modifiedAt || undefined,
+    inLanguage: 'pt-BR',
+    isAccessibleForFree: isPublic,
+    articleSection: article.category || undefined,
+    author: authorName === 'A Vida Não Colabora' || authorName.startsWith('Equipe editorial')
+      ? { '@type': 'Organization', name: authorName, url: `${SITE_ORIGIN}/politica-editorial` }
+      : { '@type': 'Person', name: authorName },
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
     publisher: {
       '@type': 'Organization',
@@ -78,11 +148,21 @@ function setArticleHead(shell, article, slug) {
     },
   }).replace(/</g, '\\u003c')
 
+  const breadcrumbs = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Início', item: `${SITE_ORIGIN}/` },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${SITE_ORIGIN}/blog` },
+      { '@type': 'ListItem', position: 3, name: title, item: canonical },
+    ],
+  }).replace(/</g, '\\u003c')
+
   html = html.replace(
     '</head>',
-    `    ${articleMeta}\n    <script type="application/ld+json">${structuredData}</script>\n  </head>`,
+    `    ${articleMeta}\n    <script type="application/ld+json">${structuredData}</script>\n    <script type="application/ld+json">${breadcrumbs}</script>\n  </head>`,
   )
-  return html
+  return isPublic ? injectArticleSnapshot(html, article, canonical) : html
 }
 
 function setArticleFallbackHead(shell, slug) {
@@ -121,15 +201,18 @@ async function getArticleSeo(slug) {
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
   if (!supabaseUrl || !anonKey) throw new Error('supabase_public_env_missing')
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_public_article_seo`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ p_slug: slug }),
-  })
+  const request = (functionName) => fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
+      method: 'POST',
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_slug: slug }),
+    })
+  let response
+  try {
+    response = await request('get_public_article_document')
+  } catch {
+    response = null
+  }
+  if (!response?.ok) response = await request('get_public_article_seo')
   if (!response.ok) throw new Error(`seo_rpc_http_${response.status}`)
   const rows = await response.json()
   return Array.isArray(rows) ? rows[0] || null : rows || null

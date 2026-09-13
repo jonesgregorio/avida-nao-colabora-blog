@@ -212,7 +212,7 @@ export default function ArticleView({
     setLoading(true)
     setLocked(null)
     try {
-      const articleCols = 'id,slug,title,category,content,created_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords,seo_title,seo_description,og_image'
+      const articleCols = 'id,slug,title,category,content,author,created_at,published_at,updated_at,reviewed_at,read_time,image_alt,cta_custom_title,cta_custom_text,image_url,cover_image_url,cover_image,related_slugs,tags,emotional_themes,keywords,seo_title,seo_description,og_image'
       const { data, error } = await supabase.from('articles').select(articleCols).eq('slug', s).single()
       if (error || !data) {
         setArticle(null)
@@ -454,8 +454,8 @@ export default function ArticleView({
   const summary = extractSummary(article.content || '', article.title)
   const diaryQuestions = parseDiaryQuestions(article.content || '')
 
-  const formattedDate = article.created_at
-    ? new Date(article.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const formattedDate = (article.published_at || article.created_at)
+    ? new Date(article.published_at || article.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     : ''
 
   return (
@@ -503,8 +503,14 @@ export default function ArticleView({
 
       {/* Tempo de leitura SEMPRE: usa o valor salvo ou calcula do conteúdo, para
           artigos antigos (sem read_time) também exibirem. */}
-      <div className="flex items-center gap-2 text-ink-soft text-sm mb-8 no-print">
-        <Clock size={14} /> {article.read_time || estimateReadTime(article.content || '')} min de leitura
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-soft text-sm mb-8 no-print">
+        <span>{article.author || 'Equipe editorial A Vida Não Colabora'}</span>
+        {formattedDate && <><span aria-hidden="true">·</span><time dateTime={article.published_at || article.created_at}>{formattedDate}</time></>}
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5"><Clock size={14} /> {article.read_time || estimateReadTime(article.content || '')} min de leitura</span>
+        <span aria-hidden="true">·</span>
+        <a href="/politica-editorial" onClick={(event) => { event.preventDefault(); doNavigate('editorial-policy') }} className="font-medium text-forest-700 underline underline-offset-2">Como cuidamos deste conteúdo</a>
+        {article.reviewed_at && <><span aria-hidden="true">·</span><span>Revisão editorial registrada</span></>}
       </div>
 
       {/* A) Quick Summary Card */}
@@ -682,9 +688,11 @@ export default function ArticleView({
           <h3 className="font-serif text-lg text-forest-900 mb-4">Conteúdos relacionados</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {related.map(rel => (
-              <button
+              <a
                 key={rel.id}
-                onClick={() => {
+                href={`/blog/${rel.slug}`}
+                onClick={(event) => {
+                  event.preventDefault()
                   if (onSelectArticle) onSelectArticle(rel.slug)
                   else doNavigate('article', rel.slug)
                 }}
@@ -701,7 +709,7 @@ export default function ArticleView({
                   <span className="text-xs text-forest-600">{rel.category}</span>
                   <p className="font-medium text-forest-700 text-sm mt-1 line-clamp-2">{rel.title}</p>
                 </div>
-              </button>
+              </a>
             ))}
           </div>
         </div>
