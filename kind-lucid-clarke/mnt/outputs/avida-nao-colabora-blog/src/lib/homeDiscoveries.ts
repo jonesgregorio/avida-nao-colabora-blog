@@ -5,7 +5,9 @@ import {
 } from './diaryPatternRules.ts'
 
 export type HomeDiscoveryPlan = 'free' | 'essential' | 'plus'
-export type HomeDiscoveryStatus = 'forming' | 'ready'
+// 'weakening' só é aplicada quando há histórico suficiente (>=10 dias com registro) pra comparar
+// a metade mais recente do período com a mais antiga — nunca inferida com poucos dias.
+export type HomeDiscoveryStatus = 'forming' | 'ready' | 'weakening'
 export type HomeDiscoveryKind =
   | 'mood'
   | 'emotion'
@@ -40,6 +42,16 @@ export interface HomeDiscovery {
   question: string
   matchedDays: number
   baseDays: number
+  /** Dia (YYYY-MM-DD) mais antigo em que o sinal apareceu. */
+  firstSeen: string
+  /** Dia (YYYY-MM-DD) mais recente em que o sinal apareceu. */
+  lastSeen: string
+  /** Início do período de dias com registro analisado (não só os dias do sinal). */
+  periodStart: string
+  /** Fim do período de dias com registro analisado. */
+  periodEnd: string
+  /** Todos os dias (YYYY-MM-DD, ordem crescente) em que o sinal apareceu — só datas, nunca texto do Diário. */
+  matchedDates: string[]
 }
 
 interface DaySignals {
@@ -150,21 +162,63 @@ function statusFor(matchedDays: number, baseDays: number): HomeDiscoveryStatus |
   return null
 }
 
+// Um sinal só "enfraquece" quando há histórico suficiente (>=10 dias com registro, ambas as
+// metades com >=4 dias) pra comparar a metade mais recente do período com a mais antiga — e
+// quando a metade mais ANTIGA sozinha já seria forte o bastante pra ser um padrão. A checagem
+// não depende do status calculado sobre o período inteiro (que cai junto com a queda recente):
+// um sinal forte há um mês e ausente agora deve aparecer como "enfraquecendo", não sumir
+// silenciosamente por a média do período inteiro ter descido junto.
+function applyTrend(status: HomeDiscoveryStatus, dayKeys: Set<string>, days: DaySignals[]): HomeDiscoveryStatus {
+  if (days.length < 10) return status
+  const half = Math.ceil(days.length / 2)
+  const recentDays = days.slice(0, half) // `days` vem ordenado do mais recente pro mais antigo
+  const olderDays = days.slice(half)
+  if (recentDays.length < 4 || olderDays.length < 4) return status
+  const recentMatched = recentDays.filter(d => dayKeys.has(d.key)).length
+  const olderMatched = olderDays.filter(d => dayKeys.has(d.key)).length
+  const recentRatio = recentMatched / recentDays.length
+  const olderRatio = olderMatched / olderDays.length
+  const olderWasEstablished = olderMatched >= 3 && olderRatio >= 0.5
+  if (olderWasEstablished && recentRatio < 0.4 && olderRatio - recentRatio >= 0.34) return 'weakening'
+  return status
+}
+
+function firstLast(dayKeys: Set<string>): { firstSeen: string; lastSeen: string; matchedDates: string[] } {
+  const sorted = [...dayKeys].sort()
+  return { firstSeen: sorted[0] ?? '', lastSeen: sorted[sorted.length - 1] ?? '', matchedDates: sorted }
+}
+
+function periodBounds(days: DaySignals[]): { periodStart: string; periodEnd: string } {
+  if (!days.length) return { periodStart: '', periodEnd: '' }
+  return { periodStart: days[days.length - 1].key, periodEnd: days[0].key } // desc-sorted
+}
+
+function stageEyebrow(status: HomeDiscoveryStatus): string {
+  if (status === 'ready') return 'Descoberta do seu histórico'
+  if (status === 'weakening') return 'Um sinal que vem aparecendo com menos frequência'
+  return 'Uma descoberta está se formando'
+}
+
 function recurrenceCandidate(
   kind: 'mood' | 'emotion' | 'context' | 'trigger',
   label: string,
-  matchedDays: number,
-  activeDays: number,
+  dayKeys: Set<string>,
+  days: DaySignals[],
   priority: number,
 ): Candidate | null {
-  const status = statusFor(matchedDays, activeDays)
-  if (!status) return null
+  const activeDays = days.length
+  const matchedDays = dayKeys.size
+  const baseStatus = statusFor(matchedDays, activeDays)
+  if (!baseStatus) return null
+  const status = applyTrend(baseStatus, dayKeys, days)
   const display = kind === 'mood' ? label : ucfirst(label)
-  const subject = kind === 'trigger'
-    ? `“${display}” apareceu como gatilho em mais de um dia`
-    : kind === 'context'
-      ? `“${display}” tem aparecido em vários dias`
-      : `“${display}” vem aparecendo com frequência`
+  const subject = status === 'weakening'
+    ? `“${display}” apareceu com menos frequência nos dias mais recentes`
+    : kind === 'trigger'
+      ? `“${display}” apareceu como gatilho em mais de um dia`
+      : kind === 'context'
+        ? `“${display}” tem aparecido em vários dias`
+        : `“${display}” vem aparecendo com frequência`
 
   return {
     id: `${kind}:${label.toLowerCase()}:${matchedDays}:${activeDays}`,
@@ -173,15 +227,21 @@ function recurrenceCandidate(
     status,
     priority,
     ratio: matchedDays / activeDays,
-    eyebrow: status === 'ready' ? 'Descoberta do seu histórico' : 'Uma descoberta está se formando',
+    eyebrow: stageEyebrow(status),
     title: subject,
-    description: status === 'ready'
-      ? `Esse sinal apareceu em ${matchedDays} dos seus ${activeDays} dias com registro no período. Há repetição suficiente para valer uma observação mais atenta.`
-      : `Esse sinal apareceu em ${matchedDays} dos seus ${activeDays} dias com registro. Ainda é cedo para chamar isso de padrão, mas já existe repetição para acompanhar.`,
+    description: status === 'weakening'
+      ? `Esse sinal apareceu em ${matchedDays} dos seus ${activeDays} dias com registro no período, mas ficou bem menos presente na metade mais recente desse período do que estava antes.`
+      : status === 'ready'
+        ? `Esse sinal apareceu em ${matchedDays} dos seus ${activeDays} dias com registro no período. Há repetição suficiente para valer uma observação mais atenta.`
+        : `Esse sinal apareceu em ${matchedDays} dos seus ${activeDays} dias com registro. Ainda é cedo para chamar isso de padrão, mas já existe repetição para acompanhar.`,
     evidence: `${matchedDays} dias distintos de ${activeDays} dias registrados. A contagem é por dia, não pela quantidade de registros feitos no mesmo dia.`,
-    question: `O que você percebe quando compara os dias em que “${display}” apareceu?`,
+    question: status === 'weakening'
+      ? `O que mudou entre os dias mais antigos e os mais recentes em que “${display}” apareceu?`
+      : `O que você percebe quando compara os dias em que “${display}” apareceu?`,
     matchedDays,
     baseDays: activeDays,
+    ...firstLast(dayKeys),
+    ...periodBounds(days),
   }
 }
 
@@ -189,12 +249,15 @@ function relationCandidate(
   kind: 'context_emotion' | 'trigger_emotion',
   left: string,
   right: string,
-  matchedDays: number,
-  activeDays: number,
+  dayKeys: Set<string>,
+  days: DaySignals[],
   priority: number,
 ): Candidate | null {
-  const status = statusFor(matchedDays, activeDays)
-  if (!status) return null
+  const activeDays = days.length
+  const matchedDays = dayKeys.size
+  const baseStatus = statusFor(matchedDays, activeDays)
+  if (!baseStatus) return null
+  const status = applyTrend(baseStatus, dayKeys, days)
   const leftLabel = ucfirst(left)
   const rightLabel = ucfirst(right)
 
@@ -205,30 +268,46 @@ function relationCandidate(
     status,
     priority,
     ratio: matchedDays / activeDays,
-    eyebrow: status === 'ready' ? 'Descoberta do seu histórico' : 'Uma descoberta está se formando',
-    title: `“${leftLabel}” e “${rightLabel}” apareceram juntos em mais de um dia`,
-    description: status === 'ready'
-      ? `Os dois marcadores apareceram juntos em ${matchedDays} dos seus ${activeDays} dias registrados no período. Isso mostra uma coocorrência que pode valer observar.`
-      : `Os dois marcadores já apareceram juntos em ${matchedDays} dias diferentes. Ainda faltam registros para tratar isso como uma relação recorrente.`,
+    eyebrow: stageEyebrow(status),
+    title: status === 'weakening'
+      ? `“${leftLabel}” e “${rightLabel}” apareceram juntos com menos frequência recentemente`
+      : `“${leftLabel}” e “${rightLabel}” apareceram juntos em mais de um dia`,
+    description: status === 'weakening'
+      ? `Os dois marcadores já apareceram juntos em ${matchedDays} dos seus ${activeDays} dias, mas essa coocorrência ficou mais rara na metade mais recente do período.`
+      : status === 'ready'
+        ? `Os dois marcadores apareceram juntos em ${matchedDays} dos seus ${activeDays} dias registrados no período. Isso mostra uma coocorrência que pode valer observar.`
+        : `Os dois marcadores já apareceram juntos em ${matchedDays} dias diferentes. Ainda faltam registros para tratar isso como uma relação recorrente.`,
     evidence: `Coocorrência em ${matchedDays} dias distintos. Isso não significa que um marcador cause o outro.`,
     question: `O que você nota quando compara os dias em que “${leftLabel}” e “${rightLabel}” apareceram juntos?`,
     matchedDays,
     baseDays: activeDays,
+    ...firstLast(dayKeys),
+    ...periodBounds(days),
   }
 }
 
 function scaleRelationCandidate(
   kind: 'sleep_anxiety' | 'energy_anxiety',
-  matchedDays: number,
-  baseDays: number,
+  dayKeys: Set<string>,
+  baseDayKeys: Set<string>,
+  days: DaySignals[],
   priority: number,
 ): Candidate | null {
+  const matchedDays = dayKeys.size
+  const baseDays = baseDayKeys.size
   if (baseDays < 3 || matchedDays < 2) return null
-  const status: HomeDiscoveryStatus = baseDays >= 4 && matchedDays >= 3 && matchedDays / baseDays >= 0.6 ? 'ready' : 'forming'
+  const baseStatus: HomeDiscoveryStatus = baseDays >= 4 && matchedDays >= 3 && matchedDays / baseDays >= 0.6 ? 'ready' : 'forming'
+  // pra tendência, a "atividade" relevante é entre os dias em que os dois sinais foram marcados
+  // (baseDayKeys), não o período inteiro — senão dias sem os dois sinais marcados contariam como
+  // enfraquecimento.
+  const baseDaysList = days.filter(d => baseDayKeys.has(d.key))
+  const status = applyTrend(baseStatus, dayKeys, baseDaysList)
   const sleep = kind === 'sleep_anxiety'
-  const title = sleep
-    ? 'Sono mais difícil e ansiedade mais alta apareceram juntos'
-    : 'Energia mais baixa e ansiedade mais alta apareceram juntas'
+  const title = status === 'weakening'
+    ? (sleep ? 'Sono difícil e ansiedade alta apareceram juntos com menos frequência recentemente' : 'Energia baixa e ansiedade alta apareceram juntas com menos frequência recentemente')
+    : sleep
+      ? 'Sono mais difícil e ansiedade mais alta apareceram juntos'
+      : 'Energia mais baixa e ansiedade mais alta apareceram juntas'
   const first = sleep ? 'sono e ansiedade' : 'energia e ansiedade'
 
   return {
@@ -238,43 +317,58 @@ function scaleRelationCandidate(
     status,
     priority,
     ratio: matchedDays / baseDays,
-    eyebrow: status === 'ready' ? 'Descoberta do seu histórico' : 'Uma descoberta está se formando',
+    eyebrow: stageEyebrow(status),
     title,
-    description: status === 'ready'
-      ? `Isso aconteceu em ${matchedDays} dos ${baseDays} dias em que você marcou os dois sinais. É uma repetição que pode valer acompanhar com mais distância.`
-      : `Isso já aconteceu em ${matchedDays} dos ${baseDays} dias em que você marcou os dois sinais. Ainda é cedo para chamar de padrão.`,
+    description: status === 'weakening'
+      ? `Isso já aconteceu em ${matchedDays} dos ${baseDays} dias em que você marcou os dois sinais, mas ficou mais raro na parte mais recente desses dias.`
+      : status === 'ready'
+        ? `Isso aconteceu em ${matchedDays} dos ${baseDays} dias em que você marcou os dois sinais. É uma repetição que pode valer acompanhar com mais distância.`
+        : `Isso já aconteceu em ${matchedDays} dos ${baseDays} dias em que você marcou os dois sinais. Ainda é cedo para chamar de padrão.`,
     evidence: `A comparação usa médias do mesmo dia para ${first}. Coocorrência não significa causa nem diagnóstico.`,
     question: 'O que mais estava diferente nesses dias quando você olha para eles em conjunto?',
     matchedDays,
     baseDays,
+    ...firstLast(dayKeys),
+    ...periodBounds(days),
   }
 }
 
 function countBySignal(days: DaySignals[], getValues: (day: DaySignals) => Set<string>) {
-  const counts = new Map<string, number>()
+  const dayKeysBySignal = new Map<string, Set<string>>()
   for (const day of days) {
-    for (const value of getValues(day)) counts.set(value, (counts.get(value) ?? 0) + 1)
+    for (const value of getValues(day)) {
+      const set = dayKeysBySignal.get(value) ?? new Set<string>()
+      set.add(day.key)
+      dayKeysBySignal.set(value, set)
+    }
   }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
+  return [...dayKeysBySignal.entries()]
+    .map(([label, dayKeys]) => ({ label, count: dayKeys.size, dayKeys }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'pt-BR'))
 }
 
 function pairCounts(days: DaySignals[], left: (day: DaySignals) => Set<string>, right: (day: DaySignals) => Set<string>) {
-  const counts = new Map<string, { left: string; right: string; count: number }>()
+  const dayKeysByPair = new Map<string, { left: string; right: string; dayKeys: Set<string> }>()
   for (const day of days) {
     for (const a of left(day)) {
       for (const b of right(day)) {
-        const key = `${a}\u0000${b}`
-        const current = counts.get(key)
-        counts.set(key, { left: a, right: b, count: (current?.count ?? 0) + 1 })
+        const key = a + '\u0000' + b
+        const current = dayKeysByPair.get(key) ?? { left: a, right: b, dayKeys: new Set<string>() }
+        current.dayKeys.add(day.key)
+        dayKeysByPair.set(key, current)
       }
     }
   }
-  return [...counts.values()].sort((a, b) => b.count - a.count || a.left.localeCompare(b.left, 'pt-BR') || a.right.localeCompare(b.right, 'pt-BR'))
+  return [...dayKeysByPair.values()]
+    .map(({ left, right, dayKeys }) => ({ left, right, count: dayKeys.size, dayKeys }))
+    .sort((a, b) => b.count - a.count || a.left.localeCompare(b.left, 'pt-BR') || a.right.localeCompare(b.right, 'pt-BR'))
 }
+
+const STATUS_RANK: Record<HomeDiscoveryStatus, number> = { ready: 2, weakening: 1, forming: 0 }
 
 function sortCandidates(candidates: Candidate[]): Candidate[] {
   return [...candidates].sort((a, b) => {
-    const status = Number(b.status === 'ready') - Number(a.status === 'ready')
+    const status = STATUS_RANK[b.status] - STATUS_RANK[a.status]
     if (status !== 0) return status
     if (b.matchedDays !== a.matchedDays) return b.matchedDays - a.matchedDays
     if (Math.abs(b.ratio - a.ratio) > 0.0001) return b.ratio - a.ratio
@@ -327,44 +421,44 @@ function collectDiscoveryCandidates(
 
   const candidates: Candidate[] = []
 
-  for (const [mood, count] of countBySignal(days, day => day.moods)) {
-    const candidate = recurrenceCandidate('mood', mood, count, activeDays, 80)
+  for (const signal of countBySignal(days, day => day.moods)) {
+    const candidate = recurrenceCandidate('mood', signal.label, signal.dayKeys, days, 80)
     if (candidate) candidates.push(candidate)
   }
 
   if (plan === 'essential' || plan === 'plus') {
-    for (const [emotion, count] of countBySignal(days, day => day.emotions)) {
-      const candidate = recurrenceCandidate('emotion', emotion, count, activeDays, 50)
+    for (const signal of countBySignal(days, day => day.emotions)) {
+      const candidate = recurrenceCandidate('emotion', signal.label, signal.dayKeys, days, 50)
       if (candidate) candidates.push(candidate)
     }
-    for (const [context, count] of countBySignal(days, day => day.contexts)) {
-      const candidate = recurrenceCandidate('context', context, count, activeDays, 60)
+    for (const signal of countBySignal(days, day => day.contexts)) {
+      const candidate = recurrenceCandidate('context', signal.label, signal.dayKeys, days, 60)
       if (candidate) candidates.push(candidate)
     }
 
     for (const pair of pairCounts(days, day => day.contexts, day => day.emotions)) {
-      const candidate = relationCandidate('context_emotion', pair.left, pair.right, pair.count, activeDays, 25)
+      const candidate = relationCandidate('context_emotion', pair.left, pair.right, pair.dayKeys, days, 25)
       if (candidate) candidates.push(candidate)
     }
 
-    const sleepAnxietyBase = days.filter(day => avg(day.sleep) != null && avg(day.anxiety) != null)
-    const sleepAnxietyMatched = sleepAnxietyBase.filter(day => (avg(day.sleep) ?? 5) <= 2 && (avg(day.anxiety) ?? 0) >= 4).length
-    const sleepAnxiety = scaleRelationCandidate('sleep_anxiety', sleepAnxietyMatched, sleepAnxietyBase.length, 10)
+    const sleepAnxietyBase = new Set(days.filter(day => avg(day.sleep) != null && avg(day.anxiety) != null).map(d => d.key))
+    const sleepAnxietyMatched = new Set(days.filter(day => sleepAnxietyBase.has(day.key) && (avg(day.sleep) ?? 5) <= 2 && (avg(day.anxiety) ?? 0) >= 4).map(d => d.key))
+    const sleepAnxiety = scaleRelationCandidate('sleep_anxiety', sleepAnxietyMatched, sleepAnxietyBase, days, 10)
     if (sleepAnxiety) candidates.push(sleepAnxiety)
 
-    const energyAnxietyBase = days.filter(day => avg(day.energy) != null && avg(day.anxiety) != null)
-    const energyAnxietyMatched = energyAnxietyBase.filter(day => (avg(day.energy) ?? 5) <= 2 && (avg(day.anxiety) ?? 0) >= 4).length
-    const energyAnxiety = scaleRelationCandidate('energy_anxiety', energyAnxietyMatched, energyAnxietyBase.length, 15)
+    const energyAnxietyBase = new Set(days.filter(day => avg(day.energy) != null && avg(day.anxiety) != null).map(d => d.key))
+    const energyAnxietyMatched = new Set(days.filter(day => energyAnxietyBase.has(day.key) && (avg(day.energy) ?? 5) <= 2 && (avg(day.anxiety) ?? 0) >= 4).map(d => d.key))
+    const energyAnxiety = scaleRelationCandidate('energy_anxiety', energyAnxietyMatched, energyAnxietyBase, days, 15)
     if (energyAnxiety) candidates.push(energyAnxiety)
   }
 
   if (plan === 'plus') {
-    for (const [trigger, count] of countBySignal(days, day => day.triggers)) {
-      const candidate = recurrenceCandidate('trigger', trigger, count, activeDays, 35)
+    for (const signal of countBySignal(days, day => day.triggers)) {
+      const candidate = recurrenceCandidate('trigger', signal.label, signal.dayKeys, days, 35)
       if (candidate) candidates.push(candidate)
     }
     for (const pair of pairCounts(days, day => day.triggers, day => day.emotions)) {
-      const candidate = relationCandidate('trigger_emotion', pair.left, pair.right, pair.count, activeDays, 20)
+      const candidate = relationCandidate('trigger_emotion', pair.left, pair.right, pair.dayKeys, days, 20)
       if (candidate) candidates.push(candidate)
     }
   }
