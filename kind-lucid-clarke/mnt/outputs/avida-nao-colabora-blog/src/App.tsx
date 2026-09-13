@@ -382,7 +382,7 @@ export default function App() {
   }
 
   if (view === 'guides') {
-    return appShell(<GuidesPage onNavigate={navigate} onSelectArticle={(slug) => navigate('article', slug)} />)
+    return appShell(<GuidesPage onNavigate={navigate} />)
   }
 
   if (view === 'editorial-policy') {
