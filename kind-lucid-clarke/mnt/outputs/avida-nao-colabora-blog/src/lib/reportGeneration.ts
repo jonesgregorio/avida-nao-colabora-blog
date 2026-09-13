@@ -46,7 +46,14 @@ export interface WeeklyContent {
   // §14.1: contextos que mais apareceram na semana.
   topContexts: { tag: string; count: number }[]
   comparison: string[]
+  /** @deprecated Relatório semanal não é um plano de ações — mantido só por compatibilidade com relatórios já salvos antes desta versão. A UI atual não renderiza isso; ver Plano de Autocuidado. */
   nextSteps: string[]
+  /**
+   * Uma única pergunta para reflexão sobre a semana (§ contrato do Relatório Semanal). Diferente
+   * de `interpretation`/`patterns`: não descreve o que aconteceu, convida a pessoa a observar por
+   * conta própria.
+   */
+  reflectionQuestion: string
   recommendTags: string[]
   // Gráficos de síntese + dados principais (§6.3/§6.4)
   energyByDay: DayPoint[]
@@ -142,6 +149,10 @@ export function normalizeStoredReport(report: StoredReport): StoredReport {
     ...report,
     content: {
       ...normalized,
+      // Relatórios salvos antes desta versão não têm pergunta de reflexão própria — cai num
+      // convite genérico em vez de deixar o campo vazio na tela.
+      reflectionQuestion: normalized.reflectionQuestion?.trim()
+        || 'O que você percebe quando olha para os registros desta semana com um pouco de distância?',
       // Metadado efêmero usado pela retrospectiva para ligar o foco à semana
       // correta. Não há UPDATE/INSERT aqui e o histórico salvo permanece intacto.
       __view_period: { start: report.period_start, end: report.period_end },
@@ -185,15 +196,25 @@ export function buildWeeklyContent(analysis: EmotionalAnalysis): WeeklyContent {
     ? derivePatterns(a)
     : deriveWeeklyPatternsFallback(narrativeBase)
 
+  // Uma pergunta só — o relatório semanal fecha a semana com um convite à observação, não com uma
+  // lista de tarefas (isso é papel do Plano de Autocuidado). Ancorada no sinal mais presente
+  // quando há dado suficiente; genérica e gentil quando não há.
+  const reflectionQuestion = hasInterpretationData
+    ? `O que costuma acontecer um pouco antes de ${(negativeTop ?? top ?? 'esse sentimento').toLowerCase()} aparecer para você?`
+    : 'O que você notou em si mesmo(a) nesta semana, mesmo sem muitos registros?'
+
   return normalizeWeeklyNarrative({
     kind: 'weekly', v: CONTENT_VERSION, hasEnoughData, summary, interpretation,
     patterns,
     attentionPoints: deriveAttentionPoints(a),
     improvementMoments: deriveImprovement(a),
+    reflectionQuestion,
     topEmotions: a.topEmotions.slice(0, 5),
     avgEnergy: a.avg.energy, avgAnxiety: a.avg.anxiety, avgMood: a.avg.mood,
     emotionalMarkers: a.emotionalMarkers.slice(0, 5), topContexts: a.contexts.slice(0, 5), comparison: a.weekly.lines,
-    nextSteps: ['Fazer um check-in no meio do dia', 'Registrar diário em dias de maior sobrecarga', 'Ler um conteúdo guiado recomendado', 'Acompanhar o padrão no Mapa Emocional'],
+    // mantido só por compatibilidade de leitura com relatórios salvos antes desta versão — a UI
+    // atual não usa isso como lista de ações (ver reflectionQuestion acima).
+    nextSteps: [],
     recommendTags: [...new Set([...a.emotionalMarkers.map(t => t.tag), ...a.topEmotions.filter(e => NEGATIVE.has(e.label)).map(e => e.label)])],
     energyByDay: a.energyByDay, anxietyByDay: a.anxietyByDay,
     checkinCount: a.checkinCount, diaryCount: a.diaryCount,

@@ -73,14 +73,20 @@ function discoveryCategoryLabel(discovery: HomeDiscovery): string {
   }
 }
 
+// Os três estágios possíveis de uma descoberta — direto do `status` calculado em
+// homeDiscoveries.ts, nunca uma segunda leitura independente do mesmo dado.
 function discoveryStage(discovery: HomeDiscovery): string {
-  if (discovery.status === 'forming') return 'Começando a aparecer'
+  if (discovery.status === 'forming') return 'Em formação'
+  if (discovery.status === 'weakening') return 'Enfraquecendo'
+  return 'Recorrente'
+}
 
-  const ratio = discovery.baseDays > 0 ? discovery.matchedDays / discovery.baseDays : 0
-  if (discovery.baseDays >= 7 && discovery.matchedDays >= 5 && ratio >= 0.6) {
-    return 'Padrão observado'
-  }
-  return 'Se repetindo'
+// Data curta (ex.: "12 de set.") a partir de uma chave YYYY-MM-DD, sem depender de fuso/hora.
+function formatDiscoveryDate(dayKey: string): string {
+  if (!dayKey) return ''
+  const [year, month, day] = dayKey.split('-').map(Number)
+  if (!year || !month || !day) return ''
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
 function discoveryContextualDescription(discovery: HomeDiscovery): string {
@@ -199,7 +205,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
     [observingDiscoveries],
   )
   const patternDiscoveries = useMemo(
-    () => observingDiscoveries.filter(discovery => discovery.status === 'ready' && !isConnection(discovery)),
+    () => observingDiscoveries.filter(discovery => discovery.status !== 'forming' && !isConnection(discovery)),
     [observingDiscoveries],
   )
   const connectionDiscoveries = useMemo(
@@ -208,7 +214,7 @@ export default function DescobertasPage({ user, profile, onNavigate }: Props) {
   )
 
   const highlights = observingDiscoveries.slice(0, 3)
-  const observedPatterns = observingDiscoveries.filter(discovery => discoveryStage(discovery) === 'Padrão observado').length
+  const observedPatterns = observingDiscoveries.filter(discovery => discovery.status === 'ready').length
   const strongestContext = observingDiscoveries.find(discovery => discovery.kind === 'context')
   const strongestConnection = observingDiscoveries.find(isConnection)
   const strongestSignal = observingDiscoveries.find(discovery => discovery.kind === 'mood' || discovery.kind === 'emotion')
@@ -604,15 +610,41 @@ function DiscoveryDrawer({ discovery, feedback, onChoose, onClose, onOpenMap }: 
         </div>
 
         <div className="flex flex-wrap gap-2 mt-4">
-          <span className="rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-forest-700">{discoveryStage(discovery)}</span>
+          <span className={`rounded-full border px-3 py-1.5 text-[11px] font-medium ${discovery.status === 'weakening' ? 'border-amber-200 bg-amber-50 text-amber-900' : discovery.status === 'ready' ? 'border-forest-300 bg-mint/50 text-forest-900' : 'border-line bg-white text-forest-700'}`}>{discoveryStage(discovery)}</span>
           <span className="rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink-soft">{discovery.matchedDays} de {discovery.baseDays} dias</span>
         </div>
 
         <p className="text-sm text-ink-soft mt-5 leading-relaxed">{discoveryContextualDescription(discovery)}</p>
 
+        <dl className="grid grid-cols-3 gap-2 mt-4 text-center">
+          <div className="rounded-2xl border border-line bg-white/80 px-2 py-2.5">
+            <dt className="text-[9px] uppercase tracking-[0.1em] font-semibold text-ink-soft">1ª vez</dt>
+            <dd className="text-xs font-medium text-forest-900 mt-0.5">{formatDiscoveryDate(discovery.firstSeen)}</dd>
+          </div>
+          <div className="rounded-2xl border border-line bg-white/80 px-2 py-2.5">
+            <dt className="text-[9px] uppercase tracking-[0.1em] font-semibold text-ink-soft">Mais recente</dt>
+            <dd className="text-xs font-medium text-forest-900 mt-0.5">{formatDiscoveryDate(discovery.lastSeen)}</dd>
+          </div>
+          <div className="rounded-2xl border border-line bg-white/80 px-2 py-2.5">
+            <dt className="text-[9px] uppercase tracking-[0.1em] font-semibold text-ink-soft">Período analisado</dt>
+            <dd className="text-xs font-medium text-forest-900 mt-0.5">{formatDiscoveryDate(discovery.periodStart)}–{formatDiscoveryDate(discovery.periodEnd)}</dd>
+          </div>
+        </dl>
+
         <section className="rounded-2xl border border-line bg-white/80 p-4 mt-5">
           <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-forest-600">O que sustenta essa percepção</p>
           <p className="text-sm text-ink-soft mt-2 leading-relaxed">{discovery.evidence}</p>
+          {discovery.matchedDates.length > 0 && (
+            <details className="mt-3">
+              <summary className="text-xs font-medium text-forest-700 cursor-pointer select-none">Ver os dias que contribuíram ({discovery.matchedDates.length})</summary>
+              <div className="flex flex-wrap gap-1.5 mt-2" aria-label="Dias em que este sinal apareceu">
+                {discovery.matchedDates.map(date => (
+                  <span key={date} className="rounded-full border border-line bg-paper-soft px-2.5 py-1 text-[11px] text-forest-800">{formatDiscoveryDate(date)}</span>
+                ))}
+              </div>
+              <p className="text-[11px] text-ink-soft mt-2">Só as datas — o texto dos seus registros de Diário nunca entra aqui.</p>
+            </details>
+          )}
         </section>
 
         <section className="rounded-2xl bg-mint/30 p-4 mt-3">
@@ -680,7 +712,7 @@ function EmptyState({ hiddenCount, onDiary, onHidden }: { hiddenCount: number; o
 }
 
 function tabHeading(tab: DiscoveryTab) {
-  if (tab === 'now') return 'Começando a aparecer'
+  if (tab === 'now') return 'Em formação'
   if (tab === 'patterns') return 'Padrões mais consistentes'
   if (tab === 'connections') return 'Sinais que aparecem juntos'
   if (tab === 'saved') return 'O que já fez sentido para você'

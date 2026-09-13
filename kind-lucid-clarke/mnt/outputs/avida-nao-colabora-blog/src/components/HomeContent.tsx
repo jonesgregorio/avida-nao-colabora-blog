@@ -65,8 +65,8 @@ function PhoneMockup({ kind }: { kind: string }) {
         </>}
         {kind === 'discoveries' && <>
           <p className="font-serif text-[11px] text-forest-900">Suas descobertas</p>
-          <div className="mt-4 rounded-xl bg-[#f2edf8] p-3"><p className="text-[7px] font-semibold text-[#654b88]">Começando a aparecer</p><p className="mt-2 text-[8px] leading-4 text-ink">Alguns contextos parecem acompanhar os dias de maior ansiedade.</p></div>
-          <div className="mt-3 rounded-xl border border-line p-3"><p className="text-[7px] font-semibold text-forest-700">Se repetindo</p><p className="mt-1 text-[8px] leading-4 text-ink">Dias com mais descanso também aparecem com mais leveza.</p></div>
+          <div className="mt-4 rounded-xl bg-[#f2edf8] p-3"><p className="text-[7px] font-semibold text-[#654b88]">Em formação</p><p className="mt-2 text-[8px] leading-4 text-ink">Alguns contextos parecem acompanhar os dias de maior ansiedade.</p></div>
+          <div className="mt-3 rounded-xl border border-line p-3"><p className="text-[7px] font-semibold text-forest-700">Recorrente</p><p className="mt-1 text-[8px] leading-4 text-ink">Dias com mais descanso também aparecem com mais leveza.</p></div>
         </>}
         {kind === 'garden' && <>
           <p className="text-center font-serif text-[11px] text-forest-900">Meu Jardim</p>

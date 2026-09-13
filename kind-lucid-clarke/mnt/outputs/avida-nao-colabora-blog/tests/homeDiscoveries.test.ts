@@ -126,6 +126,69 @@ test('stableKey de relação é normalizada e sem acento', () => {
   assert.equal(discovery.stableKey, 'sleep_anxiety')
 })
 
+test('cada descoberta carrega 1ª ocorrência, ocorrência mais recente, período analisado e as datas que contribuíram', () => {
+  const discovery = buildHomeDiscovery([
+    { date: '2026-08-29', mood: 'ansiedade' },
+    { date: '2026-08-28', mood: 'ansiedade' },
+    { date: '2026-08-27', mood: 'ansiedade' },
+    { date: '2026-08-26', mood: 'tranquilidade' },
+    { date: '2026-08-25', mood: 'tristeza' },
+  ], 'free')
+  assert.ok(discovery)
+  assert.equal(discovery.firstSeen, '2026-08-27')
+  assert.equal(discovery.lastSeen, '2026-08-29')
+  assert.equal(discovery.periodStart, '2026-08-25')
+  assert.equal(discovery.periodEnd, '2026-08-29')
+  assert.deepEqual(discovery.matchedDates, ['2026-08-27', '2026-08-28', '2026-08-29'])
+})
+
+test('sinal com muito histórico mas quase ausente na metade recente vira "enfraquecendo", não "recorrente"', () => {
+  // 14 dias no total: sinal presente em 6 dos 7 dias mais antigos (recorrente antes) e em
+  // nenhum dos 7 dias mais recentes — enfraquecimento real, não um padrão em alta.
+  const entries: { date: string; mood?: string }[] = []
+  const base = new Date('2026-09-10T00:00:00Z')
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(base)
+    d.setUTCDate(d.getUTCDate() - i)
+    const date = d.toISOString().slice(0, 10)
+    // i=0..6 -> dias mais recentes (sem o sinal); i=7..13 -> dias mais antigos (com o sinal, exceto 1)
+    const withSignal = i >= 7 && i !== 13
+    entries.push({ date, mood: withSignal ? 'sobrecarga' : 'calma' })
+  }
+  const all = buildHomeDiscoveries(entries, 'free')
+  const found = all.find(d => d.stableKey === 'mood:sobrecarga')
+  assert.ok(found, 'deveria existir uma descoberta de humor "sobrecarga"')
+  assert.equal(found.status, 'weakening')
+})
+
+test('sinal presente igualmente nas duas metades do período continua "recorrente" (não enfraquece à toa)', () => {
+  const entries: { date: string; mood?: string }[] = []
+  const base = new Date('2026-09-10T00:00:00Z')
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(base)
+    d.setUTCDate(d.getUTCDate() - i)
+    const date = d.toISOString().slice(0, 10)
+    entries.push({ date, mood: i % 2 === 0 ? 'sobrecarga' : 'calma' }) // metade em cada semana
+  }
+  const found = buildHomeDiscoveries(entries, 'free').find(d => d.stableKey === 'mood:sobrecarga')
+  assert.ok(found)
+  assert.equal(found.status, 'ready')
+})
+
+test('período curto (poucos dias) nunca vira "enfraquecendo" — falta base de comparação', () => {
+  // mesmo dataset de "descoberta simples" (5 dias) já teria ratio baixo se comparássemos metades,
+  // mas com <10 dias no total o enfraquecimento não deve ser aplicado.
+  const discovery = buildHomeDiscovery([
+    { date: '2026-08-29', mood: 'ansiedade' },
+    { date: '2026-08-28', mood: 'ansiedade' },
+    { date: '2026-08-27', mood: 'ansiedade' },
+    { date: '2026-08-26', mood: 'tranquilidade' },
+    { date: '2026-08-25', mood: 'tristeza' },
+  ], 'free')
+  assert.ok(discovery)
+  assert.equal(discovery.status, 'ready')
+})
+
 test('motor de descobertas é puro e não recebe texto livre do Diário', () => {
   const source = readFileSync(new URL('../src/lib/homeDiscoveries.ts', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /\.text\b|free_note|recurring_thoughts|emotional_triggers/)
