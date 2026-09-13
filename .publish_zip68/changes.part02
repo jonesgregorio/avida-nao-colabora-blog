@@ -1,0 +1,84 @@
+-    a: 'O Plus inclui tudo do Essencial e adiciona um plano de autocuidado mensal, um relatório mensal mais aprofundado, um comentário profissional por mês e a orientação mensal por mensagem — um direcionamento individual e não emergencial, escrito com base nos seus registros. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
++    a: 'O Plus inclui tudo do Essencial e adiciona plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional ligado ao relatório e orientação mensal por mensagem. O comentário é uma devolutiva breve sobre o relatório; a orientação parte de uma pergunta específica que você envia. Os dois são não emergenciais e não substituem acompanhamento clínico. Você pode assinar ou trocar de plano quando quiser em "Meu Plano".',
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminAutomacoesBlog.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminAutomacoesBlog.tsx
+index accd75d5ec1867991a76c659eae7cb7218e9f531..4a6ea79b756c8ab69f36e9140ba523b29930f805 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminAutomacoesBlog.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminAutomacoesBlog.tsx
+@@ -3 +3 @@ import { supabase } from '../../lib/supabase'
+-import { Plus, Loader2, Play, Pause, Trash2, Zap, Clock, Sparkles } from 'lucide-react'
++import { Plus, Loader2, Play, Pause, Trash2, Zap, Clock, Sparkles, ShieldCheck } from 'lucide-react'
+@@ -29,0 +30,6 @@ const SUPPORTED_TYPES = new Set(TYPES.map(([type]) => type))
++const TYPE_META: Record<string, { description: string; defaultQuantity: number; min: number; max: number; destination: string }> = {
++  generate_daily: { description: 'Gera um artigo completo com SEO e imagem.', defaultQuantity: 1, min: 1, max: 1, destination: 'Artigos' },
++  generate_weekly_package: { description: 'Gera vários artigos distintos em um único pacote.', defaultQuantity: 3, min: 2, max: 4, destination: 'Artigos' },
++  generate_pauta: { description: 'Cria ideias para as próximas duas semanas, sem escrever artigos.', defaultQuantity: 6, min: 3, max: 10, destination: 'Calendário Editorial' },
++  monthly_pauta: { description: 'Planeja ideias distribuídas ao longo do próximo mês.', defaultQuantity: 12, min: 8, max: 20, destination: 'Calendário Editorial' },
++}
+@@ -59,0 +66 @@ export default function AdminAutomacoesBlog() {
++  const [nQuantity, setNQuantity] = useState(1)
+@@ -75 +82 @@ export default function AdminAutomacoesBlog() {
+-      name: nName, type: nType, frequency: nFreq, plan_required: nPlan, mode: nMode,
++      name: nName, type: nType, frequency: nFreq, plan_required: nPlan, mode: nType.includes('pauta') ? 'require_approval' : nMode,
+@@ -77 +84 @@ export default function AdminAutomacoesBlog() {
+-      config: { themes, tone: nTone },
++      config: { themes, tone: nTone, quantity: TYPE_META[nType]?.min === TYPE_META[nType]?.max ? TYPE_META[nType]?.defaultQuantity : nQuantity },
+@@ -82 +89 @@ export default function AdminAutomacoesBlog() {
+-    setNName(''); setNCategory(''); setNThemes('')
++    setNName(''); setNCategory(''); setNThemes(''); setNQuantity(TYPE_META[nType]?.defaultQuantity ?? 1)
+@@ -105 +112 @@ export default function AdminAutomacoesBlog() {
+-      flash(`Conteúdo gerado: “${res.message}”. Confira em Conteúdo & IA → Artigos.`)
++      flash(`Automação concluída: “${res.message}”. Confira em ${TYPE_META[a.type]?.destination ?? 'Conteúdo & IA'}.`)
+@@ -144,2 +151,2 @@ export default function AdminAutomacoesBlog() {
+-            Regras que fazem a IA escrever artigos de blog sozinha, no ritmo que você definir.
+-            Cada regra tem um tema, uma frequência e um plano — e nasce como rascunho para você aprovar (ou publica direto).
++            Regras editoriais com comportamentos distintos: artigo individual, pacote de artigos, pauta quinzenal ou planejamento mensal.
++            Artigos passam por validação antes de publicar; pautas entram como ideias no Calendário Editorial.
+@@ -156,7 +163,6 @@ export default function AdminAutomacoesBlog() {
+-      <div className="border border-[#e6d8b0] bg-[#fbf6e6] text-[#7a5c12] rounded-xl px-4 py-2.5 text-sm mb-5">
+-        <strong>Para a geração automática funcionar</strong>, é preciso ativar uma vez: no Supabase → SQL Editor, rode
+-        <code className="mx-1 px-1.5 py-0.5 bg-white/70 rounded text-[12px]">select vault.create_secret('&lt;SERVICE_ROLE_KEY&gt;', 'service_role_key');</code>
+-        trocando <code className="px-1 bg-white/70 rounded text-[12px]">&lt;SERVICE_ROLE_KEY&gt;</code> pela chave <em>service_role</em> (Project Settings → API).
+-        Depois disso, a IA gera os artigos de hora em hora conforme as regras abaixo. <strong>Sem isso, nada quebra</strong> — as regras ficam paradas
+-        (repare no “última:”). E você <strong>não precisa esperar</strong>: o botão <strong>“Gerar agora”</strong> em cada regra dispara a geração na hora
+-        (cai como rascunho para você aprovar), sem depender deste passo.
++      <div className="border border-forest-200 bg-mint/40 text-forest-800 rounded-xl px-4 py-3 text-sm mb-5 flex gap-3 items-start">
++        <ShieldCheck className="w-5 h-5 mt-0.5 flex-shrink-0" />
++        <div>
++          <strong>Autenticação interna automática.</strong> O cron e a Edge Function usam o mesmo <code className="px-1 bg-white/70 rounded text-[12px]">automation_token</code>, criado e mantido pelo banco.
++          Não configure <em>service_role_key</em> manualmente. O status real do cron e das execuções aparece em <strong>Sistema → Saúde do Sistema</strong>.
++        </div>
+@@ -168 +174 @@ export default function AdminAutomacoesBlog() {
+-          <div><label className="block text-xs text-stone-500 mb-1">Tipo</label><select value={nType} onChange={e => setNType(e.target.value)} className={inputCls}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
++          <div><label className="block text-xs text-stone-500 mb-1">Tipo</label><select value={nType} onChange={e => { const next = e.target.value; setNType(next); setNQuantity(TYPE_META[next]?.defaultQuantity ?? 1) }} className={inputCls}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><p className="text-[11px] text-stone-400 mt-1">{TYPE_META[nType]?.description}</p></div>
+@@ -171 +177 @@ export default function AdminAutomacoesBlog() {
+-          <div><label className="block text-xs text-stone-500 mb-1">Modo</label><select value={nMode} onChange={e => setNMode(e.target.value)} className={inputCls}><option value="require_approval">Exige aprovação</option><option value="auto_publish">Publicação automática</option></select></div>
++          <div><label className="block text-xs text-stone-500 mb-1">Modo</label><select value={nMode} onChange={e => setNMode(e.target.value)} disabled={nType.includes('pauta')} className={inputCls}><option value="require_approval">Exige aprovação</option><option value="auto_publish">Publicação automática</option></select>{nType.includes('pauta') && <p className="text-[11px] text-stone-400 mt-1">Pautas sempre entram como ideias para revisão.</p>}</div>
+@@ -173,0 +180 @@ export default function AdminAutomacoesBlog() {
++          <div><label className="block text-xs text-stone-500 mb-1">Quantidade</label><input type="number" min={TYPE_META[nType]?.min ?? 1} max={TYPE_META[nType]?.max ?? 20} value={nQuantity} disabled={TYPE_META[nType]?.min === TYPE_META[nType]?.max} onChange={e => setNQuantity(Number(e.target.value))} className={inputCls} /><p className="text-[11px] text-stone-400 mt-1">Limite: {TYPE_META[nType]?.min}–{TYPE_META[nType]?.max}</p></div>
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminPlanosPage.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminPlanosPage.tsx
+index c7faae9ce3f825a2c8b40db8b3ff35e1eef6a294..56e009a377f615cef16581371afce49da8fbb8c2 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminPlanosPage.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminPlanosPage.tsx
+@@ -17 +17 @@ const PLANS = [
+-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
++    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem'],
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSupport.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSupport.tsx
+index 57050f204e99585c8aebe6f848d95f7f721d5324..cb4899f24ef43b775ed5eeef9f8e9612d85c7e64 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSupport.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSupport.tsx
+@@ -92 +92 @@ const REPLY_TEMPLATES_FALLBACK = [
+-  { id: 'f05', title: 'Diferença entre os planos', category: 'Planos', body: 'Olá! Os planos foram pensados para diferentes níveis de uso dentro do site.\n\nO Gratuito permite começar: blog aberto, diário emocional básico, questionário inicial e algumas práticas guiadas.\n\nO Essencial (R$ 19,90/mês) libera uso contínuo: diário ilimitado, mapa emocional completo, histórico e gráficos, conteúdos guiados completos e relatório semanal automático.\n\nO Plus (R$ 39,90/mês) inclui tudo do Essencial e ainda plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional mensal e orientação mensal por mensagem.' },
++  { id: 'f05', title: 'Diferença entre os planos', category: 'Planos', body: 'Olá! Os planos foram pensados para diferentes níveis de uso dentro do site.\n\nO Gratuito permite começar: blog aberto, diário emocional básico, questionário inicial e algumas práticas guiadas.\n\nO Essencial (R$ 19,90/mês) libera uso contínuo: diário ilimitado, mapa emocional completo, histórico e gráficos, conteúdos guiados completos e relatório semanal automático.\n\nO Plus (R$ 39,90/mês) inclui tudo do Essencial e ainda plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório e orientação mensal por mensagem.' },
+@@ -95 +95 @@ const REPLY_TEMPLATES_FALLBACK = [
+-  { id: 'f08', title: 'Plano Plus', category: 'Planos', body: 'O plano Plus custa R$ 39,90 por mês e é o plano mais completo.\n\nEle inclui tudo do Essencial e também plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional mensal sobre seus registros e orientação mensal por mensagem.' },
++  { id: 'f08', title: 'Plano Plus', category: 'Planos', body: 'O plano Plus custa R$ 39,90 por mês e é o plano mais completo.\n\nEle inclui tudo do Essencial e também plano de autocuidado mensal, relatório mensal aprofundado, comentário profissional sobre o relatório sobre seus registros e orientação mensal por mensagem.' },
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSystemHealth.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSystemHealth.tsx
+index 021fac6a621656d88f6f928b80d27d022fe289f8..1e0b5e49f392908b3704a39c70e94ee543195190 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSystemHealth.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/admin/AdminSystemHealth.tsx
+@@ -6 +6 @@ import {
+-  AlertCircle, Wrench,
++  AlertCircle, Wrench, Clock,
+@@ -92,0 +93 @@ const CATEGORY_ICON: Record<string, typeof Database> = {
++  automations:     Clock,
+@@ -106,0 +108,3 @@ const REMEDIATION_HINTS: Record<string, string> = {

@@ -1,0 +1,204 @@
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
+index 3ebf8e90bbc370a8952ad5e5e7b7c3d4afb06394..e2d588c1c41c29b49ccc5cba324668ec757f60d0 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/lib/systemHealth.ts
+@@ -133,0 +134,71 @@ export async function checkSavedItems(): Promise<HealthCheckResult> {
++export async function checkEmotionalAutomationHealth(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_emotional_automation_health')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const cronActive = h.cron_active === true
++    const notifyActive = h.notification_trigger_active === true
++    const lastStatus = String(h.last_run_status ?? '')
++    const lastStartedAt = typeof h.last_run_started_at === 'string' ? Date.parse(h.last_run_started_at) : NaN
++    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 30 * 60 * 60 * 1000
++    const failedLast = !!lastStatus && !['succeeded', 'success'].includes(lastStatus.toLowerCase())
++    const status: CheckStatus = !cronActive || !notifyActive ? 'error' : failedLast || stale ? 'warning' : 'ok'
++    return {
++      checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
++      errorMessage: !cronActive ? 'Cron emocional inativo.' : !notifyActive ? 'Trigger de notificação pós-relatório inativo.' : failedLast ? `Última execução do cron: ${lastStatus}.` : stale ? 'Cron emocional sem execução recente (mais de 30h ou ainda sem histórico).' : undefined,
++      details: { ...h, stale },
++    }
++  } catch (e) {
++    return { checkKey: 'automation_emotional', checkName: 'Automação emocional', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
++  }
++}
++
++export async function checkEditorialAutomationHealth(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_editorial_automation_health')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'high' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const cronActive = h.cron_active === true
++    const errors = Number(h.rules_with_error ?? 0)
++    const lastCronStatus = String(h.last_cron_status ?? '')
++    const lastStartedAt = typeof h.last_cron_started_at === 'string' ? Date.parse(h.last_cron_started_at) : NaN
++    const stale = !Number.isFinite(lastStartedAt) || Date.now() - lastStartedAt > 2 * 60 * 60 * 1000
++    const cronFailed = !!lastCronStatus && !['succeeded', 'success'].includes(lastCronStatus.toLowerCase())
++    const status: CheckStatus = !cronActive ? 'error' : errors > 0 || cronFailed || stale ? 'warning' : 'ok'
++    return {
++      checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'error' ? 'high' : status === 'warning' ? 'medium' : 'info',
++      errorMessage: !cronActive ? 'Cron editorial inativo.' : errors > 0 ? `${errors} regra(s) ativa(s) com último erro registrado.` : cronFailed ? `Última execução do cron: ${lastCronStatus}.` : stale ? 'Cron editorial sem execução recente (mais de 2h ou ainda sem histórico).' : undefined,
++      details: { ...h, stale },
++    }
++  } catch (e) {
++    return { checkKey: 'automation_editorial', checkName: 'Automação editorial', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'high' }
++  }
++}
++
++export async function checkOperationalMetrics(): Promise<HealthCheckResult> {
++  const t0 = Date.now()
++  try {
++    const { data, error } = await withTimeout(Promise.resolve(supabase.rpc('get_operational_metrics')), TIMEOUT_LIGHT)
++    const ms = Date.now() - t0
++    if (error) return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: error.message, responseTimeMs: ms, severity: 'medium' }
++    const h = (data ?? {}) as Record<string, unknown>
++    const aiErrors = Number(h.ai_generation_errors_30d ?? 0)
++    const ruleErrors = Number(h.editorial_rules_with_error ?? 0)
++    const status: CheckStatus = aiErrors > 0 || ruleErrors > 0 ? 'warning' : 'ok'
++    return {
++      checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status,
++      responseTimeMs: ms, severity: status === 'warning' ? 'medium' : 'info',
++      errorMessage: ruleErrors > 0 ? `${ruleErrors} automação(ões) editorial(is) ativa(s) com erro.` : aiErrors > 0 ? `${aiErrors} erro(s) de geração de IA nos últimos 30 dias.` : undefined,
++      details: h,
++    }
++  } catch (e) {
++    return { checkKey: 'operational_metrics', checkName: 'Indicadores operacionais', category: 'automations', status: 'error', errorMessage: String(e), responseTimeMs: Date.now() - t0, severity: 'medium' }
++  }
++}
++
+@@ -319,0 +391,3 @@ export async function runQuickHealthCheck(): Promise<HealthCheckResult[]> {
++    checkEmotionalAutomationHealth(),
++    checkEditorialAutomationHealth(),
++    checkOperationalMetrics(),
+@@ -371,0 +446,3 @@ export async function runSingleCheck(checkKey: string): Promise<HealthCheckResul
++    automation_emotional: checkEmotionalAutomationHealth,
++    automation_editorial: checkEditorialAutomationHealth,
++    operational_metrics: checkOperationalMetrics,
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
+index 429c80e093691685f432cd17167095402f48290d..c3c23a0ea318c1b9538e47442255d4ec1bb618c7 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-automations/index.ts
+@@ -1,0 +2,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
++import {
++  SUPPORTED_EDITORIAL_AUTOMATION_TYPES,
++  clampAutomationQuantity,
++  isEditorialAutomationType,
++  plannedDateForIdea,
++  type EditorialAutomationConfig,
++  type EditorialAutomationType,
++} from '../_shared/editorialAutomationContracts.ts'
+@@ -5,3 +13,4 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
+-// geração ATIVA e vencida (pela frequência), gera 1 rascunho com IA e registra
+-// no calendário editorial. Se o modo for 'auto_publish', só publica após a
+-// validação editorial determinística (tamanho, SEO e imagem); caso contrário fica rascunho.
++// geração ATIVA e vencida (pela frequência), executa o comportamento do tipo:
++// artigo, pacote de artigos, pauta quinzenal ou pauta mensal. Artigos são
++// registrados no calendário editorial e, em auto_publish, só publicam após a
++// validação determinística de tamanho, SEO e imagem.
+@@ -26 +35,11 @@ const FREQ_DAYS: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, m
+-const GEN_TYPES = ['generate_daily', 'generate_weekly_package', 'generate_pauta', 'monthly_pauta']
++
++function nextRunAt(frequency: string, from = new Date()): string {
++  const next = new Date(from)
++  if (frequency === 'monthly') {
++    next.setUTCMonth(next.getUTCMonth() + 1)
++  } else {
++    next.setUTCDate(next.getUTCDate() + (FREQ_DAYS[frequency] ?? 7))
++  }
++  return next.toISOString()
++}
++const GEN_TYPES = SUPPORTED_EDITORIAL_AUTOMATION_TYPES
+@@ -168,0 +188,221 @@ async function buildSnapshot(admin: ReturnType<typeof createClient>, userId: str
++
++type AdminClient = ReturnType<typeof createClient>
++type AutomationRow = {
++  id: string
++  name?: string | null
++  type: string
++  frequency: string
++  category?: string | null
++  plan_required?: string | null
++  mode?: string | null
++  config?: EditorialAutomationConfig | null
++  last_run_at?: string | null
++  next_run_at?: string | null
++}
++
++type GeneratedArticlePackage = {
++  title?: unknown
++  content?: unknown
++  excerpt?: unknown
++  seo_title?: unknown
++  seo_description?: unknown
++  keyword?: unknown
++  secondary_keywords?: unknown
++  tags?: unknown
++  emotional_themes?: unknown
++  image_query?: unknown
++  image_alt?: unknown
++  diary_question?: unknown
++  cta_text?: unknown
++  category?: unknown
++}
++
++function articleItems(raw: Record<string, unknown>): GeneratedArticlePackage[] {
++  const items = Array.isArray(raw.articles) ? raw.articles : []
++  return items.filter(v => v && typeof v === 'object' && !Array.isArray(v)) as GeneratedArticlePackage[]
++}
++
++function ideaItems(raw: Record<string, unknown>): Record<string, unknown>[] {
++  const items = Array.isArray(raw.ideas) ? raw.ideas : []
++  return items.filter(v => v && typeof v === 'object' && !Array.isArray(v)) as Record<string, unknown>[]
++}
++
++function uniqueThemes(config: EditorialAutomationConfig, fallback: string): string[] {
++  const themes = Array.isArray(config.themes) ? config.themes.map(v => String(v || '').trim()).filter(Boolean) : []
++  return [...new Set(themes.length ? themes : [fallback])].slice(0, 12)
++}
++
++function normalizedPlan(value: unknown, fallback = 'free'): string {
++  const raw = String(value || fallback).trim().toLowerCase()
++  if (raw === 'essential') return 'essential'
++  if (['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(raw)) return 'plus'
++  return 'free'
++}
++
++async function persistArticle(
++  admin: AdminClient,
++  automation: AutomationRow,
++  pkg: GeneratedArticlePackage,
++  fallbackTheme: string,
++  prompt: string,
++  allowExpansion: boolean,
++): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
++  const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
++  let content = cleanText(pkg.content, 50000)
++  if (allowExpansion && content && wordCount(content) < MIN_AUTO_PUBLISH_WORDS) {
++    try {
++      content = await genAI(`Amplie o artigo abaixo para pelo menos 1100 palavras, preservando o título, o tom acolhedor, a estrutura e a segurança. Não invente dados clínicos. Responda somente com o corpo final do artigo.\n\n${content}`)
++    } catch { /* a validação determinística mantém como rascunho */ }
++  }
++  if (!content) throw new Error(`Artigo “${title}” retornou sem conteúdo.`)
++
++  const excerpt = cleanText(pkg.excerpt, 200) || excerptFrom(content)
++  const seoTitle = cleanText(pkg.seo_title, 60) || title.slice(0, 60)
++  const seoDescription = cleanText(pkg.seo_description, 155) || excerpt.slice(0, 155)
++  const keyword = cleanText(pkg.keyword, 120) || fallbackTheme.slice(0, 120)
++  const secondaryKeywords = stringList(pkg.secondary_keywords, 6)
++  const tags = stringList(pkg.tags, 6)
++  const emotionalThemes = stringList(pkg.emotional_themes, 4)
++  const imageQuery = cleanText(pkg.image_query, 120) || `${fallbackTheme} wellbeing lifestyle`
++  const cover = await searchPexelsCover(imageQuery)
++  const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
++  const diaryQuestion = cleanText(pkg.diary_question, 260)
++  const ctaText = cleanText(pkg.cta_text, 180)
++
++  const validationErrors: string[] = []
