@@ -63,6 +63,9 @@ export interface Article {
   updated_at?: string
   reviewed_at?: string
   created_at: string
+  /** Conteúdos Guiados — player por etapas (só usado quando há linhas em guided_content_steps). */
+  objective?: string
+  intensity?: 'leve' | 'moderada' | 'intensa'
 }
 
 export interface UserProfile {
