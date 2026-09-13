@@ -39,7 +39,9 @@ test('cockpit organiza as áreas completas e preserva a auditoria técnica exist
   assert.match(cockpit, /SEO Health Score/)
   assert.match(cockpit, /Sincronizar agora/)
   assert.match(cockpit, /Gerar SEO/)
-  assert.doesNotMatch(cockpit, /SERVICE_ACCOUNT_JSON/)
+  // O nome da variável de ambiente pode ser documentado no Admin; o valor/JSON da conta de serviço não pode existir no bundle.
+  assert.doesNotMatch(cockpit, /private_key|client_email|Deno\.env/)
+  assert.match(cockpit, /credencial nunca é enviada ao navegador/i)
 })
 
 test('o painel de status só expõe presença das credenciais Google, nunca seus valores', () => {
