@@ -563,7 +563,7 @@ export default function QuestionnairePlayer({
     return (
       <section className="max-w-2xl mx-auto px-4 py-8">
         {/* Progress */}
-        <div className="flex items-center justify-between gap-2 text-xs text-stone-400 mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-400 mb-2">
           <button onClick={() => step > 0 ? setStep(s => s - 1) : setPhase('intro')} className="text-stone-400 hover:text-stone-700 flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" /> Voltar
           </button>
@@ -657,12 +657,12 @@ export default function QuestionnairePlayer({
           {/* Scale 1-5 */}
           {currentQ.question_type === 'scale_5' && (
             <div>
-              <div className="flex justify-center gap-3 mb-2">
+              <div className="flex flex-wrap justify-center gap-3 mb-2">
                 {[1, 2, 3, 4, 5].map(n => (
                   <button
                     key={n}
                     onClick={() => answerScale(n)}
-                    className={`w-12 h-12 rounded-full border-2 text-sm font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-forest-600 border-forest-600 text-white scale-110' : 'border-stone-200 text-stone-600 hover:border-forest-300 hover:bg-mint/40'}`}
+                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 text-sm font-semibold transition-all ${currentAnswer?.value === String(n) ? 'bg-forest-600 border-forest-600 text-white scale-110' : 'border-stone-200 text-stone-600 hover:border-forest-300 hover:bg-mint/40'}`}
                   >
                     {n}
                   </button>
