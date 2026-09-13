@@ -8,11 +8,10 @@ export const VALID_VIEWS: View[] = [
   'about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing',
   'articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
-  'evolution','descobertas','cuidar','mais',
+  'descobertas','cuidar','mais',
   'notifications',
 ]
 
-// Mapeamento bidirecional URL ↔ view.
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
   '/blog':                       'articles',
@@ -37,7 +36,6 @@ const URL_TO_VIEW: Record<string, View> = {
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
   '/comentarios-profissional':   'professional-comments',
-  '/evolucao':                   'evolution',
   '/mapa-emocional':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/minha-historia':             'my-history',
@@ -49,7 +47,6 @@ const URL_TO_VIEW: Record<string, View> = {
   '/meu-plano':                  'my-plan',
 }
 
-// Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
 const LEGACY_PATH_REDIRECT: Record<string, View> = {
   '/meditacoes': 'articles',
   '/desafios':   'articles',
@@ -62,7 +59,6 @@ const LEGACY_PATH_REDIRECT: Record<string, View> = {
   '/sessao':     'home',
 }
 
-// Views antigas ainda referenciadas por chamadas navigate() em telas legadas.
 const LEGACY_VIEW_REDIRECT: Record<string, View> = {
   meditations: 'articles',
   challenges:  'articles',
@@ -74,12 +70,12 @@ const LEGACY_VIEW_REDIRECT: Record<string, View> = {
   lembretes:     'home',
 }
 
-// Aliases amigáveis: resolvem para uma view, mas a URL canônica continua sendo a
-// definida em URL_TO_VIEW.
+// Aliases amigáveis. A nomenclatura visual pode evoluir sem quebrar links antigos.
 const URL_ALIASES: Record<string, View> = {
   '/orientacao':  'monthly-guidance',
   '/orientacoes': 'monthly-guidance',
-  '/minha-evolucao': 'evolution',
+  '/minha-evolucao': 'my-evolution',
+  '/evolucao': 'descobertas',
   '/conta': 'mais',
 }
 
@@ -95,23 +91,18 @@ export interface NavigationState {
 }
 
 export function parseNavLocation(path: string, search = ''): NavigationState | null {
-  // /blog/:slug → article
   if (path.startsWith('/blog/') && path.length > 6) {
     return { view: 'article', articleSlug: path.slice(6), ticketId: null }
   }
 
-  // /suporte/:ticketId → support-ticket
   if (path.startsWith('/suporte/') && path.length > 9) {
     return { view: 'support-ticket', articleSlug: null, ticketId: path.slice(9) }
   }
 
-  // /questionarios/:slug → tela do questionário (introdução/execução), com URL
-  // própria para sobreviver a reload, link direto e histórico.
   if (path.startsWith('/questionarios/') && path.length > 15) {
     return { view: 'questionnaire', articleSlug: null, ticketId: null, questionnaireId: decodeURIComponent(path.slice(15)) }
   }
 
-  // Rota antiga do questionário terapêutico → Questionários.
   if (path === '/questionario-terapeutico') {
     return { view: 'questionarios', articleSlug: null, ticketId: null }
   }
@@ -120,7 +111,6 @@ export function parseNavLocation(path: string, search = ''): NavigationState | n
     return { view: LEGACY_PATH_REDIRECT[path], articleSlug: null, ticketId: null }
   }
 
-  // Compatibilidade com links antigos e redirecionamentos Stripe (?view=X).
   const params = new URLSearchParams(search)
   const urlView = params.get('view') as View
   if (urlView && VALID_VIEWS.includes(urlView)) {
@@ -148,9 +138,6 @@ export function restoreNavFrom(
 ): NavigationState | null {
   const fromURL = parseNavLocation(pathname, search)
   if (fromURL) return fromURL
-
-  // Só retomamos a sessão salva na raiz. Um path específico desconhecido vai ao
-  // Início em vez de cair na última tela visitada.
   if (pathname !== '/') return null
 
   try {
@@ -184,10 +171,6 @@ export function urlForView(targetView: string, slug?: string | null, ticketId?: 
   return VIEW_TO_URL[targetView] ?? '/'
 }
 
-/**
- * Retorna apenas quando a URL atual precisa ser substituída por uma URL canônica.
- * null significa que a URL já é válida e deve permanecer como está.
- */
 export function canonicalPathForLocation(path: string, search = ''): string | null {
   const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
   if (target) return VIEW_TO_URL[target] ?? '/'
