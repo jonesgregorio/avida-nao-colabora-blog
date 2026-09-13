@@ -4,7 +4,7 @@
 // componente cuidava disso por conta própria (só o ArticleView fazia). Ao sair
 // de um artigo, o título ficava preso no nome do artigo. Aqui definimos o
 // título de cada view e reaplicamos a cada troca de rota; o ArticleView
-// continua responsável pelo caso dele (título específico do artigo).
+// continua responsável pelo caso dele (título específico quando carrega).
 
 export const SITE_NAME = 'A Vida Não Colabora'
 export const HOME_TITLE = `${SITE_NAME} — Diário emocional e autocuidado`
@@ -33,6 +33,7 @@ const VIEW_TITLES: Record<string, string> = {
   home: HOME_TITLE,
   auth: 'Entrar',
   diary: 'Diário',
+  evolution: 'Sua Evolução',
   descobertas: 'Descobertas',
   'my-evolution': 'Mapa Emocional',
   'my-report': 'Relatórios',
@@ -54,7 +55,7 @@ const VIEW_TITLES: Record<string, string> = {
   'support-ticket': 'Suporte',
   notifications: 'Notificações',
   pricing: 'Planos',
-  mais: 'Mais',
+  mais: 'Conta',
   cuidar: 'Cuidar',
   about: 'Sobre',
   contact: 'Contato',
