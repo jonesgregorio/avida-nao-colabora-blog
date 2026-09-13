@@ -64,9 +64,9 @@ test('get_my_garden_campaign() existe, é restrita a authenticated, e casa audie
   }
 })
 
-test('painel admin avisa que "Limite diário" ainda não é aplicado, em vez de fingir que funciona', () => {
+test('painel admin explica o efeito real do "Limite diário" (agora aplicado no cálculo)', () => {
   assert.match(adminPanel, /Limite diário/)
-  assert.match(adminPanel, /Ainda não aplicado no cálculo/)
+  assert.match(adminPanel, /não pode subir mais do que esse valor por dia/)
 })
 
 test('admin consegue cadastrar um jardim novo no Catálogo (linha no banco) — com aviso claro do que isso NÃO resolve sozinho', () => {
