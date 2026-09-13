@@ -8,7 +8,7 @@ export const VALID_VIEWS: View[] = [
   'about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing',
   'articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
-  'descobertas','cuidar','mais',
+  'evolution','descobertas','cuidar','mais',
   'notifications',
 ]
 
@@ -37,6 +37,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
   '/comentarios-profissional':   'professional-comments',
+  '/evolucao':                   'evolution',
   '/mapa-emocional':             'my-evolution',
   '/meu-relatorio':              'my-report',
   '/minha-historia':             'my-history',
@@ -78,7 +79,8 @@ const LEGACY_VIEW_REDIRECT: Record<string, View> = {
 const URL_ALIASES: Record<string, View> = {
   '/orientacao':  'monthly-guidance',
   '/orientacoes': 'monthly-guidance',
-  '/minha-evolucao': 'my-evolution',
+  '/minha-evolucao': 'evolution',
+  '/conta': 'mais',
 }
 
 const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
