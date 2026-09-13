@@ -13,7 +13,7 @@ test('prioridades 1-3: navegação consolida Evolução, Cuidar e Menu no mobile
   assert.match(layout, /Recursos e conta/)
   assert.match(layout, /const EVOLUTION_TABS/)
   assert.match(layout, /const CARE_TABS/)
-  assert.doesNotMatch(layout, />Mais<\/button>/)
+  assert.doesNotMatch(layout, />Mais\s*<\/button>/)
 })
 
 test('prioridades 4-6: cada eixo ganha propósito textual próprio e Hoje reduz competição entre cards', () => {
@@ -29,8 +29,8 @@ test('prioridade 7: biblioteca separa leitura de prática sem trocar o motor de 
   assert.match(articles, /type LibraryMode = 'all' \| 'read' \| 'practice'/)
   assert.match(articles, /fetchGuidedCatalog\(\)/)
   assert.match(articles, /RecommendedContent/)
-  assert.match(articles, />Ler</)
-  assert.match(articles, />Praticar</)
+  assert.match(articles, /\['read', 'Ler', BookOpen\]/)
+  assert.match(articles, /\['practice', 'Praticar', PlayCircle\]/)
   assert.match(articles, /Prática guiada/)
 })
 
