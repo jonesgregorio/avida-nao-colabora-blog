@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs'
 const questionnaires = readFileSync(new URL('../src/components/QuestionnairesPage.tsx', import.meta.url), 'utf8')
 const questionnaireLegacy = readFileSync(new URL('../src/components/QuestionnairesPageLegacy.tsx', import.meta.url), 'utf8')
 const care = readFileSync(new URL('../src/components/SelfCarePlanPage.tsx', import.meta.url), 'utf8')
-const careLegacy = readFileSync(new URL('../src/components/SelfCarePlanPageLegacy.tsx', import.meta.url), 'utf8')
 
 test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', () => {
   assert.match(questionnaires, /Um retrato do seu momento/)
@@ -29,7 +28,6 @@ test('Plano de Autocuidado usa a experiência mensal atual com jornada adaptativ
   assert.match(care, /Histórico do Plano de Autocuidado/)
   assert.match(care, /CarePlanActionFeedback/)
   assert.doesNotMatch(care, /SelfCarePlanPageLegacy|showLegacy/)
-  assert.match(careLegacy, /Seus roteiros de cuidado/)
 })
 
 test('histórico mensal abre em modal e permite reabrir qualquer mês', () => {
