@@ -22,6 +22,8 @@ const SECRET_KEYS = [
   'TURNSTILE_SECRET_KEY', 'CRON_SECRET', 'SITE_URL',
   'GEMINI_MODEL', 'GROQ_MODEL', 'GEMINI_IMAGE_MODEL', 'AI_PROVIDER_ORDER',
   'UNSUBSCRIBE_SECRET', 'RESEND_WEBHOOK_SECRET', 'ADMIN_ALERT_EMAIL', 'APP_URL',
+  // Google Search Console: a UI recebe somente true/false; nunca o JSON da conta de serviço.
+  'GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SEARCH_CONSOLE_SITE_URL',
 ] as const
 
 Deno.serve(async (req: Request) => {
