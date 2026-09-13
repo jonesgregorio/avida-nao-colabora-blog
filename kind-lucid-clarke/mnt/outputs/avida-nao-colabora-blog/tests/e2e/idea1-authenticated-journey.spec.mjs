@@ -333,26 +333,29 @@ test('Perfil usa continuidade recente em vez de sequência obrigatória', async 
   await page.screenshot({ path: 'test-results/idea1-qa/profile-mobile.png', fullPage: true })
 })
 
-test('menu Mais mobile recebe foco, fecha com Escape e navega para Minha História', async ({ page }) => {
+test('navegação mobile expõe as cinco intenções e conecta Evolução e Conta sem drawer', async ({ page }) => {
   await openLoggedRoute(page, '/', { width: 390, height: 844 })
   await expect(page.getByRole('button', { name: 'Hoje', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Diário', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Descobertas', exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Mapa', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Registrar', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Evolução', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cuidar', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Conta', exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Mais', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Mais recursos' })
-  await expect(dialog).toBeVisible()
-  await expect(dialog).toBeFocused()
-  await page.screenshot({ path: 'test-results/idea1-qa/mobile-more-dialog.png', fullPage: true })
+  await page.getByRole('button', { name: 'Evolução', exact: true }).click()
+  await expect(page).toHaveURL(/\/descobertas$/)
+  await expect(page.getByRole('navigation', { name: 'Navegação da sua evolução' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'História', exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/idea1-qa/evolution-mobile.png', fullPage: true })
 
-  await page.keyboard.press('Escape')
-  await expect(dialog).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Mais', exact: true }).click()
-  await page.getByRole('dialog', { name: 'Mais recursos' }).getByRole('button', { name: 'Minha História', exact: true }).click()
+  await page.getByRole('button', { name: 'História', exact: true }).click()
   await expect(page).toHaveURL(/\/minha-historia$/)
-  await expect(page.getByRole('dialog', { name: 'Mais recursos' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Conta', exact: true }).click()
+  await expect(page).toHaveURL(/\/mais$/)
+  await expect(page.getByRole('heading', { name: 'Conta', exact: true })).toBeVisible()
+  await expect(page.getByText('Meu Plano', { exact: true })).toBeVisible()
+  await expect(page.getByText('Suporte', { exact: true }).first()).toBeVisible()
+  await page.screenshot({ path: 'test-results/idea1-qa/account-mobile.png', fullPage: true })
 })
 
 test('áreas autenticadas centrais não têm violações sérias ou críticas de acessibilidade', async ({ page }) => {
