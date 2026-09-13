@@ -202,8 +202,10 @@ export default function AdminSegments() {
   }
 
   async function salvarPublico() {
-    const name = window.prompt('Nome do público salvo:')?.trim()
-    if (!name) return
+    const raw = window.prompt('Nome do público salvo:')
+    if (raw === null) return // cancelado — sem mensagem, é a ação esperada
+    const name = raw.trim()
+    if (!name) { setMsg({ ok: false, text: 'Preencha um nome para salvar o público.' }); return }
     const { error } = await supabase.from('admin_segments').insert({ name, filter: cleanFilter })
     if (error) setMsg({ ok: false, text: 'Falha ao salvar: ' + error.message })
     else {

@@ -117,7 +117,7 @@ export default function AdminFeatureFlags() {
           <input value={nk.key} onChange={e => setNk(s => ({ ...s, key: e.target.value.toLowerCase() }))} placeholder="chave (ex.: novo_relatorio)" className={inputCls} />
           <input value={nk.label} onChange={e => setNk(s => ({ ...s, label: e.target.value }))} placeholder="Nome amigável" className={inputCls} />
           <input value={nk.description} onChange={e => setNk(s => ({ ...s, description: e.target.value }))} placeholder="Descrição (opcional)" className={inputCls} />
-          <button onClick={() => void createFlag()} className="text-sm bg-forest-700 text-white rounded-lg px-3 py-2 hover:bg-forest-800">Criar (começa desativada)</button>
+          <button onClick={() => void createFlag()} className="admin-btn-primary">Criar (começa desativada)</button>
         </div>
       )}
 

@@ -7,7 +7,7 @@ const migration = read('supabase/migrations/20260828013500_care_plan_action_feed
 const livingMigration = read('supabase/migrations/20260908211000_living_self_care_plan.sql')
 const grantFix = read('supabase/migrations/20260828015000_care_plan_feedback_minimum_grants.sql')
 const component = read('src/components/CarePlanActionFeedback.tsx')
-const page = read('src/components/SelfCarePlanPageLegacy.tsx')
+const page = read('src/components/SelfCarePlanPage.tsx')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
 const contracts = read('supabase/functions/_shared/emotionalPromptContracts.ts')
 
@@ -41,9 +41,9 @@ test('authenticated recebe somente operações CRUD necessárias na tabela legad
   assert.doesNotMatch(grantFix, /GRANT[^\n]*(TRUNCATE|TRIGGER|REFERENCES)[^\n]*authenticated/)
 })
 
-test('Plano de Autocuidado legado mantém compatibilidade com o componente de percepção', () => {
+test('Plano de Autocuidado mantém compatibilidade com o componente de percepção', () => {
   assert.match(page, /import CarePlanActionFeedback from '.\/CarePlanActionFeedback'/)
-  assert.match(page, /<CarePlanActionFeedback userId=\{userId\} carePlanId=\{plan\.id\} actions=\{microActions\}/)
+  assert.match(page, /<CarePlanActionFeedback userId=\{user\.id\} carePlanId=\{previous\.id\} actions=\{actionsOf\(previous\.care_plan\)\}\/>/)
 })
 
 test('próximo Plano de Autocuidado lê primeiro os seis retornos do estado vivo', () => {
