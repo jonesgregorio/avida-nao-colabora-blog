@@ -60,6 +60,27 @@ function rankTags(entries: MapEntry[], field: 'emotional_tags' | 'context_tags')
   return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
 }
 
+// Reaproveitado pro mês atual e pro anterior (comparação entre períodos) — mesma lógica de
+// "média por dia" que já alimenta o calendário e o gráfico de humor.
+function computeDailyMoods(entries: MapEntry[]): DayMood[] {
+  const byDay = new Map<number, number[]>()
+  for (const entry of entries) {
+    const score = Number(entry.mood_score)
+    if (!Number.isFinite(score) || score <= 0) continue
+    const day = Number(String(entry.date || entry.created_at).slice(8, 10))
+    if (!day) continue
+    const values = byDay.get(day) ?? []
+    values.push(Math.min(5, Math.max(1, score)))
+    byDay.set(day, values)
+  }
+  return [...byDay.entries()]
+    .map(([day, values]) => ({ day, mood: values.reduce((sum, value) => sum + value, 0) / values.length }))
+    .sort((a, b) => a.day - b.day)
+}
+function avgMood(moods: DayMood[]): number {
+  return moods.length ? moods.reduce((sum, item) => sum + item.mood, 0) / moods.length : 0
+}
+
 function InfoHint({ text, className = 'w-3.5 h-3.5' }: { text: string; className?: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -136,6 +157,7 @@ export default function MyEvolutionPage(props: Props) {
   const { user, profile, initialTab } = props
   const [periodKey, setPeriodKey] = useState(monthKey())
   const [entries, setEntries] = useState<MapEntry[]>([])
+  const [previousEntries, setPreviousEntries] = useState<MapEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [showDetails, setShowDetails] = useState(initialTab === 'graficos')
@@ -147,43 +169,53 @@ export default function MyEvolutionPage(props: Props) {
   }, [initialTab])
 
   useEffect(() => {
-    if (!user) { setEntries([]); setLoading(false); return }
+    if (!user) { setEntries([]); setPreviousEntries([]); setLoading(false); return }
     let active = true
     setLoading(true)
     setFailed(false)
     const start = `${periodKey}-01`
     const end = `${shiftMonth(periodKey, 1)}-01`
-    supabase.from('diary_entries')
-      .select('mood_score,emotional_tags,context_tags,date,created_at')
-      .eq('user_id', user.id).gte('date', start).lt('date', end).order('date', { ascending: true })
-      .then(({ data, error }) => {
-        if (!active) return
-        if (error) { setFailed(true); setEntries([]) } else setEntries((data ?? []) as MapEntry[])
-        setLoading(false)
-      }, () => {
-        if (!active) return
-        setFailed(true)
-        setEntries([])
-        setLoading(false)
-      })
+    const prevKey = shiftMonth(periodKey, -1)
+    const prevStart = `${prevKey}-01`
+    Promise.all([
+      supabase.from('diary_entries').select('mood_score,emotional_tags,context_tags,date,created_at').eq('user_id', user.id).gte('date', start).lt('date', end).order('date', { ascending: true }),
+      // Só pra comparação entre períodos (§ Mapa Emocional) — nunca exibido isolado, só como
+      // referência ao lado do mês em foco.
+      supabase.from('diary_entries').select('mood_score,emotional_tags,context_tags,date,created_at').eq('user_id', user.id).gte('date', prevStart).lt('date', start).order('date', { ascending: true }),
+    ]).then(([current, previous]) => {
+      if (!active) return
+      if (current.error) { setFailed(true); setEntries([]) } else setEntries((current.data ?? []) as MapEntry[])
+      setPreviousEntries(previous.error ? [] : (previous.data ?? []) as MapEntry[])
+      setLoading(false)
+    }, () => {
+      if (!active) return
+      setFailed(true)
+      setEntries([])
+      setPreviousEntries([])
+      setLoading(false)
+    })
     return () => { active = false }
   }, [periodKey, user])
 
-  const dailyMoods = useMemo<DayMood[]>(() => {
-    const byDay = new Map<number, number[]>()
-    for (const entry of entries) {
-      const score = Number(entry.mood_score)
-      if (!Number.isFinite(score) || score <= 0) continue
-      const day = Number(String(entry.date || entry.created_at).slice(8, 10))
-      if (!day) continue
-      const values = byDay.get(day) ?? []
-      values.push(Math.min(5, Math.max(1, score)))
-      byDay.set(day, values)
+  const dailyMoods = useMemo<DayMood[]>(() => computeDailyMoods(entries), [entries])
+  const previousDailyMoods = useMemo<DayMood[]>(() => computeDailyMoods(previousEntries), [previousEntries])
+  // Comparação entre períodos: só números, sem narrativa (contrato do Mapa Emocional — a leitura
+  // de padrões fica em Descobertas). "Igual" cobre tanto empate quanto ausência de dado nos dois.
+  const comparison = useMemo(() => {
+    const curAvg = avgMood(dailyMoods)
+    const prevAvg = avgMood(previousDailyMoods)
+    const moodDelta = curAvg > 0 && prevAvg > 0 ? Math.round((curAvg - prevAvg) * 100) / 100 : null
+    const topEmotionCur = rankTags(entries, 'emotional_tags')[0]?.label ?? null
+    const topEmotionPrev = rankTags(previousEntries, 'emotional_tags')[0]?.label ?? null
+    return {
+      hasPrevious: previousEntries.length > 0,
+      curAvg, prevAvg, moodDelta,
+      curDays: dailyMoods.length, prevDays: previousDailyMoods.length,
+      curTotal: entries.length, prevTotal: previousEntries.length,
+      topEmotionCur, topEmotionPrev,
+      topEmotionChanged: Boolean(topEmotionCur && topEmotionPrev && topEmotionCur !== topEmotionPrev),
     }
-    return [...byDay.entries()]
-      .map(([day, values]) => ({ day, mood: values.reduce((sum, value) => sum + value, 0) / values.length }))
-      .sort((a, b) => a.day - b.day)
-  }, [entries])
+  }, [dailyMoods, previousDailyMoods, entries, previousEntries])
 
   const emotions = useMemo(() => rankTags(entries, 'emotional_tags'), [entries])
   const contexts = useMemo(() => rankTags(entries, 'context_tags'), [entries])
@@ -303,6 +335,31 @@ export default function MyEvolutionPage(props: Props) {
               <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#d8d8d2]" />Sem registro</span>
             </div>
           </>
+        )}
+      </section>
+
+      <section className="rounded-[22px] border border-line bg-white p-5 sm:p-6 mb-4">
+        <div className="flex items-center gap-2"><h3 className="font-semibold text-forest-900">Comparado ao mês anterior</h3><InfoHint text="Só números, lado a lado — a leitura de possíveis padrões fica em Descobertas." /></div>
+        {comparison.hasPrevious ? (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-paper-soft/60 p-4 text-center">
+              <p className="text-[11px] font-medium text-ink-soft">Humor médio</p>
+              <p className="mt-1 text-2xl font-semibold text-forest-900">{comparison.curAvg > 0 ? comparison.curAvg.toFixed(1) : '—'}</p>
+              <p className="mt-1 text-[11px] text-ink-soft">{comparison.prevAvg > 0 ? `Mês anterior: ${comparison.prevAvg.toFixed(1)}` : 'Sem dado no mês anterior'}{comparison.moodDelta != null && comparison.moodDelta !== 0 ? ` (${comparison.moodDelta > 0 ? '+' : ''}${comparison.moodDelta.toFixed(1)})` : ''}</p>
+            </div>
+            <div className="rounded-2xl bg-paper-soft/60 p-4 text-center">
+              <p className="text-[11px] font-medium text-ink-soft">Dias com registro</p>
+              <p className="mt-1 text-2xl font-semibold text-forest-900">{comparison.curDays}</p>
+              <p className="mt-1 text-[11px] text-ink-soft">Mês anterior: {comparison.prevDays} <span className="mx-1">•</span> {comparison.curTotal} registros (era {comparison.prevTotal})</p>
+            </div>
+            <div className="rounded-2xl bg-paper-soft/60 p-4 text-center">
+              <p className="text-[11px] font-medium text-ink-soft">Emoção mais registrada</p>
+              <p className="mt-1 text-lg font-semibold text-forest-900">{comparison.topEmotionCur ?? '—'}</p>
+              <p className="mt-1 text-[11px] text-ink-soft">{comparison.topEmotionPrev ? (comparison.topEmotionChanged ? `Mudou (era ${comparison.topEmotionPrev})` : 'Igual ao mês anterior') : 'Sem dado no mês anterior'}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-ink-soft">Ainda não há registros no mês anterior para comparar.</p>
         )}
       </section>
 

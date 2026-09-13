@@ -470,6 +470,65 @@ export function deriveRelations(a: EmotionalAnalysis): string[] {
   return [...new Set(out)].slice(0, 4)
 }
 
+// ── Tendência mês a mês (Relatório Mensal) ────────────────────────────────────
+// Reaproveita o mesmo princípio de "enfraquecendo" já usado em Descobertas
+// (homeDiscoveries.ts), só que comparando dois meses inteiros em vez de duas
+// metades de um mesmo período. Nunca compara texto narrativo — só contagens
+// estruturadas (emoção/marcador/contexto), que já existem e não têm ambiguidade.
+export interface MonthlyTrendItem {
+  label: string
+  kind: 'emotion' | 'marker' | 'context'
+  trend: 'fortaleceu' | 'enfraqueceu' | 'manteve'
+  currentCount: number
+  previousCount: number
+}
+function trendKeyOf(item: { label?: string; tag?: string }): string {
+  return (item.label ?? item.tag ?? '').trim().toLowerCase()
+}
+function trendFor(currentCount: number, previousCount: number): MonthlyTrendItem['trend'] {
+  if (previousCount === 0) return 'fortaleceu'
+  if (currentCount === 0) return 'enfraqueceu'
+  const ratio = currentCount / previousCount
+  if (ratio >= 1.3) return 'fortaleceu'
+  if (ratio <= 0.7) return 'enfraqueceu'
+  return 'manteve'
+}
+function collectMonthlyTrends(
+  kind: MonthlyTrendItem['kind'],
+  current: { label?: string; tag?: string; count: number }[],
+  previous: { label?: string; tag?: string; count: number }[],
+): MonthlyTrendItem[] {
+  const curMap = new Map(current.map(item => [trendKeyOf(item), item]))
+  const prevMap = new Map(previous.map(item => [trendKeyOf(item), item]))
+  const out: MonthlyTrendItem[] = []
+  for (const key of new Set([...curMap.keys(), ...prevMap.keys()])) {
+    if (!key) continue
+    const cur = curMap.get(key)
+    const prev = prevMap.get(key)
+    out.push({
+      label: cur?.label ?? cur?.tag ?? prev?.label ?? prev?.tag ?? key,
+      kind,
+      trend: trendFor(cur?.count ?? 0, prev?.count ?? 0),
+      currentCount: cur?.count ?? 0,
+      previousCount: prev?.count ?? 0,
+    })
+  }
+  return out
+}
+/**
+ * Compara os sinais mais presentes do mês atual com os do mês anterior — só
+ * quando há um mês anterior de verdade (o chamador decide isso). Cada sinal só
+ * entra na lista se esteve entre os 3 mais frequentes de pelo menos um dos dois
+ * meses; nunca inventa um sinal que não apareceu nos dados de nenhum dos lados.
+ */
+export function deriveMonthlyTrends(current: EmotionalAnalysis, previous: EmotionalAnalysis): MonthlyTrendItem[] {
+  return [
+    ...collectMonthlyTrends('emotion', current.topEmotions.slice(0, 3), previous.topEmotions.slice(0, 3)),
+    ...collectMonthlyTrends('marker', current.emotionalMarkers.slice(0, 3), previous.emotionalMarkers.slice(0, 3)),
+    ...collectMonthlyTrends('context', current.contexts.slice(0, 3), previous.contexts.slice(0, 3)),
+  ].slice(0, 8)
+}
+
 /** Linha narrativa do mês: início / meio / fim. §6.2 */
 export function deriveNarrative(a: EmotionalAnalysis): { phase: string; text: string }[] {
   const days = a.calendar.filter(c => c.avg > 0)
