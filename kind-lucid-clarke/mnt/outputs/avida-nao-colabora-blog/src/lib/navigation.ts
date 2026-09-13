@@ -6,7 +6,7 @@ export const PERSIST_KEY = 'avida_nav'
 export const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',
   'about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing',
-  'articles','article','responsibility','admin','contact','success','faq',
+  'articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
   'descobertas','cuidar','mais',
   'notifications',
@@ -16,6 +16,8 @@ export const VALID_VIEWS: View[] = [
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
   '/blog':                       'articles',
+  '/guias':                      'guides',
+  '/politica-editorial':         'editorial-policy',
   '/conteudos':                  'articles',
   '/planos':                     'pricing',
   '/faq':                        'faq',

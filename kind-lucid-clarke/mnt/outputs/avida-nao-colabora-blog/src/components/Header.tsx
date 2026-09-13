@@ -63,6 +63,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
             <button onClick={() => scrollHomeSection('como-funciona')} className="px-3 py-2 text-sm text-forest-900 hover:text-forest-600">Como funciona</button>
             <button onClick={() => handleNav('pricing')} className="px-3 py-2 text-sm text-forest-900 hover:text-forest-600">Planos</button>
             <button onClick={() => handleNav('articles')} className="px-3 py-2 text-sm text-forest-900 hover:text-forest-600">Conteúdos</button>
+            <button onClick={() => handleNav('guides')} className="px-3 py-2 text-sm text-forest-900 hover:text-forest-600">Guias</button>
             <button onClick={() => handleNav('about')} className="px-3 py-2 text-sm text-forest-900 hover:text-forest-600">Sobre</button>
           </nav>
         ) : (
@@ -109,6 +110,7 @@ export default function Header({ onNavigate, user, profile, onSignOut, currentVi
           <MobileText label="Como funciona" onClick={() => scrollHomeSection('como-funciona')} />
           <MobileText label="Planos" onClick={() => handleNav('pricing')} />
           <MobileText label="Conteúdos" onClick={() => handleNav('articles')} />
+          <MobileText label="Guias" onClick={() => handleNav('guides')} />
           <MobileText label="Sobre" onClick={() => handleNav('about')} />
           <button onClick={() => handleNav('auth')} className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white"><LogIn className="h-4 w-4" /> Criar conta gratuita</button>
         </> : <>

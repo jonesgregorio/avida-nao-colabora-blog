@@ -37,7 +37,7 @@ for (const vp of VIEWPORTS) {
   test(`document.title acompanha a navegação SPA por clique — ${vp.name}`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await page.goto('/')
-    await expect(page).toHaveTitle('A Vida Não Colabora — Bem-estar emocional e autoconhecimento')
+    await expect(page).toHaveTitle('A Vida Não Colabora — Diário emocional e autocuidado')
 
     // Navega por cliques nos links do rodapé (sem reload).
     for (const [label, expectedTitle] of [
