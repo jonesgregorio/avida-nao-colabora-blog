@@ -1,13 +1,12 @@
-import { BarChart3, Compass, History, LineChart, Sparkles } from 'lucide-react'
+import { BarChart3, Compass, History, LineChart } from 'lucide-react'
 
 interface Props {
-  current: 'hub' | 'discoveries' | 'map' | 'reports' | 'history'
+  current: 'discoveries' | 'map' | 'reports' | 'history'
   onNavigate: (section: string) => void
   compact?: boolean
 }
 
 const ITEMS = [
-  { id: 'evolution', key: 'hub', label: 'Visão geral', Icon: Sparkles },
   { id: 'descobertas', key: 'discoveries', label: 'Descobertas', Icon: Compass },
   { id: 'my-evolution', key: 'map', label: 'Mapa', Icon: LineChart },
   { id: 'my-report', key: 'reports', label: 'Relatórios', Icon: BarChart3 },
