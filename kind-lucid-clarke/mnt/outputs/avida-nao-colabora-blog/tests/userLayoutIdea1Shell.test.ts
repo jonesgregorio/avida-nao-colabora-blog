@@ -10,43 +10,32 @@ test('área logada preserva logo oficial e mantém a entrada principal como Hoje
   assert.match(source, /<LogoIcon className=/)
 })
 
-test('desktop recupera o menu direto anterior e acrescenta Descobertas e Meu Jardim', () => {
-  for (const id of ['home', 'diary', 'descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios', 'self-care', 'monthly-guidance', 'my-plan', 'profile', 'support']) {
-    assert.match(source, new RegExp(`id: '${id}'`), `destino ausente da navegação desktop: ${id}`)
+test('desktop reduz destinos principais e agrupa detalhes por intenção', () => {
+  for (const [id, label] of [['home','Hoje'], ['diary','Registrar'], ['descobertas','Evolução'], ['cuidar','Cuidar'], ['my-garden','Meu Jardim'], ['articles','Conteúdos'], ['mais','Conta']]) {
+    assert.match(source, new RegExp(`id: '${id}'[\\s\\S]{0,80}label: '${label}'`), `destino principal ausente: ${label}`)
   }
-
-  for (const group of ['Seu espaço', 'Entender', 'Cuidar', 'Conta']) {
-    assert.match(source, new RegExp(`label: '${group}'`), `grupo desktop ausente: ${group}`)
-  }
-
-  assert.match(source, /\['descobertas', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'articles', 'questionarios'\]/)
-  assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
+  assert.match(source, /match: \['descobertas', 'my-evolution', 'my-report', 'my-history'\]/)
+  assert.match(source, /match: \['cuidar', 'self-care', 'monthly-guidance', 'professional-comments', 'questionarios', 'questionnaire', 'questionarios-evolucao'\]/)
+  assert.match(source, /match: \['mais', 'my-plan', 'profile', 'support', 'support-ticket', 'notifications'\]/)
 })
 
-test('mobile expõe Plano de Autocuidado e Orientação como itens diretos (sem o intermediário "Cuidar")', () => {
-  // O menu do mobile deixou de ter um item "Cuidar" que abria uma subtela;
-  // Plano de Autocuidado e Orientação agora são opções próprias, como no desktop.
-  assert.doesNotMatch(source, /id: 'cuidar'/)
-  assert.doesNotMatch(source, /label: 'Cuidar',\s+Icon/)
-  assert.match(source, /const PRIMARY_NAV[\s\S]*id: 'self-care'[\s\S]*id: 'monthly-guidance'[\s\S]*\]/)
-  assert.match(source, /id: 'mais'/)
-  assert.match(source, /const NAV_GROUPS/)
-  assert.match(source, /groups=\{NAV_GROUPS\}/)
+test('mobile usa cinco intenções claras e substitui Mais por Conta', () => {
+  assert.match(source, /const MOBILE_IDS = \['home', 'diary', 'descobertas', 'cuidar', 'mais'\]/)
+  assert.match(source, /aria-label="Navegação principal"/)
+  assert.match(source, /label: 'Conta'/)
+  assert.doesNotMatch(source, /Mais recursos/)
+  assert.match(source, /pb-24 lg:pb-0/)
 })
 
-test('Ideia 1 não ressuscita módulos legados nem gamificação', () => {
+test('Hoje recebe orquestração e páginas analíticas recebem contexto de Evolução', () => {
+  assert.match(source, /<TodayJourney profile=\{profile\} onNavigate=\{onNavigate\}/)
+  assert.match(source, /<EvolutionContext currentView=\{currentView\} onNavigate=\{onNavigate\}/)
+})
+
+test('nova arquitetura não ressuscita módulos legados nem gamificação', () => {
   assert.doesNotMatch(source, /label: 'Caixa de Cuidado'/)
   assert.doesNotMatch(source, /label: 'Trilhas'/)
   assert.doesNotMatch(source, /label: 'Meditações'/)
-  assert.doesNotMatch(source, /label: 'Jornada'/)
-})
-
-test('mobile mantém Hoje, Diário, Descobertas, Mapa + Mais', () => {
-  assert.match(source, /const MOBILE_PRIMARY_IDS = \['home', 'diary', 'descobertas', 'my-evolution'\]/)
-  assert.match(source, /aria-label="Navegação principal"/)
-  assert.match(source, />\s*Mais\s*<\/button>/)
-  assert.match(source, /aria-label="Mais recursos"/)
-  assert.match(source, /pb-24 lg:pb-0/)
 })
 
 test('shell continua usando exclusivamente os tokens visuais oficiais do projeto', () => {
