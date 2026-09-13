@@ -44,10 +44,10 @@ AS $function$
     a.slug, a.title, a.seo_title, a.seo_description, a.summary, a.excerpt,
     CASE WHEN COALESCE(a.plan_required, 'free') = 'free' THEN a.content ELSE NULL END,
     COALESCE(NULLIF(TRIM(a.author), ''), 'Equipe editorial A Vida Não Colabora'),
-    a.category, COALESCE(a.plan_required, 'fre'), a.related_slugs,
+    a.category, COALESCE(a.plan_required, 'free'), a.related_slugs,
     a.og_image, a.image_url, a.cover_image_url, a.cover_image, a.image_alt,
     a.reviewed_at, COALESCE(a.published_at, a.created_at),
-    COALESCE(a.updated_at, a.published_at, a.now())
+    COALESCE(a.updated_at, a.published_at, a.created_at)
   FROM public.articles a
   WHERE a.slug = p_slug
     AND a.published = true
@@ -71,8 +71,8 @@ AS $function$
   WHERE a.published = true
     AND COALESCE(a.plan_required, 'free') = 'free'
     AND (a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at <= now()))
-    AND NULLIF(TRIM(j.slug), '') IS NOT NULL
-  ORDER BY COALESCE(a.updated_at, a.published_at, a.now()) DESC;
+    AND NULLIF(TRIM(a.slug), '') IS NOT NULL
+  ORDER BY COALESCE(a.published_at, a.created_at) DESC;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.list_public_article_sitemap()
@@ -88,7 +88,7 @@ AS $function$
   FROM public.articles a
   WHERE a.published = true
     AND COALESCE(a.plan_required, 'free') = 'free'
-    AND (a.status = 'published' OR (a.scheduled_at <= now()))
+    AND (a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at <= now()))
     AND NULLIF(TRIM(a.slug), '') IS NOT NULL
   ORDER BY COALESCE(a.updated_at, a.published_at, a.created_at) DESC;
 $function$;
