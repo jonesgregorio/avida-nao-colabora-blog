@@ -11,12 +11,13 @@ test('área logada preserva logo oficial e mantém Hoje como ponto de partida', 
 })
 
 test('desktop consolida a arquitetura em jornada, evolução, cuidado e conta', () => {
-  for (const label of ['Hoje', 'Registrar', 'Evolução', 'Meu Jardim', 'Conteúdos', 'Cuidar', 'Perfil', 'Meu Plano', 'Suporte']) {
+  for (const label of ['Hoje', 'Registrar', 'Evolução', 'Meu Jardim', 'Conteúdos', 'Cuidar', 'Conta']) {
     assert.match(source, new RegExp(`label: '${label}'`), `destino ausente: ${label}`)
   }
+  assert.match(source, /label: 'Conta'.*description: 'Meu Plano e Suporte'/s)
+  assert.match(source, /label="Minha conta" onClick=\{\(\) => go\('profile'\)\}/)
   assert.match(source, /const EVOLUTION_VIEWS = \['descobertas', 'my-evolution', 'my-report', 'my-history'\]/)
   assert.match(source, /label: 'Sua jornada'/)
-  assert.match(source, /label: 'Conta'/)
   assert.match(source, /groups=\{DESKTOP_NAV_GROUPS\}/)
 })
 
@@ -25,6 +26,7 @@ test('Evolução possui navegação contextual própria sem fundir funcionalidad
     assert.match(source, new RegExp(`id: '${id}'`))
   }
   assert.match(source, /const EVOLUTION_TABS/)
+  assert.match(source, /label: 'Minha História'/)
   assert.match(source, /Padrões e conexões percebidos/)
   assert.match(source, /Veja como seus sinais mudam/)
   assert.match(source, /Fechamentos semanais e mensais/)
@@ -36,7 +38,7 @@ test('mobile usa Hoje, Registrar, Evolução, Cuidar e Menu explícito', () => {
   assert.match(source, /aria-label="Navegação principal"/)
   assert.match(source, />Menu\s*<\/button>/)
   assert.match(source, /Recursos e conta/)
-  assert.match(source, /Conta e suporte/)
+  assert.match(source, /label: 'Conta'/)
   assert.doesNotMatch(source, />Mais\s*<\/button>/)
   assert.match(source, /pb-24 lg:pb-0/)
 })
