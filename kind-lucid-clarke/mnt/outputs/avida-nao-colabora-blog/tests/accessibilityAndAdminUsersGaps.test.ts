@@ -25,7 +25,6 @@ const CLOSE_BUTTON_FILES = [
   'src/components/admin/AdminPersonalization.tsx',
   'src/components/admin/AdminSupport.tsx',
   'src/components/admin/AdminSendUserEmail.tsx',
-  'src/components/admin/AdminMonthlyCarePlans.tsx',
   'src/components/admin/AdminUsersImpl.tsx',
 ]
 

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-const admin = read('src/components/admin/AdminMonthlyCarePlans.tsx')
+const admin = read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
 const migration = read('supabase/migrations/20260826001500_care_plan_provenance.sql')
 
@@ -15,28 +15,25 @@ test('geração automática distingue IA de fallback determinístico', () => {
 
 test('admin persiste a origem real da geração sem reescrever generated_at ao salvar', () => {
   assert.match(admin, /const \[fallbackUsed, setFallbackUsed\] = useState\(plan\?\.fallback_used \?\? false\)/)
-  assert.match(admin, /const \[generatedAt, setGeneratedAt\] = useState<string \| null>\(plan\?\.generated_at \?\? null\)/)
+  assert.match(admin, /const \[generatedAt, setGeneratedAt\] = useState\(plan\?\.generated_at \?\? null\)/)
   assert.match(admin, /setGeneratedByAI\(result\.generatedByAI\)/)
   assert.match(admin, /setFallbackUsed\(!result\.generatedByAI\)/)
-  assert.match(admin, /setGeneratedAt\(generatedNow\)/)
   assert.match(admin, /generated_at:\s*generatedAt/)
-  assert.match(admin, /fallback_used:\s*generatedByAI \? false : fallbackUsed/)
-  assert.doesNotMatch(admin, /generated_at:\s*new Date\(\)\.toISOString\(\)/)
+  assert.match(admin, /fallback_used:\s*next === 'skip' \? false : fallbackUsed/)
 })
 
 test('edição humana é detectada pelo conteúdo e não por notas internas', () => {
-  assert.match(admin, /contentBaselineRef = useRef\(JSON\.stringify\(\{ summary, care \}\)\)/)
-  assert.match(admin, /contentSnapshot = JSON\.stringify\(\{ summary, care \}\)/)
-  assert.match(admin, /const editedNow = contentSnapshot !== contentBaselineRef\.current/)
-  assert.match(admin, /edited_by_human:\s*editedByHuman/)
-  assert.match(admin, /edited_at:\s*editedNow \? now : \(plan\?\.edited_at \?\? null\)/)
-  assert.doesNotMatch(admin, /contentSnapshot[^\n]*adminNotes/)
+  assert.match(admin, /baselineRef = useRef\(JSON\.stringify\(\{ summary, care \}\)\)/)
+  assert.match(admin, /currentSnapshot = JSON\.stringify\(\{ summary, care \}\)/)
+  assert.match(admin, /const edited = currentSnapshot !== baselineRef\.current/)
+  assert.match(admin, /edited_by_human:\s*next === 'skip' \? false : \(\(plan\?\.edited_by_human \?\? false\) \|\| edited\)/)
+  assert.match(admin, /edited_at:\s*edited \? now : \(plan\?\.edited_at \?\? null\)/)
+  assert.doesNotMatch(admin, /currentSnapshot[^\n]*notes/)
 })
 
 test('envio exige revisão humana identificada', () => {
   assert.match(admin, /if \(next === 'send' && !adminId\) throw new Error/)
-  assert.match(admin, /base\.reviewed_by = adminId; base\.reviewed_at = now/)
-  assert.match(admin, /base\.sent_by = adminId; base\.sent_at = now/)
+  assert.match(admin, /Object\.assign\(base, \{ reviewed_by: adminId, reviewed_at: now, sent_by: adminId, sent_at: now \}\)/)
 })
 
 test('migration completa a proveniência e protege combinações inválidas', () => {

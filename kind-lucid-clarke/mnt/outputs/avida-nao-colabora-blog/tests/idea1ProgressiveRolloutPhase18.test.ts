@@ -11,8 +11,6 @@ import {
 
 const rolloutData = readFileSync(new URL('../src/lib/idea1Rollout.ts', import.meta.url), 'utf8')
 const weeklyFocus = readFileSync(new URL('../src/components/WeeklyFocusCard.tsx', import.meta.url), 'utf8')
-const admin = readFileSync(new URL('../src/components/admin/AdminIdea1Rollout.tsx', import.meta.url), 'utf8')
-const systemArea = readFileSync(new URL('../src/components/admin/AdminAreaSistema.tsx', import.meta.url), 'utf8')
 
 test('rollout nasce em 100% e normaliza valores sem criar estados inválidos', () => {
   assert.deepEqual(DEFAULT_IDEA1_ROLLOUT_SETTINGS, { enabled: true, percentage: 100 })
@@ -62,12 +60,7 @@ test('rollout controla somente novos convites e nunca esconde foco já salvo', (
   assert.match(weeklyFocus, /hasPlanAccess\(plan, 'essential'\)/)
 })
 
-test('admin deixa explícito o escopo e não apresenta o rollout como mudança de plano', () => {
-  assert.match(admin, /Novos convites de Foco da Semana/)
-  assert.match(admin, /Quem já tem um foco salvo ou uma reflexão pendente continua vendo e usando normalmente/)
-  assert.match(admin, /não altera planos, assinaturas, Stripe, Diário, Mapa Emocional, relatórios, conteúdos ou acessos contratados/)
-  assert.match(admin, /type="range"/)
-  assert.match(admin, /role="switch"/)
-  assert.match(admin, /Coorte estável/)
-  assert.match(systemArea, /id: 'liberacao', label: 'Liberação progressiva', Component: AdminIdea1Rollout/)
-})
+// O painel administrativo de "Liberação progressiva" (AdminIdea1Rollout) foi removido do
+// Admin: a rolagem já estava 100% concluída, e mantê-lo era um controle sem uso real. O
+// flag em si (lib/idea1Rollout*.ts) e sua leitura no WeeklyFocusCard continuam ativos e
+// testados acima — só a tela de ajuste manual no Admin deixou de existir.

@@ -62,6 +62,9 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [showAllMemories,setShowAllMemories]=useState(false)
   const [celebrateTheme,setCelebrateTheme]=useState<GardenTheme|null>(null)
   const [campaign,setCampaign]=useState<GardenCampaign|null>(null)
+  // Ainda não sabemos se existe uma campanha de desbloqueio temporário até a 1ª chamada
+  // terminar — evita mostrar o paywall por um instante pra quem seria desbloqueado.
+  const [campaignChecked,setCampaignChecked]=useState(access)
   const [stageThresholds,setStageThresholds]=useState<number[]|null>(null)
   const [cycleSlugs,setCycleSlugs]=useState<Record<number,string>>({})
   const [growthChange,setGrowthChange]=useState<{theme:GardenTheme;from:number;to:number}|null>(null)
@@ -72,11 +75,31 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [priorProgress,setPriorProgress]=useState<number|null>(null)
   const memoriesRef=useRef<HTMLDivElement|null>(null)
 
+  // get_my_garden_campaign() não depende do plano (mesma leitura de atividade de sempre) —
+  // por isso dá pra buscar a campanha mesmo antes de saber se o usuário tem acesso pago, só
+  // pra decidir se um "Desbloqueio temporário" (Admin → Jardins → Campanhas) se aplica a ele.
+  // Sempre roda uma vez, mesmo com acesso real, pra manter o banner de campanha que já existia.
   useEffect(()=>{
-    if(!access)return
     let alive=true
-    // campanha e estado do jardim são independentes — uma falhar não deve derrubar a outra.
-    ;(async()=>{const {data}=await supabase.rpc('get_my_garden_campaign');if(alive&&data)setCampaign(data as GardenCampaign)})().catch(()=>{})
+    ;(async()=>{
+      const {data}=await supabase.rpc('get_my_garden_campaign')
+      if(!alive)return
+      if(data)setCampaign(data as GardenCampaign)
+      setCampaignChecked(true)
+    })().catch(()=>{if(alive)setCampaignChecked(true)})
+    return()=>{alive=false}
+  },[userId])
+
+  // Desbloqueio temporário: só vale pra quem NÃO tem acesso pago (nunca reduz o que um
+  // assinante já tem) e só enquanto a campanha que o concedeu segue ativa/elegível — a
+  // próxima chamada de get_my_garden_campaign() já reflete campanha pausada/expirada/fora
+  // do público-alvo, então o acesso cai sozinho, sem exigir nenhuma ação manual.
+  const tempUnlocked=!access&&Boolean(campaign?.temporary_unlock)
+  const effectiveAccess=access||tempUnlocked
+
+  useEffect(()=>{
+    if(!effectiveAccess)return
+    let alive=true
     ;(async()=>{
       const {data}=await supabase.rpc('get_my_garden_state')
       if(!alive||!data)return
@@ -117,13 +140,13 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       }catch{/* localStorage indisponível (modo privado etc.) — só não notifica, sem quebrar a página */}
     })().catch(()=>{})
     return()=>{alive=false}
-  },[userId,access])
+  },[userId,effectiveAccess])
 
   useEffect(()=>{
     // "Marcos visuais" (Admin → Gestão de Jardins → Regras) — se o admin mudar os limiares
     // padrão, a dica "faltam N sinais" abaixo passa a refletir o valor real configurado em vez
     // do padrão fixo no código. Leitura pública (garden_settings_read permite authenticated).
-    if(!access)return
+    if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
       const {data}=await supabase.from('garden_settings').select('stage_thresholds').eq('id',true).maybeSingle()
@@ -131,7 +154,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       if(alive&&Array.isArray(thresholds))setStageThresholds(thresholds as number[])
     })().catch(()=>{})
     return()=>{alive=false}
-  },[access])
+  },[effectiveAccess])
 
   useEffect(()=>{
     // Memórias do Jardim: cada ciclo já concluído pode ter um garden_slug real gravado (o
@@ -140,7 +163,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     // de crescimento pulou vários ciclos de uma vez, como num ajuste manual do admin, e o
     // resolvedor nunca rodou pra esse ciclo intermediário), MemoryCard cai pro índice — nunca
     // fica sem imagem.
-    if(!access)return
+    if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
       const {data}=await supabase.from('garden_user_cycles').select('cycle_number,garden_slug').eq('user_id',userId)
@@ -150,9 +173,15 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       setCycleSlugs(map)
     })().catch(()=>{})
     return()=>{alive=false}
-  },[userId,access])
+  },[userId,effectiveAccess])
 
-  if(!access)return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center"><LockKeyhole className="mx-auto h-9 w-9 text-forest-500"/><h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1><p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>{onNavigatePricing&&<button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">Ver planos</button>}</section></div>
+  // Sem acesso pago: só decide entre paywall e desbloqueio temporário depois que a checagem
+  // de campanha (acima) terminar — evita mostrar o paywall por um instante pra quem seria
+  // desbloqueado, e evita liberar o jardim por um instante pra quem não tem nenhuma campanha.
+  if(!effectiveAccess){
+    if(!campaignChecked)return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center animate-pulse"><div className="mx-auto h-9 w-9 rounded-full bg-line"/><div className="mx-auto mt-4 h-8 w-40 rounded-lg bg-line"/><div className="mx-auto mt-3 h-4 w-64 rounded-lg bg-line"/></section></div>
+    return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center"><LockKeyhole className="mx-auto h-9 w-9 text-forest-500"/><h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1><p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>{onNavigatePricing&&<button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">Ver planos</button>}</section></div>
+  }
 
   const stage=Math.max(0,Math.min(6,state.stage||0))
   const gardenIndex=Math.max(0,state.garden_index||0)
@@ -207,6 +236,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     </section>
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
+      {tempUnlocked&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-forest-200 bg-forest-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-forest-600"/><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-forest-700">Acesso liberado por tempo limitado</p><p className="mt-1 text-sm leading-5 text-ink-soft">Você está vendo o Meu Jardim de graça enquanto esta campanha estiver ativa. Ele volta a ficar disponível a partir do plano Essencial quando a campanha terminar.</p></div></div>{onNavigatePricing&&<button onClick={onNavigatePricing} className="shrink-0 self-start rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">Garantir acesso permanente</button>}</div>}
       {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&(campaign.cta_url?<a href={campaign.cta_url} target="_blank" rel="noopener noreferrer" className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">{campaign.cta_label}</a>:<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>)}</div>}
       {growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">Seu jardim mudou desde sua última visita.</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={()=>setCompareOpen(true)} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button><button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button></div></div>}
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
