@@ -121,6 +121,11 @@ function injectSnapshot(shell, markup) {
   return shell.replace('<div id="root"></div>', `<div id="root">${markup}</div>`)
 }
 
+function publicGuideLinks(articles = []) {
+  const publicSlugs = new Set(articles.map((article) => article.slug))
+  return GUIDE_LINKS.filter(([, slug]) => publicSlugs.has(slug))
+}
+
 function renderSnapshot(page, articles = []) {
   const heading = page.heading || page.title.replace(/\s+—\s+A Vida Não Colabora$/, '')
   const intro = page.intro || page.description
@@ -129,11 +134,7 @@ function renderSnapshot(page, articles = []) {
 
   let collection = ''
   if (page === PAGE_META.guides) {
-    // Só apontamos para artigos confirmados como públicos pela mesma consulta
-    // usada no índice do blog. Isso evita enviar leitores e robôs a URLs que
-    // pertencem a conteúdos fechados e terminariam em uma tela de login.
-    const publicSlugs = new Set(articles.map((article) => article.slug))
-    const availableGuides = GUIDE_LINKS.filter(([, slug]) => publicSlugs.has(slug))
+    const availableGuides = publicGuideLinks(articles)
     collection = availableGuides.length
       ? `<section><h2>Escolha por onde começar</h2><ul>${availableGuides.map(([title, slug, text]) => `<li><a href="/blog/${escapeHtml(slug)}"><strong>${escapeHtml(title)}</strong></a><p>${escapeHtml(text)}</p></li>`).join('')}</ul></section>`
       : '<section><h2>Conteúdos em atualização</h2><p>Estamos preparando os guias detalhados para publicação aberta no blog. Enquanto isso, explore os recursos de organização emocional da plataforma.</p></section>'
@@ -172,30 +173,30 @@ function setPageHead(shell, page, articles = []) {
   }
 
   const graph = [
-      {
-        '@type': page.type,
-        '@id': `${canonical}#webpage`,
-        url: canonical,
-        name: page.title,
-        description: page.description,
-        inLanguage: 'pt-BR',
-        isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
-        about: { '@id': `${SITE_ORIGIN}/#organization` },
-      },
-      {
-        '@type': 'BreadcrumbList',
-        '@id': `${canonical}#breadcrumb`,
-        itemListElement: page.path === '/' ? [
-          { '@type': 'ListItem', position: 1, name: 'Início', item: `${SITE_ORIGIN}/` },
-        ] : [
-          { '@type': 'ListItem', position: 1, name: 'Início', item: `${SITE_ORIGIN}/` },
-          { '@type': 'ListItem', position: 2, name: page.title.replace(/\s+—\s+A Vida Não Colabora$/, ''), item: canonical },
-        ],
-      },
-    ]
+    {
+      '@type': page.type,
+      '@id': `${canonical}#webpage`,
+      url: canonical,
+      name: page.title,
+      description: page.description,
+      inLanguage: 'pt-BR',
+      isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+      about: { '@id': `${SITE_ORIGIN}/#organization` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${canonical}#breadcrumb`,
+      itemListElement: page.path === '/' ? [
+        { '@type': 'ListItem', position: 1, name: 'Início', item: `${SITE_ORIGIN}/` },
+      ] : [
+        { '@type': 'ListItem', position: 1, name: 'Início', item: `${SITE_ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: page.title.replace(/\s+—\s+A Vida Não Colabora$/, ''), item: canonical },
+      ],
+    },
+  ]
 
   const itemLinks = page === PAGE_META.guides
-    ? GUIDE_LINKS.map(([title, slug]) => ({ title, url: `${SITE_ORIGIN}/blog/${slug}` }))
+    ? publicGuideLinks(articles).map(([title, slug]) => ({ title, url: `${SITE_ORIGIN}/blog/${slug}` }))
     : page === PAGE_META.blog
       ? articles.slice(0, 50).map((article) => ({ title: article.title, url: `${SITE_ORIGIN}/blog/${article.slug}` }))
       : []
@@ -235,9 +236,6 @@ async function listPublicArticles() {
 }
 
 async function getAppShell(req) {
-  // Usa o host real recebido pela requisição. Em produção, VERCEL_URL aponta
-  // para a URL técnica *.vercel.app do deployment, protegida pelo Standard
-  // Protection, e não deve ser usada para o self-fetch do domínio público.
   const host = req.headers.host || process.env.VERCEL_URL
   if (!host) throw new Error('deployment_host_missing')
   const protocol = host.includes('localhost') ? 'http' : 'https'
@@ -262,7 +260,7 @@ export default async function handler(req, res) {
 
   try {
     const shell = await getAppShell(req)
-    const articles = route === 'blog' ? await listPublicArticles() : []
+    const articles = route === 'blog' || route === 'guides' ? await listPublicArticles() : []
     const html = setPageHead(shell, page, articles)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
