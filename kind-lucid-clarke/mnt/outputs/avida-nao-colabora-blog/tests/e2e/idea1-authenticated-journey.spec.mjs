@@ -310,9 +310,12 @@ test('jornada autenticada principal abre no desktop sem erro de renderização o
   await page.goto('/')
   const desktopNav = page.getByRole('navigation', { name: 'Área do usuário' })
   await expect(desktopNav).toBeVisible()
-  for (const label of ['Hoje', 'Registrar', 'Evolução', 'Meu Jardim', 'Conteúdos', 'Cuidar', 'Perfil', 'Meu Plano', 'Suporte']) {
+  for (const label of ['Hoje', 'Registrar', 'Evolução', 'Meu Jardim', 'Conteúdos', 'Cuidar', 'Conta']) {
     await expect(desktopNav.getByRole('button', { name: new RegExp(`^${label}`) })).toBeVisible()
   }
+  await expect(desktopNav.getByRole('button', { name: /^Perfil/ })).toHaveCount(0)
+  await expect(desktopNav.getByRole('button', { name: /^Meu Plano/ })).toHaveCount(0)
+  await expect(desktopNav.getByRole('button', { name: /^Suporte/ })).toHaveCount(0)
   await page.screenshot({ path: 'test-results/idea1-qa/home-desktop.png', fullPage: true })
 })
 
@@ -348,9 +351,10 @@ test('menu mobile recebe foco, fecha com Escape e deixa conta e recursos explíc
   const dialog = page.getByRole('dialog', { name: 'Recursos e conta' })
   await expect(dialog).toBeVisible()
   await expect(dialog).toBeFocused()
-  await expect(dialog.getByText('Conta e suporte', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Conta', { exact: true })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Meu Plano', exact: true })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Suporte', exact: true })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /Perfil|Minha conta/ })).toHaveCount(0)
   await page.screenshot({ path: 'test-results/idea1-qa/mobile-menu-dialog.png', fullPage: true })
 
   await page.keyboard.press('Escape')
