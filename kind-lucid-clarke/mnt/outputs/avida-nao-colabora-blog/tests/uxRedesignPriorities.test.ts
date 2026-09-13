@@ -25,16 +25,20 @@ test('prioridades 4-6: cada eixo ganha propósito textual próprio e Hoje reduz 
   assert.match(home, /Para onde faz sentido seguir\?/)
 })
 
-test('prioridade 7: biblioteca separa leitura de prática sem trocar o motor de recomendação', () => {
-  assert.match(articles, /type LibraryMode = 'all' \| 'read' \| 'practice'/)
+test('prioridade 7: biblioteca separa catálogo, histórico de leitura e práticas sem trocar o motor', () => {
+  assert.match(articles, /type LibraryMode = 'all' \| 'history' \| 'practice'/)
   assert.match(articles, /fetchGuidedCatalog\(\)/)
+  assert.match(articles, /fetchReadSlugs/)
   assert.match(articles, /RecommendedContent/)
-  assert.match(articles, /\['read', 'Ler', BookOpen\]/)
+  assert.match(articles, /\['history', 'Minhas leituras', History\]/)
+  assert.match(articles, /readSlugs\.has\(it\.slug\)/)
   assert.match(articles, /\['practice', 'Praticar', PlayCircle\]/)
   assert.match(articles, /Prática guiada/)
 })
 
 test('prioridade 8: Minha História mantém timeline editorial e resumo anual', () => {
+  assert.match(layout, /label: 'Minha História'/)
+  assert.match(history, /Minha História/)
   assert.match(history, /Linha do tempo/)
   assert.match(history, /Sua trajetória em ordem cronológica/)
   assert.match(history, /border-l/)
