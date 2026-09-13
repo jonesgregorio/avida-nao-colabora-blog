@@ -199,7 +199,10 @@ export default function AdminGuidanceRequests() {
 
   const filtered = requests
     .filter(r => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false
+      // "open" na aba do admin cobre as duas fases que a pessoa vê como "ainda não respondida":
+      // 'open' (recebida) e 'in_review' (alguém já começou a olhar).
+      if (statusFilter === 'open' && r.status !== 'open' && r.status !== 'in_review') return false
+      if (statusFilter !== 'all' && statusFilter !== 'open' && r.status !== statusFilter) return false
       if (planFilter !== 'all' && r.user?.plan !== planFilter) return false
       if (monthFilter !== 'all' && r.month_key !== monthFilter) return false
       if (search.trim()) {
@@ -217,7 +220,7 @@ export default function AdminGuidanceRequests() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
 
-  const openReqs = requests.filter(r => r.status === 'open')
+  const openReqs = requests.filter(r => r.status === 'open' || r.status === 'in_review')
   const openCount = openReqs.length
   const nowD = new Date()
   const answeredThisMonth = requests.filter(r =>
@@ -250,6 +253,13 @@ export default function AdminGuidanceRequests() {
     setSuggestion('')
     setAdminNotes('')
     setLetter(r.final_response_json ?? r.ai_draft_json?.final_response ?? null)
+    // Sinal real (não estimado): alguém da equipe começou a olhar esse pedido. É o que separa
+    // "Recebida" de "Em análise" na tela da pessoa usuária — nunca inferido por tempo decorrido.
+    if (r.status === 'open') {
+      void supabase.from('monthly_guidance_requests').update({ status: 'in_review' }).eq('id', r.id).eq('status', 'open')
+      setSelected(current => current && current.id === r.id ? { ...current, status: 'in_review' } : current)
+      setRequests(current => current.map(item => item.id === r.id ? { ...item, status: 'in_review' } : item))
+    }
   }
   function backToList() {
     setSelected(null); setResponse(''); setSuggestion(''); setAdminNotes(''); setLetter(null)
@@ -449,7 +459,7 @@ export default function AdminGuidanceRequests() {
           ) : (
             <div className="space-y-2 max-h-[calc(100vh-22rem)] overflow-y-auto pr-0.5">
               {filtered.map(r => {
-                const waiting = r.status === 'open'
+                const waiting = r.status === 'open' || r.status === 'in_review'
                 const isSel = selected?.id === r.id
                 return (
                   <button
@@ -750,7 +760,8 @@ function DeadlineBadge({ createdAt }: { createdAt: string }) {
 function StatusBadge({ status }: { status: string }) {
   if (status === 'answered') return <span className="inline-flex items-center gap-1 text-[11px] bg-mint text-forest-800 px-2 py-0.5 rounded-full font-medium"><CheckCircle className="w-3 h-3" /> Respondida</span>
   if (status === 'closed') return <span className="text-[11px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-medium">Fechada</span>
-  return <span className="inline-flex items-center gap-1 text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium"><Clock className="w-3 h-3" /> Aguardando revisão</span>
+  if (status === 'in_review') return <span className="inline-flex items-center gap-1 text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium"><Clock className="w-3 h-3" /> Em análise</span>
+  return <span className="inline-flex items-center gap-1 text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium"><Clock className="w-3 h-3" /> Recebida</span>
 }
 
 function Field({ label, value }: { label: string; value: string }) {
