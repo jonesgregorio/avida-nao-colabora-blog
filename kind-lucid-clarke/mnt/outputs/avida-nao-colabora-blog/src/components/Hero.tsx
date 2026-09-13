@@ -84,7 +84,7 @@ export default function Hero({ onNavigate }: HeroProps) {
               <button
                 type="button"
                 onClick={scrollHowItWorks}
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#5d5148]/55 bg-[#fffaf1]/82 px-8 py-3 text-sm font-semibold text-[#2d251f] shadow-sm backdrop-blur-[3px] transition-colors hover:bg-white sm:min-h-0 sm:bg-white/20 sm:py-3.5"
+                className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#5d5148]/55 bg-[#fffaf1]/[0.82] px-8 py-3 text-sm font-semibold text-[#2d251f] shadow-sm backdrop-blur-[3px] transition-colors hover:bg-white sm:min-h-0 sm:bg-white/20 sm:py-3.5"
               >
                 Conheça os planos
               </button>
