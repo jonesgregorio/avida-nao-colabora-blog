@@ -9,6 +9,7 @@ import type { Profile } from '../../types'
 import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
 import TodayJourney from '../TodayJourney'
+import EvolutionContext from '../EvolutionContext'
 import { useUserMfaGate } from './UserMfaGate'
 import UserMfaSettings from './UserMfaSettings'
 
@@ -126,6 +127,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
 
   const currentLabel = HEADER_LABELS[currentView] ?? MAIN_NAV.find(isActive)?.label ?? 'Seu espaço'
   const go = (id: string) => { onNavigate(id); setProfileOpen(false) }
+  const inEvolution = ['descobertas', 'my-evolution', 'my-report', 'my-history'].includes(currentView)
 
   if (mfaGate) return <>{mfaGate}</>
 
@@ -178,6 +180,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
 
         <main className="flex-1 min-w-0 pb-24 lg:pb-0 flex flex-col">
           <div className="flex-1">
+            {inEvolution && <EvolutionContext currentView={currentView} onNavigate={onNavigate} />}
             {children}
             {currentView === 'home' && <TodayJourney profile={profile} onNavigate={onNavigate} />}
             {currentView === 'profile' && user && <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10"><UserMfaSettings user={user} /></div>}
