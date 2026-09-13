@@ -43,8 +43,9 @@ test('Relatórios deixam semanal e mensal visual e conceitualmente distintos', (
   assert.match(reports, /Leitura aprofundada/)
   assert.match(reports, /Semanal responde: “como foram meus últimos dias\?”/)
   assert.match(reports, /Mensal responde: “o que este mês mostra quando vejo o conjunto\?”/)
-  assert.match(reports, /Abrir retrospectiva semanal/)
-  assert.match(reports, /Abrir leitura mensal/)
+  assert.match(reports, /retrospectiva semanal/)
+  assert.match(reports, /leitura mensal/)
+  assert.match(reports, /type==='weekly'\?'retrospectiva semanal':'leitura mensal'/)
 })
 
 test('Descobertas oferece próximo passo sem mudar o motor de detecção', () => {
