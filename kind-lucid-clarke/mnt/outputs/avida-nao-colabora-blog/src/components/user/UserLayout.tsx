@@ -70,9 +70,7 @@ const DESKTOP_NAV: NavItem[] = [
 ]
 
 const ACCOUNT_NAV: NavItem[] = [
-  { id: 'profile', label: 'Perfil', Icon: UserIcon, match: ['profile'] },
-  { id: 'my-plan', label: 'Meu Plano', Icon: CreditCard, match: ['my-plan'] },
-  { id: 'support', label: 'Suporte', Icon: LifeBuoy, match: ['support', 'support-ticket'] },
+  { id: 'my-plan', label: 'Conta', Icon: CreditCard, match: ACCOUNT_VIEWS, description: 'Meu Plano e Suporte' },
 ]
 
 const MOBILE_MAIN: NavItem[] = [
@@ -92,9 +90,8 @@ const MOBILE_MENU_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Conta e suporte',
+    label: 'Conta',
     items: [
-      { id: 'profile', label: 'Perfil', Icon: UserIcon, match: ['profile'] },
       { id: 'my-plan', label: 'Meu Plano', Icon: CreditCard, match: ['my-plan'] },
       { id: 'support', label: 'Suporte', Icon: LifeBuoy, match: ['support', 'support-ticket'] },
       { id: 'notifications', label: 'Notificações', Icon: Bell, match: ['notifications'] },
@@ -110,20 +107,20 @@ const DESKTOP_NAV_GROUPS: NavGroup[] = [
 const SECTION_META: Record<string, { title: string; description: string }> = {
   home: { title: 'Hoje', description: 'Seu ponto de partida para registrar, perceber e cuidar.' },
   diary: { title: 'Registrar', description: 'Seu espaço para escrever e guardar o que aconteceu.' },
-  descobertas: { title: 'Evolução', description: 'Padrões e conexões percebidos nos seus registros.' },
-  'my-evolution': { title: 'Evolução', description: 'Veja como seus sinais mudam ao longo do tempo.' },
-  'my-report': { title: 'Evolução', description: 'Fechamentos semanais e mensais para compreender períodos.' },
-  'my-history': { title: 'Evolução', description: 'Sua trajetória emocional ao longo do tempo.' },
+  descobertas: { title: 'Descobertas', description: 'Padrões, sinais e conexões percebidos nos seus registros.' },
+  'my-evolution': { title: 'Mapa Emocional', description: 'Veja como seus sinais mudam ao longo do tempo.' },
+  'my-report': { title: 'Relatórios', description: 'Fechamentos semanais e mensais para compreender períodos.' },
+  'my-history': { title: 'Minha História', description: 'Sua trajetória emocional organizada ao longo do tempo.' },
   'my-garden': { title: 'Meu Jardim', description: 'Uma representação visual da constância que você cultiva.' },
-  articles: { title: 'Conteúdos', description: 'Escolha entre leituras e práticas guiadas.' },
+  articles: { title: 'Conteúdos', description: 'Escolha entre biblioteca, leituras iniciadas e práticas guiadas.' },
   article: { title: 'Conteúdos', description: 'Leitura e prática no seu ritmo.' },
-  'self-care': { title: 'Cuidar', description: 'Transforme o que percebeu em ações possíveis.' },
-  'monthly-guidance': { title: 'Cuidar', description: 'Acompanhe sua orientação e os próximos passos.' },
-  'professional-comments': { title: 'Cuidar', description: 'Acompanhe sua orientação e os próximos passos.' },
-  questionarios: { title: 'Cuidar', description: 'Questionários estruturados para apoiar sua percepção.' },
-  questionnaire: { title: 'Cuidar', description: 'Questionários estruturados para apoiar sua percepção.' },
-  'questionarios-evolucao': { title: 'Cuidar', description: 'Acompanhe sua evolução nos questionários.' },
-  profile: { title: 'Conta', description: 'Perfil, preferências e privacidade.' },
+  'self-care': { title: 'Plano de Autocuidado', description: 'Transforme o que percebeu em ações possíveis e adaptáveis.' },
+  'monthly-guidance': { title: 'Orientação', description: 'Acompanhe sua orientação e os próximos passos.' },
+  'professional-comments': { title: 'Orientação', description: 'Acompanhe sua orientação e os próximos passos.' },
+  questionarios: { title: 'Questionários', description: 'Questionários estruturados para apoiar sua percepção.' },
+  questionnaire: { title: 'Questionários', description: 'Questionários estruturados para apoiar sua percepção.' },
+  'questionarios-evolucao': { title: 'Questionários', description: 'Acompanhe sua evolução nos questionários.' },
+  profile: { title: 'Perfil', description: 'Perfil, preferências e privacidade.' },
   'my-plan': { title: 'Conta', description: 'Plano, acesso e assinatura.' },
   support: { title: 'Conta', description: 'Ajuda e acompanhamento de solicitações.' },
   'support-ticket': { title: 'Conta', description: 'Ajuda e acompanhamento de solicitações.' },
@@ -134,21 +131,27 @@ const EVOLUTION_TABS: NavItem[] = [
   { id: 'descobertas', label: 'Descobertas', Icon: Sparkles, match: ['descobertas'] },
   { id: 'my-evolution', label: 'Mapa', Icon: LineChart, match: ['my-evolution'] },
   { id: 'my-report', label: 'Relatórios', Icon: BarChart3, match: ['my-report'] },
-  { id: 'my-history', label: 'História', Icon: History, match: ['my-history'] },
+  { id: 'my-history', label: 'Minha História', Icon: History, match: ['my-history'] },
 ]
 
 const CARE_TABS: NavItem[] = [
-  { id: 'self-care', label: 'Plano', Icon: Sprout, match: ['self-care'] },
+  { id: 'self-care', label: 'Plano de Autocuidado', Icon: Sprout, match: ['self-care'] },
   { id: 'monthly-guidance', label: 'Orientação', Icon: MessageCircle, match: ['monthly-guidance', 'professional-comments'] },
   { id: 'questionarios', label: 'Questionários', Icon: ClipboardList, match: ['questionarios', 'questionnaire', 'questionarios-evolucao'] },
 ]
 
 const ACCOUNT_TABS: NavItem[] = [
-  { id: 'profile', label: 'Perfil', Icon: UserIcon, match: ['profile'] },
-  { id: 'my-plan', label: 'Plano', Icon: CreditCard, match: ['my-plan'] },
+  { id: 'my-plan', label: 'Meu Plano', Icon: CreditCard, match: ['my-plan'] },
   { id: 'support', label: 'Suporte', Icon: LifeBuoy, match: ['support', 'support-ticket'] },
   { id: 'notifications', label: 'Notificações', Icon: Bell, match: ['notifications'] },
 ]
+
+const SELF_CARE_STEPS = [
+  ['1', 'Foco do ciclo', 'Entenda o cuidado mais relevante agora.'],
+  ['2', 'Escolha ações', 'Ative apenas o que fizer sentido para você.'],
+  ['3', 'Adapte sem culpa', 'Reduza ou pause ações em dias mais difíceis.'],
+  ['4', 'Dê retorno', 'Seu retorno ajuda o próximo ciclo a ficar mais pessoal.'],
+] as const
 
 function displayName(profile: Profile | null, user: SupabaseUser | null) {
   return profile?.preferred_name || profile?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'você'
@@ -199,7 +202,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
     ? EVOLUTION_TABS
     : CARE_VIEWS.includes(currentView)
       ? CARE_TABS
-      : ACCOUNT_VIEWS.includes(currentView)
+      : ACCOUNT_VIEWS.includes(currentView) && currentView !== 'profile'
         ? ACCOUNT_TABS
         : null
 
@@ -252,6 +255,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
         </header>
 
         <main className="flex-1 min-w-0 pb-24 lg:pb-0 flex flex-col">
+          {currentView === 'self-care' && <SelfCareGuide />}
           <div className="flex-1">{children}{currentView === 'profile' && user && <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10"><UserMfaSettings user={user} /></div>}</div>
           <UserFooter onNavigate={onNavigate} />
         </main>
@@ -270,7 +274,11 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
 }
 
 function ContextTabs({ title, description, items, isActive, go }: { title: string; description: string; items: NavItem[]; isActive: (item: NavItem) => boolean; go: (id: string) => void }) {
-  return <div className="border-t border-line/70 bg-white/55"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5"><div className="lg:hidden mb-2"><p className="text-xs font-semibold text-forest-900">{title}</p><p className="text-[11px] text-ink-soft mt-0.5">{description}</p></div><nav className="flex gap-1.5 overflow-x-auto pb-0.5" aria-label={`Navegação de ${title}`}>{items.map(item => { const active = isActive(item); const Icon = item.Icon; return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={active ? 'page' : undefined} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium border transition-colors ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-ink-soft border-line hover:border-forest-200 hover:text-forest-900'}`}><Icon className="w-3.5 h-3.5" />{item.label}</button> })}</nav></div></div>
+  return <div className="border-t border-line/70 bg-white/55"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5"><div className="lg:hidden mb-2"><p className="text-xs font-semibold text-forest-900">{title}</p><p className="text-[11px] text-ink-soft mt-0.5">{description}</p></div><nav className="flex gap-1.5 overflow-x-auto pb-0.5 snap-x" aria-label={`Navegação de ${title}`}>{items.map(item => { const active = isActive(item); const Icon = item.Icon; return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={active ? 'page' : undefined} className={`snap-start inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium border transition-colors ${active ? 'bg-forest-900 text-white border-forest-900' : 'bg-white text-ink-soft border-line hover:border-forest-200 hover:text-forest-900'}`}><Icon className="w-3.5 h-3.5" />{item.label}</button> })}</nav></div></div>
+}
+
+function SelfCareGuide() {
+  return <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-5" aria-label="Como usar o Plano de Autocuidado"><div className="rounded-3xl border border-forest-100 bg-gradient-to-r from-mint/45 via-paper-soft to-sand-50 p-4 sm:p-5"><div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-forest-600">Como o plano funciona</p><h2 className="font-serif text-xl text-forest-900 mt-0.5">Um ciclo de cuidado que se adapta a você</h2></div><p className="text-xs text-ink-soft">Sem meta, sequência obrigatória ou cobrança.</p></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{SELF_CARE_STEPS.map(([number,title,text])=><div key={number} className="rounded-2xl border border-line/80 bg-white/80 p-3.5"><div className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-forest-900 text-[10px] font-semibold text-white">{number}</span><p className="text-xs font-semibold text-forest-900">{title}</p></div><p className="mt-2 text-[11px] leading-5 text-ink-soft">{text}</p></div>)}</div></div></section>
 }
 
 function SidebarContent({ name, groups, isActive, go }: { name: string; groups: NavGroup[]; isActive: (i: NavItem) => boolean; go: (id: string) => void }) {
@@ -284,7 +292,7 @@ function SidebarContent({ name, groups, isActive, go }: { name: string; groups: 
 
 function MobileMenu({ groups, isActive, go, onClose }: { groups: NavGroup[]; isActive: (i: NavItem) => boolean; go: (id: string) => void; onClose: () => void }) {
   const dialogRef = useModalA11y(onClose)
-  return <div className="lg:hidden fixed inset-0 z-50 flex items-end"><button type="button" aria-label="Fechar menu" className="absolute inset-0 w-full h-full bg-forest-900/35 backdrop-blur-[2px]" onClick={onClose} /><aside ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" tabIndex={-1} className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-up focus:outline-none"><div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line px-5 pt-3 pb-4"><div className="w-12 h-1.5 rounded-full bg-line mx-auto mb-4" aria-hidden /><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-500">Navegação</p><h2 id="mobile-menu-title" className="font-serif text-xl text-forest-900 mt-0.5">Recursos e conta</h2><p className="text-xs text-ink-soft mt-1">Jardim, conteúdos, questionários e tudo relacionado à sua conta.</p></div><button type="button" onClick={onClose} aria-label="Fechar menu" className="p-2 rounded-xl text-ink-soft hover:bg-mint/60"><X className="w-5 h-5" /></button></div></div><div className="px-4 py-4 pb-8"><nav className="space-y-5" aria-label="Recursos e conta">{groups.map(group => <div key={group.label}><p className="px-2 mb-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-soft/75">{group.label}</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{group.items.map(item => { const Icon = item.Icon; const active = isActive(item); return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={active ? 'page' : undefined} className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${active ? 'bg-mint border-forest-200 text-forest-900' : 'bg-white border-line text-ink hover:bg-mint/40'}`}><span className={`w-9 h-9 rounded-xl flex items-center justify-center ${active ? 'bg-white/80' : 'bg-sand-50'}`}><Icon className="w-[18px] h-[18px]" /></span><span className="text-sm font-medium">{item.label}</span></button> })}</div></div>)}</nav></div></aside></div>
+  return <div className="lg:hidden fixed inset-0 z-50 flex items-end"><button type="button" aria-label="Fechar menu" className="absolute inset-0 w-full h-full bg-forest-900/35 backdrop-blur-[2px]" onClick={onClose} /><aside ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" tabIndex={-1} className="relative w-full max-h-[86vh] bg-paper rounded-t-[28px] border-t border-line shadow-2xl overflow-y-auto animate-slide-up focus:outline-none"><div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line px-5 pt-3 pb-4"><div className="w-12 h-1.5 rounded-full bg-line mx-auto mb-4" aria-hidden /><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest-500">Navegação</p><h2 id="mobile-menu-title" className="font-serif text-xl text-forest-900 mt-0.5">Recursos e conta</h2><p className="text-xs text-ink-soft mt-1">Jardim, conteúdos, questionários, Meu Plano e Suporte. Seu perfil fica na sua foto no topo.</p></div><button type="button" onClick={onClose} aria-label="Fechar menu" className="p-2 rounded-xl text-ink-soft hover:bg-mint/60"><X className="w-5 h-5" /></button></div></div><div className="px-4 py-4 pb-8"><nav className="space-y-5" aria-label="Recursos e conta">{groups.map(group => <div key={group.label}><p className="px-2 mb-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-soft/75">{group.label}</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{group.items.map(item => { const Icon = item.Icon; const active = isActive(item); return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={active ? 'page' : undefined} className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${active ? 'bg-mint border-forest-200 text-forest-900' : 'bg-white border-line text-ink hover:bg-mint/40'}`}><span className={`w-9 h-9 rounded-xl flex items-center justify-center ${active ? 'bg-white/80' : 'bg-sand-50'}`}><Icon className="w-[18px] h-[18px]" /></span><span className="text-sm font-medium">{item.label}</span></button> })}</div></div>)}</nav></div></aside></div>
 }
 
 function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
