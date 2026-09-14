@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { ArrowRight, CalendarDays, Check, ChevronDown, Heart, Leaf, Loader2, Pause, RefreshCw, Settings2, Sparkles, Sprout, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan } from '../lib/officialPlans'
 import { CARE_PLAN_DISCLAIMER, type CarePlanContent } from '../lib/careePlanAI'
 import CarePlanActionFeedback from './CarePlanActionFeedback'
 import { loadCarePlanActionStates, saveCarePlanActionState, type CarePlanActionState } from '../lib/carePlanLivingState'
@@ -26,7 +26,7 @@ function ActionMeta({action,p}:{action:string;p:CarePlanContent|null}){const d=a
 function learningText(states:Record<string,CarePlanActionState>){const all=Object.values(states);const helped=all.filter(s=>s.outcome==='helped');const difficult=all.filter(s=>s.outcome==='could_not'||s.outcome==='adapt');const removed=all.filter(s=>s.outcome==='not_for_me'||s.state==='removed');if(helped.length)return `${helped.length===1?'Uma ação parece':'Algumas ações parecem'} estar ajudando. Vale manter o que cabe na sua rotina, sem aumentar a cobrança.`;if(difficult.length)return 'Algumas ações pediram adaptação. O Plano de Autocuidado pode ficar menor e mais simples quando a rotina apertar.';if(removed.length)return 'Você já identificou sugestões que não combinam com você. Isso também ajuda o próximo ciclo a respeitar melhor suas preferências.';return 'Seus retornos vão mostrando o que cabe melhor na sua rotina. Você não precisa completar o plano para ele ser útil.'}
 
 export default function SelfCarePlanPage({user,profile,onNavigatePricing}:Props){
- const plus=normalizePlan(profile?.plan)==='plus'
+ const plus=getEffectivePlan(profile)==='plus'
  const[plans,setPlans]=useState<CurrentPlan[]>([]),[selectedId,setSelectedId]=useState<string|null>(null),[states,setStates]=useState<Record<string,CarePlanActionState>>({})
  const[loading,setLoading]=useState(plus),[failed,setFailed]=useState(false),[historyOpen,setHistoryOpen]=useState(false),[detailsOpen,setDetailsOpen]=useState(false),[settingsOpen,setSettingsOpen]=useState(false),[hardMode,setHardMode]=useState(false),[saving,setSaving]=useState<string|null>(null)
  const[preferences,setPreferences]=useState<Preferences>(DEFAULT_PREFERENCES)
