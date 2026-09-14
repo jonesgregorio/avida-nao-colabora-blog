@@ -72,18 +72,21 @@ test('cron diário do SEO Control Center aponta para o projeto Supabase oficial 
 
 test('cockpit mantém todas as áreas e usa linguagem simples', () => {
   const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  const wrapper = read('src/components/admin/AdminSEOCockpitWithSelfTest.tsx')
   for (const label of ['Visão Geral', 'Indexação', 'Performance', 'Palavras-chave', 'Páginas', 'Oportunidades', 'Sitemap', 'Alertas', 'Auditoria técnica', 'Configurações']) {
     assert.match(cockpit, new RegExp(label))
   }
   assert.match(cockpit, /Analisar tudo agora/)
   assert.match(cockpit, /Corrigir problemas automaticamente/)
-  assert.match(cockpit, /Autoteste do SEO Control Center/)
-  assert.match(cockpit, /Executar autoteste agora/)
+  assert.match(wrapper, /Autoteste do SEO Control Center/)
+  assert.match(wrapper, /Executar autoteste agora/)
+  assert.match(wrapper, /12 testes aprovados/)
+  assert.match(wrapper, /seo-control-selftest/)
   assert.match(cockpit, /O que isso significa:/)
   assert.match(cockpit, /O que fazer:/)
   assert.match(cockpit, /Nenhuma ferramenta pode obrigar o Google a indexar uma página/)
   assert.match(cockpit, /uma página pode estar indexada e ainda ter zero aparições/i)
-  assert.doesNotMatch(cockpit, /private_key|client_email|Deno\.env/)
+  assert.doesNotMatch(`${cockpit}\n${wrapper}`, /private_key|client_email|Deno\.env/)
 })
 
 test('relatório sob demanda sincroniza dados frescos e diferencia indexação de aparições', () => {
