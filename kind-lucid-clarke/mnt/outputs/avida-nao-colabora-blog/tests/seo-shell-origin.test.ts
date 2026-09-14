@@ -46,13 +46,23 @@ test('renderers SEO usam o host recebido antes de VERCEL_URL e preservam cookie'
     calls.push({ url, headers: init?.headers })
 
     if (url === 'https://www.avidanaocolabora.com/index.html') {
-      return { ok: true, text: async () => indexHtml } as Response
+      return { ok: true, status: 200, text: async () => indexHtml } as Response
     }
 
-    if (url === 'https://example.supabase.co/rest/v1/rpc/get_public_article_seo') {
+    if (url === 'https://example.supabase.co/rest/v1/rpc/get_public_article_document') {
+      return { ok: false, status: 504 } as Response
+    }
+
+    if (url === 'https://example.supabase.co/rest/v1/rpc/get_public_article_seo_safe') {
       return {
         ok: true,
-        json: async () => [{ title: 'Artigo de teste', summary: 'Resumo de teste' }],
+        status: 200,
+        json: async () => [{
+          slug: 'como-perceber-ciclos-que-se-repetem-ao-longo-do-mes',
+          title: 'Artigo de teste',
+          summary: 'Resumo de teste',
+          plan_required: 'free',
+        }],
       } as Response
     }
 
@@ -89,6 +99,8 @@ test('renderers SEO usam o host recebido antes de VERCEL_URL e preservam cookie'
     }
 
     assert.equal(calls.some((call) => call.url.includes('deployment-protegido.vercel.app')), false)
+    assert.equal(calls.some((call) => call.url.endsWith('/rpc/get_public_article_seo_safe')), true)
+    assert.equal(calls.some((call) => call.url.endsWith('/rpc/get_public_article_seo')), false)
   } finally {
     globalThis.fetch = originalFetch
     restoreEnv('VERCEL_URL', originalVercelUrl)
