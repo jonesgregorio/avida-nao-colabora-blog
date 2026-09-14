@@ -11,6 +11,7 @@ import {
   parseURLNav,
   PERSIST_KEY,
   restoreNav,
+  scrollToTopHard,
   urlForView,
 } from './lib/navigation'
 import { applyRouteMetadata } from './lib/pageTitles'
@@ -180,7 +181,7 @@ export default function App() {
         setInitialEvolutionTab(tab)
         setView('my-evolution')
         pushURL('my-evolution')
-        window.scrollTo(0, 0)
+        scrollToTopHard()
         return
       }
     }
@@ -193,7 +194,7 @@ export default function App() {
       setDiaryMood(mood)
       setView('diary')
       pushURL('diary')
-      window.scrollTo(0, 0)
+      scrollToTopHard()
       return
     }
 
@@ -203,7 +204,7 @@ export default function App() {
       if (ticketId) setActiveSupportTicketId(ticketId)
       setView('support-ticket')
       pushURL('support-ticket', null, ticketId)
-      window.scrollTo(0, 0)
+      scrollToTopHard()
       return
     }
 
@@ -227,7 +228,7 @@ export default function App() {
       // por esse reflow — no mobile isso deixava o scroll parado bem longe do topo (achado
       // real: clicar em "Ver mais funcionalidades" no plano, na Home, abria a página de Planos
       // já rolada quase até o rodapé). Rolagem instantânea não pode ser interrompida assim.
-      window.scrollTo(0, 0)
+      scrollToTopHard()
       return
     }
 
@@ -274,7 +275,7 @@ export default function App() {
       setSelectedArticleSlug(pending.articleSlug)
       setView('article')
       pushURL('article', pending.articleSlug)
-      window.scrollTo(0, 0)
+      scrollToTopHard()
     } else if (pending.view === 'questionnaire' && pending.questionnaireId) {
       navigate('questionnaire', pending.questionnaireId)
     } else {
@@ -380,7 +381,7 @@ export default function App() {
         user={user}
         profile={accessProfile}
         navigate={navigate}
-        onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onSelectArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
         onSavePromptToDiary={handleSavePromptToDiary}
       />
     )
@@ -402,7 +403,7 @@ export default function App() {
         plan={effectivePlan}
         onBack={() => setView('home')}
         onNavigatePricing={() => navigate('pricing')}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
         initialMood={diaryMood}
         promptContext={diaryPromptContext}
         onClearPromptContext={() => setDiaryPromptContext(null)}
@@ -485,7 +486,7 @@ export default function App() {
         onNavigatePricing={() => navigate('pricing')}
         onNavigateArticles={() => navigate('articles')}
         onNavigate={navigate}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
       />
     )
   }
@@ -502,7 +503,7 @@ export default function App() {
           setSelectedArticleSlug(slug)
           setView('article')
           pushURL('article', slug)
-          window.scrollTo(0, 0)
+          scrollToTopHard()
         }}
       />
     )
@@ -602,7 +603,7 @@ export default function App() {
         onNavigatePricing={() => navigate('pricing')}
         onNavigateDiary={() => navigate('diary')}
         onNavigate={navigate}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
         initialTab={initialEvolutionTab as Tab}
       />
     )
@@ -616,7 +617,7 @@ export default function App() {
         profile={accessProfile}
         onNavigatePricing={() => navigate('pricing')}
         onNavigate={navigate}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
       />
     )
   }
@@ -635,7 +636,7 @@ export default function App() {
         user={user}
         profile={accessProfile}
         onNavigate={navigate}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
       />
     )
   }
@@ -658,7 +659,7 @@ export default function App() {
         onNavigateDiary={() => navigate('diary')}
         onNavigateGuidance={() => navigate('monthly-guidance')}
         onNavigateSelfCare={() => navigate('self-care')}
-        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); window.scrollTo(0, 0) }}
+        onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}
       />
     )
   }

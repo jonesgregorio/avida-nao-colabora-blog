@@ -6,6 +6,7 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 
 const adminLayout = read('src/components/admin/AdminLayout.tsx')
 const app = read('src/App.tsx')
+const navigationLib = read('src/lib/navigation.ts')
 
 // Achado ao vivo: no desktop, rolar o menu lateral do Admin pra baixo e clicar em qualquer
 // aba fazia o menu voltar pro topo sozinho. Causa: `const Sidebar = () => (...)` era definido
@@ -28,11 +29,21 @@ test('as duas instâncias do menu (desktop e mobile) usam o mesmo componente est
 })
 
 // Achado ao vivo: no mobile, clicar em "Ver mais funcionalidades" (Home → Planos) abria a
-// página de Planos já rolada quase até o rodapé, em vez do topo. Causa: window.scrollTo com
+// página de Planos já rolada quase até o rodapé, em vez do topo. Causa nº1: window.scrollTo com
 // behavior:'smooth' é uma animação — a troca de view (setView) substitui o conteúdo da página
-// logo em seguida, interrompendo a animação no meio do caminho, bem longe do topo.
-test('navegação entre views usa rolagem instantânea, não "smooth" (que pode ser interrompida pela troca de conteúdo)', () => {
+// logo em seguida, interrompendo a animação no meio do caminho, bem longe do topo (corrigido
+// trocando por scroll instantâneo). Causa nº2, que persistia mesmo com scroll instantâneo: no
+// mobile, o toque que aciona a navegação normalmente vem logo depois de um gesto de arrastar a
+// tela, e a inércia (momentum) do scroll nativo continua rolando a página por conta própria
+// por alguns instantes DEPOIS do clique — sobrescrevendo um único window.scrollTo(0,0) feito no
+// momento da troca. scrollToTopHard() reforça a posição por vários frames para vencer essa
+// inércia residual.
+test('navegação entre views usa rolagem instantânea reforçada (scrollToTopHard), não "smooth" nem um scrollTo único (vulnerável à inércia do mobile)', () => {
   assert.doesNotMatch(app, /window\.scrollTo\(\{ ?top: ?0, ?behavior: ?'smooth' ?\}\)/)
-  const instantScrolls = app.match(/window\.scrollTo\(0, 0\)/g) ?? []
-  assert.ok(instantScrolls.length >= 7, `esperava várias chamadas de scroll instantâneo (achei ${instantScrolls.length})`)
+  assert.doesNotMatch(app, /window\.scrollTo\(0, ?0\)/, 'troca de view deve usar scrollToTopHard(), não um window.scrollTo(0,0) isolado (vulnerável à inércia do scroll no mobile)')
+  const hardScrolls = app.match(/scrollToTopHard\(\)/g) ?? []
+  assert.ok(hardScrolls.length >= 7, `esperava várias chamadas de scrollToTopHard() (achei ${hardScrolls.length})`)
+  assert.match(navigationLib, /export function scrollToTopHard/)
+  // reforça a posição em múltiplos frames (requestAnimationFrame), não uma chamada isolada
+  assert.match(navigationLib, /requestAnimationFrame/)
 })
