@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { CalendarDays, ChevronLeft, ChevronRight, Filter, Info, LockKeyhole, Loader2 } from 'lucide-react'
 import type { Profile } from '../types'
 import { monthKey } from '../lib/dateUtils'
-import { hasPlanAccess } from '../lib/officialPlans'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import FreeMapComparison from './FreeMapComparison'
 import LegacyMyEvolutionPage from './MyEvolutionPageLegacy'
@@ -161,7 +161,7 @@ export default function MyEvolutionPage(props: Props) {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [showDetails, setShowDetails] = useState(initialTab === 'graficos')
-  const plan = profile?.plan ?? 'free'
+  const plan = getEffectivePlan(profile)
   const isEssential = hasPlanAccess(plan, 'essential')
 
   useEffect(() => {
@@ -169,7 +169,7 @@ export default function MyEvolutionPage(props: Props) {
   }, [initialTab])
 
   useEffect(() => {
-    if (!user) { setEntries([]); setPreviousEntries([]); setLoading(false); return }
+    if (!user || !isEssential) { setEntries([]); setPreviousEntries([]); setLoading(false); return }
     let active = true
     setLoading(true)
     setFailed(false)
@@ -195,7 +195,7 @@ export default function MyEvolutionPage(props: Props) {
       setLoading(false)
     })
     return () => { active = false }
-  }, [periodKey, user])
+  }, [periodKey, user, isEssential])
 
   const dailyMoods = useMemo<DayMood[]>(() => computeDailyMoods(entries), [entries])
   const previousDailyMoods = useMemo<DayMood[]>(() => computeDailyMoods(previousEntries), [previousEntries])
@@ -255,6 +255,33 @@ export default function MyEvolutionPage(props: Props) {
     y: 100 - ((item.mood - 1) / 4) * 100,
   }))
   const polyline = chartPoints.map(point => `${point.x},${point.y}`).join(' ')
+
+  // Achado da auditoria de permissões por plano (13/09/2026): esta tela não tinha NENHUM
+  // bloqueio de plano — isEssential só controlava o widget FreeMapComparison, deixando o
+  // calendário completo aberto para o Gratuito. Mapa Emocional completo é Essencial+ (README
+  // "Planos oficiais"), mesmo padrão de bloqueio usado por Descobertas/Meu Jardim/Relatórios.
+  if (!isEssential) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center">
+          <LockKeyhole className="mx-auto h-9 w-9 text-forest-500" />
+          <h1 className="mt-4 font-serif text-3xl text-forest-900">Mapa Emocional</h1>
+          <p className="mt-3 text-sm text-ink-soft max-w-xl mx-auto">
+            O Mapa Emocional completo reúne como seus sinais mudam ao longo do tempo. Está disponível a partir do plano Essencial.
+          </p>
+          {props.onNavigatePricing && (
+            <button
+              type="button"
+              onClick={props.onNavigatePricing}
+              className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white"
+            >
+              Ver planos
+            </button>
+          )}
+        </section>
+      </div>
+    )
+  }
 
   if (showDetails) {
     return (

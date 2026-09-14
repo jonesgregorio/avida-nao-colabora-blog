@@ -5,8 +5,9 @@ import {
   NotebookPen, Sparkles,
 } from 'lucide-react'
 import type { Profile } from '../types'
-import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
+import { formatDateBR } from '../lib/reportPeriods'
 import { loadReportHistory } from '../lib/reportGeneration'
 import { buildTemporalComparison } from '../lib/temporalComparison'
 import { buildJourneyChapter } from '../lib/journeyChapter'
@@ -118,7 +119,7 @@ function DiscoveryMemoryCard({ memory }: { memory: DiscoveryMemory }) {
 export default function MyHistoryPage({
   user, profile, onNavigatePricing, onNavigateDiary, onNavigateReport, onNavigateMap,
 }: Props) {
-  const plan = normalizePlan(profile?.plan)
+  const plan = getEffectivePlan(profile)
   const hasHistory = hasPlanAccess(plan, 'essential')
   const isPlus = plan === 'plus'
   const includeTriggers = isPlus
@@ -128,6 +129,11 @@ export default function MyHistoryPage({
   const [loading, setLoading] = useState(hasHistory)
   const [error, setError] = useState(false)
   const [truncated, setTruncated] = useState(false)
+  // Gratuito: "visão inicial" (README "Planos oficiais") — só números básicos e reais do
+  // próprio usuário, sem linha do tempo/marcos/comparações/relatórios (isso é Essencial+).
+  // Nunca fazia essa busca leve; antes disso, o Gratuito só via a tela de bloqueio.
+  const [freeStats, setFreeStats] = useState<{ total: number; startedAt: string | null } | null>(null)
+  const [freeStatsLoading, setFreeStatsLoading] = useState(!hasHistory)
 
   useEffect(() => {
     if (!user || !hasHistory) { setLoading(false); return }
@@ -174,15 +180,60 @@ export default function MyHistoryPage({
 
   const rememberedDiscoveries = useMemo(() => discoveryMemories.slice(0, 3), [discoveryMemories])
 
+  useEffect(() => {
+    if (!user || hasHistory) { setFreeStatsLoading(false); return }
+    let active = true
+    setFreeStatsLoading(true)
+    ;(async () => {
+      const [{ count }, { data: firstRow }] = await Promise.all([
+        supabase.from('diary_entries').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('diary_entries').select('date,created_at').eq('user_id', user.id).order('created_at', { ascending: true }).limit(1).maybeSingle(),
+      ])
+      if (!active) return
+      const started = firstRow ? String(firstRow.date || firstRow.created_at).slice(0, 10) : null
+      setFreeStats({ total: count ?? 0, startedAt: started })
+      setFreeStatsLoading(false)
+    })().catch(() => { if (active) { setFreeStats({ total: 0, startedAt: null }); setFreeStatsLoading(false) } })
+    return () => { active = false }
+  }, [user, hasHistory])
+
   if (!hasHistory) {
+    const daysSinceStart = freeStats?.startedAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(`${freeStats.startedAt}T00:00:00Z`).getTime()) / 86400000))
+      : null
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-7 sm:py-9">
-        <section className="rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-6 sm:p-8 text-center">
-          <span className="w-14 h-14 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center mx-auto"><Lock className="w-6 h-6" /></span>
-          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 mt-5">Minha História</p>
-          <h1 className="font-serif text-3xl text-forest-900 mt-1">Seu histórico completo começa no Essencial</h1>
-          <p className="text-sm text-ink-soft mt-3 max-w-xl mx-auto leading-relaxed">O Essencial reúne seus dias registrados e relatórios em uma linha do tempo para você olhar o caminho com mais distância, sem transformar cada registro em uma conclusão.</p>
-          <button onClick={onNavigatePricing} className="mt-6 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">Conhecer o Essencial <ArrowRight className="w-4 h-4" /></button>
+        <section className="rounded-[30px] border border-line bg-gradient-to-br from-mint via-paper-soft to-sand-50 p-6 sm:p-8">
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-forest-600 text-center">Minha História</p>
+          <h1 className="font-serif text-3xl text-forest-900 mt-1 text-center">Um retrato inicial da sua trajetória</h1>
+          <p className="text-sm text-ink-soft mt-3 max-w-xl mx-auto leading-relaxed text-center">
+            No plano Gratuito, Minha História mostra um retrato inicial — sem meta, sem cobrança.
+          </p>
+
+          {freeStatsLoading ? (
+            <div className="flex justify-center py-8" role="status"><Loader2 className="w-6 h-6 animate-spin text-forest-600" /></div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 max-w-2xl mx-auto">
+              <div className="rounded-2xl bg-white border border-line p-4 text-center">
+                <p className="font-serif text-3xl text-forest-900">{freeStats?.total ?? 0}</p>
+                <p className="text-xs text-ink-soft mt-1">{(freeStats?.total ?? 0) === 1 ? 'registro no total' : 'registros no total'}</p>
+              </div>
+              <div className="rounded-2xl bg-white border border-line p-4 text-center">
+                <p className="font-serif text-3xl text-forest-900">{daysSinceStart ?? '—'}</p>
+                <p className="text-xs text-ink-soft mt-1">{daysSinceStart === 1 ? 'dia com você' : 'dias com você'}</p>
+              </div>
+              <div className="rounded-2xl bg-white border border-line p-4 text-center">
+                <p className="font-serif text-xl text-forest-900">{freeStats?.startedAt ? formatDateBR(freeStats.startedAt) : 'Ainda não começou'}</p>
+                <p className="text-xs text-ink-soft mt-1">início da sua história</p>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-line bg-white/70 mt-6 max-w-2xl mx-auto p-5 text-center">
+            <span className="w-11 h-11 rounded-2xl bg-white border border-line text-forest-700 flex items-center justify-center mx-auto"><Lock className="w-5 h-5" /></span>
+            <p className="text-sm text-ink-soft mt-3 leading-relaxed">A linha do tempo completa, marcos, comparações entre períodos e relatórios ficam disponíveis a partir do Essencial.</p>
+            <button onClick={onNavigatePricing} className="mt-4 inline-flex items-center gap-2 bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium px-5 py-2.5 rounded-2xl transition-colors">Conhecer o Essencial <ArrowRight className="w-4 h-4" /></button>
+          </div>
         </section>
       </div>
     )

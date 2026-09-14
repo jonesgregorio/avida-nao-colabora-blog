@@ -17,7 +17,6 @@ function realEdgeFunctions() {
 }
 
 test('CI descobre Edge Functions automaticamente em vez de listar manualmente', () => {
-  // Lista manual antiga: cobria só 4 das 21 funções e não crescia sozinha.
   assert.equal(
     /run-automations\/index\.ts.*run-emotional-automations\/index\.ts/s.test(ciWorkflow),
     false,
@@ -68,6 +67,8 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'run-emotional-automations',
     'run-lifecycle-emails',
     'send-transactional-email',
+    'seo-control-selftest',
+    'seo-smart-google-actions',
     'stripe-audit',
     'stripe-selftest',
     'stripe-webhook',

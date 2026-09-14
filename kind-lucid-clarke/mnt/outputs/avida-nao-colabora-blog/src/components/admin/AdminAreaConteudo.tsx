@@ -3,7 +3,7 @@ import { FileText, Sparkles, FileCode, Zap, CalendarDays, Clock, Tag, Image, Sea
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
-import AdminSEOCockpit from './AdminSEOCockpit'
+import AdminSEOCockpitWithSelfTest from './AdminSEOCockpitWithSelfTest'
 import AdminRedirects from './AdminRedirects'
 import AdminSocialProof from './AdminSocialProof'
 import AdminSiteContent from './AdminSiteContent'
@@ -139,7 +139,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onOpenCen
         {tab === 'programados' && <AdminScheduled />}
         {tab === 'categorias'  && <AdminCategories />}
         {tab === 'imagens'     && <AdminMediaLibrary />}
-        {tab === 'seo'         && <AdminSEOCockpit onEditArticle={onEditArticle} />}
+        {tab === 'seo'         && <AdminSEOCockpitWithSelfTest onEditArticle={onEditArticle} />}
         {tab === 'redirects'   && <AdminRedirects />}
         {tab === 'site-paginas' && <div className="p-5 sm:p-6"><AdminSiteContent /></div>}
         {tab === 'depoimentos' && <AdminSocialProof />}
