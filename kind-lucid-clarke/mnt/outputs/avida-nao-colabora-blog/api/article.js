@@ -85,7 +85,7 @@ function injectArticleSnapshot(html, article, canonical) {
     }).join('')}</ul></aside>`
     : ''
   const markup = `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a></nav><article><header><p>${escapeHtml(article.category || 'Bem-estar emocional')}</p><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ''}<p>Por ${escapeHtml(author)}${published ? ` · Publicado em ${escapeHtml(published)}` : ''}${reviewed ? ` · Revisão editorial em ${escapeHtml(reviewed)}` : ''}</p></header>${articleBody || `<p>${escapeHtml(description)}</p>`}<footer><p>Conteúdo educativo. Não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p></footer></article>${related}<p><a href="${escapeHtml(canonical)}">Ler este conteúdo na A Vida Não Colabora</a></p></main>`
-  return html.replace('<div id="root"></div>', `<div id="root">${markup}</div>`)
+  return html.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">${markup}</div>`)
 }
 
 function applyCanonicalLinks(html, canonical) {
@@ -144,13 +144,21 @@ function setArticleHead(shell, article, slug) {
     isAccessibleForFree: isPublic,
     articleSection: article.category || undefined,
     author: authorName === 'A Vida Não Colabora' || authorName.startsWith('Equipe editorial')
-      ? { '@type': 'Organization', name: authorName, url: `${SITE_ORIGIN}/politica-editorial` }
+      ? {
+          '@type': 'Organization',
+          '@id': `${SITE_ORIGIN}/#organization`,
+          name: authorName,
+          url: `${SITE_ORIGIN}/politica-editorial`,
+          logo: { '@type': 'ImageObject', url: DEFAULT_IMAGE, width: 512, height: 512 },
+        }
       : { '@type': 'Person', name: authorName },
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
     publisher: {
       '@type': 'Organization',
+      '@id': `${SITE_ORIGIN}/#organization`,
       name: 'A Vida Não Colabora',
-      logo: { '@type': 'ImageObject', url: DEFAULT_IMAGE },
+      url: `${SITE_ORIGIN}/`,
+      logo: { '@type': 'ImageObject', url: DEFAULT_IMAGE, width: 512, height: 512 },
     },
   }).replace(/</g, '\\u003c')
 
