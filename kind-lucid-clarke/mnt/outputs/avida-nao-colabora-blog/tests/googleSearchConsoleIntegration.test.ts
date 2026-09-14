@@ -30,6 +30,14 @@ test('SEO Control Center persiste histórico, inspeções, sitemap, execuções 
   assert.match(migration, /google-search-console/)
 })
 
+test('cron diário do SEO Control Center aponta para o projeto Supabase oficial do AVNC', () => {
+  const migration = read('supabase/migrations/20260913235000_fix_seo_control_center_cron_target.sql')
+  assert.match(migration, /https:\/\/lejvvhzluggyxlfwfoxl\.supabase\.co\/functions\/v1\/google-search-console/)
+  assert.match(migration, /seo-control-center-daily/)
+  assert.match(migration, /automation_token/)
+  assert.doesNotMatch(migration, /pdjzzkqrrffvxvpymcqn/)
+})
+
 test('cockpit organiza as áreas completas e preserva a auditoria técnica existente', () => {
   const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
   for (const label of ['Visão Geral', 'Indexação', 'Performance', 'Palavras-chave', 'Páginas', 'Oportunidades', 'Sitemap', 'Alertas', 'Auditoria técnica', 'Configurações']) {
