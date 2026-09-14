@@ -179,12 +179,17 @@ export async function smartFixArticle(
   const changed: string[] = []
   const skipped: string[] = []
   let newSlug: string | undefined
+  let metadataDone = false
 
   const unique = [...new Set(issues)]
   for (const issue of unique) {
     try {
-      if (issue === 'no_seo' || issue === 'opportunity' || issue === 'indexing') await fixMetadata(article, changed)
-      else if (issue === 'no_image') await fixImage(article, changed)
+      if (issue === 'no_seo' || issue === 'opportunity' || issue === 'indexing') {
+        if (!metadataDone) {
+          await fixMetadata(article, changed)
+          metadataDone = true
+        }
+      } else if (issue === 'no_image') await fixImage(article, changed)
       else if (issue === 'no_links') await fixLinks(article, allArticles, changed)
       else if (issue === 'thin') await fixThinContent(article, changed)
       else if (issue === 'no_author') await fixAuthor(article, changed)
