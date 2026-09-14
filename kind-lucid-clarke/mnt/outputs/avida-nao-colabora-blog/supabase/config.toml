@@ -72,6 +72,11 @@ verify_jwt = false
 [functions.google-search-console]
 verify_jwt = false
 
+# O autoteste de SEO é chamado pelo pg_cron com automation_token e também pelo
+# Admin com JWT+AAL2. A própria função valida ambos os caminhos.
+[functions.seo-control-selftest]
+verify_jwt = false
+
 # run-lifecycle-emails é chamada pelo pg_cron via pg_net (autentica por token).
 [functions.run-lifecycle-emails]
 verify_jwt = false
