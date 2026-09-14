@@ -1,4 +1,7 @@
 const SITE_ORIGIN = 'https://www.avidanaocolabora.com'
+const RPC_TIMEOUT_MS = 2500
+const TRANSIENT_RPC_STATUSES = new Set([502, 503, 504])
+let lastKnownGoodXml = null
 
 const STATIC_URLS = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
@@ -30,23 +33,61 @@ function isoDate(value) {
   return date.toISOString()
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithTimeout(url, options, timeoutMs = RPC_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function listPublishedArticles() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
   if (!supabaseUrl || !anonKey) throw new Error('supabase_public_env_missing')
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/list_public_article_sitemap`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: '{}',
-  })
-  if (!response.ok) throw new Error(`sitemap_rpc_http_${response.status}`)
-  const rows = await response.json()
-  return Array.isArray(rows) ? rows : []
+  const url = `${supabaseUrl}/rest/v1/rpc/list_public_article_sitemap`
+  let lastError = null
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const startedAt = Date.now()
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      })
+      const durationMs = Date.now() - startedAt
+      if (!response.ok || durationMs >= 1000) {
+        console.warn('[seo/sitemap-rpc]', JSON.stringify({ attempt, status: response.status, durationMs }))
+      }
+      if (response.ok) {
+        const rows = await response.json()
+        return Array.isArray(rows) ? rows : []
+      }
+      if (!TRANSIENT_RPC_STATUSES.has(response.status) || attempt === 2) {
+        throw new Error(`sitemap_rpc_http_${response.status}`)
+      }
+    } catch (error) {
+      lastError = error
+      const durationMs = Date.now() - startedAt
+      console.warn('[seo/sitemap-rpc]', JSON.stringify({ attempt, status: 'network_error', durationMs, error: String(error?.name || error) }))
+      if (attempt === 2) throw error
+    }
+    await wait(120 * attempt)
+  }
+
+  throw lastError || new Error('sitemap_rpc_unknown_failure')
 }
 
 function buildXml(articles) {
@@ -88,18 +129,28 @@ export default async function handler(req, res) {
     return res.status(405).end('Method Not Allowed')
   }
 
-  let articles = []
-  try {
-    articles = await listPublishedArticles()
-  } catch (error) {
-    // O sitemap continua valido com as paginas estaticas caso o Supabase oscile.
-    console.error('[seo/sitemap] article list fallback', error)
-    res.setHeader('X-Sitemap-Fallback', '1')
-  }
-
-  const xml = buildXml(articles)
   res.setHeader('Content-Type', 'application/xml; charset=utf-8')
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
-  res.status(200)
-  return req.method === 'HEAD' ? res.end() : res.end(xml)
+  res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=86400, stale-if-error=86400')
+
+  try {
+    const articles = await listPublishedArticles()
+    const xml = buildXml(articles)
+    lastKnownGoodXml = xml
+    res.setHeader('X-Sitemap-Source', 'live')
+    res.status(200)
+    return req.method === 'HEAD' ? res.end() : res.end(xml)
+  } catch (error) {
+    console.error('[seo/sitemap] article list unavailable', error)
+
+    if (lastKnownGoodXml) {
+      res.setHeader('X-Sitemap-Source', 'stale-memory')
+      res.status(200)
+      return req.method === 'HEAD' ? res.end() : res.end(lastKnownGoodXml)
+    }
+
+    res.setHeader('Retry-After', '60')
+    res.setHeader('X-Sitemap-Source', 'unavailable')
+    res.status(503)
+    return req.method === 'HEAD' ? res.end() : res.end(buildXml([]))
+  }
 }
