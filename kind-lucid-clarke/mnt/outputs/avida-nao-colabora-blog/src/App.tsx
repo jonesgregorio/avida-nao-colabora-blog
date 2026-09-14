@@ -180,7 +180,7 @@ export default function App() {
         setInitialEvolutionTab(tab)
         setView('my-evolution')
         pushURL('my-evolution')
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+        window.scrollTo(0, 0)
         return
       }
     }
@@ -193,7 +193,7 @@ export default function App() {
       setDiaryMood(mood)
       setView('diary')
       pushURL('diary')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo(0, 0)
       return
     }
 
@@ -203,7 +203,7 @@ export default function App() {
       if (ticketId) setActiveSupportTicketId(ticketId)
       setView('support-ticket')
       pushURL('support-ticket', null, ticketId)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo(0, 0)
       return
     }
 
@@ -222,7 +222,12 @@ export default function App() {
       if (section === 'article' && ref) setSelectedArticleSlug(ref)
       if (section === 'questionnaire' && ref) setActiveQuestionnaireId(ref)
       pushURL(section, ref)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // Instantâneo, não 'smooth': a troca de view (setView acima) substitui o conteúdo da
+      // página logo em seguida, e uma animação de rolagem em andamento é interrompida no meio
+      // por esse reflow — no mobile isso deixava o scroll parado bem longe do topo (achado
+      // real: clicar em "Ver mais funcionalidades" no plano, na Home, abria a página de Planos
+      // já rolada quase até o rodapé). Rolagem instantânea não pode ser interrompida assim.
+      window.scrollTo(0, 0)
       return
     }
 

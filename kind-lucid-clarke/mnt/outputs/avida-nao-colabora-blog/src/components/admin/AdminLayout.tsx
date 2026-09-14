@@ -139,6 +139,76 @@ interface Props {
   children: ReactNode
 }
 
+// Extraído para FORA do render de AdminLayout de propósito: definir um componente como
+// função aninhada dentro de outro (const Sidebar = () => ...) faz o React tratá-lo como um
+// tipo novo a cada render do pai — remonta o <aside>/<nav> inteiro sempre que qualquer estado
+// do AdminLayout muda (inclusive só trocar de aba), zerando o scroll do menu lateral sem
+// nenhum motivo. Como componente próprio e estável, o React só atualiza o que mudou (o item
+// ativo) e preserva a posição de rolagem que o admin já tinha.
+function AdminSidebarContent({ visibleNav, active, go, initials, name, onExit }: {
+  visibleNav: NavGroup[]
+  active: string
+  go: (item: NavItem) => void
+  initials: string
+  name: string
+  onExit: () => void
+}) {
+  return (
+    <aside className="admin-sidebar w-[250px] text-forest-100 flex flex-col h-full">
+      <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
+        <LogoIcon className="w-8 h-8 text-white flex-shrink-0" />
+        <div className="leading-tight min-w-0">
+          <p className="font-serif text-white text-[17px] truncate">A Vida Não Colabora</p>
+          <p className="text-[10px] tracking-[0.22em] text-forest-300 uppercase mt-1">Área Administrativa</p>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
+        {visibleNav.map(group => (
+          <div key={group.label}>
+            <div className="admin-nav-section">{group.label}</div>
+            <div className="space-y-1 px-1">
+              {group.items.map(item => {
+                const Icon = item.icon
+                const on = active === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => go(item)}
+                    className={`admin-nav-button ${on ? 'is-active' : ''} w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-left`}
+                  >
+                    <Icon className="w-[17px] h-[17px] flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div className="px-3 py-3 border-t border-white/10 space-y-2 flex-shrink-0">
+        <button
+          onClick={() => window.open('/', '_blank')}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm bg-white/5 hover:bg-white/10 text-forest-100 transition-colors"
+        >
+          <ExternalLink className="w-4 h-4" /> Ver site
+        </button>
+        <div className="flex items-center gap-2.5 px-2 py-1.5">
+          <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">{initials}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-white truncate">{name}</p>
+            <p className="text-[11px] text-forest-300">Administrador</p>
+          </div>
+          <button onClick={onExit} title="Voltar ao blog (continua logado)" className="text-forest-300 hover:text-white p-1 flex-shrink-0">
+            <ArrowLeftFromLine className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
 export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUser, onOpenArticle, onOpenTicket, onOpenCampaign, userEmail, userName, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [allowed, setAllowed] = useState<Set<string> | null>(null)
@@ -304,67 +374,16 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
   // Estado desconhecido: já tentou carregar e a fonte principal falhou, sem itens.
   const alertsUnknown = alertsLoadedOk === false && alertCount === 0
 
-  const Sidebar = () => (
-    <aside className="admin-sidebar w-[250px] text-forest-100 flex flex-col h-full">
-      <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
-        <LogoIcon className="w-8 h-8 text-white flex-shrink-0" />
-        <div className="leading-tight min-w-0">
-          <p className="font-serif text-white text-[17px] truncate">A Vida Não Colabora</p>
-          <p className="text-[10px] tracking-[0.22em] text-forest-300 uppercase mt-1">Área Administrativa</p>
-        </div>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {visibleNav.map(group => (
-          <div key={group.label}>
-            <div className="admin-nav-section">{group.label}</div>
-            <div className="space-y-1 px-1">
-              {group.items.map(item => {
-                const Icon = item.icon
-                const on = active === item.id
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => go(item)}
-                    className={`admin-nav-button ${on ? 'is-active' : ''} w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-left`}
-                  >
-                    <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      <div className="px-3 py-3 border-t border-white/10 space-y-2 flex-shrink-0">
-        <button
-          onClick={() => window.open('/', '_blank')}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm bg-white/5 hover:bg-white/10 text-forest-100 transition-colors"
-        >
-          <ExternalLink className="w-4 h-4" /> Ver site
-        </button>
-        <div className="flex items-center gap-2.5 px-2 py-1.5">
-          <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">{initials}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-white truncate">{name}</p>
-            <p className="text-[11px] text-forest-300">Administrador</p>
-          </div>
-          <button onClick={onExit} title="Voltar ao blog (continua logado)" className="text-forest-300 hover:text-white p-1 flex-shrink-0">
-            <ArrowLeftFromLine className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </aside>
-  )
-
   return (
     <div className="admin-shell flex min-h-screen">
-      <div className="hidden md:flex flex-shrink-0 h-screen sticky top-0"><Sidebar /></div>
+      <div className="hidden md:flex flex-shrink-0 h-screen sticky top-0">
+        <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} />
+      </div>
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="flex-shrink-0 h-screen"><Sidebar /></div>
+          <div className="flex-shrink-0 h-screen">
+            <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} />
+          </div>
           <div className="flex-1 bg-black/45" onClick={() => setSidebarOpen(false)} />
         </div>
       )}
