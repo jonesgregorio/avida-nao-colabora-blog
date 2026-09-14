@@ -66,6 +66,12 @@ verify_jwt = false
 [functions.run-emotional-automations]
 verify_jwt = false
 
+# Google Search Console é chamado pelo pg_cron com automation_token e também
+# manualmente pelo Admin com JWT+AAL2. A própria função valida os dois caminhos;
+# se o gateway exigir JWT, o cron é barrado antes de chegar nessa validação.
+[functions.google-search-console]
+verify_jwt = false
+
 # run-lifecycle-emails é chamada pelo pg_cron via pg_net (autentica por token).
 [functions.run-lifecycle-emails]
 verify_jwt = false

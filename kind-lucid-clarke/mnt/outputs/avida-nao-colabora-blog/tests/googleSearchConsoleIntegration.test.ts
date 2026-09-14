@@ -18,6 +18,11 @@ test('SEO Control Center mantém Search Console no servidor e exige admin AAL2 o
   assert.doesNotMatch(fn, /VITE_GOOGLE_SEARCH/)
 })
 
+test('gateway do Search Console não bloqueia o token interno do cron antes da autenticação própria', () => {
+  const config = read('supabase/config.toml')
+  assert.match(config, /\[functions\.google-search-console\]\s*verify_jwt\s*=\s*false/s)
+})
+
 test('SEO Control Center persiste histórico, inspeções, sitemap, execuções e alertas em tabelas server-only', () => {
   const migration = read('supabase/migrations/20260913225500_seo_control_center.sql')
   for (const table of ['seo_sync_runs', 'seo_search_performance_daily', 'seo_url_inspections', 'seo_sitemaps', 'seo_alerts']) {
