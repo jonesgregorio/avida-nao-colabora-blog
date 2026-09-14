@@ -70,10 +70,11 @@ function PhoneMockup({ kind }: { kind: string }) {
         </>}
         {kind === 'garden' && <>
           <p className="text-center font-serif text-[11px] text-forest-900">Meu Jardim</p>
-          <div className="relative mt-4 h-36 overflow-hidden rounded-2xl bg-gradient-to-b from-[#e8f2e6] to-[#d6e1c6]">
-            <span className="absolute bottom-2 left-3 text-4xl">🌿</span><span className="absolute bottom-1 left-12 text-5xl">🌱</span><span className="absolute bottom-2 right-4 text-5xl">🌳</span><span className="absolute right-5 top-7 text-xl">🦋</span>
+          <div className="relative mt-4 h-36 overflow-hidden rounded-2xl">
+            <img src="/gardens/japones/45.webp" alt="Prévia do Meu Jardim em estilo fotorrealista" className="h-full w-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-forest-950/25 via-transparent to-transparent" />
           </div>
-          <p className="mt-3 text-center text-[7px] leading-4 text-ink-soft">Seu espaço cresce com momentos de cuidado.</p>
+          <p className="mt-3 text-center text-[7px] leading-4 text-ink-soft">Cenários fotorrealistas evoluem com seus momentos de cuidado.</p>
         </>}
       </div>
     </div>
@@ -142,14 +143,15 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[30px] border border-line bg-gradient-to-br from-[#edf3e8] to-[#dce6d2] p-7 sm:p-9">
-            <div className="relative z-10 max-w-[290px]">
+          <div className="relative overflow-hidden rounded-[30px] border border-line bg-[#dfe8d8] p-7 sm:p-9">
+            <img src="/gardens/japones/45.webp" alt="Jardim japonês fotorrealista, uma prévia do Meu Jardim atual" className="absolute inset-0 h-full w-full object-cover object-center" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#edf3e8]/95 via-[#edf3e8]/88 to-[#edf3e8]/20" />
+            <div className="relative z-10 max-w-[310px]">
               <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-600">Meu Jardim</p>
               <h2 className="mt-2 font-serif text-3xl leading-tight text-forest-900">Seu cuidado também pode ganhar forma.</h2>
-              <p className="mt-4 text-sm leading-6 text-ink-soft">No Meu Jardim, seus momentos de cuidado ajudam a construir um espaço visual que cresce com sua trajetória — sem metas, competição ou punição por pausas.</p>
-              <button onClick={() => onNavigate('auth')} className="mt-5 inline-flex items-center gap-2 rounded-full border border-forest-700 bg-white/50 px-5 py-2.5 text-sm font-semibold text-forest-900">Conheça o Meu Jardim <ArrowRight className="h-4 w-4"/></button>
+              <p className="mt-4 text-sm leading-6 text-ink-soft">No Meu Jardim, seus momentos de cuidado ajudam a construir cenários fotorrealistas que amadurecem com a sua trajetória — sem metas, competição ou punição por pausas.</p>
+              <button onClick={() => onNavigate('auth')} className="mt-5 inline-flex items-center gap-2 rounded-full border border-forest-700 bg-white/75 px-5 py-2.5 text-sm font-semibold text-forest-900 backdrop-blur-sm">Conheça o Meu Jardim <ArrowRight className="h-4 w-4"/></button>
             </div>
-            <div className="absolute bottom-4 right-5 flex items-end gap-1 text-5xl sm:text-6xl"><span>🌱</span><span>🌿</span><span className="text-8xl">🌳</span><span>🦋</span></div>
           </div>
         </div>
       </section>
@@ -161,17 +163,18 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
               <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-600">Planos</p>
               <h2 className="mt-2 font-serif text-3xl leading-tight text-forest-900 sm:text-4xl">Escolha o seu momento</h2>
               <p className="mt-4 text-sm leading-6 text-ink-soft">Comece gratuitamente e evolua no seu ritmo. Sempre com o que você precisa, quando precisar.</p>
-              <button onClick={() => onNavigate('pricing')} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-forest-800 underline underline-offset-4">Comparar todos os planos <ArrowRight className="h-4 w-4"/></button>
+              <button onClick={() => onNavigate('pricing')} className="mt-5 inline-flex items-center gap-2 rounded-full bg-forest-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-forest-800">Comparar todos os planos <ArrowRight className="h-4 w-4"/></button>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {PLANS.map(plan => (
-                <article key={plan.key} className={`relative flex min-h-[330px] flex-col rounded-[26px] border bg-white p-6 ${plan.featured ? 'border-forest-400 shadow-[0_16px_35px_rgba(39,66,50,.09)]' : 'border-line'}`}>
+                <article key={plan.key} className={`relative flex min-h-[350px] flex-col rounded-[26px] border bg-white p-6 ${plan.featured ? 'border-forest-400 shadow-[0_16px_35px_rgba(39,66,50,.09)]' : 'border-line'}`}>
                   {plan.featured && <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-forest-900 px-4 py-1 text-[9px] font-semibold uppercase tracking-wider text-white">Mais escolhido</span>}
                   <h3 className="text-center font-serif text-2xl text-forest-900">{plan.name}</h3>
                   <p className="mt-1 min-h-10 text-center text-xs text-ink-soft">{plan.promise}</p>
                   <p className="mt-4 text-center font-serif text-3xl text-forest-900">{prices[plan.key as keyof typeof prices]?.display ?? plan.fallbackPrice}</p>
                   <p className="text-center text-[10px] text-ink-soft">{plan.period}</p>
                   <ul className="mt-5 space-y-2.5">{plan.items.map(item=><li key={item} className="flex items-start gap-2 text-xs text-ink"><Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-forest-600" />{item}</li>)}</ul>
+                  <button onClick={() => onNavigate('pricing')} className="mt-4 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-forest-700 underline decoration-forest-300 underline-offset-4 transition hover:text-forest-900">Ver mais funcionalidades <ArrowRight className="h-3.5 w-3.5" /></button>
                   <button onClick={() => onNavigate(plan.key === 'free' ? 'auth' : 'pricing')} className={`mt-auto rounded-full px-4 py-2.5 text-xs font-semibold ${plan.featured ? 'bg-forest-900 text-white' : 'border border-forest-700 text-forest-900'}`}>{plan.cta}</button>
                 </article>
               ))}
