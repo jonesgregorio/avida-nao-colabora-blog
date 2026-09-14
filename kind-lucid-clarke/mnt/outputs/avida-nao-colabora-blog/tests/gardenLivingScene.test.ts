@@ -2,9 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { GARDEN_STAGE_NAMES, GARDEN_THEMES, gardenThemeFor, gardenVisualProgress } from '../src/lib/gardenThemes.ts'
+import { GARDEN_STAGE_NAMES, GARDEN_STAGE_NAMES_6, GARDEN_THEMES, gardenThemeFor, gardenVisualProgress } from '../src/lib/gardenThemes.ts'
 
-// Contrato dos 8 jardins fotorrealistas (imagem renderizada + camada de movimento em canvas)
+// Contrato dos jardins fotorrealistas (imagem renderizada + camada de movimento em canvas)
 // que substituem a ilustração SVG abstrata em MyGardenPage. Cobre o que gardenEcosystem.test.ts
 // e myGarden.test.ts não checam: a config em si, os arquivos de imagem no disco e o respeito a
 // prefers-reduced-motion no motor/componente.
@@ -13,18 +13,21 @@ const engine = readFileSync(new URL('../src/lib/livingGardenEngine.ts', import.m
 const livingGarden = readFileSync(new URL('../src/components/garden/LivingGarden.tsx', import.meta.url), 'utf8')
 const publicDir = fileURLToPath(new URL('../public', import.meta.url))
 
-const EXPECTED_SLUGS = ['japones', 'cottage', 'mediterraneo', 'mata-atlantica', 'giverny', 'deserto', 'noturno', 'nordico']
+const EXPECTED_SLUGS_4 = ['japones', 'cottage', 'mediterraneo', 'mata-atlantica', 'giverny', 'deserto', 'noturno', 'nordico']
+// Jardins mais novos (6 imagens). Slug ainda 'draft' no garden_catalog até as fotos existirem
+// em public/gardens/<slug> — por isso não entram na checagem de arquivo em disco abaixo.
+const PENDING_IMAGE_SLUGS = ['bali']
 
-test('os 8 jardins existem, com slugs únicos e label visível', () => {
-  assert.equal(GARDEN_THEMES.length, 8)
+test('os 9 jardins existem, com slugs únicos e label visível', () => {
+  assert.equal(GARDEN_THEMES.length, 9)
   const slugs = GARDEN_THEMES.map((t) => t.slug)
-  assert.deepEqual([...slugs].sort(), [...EXPECTED_SLUGS].sort())
-  assert.equal(new Set(slugs).size, 8)
+  assert.deepEqual([...slugs].sort(), [...EXPECTED_SLUGS_4, ...PENDING_IMAGE_SLUGS].sort())
+  assert.equal(new Set(slugs).size, 9)
   for (const theme of GARDEN_THEMES) assert.ok(theme.label.length > 0, `${theme.slug} precisa de um label`)
 })
 
-test('cada jardim tem 4 imagens de estágio e os arquivos existem em public/gardens', () => {
-  for (const theme of GARDEN_THEMES) {
+test('os 8 jardins originais têm 4 imagens de estágio e os arquivos existem em public/gardens', () => {
+  for (const theme of GARDEN_THEMES.filter((t) => EXPECTED_SLUGS_4.includes(t.slug))) {
     assert.equal(theme.stages.length, 4)
     for (const src of theme.stages) {
       assert.match(src, new RegExp(`^/gardens/${theme.slug}/`))
@@ -33,15 +36,22 @@ test('cada jardim tem 4 imagens de estágio e os arquivos existem em public/gard
   }
 })
 
-test('gardenThemeFor nunca termina — qualquer índice resolve a um jardim válido e o ciclo se repete a cada 8', () => {
-  for (const index of [0, 1, 7, 8, 15, 16, 1000, 1000000]) {
-    assert.ok(GARDEN_THEMES.includes(gardenThemeFor(index)))
+test('jardins novos (6 imagens) têm caminhos corretos, mesmo antes das fotos existirem', () => {
+  for (const theme of GARDEN_THEMES.filter((t) => PENDING_IMAGE_SLUGS.includes(t.slug))) {
+    assert.equal(theme.stages.length, 6)
+    for (const src of theme.stages) assert.match(src, new RegExp(`^/gardens/${theme.slug}/`))
   }
-  assert.equal(gardenThemeFor(0).slug, gardenThemeFor(8).slug)
-  assert.equal(gardenThemeFor(3).slug, gardenThemeFor(11).slug)
 })
 
-test('gardenVisualProgress mapeia o ciclo de 60 passos (v4) para 0..1 sem nunca estourar', () => {
+test('gardenThemeFor nunca termina — qualquer índice resolve a um jardim válido e o ciclo se repete a cada 9', () => {
+  for (const index of [0, 1, 8, 9, 17, 18, 1000, 1000000]) {
+    assert.ok(GARDEN_THEMES.includes(gardenThemeFor(index)))
+  }
+  assert.equal(gardenThemeFor(0).slug, gardenThemeFor(9).slug)
+  assert.equal(gardenThemeFor(3).slug, gardenThemeFor(12).slug)
+})
+
+test('gardenVisualProgress (4 imagens, default) mapeia o ciclo de 60 passos (v4) para 0..1 sem nunca estourar', () => {
   assert.equal(gardenVisualProgress(0), 0)
   assert.equal(gardenVisualProgress(50), 1)
   assert.equal(gardenVisualProgress(59), 1) // jardim maduro (gp>=50) fica travado na imagem final
@@ -52,11 +62,26 @@ test('gardenVisualProgress mapeia o ciclo de 60 passos (v4) para 0..1 sem nunca 
   assert.ok(gardenVisualProgress(10) > gardenVisualProgress(9)) // crescente através do limiar de estágio
 })
 
-test('4 nomes de estágio para acessibilidade, na ordem das imagens', () => {
+test('gardenVisualProgress (6 imagens) usa os thresholds de garden_settings e trava na imagem final a partir de gp=39', () => {
+  assert.equal(gardenVisualProgress(0, 6), 0)
+  assert.equal(gardenVisualProgress(39, 6), 1)
+  assert.equal(gardenVisualProgress(59, 6), 1)
+  for (let gp = -5; gp <= 70; gp++) {
+    const p = gardenVisualProgress(gp, 6)
+    assert.ok(p >= 0 && p <= 1, `gardenVisualProgress(${gp},6) saiu de 0..1: ${p}`)
+  }
+  assert.ok(gardenVisualProgress(3, 6) > gardenVisualProgress(2, 6)) // primeiro limiar (gp=3) já move a imagem
+})
+
+test('4 nomes de estágio para os jardins originais, na ordem das imagens', () => {
   assert.deepEqual(GARDEN_STAGE_NAMES, ['recém-plantado', 'pegando', 'maduro', 'completo'])
 })
 
-test('só o jardim japonês declara lago de carpas (koi) — os outros 7 não', () => {
+test('6 nomes de estágio para os jardins novos, na ordem das imagens', () => {
+  assert.deepEqual(GARDEN_STAGE_NAMES_6, ['recém-plantado', 'brotando', 'enraizando', 'ganhando forma', 'florescendo', 'completo'])
+})
+
+test('só o jardim japonês declara lago de carpas (koi) — os outros não', () => {
   const koiSlugs = GARDEN_THEMES.filter((t) => t.koi).map((t) => t.slug)
   assert.deepEqual(koiSlugs, ['japones'])
 })

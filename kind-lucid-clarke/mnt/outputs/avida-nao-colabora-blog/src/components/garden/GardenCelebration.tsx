@@ -80,7 +80,7 @@ export default function GardenCelebration({ theme, onViewHistory, onClose }: Pro
         className="gc-card relative w-full max-w-[560px] overflow-hidden rounded-[32px] shadow-[0_40px_120px_rgba(10,20,15,.45)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <img src={theme.stages[3]} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={theme.stages[theme.stages.length - 1]} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/20" />
         {!reduced && (
           <div

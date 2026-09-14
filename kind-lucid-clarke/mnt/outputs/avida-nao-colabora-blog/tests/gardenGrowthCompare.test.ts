@@ -24,9 +24,9 @@ test('banner de mudança aparece na página, com botão de comparar e botão de 
   assert.match(garden, /<GardenGrowthCompare theme=\{growthChange\.theme\} from=\{growthChange\.from\} to=\{growthChange\.to\}/)
 })
 
-test('comparação usa theme.stages e a mesma matemática de crossfade da cena viva — funciona pra qualquer um dos 8 jardins, não hardcoded', () => {
+test('comparação usa theme.stages e a mesma matemática de crossfade da cena viva — funciona pra qualquer jardim (4 ou 6 imagens), não hardcoded', () => {
   assert.match(compare, /theme\.stages\.map/) // genérico: qualquer GardenTheme, não um slug fixo
-  assert.match(compare, /gardenVisualProgress\(progress\) \* 3/) // mesma fórmula de applyProgress() no motor
+  assert.match(compare, /gardenVisualProgress\(progress, theme\.stages\.length === 6 \? 6 : 4\) \* last/) // mesma fórmula de applyProgress() no motor, generalizada pro número de imagens
   assert.doesNotMatch(compare, /'japones'|'nordico'|'deserto'|'cottage'/) // nenhum jardim específico hardcoded
 })
 

@@ -201,7 +201,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const allMemories=memoryIndexes(completedGardens)
   const memories=showAllMemories?allMemories:allMemories.slice(0,8)
   const visualProgress=Math.max(0,Math.min(100,Math.round((state.garden_progress||0)/60*100)))
-  const gardenProgress=gardenVisualProgress(state.garden_progress||0)
+  const gardenProgress=gardenVisualProgress(state.garden_progress||0,theme.stages.length===6?6:4)
   // botão fixo de comparação: prefere "desde a última visita" quando já existe um registro
   // real de uma visita anterior com progresso DIFERENTE do atual — mas nunca fica escondido
   // esperando por isso (a versão anterior só aparecia depois de 2 visitas em dias diferentes
@@ -286,4 +286,4 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
 function ActionItem({Icon,label}:{Icon:typeof Sprout;label:string}){return <div className="text-center"><div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#edf0e7] text-forest-700"><Icon className="h-5 w-5"/></div><p className="mt-2 text-[11px] font-medium text-forest-900">{label}</p></div>}
 function JourneyMetric({value,label}:{value:number;label:string}){return <div className="rounded-2xl bg-white/70 px-3 py-3 text-center"><p className="font-serif text-xl text-forest-900">{value}</p><p className="mt-1 text-[10px] leading-4 text-ink-soft">{label}</p></div>}
-function MemoryCard({index,slug}:{index:number;slug?:string}){const t=resolveGardenTheme(slug,index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative aspect-[4/3] overflow-hidden"><img src={t.stages[3]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
+function MemoryCard({index,slug}:{index:number;slug?:string}){const t=resolveGardenTheme(slug,index);return <article className="overflow-hidden rounded-[22px] border border-[#ddd3c3] bg-[#fffaf3] shadow-sm"><div className="relative aspect-[4/3] overflow-hidden"><img src={t.stages[t.stages.length-1]} alt={t.label} loading="lazy" className="h-full w-full object-cover"/><span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">Jardim nº {index+1}</span></div><div className="p-4"><p className="font-serif text-lg">{t.label}</p><p className="mt-1 text-xs text-ink-soft">Jardim preservado na sua história</p></div></article>}
