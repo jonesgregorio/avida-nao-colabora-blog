@@ -47,9 +47,30 @@ test('cockpit organiza as áreas completas e preserva a auditoria técnica exist
   assert.match(cockpit, /SEO Health Score/)
   assert.match(cockpit, /Sincronizar agora/)
   assert.match(cockpit, /Gerar SEO/)
-  // O nome da variável de ambiente pode ser documentado no Admin; o valor/JSON da conta de serviço não pode existir no bundle.
   assert.doesNotMatch(cockpit, /private_key|client_email|Deno\.env/)
   assert.match(cockpit, /credencial nunca é enviada ao navegador/i)
+})
+
+test('cockpit oferece relatório completo sob demanda com sincronização fresca', () => {
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(cockpit, /Analisar tudo agora/)
+  assert.match(cockpit, /analysis_report/)
+  assert.match(cockpit, /buildInstantReport/)
+  assert.match(cockpit, /Relatório instantâneo/)
+  assert.match(cockpit, /indexada.*URL Inspection/i)
+  assert.match(cockpit, /Impressões.*não devem ser usadas como sinônimo de indexação/i)
+})
+
+test('cockpit permite gerar ou corrigir SEO com IA sem alterar URL ou corpo automaticamente', () => {
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(cockpit, /Corrigir com IA/)
+  assert.match(cockpit, /Otimizar SEO com IA/)
+  assert.match(cockpit, /Gerar SEO com IA/)
+  assert.match(cockpit, /generateSEO/)
+  assert.match(cockpit, /seo_title/)
+  assert.match(cockpit, /seo_description/)
+  assert.match(cockpit, /keyword/)
+  assert.match(cockpit, /não muda URL, corpo do artigo ou imagem automaticamente/i)
 })
 
 test('o painel de status só expõe presença das credenciais Google, nunca seus valores', () => {
