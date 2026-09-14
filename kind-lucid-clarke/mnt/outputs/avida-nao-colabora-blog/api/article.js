@@ -1,5 +1,7 @@
 const SITE_ORIGIN = 'https://www.avidanaocolabora.com'
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/brand/logo-quadrada.png`
+const RPC_TIMEOUT_MS = 2500
+const TRANSIENT_RPC_STATUSES = new Set([502, 503, 504])
 
 function escapeHtml(value = '') {
   return String(value)
@@ -28,6 +30,10 @@ function imageMime(value) {
 function replaceOrAppendHead(html, pattern, replacement) {
   if (pattern.test(html)) return html.replace(pattern, replacement)
   return html.replace('</head>', `    ${replacement}\n  </head>`)
+}
+
+function isArticlePublic(article) {
+  return String(article?.plan_required || '').trim().toLowerCase() === 'free'
 }
 
 function renderInlineMarkdown(value = '') {
@@ -99,12 +105,12 @@ function setArticleHead(shell, article, slug) {
   const imageAlt = String(article.image_alt || article.title || 'Imagem do artigo').trim()
   const publishedAt = article.published_at ? new Date(article.published_at).toISOString() : null
   const modifiedAt = article.updated_at ? new Date(article.updated_at).toISOString() : publishedAt
-  const isPublic = !article.plan_required || String(article.plan_required) === 'free'
+  const isPublic = isArticlePublic(article)
 
   let html = shell
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']description["'][^>]*>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
-  html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, `<meta name="robots" content="${isPublic ? 'index, follow, max-image-preview:large' : 'noindex, follow'}" />`)
+  html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, `<meta name="robots" content="${isPublic ? 'index, follow, max-image-preview:large' : 'noindex, follow, noarchive'}" />`)
   html = applyCanonicalLinks(html, canonical)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:title["'][^>]*>/i, `<meta property="og:title" content="${escapeHtml(title)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:description["'][^>]*>/i, `<meta property="og:description" content="${escapeHtml(description)}" />`)
@@ -168,6 +174,7 @@ function setArticleHead(shell, article, slug) {
 function setArticleFallbackHead(shell, slug) {
   const canonical = `${SITE_ORIGIN}/blog/${encodeURIComponent(slug)}`
   let html = applyCanonicalLinks(shell, canonical)
+  html = replaceOrAppendHead(html, /<meta\s+name=["']robots["'][^>]*>/i, '<meta name="robots" content="noindex, follow, noarchive" />')
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:url["'][^>]*>/i, `<meta property="og:url" content="${escapeHtml(canonical)}" />`)
   return html
 }
@@ -186,7 +193,6 @@ async function getAppShell(req) {
   if (!host) throw new Error('deployment_host_missing')
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const headers = { 'user-agent': 'AVNC-SEO-Renderer/1.0' }
-  if (req.headers.cookie) headers.cookie = req.headers.cookie
 
   const response = await fetch(`${protocol}://${host}/index.html`, { headers })
   if (!response.ok) throw new Error(`shell_http_${response.status}`)
@@ -200,31 +206,68 @@ function publicSupabaseConfig() {
   return { supabaseUrl, anonKey }
 }
 
-async function callPublicRpc(functionName, body) {
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithTimeout(url, options, timeoutMs = RPC_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function callPublicRpc(functionName, body, attempts = 1) {
   const { supabaseUrl, anonKey } = publicSupabaseConfig()
-  return fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
-    method: 'POST',
-    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const url = `${supabaseUrl}/rest/v1/rpc/${functionName}`
+  let lastError = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const startedAt = Date.now()
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const durationMs = Date.now() - startedAt
+      if (!response.ok || durationMs >= 1000) {
+        console.warn('[seo/rpc]', JSON.stringify({ functionName, attempt, status: response.status, durationMs }))
+      }
+      if (response.ok || !TRANSIENT_RPC_STATUSES.has(response.status) || attempt === attempts) return response
+    } catch (error) {
+      const durationMs = Date.now() - startedAt
+      lastError = error
+      console.warn('[seo/rpc]', JSON.stringify({ functionName, attempt, status: 'network_error', durationMs, error: String(error?.name || error) }))
+      if (attempt === attempts) throw error
+    }
+    await wait(120 * attempt)
+  }
+
+  throw lastError || new Error('seo_rpc_unknown_failure')
 }
 
 async function getArticleSeo(slug) {
-  const request = (functionName) => callPublicRpc(functionName, { p_slug: slug })
   let response
   try {
-    response = await request('get_public_article_document')
+    response = await callPublicRpc('get_public_article_document', { p_slug: slug }, 2)
   } catch {
     response = null
   }
-  if (!response?.ok) response = await request('get_public_article_seo')
+
+  if (!response?.ok) {
+    response = await callPublicRpc('get_public_article_seo_safe', { p_slug: slug }, 1)
+  }
   if (!response.ok) throw new Error(`seo_rpc_http_${response.status}`)
   const rows = await response.json()
   return Array.isArray(rows) ? rows[0] || null : rows || null
 }
 
 async function getPublicRedirect(path) {
-  const response = await callPublicRpc('get_public_redirect', { p_path: path })
+  const response = await callPublicRpc('get_public_redirect', { p_path: path }, 1)
   if (!response.ok) return null
   const rows = await response.json()
   const row = Array.isArray(rows) ? rows[0] : rows
@@ -251,13 +294,15 @@ export default async function handler(req, res) {
     shell = await getAppShell(req)
   } catch (error) {
     console.error('[seo/article] app shell unavailable', error)
+    res.setHeader('Retry-After', '60')
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
     return res.status(503).end('Temporariamente indisponível')
   }
 
   try {
     const article = await getArticleSeo(slug)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400')
     res.setHeader('Vary', 'Accept-Encoding')
 
     if (!article) {
@@ -266,18 +311,25 @@ export default async function handler(req, res) {
         res.setHeader('Location', redirect.toPath)
         return res.status(redirect.type).end()
       }
+      res.setHeader('X-Robots-Tag', 'noindex, follow, noarchive')
       res.status(404)
       return req.method === 'HEAD' ? res.end() : res.end(setNotFoundHead(shell))
+    }
+
+    if (!isArticlePublic(article)) {
+      res.setHeader('X-Robots-Tag', 'noindex, follow, noarchive')
     }
 
     res.status(200)
     return req.method === 'HEAD' ? res.end() : res.end(setArticleHead(shell, article, slug))
   } catch (error) {
-    console.error('[seo/article] metadata fallback', error)
+    console.error('[seo/article] metadata unavailable', error)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'no-store')
-    res.setHeader('X-SEO-Fallback', '1')
-    res.status(200)
+    res.setHeader('Retry-After', '60')
+    res.setHeader('X-SEO-Fallback', 'fail-closed')
+    res.setHeader('X-Robots-Tag', 'noindex, follow, noarchive')
+    res.status(503)
     return req.method === 'HEAD' ? res.end() : res.end(setArticleFallbackHead(shell, slug))
   }
 }
