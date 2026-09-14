@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Ban, CreditCard, RefreshCcw, LayoutDashboard } from 'lucide-react'
+import { Ban, CreditCard, RefreshCcw, LayoutDashboard, SearchCheck } from 'lucide-react'
 import AdminCancellations from './AdminCancellations'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminPlanChanges from './AdminPlanChanges'
 import AdminAssinaturasOverview from './AdminAssinaturasOverview'
+import AdminPlanAccessAudit from './AdminPlanAccessAudit'
 
 // ASSINATURAS — a operação comercial da assinatura, separada do FINANCEIRO
 // (que só analisa dinheiro). Junta o que antes eram as áreas "Planos e
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'planos', label: 'Planos & benefícios', icon: CreditCard },
   { id: 'alteracoes', label: 'Alterações', icon: RefreshCcw },
   { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
+  { id: 'verificacao-acesso', label: 'Verificação de acesso', icon: SearchCheck },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -60,6 +62,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
         {tab === 'cancelamentos' && <AdminCancellations />}
         {tab === 'planos' && <AdminPlanosPage />}
         {tab === 'alteracoes' && <AdminPlanChanges onOpenUser={onViewUser} />}
+        {tab === 'verificacao-acesso' && <AdminPlanAccessAudit />}
       </section>
     </div>
   )
