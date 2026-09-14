@@ -193,6 +193,7 @@ async function getAppShell(req) {
   if (!host) throw new Error('deployment_host_missing')
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const headers = { 'user-agent': 'AVNC-SEO-Renderer/1.0' }
+  if (req.headers.cookie) headers.cookie = req.headers.cookie
 
   const response = await fetch(`${protocol}://${host}/index.html`, { headers })
   if (!response.ok) throw new Error(`shell_http_${response.status}`)
