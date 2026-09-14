@@ -182,9 +182,6 @@ function setNotFoundHead(shell) {
 }
 
 async function getAppShell(req) {
-  // Usa o host real recebido pela requisição. Em produção, VERCEL_URL aponta
-  // para a URL técnica *.vercel.app do deployment, protegida pelo Standard
-  // Protection, e não deve ser usada para o self-fetch do domínio público.
   const host = req.headers.host || process.env.VERCEL_URL
   if (!host) throw new Error('deployment_host_missing')
   const protocol = host.includes('localhost') ? 'http' : 'https'
@@ -196,16 +193,24 @@ async function getAppShell(req) {
   return response.text()
 }
 
-async function getArticleSeo(slug) {
+function publicSupabaseConfig() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
   if (!supabaseUrl || !anonKey) throw new Error('supabase_public_env_missing')
+  return { supabaseUrl, anonKey }
+}
 
-  const request = (functionName) => fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
-      method: 'POST',
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_slug: slug }),
-    })
+async function callPublicRpc(functionName, body) {
+  const { supabaseUrl, anonKey } = publicSupabaseConfig()
+  return fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
+    method: 'POST',
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+async function getArticleSeo(slug) {
+  const request = (functionName) => callPublicRpc(functionName, { p_slug: slug })
   let response
   try {
     response = await request('get_public_article_document')
@@ -216,6 +221,17 @@ async function getArticleSeo(slug) {
   if (!response.ok) throw new Error(`seo_rpc_http_${response.status}`)
   const rows = await response.json()
   return Array.isArray(rows) ? rows[0] || null : rows || null
+}
+
+async function getPublicRedirect(path) {
+  const response = await callPublicRpc('get_public_redirect', { p_path: path })
+  if (!response.ok) return null
+  const rows = await response.json()
+  const row = Array.isArray(rows) ? rows[0] : rows
+  const toPath = String(row?.to_path || '')
+  const type = Number(row?.type || 301)
+  if (!toPath.startsWith('/') || toPath.startsWith('//') || ![301, 302].includes(type)) return null
+  return { toPath, type }
 }
 
 export default async function handler(req, res) {
@@ -245,6 +261,11 @@ export default async function handler(req, res) {
     res.setHeader('Vary', 'Accept-Encoding')
 
     if (!article) {
+      const redirect = await getPublicRedirect(`/blog/${slug}`).catch(() => null)
+      if (redirect) {
+        res.setHeader('Location', redirect.toPath)
+        return res.status(redirect.type).end()
+      }
       res.status(404)
       return req.method === 'HEAD' ? res.end() : res.end(setNotFoundHead(shell))
     }
@@ -252,8 +273,6 @@ export default async function handler(req, res) {
     res.status(200)
     return req.method === 'HEAD' ? res.end() : res.end(setArticleHead(shell, article, slug))
   } catch (error) {
-    // Falha aberta: nunca derruba o artigo por causa da camada de SEO.
-    // Preserva a URL canônica do artigo mesmo quando os metadados dinâmicos oscilam.
     console.error('[seo/article] metadata fallback', error)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'no-store')
