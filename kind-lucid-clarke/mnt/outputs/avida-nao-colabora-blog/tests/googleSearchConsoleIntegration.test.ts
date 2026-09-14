@@ -30,6 +30,26 @@ test('cron do Search Console dá tempo para a inspeção real terminar', () => {
   assert.match(migration, /automation_token/)
 })
 
+test('autoteste 12/12 é server-side, não destrutivo e executa diariamente', () => {
+  const fn = read('supabase/functions/seo-control-selftest/index.ts')
+  const migration = read('supabase/migrations/20260914024000_seo_control_center_selftest.sql')
+  const config = read('supabase/config.toml')
+  for (const key of [
+    'google_credentials', 'google_oauth', 'search_analytics', 'sitemaps_api', 'url_inspection',
+    'public_sitemap', 'robots', 'seo_database', 'ai_provider', 'corrector_schema', 'redirect_contract', 'automation',
+  ]) assert.match(fn, new RegExp(key))
+  assert.match(fn, /total:\s*checks\.length/)
+  assert.match(fn, /seo_self_test_runs/)
+  assert.match(fn, /get_public_redirect/)
+  assert.match(fn, /seo_self_test_runtime_snapshot/)
+  assert.doesNotMatch(fn, /\.update\(['"]articles['"]|from\(['"]articles['"]\)\.update/)
+  assert.match(migration, /create table if not exists public\.seo_self_test_runs/)
+  assert.match(migration, /seo-control-center-self-test-daily/)
+  assert.match(migration, /40 6 \* \* \*/)
+  assert.match(migration, /timeout_milliseconds\s*:=\s*60000/)
+  assert.match(config, /\[functions\.seo-control-selftest\]\s*verify_jwt\s*=\s*false/s)
+})
+
 test('SEO Control Center persiste histórico, inspeções, sitemap, execuções e alertas em tabelas server-only', () => {
   const migration = read('supabase/migrations/20260913225500_seo_control_center.sql')
   for (const table of ['seo_sync_runs', 'seo_search_performance_daily', 'seo_url_inspections', 'seo_sitemaps', 'seo_alerts']) {
@@ -57,6 +77,8 @@ test('cockpit mantém todas as áreas e usa linguagem simples', () => {
   }
   assert.match(cockpit, /Analisar tudo agora/)
   assert.match(cockpit, /Corrigir problemas automaticamente/)
+  assert.match(cockpit, /Autoteste do SEO Control Center/)
+  assert.match(cockpit, /Executar autoteste agora/)
   assert.match(cockpit, /O que isso significa:/)
   assert.match(cockpit, /O que fazer:/)
   assert.match(cockpit, /Nenhuma ferramenta pode obrigar o Google a indexar uma página/)
