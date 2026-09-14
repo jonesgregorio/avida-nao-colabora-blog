@@ -23,6 +23,13 @@ test('gateway do Search Console não bloqueia o token interno do cron antes da a
   assert.match(config, /\[functions\.google-search-console\]\s*verify_jwt\s*=\s*false/s)
 })
 
+test('cron do Search Console dá tempo para a inspeção real terminar', () => {
+  const migration = read('supabase/migrations/20260914021500_fix_seo_control_center_cron_timeout.sql')
+  assert.match(migration, /timeout_milliseconds\s*:=\s*120000/)
+  assert.match(migration, /seo-control-center-daily/)
+  assert.match(migration, /automation_token/)
+})
+
 test('SEO Control Center persiste histórico, inspeções, sitemap, execuções e alertas em tabelas server-only', () => {
   const migration = read('supabase/migrations/20260913225500_seo_control_center.sql')
   for (const table of ['seo_sync_runs', 'seo_search_performance_daily', 'seo_url_inspections', 'seo_sitemaps', 'seo_alerts']) {
