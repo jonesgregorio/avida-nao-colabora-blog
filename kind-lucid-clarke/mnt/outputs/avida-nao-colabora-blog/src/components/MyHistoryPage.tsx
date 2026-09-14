@@ -3,7 +3,7 @@ import {
   ArrowRight, BookMarked, CalendarDays, ChevronDown, Clock3, Heart, Loader2,
   NotebookPen, Settings2, Sparkles, Sprout, Star, Tags, TreePine, TrendingUp, UserRoundPlus,
 } from 'lucide-react'
-import { hasPlanAccess, normalizePlan } from '../lib/officialPlans'
+import { getEffectivePlan, hasPlanAccess } from '../lib/officialPlans'
 import { supabase } from '../lib/supabase'
 import { loadReportHistory } from '../lib/reportGeneration'
 import { buildJourneyChapter } from '../lib/journeyChapter'
@@ -41,7 +41,7 @@ function Card({children,className=''}:{children:React.ReactNode;className?:strin
 
 export default function MyHistoryPage(props: Props) {
   const { user, profile } = props
-  const plan=normalizePlan(profile?.plan), hasHistory=hasPlanAccess(plan,'essential'), isPlus=plan==='plus'
+  const plan=getEffectivePlan(profile), hasHistory=hasPlanAccess(plan,'essential'), isPlus=plan==='plus'
   const [entries,setEntries]=useState<MyHistoryEntry[]>([]), [reports,setReports]=useState<MyHistoryReport[]>([])
   const [managementItems,setManagementItems]=useState<HistoryManagementItem[]>([])
   const [loading,setLoading]=useState(hasHistory), [failed,setFailed]=useState(false), [showDetails,setShowDetails]=useState(false)
