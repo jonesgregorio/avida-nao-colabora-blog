@@ -1,56 +1,27 @@
-import { ArrowRight, BookOpen, Compass, ShieldCheck } from 'lucide-react'
-import { SEO_PILLAR_GUIDES } from '../lib/seoGuides'
+import { ArrowRight, Compass, Search, ShieldCheck, Sparkles } from 'lucide-react'
+import { SEO_CLUSTERS, SEO_PILLAR_GUIDES } from '../lib/seoGuides'
 
-interface GuidesPageProps {
-  onNavigate: (section: string) => void
-}
+interface GuidesPageProps { onNavigate: (section: string, ref?: string) => void }
 
 export default function GuidesPage({ onNavigate }: GuidesPageProps) {
+  const openGuide = (slug: string) => onNavigate('article', slug)
   return (
     <main className="min-h-screen bg-paper">
-      <header className="border-b border-line bg-[#fffdf9]">
-        <div className="mx-auto max-w-5xl px-5 py-12 sm:py-16">
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-forest-600">Comece por aqui</p>
-          <h1 className="mt-3 max-w-3xl font-serif text-4xl leading-tight text-forest-900 sm:text-5xl">Guias essenciais para cuidar da vida emocional</h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-ink-soft">Escolha um tema e avance no seu ritmo. Estes guias organizam os conteúdos mais importantes do AVNC para transformar observação em cuidado possível.</p>
+      <header className="relative overflow-hidden border-b border-line bg-[#fffdf9]">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-mint/50 blur-3xl" aria-hidden="true" />
+        <div className="relative mx-auto max-w-6xl px-5 py-12 sm:py-16 lg:py-20">
+          <nav aria-label="Trilha de navegação" className="mb-8 text-sm text-ink-soft"><a href="/" onClick={e => { e.preventDefault(); onNavigate('home') }} className="hover:text-forest-800">Início</a><span aria-hidden="true"> / </span><span className="text-forest-800">Guias</span></nav>
+          <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-end">
+            <div><p className="text-xs font-semibold uppercase tracking-[.18em] text-forest-600">Biblioteca essencial AVNC</p><h1 className="mt-3 max-w-4xl font-serif text-4xl leading-tight text-forest-900 sm:text-5xl lg:text-6xl">Encontre um caminho para entender e cuidar do que você sente</h1><p className="mt-5 max-w-2xl text-base leading-7 text-ink-soft sm:text-lg">Os guias reúnem conteúdos relacionados por tema. Em vez de leituras soltas, você começa por uma página essencial e continua por assuntos que aprofundam a mesma necessidade.</p></div>
+            <div className="rounded-3xl border border-forest-100 bg-white/90 p-5 shadow-sm"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mint text-forest-700"><Search className="h-5 w-5" /></span><strong className="font-serif text-xl text-forest-900">Por onde começar?</strong></div><p className="mt-3 text-sm leading-6 text-ink-soft">Escolha o assunto mais próximo do seu momento. Você pode mudar de caminho quando quiser.</p><a href="/blog" onClick={e => { e.preventDefault(); onNavigate('articles') }} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-forest-800">Explorar todos os conteúdos <ArrowRight className="h-4 w-4" /></a></div>
+          </div>
         </div>
       </header>
-
-      <div className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
-        <nav aria-label="Trilha de navegação" className="mb-8 text-sm text-ink-soft">
-          <a href="/" onClick={(event) => { event.preventDefault(); onNavigate('home') }} className="hover:text-forest-800">Início</a>
-          <span aria-hidden="true"> / </span>
-          <span className="text-forest-800">Guias</span>
-        </nav>
-
-        <section aria-labelledby="guide-list-title">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-mint text-forest-700"><Compass className="h-5 w-5" /></span>
-            <div><h2 id="guide-list-title" className="font-serif text-2xl text-forest-900">Temas que estamos preparando</h2><p className="text-sm text-ink-soft">Os guias completos serão publicados abertamente no blog.</p></div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {SEO_PILLAR_GUIDES.map((guide) => (
-              <article key={guide.slug} className="group flex flex-col rounded-3xl border border-line bg-white p-6 transition hover:border-forest-300 hover:shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-forest-600">{guide.cluster}</p>
-                <h3 className="mt-2 font-serif text-2xl text-forest-900">{guide.title}</h3>
-                <p className="mt-3 flex-1 text-sm leading-6 text-ink-soft">{guide.description}</p>
-                <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-forest-800">Em preparação <ArrowRight className="h-4 w-4" /></p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <aside className="mt-10 grid gap-5 rounded-3xl bg-forest-900 p-7 text-white sm:grid-cols-[auto_1fr_auto] sm:items-center">
-          <BookOpen className="h-7 w-7 text-mint" />
-          <div><h2 className="font-serif text-2xl">Quer acompanhar as publicações?</h2><p className="mt-1 text-sm leading-6 text-white/75">Os conteúdos abertos aparecerão no blog assim que forem revisados e publicados.</p></div>
-          <a href="/blog" onClick={(event) => { event.preventDefault(); onNavigate('articles') }} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-forest-900">Ver o blog <ArrowRight className="h-4 w-4" /></a>
-        </aside>
-
-        <div className="mt-8 flex items-start gap-3 rounded-2xl border border-line bg-white p-5 text-sm leading-6 text-ink-soft">
-          <ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-forest-600" />
-          <p>Os conteúdos são educativos e apoiam autoconhecimento e organização emocional. Eles não substituem acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p>
-        </div>
+      <div className="mx-auto max-w-6xl px-5 py-10 sm:py-14">
+        <section aria-labelledby="clusters-title" className="mb-12"><div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-forest-600">Temas principais</p><h2 id="clusters-title" className="mt-1 font-serif text-3xl text-forest-900">Explore por assunto</h2></div><span className="hidden text-sm text-ink-soft sm:block">{SEO_CLUSTERS.length} caminhos temáticos</span></div><div className="flex flex-wrap gap-2">{SEO_CLUSTERS.map(cluster => <span key={cluster} className="rounded-full border border-line bg-white px-4 py-2 text-sm text-forest-800">{cluster}</span>)}</div></section>
+        <section aria-labelledby="guide-list-title"><div className="mb-7 flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-mint text-forest-700"><Compass className="h-5 w-5" /></span><div><h2 id="guide-list-title" className="font-serif text-2xl text-forest-900 sm:text-3xl">Guias essenciais</h2><p className="text-sm text-ink-soft">Páginas centrais para começar cada assunto e seguir aprofundando.</p></div></div><div className="grid gap-5 md:grid-cols-2">{SEO_PILLAR_GUIDES.map((guide, index) => <article key={guide.slug} className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-white p-6 transition hover:-translate-y-0.5 hover:border-forest-300 hover:shadow-md sm:p-7"><div className="absolute right-5 top-5 font-serif text-5xl text-mint/70" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div><p className="pr-16 text-[11px] font-semibold uppercase tracking-[.14em] text-forest-600">{guide.cluster}</p><h3 className="mt-2 pr-12 font-serif text-2xl text-forest-900 sm:text-3xl">{guide.title}</h3><p className="mt-2 text-xs font-medium text-forest-600">{guide.accent}</p><p className="mt-4 flex-1 text-sm leading-6 text-ink-soft">{guide.description}</p><div className="mt-5 flex flex-wrap gap-1.5">{guide.relatedTerms.slice(0, 3).map(term => <span key={term} className="rounded-full bg-paper-soft px-2.5 py-1 text-[11px] text-ink-soft">{term}</span>)}</div><a href={`/blog/${guide.slug}`} onClick={e => { e.preventDefault(); openGuide(guide.slug) }} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-forest-800">Ler guia essencial <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a></article>)}</div></section>
+        <section className="mt-12 grid gap-5 rounded-[2rem] bg-forest-900 p-7 text-white sm:p-9 lg:grid-cols-[1fr_auto] lg:items-center"><div className="flex gap-4"><Sparkles className="mt-1 h-6 w-6 flex-shrink-0 text-mint" /><div><h2 className="font-serif text-2xl sm:text-3xl">Do conteúdo para a prática</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Os guias ajudam você a entender um tema. As ferramentas do AVNC ajudam a registrar, observar e transformar essa percepção em pequenos próximos passos.</p></div></div><a href="/blog" onClick={e => { e.preventDefault(); onNavigate('articles') }} className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-forest-900">Ver biblioteca completa <ArrowRight className="h-4 w-4" /></a></section>
+        <div className="mt-8 flex items-start gap-3 rounded-2xl border border-line bg-white p-5 text-sm leading-6 text-ink-soft"><ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-forest-600" /><p>Os conteúdos são educativos e apoiam autoconhecimento e organização emocional. Eles não substituem acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p></div>
       </div>
     </main>
   )
