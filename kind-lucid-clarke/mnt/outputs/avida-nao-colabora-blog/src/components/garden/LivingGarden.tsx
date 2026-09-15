@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { GARDEN_STAGE_NAMES, type GardenTheme } from '../../lib/gardenThemes'
+import { GARDEN_STAGE_NAMES, GARDEN_STAGE_NAMES_6, type GardenTheme } from '../../lib/gardenThemes'
 import { startGardenEngine } from '../../lib/livingGardenEngine'
 
 interface Props {
@@ -9,19 +9,20 @@ interface Props {
   className?: string
 }
 
-function stageNameFor(progress: number): string {
-  const index = Math.round(Math.max(0, Math.min(3, progress * 3)))
-  return GARDEN_STAGE_NAMES[index]
+function stageNameFor(progress: number, stageCount: number): string {
+  const names = stageCount === 6 ? GARDEN_STAGE_NAMES_6 : GARDEN_STAGE_NAMES
+  const index = Math.round(Math.max(0, Math.min(stageCount - 1, progress * (stageCount - 1))))
+  return names[index]
 }
 
 /**
- * A imagem foto-realista do jardim (4 estágios em cross-fade) com a camada de movimento —
- * água, fauna, luz e clima — por cima. Uma única engine (livingGardenEngine.ts) serve os 8
- * jardins; só a configuração muda.
+ * A imagem foto-realista do jardim (estágios em cross-fade, 4 ou 6 conforme o jardim) com a
+ * camada de movimento — água, fauna, luz e clima — por cima. Uma única engine
+ * (livingGardenEngine.ts) serve todos os jardins; só a configuração e o número de imagens mudam.
  */
 export default function LivingGarden({ theme, progress, className }: Props) {
   const sceneRef = useRef<HTMLDivElement | null>(null)
-  const imgRefs = useRef<(HTMLImageElement | null)[]>([null, null, null, null])
+  const imgRefs = useRef<(HTMLImageElement | null)[]>(theme.stages.map(() => null))
   const waterRef = useRef<HTMLCanvasElement | null>(null)
   const airRef = useRef<HTMLCanvasElement | null>(null)
   const progressRef = useRef(progress)
@@ -38,7 +39,7 @@ export default function LivingGarden({ theme, progress, className }: Props) {
     const water = waterRef.current
     const air = airRef.current
     const images = imgRefs.current.filter((el): el is HTMLImageElement => el != null)
-    if (!scene || !water || !air || images.length !== 4) return undefined
+    if (!scene || !water || !air || images.length !== theme.stages.length) return undefined
 
     const destroy = startGardenEngine(
       { scene, images, water, air },
@@ -61,7 +62,7 @@ export default function LivingGarden({ theme, progress, className }: Props) {
           key={src}
           ref={(el) => { imgRefs.current[i] = el }}
           src={src}
-          alt={i === 0 ? `${theme.label} — jardim ${stageNameFor(progress)}` : ''}
+          alt={i === 0 ? `${theme.label} — jardim ${stageNameFor(progress, theme.stages.length)}` : ''}
           aria-hidden={i === 0 ? undefined : true}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ opacity: i === 0 ? 1 : 0, willChange: 'opacity, transform' }}

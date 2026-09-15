@@ -4,19 +4,20 @@ import { gardenVisualProgress, type GardenTheme } from '../../lib/gardenThemes'
 
 interface Props {
   theme: GardenTheme
-  /** garden_progress (0..59) antes e agora — funciona igual pra qualquer um dos 8 jardins,
-   * porque só depende de theme.stages (sempre 4 fotos) e da mesma matemática de crossfade
-   * que a cena viva usa (gardenVisualProgress). */
+  /** garden_progress (0..59) antes e agora — funciona igual pra qualquer jardim, porque só
+   * depende de theme.stages (4 ou 6 fotos) e da mesma matemática de crossfade que a cena viva
+   * usa (gardenVisualProgress). */
   from: number
   to: number
   onClose: () => void
 }
 
-/** Composição estática (sem canvas/motor) das 4 fotos do jardim, na mesma mistura de opacidade
+/** Composição estática (sem canvas/motor) das fotos do jardim, na mesma mistura de opacidade
  * que a cena viva mostraria nesse ponto do progresso — usada pra "congelar" um antes/depois. */
 function GardenSnapshot({ theme, progress, label }: { theme: GardenTheme; progress: number; label: string }) {
-  const f = gardenVisualProgress(progress) * 3
-  const opacities = [1, Math.max(0, Math.min(1, f)), Math.max(0, Math.min(1, f - 1)), Math.max(0, Math.min(1, f - 2))]
+  const last = theme.stages.length - 1
+  const f = gardenVisualProgress(progress, theme.stages.length === 6 ? 6 : 4) * last
+  const opacities = [1, ...Array.from({ length: last }, (_, i) => Math.max(0, Math.min(1, f - i)))]
   return (
     <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[#efe4d4]">
       {theme.stages.map((src, i) => (
