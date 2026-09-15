@@ -1,17 +1,61 @@
 import type { View } from '../types'
-export const PERSIST_KEY='avida_nav'
-export function scrollToTopHard(){window.scrollTo(0,0);let frames=0;const reinforce=()=>{window.scrollTo(0,0);frames+=1;if(frames<8)requestAnimationFrame(reinforce)};requestAnimationFrame(reinforce)}
-export const VALID_VIEWS:View[]=['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications']
-const URL_TO_VIEW:Record<string,View>={'/':'home','/blog':'articles','/guias':'guides','/politica-editorial':'editorial-policy','/conteudos':'articles','/planos':'pricing','/faq':'faq','/perguntas-frequentes':'faq','/sobre':'about','/contato':'contact','/privacidade':'privacy','/termos':'terms','/aviso-de-responsabilidade':'responsibility','/admin':'admin','/login':'auth','/diario':'diary','/perfil':'profile','/questionarios':'questionarios','/sucesso':'success','/suporte':'support','/notificacoes':'notifications','/guia-mensal':'monthly-guidance','/comentarios-profissional':'professional-comments','/mapa-emocional':'my-evolution','/meu-relatorio':'my-report','/minha-historia':'my-history','/meu-jardim':'my-garden','/descobertas':'descobertas','/cuidar':'cuidar','/mais':'mais','/plano-de-autocuidado':'self-care','/meu-plano':'my-plan'}
-const LEGACY_PATH_REDIRECT:Record<string,View>={'/meditacoes':'articles','/desafios':'articles','/trilhas':'articles','/conquistas':'home','/lembretes':'home','/itens-salvos':'home','/favoritos':'home','/sessoes':'home','/sessao':'home'}
-const LEGACY_VIEW_REDIRECT:Record<string,View>={meditations:'articles',challenges:'articles',trails:'articles',content:'articles','therapeutic-q':'questionarios',saved:'home',conquistas:'home',lembretes:'home'}
-const URL_ALIASES:Record<string,View>={'/orientacao':'monthly-guidance','/orientacoes':'monthly-guidance','/minha-evolucao':'my-evolution'}
-const VIEW_TO_URL:Record<string,string>=Object.fromEntries(Object.entries(URL_TO_VIEW).map(([url,view])=>[view,url]))
-export interface NavigationState{view:View;articleSlug:string|null;ticketId:string|null;questionnaireId?:string|null}
-export function parseNavLocation(path:string,search=''):NavigationState|null{if(path.startsWith('/blog/')&&path.length>6)return{view:'article',articleSlug:path.slice(6),ticketId:null};if(path.startsWith('/guias/')&&path.length>7)return{view:'guides',articleSlug:decodeURIComponent(path.slice(7)),ticketId:null};if(path.startsWith('/suporte/')&&path.length>9)return{view:'support-ticket',articleSlug:null,ticketId:path.slice(9)};if(path.startsWith('/questionarios/')&&path.length>15)return{view:'questionnaire',articleSlug:null,ticketId:null,questionnaireId:decodeURIComponent(path.slice(15))};if(path==='/questionario-terapeutico')return{view:'questionarios',articleSlug:null,ticketId:null};if(LEGACY_PATH_REDIRECT[path])return{view:LEGACY_PATH_REDIRECT[path],articleSlug:null,ticketId:null};const params=new URLSearchParams(search);const urlView=params.get('view')as View;if(urlView&&VALID_VIEWS.includes(urlView))return{view:urlView,articleSlug:null,ticketId:null};const mapped=URL_TO_VIEW[path]??URL_ALIASES[path];return mapped?{view:mapped,articleSlug:null,ticketId:null}:null}
+
+export const PERSIST_KEY = 'avida_nav'
+export function scrollToTopHard() { window.scrollTo(0, 0); let frames = 0; const reinforce = () => { window.scrollTo(0, 0); frames += 1; if (frames < 8) requestAnimationFrame(reinforce) }; requestAnimationFrame(reinforce) }
+export const VALID_VIEWS: View[] = ['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications']
+const URL_TO_VIEW: Record<string, View> = {
+  '/':                           'home',
+  '/blog':                       'articles',
+  '/guias':                      'guides',
+  '/politica-editorial':         'editorial-policy',
+  '/conteudos':                  'articles',
+  '/planos':                     'pricing',
+  '/faq':                        'faq',
+  '/perguntas-frequentes':       'faq',
+  '/sobre':                      'about',
+  '/contato':                    'contact',
+  '/privacidade':                'privacy',
+  '/termos':                     'terms',
+  '/aviso-de-responsabilidade':  'responsibility',
+  '/admin':                      'admin',
+  '/login':                      'auth',
+  '/diario':                     'diary',
+  '/perfil':                     'profile',
+  '/questionarios':              'questionarios',
+  '/sucesso':                    'success',
+  '/suporte':                    'support',
+  '/notificacoes':               'notifications',
+  '/guia-mensal':                'monthly-guidance',
+  '/comentarios-profissional':   'professional-comments',
+  '/mapa-emocional':             'my-evolution',
+  '/meu-relatorio':              'my-report',
+  '/minha-historia':             'my-history',
+  '/meu-jardim':                 'my-garden',
+  '/descobertas':                'descobertas',
+  '/cuidar':                     'cuidar',
+  '/mais':                       'mais',
+  '/plano-de-autocuidado':       'self-care',
+  '/meu-plano':                  'my-plan',
+}
+const LEGACY_PATH_REDIRECT: Record<string, View> = {'/meditacoes':'articles','/desafios':'articles','/trilhas':'articles','/conquistas':'home','/lembretes':'home','/itens-salvos':'home','/favoritos':'home','/sessoes':'home','/sessao':'home'}
+const LEGACY_VIEW_REDIRECT: Record<string, View> = {meditations:'articles',challenges:'articles',trails:'articles',content:'articles','therapeutic-q':'questionarios',saved:'home',conquistas:'home',lembretes:'home'}
+const URL_ALIASES: Record<string, View> = {'/orientacao':'monthly-guidance','/orientacoes':'monthly-guidance','/minha-evolucao':'my-evolution'}
+const VIEW_TO_URL: Record<string,string> = Object.fromEntries(Object.entries(URL_TO_VIEW).map(([url,view])=>[view,url]))
+export interface NavigationState { view: View; articleSlug: string | null; ticketId: string | null; questionnaireId?: string | null }
+export function parseNavLocation(path:string, search=''):NavigationState|null {
+  if (path.startsWith('/blog/') && path.length > 6) return { view:'article', articleSlug:path.slice(6), ticketId:null }
+  if (path.startsWith('/guias/') && path.length > 7) return { view:'guides', articleSlug:decodeURIComponent(path.slice(7)), ticketId:null }
+  if (path.startsWith('/suporte/') && path.length > 9) return { view:'support-ticket', articleSlug:null, ticketId:path.slice(9) }
+  if (path.startsWith('/questionarios/') && path.length > 15) return { view:'questionnaire', articleSlug:null, ticketId:null, questionnaireId:decodeURIComponent(path.slice(15)) }
+  if (path === '/questionario-terapeutico') return { view:'questionarios', articleSlug:null, ticketId:null }
+  if (LEGACY_PATH_REDIRECT[path]) return { view:LEGACY_PATH_REDIRECT[path], articleSlug:null, ticketId:null }
+  const params = new URLSearchParams(search); const urlView = params.get('view') as View
+  if (urlView && VALID_VIEWS.includes(urlView)) return { view:urlView, articleSlug:null, ticketId:null }
+  const mapped = URL_TO_VIEW[path] ?? URL_ALIASES[path]; return mapped ? { view:mapped, articleSlug:null, ticketId:null } : null
+}
 export function parseURLNav(){try{return parseNavLocation(window.location.pathname,window.location.search)}catch{return null}}
 export function restoreNavFrom(pathname:string,search:string,storage:Pick<Storage,'getItem'>):NavigationState|null{const fromURL=parseNavLocation(pathname,search);if(fromURL)return fromURL;if(pathname!=='/')return null;try{const raw=storage.getItem(PERSIST_KEY);if(!raw)return null;const saved=JSON.parse(raw)as NavigationState;if(saved.view==='auth'||!VALID_VIEWS.includes(saved.view))return null;return saved}catch{return null}}
 export function restoreNav(){try{return restoreNavFrom(window.location.pathname,window.location.search,window.localStorage)}catch{return null}}
 export function normalizeLegacyView(section:string){return LEGACY_VIEW_REDIRECT[section]??section}
-export function urlForView(targetView:string,slug?:string|null,ticketId?:string|null){if(targetView==='article'&&slug)return`/blog/${slug}`;if(targetView==='guides'&&slug)return`/guias/${encodeURIComponent(slug)}`;if(targetView==='support-ticket'&&ticketId)return`/suporte/${ticketId}`;if(targetView==='questionnaire'&&slug)return`/questionarios/${encodeURIComponent(slug)}`;return VIEW_TO_URL[targetView]??'/'}
-export function canonicalPathForLocation(path:string,search=''){const target=LEGACY_PATH_REDIRECT[path]??URL_ALIASES[path];if(target)return VIEW_TO_URL[target]??'/';if(path!=='/'&&!parseNavLocation(path,search))return'/';return null}
+export function urlForView(targetView:string,slug?:string|null,ticketId?:string|null):string{if(targetView==='article'&&slug)return`/blog/${slug}`;if(targetView==='guides'&&slug)return`/guias/${encodeURIComponent(slug)}`;if(targetView==='support-ticket'&&ticketId)return`/suporte/${ticketId}`;if(targetView==='questionnaire'&&slug)return`/questionarios/${encodeURIComponent(slug)}`;return VIEW_TO_URL[targetView]??'/'}
+export function canonicalPathForLocation(path:string,search=''):string|null{const target=LEGACY_PATH_REDIRECT[path]??URL_ALIASES[path];if(target)return VIEW_TO_URL[target]??'/';if(path!=='/'&&!parseNavLocation(path,search))return'/';return null}
