@@ -36,10 +36,16 @@ function createResponseRecorder() {
   }
 }
 
-test('home possui canonical e identidade estruturada global', () => {
+test('home possui canonical, conteúdo semântico e identidade estruturada global', () => {
   assert.match(indexHtml, /rel="canonical" href="https:\/\/www\.avidanaocolabora\.com\/"/)
+  assert.match(indexHtml, /<h1>Um lugar para se organizar por dentro nos dias difíceis<\/h1>/)
+  assert.match(indexHtml, /href="\/blog"/)
+  assert.match(indexHtml, /href="\/guias"/)
+  assert.match(indexHtml, /href="\/planos"/)
   assert.match(indexHtml, /"@type": "Organization"/)
   assert.match(indexHtml, /"@id": "https:\/\/www\.avidanaocolabora\.com\/#organization"/)
+  assert.match(indexHtml, /"logo": \{/)
+  assert.match(indexHtml, /"width": 512/)
   assert.match(indexHtml, /"@type": "WebSite"/)
   assert.match(indexHtml, /"@id": "https:\/\/www\.avidanaocolabora\.com\/#website"/)
   assert.match(indexHtml, /"inLanguage": "pt-BR"/)
@@ -83,8 +89,8 @@ test('HTML server-side usa metadata específica sem canonical ou hreflang duplic
 
   try {
     const cases = [
-      { route: 'blog', path: '/blog', title: 'Blog — A Vida Não Colabora', schema: 'CollectionPage' },
-      { route: 'pricing', path: '/planos', title: 'Planos — A Vida Não Colabora', schema: 'WebPage' },
+      { route: 'blog', path: '/blog', title: 'Blog de bem-estar emocional e autocuidado — A Vida Não Colabora', schema: 'CollectionPage' },
+      { route: 'pricing', path: '/planos', title: 'Planos de diário emocional e autocuidado — A Vida Não Colabora', schema: 'WebPage' },
       { route: 'about', path: '/sobre', title: 'Sobre — A Vida Não Colabora', schema: 'AboutPage' },
     ]
 
@@ -123,4 +129,5 @@ test('artigos substituem canonical global inclusive no fallback e removem canoni
   assert.ok(articleRenderer.includes("hreflang=[\"']pt-BR"))
   assert.ok(articleRenderer.includes("hreflang=[\"']x-default"))
   assert.match(articleRenderer, /setNotFoundHead[\s\S]*?rel=\["'\]canonical/)
+  assert.match(articleRenderer, /logo:\s*\{ '@type': 'ImageObject', url: DEFAULT_IMAGE, width: 512, height: 512 \}/)
 })

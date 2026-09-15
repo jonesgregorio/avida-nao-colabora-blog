@@ -2,6 +2,24 @@ import type { View } from '../types'
 
 export const PERSIST_KEY = 'avida_nav'
 
+// Achado ao vivo (mobile): mesmo com scroll instantâneo (não 'smooth'), o toque que aciona a
+// navegação normalmente acontece logo depois de um gesto de arrastar a tela — e o scroll por
+// inércia (momentum) do Safari/Chrome mobile continua rolando por conta própria por alguns
+// instantes DEPOIS do clique, sem passar por nenhum código nosso. Um único window.scrollTo(0,0)
+// no momento da troca de página é imediatamente sobrescrito por essa inércia residual, e a
+// página nova acaba parada no meio ou no fim. Reforçar a posição por alguns frames depois do
+// clique "vence" essa inércia sem precisar de nenhuma lib.
+export function scrollToTopHard() {
+  window.scrollTo(0, 0)
+  let frames = 0
+  const reinforce = () => {
+    window.scrollTo(0, 0)
+    frames += 1
+    if (frames < 8) requestAnimationFrame(reinforce)
+  }
+  requestAnimationFrame(reinforce)
+}
+
 // Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
 export const VALID_VIEWS: View[] = [
   'home','auth','diary','profile',

@@ -1,5 +1,7 @@
 const SITE_ORIGIN = 'https://www.avidanaocolabora.com'
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/brand/logo-quadrada.png`
+const RPC_TIMEOUT_MS = 2500
+const TRANSIENT_RPC_STATUSES = new Set([502, 503, 504])
 
 const PAGE_META = {
   home: {
@@ -13,14 +15,18 @@ const PAGE_META = {
   blog: {
     path: '/blog',
     type: 'CollectionPage',
-    title: 'Blog — A Vida Não Colabora',
+    title: 'Blog de bem-estar emocional e autocuidado — A Vida Não Colabora',
     description: 'Conteúdos sobre bem-estar emocional, autoconhecimento, relações, rotina e autocuidado para ajudar você a organizar o que sente com mais leveza.',
+    heading: 'Conteúdos para entender melhor o que você sente',
+    intro: 'Artigos educativos sobre emoções, rotina, relações, ansiedade, limites, sono e autocuidado, organizados para apoiar reflexão sem substituir cuidado profissional.',
   },
   pricing: {
     path: '/planos',
     type: 'WebPage',
-    title: 'Planos — A Vida Não Colabora',
+    title: 'Planos de diário emocional e autocuidado — A Vida Não Colabora',
     description: 'Compare os planos da A Vida Não Colabora e escolha os recursos de diário emocional, acompanhamento e autocuidado que fazem sentido para você.',
+    heading: 'Planos para acompanhar sua rotina emocional no seu ritmo',
+    intro: 'Compare Gratuito, Essencial e Plus e veja quais recursos de registro, acompanhamento e autocuidado estão incluídos em cada opção.',
   },
   faq: {
     path: '/faq',
@@ -89,9 +95,19 @@ const GUIDE_LINKS = [
 
 const PAGE_SECTIONS = {
   home: [
-    ['Entenda sua trajetória emocional', 'O diário e os check-ins ajudam você a registrar acontecimentos, emoções, contextos, necessidades e pequenas ações de cuidado. Com o uso contínuo, o mapa emocional e as descobertas tornam as repetições mais fáceis de perceber.'],
-    ['Privacidade em primeiro lugar', 'Seus registros pessoais não são páginas públicas e não fazem parte do conteúdo exibido em mecanismos de busca. A plataforma foi criada para apoiar autoconhecimento e organização emocional, sem substituir acompanhamento psicológico, psiquiátrico ou médico.'],
-    ['Conteúdos para começar', 'Além das ferramentas pessoais, o blog reúne leituras e práticas sobre diário emocional, autocuidado, ansiedade, sobrecarga, relações, limites, sono e rotina.'],
+    ['Entenda sua trajetória emocional', 'O diário emocional e os check-ins ajudam você a registrar acontecimentos, emoções, energia, necessidades e contextos do cotidiano. Com o uso contínuo, os recursos de acompanhamento organizam essas informações para tornar mudanças e repetições mais fáceis de perceber. A proposta não é rotular sentimentos nem gerar diagnósticos, mas oferecer um histórico pessoal claro que apoie reflexão, autocuidado e conversas mais bem informadas com profissionais quando necessário.'],
+    ['Conteúdos para começar com clareza', 'Além das ferramentas pessoais, o blog reúne leituras educativas sobre diário emocional, autocuidado, ansiedade, sobrecarga, relações, limites, sono e rotina. Os guias organizam temas essenciais em caminhos de leitura para quem quer começar sem precisar saber exatamente o que procurar. Todo conteúdo público segue critérios editoriais e é separado das áreas privadas da plataforma.'],
+    ['Privacidade em primeiro lugar', 'Seus registros pessoais, diário, relatórios e demais áreas autenticadas não fazem parte do conteúdo público exibido em mecanismos de busca. A plataforma foi criada para apoiar autoconhecimento e organização emocional com privacidade. Somente páginas institucionais e conteúdos definidos como públicos entram na superfície de SEO, e materiais educativos não substituem acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.'],
+    ['Recursos para diferentes momentos', 'A Vida Não Colabora oferece os planos Gratuito, Essencial e Plus. O Gratuito permite iniciar registros e acessar recursos básicos; o Essencial amplia o acompanhamento com histórico, mapa emocional, relatórios e Meu Jardim; o Plus acrescenta aprofundamentos e recursos de planejamento de autocuidado. A página de planos mantém a comparação atualizada para que você escolha de forma transparente.'],
+  ],
+  pricing: [
+    ['Gratuito para começar', 'O plano Gratuito permite conhecer a proposta da plataforma e começar a registrar sua rotina emocional com recursos básicos, check-in e conteúdos públicos. É uma forma de experimentar a organização dos registros antes de decidir se precisa de ferramentas adicionais de acompanhamento.'],
+    ['Essencial para acompanhar padrões', 'O Essencial amplia o acompanhamento com recursos como histórico, mapa emocional, relatórios e Meu Jardim, além dos recursos herdados do Gratuito. Ele é voltado a quem quer observar a própria trajetória com mais continuidade e reunir informações do cotidiano de forma organizada.'],
+    ['Plus para aprofundar e planejar', 'O Plus inclui os recursos dos níveis anteriores e acrescenta aprofundamentos e ferramentas voltadas ao planejamento de autocuidado e acompanhamento mensal. A comparação exibida na página é a referência comercial atual; preços e recursos devem ser considerados conforme apresentados no momento da contratação.'],
+  ],
+  guides: [
+    ['Por onde começar', 'Os guias foram organizados para responder dúvidas comuns de quem quer observar melhor a própria rotina emocional. Você pode começar por diário emocional, check-in, padrões, autocuidado, sobrecarga, limites ou rotina e avançar conforme o tema fizer sentido para o seu momento.'],
+    ['Informação sem diagnóstico', 'Os materiais usam linguagem educativa e prática. Eles ajudam a nomear experiências, organizar observações e encontrar próximos passos possíveis, mas não realizam diagnóstico, prescrição ou psicoterapia. Quando houver sofrimento intenso, risco ou necessidade de avaliação individual, a orientação é procurar atendimento profissional adequado.'],
   ],
   editorial: [
     ['Propósito dos conteúdos', 'Publicamos materiais educativos sobre bem-estar emocional, autoconhecimento e autocuidado. Os textos oferecem informação e reflexão prática; não realizam diagnóstico, prescrição, psicoterapia ou atendimento de emergência.'],
@@ -118,7 +134,7 @@ function replaceOrAppendHead(html, pattern, replacement) {
 }
 
 function injectSnapshot(shell, markup) {
-  return shell.replace('<div id="root"></div>', `<div id="root">${markup}</div>`)
+  return shell.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">${markup}</div>`)
 }
 
 function publicGuideLinks(articles = []) {
@@ -142,7 +158,7 @@ function renderSnapshot(page, articles = []) {
     collection = `<section><h2>Conteúdos publicados</h2><ul>${articles.slice(0, 50).map((article) => `<li><a href="/blog/${escapeHtml(article.slug)}"><strong>${escapeHtml(article.title)}</strong></a>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</li>`).join('')}</ul></section>`
   }
 
-  return `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a></nav><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(intro)}</p>${staticSections}${collection}<p><a href="/blog">Explorar conteúdos sobre bem-estar emocional</a></p></main>`
+  return `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a> · <a href="/planos">Planos</a> · <a href="/sobre">Sobre</a></nav><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(intro)}</p>${staticSections}${collection}<p><a href="/blog">Explorar conteúdos sobre bem-estar emocional</a></p></main>`
 }
 
 function setPageHead(shell, page, articles = []) {
@@ -217,22 +233,58 @@ function setPageHead(shell, page, articles = []) {
   return injectSnapshot(html, renderSnapshot(page, articles))
 }
 
-async function listPublicArticles() {
+function publicSupabaseConfig() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return []
+  if (!supabaseUrl || !anonKey) return null
+  return { supabaseUrl, anonKey }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithTimeout(url, options, timeoutMs = RPC_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/list_public_article_index`, {
-      method: 'POST',
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-      body: '{}',
-    })
-    if (!response.ok) return []
-    const rows = await response.json()
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    return []
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+async function listPublicArticles() {
+  const config = publicSupabaseConfig()
+  if (!config) return []
+  const { supabaseUrl, anonKey } = config
+  const url = `${supabaseUrl}/rest/v1/rpc/list_public_article_index`
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const startedAt = Date.now()
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      const durationMs = Date.now() - startedAt
+      if (!response.ok || durationMs >= 1000) {
+        console.warn('[seo/page-rpc]', JSON.stringify({ attempt, status: response.status, durationMs }))
+      }
+      if (response.ok) {
+        const rows = await response.json()
+        return Array.isArray(rows) ? rows : []
+      }
+      if (!TRANSIENT_RPC_STATUSES.has(response.status) || attempt === 2) return []
+    } catch (error) {
+      const durationMs = Date.now() - startedAt
+      console.warn('[seo/page-rpc]', JSON.stringify({ attempt, status: 'network_error', durationMs, error: String(error?.name || error) }))
+      if (attempt === 2) return []
+    }
+    await wait(120 * attempt)
+  }
+  return []
 }
 
 async function getAppShell(req) {
@@ -263,12 +315,14 @@ export default async function handler(req, res) {
     const articles = route === 'blog' || route === 'guides' ? await listPublicArticles() : []
     const html = setPageHead(shell, page, articles)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400')
     res.setHeader('Vary', 'Accept-Encoding')
     res.status(200)
     return req.method === 'HEAD' ? res.end() : res.end(html)
   } catch (error) {
     console.error('[seo/page] app shell unavailable', error)
+    res.setHeader('Retry-After', '60')
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
     return res.status(503).end('Temporariamente indisponível')
   }
 }
