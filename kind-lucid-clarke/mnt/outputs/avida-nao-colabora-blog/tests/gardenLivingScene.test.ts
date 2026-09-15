@@ -15,13 +15,13 @@ const publicDir = fileURLToPath(new URL('../public', import.meta.url))
 
 const EXPECTED_SLUGS_4 = ['japones', 'cottage', 'mediterraneo', 'mata-atlantica', 'giverny', 'deserto', 'noturno', 'nordico']
 // Jardins mais novos, com 6 imagens em vez de 4.
-const EXPECTED_SLUGS_6 = ['bali']
+const EXPECTED_SLUGS_6 = ['bali', 'sakura']
 
-test('os 9 jardins existem, com slugs únicos e label visível', () => {
-  assert.equal(GARDEN_THEMES.length, 9)
+test('os 10 jardins existem, com slugs únicos e label visível', () => {
+  assert.equal(GARDEN_THEMES.length, 10)
   const slugs = GARDEN_THEMES.map((t) => t.slug)
   assert.deepEqual([...slugs].sort(), [...EXPECTED_SLUGS_4, ...EXPECTED_SLUGS_6].sort())
-  assert.equal(new Set(slugs).size, 9)
+  assert.equal(new Set(slugs).size, 10)
   for (const theme of GARDEN_THEMES) assert.ok(theme.label.length > 0, `${theme.slug} precisa de um label`)
 })
 
@@ -45,12 +45,12 @@ test('jardins novos têm 6 imagens de estágio e os arquivos existem em public/g
   }
 })
 
-test('gardenThemeFor nunca termina — qualquer índice resolve a um jardim válido e o ciclo se repete a cada 9', () => {
-  for (const index of [0, 1, 8, 9, 17, 18, 1000, 1000000]) {
+test('gardenThemeFor nunca termina — qualquer índice resolve a um jardim válido e o ciclo se repete a cada 10', () => {
+  for (const index of [0, 1, 9, 10, 19, 20, 1000, 1000000]) {
     assert.ok(GARDEN_THEMES.includes(gardenThemeFor(index)))
   }
-  assert.equal(gardenThemeFor(0).slug, gardenThemeFor(9).slug)
-  assert.equal(gardenThemeFor(3).slug, gardenThemeFor(12).slug)
+  assert.equal(gardenThemeFor(0).slug, gardenThemeFor(10).slug)
+  assert.equal(gardenThemeFor(3).slug, gardenThemeFor(13).slug)
 })
 
 test('gardenVisualProgress (4 imagens, default) mapeia o ciclo de 60 passos (v4) para 0..1 sem nunca estourar', () => {

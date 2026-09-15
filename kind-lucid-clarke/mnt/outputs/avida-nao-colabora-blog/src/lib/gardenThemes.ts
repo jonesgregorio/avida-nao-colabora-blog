@@ -342,6 +342,25 @@ export const GARDEN_THEMES: GardenTheme[] = [
     birds: { kind: 'none' },
     light: { sun: [0.12, 0.14], ray: '#ffdca0', rayAmt: 0.22, glow: [[0.30, 0.30, 24, '250,205,130']] },
   },
+  {
+    slug: 'sakura',
+    label: 'Jardim de Cerejeiras · manhã de primavera',
+    stages: stagesFor6('sakura'),
+    water: {
+      kind: 'pond', reflect: true, tint: '#a9c4d0', drip: 4,
+      poly: [
+        [0.30, 0.72], [0.45, 0.68], [0.62, 0.66], [0.78, 0.68], [0.92, 0.74],
+        [1.001, 0.80], [1.001, 1.001], [0.20, 1.001], [0.22, 0.85],
+      ],
+    },
+    fall: {
+      count: 42,
+      emitters: [{ kind: 'petal', weight: 1, colors: ['#f4c4d4', '#fbdce6', '#ffffff', '#eaa9c0'], zone: [0.50, -0.06, 0.92, 0.42] }],
+    },
+    flyers: { butterflies: 3, butColors: ['#f6f3ea', '#e8b7c9', '#f0c85a'] },
+    birds: { kind: 'none' },
+    light: { sun: [0.06, 0.08], ray: '#fdf6e0', rayAmt: 0.10, glow: [] },
+  },
 ]
 
 /** Nomes dos 4 estágios visuais dos jardins originais, na ordem das imagens (alt text/a11y). */
