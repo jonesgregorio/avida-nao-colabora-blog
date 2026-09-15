@@ -14,14 +14,13 @@ const livingGarden = readFileSync(new URL('../src/components/garden/LivingGarden
 const publicDir = fileURLToPath(new URL('../public', import.meta.url))
 
 const EXPECTED_SLUGS_4 = ['japones', 'cottage', 'mediterraneo', 'mata-atlantica', 'giverny', 'deserto', 'noturno', 'nordico']
-// Jardins mais novos (6 imagens). Slug ainda 'draft' no garden_catalog até as fotos existirem
-// em public/gardens/<slug> — por isso não entram na checagem de arquivo em disco abaixo.
-const PENDING_IMAGE_SLUGS = ['bali']
+// Jardins mais novos, com 6 imagens em vez de 4.
+const EXPECTED_SLUGS_6 = ['bali']
 
 test('os 9 jardins existem, com slugs únicos e label visível', () => {
   assert.equal(GARDEN_THEMES.length, 9)
   const slugs = GARDEN_THEMES.map((t) => t.slug)
-  assert.deepEqual([...slugs].sort(), [...EXPECTED_SLUGS_4, ...PENDING_IMAGE_SLUGS].sort())
+  assert.deepEqual([...slugs].sort(), [...EXPECTED_SLUGS_4, ...EXPECTED_SLUGS_6].sort())
   assert.equal(new Set(slugs).size, 9)
   for (const theme of GARDEN_THEMES) assert.ok(theme.label.length > 0, `${theme.slug} precisa de um label`)
 })
@@ -36,10 +35,13 @@ test('os 8 jardins originais têm 4 imagens de estágio e os arquivos existem em
   }
 })
 
-test('jardins novos (6 imagens) têm caminhos corretos, mesmo antes das fotos existirem', () => {
-  for (const theme of GARDEN_THEMES.filter((t) => PENDING_IMAGE_SLUGS.includes(t.slug))) {
+test('jardins novos têm 6 imagens de estágio e os arquivos existem em public/gardens', () => {
+  for (const theme of GARDEN_THEMES.filter((t) => EXPECTED_SLUGS_6.includes(t.slug))) {
     assert.equal(theme.stages.length, 6)
-    for (const src of theme.stages) assert.match(src, new RegExp(`^/gardens/${theme.slug}/`))
+    for (const src of theme.stages) {
+      assert.match(src, new RegExp(`^/gardens/${theme.slug}/`))
+      assert.ok(existsSync(`${publicDir}${src}`), `arquivo ausente no disco: ${src}`)
+    }
   }
 })
 
