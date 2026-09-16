@@ -26,40 +26,49 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
           </p>
         </div>
 
-        {[
-          {
-            title: '1. Quais dados coletamos',
-            items: [
+        <section className="bg-white border border-line rounded-2xl p-6">
+          <h2 className="font-serif text-xl text-forest-900 mb-4">1. Quais dados coletamos</h2>
+          <ul className="space-y-2.5">
+            {[
               'Dados de conta: nome, e-mail, preferências e informações de perfil. A autenticação e a senha são gerenciadas pelo Supabase Auth; o aplicativo não recebe sua senha em texto legível para armazenamento.',
-              'Dados do diário e check-ins: textos, notas, humor, energia, sono, dor, marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos que você registrar.',
+              'Dados do diário e check-ins: o que você escolhe registrar sobre humor, energia, sono, dor e outras anotações do dia.',
               'Dados de questionários, relatórios, mapas emocionais, planos de autocuidado e orientações vinculados à sua conta.',
               'Dados de uso e comunicação: páginas e funcionalidades utilizadas, notificações, preferências de e-mail, tickets de suporte e histórico relacionado ao funcionamento do serviço.',
               'Dados de assinatura e cobrança necessários para identificar o plano e acompanhar pagamentos; os dados do cartão são processados pelo Stripe e não são armazenados pelo aplicativo.',
-            ],
-          },
-          {
-            title: '2. Por que tratamos esses dados',
-            items: [
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
+                <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
+                {item}
+              </li>
+            ))}
+          </ul>
+          {/* Achado: listar "textos, humor, energia, sono, dor, marcadores emocionais, gatilhos..." logo
+              de cara, sem contexto, passava a impressão de que tudo que a pessoa desabafa no diário é
+              exposto ou lido por alguém. A explicação de que ninguém lê rotineiramente já existia (seção
+              7), mas só lá embaixo — trazida pra cá, junto da lista, pra tranquilizar no mesmo instante
+              em que a dúvida surge. Detalhe técnico completo continua na seção 7. */}
+          <div className="mt-4 bg-mint/50 rounded-xl p-4 text-sm text-forest-800 leading-relaxed">
+            O que você escreve no diário é seu. Ninguém da nossa equipe lê seus registros por rotina ou curiosidade — eles ficam protegidos por controles de acesso e só são processados automaticamente, dentro da sua própria conta, para gerar os recursos que você usa (como relatórios e o mapa emocional). Mais detalhes na seção 7, abaixo.
+          </div>
+        </section>
+
+        <section className="bg-white border border-line rounded-2xl p-6">
+          <h2 className="font-serif text-xl text-forest-900 mb-4">2. Por que tratamos esses dados</h2>
+          <ul className="space-y-2.5">
+            {[
               'Para autenticar sua conta, manter o serviço seguro e disponibilizar as funcionalidades contratadas.',
               'Para oferecer diário, check-ins, mapa emocional, relatórios, planos e demais recursos do produto.',
               'Para personalizar conteúdos e recomendações conforme seus registros, preferências e plano.',
               'Para responder solicitações de suporte, administrar preferências de comunicação e melhorar a operação do serviço.',
               'Para processar e acompanhar assinaturas e pagamentos de forma segura.',
-            ],
-          },
-        ].map(section => (
-          <section key={section.title} className="bg-white border border-line rounded-2xl p-6">
-            <h2 className="font-serif text-xl text-forest-900 mb-4">{section.title}</h2>
-            <ul className="space-y-2.5">
-              {section.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                  <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
+                <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
           <h2 className="font-serif text-xl text-forest-900 mb-4">3. Como os dados são usados</h2>

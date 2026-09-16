@@ -144,7 +144,7 @@ export default function Footer({ onNavigate }: FooterProps) {
             className="flex flex-col sm:flex-row gap-2 w-full md:justify-end"
           >
             {sent ? (
-              <p className="text-sm text-forest-700 self-center">Inscrição confirmada! Enviamos um e-mail para {email.trim()}.</p>
+              <p className="text-sm text-forest-700 self-center">Que bom ter você aqui! Enviamos um e-mail de confirmação para {email.trim()} — em breve chegam nossos conteúdos por aí.</p>
             ) : (
               <>
                 <label htmlFor="footer-newsletter-email" className="sr-only">Seu e-mail para receber conteúdos</label>
