@@ -1,7 +1,7 @@
 import { ArrowRight, BookOpen, Compass } from 'lucide-react'
 import { SEO_PILLAR_GUIDES, guidePathFor } from '../lib/seoGuides'
 
-export default function SeoClusterExplorer({ onOpenGuides }: { onOpenGuide: (slug: string) => void; onOpenGuides?: () => void }) {
+export default function SeoClusterExplorer(_: { onOpenGuide: (slug: string) => void; onOpenGuides?: () => void }) {
   return (
     <section className="mb-10 overflow-hidden rounded-[2rem] border border-line bg-[#fffdf9]" aria-labelledby="seo-cluster-title">
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[300px_1fr] lg:items-start">
@@ -10,7 +10,7 @@ export default function SeoClusterExplorer({ onOpenGuides }: { onOpenGuide: (slu
           <p className="mt-5 text-[11px] font-semibold uppercase tracking-[.16em] text-forest-600">Caminhos de leitura</p>
           <h2 id="seo-cluster-title" className="mt-2 font-serif text-3xl leading-tight text-forest-900">Comece pelo que você precisa entender hoje</h2>
           <p className="mt-3 text-sm leading-6 text-ink-soft">Cada caminho reúne uma página-pilar, leituras do mesmo tema e uma ferramenta do AVNC coerente com o próximo passo.</p>
-          <a href="/guias" onClick={onOpenGuides ? (event) => { event.preventDefault(); onOpenGuides() } : undefined} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-forest-800">Ver todos os guias <ArrowRight className="h-4 w-4" /></a>
+          <a href="/guias" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-forest-800">Ver todos os guias <ArrowRight className="h-4 w-4" /></a>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {SEO_PILLAR_GUIDES.map(guide => (
