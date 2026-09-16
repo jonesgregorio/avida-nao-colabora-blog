@@ -31,7 +31,7 @@ Usamos seus dados para operar, proteger e entregar as funcionalidades que você 
 
 Alguns recursos de inteligência artificial podem processar o contexto necessário para produzir funcionalidades privadas da sua conta, como relatórios, planos e recomendações. O processamento é limitado à finalidade do recurso acionado e segue os controles definidos no backend.
 
-Quando uma funcionalidade contratada prevê participação profissional, é fornecido apenas o relatório ou contexto necessário para aquela finalidade. Isso não representa acesso livre ou rotineiro da equipe ao seu diário completo.
+O comentário individual de um profissional sobre o relatório mensal foi **descontinuado como recurso ativo do produto**. Comentários enviados no passado continuam preservados para consulta e exportação, sem que isso represente acesso livre ou rotineiro da equipe ao seu diário completo.
 
 ## 4. Armazenamento, segurança e retenção
 
@@ -50,7 +50,7 @@ Para operar o serviço, podemos utilizar os seguintes prestadores conforme a fun
 - **Provedores de inteligência artificial configurados no backend**, como Google Gemini, Groq e, quando habilitado, OpenAI: processamento do contexto necessário para funcionalidades de IA.
 - **Autoridades ou terceiros legitimados:** quando houver obrigação legal ou ordem válida aplicável.
 
-O uso de prestadores não transforma seus registros em conteúdo público. Quando um recurso prevê participação profissional, o compartilhamento fica limitado ao relatório ou contexto necessário para a devolutiva apresentada na própria plataforma.
+O uso de prestadores não transforma seus registros em conteúdo público. O acesso técnico é limitado ao necessário para operar, proteger e entregar as funcionalidades da plataforma.
 
 ## 6. Seus direitos e controles de privacidade
 
@@ -68,7 +68,7 @@ Usuários autenticados podem usar **Meu perfil → Privacidade e seus dados** pa
 
 **O que você escreve é tratado como informação privada da sua conta.**
 
-Diário, check-ins e demais registros emocionais não são áreas públicas nem caixas de leitura livre para a equipe. Eles são protegidos por controles de acesso e podem ser processados automaticamente quando isso é necessário para entregar uma funcionalidade da sua própria conta. Participação profissional, quando prevista no recurso contratado, recebe somente o relatório ou contexto necessário para aquela finalidade.
+Diário, check-ins e demais registros emocionais não são áreas públicas nem caixas de leitura livre para a equipe. Eles são protegidos por controles de acesso e podem ser processados automaticamente quando isso é necessário para entregar uma funcionalidade da sua própria conta.
 
 ## 8. Como falar sobre privacidade
 
