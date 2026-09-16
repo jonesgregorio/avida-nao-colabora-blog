@@ -65,7 +65,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
           <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
             <p>Usamos seus dados para operar, proteger e entregar as funcionalidades que você utiliza. Não vendemos ou alugamos seus dados pessoais a anunciantes e seus desabafos não são publicados como artigos ou conteúdo público.</p>
             <p>Alguns recursos de inteligência artificial podem processar o contexto necessário para produzir funcionalidades privadas da sua conta, como relatórios, planos e recomendações. O processamento é limitado à finalidade do recurso acionado e segue os controles definidos no backend.</p>
-            <p>Quando uma funcionalidade contratada prevê participação profissional, é fornecido apenas o relatório ou contexto necessário para aquela finalidade. Isso não representa acesso livre ou rotineiro da equipe ao seu diário completo.</p>
+            <p>O comentário individual de um profissional sobre o relatório mensal foi descontinuado como recurso ativo do produto. Comentários enviados no passado continuam preservados para consulta e exportação, sem que isso represente acesso livre ou rotineiro da equipe ao seu diário completo.</p>
           </div>
         </section>
 
@@ -95,9 +95,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
               </li>
             ))}
           </ul>
-          <p className="text-sm text-ink-soft leading-relaxed">
-            O uso de prestadores não transforma seus registros em conteúdo público. Quando um recurso prevê participação profissional, o compartilhamento fica limitado ao relatório ou contexto necessário para a devolutiva apresentada na própria plataforma.
-          </p>
+          <p className="text-sm text-ink-soft leading-relaxed">O uso de prestadores não transforma seus registros em conteúdo público. O acesso técnico é limitado ao necessário para operar, proteger e entregar as funcionalidades da plataforma.</p>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
@@ -117,40 +115,24 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
               </li>
             ))}
           </ul>
-          <div className="mt-4 bg-mint/50 rounded-xl p-4 text-sm text-forest-800 leading-relaxed">
-            Usuários autenticados podem usar <strong>Meu perfil → Privacidade e seus dados</strong> para baixar uma cópia dos dados da conta ou iniciar a exclusão definitiva. A exclusão exige confirmação adicional com a senha atual.
-          </div>
+          <div className="mt-4 bg-mint/50 rounded-xl p-4 text-sm text-forest-800 leading-relaxed">Usuários autenticados podem usar <strong>Meu perfil → Privacidade e seus dados</strong> para baixar uma cópia dos dados da conta ou iniciar a exclusão definitiva. A exclusão exige confirmação adicional com a senha atual.</div>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
           <h2 className="font-serif text-xl text-forest-900 mb-4">7. Registros emocionais — confidencialidade</h2>
           <div className="bg-mint rounded-xl p-5">
             <p className="text-sm text-forest-900 font-medium mb-2">O que você escreve é tratado como informação privada da sua conta.</p>
-            <p className="text-sm text-forest-800 leading-relaxed">
-              Diário, check-ins e demais registros emocionais não são áreas públicas nem caixas de leitura livre para a equipe. Eles são protegidos por controles de acesso e podem ser processados automaticamente quando isso é necessário para entregar uma funcionalidade da sua própria conta. Participação profissional, quando prevista no recurso contratado, recebe somente o relatório ou contexto necessário para aquela finalidade.
-            </p>
+            <p className="text-sm text-forest-800 leading-relaxed">Diário, check-ins e demais registros emocionais não são áreas públicas nem caixas de leitura livre para a equipe. Eles são protegidos por controles de acesso e podem ser processados automaticamente quando isso é necessário para entregar uma funcionalidade da sua própria conta.</p>
           </div>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
           <h2 className="font-serif text-xl text-forest-900 mb-3">8. Como falar sobre privacidade</h2>
-          <p className="text-sm text-ink-soft leading-relaxed">
-            Para dúvidas, solicitações adicionais ou exercício de direitos que não estejam disponíveis no autoatendimento, utilize a página de contato ou o formulário de suporte da plataforma. Assim sua solicitação fica registrada e pode ser acompanhada pela equipe.
-          </p>
-          {onNavigate && (
-            <button onClick={() => onNavigate('contact')} className="mt-4 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900">
-              Ir para Contato
-            </button>
-          )}
+          <p className="text-sm text-ink-soft leading-relaxed">Para dúvidas, solicitações adicionais ou exercício de direitos que não estejam disponíveis no autoatendimento, utilize a página de contato ou o formulário de suporte da plataforma. Assim sua solicitação fica registrada e pode ser acompanhada pela equipe.</p>
+          {onNavigate && <button onClick={() => onNavigate('contact')} className="mt-4 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900">Ir para Contato</button>}
         </section>
 
-        {onNavigate && (
-          <div className="pt-2">
-            <button onClick={() => onNavigate('home')} className="text-sm text-ink-soft hover:text-forest-800 transition-colors">
-              ← Voltar para o início
-            </button>
-          </div>
-        )}
+        {onNavigate && <div className="pt-2"><button onClick={() => onNavigate('home')} className="text-sm text-ink-soft hover:text-forest-800 transition-colors">← Voltar para o início</button></div>}
       </div>
     </div>
   )
