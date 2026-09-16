@@ -26,7 +26,6 @@ const COLS: { title: string; links: FooterLink[] }[] = [
       { label: 'Conteúdos', id: 'articles' },
       { label: 'Guias essenciais', id: 'guides', href: '/guias' },
       { label: 'Diário', id: 'diary' },
-      { label: 'Mapa emocional', id: 'my-evolution' },
       { label: 'Planos', id: 'pricing' },
     ],
   },
