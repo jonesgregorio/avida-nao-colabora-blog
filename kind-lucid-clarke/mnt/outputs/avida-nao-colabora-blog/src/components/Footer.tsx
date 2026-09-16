@@ -17,12 +17,14 @@ interface FooterProps {
   onNavigate: (section: string) => void
 }
 
-const COLS: { title: string; links: { label: string; id: string }[] }[] = [
+type FooterLink = { label: string; id: string; href?: string }
+
+const COLS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Navegação',
     links: [
       { label: 'Conteúdos', id: 'articles' },
-      { label: 'Guias essenciais', id: 'guides' },
+      { label: 'Guias essenciais', id: 'guides', href: '/guias' },
       { label: 'Diário', id: 'diary' },
       { label: 'Mapa emocional', id: 'my-evolution' },
       { label: 'Planos', id: 'pricing' },
@@ -35,7 +37,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
       { label: 'Privacidade', id: 'privacy' },
       { label: 'Termos de uso', id: 'terms' },
       { label: 'Segurança', id: 'responsibility' },
-      { label: 'Política editorial', id: 'editorial-policy' },
+      { label: 'Política editorial', id: 'editorial-policy', href: '/politica-editorial' },
     ],
   },
   {
@@ -77,7 +79,6 @@ export default function Footer({ onNavigate }: FooterProps) {
     <footer className="bg-paper border-t border-line pt-14 pb-8">
       <div className="max-w-6xl mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-10">
-          {/* Marca */}
           <div className="col-span-2">
             <button onClick={() => onNavigate('home')} className="flex items-center gap-2 mb-3">
               <LogoIcon className="w-6 h-6 text-forest-900" />
@@ -87,7 +88,6 @@ export default function Footer({ onNavigate }: FooterProps) {
               Um lugar para se organizar por dentro nos dias difíceis.
             </p>
             <div className="flex items-center gap-3 mt-4">
-              {/* Instagram — abre em nova aba */}
               <a
                 href="https://www.instagram.com/avidanaocolabora?igsh=NzV5cGN1OGZmNDJv&utm_source=qr"
                 target="_blank"
@@ -97,7 +97,6 @@ export default function Footer({ onNavigate }: FooterProps) {
               >
                 <InstagramIcon className="w-4 h-4" />
               </a>
-              {/* E-mail — abre formulário de contato */}
               <button
                 onClick={() => onNavigate('contact')}
                 aria-label="Contato por e-mail"
@@ -108,19 +107,27 @@ export default function Footer({ onNavigate }: FooterProps) {
             </div>
           </div>
 
-          {/* Colunas de links */}
           {COLS.map(col => (
             <div key={col.title}>
               <h4 className="text-sm font-semibold text-forest-900 mb-3">{col.title}</h4>
               <ul className="space-y-2.5">
                 {col.links.map(link => (
                   <li key={link.label}>
-                    <button
-                      onClick={() => onNavigate(link.id)}
-                      className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left"
-                    >
-                      {link.label}
-                    </button>
+                    {link.href ? (
+                      <a
+                        href={link.href}
+                        className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left inline-flex min-h-11 items-center"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => onNavigate(link.id)}
+                        className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left min-h-11"
+                      >
+                        {link.label}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -128,7 +135,6 @@ export default function Footer({ onNavigate }: FooterProps) {
           ))}
         </div>
 
-        {/* Newsletter */}
         <div className="mt-12 pt-8 border-t border-line grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div>
             <h4 className="font-serif text-xl text-forest-900">Receba conteúdos que acolhem</h4>
@@ -153,7 +159,6 @@ export default function Footer({ onNavigate }: FooterProps) {
                   disabled={sending}
                   className="flex-1 min-w-0 sm:max-w-xs px-4 py-2.5 rounded-2xl border border-line bg-white text-sm outline-none focus:border-forest-400 disabled:opacity-60"
                 />
-                {/* Honeypot anti-spam: invisível para pessoas, campos preenchidos por bots viram descarte silencioso */}
                 <input
                   type="text"
                   value={website}
@@ -176,7 +181,6 @@ export default function Footer({ onNavigate }: FooterProps) {
           </form>
         </div>
 
-        {/* Rodapé inferior */}
         <div className="mt-10 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-ink-soft">
             © {new Date().getFullYear()} A Vida Não Colabora. Todos os direitos reservados.
