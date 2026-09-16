@@ -92,14 +92,15 @@ Deno.serve(async (req) => {
     .maybeSingle()
 
   const alreadySubscribed = existing?.status === 'subscribed'
+  const subscribedAt = new Date().toISOString()
 
   const { error: upsertError } = await admin.from('newsletter_subscribers').upsert({
     email,
     status: 'subscribed',
     source: 'footer',
-    subscribed_at: new Date().toISOString(),
+    subscribed_at: subscribedAt,
     unsubscribed_at: null,
-    updated_at: new Date().toISOString(),
+    updated_at: subscribedAt,
   }, { onConflict: 'email' })
 
   if (upsertError) {
@@ -123,7 +124,16 @@ Deno.serve(async (req) => {
         // List-Unsubscribe (RFC 8058): botão "cancelar inscrição" nativo do
         // Gmail/Yahoo — ajuda bastante a entregabilidade de e-mail em massa.
         metadata: { list_unsubscribe_url: unsubUrl },
-        idempotency_key: `newsletter_confirmation:${email}:${new Date().toISOString().slice(0, 10)}`,
+        // Achado ao vivo: a chave de idempotência era escopada por DIA
+        // (email + data), pensada para não duplicar em caso de retry — mas
+        // isso também bloqueava silenciosamente o envio de uma inscrição
+        // LEGÍTIMA no mesmo dia (ex.: cancelar e se inscrever de novo horas
+        // depois): a segunda tentativa colidia com a chave da primeira,
+        // email_logs rejeitava como duplicata (23505), send-transactional-email
+        // respondia 200 "ok" mesmo sem enviar nada, e a pessoa nunca recebia a
+        // confirmação. A chave agora usa o instante exato desta inscrição
+        // (subscribedAt, gravado junto no upsert acima), único por evento real.
+        idempotency_key: `newsletter_confirmation:${email}:${subscribedAt}`,
       }),
     })
     if (sendRes.ok) {
