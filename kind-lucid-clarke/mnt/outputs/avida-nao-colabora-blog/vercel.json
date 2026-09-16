@@ -22,7 +22,7 @@
     { "source": "/blog/:slug", "destination": "/api/article?slug=:slug" },
     { "source": "/blog", "destination": "/api/page?route=blog" },
     { "source": "/guias/:slug", "destination": "/api/guide?slug=:slug" },
-    { "source": "/guias", "destination": "/api/page?route=guides" },
+    { "source": "/guias", "destination": "/api/guides" },
     { "source": "/planos", "destination": "/api/page?route=pricing" },
     { "source": "/faq", "destination": "/api/page?route=faq" },
     { "source": "/sobre", "destination": "/api/page?route=about" },
