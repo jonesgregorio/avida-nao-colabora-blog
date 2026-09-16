@@ -119,7 +119,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         to_email: email,
         template_key: 'newsletter_confirmation',
-        variables: { link_cancelar: unsubUrl },
+        variables: { link_cancelar: unsubUrl, email },
+        // List-Unsubscribe (RFC 8058): botão "cancelar inscrição" nativo do
+        // Gmail/Yahoo — ajuda bastante a entregabilidade de e-mail em massa.
+        metadata: { list_unsubscribe_url: unsubUrl },
         idempotency_key: `newsletter_confirmation:${email}:${new Date().toISOString().slice(0, 10)}`,
       }),
     })

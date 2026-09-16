@@ -64,6 +64,7 @@ const VIEW_TITLES: Record<string, string> = {
   responsibility: 'Aviso de Responsabilidade',
   admin: 'Painel Admin',
   success: 'Assinatura confirmada',
+  'newsletter-unsubscribed': 'Inscrição cancelada',
 }
 
 export function titleForView(view: string): string {

@@ -27,7 +27,7 @@ export const VALID_VIEWS: View[] = [
   'articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq',
   'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
   'descobertas','cuidar','mais',
-  'notifications',
+  'notifications','newsletter-unsubscribed',
 ]
 
 // Mapeamento bidirecional URL ↔ view.
@@ -51,6 +51,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/perfil':                     'profile',
   '/questionarios':              'questionarios',
   '/sucesso':                    'success',
+  '/newsletter-cancelada':       'newsletter-unsubscribed',
   '/suporte':                    'support',
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
