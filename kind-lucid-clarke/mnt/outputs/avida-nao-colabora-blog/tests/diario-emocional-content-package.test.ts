@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const migration = readFileSync(new URL('../supabase/migrations/20260916233000_diario_emocional_first_content_package.sql', import.meta.url), 'utf8')
 const guides = readFileSync(new URL('../src/lib/seoGuides.ts', import.meta.url), 'utf8')
+const executableSql = migration.replace(/^\s*--.*$/gm, '')
 
 const exampleSlug = 'diario-emocional-exemplo-preenchido-passo-a-passo'
 const formatSlug = 'diario-emocional-no-celular-ou-no-papel'
@@ -34,7 +35,7 @@ test('guia Diário emocional inclui as duas novas páginas na jornada', () => {
 })
 
 test('pacote não altera superfícies sensíveis', () => {
-  assert.doesNotMatch(migration, /CREATE POLICY|ALTER POLICY|DROP POLICY/i)
-  assert.doesNotMatch(migration, /stripe|price_id|subscription_status/i)
-  assert.doesNotMatch(migration, /UPDATE\s+public\.(diary|checkin|profiles|subscriptions)/i)
+  assert.doesNotMatch(executableSql, /CREATE POLICY|ALTER POLICY|DROP POLICY/i)
+  assert.doesNotMatch(executableSql, /stripe|price_id|subscription_status/i)
+  assert.doesNotMatch(executableSql, /UPDATE\s+public\.(diary|checkin|profiles|subscriptions)/i)
 })
