@@ -1,5 +1,6 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
 
 const footer = readFileSync(new URL('../src/components/Footer.tsx', import.meta.url), 'utf8')
 const privacy = readFileSync(new URL('../src/components/PrivacyPage.tsx', import.meta.url), 'utf8')
@@ -8,18 +9,16 @@ const migration = readFileSync(
   'utf8',
 )
 
-describe('public trust surfaces', () => {
-  it('does not advertise the plan-gated emotional map in the public footer', () => {
-    expect(footer).not.toContain("{ label: 'Mapa emocional', id: 'my-evolution' }")
-    expect(footer).toContain("{ label: 'Planos', id: 'pricing' }")
-  })
+test('rodapé público não anuncia o Mapa Emocional, que depende de plano', () => {
+  assert.doesNotMatch(footer, /label: 'Mapa emocional'/)
+  assert.match(footer, /label: 'Planos'/)
+})
 
-  it('explains that emotional records are private without hiding data treatment', () => {
-    for (const source of [privacy, migration]) {
-      expect(source).toContain('não são publicados')
-      expect(source).toContain('não se tornam conteúdo público')
-      expect(source).toContain('Registros emocionais — confidencialidade')
-      expect(source).toContain('processados automaticamente')
-    }
-  })
+test('privacidade explica confidencialidade sem esconder o tratamento técnico', () => {
+  for (const source of [privacy, migration]) {
+    assert.match(source, /não são publicados/)
+    assert.match(source, /não se tornam conteúdo público/)
+    assert.match(source, /Registros emocionais — confidencialidade/)
+    assert.match(source, /processados automaticamente/)
+  }
 })
