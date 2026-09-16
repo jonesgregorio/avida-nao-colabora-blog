@@ -14,7 +14,10 @@
     { "source": "/conteudos", "destination": "/blog", "permanent": true },
     { "source": "/perguntas-frequentes", "destination": "/faq", "permanent": true },
     { "source": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia-btcpl-ifq", "destination": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia", "permanent": true },
-    { "source": "/blog/como-acalmar-uma-crise-de-ansiedade-no-instante-m6nec-fj7", "destination": "/blog/como-se-acalmar-durante-uma-crise-de-ansiedade", "permanent": true }
+    { "source": "/blog/como-acalmar-uma-crise-de-ansiedade-no-instante-m6nec-fj7", "destination": "/blog/como-se-acalmar-durante-uma-crise-de-ansiedade", "permanent": true },
+    { "source": "/ig", "destination": "/?utm_source=instagram&utm_medium=bio&utm_campaign=campanha_setembro_01semana", "permanent": false },
+    { "source": "/ig-story", "destination": "/?utm_source=instagram&utm_medium=story&utm_campaign=campanha_setembro_01semana", "permanent": false },
+    { "source": "/ig-post", "destination": "/?utm_source=instagram&utm_medium=post&utm_campaign=campanha_setembro_01semana", "permanent": false }
   ],
   "rewrites": [
     { "source": "/", "destination": "/api/page?route=home" },
