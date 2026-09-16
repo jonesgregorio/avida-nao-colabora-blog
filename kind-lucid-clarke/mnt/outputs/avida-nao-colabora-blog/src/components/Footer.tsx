@@ -17,12 +17,14 @@ interface FooterProps {
   onNavigate: (section: string) => void
 }
 
-const COLS: { title: string; links: { label: string; id: string }[] }[] = [
+type FooterLink = { label: string; id: string; href?: string }
+
+const COLS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Navegação',
     links: [
       { label: 'Conteúdos', id: 'articles' },
-      { label: 'Guias essenciais', id: 'guides' },
+      { label: 'Guias essenciais', id: 'guides', href: '/guias' },
       { label: 'Diário', id: 'diary' },
       { label: 'Mapa emocional', id: 'my-evolution' },
       { label: 'Planos', id: 'pricing' },
@@ -35,7 +37,7 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
       { label: 'Privacidade', id: 'privacy' },
       { label: 'Termos de uso', id: 'terms' },
       { label: 'Segurança', id: 'responsibility' },
-      { label: 'Política editorial', id: 'editorial-policy' },
+      { label: 'Política editorial', id: 'editorial-policy', href: '/politica-editorial' },
     ],
   },
   {
@@ -115,12 +117,21 @@ export default function Footer({ onNavigate }: FooterProps) {
               <ul className="space-y-2.5">
                 {col.links.map(link => (
                   <li key={link.label}>
-                    <button
-                      onClick={() => onNavigate(link.id)}
-                      className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left"
-                    >
-                      {link.label}
-                    </button>
+                    {link.href ? (
+                      <a
+                        href={link.href}
+                        className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left inline-flex min-h-11 items-center"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => onNavigate(link.id)}
+                        className="text-sm text-ink-soft hover:text-forest-800 transition-colors text-left min-h-11"
+                      >
+                        {link.label}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
