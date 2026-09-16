@@ -256,7 +256,8 @@ export function startGardenEngine(
     return Math.abs(x - c[0] * VW) < w.rx! * VW && Math.abs(y - c[1] * VH) < w.ry! * VH
   }
   function currentImg(): HTMLImageElement {
-    return imgObjs[Math.max(0, Math.min(3, Math.round(prog * 3)))]
+    const last = imgObjs.length - 1
+    return imgObjs[Math.max(0, Math.min(last, Math.round(prog * last)))]
   }
   function drawKoi(k: Koi, alpha: number) {
     const a = t * k.sp + k.ph
@@ -667,15 +668,16 @@ export function startGardenEngine(
     }
   }
 
-  // ---------- cross-fade dos 4 estágios ----------
+  // ---------- cross-fade dos estágios (4 ou 6, conforme o jardim) ----------
   function applyProgress(p: number) {
     prog = p
-    const f = p * 3
+    const last = images.length - 1
+    const f = p * last
     images[0].style.opacity = '1'
-    images[1].style.opacity = String(Math.max(0, Math.min(1, f)))
-    images[2].style.opacity = String(Math.max(0, Math.min(1, f - 1)))
-    images[3].style.opacity = String(Math.max(0, Math.min(1, f - 2)))
-    onStageIndex?.(Math.round(Math.max(0, Math.min(3, f))))
+    for (let i = 1; i <= last; i++) {
+      images[i].style.opacity = String(Math.max(0, Math.min(1, f - (i - 1))))
+    }
+    onStageIndex?.(Math.round(Math.max(0, Math.min(last, f))))
   }
 
   // ---------- loop ----------

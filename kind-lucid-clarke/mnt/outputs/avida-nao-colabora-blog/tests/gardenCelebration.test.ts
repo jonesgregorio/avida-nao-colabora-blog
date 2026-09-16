@@ -26,7 +26,7 @@ test('celebração tem a coreografia pedida: luz varrendo antes do texto, entrad
 
 test('celebração respeita prefers-reduced-motion e usa a imagem "completo" do tema', () => {
   assert.match(celebration, /prefers-reduced-motion: reduce/)
-  assert.match(celebration, /theme\.stages\[3\]/)
+  assert.match(celebration, /theme\.stages\[theme\.stages\.length - 1\]/) // última imagem, funciona com 4 ou 6 estágios
   assert.match(celebration, /animation: none !important/)
 })
 

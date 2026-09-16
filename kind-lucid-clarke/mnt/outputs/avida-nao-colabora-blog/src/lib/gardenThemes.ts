@@ -1,8 +1,9 @@
-// Meu Jardim — configuração dos 8 jardins fotorrealistas.
+// Meu Jardim — configuração dos jardins fotorrealistas.
 //
-// Cada jardim é 4 imagens (recém-plantado / pegando / maduro / completo) geradas a partir do
-// brief em docs (câmera, paleta e composição fixas) + uma camada de movimento em canvas que lê
-// esta configuração. A engine (livingGardenEngine.ts) é a mesma para os 8 — só isto muda.
+// Cada jardim é uma sequência de imagens (recém-plantado → completo, 4 nos 8 jardins originais,
+// 6 nos jardins mais novos) geradas a partir de um brief próprio (câmera, paleta e composição
+// fixas) + uma camada de movimento em canvas que lê esta configuração. A engine
+// (livingGardenEngine.ts) é a mesma para todos — só a configuração e o número de imagens mudam.
 //
 // Todas as coordenadas normalizadas (poly, zone, center, sun, glow, etc.) são frações 0..1 do
 // quadro 1672×941 da imagem base, não pixels de tela.
@@ -120,8 +121,8 @@ export interface AuroraConfig {
 export interface GardenTheme {
   slug: string
   label: string
-  /** As 4 imagens do jardim, na ordem recém-plantado → completo. */
-  stages: [string, string, string, string]
+  /** As imagens do jardim, na ordem recém-plantado → completo (4 nos jardins originais, 6 nos mais novos). */
+  stages: string[]
   water: WaterConfig
   fall: FallConfig
   flyers: FlyersConfig
@@ -148,6 +149,11 @@ function stagesFor(slug: string): [string, string, string, string] {
     `/gardens/${slug}/45.webp`,
     `/gardens/${slug}/6.webp`,
   ]
+}
+
+/** Jardins novos (6 imagens): arquivos numerados 1..6, um por estágio, sem agrupamento. */
+function stagesFor6(slug: string): string[] {
+  return Array.from({ length: 6 }, (_, i) => `/gardens/${slug}/${i + 1}.webp`)
 }
 
 export const GARDEN_THEMES: GardenTheme[] = [
@@ -323,30 +329,72 @@ export const GARDEN_THEMES: GardenTheme[] = [
       glow: [[0.335, 0.335, 14, '246,206,140'], [0.06, 0.62, 18, '250,196,120'], [0.115, 0.565, 16, '250,196,120'], [0.155, 0.51, 15, '250,196,120']],
     },
   },
+  {
+    slug: 'bali',
+    label: 'Tropical Balinês · amanhecer',
+    stages: stagesFor6('bali'),
+    water: { kind: 'basin', reflect: true, center: [0.87, 0.83], rx: 0.11, ry: 0.038, tint: '#3d5a52', drip: 5 },
+    fall: {
+      count: 40,
+      emitters: [{ kind: 'petal', weight: 1, colors: ['#fdf6e3', '#f7e7b8', '#fceec2', '#fff9ec'], zone: [0.28, -0.05, 0.74, 0.34] }],
+    },
+    flyers: { butterflies: 4, dragonflies: 2, butColors: ['#e8894d', '#f2c94c', '#6fae8f'] },
+    birds: { kind: 'none' },
+    light: { sun: [0.12, 0.14], ray: '#ffdca0', rayAmt: 0.22, glow: [[0.30, 0.30, 24, '250,205,130']] },
+  },
+  {
+    slug: 'sakura',
+    label: 'Jardim de Cerejeiras · manhã de primavera',
+    stages: stagesFor6('sakura'),
+    water: {
+      kind: 'pond', reflect: true, tint: '#a9c4d0', drip: 4,
+      poly: [
+        [0.30, 0.72], [0.45, 0.68], [0.62, 0.66], [0.78, 0.68], [0.92, 0.74],
+        [1.001, 0.80], [1.001, 1.001], [0.20, 1.001], [0.22, 0.85],
+      ],
+    },
+    fall: {
+      count: 42,
+      emitters: [{ kind: 'petal', weight: 1, colors: ['#f4c4d4', '#fbdce6', '#ffffff', '#eaa9c0'], zone: [0.50, -0.06, 0.92, 0.42] }],
+    },
+    flyers: { butterflies: 3, butColors: ['#f6f3ea', '#e8b7c9', '#f0c85a'] },
+    birds: { kind: 'none' },
+    light: { sun: [0.06, 0.08], ray: '#fdf6e0', rayAmt: 0.10, glow: [] },
+  },
 ]
 
-/** Nomes dos 4 estágios visuais, na ordem das imagens (para alt text e acessibilidade). */
+/** Nomes dos 4 estágios visuais dos jardins originais, na ordem das imagens (alt text/a11y). */
 export const GARDEN_STAGE_NAMES = ['recém-plantado', 'pegando', 'maduro', 'completo'] as const
 
+/** Nomes dos 6 estágios visuais dos jardins mais novos, na ordem das imagens (alt text/a11y). */
+export const GARDEN_STAGE_NAMES_6 = ['recém-plantado', 'brotando', 'enraizando', 'ganhando forma', 'florescendo', 'completo'] as const
+
+// Limiares de garden_progress (0..59) usados para interpolar entre as imagens, alinhados aos
+// thresholds do modelo de crescimento em supabase/migrations/20260911123000_admin_garden_management.sql
+// (garden_settings.stage_thresholds, default [3,10,18,28,39,50]).
+// 4 imagens (jardins originais): estágios 0+1 → imagem 0, 2+3 → imagem 1, 4+5 → imagem 2, 6 → imagem 3.
+const BREAKPOINTS_4 = [0, 10, 28, 50]
+// 6 imagens (jardins novos): cada um dos 5 primeiros thresholds vira uma transição própria;
+// o último threshold (50) não abre imagem nova — o jardim já está na imagem final ("completo")
+// desde gp=39 e permanece nela até o ciclo virar, igual à cauda do modelo de 4 imagens.
+const BREAKPOINTS_6 = [0, 3, 10, 18, 28, 39]
+
 /**
- * Progresso contínuo (0..1) dentro do jardim atual, alinhado aos limiares de estágio do
- * modelo de crescimento em supabase/migrations/20260909123000_garden_balanced_growth_v4.sql
- * (garden_progress vai de 0 a 59; estágios 0+1 → imagem 0, 2+3 → imagem 1, 4+5 → imagem 2,
- * 6 → imagem 3). Se a fórmula de estágios mudar, estes limiares precisam acompanhar.
+ * Progresso contínuo (0..1) dentro do jardim atual, para o cross-fade entre as imagens do
+ * estágio. `stageCount` deve ser `theme.stages.length` (4 ou 6) — se a fórmula de thresholds
+ * mudar no banco, os breakpoints acima precisam acompanhar.
  */
-export function gardenVisualProgress(gardenProgress: number): number {
-  // 3 transições cobrindo as 4 imagens (img0→1 até gp=10, 1→2 até 28, 2→3 até 50). A partir
-  // de 50 não há uma 5ª imagem para onde ir — o jardim maduro fica em img3 pura (progress=1)
-  // até o ciclo virar. O `return 1` após o laço cobre exatamente essa cauda (gp 50..59).
-  const breakpoints = [0, 10, 28, 50]
+export function gardenVisualProgress(gardenProgress: number, stageCount: 4 | 6 = 4): number {
+  const breakpoints = stageCount === 6 ? BREAKPOINTS_6 : BREAKPOINTS_4
+  const transitions = breakpoints.length - 1
   const clamped = Math.max(0, Math.min(59, gardenProgress))
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < transitions; i++) {
     const lo = breakpoints[i]
     const hi = breakpoints[i + 1]
     if (clamped <= hi) {
       const span = hi - lo
       const local = span > 0 ? (clamped - lo) / span : 1
-      return (i + Math.max(0, Math.min(1, local))) / 3
+      return (i + Math.max(0, Math.min(1, local))) / transitions
     }
   }
   return 1
