@@ -31,6 +31,7 @@ import { ResponsibilityPage } from './components/ResponsibilityPage'
 import ContactPage from './components/ContactPage'
 import FAQPage from './components/FAQPage'
 import SuccessPage from './components/SuccessPage'
+import NewsletterUnsubscribedPage from './components/NewsletterUnsubscribedPage'
 import ForceChangePassword from './components/ForceChangePassword'
 import AccountBlockedGate from './components/AccountBlockedGate'
 import type { Tab } from './components/MyEvolutionPage'
@@ -214,7 +215,7 @@ export default function App() {
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
       'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'self-care',
       'descobertas', 'cuidar', 'mais',
-      'notifications',
+      'notifications', 'newsletter-unsubscribed',
     ]
     if (directViews.includes(section as View)) {
       if (section === 'my-evolution') setInitialEvolutionTab(undefined)
@@ -530,6 +531,10 @@ export default function App() {
         userPlan={profile?.plan}
       />
     )
+  }
+
+  if (view === 'newsletter-unsubscribed') {
+    return <NewsletterUnsubscribedPage onNavigateHome={() => navigate('home')} />
   }
 
   if (view === 'support') {

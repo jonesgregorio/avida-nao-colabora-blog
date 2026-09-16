@@ -1,8 +1,16 @@
 import type { View } from '../types'
 
 export const PERSIST_KEY = 'avida_nav'
+
+// Achado ao vivo (mobile): mesmo com scroll instantâneo (não 'smooth'), o toque que aciona a
+// navegação normalmente acontece logo depois de um gesto de arrastar a tela — e o scroll por
+// inércia (momentum) do Safari/Chrome mobile continua rolando por conta própria por alguns
+// instantes DEPOIS do clique, sem passar por nenhum código nosso. Um único window.scrollTo(0,0)
+// no momento da troca de página é imediatamente sobrescrito por essa inércia residual, e a
+// página nova acaba parada no meio ou no fim. Reforçar a posição por alguns frames depois do
+// clique "vence" essa inércia sem precisar de nenhuma lib.
 export function scrollToTopHard() { window.scrollTo(0, 0); let frames = 0; const reinforce = () => { window.scrollTo(0, 0); frames += 1; if (frames < 8) requestAnimationFrame(reinforce) }; requestAnimationFrame(reinforce) }
-export const VALID_VIEWS: View[] = ['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications']
+export const VALID_VIEWS: View[] = ['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications','newsletter-unsubscribed']
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
   '/blog':                       'articles',
@@ -23,6 +31,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/perfil':                     'profile',
   '/questionarios':              'questionarios',
   '/sucesso':                    'success',
+  '/newsletter-cancelada':       'newsletter-unsubscribed',
   '/suporte':                    'support',
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
