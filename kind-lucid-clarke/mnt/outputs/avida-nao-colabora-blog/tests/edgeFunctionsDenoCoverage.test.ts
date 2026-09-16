@@ -62,6 +62,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'google-search-console',
     'image-search',
     'manage-subscription',
+    'newsletter-subscribe',
     'resend-webhook',
     'run-automations',
     'run-emotional-automations',

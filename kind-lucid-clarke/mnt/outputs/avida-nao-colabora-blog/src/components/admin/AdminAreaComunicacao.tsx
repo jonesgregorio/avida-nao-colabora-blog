@@ -1,18 +1,21 @@
 import { useCallback, useState, useId, type ReactNode } from 'react'
-import { Bell, FileText, Sparkles, Megaphone, Repeat, History, X } from 'lucide-react'
+import { Bell, FileText, Sparkles, Megaphone, Repeat, History, Mail, X } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminEmails from './AdminEmails'
 import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
+import AdminNewsletter from './AdminNewsletter'
 import { useModalA11y } from '../../hooks/useModalA11y'
 
-// COMUNICAÇÃO — de 6 abas para 3: Campanhas, Automáticas, Histórico.
+// COMUNICAÇÃO — de 6 abas para 4: Campanhas, Automáticas, Newsletter, Histórico.
 // "Templates de e-mail", "Criador com IA" e "Notificação avulsa" deixaram de ser
 // áreas próprias e viraram FERRAMENTAS abertas de dentro de Campanhas.
-// "Site & páginas" saiu daqui para Conteúdo → Site.
+// "Site & páginas" saiu daqui para Conteúdo → Site. "Newsletter" mostra quem se
+// inscreveu/cancelou no formulário do rodapé do blog (visitantes sem conta).
 const TABS = [
   { id: 'campanhas', label: 'Campanhas', icon: Megaphone },
   { id: 'automaticas', label: 'Automáticas', icon: Repeat },
+  { id: 'newsletter', label: 'Newsletter', icon: Mail },
   { id: 'historico', label: 'Histórico', icon: History },
 ] as const
 
@@ -72,6 +75,7 @@ export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'campanhas' && <AdminCommunicationCampaigns initialCampaignId={initialCampaignId} />}
         {tab === 'automaticas' && <AdminEmails initialTab="resumo" />}
+        {tab === 'newsletter' && <AdminNewsletter />}
         {tab === 'historico' && <AdminEmails initialTab="logs" />}
       </section>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Mail, Heart } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -48,7 +49,29 @@ const COLS: { title: string; links: { label: string; id: string }[] }[] = [
 
 export default function Footer({ onNavigate }: FooterProps) {
   const [email, setEmail] = useState('')
+  const [website, setWebsite] = useState('') // honeypot — some visível só para bots
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = email.trim()
+    if (!trimmed || sending) return
+    setSending(true)
+    setError('')
+    try {
+      const { data, error: err } = await supabase.functions.invoke('newsletter-subscribe', {
+        body: { email: trimmed, website },
+      })
+      if (err || data?.error) throw new Error(data?.error ?? 'subscribe_failed')
+      setSent(true)
+    } catch {
+      setError('Não foi possível concluir a inscrição agora. Tente novamente em instantes.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <footer className="bg-paper border-t border-line pt-14 pb-8">
@@ -112,11 +135,11 @@ export default function Footer({ onNavigate }: FooterProps) {
             <p className="text-sm text-ink-soft mt-1">Junte-se a quem escolhe se cuidar.</p>
           </div>
           <form
-            onSubmit={e => { e.preventDefault(); if (email.trim()) setSent(true) }}
+            onSubmit={handleSubscribe}
             className="flex flex-col sm:flex-row gap-2 w-full md:justify-end"
           >
             {sent ? (
-              <p className="text-sm text-forest-700 self-center">Recebido! Em breve você recebe novidades.</p>
+              <p className="text-sm text-forest-700 self-center">Inscrição confirmada! Enviamos um e-mail para {email.trim()}.</p>
             ) : (
               <>
                 <label htmlFor="footer-newsletter-email" className="sr-only">Seu e-mail para receber conteúdos</label>
@@ -127,14 +150,27 @@ export default function Footer({ onNavigate }: FooterProps) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="Seu e-mail"
-                  className="flex-1 min-w-0 sm:max-w-xs px-4 py-2.5 rounded-2xl border border-line bg-white text-sm outline-none focus:border-forest-400"
+                  disabled={sending}
+                  className="flex-1 min-w-0 sm:max-w-xs px-4 py-2.5 rounded-2xl border border-line bg-white text-sm outline-none focus:border-forest-400 disabled:opacity-60"
+                />
+                {/* Honeypot anti-spam: invisível para pessoas, campos preenchidos por bots viram descarte silencioso */}
+                <input
+                  type="text"
+                  value={website}
+                  onChange={e => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="hidden"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-2xl bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium whitespace-nowrap transition-colors"
+                  disabled={sending}
+                  className="px-5 py-2.5 rounded-2xl bg-forest-900 hover:bg-forest-800 text-white text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-60"
                 >
-                  Quero receber
+                  {sending ? 'Enviando…' : 'Quero receber'}
                 </button>
+                {error && <p className="text-xs text-red-600 basis-full">{error}</p>}
               </>
             )}
           </form>
