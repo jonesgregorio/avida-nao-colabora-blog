@@ -11,6 +11,7 @@ import {
 } from '../../lib/systemHealth'
 import type { AdminView } from './types'
 import AdminOperationalDashboard from './AdminOperationalDashboard'
+import AdminVisitsSourceCard from './AdminVisitsSourceCard'
 import {
   fetchOperationalSnapshot, attentionTotal, markAiFailuresDeepLink,
   type OperationalSnapshot,
@@ -238,6 +239,8 @@ export default function AdminOverview({ onNavigate }: OverviewProps) {
           </div>
         ))}
       </section>
+
+      <div className="mb-5"><AdminVisitsSourceCard /></div>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
         <div className="xl:col-span-8"><AdminOperationalDashboard onNavigate={onNavigate} /></div>
