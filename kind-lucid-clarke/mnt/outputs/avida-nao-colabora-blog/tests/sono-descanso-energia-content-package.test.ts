@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const migration = readFileSync(new URL('../supabase/migrations/20260917024500_sono_descanso_energia_first_content_package.sql', import.meta.url), 'utf8')
+const migration = readFileSync(new URL('../supabase/migrations/20260917025000_sono_descanso_energia_first_content_package.sql', import.meta.url), 'utf8')
 const guides = readFileSync(new URL('../src/lib/seoGuides.ts', import.meta.url), 'utf8')
 const executableSql = migration.replace(/^\s*--.*$/gm, '')
 
