@@ -38,11 +38,18 @@ export default function AdminVisitsSourceCard() {
   const load = useCallback(async () => {
     setLoading(true)
     const since = new Date(Date.now() - PERIOD_DAYS[period] * 86400000).toISOString()
+    // Achado ao vivo: o Supabase (PostgREST) limita silenciosamente a resposta a
+    // 1000 linhas por padrão, mesmo pedindo .limit(20000) — sem .order(), o corte
+    // ficava por conta da ordem "natural" da tabela, que descartava exatamente os
+    // eventos mais RECENTES em janelas maiores (30 dias mostrava 0 do Instagram,
+    // mesmo com a campanha rodando). Ordenar do mais novo pro mais antigo garante
+    // que, se algo for cortado, seja o passado distante — nunca a campanha atual.
     const { data } = await supabase
       .from('analytics_events')
       .select('event, entity_id, session_id, user_id')
       .gte('created_at', since)
       .in('event', ['page_view', 'article_view', 'visit_source'])
+      .order('created_at', { ascending: false })
       .limit(20000)
     const rows = (data ?? []) as Ev[]
     const navEvents = rows.filter(r => r.event === 'page_view' || r.event === 'article_view')
