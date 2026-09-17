@@ -131,12 +131,18 @@ export default function AdminVisitsSourceCard() {
                 />
               ))}
             </svg>
-            <div className="w-full flex-1 space-y-2">
+            {/* Achado: numa tela larga, o rótulo (esquerda) e o número (direita) ficavam
+                tão distantes um do outro que dava pra confundir qual % era de qual fonte.
+                Largura limitada + número junto do nome na mesma "pastilha" resolve —
+                cada linha fica curta e autoexplicativa por si só. */}
+            <div className="w-full max-w-[280px] space-y-2">
               {arcs.map(a => (
-                <div key={a.label} className="flex items-center gap-2 text-sm">
-                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: a.color }} />
-                  <span className="flex-1 truncate text-forest-900">{a.label}</span>
-                  <span className="whitespace-nowrap text-ink-soft">{a.n} · {Math.round((a.n / total) * 100)}%</span>
+                <div key={a.label} className="flex items-center justify-between gap-3 rounded-lg bg-[#fbfaf7] px-3 py-1.5 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: a.color }} />
+                    <span className="truncate text-forest-900">{a.label}</span>
+                  </span>
+                  <span className="whitespace-nowrap font-medium text-ink-soft">{a.n} · {Math.round((a.n / total) * 100)}%</span>
                 </div>
               ))}
             </div>
