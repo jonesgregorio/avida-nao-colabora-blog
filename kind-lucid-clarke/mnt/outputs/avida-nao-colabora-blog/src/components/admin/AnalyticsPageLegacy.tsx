@@ -287,7 +287,10 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
       supabase.from('profiles').select('created_at').gte('created_at', since).limit(50000),
       supabase.from('plan_change_history').select('created_at').gte('created_at', since).in('change_type', ['upgrade', 'new']).limit(50000),
       supabase.from('reading_history').select('article_slug').gte('created_at', since).limit(20000),
-      supabase.from('analytics_events').select('event, session_id, user_id, user_agent, created_at').gte('created_at', prevSince).lt('created_at', since).limit(20000),
+      // Sem .order() aqui, o corte de 1000 linhas do Supabase (ver AdminVisitsSourceCard)
+      // pegaria a ponta errada do intervalo anterior — descendente mantém o fim do
+      // período (mais próximo do atual), a metade mais relevante para a comparação.
+      supabase.from('analytics_events').select('event, session_id, user_id, user_agent, created_at').gte('created_at', prevSince).lt('created_at', since).order('created_at', { ascending: false }).limit(20000),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since),
       supabase.from('plan_change_history').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since).in('change_type', ['upgrade', 'new']),
     ])
