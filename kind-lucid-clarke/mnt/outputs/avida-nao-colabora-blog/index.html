@@ -2,6 +2,18 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <!-- Achado ao vivo: o #root abaixo vem com um HTML estático (nav + textos)
+         para crawlers/leitores sem JS conseguirem indexar a home mesmo sem
+         executar nada. Mas o app é client-side puro (createRoot, não hydrateRoot
+         — ver src/main.tsx): assim que o React monta, ele APAGA esse conteúdo e
+         desenha a página de verdade. No meio do caminho, esse texto cru e sem
+         estilo pisca na tela por uma fração de segundo em toda navegação/recarga
+         — em qualquer rota, inclusive /admin, já que todas usam este mesmo
+         index.html. Escondido visualmente (mas continua no HTML, então
+         crawlers/leitores de tela continuam enxergando normalmente) até o React
+         substituir o conteúdo — sem esperar nenhum arquivo extra carregar.
+     -->
+    <style>#root>.seo-static-home{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>A Vida Não Colabora — Diário emocional e autocuidado</title>
