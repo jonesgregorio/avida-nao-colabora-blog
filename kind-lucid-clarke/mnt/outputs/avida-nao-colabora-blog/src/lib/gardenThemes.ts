@@ -373,6 +373,22 @@ export const GARDEN_THEMES: GardenTheme[] = [
     birds: { kind: 'none' },
     light: { sun: [0.92, 0.22], ray: '#ffb46b', rayAmt: 0.20, glow: [[0.93, 0.24, 26, '250,180,110']] },
   },
+  {
+    slug: 'marrocos',
+    label: 'Jardim Marroquino · fim de tarde',
+    stages: stagesFor6('marrocos'),
+    water: { kind: 'basin', reflect: true, center: [0.62, 0.82], rx: 0.12, ry: 0.045, tint: '#8a6a3a', drip: 4 },
+    fall: {
+      count: 16,
+      emitters: [{ kind: 'petal', weight: 1, colors: ['#fdfbf4', '#f7f2e0'], zone: [0.04, -0.05, 0.22, 0.30] }],
+    },
+    flyers: { butterflies: 2, butColors: ['#e8894d', '#f2ede0', '#5f79c0'] },
+    birds: { kind: 'none' },
+    light: {
+      sun: [0.08, 0.10], ray: '#ffcf8c', rayAmt: 0.20,
+      glow: [[0.535, 0.28, 20, '250,205,130'], [0.28, 0.62, 14, '250,205,130'], [0.82, 0.60, 14, '250,205,130']],
+    },
+  },
 ]
 
 /** Nomes dos 4 estágios visuais dos jardins originais, na ordem das imagens (alt text/a11y). */
