@@ -233,9 +233,17 @@ Deno.serve(async (req: Request) => {
   const bodyText = render(tpl.body_text, vars)
 
   // Descadastro em 1 clique (só nos e-mails de acompanhamento, e só se houver user_id).
-  const unsubUrl = (payload.user_id && isBulkEmail(payload.template_key))
-    ? `${SUPABASE_URL}/functions/v1/unsubscribe?u=${encodeURIComponent(payload.user_id)}&t=${await unsubToken(payload.user_id)}`
+  // Newsletter (sem user_id, sem conta) não tem como a Edge Function calcular o
+  // link de cancelamento sozinha — o chamador já manda pronto em
+  // metadata.list_unsubscribe_url (mesmo esquema de token HMAC, calculado por
+  // quem já sabe o e-mail). Aditivo: chamadores antigos não passam isso e o
+  // comportamento por user_id continua idêntico.
+  const explicitUnsubUrl = typeof (payload.metadata as Record<string, unknown> | undefined)?.list_unsubscribe_url === 'string'
+    ? (payload.metadata as Record<string, string>).list_unsubscribe_url
     : ''
+  const unsubUrl = explicitUnsubUrl || ((payload.user_id && isBulkEmail(payload.template_key))
+    ? `${SUPABASE_URL}/functions/v1/unsubscribe?u=${encodeURIComponent(payload.user_id)}&t=${await unsubToken(payload.user_id)}`
+    : '')
 
   // O cancelamento vai no cabeçalho List-Unsubscribe (não como link do corpo), para
   // que TODOS os links visíveis fiquem no domínio do remetente (avidanaocolabora.com)

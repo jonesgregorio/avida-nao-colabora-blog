@@ -1,19 +1,33 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 // ─── Descadastro em 1 clique (público, sem login) ────────────────────────────
-// GET  /unsubscribe?u=<user_id>&t=<hmac>  → valida o token e mostra página amigável.
+// GET  /unsubscribe?u=<user_id>&t=<hmac>       → conta de usuário: valida o
+//   token e desliga user_notification_preferences.email_enabled (e-mails de
+//   acompanhamento; transacionais de pagamento/segurança continuam). Mostra
+//   uma página HTML própria.
+// GET  /unsubscribe?n=<email>&t=<hmac>         → newsletter do rodapé (sem
+//   conta): valida o token, marca newsletter_subscribers.status='unsubscribed'
+//   e REDIRECIONA (302) para /newsletter-cancelada no próprio site.
 // POST (List-Unsubscribe-Post, RFC 8058)  → Gmail/Yahoo chamam para o "cancelar"
 //   nativo em 1 clique; responde 200 sem página.
-// Token = HMAC-SHA256(user_id) — sem estado; recomputamos e comparamos.
-// Ação: user_notification_preferences.email_enabled = false (desliga os e-mails de
-//   acompanhamento; transacionais de pagamento/segurança continuam).
+// Token = HMAC-SHA256(valor) — sem estado; recomputamos e comparamos.
+//
+// Por que o modo newsletter redireciona em vez de mostrar HTML aqui: achado ao
+// vivo — o gateway do Supabase força Content-Type: text/plain + CSP "sandbox"
+// nas respostas de Edge Function que não têm usuário autenticado (mesmo
+// quando a função pede text/html explicitamente), deixando a página HTML
+// crua e com o texto corrompido (tipo "IncriÃ§Ã£o") no navegador. O modo
+// newsletter é sempre anônimo (sem conta), então cai nesse caso; redirecionar
+// para uma página do próprio site evita o problema por completo. O modo de
+// conta (`u=`) mantém a página aqui mesmo — não houve relato de o mesmo
+// problema acontecer nesse fluxo.
 
 const SITE = Deno.env.get('SITE_URL') || 'https://avidanaocolabora.com'
 
-async function unsubToken(userId: string): Promise<string> {
+async function unsubToken(value: string): Promise<string> {
   const secret = Deno.env.get('UNSUBSCRIBE_SECRET') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(userId))
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value))
   return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
@@ -37,7 +51,7 @@ function page(title: string, msg: string, ok: boolean): Response {
   return new Response(html, { status: ok ? 200 : 400, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
-async function doUnsubscribe(userId: string, token: string): Promise<boolean> {
+async function doUnsubscribeUser(userId: string, token: string): Promise<boolean> {
   if (!token) return false
   const expected = await unsubToken(userId)
   if (!safeEqual(token, expected)) return false
@@ -47,6 +61,22 @@ async function doUnsubscribe(userId: string, token: string): Promise<boolean> {
     { onConflict: 'user_id' },
   )
   return !error
+}
+
+async function doUnsubscribeNewsletter(email: string, token: string): Promise<boolean> {
+  if (!token || !email) return false
+  const normalized = email.toLowerCase()
+  const expected = await unsubToken(normalized)
+  if (!safeEqual(token, expected)) return false
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  const { error } = await admin.from('newsletter_subscribers').update({
+    status: 'unsubscribed', unsubscribed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  }).eq('email', normalized)
+  return !error
+}
+
+function redirectToNewsletterPage(ok: boolean): Response {
+  return new Response(null, { status: 302, headers: { Location: `${SITE}/newsletter-cancelada?ok=${ok ? '1' : '0'}` } })
 }
 
 Deno.serve(async (req) => {
@@ -59,21 +89,25 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url)
   const userId = url.searchParams.get('u') || ''
+  const newsletterEmail = url.searchParams.get('n') || ''
   const token = url.searchParams.get('t') || ''
+  const isNewsletter = !!newsletterEmail
 
-  if (!userId || !token) {
+  if (!token || (!userId && !newsletterEmail)) {
     if (req.method === 'POST') return new Response('bad request', { status: 400, headers: cors })
+    if (isNewsletter) return redirectToNewsletterPage(false)
     return page('Link inválido', 'Este link de cancelamento parece incompleto. Você pode ajustar seus e-mails diretamente no seu perfil.', false)
   }
 
-  const ok = await doUnsubscribe(userId, token)
+  const ok = isNewsletter ? await doUnsubscribeNewsletter(newsletterEmail, token) : await doUnsubscribeUser(userId, token)
 
   // One-click (RFC 8058): Gmail/Yahoo mandam POST — responde 200 sem página.
   if (req.method === 'POST') {
     return new Response(ok ? 'unsubscribed' : 'invalid', { status: ok ? 200 : 400, headers: cors })
   }
 
-  // Clique no link (GET) — página amigável.
+  // Clique no link (GET):
+  if (isNewsletter) return redirectToNewsletterPage(ok)
   if (!ok) return page('Não foi possível cancelar', 'O link pode ser inválido. Você pode desativar os e-mails diretamente no seu perfil.', false)
   return page('Cancelamento confirmado', 'Pronto: você não receberá mais os e-mails de acompanhamento. E-mails essenciais (pagamento e segurança) continuam. Mudou de ideia? É só reativar nas preferências.', true)
 })

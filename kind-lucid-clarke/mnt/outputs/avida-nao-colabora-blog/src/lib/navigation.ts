@@ -9,28 +9,8 @@ export const PERSIST_KEY = 'avida_nav'
 // no momento da troca de página é imediatamente sobrescrito por essa inércia residual, e a
 // página nova acaba parada no meio ou no fim. Reforçar a posição por alguns frames depois do
 // clique "vence" essa inércia sem precisar de nenhuma lib.
-export function scrollToTopHard() {
-  window.scrollTo(0, 0)
-  let frames = 0
-  const reinforce = () => {
-    window.scrollTo(0, 0)
-    frames += 1
-    if (frames < 8) requestAnimationFrame(reinforce)
-  }
-  requestAnimationFrame(reinforce)
-}
-
-// Views válidas — SOMENTE as que existem nos 3 planos oficiais + utilitários de conta.
-export const VALID_VIEWS: View[] = [
-  'home','auth','diary','profile',
-  'about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing',
-  'articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq',
-  'support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care',
-  'descobertas','cuidar','mais',
-  'notifications',
-]
-
-// Mapeamento bidirecional URL ↔ view.
+export function scrollToTopHard() { window.scrollTo(0, 0); let frames = 0; const reinforce = () => { window.scrollTo(0, 0); frames += 1; if (frames < 8) requestAnimationFrame(reinforce) }; requestAnimationFrame(reinforce) }
+export const VALID_VIEWS: View[] = ['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications','newsletter-unsubscribed']
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
   '/blog':                       'articles',
@@ -51,6 +31,7 @@ const URL_TO_VIEW: Record<string, View> = {
   '/perfil':                     'profile',
   '/questionarios':              'questionarios',
   '/sucesso':                    'success',
+  '/newsletter-cancelada':       'newsletter-unsubscribed',
   '/suporte':                    'support',
   '/notificacoes':               'notifications',
   '/guia-mensal':                'monthly-guidance',
@@ -65,148 +46,25 @@ const URL_TO_VIEW: Record<string, View> = {
   '/plano-de-autocuidado':       'self-care',
   '/meu-plano':                  'my-plan',
 }
-
-// Rotas antigas de módulos removidos do MVP → destino válido nos novos planos.
-const LEGACY_PATH_REDIRECT: Record<string, View> = {
-  '/meditacoes': 'articles',
-  '/desafios':   'articles',
-  '/trilhas':    'articles',
-  '/conquistas': 'home',
-  '/lembretes':  'home',
-  '/itens-salvos': 'home',
-  '/favoritos':  'home',
-  '/sessoes':    'home',
-  '/sessao':     'home',
+const LEGACY_PATH_REDIRECT: Record<string, View> = {'/meditacoes':'articles','/desafios':'articles','/trilhas':'articles','/conquistas':'home','/lembretes':'home','/itens-salvos':'home','/favoritos':'home','/sessoes':'home','/sessao':'home'}
+const LEGACY_VIEW_REDIRECT: Record<string, View> = {meditations:'articles',challenges:'articles',trails:'articles',content:'articles','therapeutic-q':'questionarios',saved:'home',conquistas:'home',lembretes:'home'}
+const URL_ALIASES: Record<string, View> = {'/orientacao':'monthly-guidance','/orientacoes':'monthly-guidance','/minha-evolucao':'my-evolution'}
+const VIEW_TO_URL: Record<string,string> = Object.fromEntries(Object.entries(URL_TO_VIEW).map(([url,view])=>[view,url]))
+export interface NavigationState { view: View; articleSlug: string | null; ticketId: string | null; questionnaireId?: string | null }
+export function parseNavLocation(path:string, search=''):NavigationState|null {
+  if (path.startsWith('/blog/') && path.length > 6) return { view:'article', articleSlug:path.slice(6), ticketId:null }
+  if (path.startsWith('/guias/') && path.length > 7) return { view:'guides', articleSlug:decodeURIComponent(path.slice(7)), ticketId:null }
+  if (path.startsWith('/suporte/') && path.length > 9) return { view:'support-ticket', articleSlug:null, ticketId:path.slice(9) }
+  if (path.startsWith('/questionarios/') && path.length > 15) return { view:'questionnaire', articleSlug:null, ticketId:null, questionnaireId:decodeURIComponent(path.slice(15)) }
+  if (path === '/questionario-terapeutico') return { view:'questionarios', articleSlug:null, ticketId:null }
+  if (LEGACY_PATH_REDIRECT[path]) return { view:LEGACY_PATH_REDIRECT[path], articleSlug:null, ticketId:null }
+  const params = new URLSearchParams(search); const urlView = params.get('view') as View
+  if (urlView && VALID_VIEWS.includes(urlView)) return { view:urlView, articleSlug:null, ticketId:null }
+  const mapped = URL_TO_VIEW[path] ?? URL_ALIASES[path]; return mapped ? { view:mapped, articleSlug:null, ticketId:null } : null
 }
-
-// Views antigas ainda referenciadas por chamadas navigate() em telas legadas.
-const LEGACY_VIEW_REDIRECT: Record<string, View> = {
-  meditations: 'articles',
-  challenges:  'articles',
-  trails:      'articles',
-  content:     'articles',
-  'therapeutic-q': 'questionarios',
-  saved:         'home',
-  conquistas:    'home',
-  lembretes:     'home',
-}
-
-// Aliases amigáveis: resolvem para uma view, mas a URL canônica continua sendo a
-// definida em URL_TO_VIEW.
-const URL_ALIASES: Record<string, View> = {
-  '/orientacao':  'monthly-guidance',
-  '/orientacoes': 'monthly-guidance',
-  '/minha-evolucao': 'my-evolution',
-}
-
-const VIEW_TO_URL: Record<string, string> = Object.fromEntries(
-  Object.entries(URL_TO_VIEW).map(([url, view]) => [view, url])
-)
-
-export interface NavigationState {
-  view: View
-  articleSlug: string | null
-  ticketId: string | null
-  questionnaireId?: string | null
-}
-
-export function parseNavLocation(path: string, search = ''): NavigationState | null {
-  // /blog/:slug → article
-  if (path.startsWith('/blog/') && path.length > 6) {
-    return { view: 'article', articleSlug: path.slice(6), ticketId: null }
-  }
-
-  // /suporte/:ticketId → support-ticket
-  if (path.startsWith('/suporte/') && path.length > 9) {
-    return { view: 'support-ticket', articleSlug: null, ticketId: path.slice(9) }
-  }
-
-  // /questionarios/:slug → tela do questionário (introdução/execução), com URL
-  // própria para sobreviver a reload, link direto e histórico.
-  if (path.startsWith('/questionarios/') && path.length > 15) {
-    return { view: 'questionnaire', articleSlug: null, ticketId: null, questionnaireId: decodeURIComponent(path.slice(15)) }
-  }
-
-  // Rota antiga do questionário terapêutico → Questionários.
-  if (path === '/questionario-terapeutico') {
-    return { view: 'questionarios', articleSlug: null, ticketId: null }
-  }
-
-  if (LEGACY_PATH_REDIRECT[path]) {
-    return { view: LEGACY_PATH_REDIRECT[path], articleSlug: null, ticketId: null }
-  }
-
-  // Compatibilidade com links antigos e redirecionamentos Stripe (?view=X).
-  const params = new URLSearchParams(search)
-  const urlView = params.get('view') as View
-  if (urlView && VALID_VIEWS.includes(urlView)) {
-    return { view: urlView, articleSlug: null, ticketId: null }
-  }
-
-  const mapped = URL_TO_VIEW[path] ?? URL_ALIASES[path]
-  if (mapped) return { view: mapped, articleSlug: null, ticketId: null }
-
-  return null
-}
-
-export function parseURLNav(): NavigationState | null {
-  try {
-    return parseNavLocation(window.location.pathname, window.location.search)
-  } catch {
-    return null
-  }
-}
-
-export function restoreNavFrom(
-  pathname: string,
-  search: string,
-  storage: Pick<Storage, 'getItem'>,
-): NavigationState | null {
-  const fromURL = parseNavLocation(pathname, search)
-  if (fromURL) return fromURL
-
-  // Só retomamos a sessão salva na raiz. Um path específico desconhecido vai ao
-  // Início em vez de cair na última tela visitada.
-  if (pathname !== '/') return null
-
-  try {
-    const raw = storage.getItem(PERSIST_KEY)
-    if (!raw) return null
-    const saved = JSON.parse(raw) as NavigationState
-    if (saved.view === 'auth') return null
-    if (!VALID_VIEWS.includes(saved.view)) return null
-    return saved
-  } catch {
-    return null
-  }
-}
-
-export function restoreNav(): NavigationState | null {
-  try {
-    return restoreNavFrom(window.location.pathname, window.location.search, window.localStorage)
-  } catch {
-    return null
-  }
-}
-
-export function normalizeLegacyView(section: string): string {
-  return LEGACY_VIEW_REDIRECT[section] ?? section
-}
-
-export function urlForView(targetView: string, slug?: string | null, ticketId?: string | null): string {
-  if (targetView === 'article' && slug) return `/blog/${slug}`
-  if (targetView === 'support-ticket' && ticketId) return `/suporte/${ticketId}`
-  if (targetView === 'questionnaire' && slug) return `/questionarios/${encodeURIComponent(slug)}`
-  return VIEW_TO_URL[targetView] ?? '/'
-}
-
-/**
- * Retorna apenas quando a URL atual precisa ser substituída por uma URL canônica.
- * null significa que a URL já é válida e deve permanecer como está.
- */
-export function canonicalPathForLocation(path: string, search = ''): string | null {
-  const target = LEGACY_PATH_REDIRECT[path] ?? URL_ALIASES[path]
-  if (target) return VIEW_TO_URL[target] ?? '/'
-  if (path !== '/' && !parseNavLocation(path, search)) return '/'
-  return null
-}
+export function parseURLNav(){try{return parseNavLocation(window.location.pathname,window.location.search)}catch{return null}}
+export function restoreNavFrom(pathname:string,search:string,storage:Pick<Storage,'getItem'>):NavigationState|null{const fromURL=parseNavLocation(pathname,search);if(fromURL)return fromURL;if(pathname!=='/')return null;try{const raw=storage.getItem(PERSIST_KEY);if(!raw)return null;const saved=JSON.parse(raw)as NavigationState;if(saved.view==='auth'||!VALID_VIEWS.includes(saved.view))return null;return saved}catch{return null}}
+export function restoreNav(){try{return restoreNavFrom(window.location.pathname,window.location.search,window.localStorage)}catch{return null}}
+export function normalizeLegacyView(section:string){return LEGACY_VIEW_REDIRECT[section]??section}
+export function urlForView(targetView:string,slug?:string|null,ticketId?:string|null):string{if(targetView==='article'&&slug)return`/blog/${slug}`;if(targetView==='guides'&&slug)return`/guias/${encodeURIComponent(slug)}`;if(targetView==='support-ticket'&&ticketId)return`/suporte/${ticketId}`;if(targetView==='questionnaire'&&slug)return`/questionarios/${encodeURIComponent(slug)}`;return VIEW_TO_URL[targetView]??'/'}
+export function canonicalPathForLocation(path:string,search=''):string|null{const target=LEGACY_PATH_REDIRECT[path]??URL_ALIASES[path];if(target)return VIEW_TO_URL[target]??'/';if(path!=='/'&&!parseNavLocation(path,search))return'/';return null}

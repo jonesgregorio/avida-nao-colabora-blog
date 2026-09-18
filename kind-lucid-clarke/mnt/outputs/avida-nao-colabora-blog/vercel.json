@@ -2,25 +2,30 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm ci && vite build",
   "outputDirectory": "dist",
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi",
+  "ignoreCommand": "exit 1",
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true
+      "main": true,
+      "feat/seo-topic-clusters-preview-20260914": true
     }
   },
   "redirects": [
     { "source": "/conteudos", "destination": "/blog", "permanent": true },
     { "source": "/perguntas-frequentes", "destination": "/faq", "permanent": true },
     { "source": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia-btcpl-ifq", "destination": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia", "permanent": true },
-    { "source": "/blog/como-acalmar-uma-crise-de-ansiedade-no-instante-m6nec-fj7", "destination": "/blog/como-se-acalmar-durante-uma-crise-de-ansiedade", "permanent": true }
+    { "source": "/blog/como-acalmar-uma-crise-de-ansiedade-no-instante-m6nec-fj7", "destination": "/blog/como-se-acalmar-durante-uma-crise-de-ansiedade", "permanent": true },
+    { "source": "/ig", "destination": "/?utm_source=instagram&utm_medium=bio&utm_campaign=campanha_setembro_01semana", "permanent": false },
+    { "source": "/ig-story", "destination": "/?utm_source=instagram&utm_medium=story&utm_campaign=campanha_setembro_01semana", "permanent": false },
+    { "source": "/ig-post", "destination": "/?utm_source=instagram&utm_medium=post&utm_campaign=campanha_setembro_01semana", "permanent": false }
   ],
   "rewrites": [
     { "source": "/", "destination": "/api/page?route=home" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/blog/:slug", "destination": "/api/article?slug=:slug" },
     { "source": "/blog", "destination": "/api/page?route=blog" },
-    { "source": "/guias", "destination": "/api/page?route=guides" },
+    { "source": "/guias/:slug", "destination": "/api/guide?slug=:slug" },
+    { "source": "/guias", "destination": "/api/guides" },
     { "source": "/planos", "destination": "/api/page?route=pricing" },
     { "source": "/faq", "destination": "/api/page?route=faq" },
     { "source": "/sobre", "destination": "/api/page?route=about" },
@@ -32,37 +37,16 @@
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
-    {
-      "source": "/:private(login|diario|perfil|questionarios|suporte|notificacoes|guia-mensal|mapa-emocional|meu-relatorio|minha-historia|meu-jardim|descobertas|cuidar|mais|plano-de-autocuidado|meu-plano|admin|sucesso)/:path*",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }
-      ]
-    },
-    {
-      "source": "/api/:path*",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(self), geolocation=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.stripe.com https://generativelanguage.googleapis.com https://api.groq.com https://www.googleapis.com https://api.resend.com https://*.ingest.sentry.io; frame-src https://js.stripe.com https://www.youtube.com https://www.youtube-nocookie.com; worker-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-        }
-      ]
-    }
+    { "source": "/:private(login|diario|perfil|questionarios|suporte|notificacoes|guia-mensal|mapa-emocional|meu-relatorio|minha-historia|meu-jardim|descobertas|cuidar|mais|plano-de-autocuidado|meu-plano|admin|sucesso)/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/api/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Frame-Options", "value": "DENY" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+      { "key": "Permissions-Policy", "value": "camera=(), microphone=(self), geolocation=()" },
+      { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+      { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.stripe.com https://generativelanguage.googleapis.com https://api.groq.com https://www.googleapis.com https://api.resend.com https://*.ingest.sentry.io; frame-src https://js.stripe.com https://www.youtube.com https://www.youtube-nocookie.com; worker-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" }
+    ] }
   ]
 }

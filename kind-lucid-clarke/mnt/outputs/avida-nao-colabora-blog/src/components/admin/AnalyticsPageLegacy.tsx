@@ -155,17 +155,47 @@ function Empty({ text }: { text: string }) {
 }
 
 // ─── Gráficos em SVG puro (sem dependência externa) ─────────────────────────
+// Redesenho: eixo com valores redondos (0/metade/máximo), rótulo direto no
+// último ponto, e um crosshair com tooltip ao passar o mouse — antes o
+// gráfico só tinha 3 linhas de grade e nenhum jeito de ler o valor de um dia
+// específico sem contar pixels. A área embaixo da linha virou um "wash" fixo
+// e leve (~10% de opacidade), não mais um gradiente que ficava pesado perto
+// da linha.
 type Series = { label: string; value: number }[]
 function fmtDay(d: string) { const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d }
+// Arredonda o teto do eixo Y para um número "redondo" (1, 2, 5, 10, 20, 50...)
+// em vez do valor máximo cru — assim a grade mostra 0 / 10 / 20 em vez de
+// 0 / 8.5 / 17.
+function niceMax(v: number): number {
+  if (v <= 4) return Math.max(1, v)
+  const mag = Math.pow(10, Math.floor(Math.log10(v)))
+  const norm = v / mag
+  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
+  return step * mag
+}
 function LineChartCard({ title, series, subtitle, prev }: { title: string; series: Series; subtitle?: string; prev?: number }) {
   const total = series.reduce((a, s) => a + s.value, 0)
-  const max = Math.max(1, ...series.map(s => s.value))
-  const W = 560, H = 170, pad = 26, n = series.length
+  const max = niceMax(Math.max(1, ...series.map(s => s.value)))
+  const W = 560, H = 190, padL = 34, padR = 16, padT = 16, padB = 26, n = series.length
   const gid = 'grad' + title.replace(/[^a-zA-Z0-9]/g, '')
-  const X = (i: number) => n <= 1 ? W / 2 : pad + (i / (n - 1)) * (W - pad * 2)
-  const Y = (v: number) => H - pad - (v / max) * (H - pad * 2)
+  const plotW = W - padL - padR
+  const X = (i: number) => n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW
+  const Y = (v: number) => H - padB - (v / max) * (H - padT - padB)
   const linePts = series.map((s, i) => `${X(i).toFixed(1)},${Y(s.value).toFixed(1)}`).join(' ')
-  const areaPts = `${X(0).toFixed(1)},${H - pad} ${linePts} ${X(n - 1).toFixed(1)},${H - pad}`
+  const areaPts = `${X(0).toFixed(1)},${H - padB} ${linePts} ${X(n - 1).toFixed(1)},${H - padB}`
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [hover, setHover] = useState<number | null>(null)
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const xInViewBox = ((e.clientX - rect.left) / rect.width) * W
+    const i = Math.round(((xInViewBox - padL) / plotW) * (n - 1))
+    setHover(Math.min(n - 1, Math.max(0, i)))
+  }
+
+  const yTicks = [0, max / 2, max]
+
   return (
     <div className="bg-white border border-line rounded-2xl p-5">
       <div className="flex justify-between items-baseline mb-1 gap-2">
@@ -174,14 +204,46 @@ function LineChartCard({ title, series, subtitle, prev }: { title: string; serie
       </div>
       {total === 0 ? <div className="py-8 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
         <>
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}>
-            <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3d6b52" stopOpacity="0.18" /><stop offset="100%" stopColor="#3d6b52" stopOpacity="0" /></linearGradient></defs>
-            {[0, 0.5, 1].map(f => <line key={f} x1={pad} x2={W - pad} y1={Y(max * f)} y2={Y(max * f)} stroke="#eee" strokeWidth="1" />)}
-            <polygon points={areaPts} fill={`url(#${gid})`} />
-            <polyline points={linePts} fill="none" stroke="#3d6b52" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            <circle cx={X(n - 1)} cy={Y(series[n - 1].value)} r="3.5" fill="#3d6b52" />
-            <text x={pad} y={Y(max) - 4} fontSize="10" fill="#9ca3af">{max}</text>
-          </svg>
+          <div className="relative">
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full cursor-crosshair"
+              role="img"
+              aria-label={title}
+              onMouseMove={onMove}
+              onMouseLeave={() => setHover(null)}
+            >
+              <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2f5d47" stopOpacity="0.14" /><stop offset="100%" stopColor="#2f5d47" stopOpacity="0.14" /></linearGradient></defs>
+              {yTicks.map(t => (
+                <g key={t}>
+                  <line x1={padL} x2={W - padR} y1={Y(t)} y2={Y(t)} stroke="#e1e0d9" strokeWidth="1" />
+                  <text x={padL - 6} y={Y(t)} dy="3" textAnchor="end" fontSize="10" fill="#898781">{Math.round(t).toLocaleString('pt-BR')}</text>
+                </g>
+              ))}
+              <polygon points={areaPts} fill={`url(#${gid})`} />
+              <polyline points={linePts} fill="none" stroke="#2f5d47" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              {/* Ponto final em destaque, com anel na cor da superfície (fica legível mesmo cruzando a linha) */}
+              <circle cx={X(n - 1)} cy={Y(series[n - 1].value)} r="5" fill="#fff" />
+              <circle cx={X(n - 1)} cy={Y(series[n - 1].value)} r="4" fill="#2f5d47" />
+              <text x={X(n - 1)} y={Y(series[n - 1].value) - 10} textAnchor="end" fontSize="11" fontWeight="600" fill="#1A4A3A">{series[n - 1].value}</text>
+              {hover !== null && (
+                <g>
+                  <line x1={X(hover)} x2={X(hover)} y1={padT} y2={H - padB} stroke="#c3c2b7" strokeWidth="1" />
+                  <circle cx={X(hover)} cy={Y(series[hover].value)} r="5" fill="#fff" stroke="#2f5d47" strokeWidth="2" />
+                </g>
+              )}
+            </svg>
+            {hover !== null && (
+              <div
+                className="pointer-events-none absolute top-1 -translate-x-1/2 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs shadow-[0_4px_14px_rgba(33,52,42,0.12)]"
+                style={{ left: `${(X(hover) / W) * 100}%` }}
+              >
+                <p className="font-medium text-forest-900 whitespace-nowrap">{fmtDay(series[hover].label)}</p>
+                <p className="text-ink-soft whitespace-nowrap">{series[hover].value}{subtitle ? ` ${subtitle}` : ''}</p>
+              </div>
+            )}
+          </div>
           <div className="flex justify-between text-[10px] text-stone-400 mt-1"><span>{fmtDay(series[0].label)}</span><span>{fmtDay(series[n - 1].label)}</span></div>
         </>
       )}
@@ -196,10 +258,13 @@ function BarChartCard({ title, subtitle, data }: { title: string; subtitle?: str
       <h3 className="font-serif text-lg text-forest-900 mb-1">{title}</h3>
       {subtitle && <p className="text-xs text-ink-soft mb-3">{subtitle}</p>}
       {data.length === 0 ? <div className="py-6 text-center text-sm text-ink-soft">Sem dados no período ainda.</div> : (
-        <div className="space-y-2.5">{data.map(([label, v]) => (
-          <div key={label}>
-            <div className="flex justify-between text-sm mb-1 gap-2"><span className="text-forest-900 truncate">{label}</span><span className="text-ink-soft whitespace-nowrap">{v} · {pct(v, tot)}</span></div>
-            <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden"><div className="h-full bg-forest-500" style={{ width: `${(v / max) * 100}%` }} /></div>
+        <div className="space-y-3">{data.map(([label, v]) => (
+          <div key={label} className="group -mx-1.5 rounded-lg px-1.5 py-0.5 transition-colors hover:bg-paper-soft">
+            <div className="flex justify-between text-sm mb-1 gap-2"><span className="text-forest-900 truncate">{label}</span><span className="whitespace-nowrap font-medium text-forest-800">{v} <span className="text-ink-soft font-normal">· {pct(v, tot)}</span></span></div>
+            {/* Base quadrada (nasce do zero) e ponta arredondada — nunca um "pílula" nos dois lados. */}
+            <div className="h-2.5 rounded-md bg-stone-100 overflow-hidden">
+              <div className="h-full rounded-r-[4px] bg-forest-600 transition-[width] duration-300" style={{ width: `${Math.max((v / max) * 100, 2)}%` }} />
+            </div>
           </div>
         ))}</div>
       )}
@@ -287,7 +352,10 @@ export default function AnalyticsPage({ onEditArticle, only, hideHero }: { onEdi
       supabase.from('profiles').select('created_at').gte('created_at', since).limit(50000),
       supabase.from('plan_change_history').select('created_at').gte('created_at', since).in('change_type', ['upgrade', 'new']).limit(50000),
       supabase.from('reading_history').select('article_slug').gte('created_at', since).limit(20000),
-      supabase.from('analytics_events').select('event, session_id, user_id, user_agent, created_at').gte('created_at', prevSince).lt('created_at', since).limit(20000),
+      // Sem .order() aqui, o corte de 1000 linhas do Supabase (ver AdminVisitsSourceCard)
+      // pegaria a ponta errada do intervalo anterior — descendente mantém o fim do
+      // período (mais próximo do atual), a metade mais relevante para a comparação.
+      supabase.from('analytics_events').select('event, session_id, user_id, user_agent, created_at').gte('created_at', prevSince).lt('created_at', since).order('created_at', { ascending: false }).limit(20000),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since),
       supabase.from('plan_change_history').select('id', { count: 'exact', head: true }).gte('created_at', prevSince).lt('created_at', since).in('change_type', ['upgrade', 'new']),
     ])
