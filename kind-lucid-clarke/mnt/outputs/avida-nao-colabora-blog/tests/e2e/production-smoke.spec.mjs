@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test'
 
+// Achado ao vivo: esse smoke roda de verdade contra avidanaocolabora.com (navegador real,
+// JS real) depois de todo merge na main. Sem essa marca, cada rodada gerava visit_source
+// "Direto" (sem referrer/UTM) e pageviews reais, inflando "Visitas e origem" no Admin com
+// tráfego que não é gente de verdade. addInitScript roda ANTES de qualquer script da
+// página, em toda navegação — src/lib/analytics.ts lê essa flag e não registra nada.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { try { sessionStorage.setItem('avnc_smoke', '1') } catch { /* noop */ } })
+})
+
 const userEmail = process.env.PRODUCTION_SMOKE_USER_EMAIL
 const userPassword = process.env.PRODUCTION_SMOKE_USER_PASSWORD
 const adminEmail = process.env.PRODUCTION_SMOKE_ADMIN_EMAIL

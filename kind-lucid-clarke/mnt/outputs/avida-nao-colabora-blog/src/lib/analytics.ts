@@ -5,6 +5,17 @@ import { supabase } from './supabase'
 // NUNCA registra conteúdo sensível (diário, check-in, respostas). Sem IP.
 // Fire-and-forget: nunca bloqueia nem quebra a UI.
 
+// Achado ao vivo: o workflow "Production Smoke" (.github/workflows/production-smoke.yml)
+// roda de verdade contra avidanaocolabora.com depois de todo merge na main, pra garantir
+// que o site no ar funciona — navegador real, JS real. Sem essa checagem, cada rodada
+// gera visit_source "Direto" (sem referrer/UTM) e pageviews reais, inflando os números
+// de "Visitas e origem" no Admin com tráfego que não é gente de verdade. O teste injeta
+// essa flag via page.addInitScript ANTES de qualquer navegação (tests/e2e/production-smoke.spec.mjs)
+// — visitantes reais nunca têm esse item no sessionStorage.
+function isSmokeTest(): boolean {
+  try { return sessionStorage.getItem('avnc_smoke') === '1' } catch { return false }
+}
+
 function getSessionId(): string {
   const key = 'avnc_sid'
   try {
@@ -77,6 +88,7 @@ function coarseUA(ua: string): string {
 
 export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
+    if (isSmokeTest()) return
     loadConfig()
     const normalized = (event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event)
       .trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
