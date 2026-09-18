@@ -361,6 +361,18 @@ export const GARDEN_THEMES: GardenTheme[] = [
     birds: { kind: 'none' },
     light: { sun: [0.06, 0.08], ray: '#fdf6e0', rayAmt: 0.10, glow: [] },
   },
+  {
+    slug: 'provence',
+    label: 'Jardim de Lavandas da Provença · pôr do sol',
+    stages: stagesFor6('provence'),
+    // Sem lago/tanque visível nas fotos — bacia mínima e discreta num canto, sem reflexo,
+    // só para satisfazer o contrato de água da engine sem introduzir nada fora da cena real.
+    water: { kind: 'basin', reflect: false, center: [0.03, 0.97], rx: 0.015, ry: 0.006, tint: '#cfc3ae', drip: 9 },
+    fall: { count: 0, emitters: [] },
+    flyers: { bees: 10, butterflies: 2, butColors: ['#e8c34d', '#f2ede0', '#c9a24a'] },
+    birds: { kind: 'none' },
+    light: { sun: [0.92, 0.22], ray: '#ffb46b', rayAmt: 0.20, glow: [[0.93, 0.24, 26, '250,180,110']] },
+  },
 ]
 
 /** Nomes dos 4 estágios visuais dos jardins originais, na ordem das imagens (alt text/a11y). */
