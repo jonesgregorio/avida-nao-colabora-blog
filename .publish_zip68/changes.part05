@@ -1,0 +1,190 @@
++  if (wordCount(content) < MIN_AUTO_PUBLISH_WORDS) validationErrors.push(`menos de ${MIN_AUTO_PUBLISH_WORDS} palavras`)
++  if (excerpt.length < 80) validationErrors.push('resumo curto/ausente')
++  if (seoTitle.length < 25) validationErrors.push('SEO title ausente/curto')
++  if (seoDescription.length < 90) validationErrors.push('meta description ausente/curta')
++  if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
++  if (!cover?.url) validationErrors.push('imagem de capa ausente')
++  if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
++
++  const wantsAutoPublish = automation.mode === 'auto_publish'
++  const publish = wantsAutoPublish && validationErrors.length === 0
++  const nowIso = new Date().toISOString()
++  const readTime = Math.max(1, Math.ceil(wordCount(content) / 200))
++  const internalNotes = wantsAutoPublish && !publish
++    ? `Auto-publicação bloqueada pela validação: ${validationErrors.join('; ')}.`
++    : null
++  const category = cleanText(pkg.category, 120) || automation.category || 'Geral'
++
++  const { data: art, error: insErr } = await admin.from('articles').insert({
++    title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-5)}-${Math.random().toString(36).slice(2, 5)}`,
++    content, summary: excerpt, excerpt, category,
++    plan_required: normalizedPlan(automation.plan_required), content_type: 'article', origin: 'ia',
++    status: publish ? 'published' : 'draft', published_at: publish ? nowIso : null, updated_at: nowIso,
++    seo_title: seoTitle, seo_description: seoDescription, keyword,
++    secondary_keywords: secondaryKeywords.join(', '), keywords: [keyword, ...secondaryKeywords].filter(Boolean),
++    tags, emotional_themes: emotionalThemes, image_url: cover?.url || null, cover_image: cover?.url || null,
++    cover_image_url: cover?.url || null, image_alt: imageAlt || null, og_image: cover?.url || null,
++    diary_question: diaryQuestion || null, cta_text: ctaText || null, read_time: readTime,
++    is_guided_content: false, is_recommendable: true, internal_notes: internalNotes, ai_prompt: prompt,
++  }).select('id').single()
++  if (insErr) throw insErr
++
++  const { error: calendarErr } = await admin.from('editorial_calendar').insert({
++    article_id: (art as { id?: string } | null)?.id ?? null,
++    title, content_type: 'article', category,
++    plan_required: normalizedPlan(automation.plan_required),
++    status: publish ? 'publicado' : 'gerado_ia', origin: 'ia', scheduled_date: nowIso.slice(0, 10),
++    notes: automation.type === 'generate_weekly_package' ? `Gerado automaticamente pelo pacote “${automation.name || 'semanal'}”.` : null,
++  })
++  if (calendarErr) console.warn('Falha ao registrar artigo no calendário editorial:', calendarErr.message)
++
++  return { title, published: publish, validationErrors }
++}
++
++async function executeArticleAutomation(
++  admin: AdminClient,
++  automation: AutomationRow,
++  type: EditorialAutomationType,
++  config: EditorialAutomationConfig,
++): Promise<string> {
++  const quantity = clampAutomationQuantity(type, config.quantity)
++  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
++  const tone = config.tone || 'acolhedor'
++  const prompt = `Você escreve para o blog A Vida Não Colabora. Gere exatamente ${quantity} ${quantity === 1 ? 'artigo' : 'artigos distintos'} em português brasileiro.
++Temas disponíveis: ${themes.join(' | ')}. Tom: ${tone}.
++Cada corpo precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso de que o conteúdo não substitui acompanhamento profissional.
++Para pacote, varie os temas e ângulos; não gere títulos quase iguais.
++Não diagnostique, não prescreva, não prometa cura e não invente pesquisas.
++Retorne SOMENTE JSON válido:
++{"articles":[{"title":"máx. 10 palavras","content":"corpo completo","excerpt":"120 a 190 caracteres","seo_title":"35 a 60 caracteres","seo_description":"120 a 155 caracteres","keyword":"principal","secondary_keywords":["3 a 6"],"tags":["3 a 6"],"emotional_themes":["até 4"],"image_query":"busca curta para foto real","image_alt":"alt em português","diary_question":"pergunta curta","cta_text":"CTA gentil","category":"categoria"}]}
++${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
++  const raw = await genAI(prompt)
++  const parsed = parseJsonObject(raw)
++  if (!parsed) throw new Error('IA não retornou JSON válido para artigos.')
++  const packages = articleItems(parsed).slice(0, quantity)
++  if (packages.length === 0) throw new Error('IA não retornou nenhum artigo no pacote.')
++
++  // Pexels e persistência podem rodar em paralelo. A geração textual já ocorreu em
++  // uma única chamada, evitando multiplicar a latência do cron semanal.
++  const results = await Promise.all(packages.map((pkg, index) =>
++    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, quantity === 1),
++  ))
++  const published = results.filter(r => r.published).length
++  const drafts = results.length - published
++  if (quantity === 1) {
++    const first = results[0]
++    return first.published
++      ? `Publicado: ${first.title}`
++      : `Rascunho: ${first.title}${first.validationErrors.length ? ` (auto-publicação bloqueada: ${first.validationErrors.join(', ')})` : ''}`
++  }
++  return `Pacote: ${results.length} artigos gerados (${published} publicado(s), ${drafts} rascunho(s)).`
++}
++
++async function executePautaAutomation(
++  admin: AdminClient,
++  automation: AutomationRow,
++  type: EditorialAutomationType,
++  config: EditorialAutomationConfig,
++): Promise<string> {
++  const quantity = clampAutomationQuantity(type, config.quantity)
++  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
++  const { data: existing } = await admin.from('editorial_calendar')
++    .select('title').gte('scheduled_date', new Date().toISOString().slice(0, 10)).limit(120)
++  const existingTitles = (existing ?? []).map((row: { title?: string | null }) => row.title).filter(Boolean).slice(0, 80)
++  const periodInstruction = type === 'monthly_pauta'
++    ? 'Planeje o PRÓXIMO mês inteiro, equilibrando temas ao longo das semanas.'
++    : 'Planeje as próximas duas semanas.'
++  const prompt = `Atue como estrategista editorial do A Vida Não Colabora. ${periodInstruction}
++Crie exatamente ${quantity} ideias de conteúdo úteis, humanas, não clínicas e não repetitivas.
++Temas prioritários: ${themes.join(' | ')}. Categoria-base: ${automation.category || 'saúde emocional'}.
++Plano-alvo da regra: ${normalizedPlan(automation.plan_required)}.
++Evite títulos já planejados: ${existingTitles.join(' | ') || 'nenhum'}.
++Não diagnostique, não prometa cura e não use linguagem terapêutica como se fosse atendimento clínico.
++Retorne SOMENTE JSON válido:
++{"ideas":[{"title":"título curto","category":"categoria","content_type":"article","angle":"ângulo específico","notes":"2 a 3 frases de briefing"}]}
++${config.extra ? `Instrução adicional: ${config.extra}` : ''}`
++  const raw = await genAI(prompt)
++  const parsed = parseJsonObject(raw)
++  if (!parsed) throw new Error('IA não retornou JSON válido para a pauta.')
++  const ideas = ideaItems(parsed).slice(0, quantity)
++  if (!ideas.length) throw new Error('IA não retornou ideias de pauta.')
++
++  const normalizedExisting = new Set(existingTitles.map(v => slugify(String(v))))
++  const rows: Record<string, unknown>[] = []
++  for (const idea of ideas) {
++    const title = cleanText(idea.title, 140)
++    if (!title || normalizedExisting.has(slugify(title)) || rows.some(r => slugify(String(r.title)) === slugify(title))) continue
++    const angle = cleanText(idea.angle, 300)
++    const notes = cleanText(idea.notes, 1000)
++    rows.push({
++      title,
++      content_type: cleanText(idea.content_type, 40) || 'article',
++      category: cleanText(idea.category, 120) || automation.category || 'Geral',
++      plan_required: normalizedPlan(automation.plan_required),
++      status: 'ideia', origin: 'ia',
++      scheduled_date: plannedDateForIdea(type, rows.length, quantity),
++      notes: [angle ? `Ângulo: ${angle}` : '', notes].filter(Boolean).join('\n'),
++    })
++  }
++  if (!rows.length) throw new Error('Todas as ideias retornadas já estavam planejadas ou eram inválidas.')
++  const { error } = await admin.from('editorial_calendar').insert(rows)
++  if (error) throw error
++  return type === 'monthly_pauta'
++    ? `Pauta mensal: ${rows.length} ideias adicionadas ao Calendário Editorial.`
++    : `Pauta: ${rows.length} ideias adicionadas ao Calendário Editorial.`
++}
++
+@@ -215 +455,2 @@ Deno.serve(async (req) => {
+-  for (const a of autos ?? []) {
++  for (const rawAutomation of autos ?? []) {
++    const a = rawAutomation as AutomationRow
+@@ -218,2 +459,3 @@ Deno.serve(async (req) => {
+-    // "Gerar agora" (forceOne) ignora o intervalo; o cron respeita a frequência.
+-    if (!forceOne && last && now - last < days * 86400000) continue // ainda não venceu
++    const next = a.next_run_at ? new Date(a.next_run_at).getTime() : 0
++    if (!forceOne && next && now < next) continue
++    if (!forceOne && !next && last && now - last < days * 86400000) continue
+@@ -222,72 +464,5 @@ Deno.serve(async (req) => {
+-      const cfg = (a.config ?? {}) as { themes?: string[]; tone?: string; extra?: string }
+-      const themes = Array.isArray(cfg.themes) && cfg.themes.length ? cfg.themes : [a.category || 'saúde emocional']
+-      const tema = themes[Math.floor(Math.random() * themes.length)]
+-      const tone = cfg.tone || 'acolhedor'
+-
+-      // 1) título próprio (não usa o tema cru como título)
+-      let title = tema
+-      try {
+-        const rawTitle = await genAI(`Crie UM título curto, humano e acolhedor (máx 8 palavras, sem aspas, sem markdown) para um artigo de blog sobre "${tema}". Responda apenas com o título.`)
+-        const clean = rawTitle.split('\n')[0].replace(/^["'#\s\-*]+|["'\s]+$/g, '').trim()
+-        if (clean) title = clean.slice(0, 120)
+-      } catch { /* mantém o tema como título */ }
+-
+-      // 2) pacote editorial completo. A IA produz texto + metadados; números e
+-      // validação de publicação continuam determinísticos no servidor.
+-      const articlePrompt = `Você escreve para o blog A Vida Não Colabora. Produza um artigo original em português brasileiro, acolhedor, humano, não clínico e útil.
+-Título: "${title}". Tema: "${tema}". Tom: ${tone}.
+-O CORPO precisa ter entre 1100 e 1500 palavras, com introdução, explicação simples, exemplo de vida real sem nomes, reflexão guiada, exercício prático curto, pergunta para diário, CTA gentil e aviso final de que o conteúdo não substitui acompanhamento profissional.
+-Não diagnostique, não prescreva, não prometa cura, não invente pesquisas nem use markdown pesado.
+-Retorne SOMENTE JSON válido neste formato:
+-{
+-  "content":"corpo completo do artigo",
+-  "excerpt":"resumo entre 120 e 190 caracteres",
+-  "seo_title":"título SEO entre 35 e 60 caracteres",
+-  "seo_description":"descrição SEO entre 120 e 155 caracteres",
+-  "keyword":"palavra-chave principal",
+-  "secondary_keywords":["3 a 6 palavras-chave"],
+-  "tags":["3 a 6 tags"],
+-  "emotional_themes":["até 4 temas emocionais"],
+-  "image_query":"busca curta em inglês ou português para uma foto real, sem texto",
+-  "image_alt":"texto alternativo descritivo em português",
+-  "diary_question":"uma pergunta curta para o diário",
+-  "cta_text":"CTA curto e gentil"
+-}
+-${cfg.extra ? `Instrução adicional: ${cfg.extra}` : ''}`
+-      const rawPackage = await genAI(articlePrompt)
+-      const pkg = parseJsonObject(rawPackage) ?? {}
+-      let content = cleanText(pkg.content, 50000)
+-
+-      // Se o modelo respondeu curto, tenta uma única expansão antes de decidir que
+-      // o artigo não está apto a publicação automática.
+-      if (content && wordCount(content) < MIN_AUTO_PUBLISH_WORDS) {
+-        try {
