@@ -329,23 +329,6 @@ function trendState(current: Metric, previous: Metric) {
   return 'stable'
 }
 
-function normalizeQuery(value: string) {
-  return value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function queryTokens(value: string) {
-  const stop = new Set(['a','o','as','os','de','da','do','das','dos','e','em','no','na','nos','nas','para','por','com','como','que','um','uma','se','sem'])
-  return new Set(normalizeQuery(value).split(' ').filter(token => token.length > 2 && !stop.has(token)))
-}
-
-function similarity(a: string, b: string) {
-  const left = queryTokens(a), right = queryTokens(b)
-  if (!left.size || !right.size) return 0
-  const intersection = [...left].filter(token => right.has(token)).length
-  const union = new Set([...left, ...right]).size
-  return union ? intersection / union : 0
-}
-
 function detectCannibalization(rows: Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>, currentStart: string) {
   const byQuery = new Map<string, Map<string, Metric>>()
   for (const row of rows.filter(item => item.day >= currentStart)) {
@@ -362,7 +345,6 @@ function detectCannibalization(rows: Array<{ day: string; dimension_key: string;
     const ranked = [...pages.entries()].filter(([, m]) => m.impressions >= 5).sort((a,b) => b[1].impressions - a[1].impressions)
     if (ranked.length < 2) return []
     const [first, second] = ranked
-    if (similarity(query, query) < 1) return []
     return [{ query, pages: [first[0], second[0]], impressions: first[1].impressions + second[1].impressions, reason: 'Duas páginas recebem impressões para a mesma consulta. Revisar intenção e conteúdo antes de consolidar.' }]
   }).sort((a,b) => b.impressions - a.impressions).slice(0, 10)
 }
