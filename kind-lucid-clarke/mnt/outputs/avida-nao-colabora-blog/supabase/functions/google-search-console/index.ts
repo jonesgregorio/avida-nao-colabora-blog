@@ -177,10 +177,11 @@ async function syncSearchConsole(source: 'manual' | 'scheduled') {
     const token = await googleAccessToken(config.account)
     const startDate = isoDay(-28)
     const endDate = isoDay(-1)
-    const [totals, queries, pages, sitemapPayload] = await Promise.all([
+    const [totals, queries, pages, queryPages, sitemapPayload] = await Promise.all([
       searchQuery(token, config.siteUrl, ['date'], startDate, endDate, 250),
       searchQuery(token, config.siteUrl, ['date', 'query'], startDate, endDate, 5000),
       searchQuery(token, config.siteUrl, ['date', 'page'], startDate, endDate, 5000),
+      searchQuery(token, config.siteUrl, ['date', 'query', 'page'], startDate, endDate, 10000),
       listSitemaps(token, config.siteUrl),
     ])
 
@@ -197,6 +198,11 @@ async function syncSearchConsole(source: 'manual' | 'scheduled') {
     })
     for (const row of pages.rows || []) perfRows.push({
       day: row.keys?.[0], dimension: 'page', dimension_key: row.keys?.[1] || '',
+      clicks: row.clicks || 0, impressions: row.impressions || 0, ctr: row.ctr || 0,
+      position: row.position || 0, synced_at: new Date().toISOString(),
+    })
+    for (const row of queryPages.rows || []) perfRows.push({
+      day: row.keys?.[0], dimension: 'query_page', dimension_key: `${row.keys?.[1] || ''}|||${row.keys?.[2] || ''}`,
       clicks: row.clicks || 0, impressions: row.impressions || 0, ctr: row.ctr || 0,
       position: row.position || 0, synced_at: new Date().toISOString(),
     })
