@@ -53,13 +53,17 @@ function similarity(a: SeoSmartArticle, b: SeoSmartArticle) {
 }
 
 export function normalizedSlug(value: string) {
-  return value.toLocaleLowerCase('pt-BR')
+  const full = value.toLocaleLowerCase('pt-BR')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-+/g, '-')
-    .slice(0, 60)
-    .replace(/-+$/g, '')
+  if (full.length <= 60) return full
+  // Corta em fronteira de palavra: o slice(0, 60) puro deixava slugs quebrados no meio
+  // (\u2026-transformar-isso-em-obrigaca) \u2014 feio no Google e ruim pra CTR.
+  const cut = full.slice(0, 60)
+  const clean = full[60] === '-' ? cut : cut.slice(0, cut.lastIndexOf('-'))
+  return (clean || cut).replace(/-+$/g, '')
 }
 
 async function updateArticle(id: string, patch: Record<string, unknown>) {

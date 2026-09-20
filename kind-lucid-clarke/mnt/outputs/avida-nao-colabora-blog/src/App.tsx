@@ -253,6 +253,12 @@ export default function App() {
   useEffect(() => {
     const canonical = canonicalPathForLocation(window.location.pathname, window.location.search)
     if (canonical && window.location.pathname !== canonical) {
+      // Rota desconhecida (sem alias/legado): o servidor devolve 200 com o shell do SPA
+      // (não dá pra 404 no catch-all da Vercel), então marcamos noindex antes de mandar
+      // pra Início — senão o Google pode indexar qualquer URL inventada como duplicata da home.
+      if (canonical === '/' && !parseURLNav()) {
+        document.head.querySelector('meta[name="robots"]')?.setAttribute('content', 'noindex, follow')
+      }
       window.history.replaceState({}, '', canonical)
     }
   }, [])
