@@ -148,6 +148,6 @@ test('P3 prioriza oportunidades orgânicas por evidência sem automatizar public
   assert.match(fn, /b\.score - a\.score/)
   assert.match(fn, /row\.impressions >= 20 && row\.ctr < 0\.03/)
   assert.match(fn, /row\.position >= 8 && row\.position <= 20/)
-  assert.match(cockpit, /Prioridade por evidência:/)
+  assert.match(cockpit, /Prioridade por evidência:/)\n  assert.match(cockpit, /'alta'.*'média'.*'acompanhar'/s)
   assert.doesNotMatch(fn, /from\(['"]articles['"]\)\.update/)
 })
