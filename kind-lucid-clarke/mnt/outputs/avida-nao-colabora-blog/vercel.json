@@ -20,6 +20,9 @@
     { "source": "/ig-post", "destination": "/?utm_source=instagram&utm_medium=post&utm_campaign=campanha_setembro_01semana", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/author/:path*", "destination": "/api/gone" },
+    { "source": "/wp-content/:path*", "destination": "/api/gone" },
+    { "source": "/wp-content", "destination": "/api/gone" },
     { "source": "/", "destination": "/api/page?route=home" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/blog/:slug", "destination": "/api/article?slug=:slug" },
