@@ -166,3 +166,26 @@ test('P3 compara períodos equivalentes e mostra tendência sem tratar pouco dad
   assert.match(cockpit, /📉 Caindo/)
   assert.match(cockpit, /Dados insuficientes/)
 })
+
+
+test('P3 detecta sobreposição somente com evidência consulta+página e mantém decisão editorial humana', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  const migration = read('supabase/migrations/20260920182500_seo_p3_query_page_dimension.sql')
+  assert.match(fn, /\['date', 'query', 'page'\]/)
+  assert.match(fn, /dimension: 'query_page'/)
+  assert.match(fn, /function detectCannibalization/)
+  assert.match(fn, /m\.impressions >= 5/)
+  assert.match(migration, /'query_page'/)
+  assert.match(cockpit, /Possível sobreposição de conteúdo/)
+  assert.match(cockpit, /não uma ordem para excluir ou redirecionar conteúdo/)
+})
+
+test('documentação e fallback SSR usam os seis guias e o slug canônico de Relações', () => {
+  const docs = read('docs/SEO_OPERACAO.md')
+  const page = read('api/page.js')
+  assert.match(docs, /seis guias temáticos/)
+  assert.doesNotMatch(docs, /oito artigos-pilar|os oito pilares/)
+  assert.match(page, /como-conversar-sobre-os-seus-limites-sem-transformar-tudo-em/)
+  assert.doesNotMatch(page, /como-conversar-sobre-seus-limites-sem-transformar-tudo-em-conflito/)
+})
