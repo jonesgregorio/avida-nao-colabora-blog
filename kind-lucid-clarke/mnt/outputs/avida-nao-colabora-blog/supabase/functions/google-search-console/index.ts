@@ -177,10 +177,11 @@ async function syncSearchConsole(source: 'manual' | 'scheduled') {
     const token = await googleAccessToken(config.account)
     const startDate = isoDay(-28)
     const endDate = isoDay(-1)
-    const [totals, queries, pages, sitemapPayload] = await Promise.all([
+    const [totals, queries, pages, queryPages, sitemapPayload] = await Promise.all([
       searchQuery(token, config.siteUrl, ['date'], startDate, endDate, 250),
       searchQuery(token, config.siteUrl, ['date', 'query'], startDate, endDate, 5000),
       searchQuery(token, config.siteUrl, ['date', 'page'], startDate, endDate, 5000),
+      searchQuery(token, config.siteUrl, ['date', 'query', 'page'], startDate, endDate, 10000),
       listSitemaps(token, config.siteUrl),
     ])
 
@@ -197,6 +198,11 @@ async function syncSearchConsole(source: 'manual' | 'scheduled') {
     })
     for (const row of pages.rows || []) perfRows.push({
       day: row.keys?.[0], dimension: 'page', dimension_key: row.keys?.[1] || '',
+      clicks: row.clicks || 0, impressions: row.impressions || 0, ctr: row.ctr || 0,
+      position: row.position || 0, synced_at: new Date().toISOString(),
+    })
+    for (const row of queryPages.rows || []) perfRows.push({
+      day: row.keys?.[0], dimension: 'query_page', dimension_key: `${row.keys?.[1] || ''}|||${row.keys?.[2] || ''}`,
       clicks: row.clicks || 0, impressions: row.impressions || 0, ctr: row.ctr || 0,
       position: row.position || 0, synced_at: new Date().toISOString(),
     })
@@ -301,6 +307,48 @@ function sumMetrics(rows: Array<{ clicks?: number; impressions?: number; positio
   return { clicks, impressions, ctr: impressions ? clicks / impressions : 0, position: impressions ? weightedPosition / impressions : 0 }
 }
 
+function opportunityPriority(score: number) {
+  if (score >= 75) return 'high'
+  if (score >= 55) return 'medium'
+  return 'watch'
+}
+
+function opportunityScore(row: Metric, type: 'ctr' | 'position' | 'page') {
+  const demand = Math.log10(Math.max(10, row.impressions)) * 20
+  const clickGap = type === 'position'
+    ? Math.max(0, 20 - row.position) * 2
+    : Math.max(0, 0.05 - row.ctr) * 600
+  return Math.round((demand + clickGap) * 10) / 10
+}
+
+function trendState(current: Metric, previous: Metric) {
+  if (current.impressions < 10 && previous.impressions < 10) return 'insufficient'
+  const change = previous.impressions ? (current.impressions - previous.impressions) / previous.impressions : current.impressions >= 10 ? 1 : 0
+  if (change >= 0.25) return 'growing'
+  if (change <= -0.25) return 'declining'
+  return 'stable'
+}
+
+function detectCannibalization(rows: Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>, currentStart: string) {
+  const byQuery = new Map<string, Map<string, Metric>>()
+  for (const row of rows.filter(item => item.day >= currentStart)) {
+    const split = row.dimension_key.indexOf('|||')
+    if (split < 1) continue
+    const query = row.dimension_key.slice(0, split), page = row.dimension_key.slice(split + 3)
+    const pages = byQuery.get(query) || new Map<string, Metric>()
+    const metric = pages.get(page) || { clicks: 0, impressions: 0, ctr: 0, position: 0 }
+    metric.clicks += Number(row.clicks || 0); metric.impressions += Number(row.impressions || 0)
+    metric.position += Number(row.position || 0) * Number(row.impressions || 0)
+    pages.set(page, metric); byQuery.set(query, pages)
+  }
+  return [...byQuery.entries()].flatMap(([query, pages]) => {
+    const ranked = [...pages.entries()].filter(([, m]) => m.impressions >= 5).sort((a,b) => b[1].impressions - a[1].impressions)
+    if (ranked.length < 2) return []
+    const [first, second] = ranked
+    return [{ query, pages: [first[0], second[0]], impressions: first[1].impressions + second[1].impressions, reason: 'Duas páginas recebem impressões para a mesma consulta. Revisar intenção e conteúdo antes de consolidar.' }]
+  }).sort((a,b) => b.impressions - a.impressions).slice(0, 10)
+}
+
 function aggregate(rows: Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>) {
   const map = new Map<string, { key: string; clicks: number; impressions: number; weighted: number }>()
   for (const row of rows) {
@@ -324,10 +372,11 @@ async function dashboard() {
   const previousEnd = isoDay(-29)
   const trendStart = isoDay(-90)
 
-  const [totalResult, queryResult, pageResult, inspectionsResult, sitemapsResult, alertsResult, runsResult] = await Promise.all([
+  const [totalResult, queryResult, pageResult, queryPageResult, inspectionsResult, sitemapsResult, alertsResult, runsResult] = await Promise.all([
     admin.from('seo_search_performance_daily').select('day,clicks,impressions,ctr,position').eq('dimension', 'total').gte('day', trendStart).order('day'),
-    admin.from('seo_search_performance_daily').select('dimension_key,clicks,impressions,position').eq('dimension', 'query').gte('day', currentStart).limit(10000),
-    admin.from('seo_search_performance_daily').select('dimension_key,clicks,impressions,position').eq('dimension', 'page').gte('day', currentStart).limit(10000),
+    admin.from('seo_search_performance_daily').select('day,dimension_key,clicks,impressions,position').eq('dimension', 'query').gte('day', previousStart).limit(20000),
+    admin.from('seo_search_performance_daily').select('day,dimension_key,clicks,impressions,position').eq('dimension', 'page').gte('day', previousStart).limit(20000),
+    admin.from('seo_search_performance_daily').select('day,dimension_key,clicks,impressions,position').eq('dimension', 'query_page').gte('day', currentStart).limit(20000),
     admin.from('seo_url_inspections').select('url,verdict,coverage_state,google_canonical,user_canonical,last_crawl_time,last_inspected_at').order('last_inspected_at', { ascending: false }).limit(100),
     admin.from('seo_sitemaps').select('*').order('last_checked_at', { ascending: false }),
     admin.from('seo_alerts').select('id,code,severity,title,details,url,status,first_seen_at,last_seen_at').eq('status', 'open').order('last_seen_at', { ascending: false }).limit(100),
@@ -337,13 +386,32 @@ async function dashboard() {
   const totals = totalResult.data || []
   const currentRows = totals.filter(row => String(row.day) >= currentStart)
   const previousRows = totals.filter(row => String(row.day) >= previousStart && String(row.day) <= previousEnd)
-  const queries = aggregate((queryResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
-  const pages = aggregate((pageResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
-  const opportunities = [
-    ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 8).map(row => ({ type: 'ctr', subject: row.key, reason: 'Muitas impressões e CTR baixo', ...row })),
-    ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 8).map(row => ({ type: 'position', subject: row.key, reason: 'Consulta próxima da primeira página', ...row })),
-    ...pages.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 8).map(row => ({ type: 'page', subject: row.key, reason: 'Página com visibilidade e poucos cliques', ...row })),
-  ].sort((a, b) => b.impressions - a.impressions).slice(0, 15)
+  const queryData = (queryResult.data || []) as Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>
+  const pageData = (pageResult.data || []) as Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>
+  const queryPageData = (queryPageResult.data || []) as Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>
+  const queries = aggregate(queryData.filter(row => row.day >= currentStart)).slice(0, 50)
+  const pages = aggregate(pageData.filter(row => row.day >= currentStart)).slice(0, 50)
+  const previousQueries = new Map(aggregate(queryData.filter(row => row.day >= previousStart && row.day <= previousEnd)).map(row => [row.key, row]))
+  const previousPages = new Map(aggregate(pageData.filter(row => row.day >= previousStart && row.day <= previousEnd)).map(row => [row.key, row]))
+  const queryTrends = queries.map(row => ({ ...row, previous: previousQueries.get(row.key) || null, trend: trendState(row, previousQueries.get(row.key) || { clicks: 0, impressions: 0, ctr: 0, position: 0 }) }))
+  const pageTrends = pages.map(row => ({ ...row, previous: previousPages.get(row.key) || null, trend: trendState(row, previousPages.get(row.key) || { clicks: 0, impressions: 0, ctr: 0, position: 0 }) }))
+  const cannibalization = detectCannibalization(queryPageData, currentStart)
+  const candidates = [
+    ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'ctr' as const, subject: row.key, reason: 'Muitas impressões e CTR baixo', score: opportunityScore(row, 'ctr'), ...row })),
+    ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 12).map(row => ({ type: 'position' as const, subject: row.key, reason: 'Consulta próxima da primeira página', score: opportunityScore(row, 'position'), ...row })),
+    ...pages.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'page' as const, subject: row.key, reason: 'Página com visibilidade e poucos cliques', score: opportunityScore(row, 'page'), ...row })),
+  ]
+  const seen = new Set<string>()
+  const opportunities = candidates
+    .sort((a, b) => b.score - a.score || b.impressions - a.impressions)
+    .filter(row => {
+      const key = `${row.type}:${row.subject}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 15)
+    .map(row => ({ ...row, priority: opportunityPriority(row.score) }))
 
   return {
     configured: config.configured,
@@ -351,9 +419,10 @@ async function dashboard() {
     current: sumMetrics(currentRows),
     previous: sumMetrics(previousRows),
     trend: totals,
-    queries,
-    pages,
+    queries: queryTrends,
+    pages: pageTrends,
     opportunities,
+    cannibalization,
     inspections: inspectionsResult.data || [],
     sitemaps: sitemapsResult.data || [],
     alerts: alertsResult.data || [],

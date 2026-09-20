@@ -139,3 +139,54 @@ test('o painel de status só expõe presença das credenciais Google, nunca seus
   assert.match(status, /GOOGLE_SEARCH_CONSOLE_SITE_URL/)
   assert.match(status, /secrets\[k\] = !!/)
 })
+
+
+test('P3 prioriza oportunidades orgânicas por evidência sem automatizar publicação', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(fn, /function opportunityScore/)
+  assert.match(fn, /b\.score - a\.score/)
+  assert.match(fn, /row\.impressions >= 20 && row\.ctr < 0\.03/)
+  assert.match(fn, /row\.position >= 8 && row\.position <= 20/)
+  assert.match(cockpit, /Prioridade por evidência:/)
+  assert.match(cockpit, /'alta'.*'média'.*'acompanhar'/s)
+  assert.doesNotMatch(fn, /from\(['"]articles['"]\)\.update/)
+})
+
+
+test('P3 compara períodos equivalentes e mostra tendência sem tratar pouco dado como queda', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(fn, /function trendState/)
+  assert.match(fn, /current\.impressions < 10 && previous\.impressions < 10/)
+  assert.match(fn, /change >= 0\.25/)
+  assert.match(fn, /change <= -0\.25/)
+  assert.match(fn, /previousQueries/)
+  assert.match(fn, /previousPages/)
+  assert.match(cockpit, /📈 Crescendo/)
+  assert.match(cockpit, /📉 Caindo/)
+  assert.match(cockpit, /Dados insuficientes/)
+})
+
+
+test('P3 detecta sobreposição somente com evidência consulta+página e mantém decisão editorial humana', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  const migration = read('supabase/migrations/20260920182500_seo_p3_query_page_dimension.sql')
+  assert.match(fn, /\['date', 'query', 'page'\]/)
+  assert.match(fn, /dimension: 'query_page'/)
+  assert.match(fn, /function detectCannibalization/)
+  assert.match(fn, /m\.impressions >= 5/)
+  assert.match(migration, /'query_page'/)
+  assert.match(cockpit, /Possível sobreposição de conteúdo/)
+  assert.match(cockpit, /não uma ordem para excluir ou redirecionar conteúdo/)
+})
+
+test('documentação e fallback SSR usam os seis guias e o slug canônico de Relações', () => {
+  const docs = read('docs/SEO_OPERACAO.md')
+  const page = read('api/page.js')
+  assert.match(docs, /seis guias temáticos/)
+  assert.doesNotMatch(docs, /oito artigos-pilar|os oito pilares/)
+  assert.match(page, /como-conversar-sobre-os-seus-limites-sem-transformar-tudo-em/)
+  assert.doesNotMatch(page, /como-conversar-sobre-seus-limites-sem-transformar-tudo-em-conflito/)
+})
