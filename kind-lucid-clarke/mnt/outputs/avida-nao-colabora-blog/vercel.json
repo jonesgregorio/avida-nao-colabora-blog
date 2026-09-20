@@ -21,6 +21,12 @@
   ],
   "rewrites": [
     { "source": "/author/:path*", "destination": "/api/gone" },
+    { "source": "/author/(.*)", "destination": "/api/gone" },
+    { "source": "/wp-content/(.*)", "destination": "/api/gone" },
+    { "source": "/wp-admin/(.*)", "destination": "/api/gone" },
+    { "source": "/wp-includes/(.*)", "destination": "/api/gone" },
+    { "source": "/wp-login.php", "destination": "/api/gone" },
+    { "source": "/xmlrpc.php", "destination": "/api/gone" },
     { "source": "/wp-content/:path*", "destination": "/api/gone" },
     { "source": "/wp-content", "destination": "/api/gone" },
     { "source": "/", "destination": "/api/page?route=home" },
