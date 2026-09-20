@@ -139,3 +139,15 @@ test('o painel de status só expõe presença das credenciais Google, nunca seus
   assert.match(status, /GOOGLE_SEARCH_CONSOLE_SITE_URL/)
   assert.match(status, /secrets\[k\] = !!/)
 })
+
+
+test('P3 prioriza oportunidades orgânicas por evidência sem automatizar publicação', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(fn, /function opportunityScore/)
+  assert.match(fn, /b\.score - a\.score/)
+  assert.match(fn, /row\.impressions >= 20 && row\.ctr < 0\.03/)
+  assert.match(fn, /row\.position >= 8 && row\.position <= 20/)
+  assert.match(cockpit, /Prioridade por evidência:/)
+  assert.doesNotMatch(fn, /from\(['"]articles['"]\)\.update/)
+})
