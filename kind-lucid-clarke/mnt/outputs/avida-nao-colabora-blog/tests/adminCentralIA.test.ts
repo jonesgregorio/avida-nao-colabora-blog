@@ -1,76 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8')
 
-const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
-
-test('AdminAIUsage não é renderizado em duas áreas — vive em Sistema › Monitoramento › IA', () => {
-  const conteudo = read('src/components/admin/AdminAreaConteudo.tsx')
-  const sistema = read('src/components/admin/AdminAreaSistema.tsx')
-  assert.doesNotMatch(conteudo, /AdminAIUsage/)
-  assert.match(sistema, /import AdminAIUsage/)
-  assert.match(sistema, /id: 'ia', label: 'IA — uso e falhas', Component: AdminAIUsage/)
+test('Central de IA operacional permanece única em Sistema',()=>{
+ const ia=read('src/components/admin/AdminAIUsage.tsx')
+ const sistema=read('src/components/admin/AdminAreaSistema.tsx')
+ const estudio=read('src/components/admin/AdminAreaEstudioIA.tsx')
+ assert.match(sistema,/import AdminAIUsage/)
+ assert.match(sistema,/id: 'ia', label: 'IA — uso e falhas', Component: AdminAIUsage/)
+ assert.doesNotMatch(estudio,/AdminAIUsage/)
+ assert.match(ia,/Central de IA/)
+ assert.match(ia,/admin_ai_usage_page/)
 })
 
-test('Conteúdo linka para a Central de IA (agora em Sistema) em vez de duplicar a tela', () => {
-  const conteudo = read('src/components/admin/AdminAreaConteudo.tsx')
-  assert.match(conteudo, /onOpenCentralIA/)
-  const index = read('src/components/admin/index.tsx')
-  assert.match(index, /localStorage\.setItem\('admin-sistema-tab', 'ia'\)/)
-  assert.match(index, /navigate\('sistema'\)/)
-})
-
-test('Central de IA continua unificando editorial e emocional sobre a mesma tabela', () => {
-  const src = read('src/components/admin/AdminAIUsage.tsx')
-  assert.match(src, /Central de IA/)
-  assert.match(src, /const EMOTIONAL_TYPES = new Set\(/)
-  assert.match(src, /category !== 'todos' && categoryOf\(log\.content_type\) !== category/)
-  // A leitura passou a ser via RPC paginada (admin_ai_usage_page), que lê
-  // ai_generation_logs no servidor — mesma tabela unificada.
-  assert.match(src, /admin_ai_usage_page/)
-  assert.match(read('supabase/migrations/20260909120000_admin_ai_usage_paged.sql'), /from public\.ai_generation_logs/)
-})
-
-test('Central de IA oferece filtros por tipo, provedor, status, data e busca', () => {
-  const src = read('src/components/admin/AdminAIUsage.tsx')
-  for (const state of ['logQuery', 'contentTypeFilter', 'providerFilter', 'statusFilter', 'dateFrom', 'dateTo']) {
-    assert.match(src, new RegExp(`const \\[${state}, set`))
-  }
-  assert.match(src, /contentTypeFilter !== 'todos' && log\.content_type !== contentTypeFilter/)
-  assert.match(src, /providerFilter !== 'todos' && log\.provider !== providerFilter/)
-  assert.match(src, /statusFilter !== 'todos' && log\.status !== statusFilter/)
-  assert.match(src, /dateInRange\(log\.created_at, dateFrom, dateTo\)/)
-  assert.match(src, /haystack\.includes\(normalizedQuery\)/)
-  assert.match(src, /type="date" value=\{dateFrom\}/)
-  assert.match(src, /type="date" value=\{dateTo\}/)
-})
-
-test('busca de logs permanece separada da busca de usuário do diagnóstico', () => {
-  const src = read('src/components/admin/AdminAIUsage.tsx')
-  assert.match(src, /const \[logQuery, setLogQuery\]/)
-  assert.match(src, /const \[userQuery, setUserQuery\]/)
-  assert.match(src, /const term = userQuery\.trim\(\)/)
-  assert.match(src, /const normalizedQuery = logQuery\.trim\(\)/)
-})
-
-test('tabela e CSV usam a lista da página; cartões usam estatística do FILTRO inteiro', () => {
-  const src = read('src/components/admin/AdminAIUsage.tsx')
-  // tabela + CSV: a lista visível (página)
-  assert.match(src, /visibleLogs\.forEach\(l => push/)
-  assert.match(src, /\{visibleLogs\.map\(l =>/)
-  // cartões: RPC de estatística server-side, não só a página
-  assert.match(src, /supabase\.rpc\('admin_ai_usage_stats'/)
-  assert.match(src, /const fallbackCount = stats\?\.fallback \?\?/)
-  assert.match(src, /const fails = stats\?\.error \?\?/)
-})
-
-test('Uso de IA é paginado server-side (não mais "últimos 200")', () => {
-  const src = read('src/components/admin/AdminAIUsage.tsx')
-  assert.match(src, /supabase\.rpc\('admin_ai_usage_page'/)
-  assert.doesNotMatch(src, /\.from\('ai_generation_logs'\)[\s\S]{0,120}\.limit\(200\)/)
-  assert.match(src, /p_offset: page \* PAGE_SIZE/)
-  const migration = read('supabase/migrations/20260909120000_admin_ai_usage_paged.sql')
-  assert.match(migration, /create or replace function public\.admin_ai_usage_stats\(/)
-  assert.match(migration, /create or replace function public\.admin_ai_usage_page\(/)
-  assert.match(migration, /if not public\.is_admin\(\) then/i)
+test('Estúdio IA concentra apenas produção editorial assistida',()=>{
+ const estudio=read('src/components/admin/AdminAreaEstudioIA.tsx')
+ for(const component of ['AdminFabricaIA','AdminTemplatesIA','AdminAutomacoesBlog']) assert.match(estudio,new RegExp(component))
+ for(const label of ['Criar com IA','Templates','Automações editoriais']) assert.match(estudio,new RegExp(label))
 })
