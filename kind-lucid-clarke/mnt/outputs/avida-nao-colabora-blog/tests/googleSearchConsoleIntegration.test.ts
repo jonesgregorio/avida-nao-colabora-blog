@@ -151,3 +151,18 @@ test('P3 prioriza oportunidades orgânicas por evidência sem automatizar public
   assert.match(cockpit, /Prioridade por evidência:/)\n  assert.match(cockpit, /'alta'.*'média'.*'acompanhar'/s)
   assert.doesNotMatch(fn, /from\(['"]articles['"]\)\.update/)
 })
+
+
+test('P3 compara períodos equivalentes e mostra tendência sem tratar pouco dado como queda', () => {
+  const fn = read('supabase/functions/google-search-console/index.ts')
+  const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
+  assert.match(fn, /function trendState/)
+  assert.match(fn, /current\.impressions < 10 && previous\.impressions < 10/)
+  assert.match(fn, /change >= 0\.25/)
+  assert.match(fn, /change <= -0\.25/)
+  assert.match(fn, /previousQueries/)
+  assert.match(fn, /previousPages/)
+  assert.match(cockpit, /📈 Crescendo/)
+  assert.match(cockpit, /📉 Caindo/)
+  assert.match(cockpit, /Dados insuficientes/)
+})
