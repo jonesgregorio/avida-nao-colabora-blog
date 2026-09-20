@@ -18,6 +18,9 @@ const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
 const AdminAreaCuidado = lazy(() => import('./AdminAreaCuidado'))
 const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
 const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
+const AdminAreaEstudioIA = lazy(() => import('./AdminAreaEstudioIA'))
+const AdminAreaSEO = lazy(() => import('./AdminAreaSEO'))
+const AdminAreaSite = lazy(() => import('./AdminAreaSite'))
 const AdminEstudio = lazy(() => import('./AdminEstudio'))
 const AdminAreaComunicacao = lazy(() => import('./AdminAreaComunicacao'))
 const AdminAreaSistema = lazy(() => import('./AdminAreaSistema'))
@@ -41,7 +44,7 @@ const ADMIN_KEY = 'avida_admin_view'
 const AREAS: AdminView[] = [
   'visao-geral', 'usuarios', 'segmentacao', 'engajamento',
   'assinaturas', 'financeiro',
-  'conteudos', 'estudio', 'cuidado',
+  'conteudos', 'estudio-ia', 'seo-performance', 'site', 'estudio', 'cuidado',
   'comunicacao', 'suporte', 'analytics', 'sistema',
 ]
 
@@ -63,15 +66,15 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   categories: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'categorias' },
   images: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'imagens' },
   trails: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'artigos' },
-  seo: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'seo' },
-  redirects: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'redirects' },
-  'analytics-redirects': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'redirects' },
+  seo: { area: 'seo-performance', tabKey: 'admin-seo-tab', tab: 'performance' },
+  redirects: { area: 'seo-performance', tabKey: 'admin-seo-tab', tab: 'redirects' },
+  'analytics-redirects': { area: 'seo-performance', tabKey: 'admin-seo-tab', tab: 'redirects' },
   'analytics-settings': { area: 'sistema', tabKey: 'admin-sistema-tab', tab: 'analytics' },
-  'social-proof': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'depoimentos' },
+  'social-proof': { area: 'site', tabKey: 'admin-site-tab', tab: 'depoimentos' },
   'saved-items': { area: 'conteudos' },
-  'fabrica-ia': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'gerar-ia' },
+  'fabrica-ia': { area: 'estudio-ia', tabKey: 'admin-estudio-ia-tab', tab: 'criar' },
   calendario: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'calendario' },
-  'automacoes-blog': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'automacoes' },
+  'automacoes-blog': { area: 'estudio-ia', tabKey: 'admin-estudio-ia-tab', tab: 'automacoes' },
   automated: { area: 'conteudos' },
   scheduled: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'programados' },
 
@@ -97,7 +100,7 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   notifications: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'campanhas' },
   emails: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'historico' },
   templates: { area: 'comunicacao', tabKey: 'admin-comunicacao-tab', tab: 'campanhas' },
-  'site-content': { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'site-paginas' },
+  'site-content': { area: 'site', tabKey: 'admin-site-tab', tab: 'paginas' },
 
   support: { area: 'suporte' },
 
@@ -208,15 +211,10 @@ export default function AdminPanel() {
       case 'engajamento': return <AdminEngagement />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'financeiro': return <AdminFinanceiro />
-      case 'conteudos': return (
-        <AdminAreaConteudo
-          onEditArticle={handleEditArticle}
-          onOpenCentralIA={() => {
-            try { localStorage.setItem('admin-sistema-tab', 'ia') } catch { /* noop */ }
-            navigate('sistema')
-          }}
-        />
-      )
+      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'estudio-ia': return <AdminAreaEstudioIA />
+      case 'seo-performance': return <AdminAreaSEO onEditArticle={handleEditArticle} />
+      case 'site': return <AdminAreaSite />
       case 'estudio': return <AdminEstudio />
       case 'cuidado': return <AdminAreaCuidado />
       case 'comunicacao': return <AdminAreaComunicacao initialCampaignId={pendingCampaignId} />
