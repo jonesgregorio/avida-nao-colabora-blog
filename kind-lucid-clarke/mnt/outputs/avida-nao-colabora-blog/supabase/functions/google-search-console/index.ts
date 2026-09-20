@@ -301,6 +301,14 @@ function sumMetrics(rows: Array<{ clicks?: number; impressions?: number; positio
   return { clicks, impressions, ctr: impressions ? clicks / impressions : 0, position: impressions ? weightedPosition / impressions : 0 }
 }
 
+function opportunityScore(row: Metric, type: 'ctr' | 'position' | 'page') {
+  const demand = Math.log10(Math.max(10, row.impressions)) * 20
+  const clickGap = type === 'position'
+    ? Math.max(0, 20 - row.position) * 2
+    : Math.max(0, 0.05 - row.ctr) * 600
+  return Math.round((demand + clickGap) * 10) / 10
+}
+
 function aggregate(rows: Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>) {
   const map = new Map<string, { key: string; clicks: number; impressions: number; weighted: number }>()
   for (const row of rows) {
@@ -340,10 +348,10 @@ async function dashboard() {
   const queries = aggregate((queryResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
   const pages = aggregate((pageResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
   const opportunities = [
-    ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 8).map(row => ({ type: 'ctr', subject: row.key, reason: 'Muitas impressões e CTR baixo', ...row })),
-    ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 8).map(row => ({ type: 'position', subject: row.key, reason: 'Consulta próxima da primeira página', ...row })),
-    ...pages.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 8).map(row => ({ type: 'page', subject: row.key, reason: 'Página com visibilidade e poucos cliques', ...row })),
-  ].sort((a, b) => b.impressions - a.impressions).slice(0, 15)
+    ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'ctr' as const, subject: row.key, reason: 'Muitas impressões e CTR baixo', score: opportunityScore(row, 'ctr'), ...row })),
+    ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 12).map(row => ({ type: 'position' as const, subject: row.key, reason: 'Consulta próxima da primeira página', score: opportunityScore(row, 'position'), ...row })),
+    ...pages.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'page' as const, subject: row.key, reason: 'Página com visibilidade e poucos cliques', score: opportunityScore(row, 'page'), ...row })),
+  ].sort((a, b) => b.score - a.score || b.impressions - a.impressions).slice(0, 15)
 
   return {
     configured: config.configured,
