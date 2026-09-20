@@ -78,13 +78,14 @@ function injectArticleSnapshot(html, article, canonical) {
   const published = article.published_at ? new Date(article.published_at).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
   const reviewed = article.reviewed_at ? new Date(article.reviewed_at).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
   const articleBody = article.content ? renderPublicArticleContent(article.content) : ''
+  const editorialTrust = `<aside class="editorial-trust"><h2>Sobre este conteúdo</h2><p>Material educativo preparado pela ${escapeHtml(author)}. Conheça nossos critérios de autoria, fontes, revisão e atualização na <a href="/politica-editorial">Política editorial</a>.</p>${reviewed ? `<p>Revisão editorial registrada em ${escapeHtml(reviewed)}.</p>` : ''}</aside>`
   const related = Array.isArray(article.related_slugs) && article.related_slugs.length
     ? `<aside><h2>Continue lendo</h2><ul>${article.related_slugs.slice(0, 6).filter((slug) => /^[a-z0-9-]+$/i.test(slug)).map((slug) => {
       const label = slug.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase())
       return `<li><a href="/blog/${escapeHtml(slug)}">${escapeHtml(label)}</a></li>`
     }).join('')}</ul></aside>`
     : ''
-  const markup = `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a></nav><article><header><p>${escapeHtml(article.category || 'Bem-estar emocional')}</p><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ''}<p>Por ${escapeHtml(author)}${published ? ` · Publicado em ${escapeHtml(published)}` : ''}${reviewed ? ` · Revisão editorial em ${escapeHtml(reviewed)}` : ''}</p></header>${articleBody || `<p>${escapeHtml(description)}</p>`}<footer><p>Conteúdo educativo. Não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p></footer></article>${related}<p><a href="${escapeHtml(canonical)}">Ler este conteúdo na A Vida Não Colabora</a></p></main>`
+  const markup = `<main class="seo-snapshot"><nav aria-label="Navegação estrutural"><a href="/">Início</a> · <a href="/blog">Blog</a> · <a href="/guias">Guias</a></nav><article><header><p>${escapeHtml(article.category || 'Bem-estar emocional')}</p><h1>${escapeHtml(title)}</h1>${description ? `<p>${escapeHtml(description)}</p>` : ''}<p>Por ${escapeHtml(author)}${published ? ` · Publicado em ${escapeHtml(published)}` : ''}${reviewed ? ` · Revisão editorial em ${escapeHtml(reviewed)}` : ''}</p></header>${articleBody || `<p>${escapeHtml(description)}</p>`}${editorialTrust}<footer><p>Conteúdo educativo. Não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência.</p></footer></article>${related}<p><a href="${escapeHtml(canonical)}">Ler este conteúdo na A Vida Não Colabora</a></p></main>`
   return html.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">${markup}</div>`)
 }
 
