@@ -315,6 +315,14 @@ function opportunityScore(row: Metric, type: 'ctr' | 'position' | 'page') {
   return Math.round((demand + clickGap) * 10) / 10
 }
 
+function trendState(current: Metric, previous: Metric) {
+  if (current.impressions < 10 && previous.impressions < 10) return 'insufficient'
+  const change = previous.impressions ? (current.impressions - previous.impressions) / previous.impressions : current.impressions >= 10 ? 1 : 0
+  if (change >= 0.25) return 'growing'
+  if (change <= -0.25) return 'declining'
+  return 'stable'
+}
+
 function aggregate(rows: Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>) {
   const map = new Map<string, { key: string; clicks: number; impressions: number; weighted: number }>()
   for (const row of rows) {
@@ -340,8 +348,8 @@ async function dashboard() {
 
   const [totalResult, queryResult, pageResult, inspectionsResult, sitemapsResult, alertsResult, runsResult] = await Promise.all([
     admin.from('seo_search_performance_daily').select('day,clicks,impressions,ctr,position').eq('dimension', 'total').gte('day', trendStart).order('day'),
-    admin.from('seo_search_performance_daily').select('dimension_key,clicks,impressions,position').eq('dimension', 'query').gte('day', currentStart).limit(10000),
-    admin.from('seo_search_performance_daily').select('dimension_key,clicks,impressions,position').eq('dimension', 'page').gte('day', currentStart).limit(10000),
+    admin.from('seo_search_performance_daily').select('day,dimension_key,clicks,impressions,position').eq('dimension', 'query').gte('day', previousStart).limit(20000),
+    admin.from('seo_search_performance_daily').select('day,dimension_key,clicks,impressions,position').eq('dimension', 'page').gte('day', previousStart).limit(20000),
     admin.from('seo_url_inspections').select('url,verdict,coverage_state,google_canonical,user_canonical,last_crawl_time,last_inspected_at').order('last_inspected_at', { ascending: false }).limit(100),
     admin.from('seo_sitemaps').select('*').order('last_checked_at', { ascending: false }),
     admin.from('seo_alerts').select('id,code,severity,title,details,url,status,first_seen_at,last_seen_at').eq('status', 'open').order('last_seen_at', { ascending: false }).limit(100),
@@ -351,8 +359,14 @@ async function dashboard() {
   const totals = totalResult.data || []
   const currentRows = totals.filter(row => String(row.day) >= currentStart)
   const previousRows = totals.filter(row => String(row.day) >= previousStart && String(row.day) <= previousEnd)
-  const queries = aggregate((queryResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
-  const pages = aggregate((pageResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
+  const queryData = (queryResult.data || []) as Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>
+  const pageData = (pageResult.data || []) as Array<{ day: string; dimension_key: string; clicks: number; impressions: number; position: number }>
+  const queries = aggregate(queryData.filter(row => row.day >= currentStart)).slice(0, 50)
+  const pages = aggregate(pageData.filter(row => row.day >= currentStart)).slice(0, 50)
+  const previousQueries = new Map(aggregate(queryData.filter(row => row.day >= previousStart && row.day <= previousEnd)).map(row => [row.key, row]))
+  const previousPages = new Map(aggregate(pageData.filter(row => row.day >= previousStart && row.day <= previousEnd)).map(row => [row.key, row]))
+  const queryTrends = queries.map(row => ({ ...row, previous: previousQueries.get(row.key) || null, trend: trendState(row, previousQueries.get(row.key) || { clicks: 0, impressions: 0, ctr: 0, position: 0 }) }))
+  const pageTrends = pages.map(row => ({ ...row, previous: previousPages.get(row.key) || null, trend: trendState(row, previousPages.get(row.key) || { clicks: 0, impressions: 0, ctr: 0, position: 0 }) }))
   const candidates = [
     ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'ctr' as const, subject: row.key, reason: 'Muitas impressões e CTR baixo', score: opportunityScore(row, 'ctr'), ...row })),
     ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 12).map(row => ({ type: 'position' as const, subject: row.key, reason: 'Consulta próxima da primeira página', score: opportunityScore(row, 'position'), ...row })),
@@ -376,8 +390,8 @@ async function dashboard() {
     current: sumMetrics(currentRows),
     previous: sumMetrics(previousRows),
     trend: totals,
-    queries,
-    pages,
+    queries: queryTrends,
+    pages: pageTrends,
     opportunities,
     inspections: inspectionsResult.data || [],
     sitemaps: sitemapsResult.data || [],
