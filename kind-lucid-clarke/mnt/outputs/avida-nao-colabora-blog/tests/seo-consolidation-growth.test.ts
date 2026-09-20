@@ -54,3 +54,13 @@ test('pacote não altera superfícies sensíveis',()=>{
   const source=(guide+'\n'+clusters+'\n'+migration).replace(/--.*$/gm,'')
   assert.doesNotMatch(source,/stripe|subscription|user_subscriptions|profiles|diary_entries|garden_/i)
 })
+
+
+test('P2 conecta conteúdo público de sono já existente ao cluster oficial',()=>{
+  assert.match(clusters,/como-as-telas-atrapalham-o-sono-e-o-que-mudar-gxmen-y7n/)
+  assert.match(guide,/como-as-telas-atrapalham-o-sono-e-o-que-mudar-gxmen-y7n/)
+})
+
+test('P2 preserva exatamente seis clusters oficiais',()=>{
+  for(const cluster of ['Diário emocional','Emoções e autoconhecimento','Sobrecarga emocional','Autocuidado emocional','Sono, descanso e energia','Relações e limites']) assert.match(clusters,new RegExp(cluster))
+})
