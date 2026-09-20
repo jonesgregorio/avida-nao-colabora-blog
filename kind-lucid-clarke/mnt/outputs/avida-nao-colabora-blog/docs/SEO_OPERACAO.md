@@ -8,7 +8,7 @@ Fazer o conteúdo público do AVNC ser descoberto, indexado e compreendido por m
 
 - `/`: apresentação da plataforma e acesso aos principais temas.
 - `/blog`: índice server-side dos conteúdos gratuitos publicados.
-- `/guias`: hub dos oito artigos-pilar.
+- `/guias`: hub dos seis guias temáticos.
 - `/blog/:slug`: documento server-side completo quando o artigo é gratuito.
 - `/sobre`, `/planos`, `/faq`, `/contato`: páginas públicas institucionais.
 - `/politica-editorial`: critérios de autoria, fontes, revisão e atualização.
@@ -21,7 +21,7 @@ Conteúdos fechados e rotas pessoais recebem `noindex`. O sitemap inclui somente
 1. Criar uma propriedade de domínio para `avidanaocolabora.com`.
 2. Preferir verificação por registro DNS. Como alternativa, configurar `GOOGLE_SITE_VERIFICATION` na Vercel com apenas o valor do token da meta tag.
 3. Enviar `https://www.avidanaocolabora.com/sitemap.xml`.
-4. Inspecionar e solicitar indexação, nesta ordem: home, `/blog`, `/guias`, os oito pilares e os artigos novos ou substancialmente atualizados.
+4. Inspecionar e solicitar indexação, nesta ordem: home, `/blog`, `/guias`, os seis guias temáticos e os artigos novos ou substancialmente atualizados.
 5. Conferir semanalmente Páginas, Sitemaps, HTTPS, Core Web Vitals e Melhorias.
 
 ## Ativação no Bing Webmaster Tools
