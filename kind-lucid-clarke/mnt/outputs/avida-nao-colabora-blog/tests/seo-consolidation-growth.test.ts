@@ -22,6 +22,15 @@ test('seis guias ganham conteúdo SSR útil, perguntas e múltiplas leituras',()
   assert.match(guide,/Não substitui avaliação, diagnóstico ou acompanhamento profissional/)
 })
 
+test('hub de guias oferece orientação editorial substancial',()=>{
+  const hub=read('api/guides.js')
+  assert.match(hub,/Como usar estes guias/)
+  assert.match(hub,/Se você ainda não sabe por onde começar/)
+  assert.match(hub,/Leitura e prática podem caminhar juntas/)
+  assert.match(hub,/O que estes materiais não fazem/)
+  assert.match(hub,/avaliação profissional pode ser necessária/)
+})
+
 test('títulos SEO server-side são curtos e separados do H1 editorial',()=>{
   assert.match(guide,/seoTitle:'Diário emocional: como começar'/)
   assert.match(guide,/seoTitle:'Sono e descanso: organizar a rotina'/)
