@@ -9,9 +9,31 @@ import { RefreshCw, Users, Radar } from 'lucide-react'
 // (analytics_events) e mesmas regras de classificação de fonte já usadas
 // em Analytics; aqui só o recorte fica mais enxuto e com um gráfico.
 
-type Period = 'today' | '7d' | '30d'
-const PERIOD_LABELS: Record<Period, string> = { today: 'Hoje', '7d': '7 dias', '30d': '30 dias' }
-const PERIOD_DAYS: Record<Period, number> = { today: 1, '7d': 7, '30d': 30 }
+type Period = 'today' | '7d' | '30d' | 'month' | 'custom'
+const PERIOD_LABELS: Record<Period, string> = { today: 'Hoje', '7d': '7 dias', '30d': '30 dias', month: 'Mês atual', custom: 'Personalizado' }
+
+// yyyy-mm-dd no fuso local (input type=date trabalha assim, sem UTC no meio).
+function isoDay(d: Date) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+// Intervalo [start, end] de cada período. "Hoje" = desde 00:00 do dia local (não
+// "últimas 24h"), e o personalizado vai do início do 1º dia ao fim do último — sem
+// isso, escolher 10/09 a 12/09 cortaria o dia 12 inteiro.
+function rangeFor(period: Period, customStart: string, customEnd: string): { start: Date; end: Date } | null {
+  const now = new Date()
+  if (period === 'today') { const s = new Date(now); s.setHours(0, 0, 0, 0); return { start: s, end: now } }
+  if (period === '7d') return { start: new Date(now.getTime() - 7 * 86400000), end: now }
+  if (period === '30d') return { start: new Date(now.getTime() - 30 * 86400000), end: now }
+  if (period === 'month') return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now }
+  if (!customStart || !customEnd) return null
+  const start = new Date(`${customStart}T00:00:00`)
+  const end = new Date(`${customEnd}T23:59:59.999`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return null
+  return { start, end }
+}
 
 // Cores por fonte reconhecida; fontes não mapeadas (site desconhecido) usam o fallback.
 const SOURCE_COLORS: Record<string, string> = {
@@ -30,14 +52,18 @@ interface Ev { event: string; entity_id: string | null; session_id: string | nul
 
 export default function AdminVisitsSourceCard() {
   const [period, setPeriod] = useState<Period>('7d')
+  const [customStart, setCustomStart] = useState(() => isoDay(new Date(Date.now() - 7 * 86400000)))
+  const [customEnd, setCustomEnd] = useState(() => isoDay(new Date()))
+  const rangeValid = rangeFor(period, customStart, customEnd) !== null
   const [loading, setLoading] = useState(true)
   const [visitors, setVisitors] = useState(0)
   const [sessions, setSessions] = useState(0)
   const [sources, setSources] = useState<[string, number][]>([])
 
   const load = useCallback(async () => {
+    const r = rangeFor(period, customStart, customEnd)
+    if (!r) { setLoading(false); setVisitors(0); setSessions(0); setSources([]); return }
     setLoading(true)
-    const since = new Date(Date.now() - PERIOD_DAYS[period] * 86400000).toISOString()
     // Achado ao vivo: o Supabase (PostgREST) limita silenciosamente a resposta a
     // 1000 linhas por padrão, mesmo pedindo .limit(20000) — sem .order(), o corte
     // ficava por conta da ordem "natural" da tabela, que descartava exatamente os
@@ -47,7 +73,8 @@ export default function AdminVisitsSourceCard() {
     const { data } = await supabase
       .from('analytics_events')
       .select('event, entity_id, session_id, user_id')
-      .gte('created_at', since)
+      .gte('created_at', r.start.toISOString())
+      .lte('created_at', r.end.toISOString())
       .in('event', ['page_view', 'article_view', 'visit_source'])
       .order('created_at', { ascending: false })
       .limit(20000)
@@ -62,7 +89,7 @@ export default function AdminVisitsSourceCard() {
     }
     setSources([...counts.entries()].sort((a, b) => b[1] - a[1]))
     setLoading(false)
-  }, [period])
+  }, [period, customStart, customEnd])
 
   useEffect(() => { void load() }, [load])
 
@@ -101,6 +128,14 @@ export default function AdminVisitsSourceCard() {
           </button>
         </div>
       </div>
+
+      {period === 'custom' && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-stone-50 px-4 py-3 text-xs">
+          <label className="flex items-center gap-2">De <input type="date" value={customStart} max={customEnd || undefined} onChange={e => setCustomStart(e.target.value)} className="rounded-lg border border-line bg-white px-2.5 py-1.5" /></label>
+          <label className="flex items-center gap-2">até <input type="date" value={customEnd} min={customStart || undefined} onChange={e => setCustomEnd(e.target.value)} className="rounded-lg border border-line bg-white px-2.5 py-1.5" /></label>
+          {!rangeValid && <span className="text-amber-700">Escolha um intervalo válido (início antes do fim).</span>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[auto_1fr]">
         <div className="flex gap-3 sm:flex-col">
