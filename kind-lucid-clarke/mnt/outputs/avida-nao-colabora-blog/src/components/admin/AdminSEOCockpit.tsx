@@ -13,10 +13,11 @@ type Sitemap = { path: string; errors: number; warnings: number; last_checked_at
 type Alert = { id: string; code?: string; severity: 'info' | 'warning' | 'critical'; title: string; details?: string | null; url?: string | null; last_seen_at: string }
 type Run = { id: string; kind: string; status: string; started_at: string; rows_written: number; error?: string | null }
 type Opportunity = SearchItem & { type: string; subject: string; reason: string; score?: number; priority?: 'high' | 'medium' | 'watch' }
+type Cannibalization = { query: string; pages: string[]; impressions: number; reason: string }
 type Dashboard = {
   configured: boolean; siteUrl: string; current: Metric; previous: Metric; trend: TrendRow[]
   queries: SearchItem[]; pages: SearchItem[]; opportunities: Opportunity[]; inspections: Inspection[]
-  sitemaps: Sitemap[]; alerts: Alert[]; runs: Run[]; error?: string
+  sitemaps: Sitemap[]; alerts: Alert[]; runs: Run[]; cannibalization: Cannibalization[]; error?: string
 }
 type ReportPriority = { level: 'critical' | 'high' | 'medium' | 'info' | 'ok'; title: string; what: string; action: string }
 type InstantReport = {
@@ -25,7 +26,7 @@ type InstantReport = {
   thinContent: number; noReview: number; badSlugs: number; missingAuthor: number; oldContent: number
   priorities: ReportPriority[]
 }
-type Tab = 'overview' | 'indexing' | 'performance' | 'queries' | 'pages' | 'opportunities' | 'sitemap' | 'alerts' | 'audit' | 'settings'
+type Tab = 'overview' | 'indexing' | 'performance' | 'queries' | 'pages' | 'opportunities' | 'overlap' | 'sitemap' | 'alerts' | 'audit' | 'settings'
 
 const seoOk = (a: Row) => !!(a.seo_title && a.seo_title.trim().length >= 25 && a.seo_title.trim().length <= 60 && a.seo_description && a.seo_description.trim().length >= 90 && a.seo_description.trim().length <= 155 && a.keyword)
 const imgOk = (a: Row) => !!((a.image_url || a.cover_image || a.cover_image_url) && a.image_alt?.trim())
@@ -286,7 +287,7 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
   const cards: { key: Issue; label: string }[] = (Object.keys(ISSUE_COPY) as Issue[]).map(key => ({ key, label: ISSUE_COPY[key].label }))
   const tabs: Array<{ key: Tab; label: string }> = [
     ['overview', 'Visão Geral'], ['indexing', 'Indexação'], ['performance', 'Performance'], ['queries', 'Palavras-chave'], ['pages', 'Páginas'],
-    ['opportunities', 'Oportunidades'], ['sitemap', 'Sitemap'], ['alerts', 'Alertas'], ['audit', 'Auditoria técnica'], ['settings', 'Configurações'],
+    ['opportunities', 'Oportunidades'], ['overlap', 'Sobreposição'], ['sitemap', 'Sitemap'], ['alerts', 'Alertas'], ['audit', 'Auditoria técnica'], ['settings', 'Configurações'],
   ].map(([key, label]) => ({ key: key as Tab, label }))
 
   return <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -310,7 +311,7 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
     {tab === 'performance' && <Performance rows={dashboard?.trend || []} />}
     {tab === 'queries' && <MetricTable title="Palavras-chave" rows={dashboard?.queries || []} firstLabel="Pesquisa feita no Google" />}
     {tab === 'pages' && <MetricTable title="Páginas" rows={dashboard?.pages || []} firstLabel="Página" links />}
-    {tab === 'opportunities' && <Opportunities rows={dashboard?.opportunities || []} articles={publishedRows} busyId={busyId} onCorrect={correctArticle} />}
+    {tab === 'opportunities' && <Opportunities rows={dashboard?.opportunities || []} articles={publishedRows} busyId={busyId} onCorrect={correctArticle} />}\n    {tab === 'overlap' && <Overlap rows={dashboard?.cannibalization || []} />}
     {tab === 'sitemap' && <Sitemaps rows={dashboard?.sitemaps || []} onSubmit={submitSitemapNow} busy={syncing} />}
     {tab === 'alerts' && <Alerts rows={dashboard?.alerts || []} articles={publishedRows} busyId={busyId} onCorrect={correctArticle} onSubmitSitemap={submitSitemapNow} />}
     {tab === 'audit' && <Audit loading={loading} cards={cards} issue={issue} setIssue={setIssue} list={list} busyId={busyId} onCorrect={correctArticle} onEditArticle={onEditArticle} counts={count} />}
@@ -348,6 +349,10 @@ function MetricTable({ title, rows, firstLabel, links = false }: { title: string
 function Opportunities({ rows, articles, busyId, onCorrect }: { rows: Opportunity[]; articles: Row[]; busyId: string | null; onCorrect: (r: Row, issue?: SeoSmartIssue) => Promise<void> }) {
   const reason = (row: Opportunity) => row.type === 'position' ? 'Esta pesquisa já está perto da primeira página. Ajustes no conteúdo e nos dados de SEO podem ajudar.' : row.type === 'page' ? 'Esta página já aparece nas buscas, mas recebe poucos cliques. Melhorar título e descrição pode ajudar.' : 'O site aparece para esta pesquisa, mas poucas pessoas clicam. Um título e uma descrição mais atraentes podem ajudar.'
   return <Panel title="Oportunidades de crescimento" subtitle="Aqui o sistema mostra onde pequenas melhorias podem trazer mais visitas.">{rows.length === 0 ? <Empty text="Nenhuma oportunidade forte foi encontrada agora." /> : <div className="space-y-3">{rows.map((row, i) => { const article = articleFromUrl(row.subject, articles); return <div key={`${row.type}-${row.subject}-${i}`} className="rounded-xl border border-line p-4"><p className="font-medium text-forest-900 break-all">{row.subject}</p><p className="text-xs text-ink-soft mt-1">{reason(row)}</p><p className="text-[11px] text-forest-700 mt-1">Prioridade por evidência: {fmt(row.score || 0)} · {row.priority === 'high' ? 'alta' : row.priority === 'medium' ? 'média' : 'acompanhar'}</p><div className="flex flex-wrap items-center justify-between gap-3 mt-2"><p className="text-xs text-ink-soft">{fmt(row.impressions)} aparições · {fmt(row.clicks)} cliques · taxa {pct(row.ctr)} · posição média {fmt(row.position)}</p>{article && <button onClick={() => void onCorrect(article, 'opportunity')} disabled={busyId === article.id} className="inline-flex items-center gap-1.5 text-xs border border-forest-200 text-forest-800 px-2.5 py-1.5 rounded-lg disabled:opacity-50">{busyId === article.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WandSparkles className="w-3.5 h-3.5" />} Melhorar com IA</button>}</div></div> })}</div>}</Panel>
+}
+
+function Overlap({ rows }: { rows: Cannibalization[] }) {
+  return <Panel title="Possível sobreposição de conteúdo" subtitle="Mostra somente casos em que duas páginas receberam impressões para a mesma pesquisa. Isso é um sinal para revisar, não uma ordem para excluir ou redirecionar conteúdo.">{rows.length === 0 ? <Empty text="Nenhuma sobreposição com evidência suficiente foi encontrada agora." /> : <div className="space-y-3">{rows.map(row => <div key={row.query} className="rounded-xl border border-line p-4"><p className="font-medium text-forest-900">Pesquisa: {row.query}</p><p className="text-xs text-ink-soft mt-1">{fmt(row.impressions)} aparições somadas nas duas páginas principais.</p><div className="mt-2 space-y-1">{row.pages.map(page => <a key={page} href={page} target="_blank" rel="noreferrer" className="block text-xs text-forest-700 hover:underline break-all">{page}</a>)}</div><p className="text-xs mt-3 text-amber-900"><strong>Recomendação:</strong> {row.reason}</p></div>)}</div>}</Panel>
 }
 
 function Sitemaps({ rows, onSubmit, busy }: { rows: Sitemap[]; onSubmit: () => Promise<void>; busy: boolean }) { return <Panel title="Mapa de páginas do site" subtitle="O sitemap é a lista que ajuda o Google a descobrir as páginas. Você pode reenviá-lo daqui, sem entrar no Search Console."><div className="mb-3"><button onClick={() => void onSubmit()} disabled={busy} className="inline-flex items-center gap-2 border border-forest-200 text-forest-800 px-3 py-2 rounded-lg text-xs disabled:opacity-50">{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Reenviar mapa de páginas ao Google</button></div>{rows.length === 0 ? <Empty text="Ainda não há informação do sitemap." /> : <div className="space-y-3">{rows.map(row => <div key={row.path} className="rounded-xl border border-line p-4 flex flex-wrap items-center justify-between gap-3"><div><a href={row.path} target="_blank" rel="noreferrer" className="font-medium text-forest-900 hover:underline inline-flex items-center gap-1">{row.path}<ExternalLink className="w-3 h-3" /></a><p className="text-xs text-ink-soft mt-1">Última verificação: {row.last_checked_at ? new Date(row.last_checked_at).toLocaleString('pt-BR') : 'ainda não informada'}</p></div><Status ok={!row.errors && !row.warnings} label={row.errors ? `${row.errors} erro(s)` : row.warnings ? `${row.warnings} aviso(s)` : 'Tudo certo'} /></div>)}</div>}</Panel> }
