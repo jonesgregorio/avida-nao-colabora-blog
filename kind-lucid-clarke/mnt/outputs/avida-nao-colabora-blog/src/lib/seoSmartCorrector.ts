@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { generateSEO, generateWithFailover } from './aiContent'
 import { searchCoverImage } from './imageSearch'
 
-export type SeoSmartIssue = 'no_seo' | 'no_image' | 'bad_slug' | 'thin' | 'no_author' | 'no_review' | 'no_links' | 'old' | 'indexing' | 'opportunity'
+export type SeoSmartIssue = 'no_seo' | 'no_image' | 'bad_slug' | 'thin' | 'no_author' | 'no_review' | 'no_links' | 'old' | 'indexing' | 'opportunity' | 'ctr' | 'position'
 
 export interface SeoSmartArticle {
   id: string
@@ -188,11 +188,14 @@ export async function smartFixArticle(
   const unique = [...new Set(issues)]
   for (const issue of unique) {
     try {
-      if (issue === 'no_seo' || issue === 'opportunity' || issue === 'indexing') {
+      if (issue === 'no_seo' || issue === 'opportunity' || issue === 'indexing' || issue === 'ctr') {
         if (!metadataDone) {
           await fixMetadata(article, changed)
           metadataDone = true
         }
+      } else if (issue === 'position') {
+        if (!metadataDone) { await fixMetadata(article, changed); metadataDone = true }
+        await fixLinks(article, allArticles, changed)
       } else if (issue === 'no_image') await fixImage(article, changed)
       else if (issue === 'no_links') await fixLinks(article, allArticles, changed)
       else if (issue === 'thin') await fixThinContent(article, changed)
