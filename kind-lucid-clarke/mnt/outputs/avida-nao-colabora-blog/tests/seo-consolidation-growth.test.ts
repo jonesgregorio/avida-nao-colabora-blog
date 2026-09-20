@@ -64,3 +64,10 @@ test('P2 conecta conteúdo público de sono já existente ao cluster oficial',()
 test('P2 preserva exatamente seis clusters oficiais',()=>{
   for(const cluster of ['Diário emocional','Emoções e autoconhecimento','Sobrecarga emocional','Autocuidado emocional','Sono, descanso e energia','Relações e limites']) assert.match(clusters,new RegExp(cluster))
 })
+
+test('P2 expõe confiança editorial também no HTML server-side dos artigos',()=>{
+  const article=read('api/article.js')
+  assert.match(article,/Sobre este conteúdo/)
+  assert.match(article,/\/politica-editorial/)
+  assert.match(article,/critérios de autoria, fontes, revisão e atualização/)
+})
