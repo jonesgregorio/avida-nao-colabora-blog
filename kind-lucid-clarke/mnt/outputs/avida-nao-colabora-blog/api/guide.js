@@ -66,7 +66,7 @@ const GUIDES={
     title:'Sono, descanso e energia: um guia para observar sua rotina',
     description:'Observe sono, descanso e energia, organize a transição noturna e entenda quando alterações persistentes merecem avaliação profissional.',
     intro:'Sono, descanso e energia se relacionam com a forma como o dia é atravessado, mas não precisam virar um sistema de cobrança. Antes de tentar corrigir horários ou criar uma rotina rígida, vale observar o que acontece ao longo de alguns dias: como você chega à noite, o que faz antes de dormir e como acorda.',
-    readings:['como-organizar-o-sono-quando-a-rotina-saiu-do-eixo','como-desacelerar-a-mente-antes-de-dormir-sem-transformar-o-sono-em-cobranca','a-diferenca-entre-descansar-e-fugir-de-tudo'],
+    readings:['como-organizar-o-sono-quando-a-rotina-saiu-do-eixo','como-desacelerar-a-mente-antes-de-dormir-sem-transformar-o-sono-em-cobranca','a-diferenca-entre-descansar-e-fugir-de-tudo','como-as-telas-atrapalham-o-sono-e-o-que-mudar-gxmen-y7n'],
     sections:[
       ['Observe antes de corrigir','Horário de deitar, despertares, energia ao acordar, cochilos, uso de telas, preocupações e demandas noturnas formam um contexto. Alguns dias de observação ajudam a perceber o que varia. Mudar muitas coisas ao mesmo tempo dificulta saber o que realmente fez diferença e pode transformar o sono em mais uma tarefa.'],
       ['Crie uma transição entre dia e noite','A cabeça nem sempre desacelera no mesmo instante em que o trabalho ou as tarefas terminam. Registrar pendências, reduzir novas demandas e repetir um pequeno sinal de encerramento pode criar uma passagem entre os dois ritmos. A meta não é “forçar o sono”, mas diminuir a quantidade de coisas novas entrando naquele momento.'],
