@@ -301,6 +301,12 @@ function sumMetrics(rows: Array<{ clicks?: number; impressions?: number; positio
   return { clicks, impressions, ctr: impressions ? clicks / impressions : 0, position: impressions ? weightedPosition / impressions : 0 }
 }
 
+function opportunityPriority(score: number) {
+  if (score >= 75) return 'high'
+  if (score >= 55) return 'medium'
+  return 'watch'
+}
+
 function opportunityScore(row: Metric, type: 'ctr' | 'position' | 'page') {
   const demand = Math.log10(Math.max(10, row.impressions)) * 20
   const clickGap = type === 'position'
@@ -347,11 +353,22 @@ async function dashboard() {
   const previousRows = totals.filter(row => String(row.day) >= previousStart && String(row.day) <= previousEnd)
   const queries = aggregate((queryResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
   const pages = aggregate((pageResult.data || []) as Array<{ dimension_key: string; clicks: number; impressions: number; position: number }>).slice(0, 50)
-  const opportunities = [
+  const candidates = [
     ...queries.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'ctr' as const, subject: row.key, reason: 'Muitas impressões e CTR baixo', score: opportunityScore(row, 'ctr'), ...row })),
     ...queries.filter(row => row.impressions >= 10 && row.position >= 8 && row.position <= 20).slice(0, 12).map(row => ({ type: 'position' as const, subject: row.key, reason: 'Consulta próxima da primeira página', score: opportunityScore(row, 'position'), ...row })),
     ...pages.filter(row => row.impressions >= 20 && row.ctr < 0.03).slice(0, 12).map(row => ({ type: 'page' as const, subject: row.key, reason: 'Página com visibilidade e poucos cliques', score: opportunityScore(row, 'page'), ...row })),
-  ].sort((a, b) => b.score - a.score || b.impressions - a.impressions).slice(0, 15)
+  ]
+  const seen = new Set<string>()
+  const opportunities = candidates
+    .sort((a, b) => b.score - a.score || b.impressions - a.impressions)
+    .filter(row => {
+      const key = `${row.type}:${row.subject}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 15)
+    .map(row => ({ ...row, priority: opportunityPriority(row.score) }))
 
   return {
     configured: config.configured,
