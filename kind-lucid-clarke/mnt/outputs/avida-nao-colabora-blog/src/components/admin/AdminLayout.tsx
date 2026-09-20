@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, HeartHandshake, BookOpen,
   Mail, LifeBuoy, Settings2, Activity,
   ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
-  Search, Bell, CreditCard, AlertTriangle, Loader2, X,
+  Search, Bell, CreditCard, AlertTriangle, Loader2, X, Sparkles, Globe2, Gauge,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -62,7 +62,10 @@ const NAV_GROUPS: NavGroup[] = [
   ]},
   { label: 'Conteúdo', items: [
     { id: 'conteudos', label: 'Conteúdo', icon: BookOpen },
-    { id: 'estudio', label: 'Estúdio de Conteúdo', icon: Megaphone },
+    { id: 'estudio-ia', label: 'Estúdio IA', icon: Sparkles },
+    { id: 'seo-performance', label: 'SEO & Performance', icon: Gauge },
+    { id: 'site', label: 'Site', icon: Globe2 },
+    { id: 'estudio', label: 'Estúdio Social', icon: Megaphone },
   ]},
   { label: 'Cuidado', items: [
     { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
@@ -87,10 +90,11 @@ const SEARCH_ITEMS: SearchItem[] = [
   { view: 'assinaturas', label: 'Assinaturas', description: 'Planos, alterações e cancelamentos', keywords: ['planos', 'upgrade', 'downgrade', 'cancelamento'], module: 'finance' },
   { view: 'financeiro', label: 'Financeiro', description: 'Receita, pagamentos e eventos Stripe', keywords: ['receita', 'stripe', 'pagamentos', 'fatura'], module: 'finance' },
   { view: 'articles', label: 'Artigos', description: 'Publicação e edição de artigos', keywords: ['conteudo', 'editor', 'publicacao'], module: 'content' },
-  { view: 'fabrica-ia', label: 'Fábrica IA', description: 'Geração editorial com IA', keywords: ['ia', 'gerar', 'conteudo'], module: 'content' },
+  { view: 'estudio-ia', label: 'Estúdio IA', description: 'Criação, templates e automações editoriais com IA', keywords: ['ia', 'gerar', 'templates', 'automacoes'], module: 'content' },
   { view: 'calendario', label: 'Calendário editorial', description: 'Planejamento e programação', keywords: ['agenda', 'programados', 'planejamento'], module: 'content' },
   { view: 'images', label: 'Mídia', description: 'Biblioteca e uploads', keywords: ['imagem', 'upload', 'storage'], module: 'content' },
-  { view: 'seo', label: 'SEO', description: 'Otimização dos conteúdos', keywords: ['busca', 'meta', 'slug'], module: 'content' },
+  { view: 'seo-performance', label: 'SEO & Performance', description: 'Indexação, Search Console, tráfego orgânico e correções', keywords: ['seo', 'busca', 'google', 'indexacao', 'performance', 'meta', 'slug'], module: 'content' },
+  { view: 'site', label: 'Site', description: 'Home, páginas e depoimentos', keywords: ['home', 'paginas', 'depoimentos', 'site'], module: 'content' },
   { view: 'estudio', label: 'Estúdio de Conteúdo', description: 'Produção de peças e campanhas', keywords: ['instagram', 'social', 'estudio'], module: 'content' },
   { view: 'diary-config', label: 'Diário e check-ins', description: 'Configuração e acompanhamento do diário', keywords: ['diario', 'checkin', 'humor'], module: 'content' },
   { view: 'questionnaires', label: 'Questionários', description: 'Questionários de autoconhecimento', keywords: ['perguntas', 'avaliacao'], module: 'content' },
@@ -121,7 +125,7 @@ function deriveActive(view: string): string {
 const AREA_MODULE: Record<string, string> = {
   'visao-geral': 'overview', usuarios: 'users', segmentacao: 'users', engajamento: 'analytics',
   assinaturas: 'finance', financeiro: 'finance',
-  conteudos: 'content', estudio: 'content',
+  conteudos: 'content', 'estudio-ia': 'content', 'seo-performance': 'content', site: 'content', estudio: 'content',
   cuidado: 'content', analytics: 'analytics',
   comunicacao: 'communication', suporte: 'users', sistema: 'system',
 }
