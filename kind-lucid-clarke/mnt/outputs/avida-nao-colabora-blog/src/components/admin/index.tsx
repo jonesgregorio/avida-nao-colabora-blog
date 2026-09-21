@@ -10,9 +10,7 @@ import AdminMfaGate from './AdminMfaGate'
 // editores, gráficos e integrações que o administrador não abriu nesta sessão.
 const AdminArticleEditor = lazy(() => import('./AdminArticleEditor'))
 const AdminOverview = lazy(() => import('./AdminOverview'))
-const AdminUsers = lazy(() => import('./AdminUsers'))
-const AdminSegments = lazy(() => import('./AdminSegments'))
-const AdminEngagement = lazy(() => import('./AdminEngagement'))
+const AdminAreaUsuarios = lazy(() => import('./AdminAreaUsuarios'))
 const AdminAreaAssinaturas = lazy(() => import('./AdminAreaAssinaturas'))
 const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
 const AdminAreaCuidado = lazy(() => import('./AdminAreaCuidado'))
@@ -207,8 +205,8 @@ export default function AdminPanel() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
       case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
-      case 'segmentacao': return <AdminSegments />
-      case 'engajamento': return <AdminEngagement />
+      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={selectedUserId} />
+      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={selectedUserId} />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'financeiro': return <AdminFinanceiro />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
