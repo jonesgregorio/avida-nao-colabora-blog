@@ -7,9 +7,7 @@ import AdminAssinaturasOverview from './AdminAssinaturasOverview'
 import AdminPlanAccessAudit from './AdminPlanAccessAudit'
 import AdminFinanceiro from './AdminFinanceiro'
 
-// ASSINATURAS — a operação comercial da assinatura, separada do FINANCEIRO
-// (que só analisa dinheiro). Junta o que antes eram as áreas "Planos e
-// assinaturas" e "Cancelamentos" + a visão de "Alterações de plano".
+// ASSINATURAS — centraliza operação comercial, receita e pagamentos sem alterar a lógica financeira.
 const TABS = [
   { id: 'visao-geral', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'planos', label: 'Planos & benefícios', icon: CreditCard },
@@ -26,7 +24,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const saved = initialTab ?? localStorage.getItem(STORE) ?? 'visao-geral'
-      const map: Record<string, Tab> = { plans: 'planos', financial: 'planos' }
+      const map: Record<string, Tab> = { plans: 'planos', financial: 'financeiro' }
       const resolved = map[saved] ?? saved
       return (TABS.find(t => t.id === resolved)?.id ?? 'visao-geral') as Tab
     } catch { return 'visao-geral' }
