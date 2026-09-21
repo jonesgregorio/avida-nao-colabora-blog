@@ -204,7 +204,7 @@ export default function AdminPanel() {
   function renderView() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
-      case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
+      case 'usuarios': return <AdminAreaUsuarios initialUserId={pendingUserId} />
       case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={selectedUserId} />
       case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={selectedUserId} />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
