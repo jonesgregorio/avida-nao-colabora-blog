@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Ban, CreditCard, RefreshCcw, LayoutDashboard, SearchCheck } from 'lucide-react'
+import { Ban, CreditCard, RefreshCcw, LayoutDashboard, SearchCheck, DollarSign } from 'lucide-react'
 import AdminCancellations from './AdminCancellations'
 import AdminPlanosPage from './AdminPlanosPage'
 import AdminPlanChanges from './AdminPlanChanges'
 import AdminAssinaturasOverview from './AdminAssinaturasOverview'
 import AdminPlanAccessAudit from './AdminPlanAccessAudit'
+import AdminFinanceiro from './AdminFinanceiro'
 
 // ASSINATURAS — a operação comercial da assinatura, separada do FINANCEIRO
 // (que só analisa dinheiro). Junta o que antes eram as áreas "Planos e
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'planos', label: 'Planos & benefícios', icon: CreditCard },
   { id: 'alteracoes', label: 'Alterações', icon: RefreshCcw },
   { id: 'cancelamentos', label: 'Cancelamentos', icon: Ban },
+  { id: 'financeiro', label: 'Receita & pagamentos', icon: DollarSign },
   { id: 'verificacao-acesso', label: 'Verificação de acesso', icon: SearchCheck },
 ] as const
 
@@ -40,7 +42,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
       <section className="admin-page-hero">
         <p className="admin-kicker">Negócio</p>
         <h1 className="font-serif text-3xl text-forest-900">Assinaturas</h1>
-        <p className="admin-subtitle mt-1">A operação comercial das assinaturas: cancelamentos, planos e benefícios, e o histórico de mudanças de plano. Os números de receita ficam em Financeiro.</p>
+        <p className="admin-subtitle mt-1">A operação comercial das assinaturas: cancelamentos, planos e benefícios, e o histórico de mudanças de plano. Receita, pagamentos e operação comercial ficam reunidos aqui.</p>
       </section>
 
       <div className="admin-tabs-wrap sticky top-20 z-10">
@@ -62,6 +64,7 @@ export default function AdminAreaAssinaturas({ initialTab, onViewUser }: { initi
         {tab === 'cancelamentos' && <AdminCancellations />}
         {tab === 'planos' && <AdminPlanosPage />}
         {tab === 'alteracoes' && <AdminPlanChanges onOpenUser={onViewUser} />}
+        {tab === 'financeiro' && <AdminFinanceiro />}
         {tab === 'verificacao-acesso' && <AdminPlanAccessAudit />}
       </section>
     </div>
