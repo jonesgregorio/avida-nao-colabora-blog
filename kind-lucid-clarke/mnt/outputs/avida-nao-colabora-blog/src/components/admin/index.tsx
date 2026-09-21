@@ -205,11 +205,11 @@ export default function AdminPanel() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
       case 'usuarios': return <AdminAreaUsuarios initialUserId={pendingUserId} />
-      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={selectedUserId} />
-      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={selectedUserId} />
+      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={pendingUserId} />
+      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={pendingUserId} />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'financeiro': return <AdminFinanceiro />
-      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} onNavigate={v => navigate(v)} />
       case 'estudio-ia': return <AdminAreaEstudioIA />
       case 'seo-performance': return <AdminAreaSEO onEditArticle={handleEditArticle} />
       case 'site': return <AdminAreaSite />
