@@ -12,7 +12,6 @@ const AdminArticleEditor = lazy(() => import('./AdminArticleEditor'))
 const AdminOverview = lazy(() => import('./AdminOverview'))
 const AdminAreaUsuarios = lazy(() => import('./AdminAreaUsuarios'))
 const AdminAreaAssinaturas = lazy(() => import('./AdminAreaAssinaturas'))
-const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
 const AdminAreaCuidado = lazy(() => import('./AdminAreaCuidado'))
 const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
 const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
@@ -55,7 +54,7 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   // Assinaturas (antes: planos + cancelamentos)
   planos: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'planos' },
   plans: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'planos' },
-  financial: { area: 'financeiro' },
+  financial: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'financeiro' },
   cancelamentos: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'cancelamentos' },
 
   // Conteúdo
@@ -208,7 +207,7 @@ export default function AdminPanel() {
       case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={pendingUserId} />
       case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={pendingUserId} />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
-      case 'financeiro': return <AdminFinanceiro />
+      case 'financeiro': return <AdminAreaAssinaturas initialTab="financeiro" onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} onNavigate={v => navigate(v)} />
       case 'estudio-ia': return <AdminAreaEstudioIA />
       case 'seo-performance': return <AdminAreaSEO onEditArticle={handleEditArticle} />
