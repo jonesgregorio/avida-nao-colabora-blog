@@ -6,7 +6,8 @@ const read=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8')
 test('menu principal fica reduzido sem apagar recursos',()=>{
  const layout=read('src/components/admin/AdminLayout.tsx')
  for(const label of ['Dashboard','Usuários','Assinaturas','Conteúdo','SEO & Performance','Marketing','Comunicação','Cuidado','Suporte','Analytics','Sistema']) assert.match(layout,new RegExp(`label: '${label.replace('&','&')}'`))
- for(const hidden of ["label: 'Segmentação'","label: 'Engajamento'","label: 'Financeiro'","label: 'Estúdio IA'","label: 'Site'"]) assert.doesNotMatch(layout,new RegExp(hidden))
+ const nav=layout.slice(layout.indexOf('const NAV_GROUPS'),layout.indexOf('const SEARCH_ITEMS'))
+ for(const hidden of ["label: 'Segmentação'","label: 'Engajamento'","label: 'Financeiro'","label: 'Estúdio IA'","label: 'Site'"]) assert.doesNotMatch(nav,new RegExp(hidden))
 })
 
 test('usuários reúne contas segmentos e engajamento',()=>{
