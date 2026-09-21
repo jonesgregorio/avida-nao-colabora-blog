@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react'
-import { Activity, Plug, ClipboardList, Shield, Gauge, Settings2 } from 'lucide-react'
+import { Activity, Plug, Shield, Settings2 } from 'lucide-react'
 import AdminSystemHealthFriendly from './AdminSystemHealthFriendly'
 import AdminQueuesFailures from './AdminQueuesFailures'
 import AdminIntegrations from './AdminIntegrations'
@@ -31,16 +31,12 @@ const AREAS: { id: string; label: string; icon: typeof Activity; subs: Sub[] }[]
     { id: 'servicos', label: 'Serviços conectados', Component: AdminIntegrations },
     { id: 'infra', label: 'Infra & externas', Component: AdminInfraReference },
   ]},
-  { id: 'recursos', label: 'Recursos', icon: Gauge, subs: [
-    { id: 'flags', label: 'Feature flags', Component: AdminFeatureFlags },
-  ]},
-  { id: 'administradores', label: 'Administradores', icon: Shield, subs: [
+  { id: 'governanca', label: 'Governança', icon: Shield, subs: [
     { id: 'permissoes', label: 'Papéis e permissões', Component: AdminPermissions },
+    { id: 'logs', label: 'Auditoria', Component: AdminLogs },
   ]},
-  { id: 'auditoria', label: 'Auditoria', icon: ClipboardList, subs: [
-    { id: 'logs', label: 'Registro de ações', Component: AdminLogs },
-  ]},
-  { id: 'configuracoes', label: 'Configurações', icon: Settings2, subs: [
+  { id: 'configuracoes', label: 'Avançado', icon: Settings2, subs: [
+    { id: 'flags', label: 'Feature flags', Component: AdminFeatureFlags },
     { id: 'analytics', label: 'Analytics (rastreamento e retenção)', Component: AdminAnalyticsSettings },
   ]},
 ]
@@ -82,7 +78,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       <section className="admin-page-hero">
         <p className="admin-kicker">Operação e governança</p>
         <h1 className="font-serif text-3xl text-forest-900">Sistema</h1>
-        <p className="admin-subtitle mt-1">Monitoramento, integrações, controle de recursos, administradores e auditoria.</p>
+        <p className="admin-subtitle mt-1">Operação, integrações e governança. Recursos técnicos pouco usados ficam em Avançado.</p>
       </section>
 
       <div className="admin-tabs-wrap sticky top-20 z-10">
