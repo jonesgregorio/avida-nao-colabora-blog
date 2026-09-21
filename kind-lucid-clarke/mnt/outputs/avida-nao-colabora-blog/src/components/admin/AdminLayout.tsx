@@ -59,12 +59,12 @@ const NAV_GROUPS: NavGroup[] = [
     { id: 'conteudos', label: 'Conteúdo', icon: BookOpen },
     { id: 'seo-performance', label: 'SEO & Performance', icon: Gauge },
     { id: 'estudio', label: 'Marketing', icon: Megaphone },
+    { id: 'comunicacao', label: 'Comunicação', icon: Mail },
   ]},
   { label: 'Cuidado', items: [
     { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
   ]},
   { label: 'Relacionamento', items: [
-    { id: 'comunicacao', label: 'Comunicação', icon: Mail },
     { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
   ]},
   { label: 'Análise', items: [
