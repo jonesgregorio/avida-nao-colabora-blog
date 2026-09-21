@@ -51,21 +51,14 @@ const NAV_GROUPS: NavGroup[] = [
   { label: 'Visão geral', items: [
     { id: 'visao-geral', label: 'Dashboard', icon: LayoutDashboard },
   ]},
-  { label: 'Pessoas', items: [
+  { label: 'Gestão', items: [
     { id: 'usuarios', label: 'Usuários', icon: Users },
-    { id: 'segmentacao', label: 'Segmentação', icon: ListFilter },
-    { id: 'engajamento', label: 'Engajamento', icon: Activity },
-  ]},
-  { label: 'Negócio', items: [
     { id: 'assinaturas', label: 'Assinaturas', icon: CreditCard },
-    { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   ]},
-  { label: 'Conteúdo', items: [
+  { label: 'Conteúdo e crescimento', items: [
     { id: 'conteudos', label: 'Conteúdo', icon: BookOpen },
-    { id: 'estudio-ia', label: 'Estúdio IA', icon: Sparkles },
     { id: 'seo-performance', label: 'SEO & Performance', icon: Gauge },
-    { id: 'site', label: 'Site', icon: Globe2 },
-    { id: 'estudio', label: 'Estúdio Social', icon: Megaphone },
+    { id: 'estudio', label: 'Marketing', icon: Megaphone },
   ]},
   { label: 'Cuidado', items: [
     { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
