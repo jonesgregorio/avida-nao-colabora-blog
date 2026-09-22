@@ -48,6 +48,6 @@ test('admin mostra badge "Em análise" distinto de "Recebida" e continua contand
 
 test('não altera a regra de "respondida" (status===answered com narrativa válida) nem os limites do plano', () => {
   assert.doesNotMatch(userPage, /isGuidanceAnswered\(status: string.*in_review/)
-  assert.match(userPage, /const DEADLINE_DAY = 23/)
+  assert.match(userPage, /const REQUEST_WINDOW_END_DAY = 10/)
   assert.match(userPage, /getEffectivePlan\(profile\) === 'plus'/)
 })
