@@ -27,8 +27,7 @@ create trigger trg_monthly_care_plan_review_due_at
 before insert or update of month_reference on public.monthly_care_plans
 for each row execute function public.set_monthly_care_plan_review_due_at();
 
-drop function if exists public.get_my_care_plan_readiness();
-create function public.get_my_care_plan_readiness()
+create or replace function public.get_my_care_plan_readiness()
 returns table (
   id uuid,
   month_reference date,
