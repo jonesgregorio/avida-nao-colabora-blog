@@ -38,7 +38,7 @@ type CarePlanRow = {
   review_due_at: string | null
 }
 
-type ActivitySummary = { total_entries:number; active_days:number; source_counts:Record<string,number>; min_entries?:number; min_active_days?:number }
+type ActivitySummary = { total_entries:number; active_days:number; source_counts:Record<string,number>; content_signals?:string[]; min_entries?:number; min_active_days?:number }
 
 type PreviousInsight = {
   plan: CarePlanRow | null
@@ -257,7 +257,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
   }, [user.user_id, monthRef])
 
   const readiness = readinessOf(analysis, activity)
-  const rs = useMemo(() => { if (!analysis) return null; const base=buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)); return activity ? { ...base, totalEntries: activity.total_entries, activeDays: activity.active_days, sourceActivity: activity.source_counts, hasEnoughData: activity.total_entries >= 12 && activity.active_days >= 8 } : base }, [analysis, activity, monthRef, period])
+  const rs = useMemo(() => { if (!analysis) return null; const base=buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)); return activity ? { ...base, totalEntries: activity.total_entries, activeDays: activity.active_days, sourceActivity: activity.source_counts, sourceSignals: activity.content_signals ?? [], hasEnoughData: activity.total_entries >= 12 && activity.active_days >= 8 } : base }, [analysis, activity, monthRef, period])
   const priorities = care.three_care_priorities ?? []
   const currentSnapshot = JSON.stringify({ summary, care })
   const edited = currentSnapshot !== baselineRef.current
