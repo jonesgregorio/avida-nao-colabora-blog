@@ -227,7 +227,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     let active = true
     ;(async () => {
       setLoadingData(true)
-      const [{ data, error }, activityResult] = await Promise.all([supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end }), supabase.rpc('admin_care_plan_activity_summary', { p_user: user.user_id, p_start: period.start, p_end: period.end })])
+      const [{ data, error }, activityResult] = await Promise.all([supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end }), supabase.rpc('care_plan_activity_summary', { p_user: user.user_id, p_start: period.start, p_end: period.end })])
       if (!active) return
       if (error) { notify('Erro ao carregar a base do plano: ' + error.message, true); setLoadingData(false); return }
       const rows: DiaryRowLite[] = ((data ?? []) as Record<string, unknown>[]).map(d => ({
