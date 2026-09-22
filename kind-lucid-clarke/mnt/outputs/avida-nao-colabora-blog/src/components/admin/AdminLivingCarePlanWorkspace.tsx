@@ -38,7 +38,7 @@ type CarePlanRow = {
   review_due_at: string | null
 }
 
-type ActivitySummary = { total_entries:number; active_days:number; source_counts:Record<string,number>; content_signals?:string[]; min_entries?:number; min_active_days?:number }
+type ActivitySummary = { total_entries:number; active_days:number; source_counts:Record<string,number>; content_signals?:string[]; questionnaire_signals?:Record<string,unknown>[]; min_entries?:number; min_active_days?:number }
 
 type PreviousInsight = {
   plan: CarePlanRow | null
@@ -117,8 +117,8 @@ function statusInTab(tab: Tab, status: string) {
 }
 
 function readinessOf(analysis: EmotionalAnalysis | null, activity: ActivitySummary | null) {
-  const total = activity?.total_entries ?? analysis?.totalEntries ?? 0
-  const days = activity?.active_days ?? analysis?.activeDays ?? 0
+  const total = activity?.total_entries ?? 0
+  const days = activity?.active_days ?? 0
   return { ready: total >= 12 && days >= 8, total, days, minTotal: 12, minDays: 8 }
 }
 
@@ -227,7 +227,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     let active = true
     ;(async () => {
       setLoadingData(true)
-      const [{ data, error }, activityResult] = await Promise.all([supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end }), supabase.rpc('admin_care_plan_activity_summary', { p_user: user.user_id, p_start: period.start, p_end: period.end })])
+      const [{ data, error }, activityResult] = await Promise.all([supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end }), supabase.rpc('care_plan_activity_summary', { p_user: user.user_id, p_start: period.start, p_end: period.end })])
       if (!active) return
       if (error) { notify('Erro ao carregar a base do plano: ' + error.message, true); setLoadingData(false); return }
       const rows: DiaryRowLite[] = ((data ?? []) as Record<string, unknown>[]).map(d => ({
@@ -235,7 +235,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
         emotional_tags: d.emotional_tags as string[], context_tags: d.context_tags as string[], need_tags: d.need_tags as string[], care_action_tags: d.care_action_tags as string[], trigger_tags: d.trigger_tags as string[], entry_type: d.entry_type as string, created_at: d.created_at as string, date: d.entry_date as string,
       }))
       setAnalysis(computeEmotionalAnalysis(rows))
-      if (!activityResult.error) setActivity((activityResult.data ?? null) as ActivitySummary | null)
+      if (activityResult.error) { setActivity(null); notify('Erro ao carregar a contagem multifuente do plano: ' + activityResult.error.message, true) } else setActivity((activityResult.data ?? null) as ActivitySummary | null)
       setLoadingData(false)
     })()
     return () => { active = false }
@@ -257,7 +257,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
   }, [user.user_id, monthRef])
 
   const readiness = readinessOf(analysis, activity)
-  const rs = useMemo(() => { if (!analysis) return null; const base=buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)); return activity ? { ...base, totalEntries: activity.total_entries, activeDays: activity.active_days, sourceActivity: activity.source_counts, sourceSignals: activity.content_signals ?? [], hasEnoughData: activity.total_entries >= 12 && activity.active_days >= 8 } : base }, [analysis, activity, monthRef, period])
+  const rs = useMemo(() => { if (!analysis) return null; const base=buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)); return activity ? { ...base, totalEntries: activity.total_entries, activeDays: activity.active_days, sourceActivity: activity.source_counts, sourceSignals: activity.content_signals ?? [], questionnaireSignals: activity.questionnaire_signals ?? [], hasEnoughData: activity.total_entries >= 12 && activity.active_days >= 8 } : base }, [analysis, activity, monthRef, period])
   const priorities = care.three_care_priorities ?? []
   const currentSnapshot = JSON.stringify({ summary, care })
   const edited = currentSnapshot !== baselineRef.current
