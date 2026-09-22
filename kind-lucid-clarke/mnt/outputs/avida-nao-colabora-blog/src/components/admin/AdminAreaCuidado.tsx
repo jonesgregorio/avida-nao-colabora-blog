@@ -12,21 +12,20 @@ import AdminGardenManagement from './AdminGardenManagement'
 // Navegação em 2 níveis (grupo → aba) para reduzir fragmentação sem esconder
 // funções operacionais importantes do admin.
 const GROUPS = [
-  { id: 'dados', label: 'Dados do usuário', icon: Database },
-  { id: 'entregas', label: 'Entregas de cuidado', icon: HeartHandshake },
-  { id: 'personalizacao', label: 'Personalização', icon: Sparkles },
-  { id: 'jardins', label: 'Jardins', icon: Sprout },
+  { id: 'experiencia', label: 'Experiência do usuário', icon: Database },
+  { id: 'entregas', label: 'Entregas', icon: HeartHandshake },
+  { id: 'inteligencia', label: 'Inteligência', icon: Sparkles },
 ] as const
 type Group = typeof GROUPS[number]['id']
 
 const TABS = [
-  { id: 'diario', label: 'Diário & Check-ins', icon: NotebookPen, group: 'dados' },
-  { id: 'questionarios', label: 'Questionários', icon: ClipboardList, group: 'dados' },
+  { id: 'diario', label: 'Diário & Check-ins', icon: NotebookPen, group: 'experiencia' },
+  { id: 'questionarios', label: 'Questionários', icon: ClipboardList, group: 'experiencia' },
   { id: 'relatorios', label: 'Relatórios', icon: FileText, group: 'entregas' },
   { id: 'autocuidado', label: 'Autocuidado', icon: CalendarCheck, group: 'entregas' },
   { id: 'orientacoes', label: 'Orientações', icon: MessageSquare, group: 'entregas' },
-  { id: 'recomendacoes', label: 'Recomendações', icon: Sparkles, group: 'personalizacao' },
-  { id: 'jardins', label: 'Gestão de Jardins', icon: Sprout, group: 'jardins' },
+  { id: 'recomendacoes', label: 'Recomendações', icon: Sparkles, group: 'inteligencia' },
+  { id: 'jardins', label: 'Jardins', icon: Sprout, group: 'experiencia' },
 ] as const
 
 type Tab = typeof TABS[number]['id']
@@ -34,7 +33,7 @@ const STORE = 'admin-cuidado-tab'
 const DEFAULT_TAB: Tab = 'diario'
 
 function isTab(v: string): v is Tab { return TABS.some(t => t.id === v) }
-function groupForTab(tab: Tab): Group { return TABS.find(t => t.id === tab)?.group ?? 'dados' }
+function groupForTab(tab: Tab): Group { return TABS.find(t => t.id === tab)?.group ?? 'experiencia' }
 function firstTabOfGroup(group: Group): Tab { return TABS.find(t => t.group === group)?.id ?? DEFAULT_TAB }
 
 export default function AdminAreaCuidado({ initialTab }: { initialTab?: string }) {
@@ -64,7 +63,7 @@ export default function AdminAreaCuidado({ initialTab }: { initialTab?: string }
         <p className="admin-kicker">Cuidado</p>
         <h1 className="font-serif text-3xl text-forest-900">Cuidado</h1>
         <p className="admin-subtitle mt-1">
-          Diário, mapa emocional, questionários, relatórios, planos de autocuidado, orientações, recomendações e gestão dos jardins — tudo o que sustenta a jornada de cuidado do usuário.
+          Acompanhe a experiência do usuário, as entregas de cuidado e a inteligência de personalização em três blocos claros.
         </p>
       </section>
 

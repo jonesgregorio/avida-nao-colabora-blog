@@ -3,9 +3,9 @@ import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   LayoutDashboard, Users, HeartHandshake, BookOpen,
-  Mail, LifeBuoy, Settings2, Activity,
-  ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
-  Search, Bell, CreditCard, AlertTriangle, Loader2, X, Sparkles, Globe2, Gauge,
+  Mail, LifeBuoy, Settings2,
+  ExternalLink, Menu, BarChart3, ArrowLeftFromLine, Megaphone,
+  Search, Bell, CreditCard, AlertTriangle, Loader2, X, Gauge,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
@@ -51,27 +51,20 @@ const NAV_GROUPS: NavGroup[] = [
   { label: 'Visão geral', items: [
     { id: 'visao-geral', label: 'Dashboard', icon: LayoutDashboard },
   ]},
-  { label: 'Pessoas', items: [
+  { label: 'Gestão', items: [
     { id: 'usuarios', label: 'Usuários', icon: Users },
-    { id: 'segmentacao', label: 'Segmentação', icon: ListFilter },
-    { id: 'engajamento', label: 'Engajamento', icon: Activity },
-  ]},
-  { label: 'Negócio', items: [
     { id: 'assinaturas', label: 'Assinaturas', icon: CreditCard },
-    { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   ]},
-  { label: 'Conteúdo', items: [
+  { label: 'Conteúdo e crescimento', items: [
     { id: 'conteudos', label: 'Conteúdo', icon: BookOpen },
-    { id: 'estudio-ia', label: 'Estúdio IA', icon: Sparkles },
     { id: 'seo-performance', label: 'SEO & Performance', icon: Gauge },
-    { id: 'site', label: 'Site', icon: Globe2 },
-    { id: 'estudio', label: 'Estúdio Social', icon: Megaphone },
+    { id: 'estudio', label: 'Marketing', icon: Megaphone },
+    { id: 'comunicacao', label: 'Comunicação', icon: Mail },
   ]},
   { label: 'Cuidado', items: [
     { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
   ]},
   { label: 'Relacionamento', items: [
-    { id: 'comunicacao', label: 'Comunicação', icon: Mail },
     { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
   ]},
   { label: 'Análise', items: [

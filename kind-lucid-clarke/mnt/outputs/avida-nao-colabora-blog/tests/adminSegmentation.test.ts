@@ -55,8 +55,9 @@ test('públicos salvos podem ser reutilizados, atualizados e excluídos', () => 
   assert.match(comp, /logAdminAction\('delete', 'admin_segment'/)
 })
 
-test('a área Segmentação está registrada no admin e no menu', () => {
+test('Segmentação continua registrada e acessível dentro de Usuários', () => {
   assert.match(index, /'usuarios', 'segmentacao', 'engajamento'/)
-  assert.match(index, /case 'segmentacao': return <AdminSegments \/>/)
-  assert.match(layout, /\{ id: 'segmentacao', label: 'Segmentação'/)
+  assert.match(index, /case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao"/)
+  assert.match(layout, /view: 'segmentacao', label: 'Segmentação'/)
+  assert.doesNotMatch(layout.slice(layout.indexOf('const NAV_GROUPS'), layout.indexOf('const SEARCH_ITEMS')), /id: 'segmentacao'/)
 })

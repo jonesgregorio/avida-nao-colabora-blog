@@ -10,11 +10,8 @@ import AdminMfaGate from './AdminMfaGate'
 // editores, gráficos e integrações que o administrador não abriu nesta sessão.
 const AdminArticleEditor = lazy(() => import('./AdminArticleEditor'))
 const AdminOverview = lazy(() => import('./AdminOverview'))
-const AdminUsers = lazy(() => import('./AdminUsers'))
-const AdminSegments = lazy(() => import('./AdminSegments'))
-const AdminEngagement = lazy(() => import('./AdminEngagement'))
+const AdminAreaUsuarios = lazy(() => import('./AdminAreaUsuarios'))
 const AdminAreaAssinaturas = lazy(() => import('./AdminAreaAssinaturas'))
-const AdminFinanceiro = lazy(() => import('./AdminFinanceiro'))
 const AdminAreaCuidado = lazy(() => import('./AdminAreaCuidado'))
 const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
 const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
@@ -57,7 +54,7 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   // Assinaturas (antes: planos + cancelamentos)
   planos: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'planos' },
   plans: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'planos' },
-  financial: { area: 'financeiro' },
+  financial: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'financeiro' },
   cancelamentos: { area: 'assinaturas', tabKey: 'admin-assinaturas-tab', tab: 'cancelamentos' },
 
   // Conteúdo
@@ -206,12 +203,12 @@ export default function AdminPanel() {
   function renderView() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
-      case 'usuarios': return <AdminUsers initialUserId={pendingUserId} />
-      case 'segmentacao': return <AdminSegments />
-      case 'engajamento': return <AdminEngagement />
+      case 'usuarios': return <AdminAreaUsuarios initialUserId={pendingUserId} />
+      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={pendingUserId} />
+      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={pendingUserId} />
       case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
-      case 'financeiro': return <AdminFinanceiro />
-      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} />
+      case 'financeiro': return <AdminAreaAssinaturas initialTab="financeiro" onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
+      case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} onNavigate={v => navigate(v)} />
       case 'estudio-ia': return <AdminAreaEstudioIA />
       case 'seo-performance': return <AdminAreaSEO onEditArticle={handleEditArticle} />
       case 'site': return <AdminAreaSite />
