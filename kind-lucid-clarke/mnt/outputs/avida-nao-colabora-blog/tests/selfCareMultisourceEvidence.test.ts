@@ -23,3 +23,26 @@ test('admin and user expose the same multisource rule',()=>{
  assert.match(admin,/Questionários/)
  assert.match(user,/check-ins, Diário, questionários, conteúdos sugeridos e vistos/)
 })
+
+test('admin and automation share one canonical multisource counter',()=>{
+ const migration=read('supabase/migrations/20260922235500_self_care_canonical_multisource.sql')
+ const runner=read('supabase/functions/run-emotional-automations/runner.ts')
+ const admin=read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
+ assert.match(migration,/care_plan_activity_summary/)
+ assert.match(runner,/rpc\('care_plan_activity_summary'/)
+ assert.match(admin,/rpc\('care_plan_activity_summary'/)
+ for(const source of ['checkins','diaries','questionnaires','suggested_content','viewed_content','guided_content','personalized_content','care_plan_feedback']) assert.match(migration,new RegExp(source))
+})
+test('automatic plan generation stops before AI when multisource context is insufficient',()=>{
+ const runner=read('supabase/functions/run-emotional-automations/runner.ts')
+ const gate=runner.indexOf('if (!s.data_quality.has_enough_data)')
+ const generate=runner.indexOf("generate(prompt('self_care_plan'",gate)
+ assert.ok(gate >= 0)
+ assert.ok(generate > gate)
+ assert.match(runner.slice(gate,generate),/status: 'skipped'/)
+})
+test('admin fails closed when canonical multisource evidence is unavailable',()=>{
+ const admin=read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
+ assert.match(admin,/const total = activity\?\.total_entries \?\? 0/)
+ assert.match(admin,/Erro ao carregar a contagem multifuente do plano/)
+})
