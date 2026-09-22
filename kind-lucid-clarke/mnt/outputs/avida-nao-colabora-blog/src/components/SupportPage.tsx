@@ -396,7 +396,7 @@ export default function SupportPage({ user, profile, navigate, onBack, onOpenTic
               <h2 className="font-serif text-lg">Orientação profissional</h2>
               <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full flex items-center gap-1"><Crown className="w-3 h-3" /> Plus</span>
             </div>
-            <p className="text-sm text-forest-50/90 leading-relaxed">Orientação mensal por mensagem — um direcionamento individual e não emergencial, enviado uma vez por mês com base nos seus registros.</p>
+            <p className="text-sm text-forest-50/90 leading-relaxed">Orientação mensal por mensagem — depois que o mês fecha, você pode solicitar entre os dias 1 e 10 uma orientação referente ao mês anterior. Quem entrou no Plus nos últimos dias do mês também mantém esse direito.</p>
             <button
               onClick={() => navigate(isPlus ? 'monthly-guidance' : 'pricing')}
               className="mt-4 inline-flex items-center gap-2 bg-white text-forest-900 text-sm font-medium px-4 py-2 rounded-xl hover:bg-mint transition-colors"
