@@ -3,9 +3,9 @@ import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   LayoutDashboard, Users, HeartHandshake, BookOpen,
-  Mail, LifeBuoy, Settings2, Activity,
-  ExternalLink, Menu, BarChart3, DollarSign, ArrowLeftFromLine, Megaphone, ListFilter,
-  Search, Bell, CreditCard, AlertTriangle, Loader2, X, Sparkles, Globe2, Gauge,
+  Mail, LifeBuoy, Settings2,
+  ExternalLink, Menu, BarChart3, ArrowLeftFromLine, Megaphone,
+  Search, Bell, CreditCard, AlertTriangle, Loader2, X, Gauge,
 } from 'lucide-react'
 import { LogoIcon } from '../Logo'
 import type { AdminView } from './types'
