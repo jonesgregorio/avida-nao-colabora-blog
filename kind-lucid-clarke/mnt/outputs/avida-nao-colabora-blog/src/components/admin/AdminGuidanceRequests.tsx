@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   MessageSquare, CheckCircle, Clock, Send, Loader2, Filter, Sparkles,
-  ChevronLeft, Search, Users, Calendar, Bookmark, RefreshCw, LifeBuoy,
+  ChevronLeft, Search, Users, Calendar, Bookmark, RefreshCw, LifeBuoy, UserPlus,
 } from 'lucide-react'
 import { generateWithFailover } from '../../lib/aiContent'
 import { emailGuidanceAnsweredForUser } from '../../lib/emailTriggers'
@@ -17,6 +17,8 @@ interface GuidanceLetter {
   final_message_draft?: string; professional_review_notes?: string[]; safety_flags?: string[]; data_quality_notice?: string
   review_badge?: string
 }
+interface EligibleGuidanceUser { user_id: string; full_name?: string; email?: string; plan?: string; plan_activated_at?: string | null }
+
 interface GuidanceRequest {
   id: string
   user_id: string
@@ -30,6 +32,7 @@ interface GuidanceRequest {
   created_at: string
   ai_draft_json?: { draft?: string; generated_at?: string; prompt_type?: string; final_response?: GuidanceLetter } | null
   final_response_json?: GuidanceLetter | null
+  request_origin?: 'user' | 'admin'
   user?: { full_name?: string; email?: string; plan?: string }
 }
 
@@ -170,6 +173,10 @@ export default function AdminGuidanceRequests() {
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+  const [eligibleUsers, setEligibleUsers] = useState<EligibleGuidanceUser[]>([])
+  const [eligibleSearch, setEligibleSearch] = useState('')
+  const [showEligible, setShowEligible] = useState(false)
+  const [startingFor, setStartingFor] = useState<string | null>(null)
 
   function showToast(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3500) }
 
@@ -196,6 +203,47 @@ export default function AdminGuidanceRequests() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const loadEligibleUsers = useCallback(async () => {
+    const now = new Date()
+    const reference = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const monthKey = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, '0')}`
+    const referenceEnd = new Date(reference.getFullYear(), reference.getMonth() + 1, 0, 23, 59, 59, 999).toISOString()
+    const [{ data: profiles }, { data: existing }] = await Promise.all([
+      supabase.from('profiles').select('user_id,full_name,email,plan,plan_activated_at,subscription_status')
+        .in('plan', ['plus', 'therapeutic', 'therapeutic-plus'])
+        .in('subscription_status', ['active', 'trialing'])
+        .lte('plan_activated_at', referenceEnd)
+        .order('full_name'),
+      supabase.from('monthly_guidance_requests').select('user_id').eq('month_key', monthKey),
+    ])
+    const used = new Set((existing ?? []).map((row: { user_id: string }) => row.user_id))
+    setEligibleUsers(((profiles ?? []) as EligibleGuidanceUser[]).filter(profile => !used.has(profile.user_id)))
+  }, [])
+
+  useEffect(() => { void loadEligibleUsers() }, [loadEligibleUsers])
+
+  async function startProactiveGuidance(user: EligibleGuidanceUser) {
+    const now = new Date()
+    const reference = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const monthKey = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, '0')}`
+    setStartingFor(user.user_id)
+    const { data, error } = await supabase.from('monthly_guidance_requests').insert({
+      user_id: user.user_id, month_key: monthKey,
+      message: 'Orientação iniciada pela equipe para este ciclo.',
+      status: 'open', request_origin: 'admin',
+    }).select('*').single()
+    setStartingFor(null)
+    if (error || !data) { showToast('Não foi possível iniciar a orientação: ' + (error?.message ?? 'erro desconhecido'), true); return }
+    const created = { ...(data as GuidanceRequest), user: { full_name: user.full_name, email: user.email, plan: user.plan } }
+    setRequests(current => [created, ...current])
+    setEligibleUsers(current => current.filter(item => item.user_id !== user.user_id))
+    setShowEligible(false)
+    openRequest(created)
+    showToast('Orientação iniciada. Revise o contexto e prepare a mensagem antes de enviar.')
+  }
+
+
 
   const filtered = requests
     .filter(r => {
@@ -368,6 +416,20 @@ export default function AdminGuidanceRequests() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
       {toast && <Toast toast={toast} />}
+
+      <section className="mb-5 rounded-2xl border border-line bg-white p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div><h2 className="font-serif text-lg text-forest-900">Usuários elegíveis para orientação</h2><p className="text-xs text-ink-soft mt-1">Plus ativo no mês de referência, inclusive quem entrou nos últimos dias. Você pode iniciar uma orientação sem esperar uma solicitação.</p></div>
+          <button type="button" onClick={() => setShowEligible(value => !value)} className="inline-flex items-center gap-2 rounded-xl border border-forest-200 bg-mint/40 px-4 py-2 text-sm font-medium text-forest-800"><UserPlus className="w-4 h-4" /> {showEligible ? 'Ocultar elegíveis' : `Buscar elegíveis (${eligibleUsers.length})`}</button>
+        </div>
+        {showEligible && <div className="mt-4 space-y-3">
+          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" /><input value={eligibleSearch} onChange={e => setEligibleSearch(e.target.value)} placeholder="Buscar por nome ou e-mail…" className="w-full pl-9 pr-3 py-2.5 border border-line rounded-xl text-sm" /></div>
+          <div className="max-h-64 overflow-y-auto divide-y divide-line">
+            {eligibleUsers.filter(user => `${user.full_name ?? ''} ${user.email ?? ''}`.toLowerCase().includes(eligibleSearch.toLowerCase())).map(user => <div key={user.user_id} className="flex items-center gap-3 py-3"><span className="w-9 h-9 rounded-full bg-mint flex items-center justify-center text-xs font-semibold text-forest-700">{initialsOf(user.full_name, user.email)}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium text-forest-900">{user.full_name ?? 'Usuário Plus'}</p><p className="text-xs text-stone-400 truncate">{user.email}</p></div><button type="button" disabled={startingFor === user.user_id} onClick={() => startProactiveGuidance(user)} className="rounded-xl bg-forest-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{startingFor === user.user_id ? 'Iniciando…' : 'Criar orientação'}</button></div>)}
+            {eligibleUsers.length === 0 && <p className="py-5 text-center text-sm text-stone-400">Nenhum usuário elegível sem orientação neste ciclo.</p>}
+          </div>
+        </div>}
+      </section>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {gMetrics.map(m => (
