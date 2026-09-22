@@ -522,6 +522,24 @@ async function loadQuestionnaireSignals(admin: AdminClient, userId: string, star
   }).filter((signal: QuestionnaireSignal) => signal.questionnaire_id && signal.completed_at)
 }
 
+type CarePlanActivity = { total_entries:number; active_days:number; source_counts:Record<string,number> }
+async function loadCarePlanActivity(admin: AdminClient,userId:string,start:string,end:string):Promise<CarePlanActivity>{
+  const [diary,questionnaires,suggested,viewed,guided,personalized,feedback]=await Promise.all([
+    admin.from('diary_entries').select('id,entry_type,date,created_at').eq('user_id',userId).gte('date',start).lte('date',end),
+    admin.from('questionnaire_responses').select('id,completed_at,created_at').eq('user_id',userId).eq('status','completed').gte('completed_at',`${start}T00:00:00-03:00`).lte('completed_at',`${end}T23:59:59.999-03:00`),
+    admin.from('content_recommendations').select('id,created_at').eq('user_id',userId).gte('created_at',`${start}T00:00:00-03:00`).lte('created_at',`${end}T23:59:59.999-03:00`),
+    admin.from('reading_history').select('id,created_at').eq('user_id',userId).gte('created_at',`${start}T00:00:00-03:00`).lte('created_at',`${end}T23:59:59.999-03:00`),
+    admin.from('guided_content_progress').select('id,started_at,completed_at,updated_at').eq('user_id',userId).gte('updated_at',`${start}T00:00:00-03:00`).lte('updated_at',`${end}T23:59:59.999-03:00`),
+    admin.from('personalized_content_deliveries').select('id,read_at,sent_at,created_at').eq('user_id',userId).gte('created_at',`${start}T00:00:00-03:00`).lte('created_at',`${end}T23:59:59.999-03:00`),
+    admin.from('care_plan_action_state').select('id,updated_at').eq('user_id',userId).gte('updated_at',`${start}T00:00:00-03:00`).lte('updated_at',`${end}T23:59:59.999-03:00`)
+  ])
+  const days=new Set<string>(); const source_counts:Record<string,number>={}
+  const add=(source:string,rows:Record<string,unknown>[],dateKeys:string[])=>{source_counts[source]=rows.length;for(const row of rows){for(const key of dateKeys){const value=String(row[key]||'');if(value){days.add(value.slice(0,10));break}}}}
+  const diaryRows=(diary.data||[]) as Record<string,unknown>[]; add('checkins',diaryRows.filter(x=>x.entry_type==='checkin'),['date','created_at']);add('diaries',diaryRows.filter(x=>x.entry_type==='diary'),['date','created_at'])
+  add('questionnaires',(questionnaires.data||[]) as Record<string,unknown>[],['completed_at','created_at']);add('suggested_content',(suggested.data||[]) as Record<string,unknown>[],['created_at']);add('viewed_content',(viewed.data||[]) as Record<string,unknown>[],['created_at']);add('guided_content',(guided.data||[]) as Record<string,unknown>[],['completed_at','started_at','updated_at']);add('personalized_content',(personalized.data||[]) as Record<string,unknown>[],['read_at','sent_at','created_at']);add('care_plan_feedback',(feedback.data||[]) as Record<string,unknown>[],['updated_at'])
+  return {total_entries:Object.values(source_counts).reduce((a,b)=>a+b,0),active_days:days.size,source_counts}
+}
+
 async function log(admin: AdminClient, row: Record<string, unknown>) {
   // Auditoria não pode impedir que um relatório já salvo chegue à pessoa.
   try { await admin.from('ai_generation_logs').insert(row) } catch { /* best effort */ }
@@ -626,7 +644,9 @@ Deno.serve(async (req) => {
       if (!existingPlan) {
         const { data: rows } = await admin.from('diary_entries').select(DIARY_COLUMNS).eq('user_id', profile.user_id).gte('date', careStart).lte('date', careEnd)
         const questionnaireSignals = await loadQuestionnaireSignals(admin, profile.user_id, careStart, careEnd)
-        const s = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly', questionnaireSignals)
+        const baseSummary = summaryOf((rows || []) as Record<string, unknown>[], careStart, careEnd, 'plus', 'monthly', questionnaireSignals)
+        const activity = await loadCarePlanActivity(admin, profile.user_id, careStart, careEnd)
+        const s = { ...baseSummary, total_entries: activity.total_entries, active_days: activity.active_days, source_activity: activity.source_counts, data_quality: { ...baseSummary.data_quality, has_enough_data: activity.total_entries >= 12 && activity.active_days >= 8, total_entries: activity.total_entries, active_days: activity.active_days, required_entries: 12, required_active_days: 8, message: activity.total_entries >= 12 && activity.active_days >= 8 ? 'Há registros suficientes em diferentes fontes para uma leitura cuidadosa do período.' : 'Ainda não há atividade suficiente nas fontes disponíveis para criar um plano personalizado.' } }
         const previousCareFeedback = await loadPreviousCarePlanFeedback(admin, profile.user_id, careStart)
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
         try { const generated = await generate(prompt('self_care_plan', s, previousCareFeedback)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
