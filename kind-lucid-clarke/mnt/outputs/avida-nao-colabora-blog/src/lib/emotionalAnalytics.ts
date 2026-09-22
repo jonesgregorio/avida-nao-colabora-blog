@@ -565,6 +565,7 @@ export interface EmotionalSummary {
   total_addons: number
   active_days: number
   source_activity?: Record<string, number>
+  content_signals?: string[]
   dominant_emotions: EmotionalAnalysis['topEmotions']
   emotional_markers: EmotionalAnalysis['emotionalMarkers']
   contexts: EmotionalAnalysis['contexts']
