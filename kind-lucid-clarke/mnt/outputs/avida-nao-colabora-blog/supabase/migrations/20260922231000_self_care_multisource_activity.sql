@@ -7,7 +7,7 @@ declare v jsonb;
 begin
  if not public.is_admin() then raise exception 'not authorized'; end if;
  with events as (
-   select 'checkins' source, d.id::text key, coalesce(d.date,d.created_at::date) day from diary_entries d where d.user_id=p_user and d.entry_type='checkin' and coalesce(d.date,d.created_at::date) between p_start and p_end
+   select 'checkins' source, d.id::text key, coalesce(d.date,d.created_at::date) event_day from diary_entries d where d.user_id=p_user and d.entry_type='checkin' and coalesce(d.date,d.created_at::date) between p_start and p_end
    union all select 'diaries',d.id::text,coalesce(d.date,d.created_at::date) from diary_entries d where d.user_id=p_user and d.entry_type='diary' and coalesce(d.date,d.created_at::date) between p_start and p_end
    union all select 'questionnaires',q.id::text,coalesce(q.completed_at,q.created_at)::date from questionnaire_responses q where q.user_id=p_user and q.status='completed' and coalesce(q.completed_at,q.created_at)::date between p_start and p_end
    union all select 'suggested_content',c.id::text,c.created_at::date from content_recommendations c where c.user_id=p_user and c.created_at::date between p_start and p_end
@@ -18,7 +18,7 @@ begin
  ), counts as (select source,count(*) n from events group by source)
  select jsonb_build_object(
   'total_entries',(select count(*) from events),
-  'active_days',(select count(distinct day) from events),
+  'active_days',(select count(distinct event_day) from events),
   'source_counts',coalesce((select jsonb_object_agg(source,n) from counts),'{}'::jsonb),
   'min_entries',12,'min_active_days',8,
   'content_signals',coalesce((select jsonb_agg(signal) from (select distinct signal from (select content_slug signal from content_recommendations where user_id=p_user and created_at::date between p_start and p_end and content_slug is not null union all select article_slug from reading_history where user_id=p_user and created_at::date between p_start and p_end and article_slug is not null union all select title from personalized_content_deliveries where user_id=p_user and coalesce(read_at,sent_at,created_at)::date between p_start and p_end and title is not null) s limit 30) x),'[]'::jsonb)
