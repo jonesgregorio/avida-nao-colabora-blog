@@ -167,7 +167,7 @@ export const FAQ_FALLBACK: FaqContentItem[] = [
   {
     category: 'Recursos e funcionalidades',
     question: 'Como funciona a Orientação Mensal?',
-    answer: 'A Orientação Mensal é um recurso do Plus para enviar uma questão específica e receber uma resposta preparada cuidadosamente por profissional habilitado, com base nos pontos solicitados e apenas no contexto necessário que você escolheu compartilhar. É possível enviar 1 orientação por mês até o dia 23, com resposta em até 7 dias corridos após o envio. É uma orientação pontual: não é psicoterapia, consulta, diagnóstico ou acompanhamento continuado.',
+    answer: 'A Orientação Mensal é um recurso do Plus para enviar uma questão específica e receber uma resposta preparada cuidadosamente por profissional habilitado, com base nos pontos solicitados e apenas no contexto necessário que você escolheu compartilhar. A orientação é referente ao mês que acabou de fechar: entre os dias 1 e 10 do mês seguinte, você pode enviar 1 solicitação sobre o período anterior, com resposta em até 7 dias corridos após o envio. Se você entrou no Plus nos últimos dias do mês, mantém o direito à orientação daquele mês no mês seguinte. É uma orientação pontual: não é psicoterapia, consulta, diagnóstico ou acompanhamento continuado.',
   },
   {
     category: 'Recursos e funcionalidades',

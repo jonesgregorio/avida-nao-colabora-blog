@@ -36,6 +36,7 @@ interface GuidanceRequest {
   created_at: string
   ai_draft_json?: { final_response?: GuidanceLetter } | null
   final_response_json?: GuidanceLetter | null
+  request_origin?: 'user' | 'admin'
 }
 
 interface Cycle {
@@ -50,7 +51,7 @@ type HelpPreset = {
   icon: LucideIcon
 }
 
-const DEADLINE_DAY = 23
+const REQUEST_WINDOW_END_DAY = 10
 const MESSAGE_LIMIT = 5000
 const SECONDARY_LIMIT = 1500
 const HELP_PRESETS: HelpPreset[] = [
@@ -63,9 +64,10 @@ const HELP_PRESETS: HelpPreset[] = [
 
 function guidanceCycle(now: Date = new Date()): Cycle {
   const y = now.getFullYear(), m = now.getMonth()
-  const deadline = new Date(y, m, DEADLINE_DAY, 23, 59, 59, 999)
+  const reference = new Date(y, m - 1, 1)
+  const deadline = new Date(y, m, REQUEST_WINDOW_END_DAY, 23, 59, 59, 999)
   const nextOpen = new Date(y, m + 1, 1)
-  const key = `${y}-${String(m + 1).padStart(2, '0')}`
+  const key = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, '0')}`
   return { key, deadline, nextOpen, isPastDeadline: now > deadline }
 }
 
@@ -137,7 +139,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
     setCycle(cyc)
     const { data } = await supabase
       .from('monthly_guidance_requests')
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json,request_origin')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
     const all = (data ?? []) as GuidanceRequest[]
@@ -172,8 +174,9 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
         context: context.trim() || null,
         expected_help: expectedHelp.trim() || null,
         status: 'open',
+        request_origin: 'user',
       })
-      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json')
+      .select('id,month_key,message,context,expected_help,response,status,responded_at,created_at,ai_draft_json,final_response_json,request_origin')
       .single()
     if (err || !data) {
       setError('Erro ao enviar. Tente novamente.')
@@ -239,7 +242,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
           </span>
           <div>
             <h1 className="font-serif text-3xl sm:text-4xl text-forest-900">Orientação mensal</h1>
-            <p className="text-sm text-ink-soft mt-0.5">{currentMonthLabel()}</p>
+            <p className="text-sm text-ink-soft mt-0.5">{currentMonthLabel()} · referente a <span className="capitalize">{monthKeyLabel(cycle.key)}</span></p>
           </div>
         </div>
         <span className="self-start inline-flex items-center gap-1.5 rounded-full bg-[#fff0e7] px-3 py-1.5 text-xs font-medium text-[#a4552f]">
@@ -248,13 +251,13 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
       </header>
 
       <p className="max-w-3xl text-sm sm:text-base text-ink-soft leading-relaxed">
-        Um espaço mensal para enviar uma questão específica e receber uma resposta preparada cuidadosamente por profissional habilitado, a partir do que você pediu e do contexto que escolheu compartilhar.
+        Depois que um mês termina, você pode solicitar entre os dias 1 e 10 uma orientação referente ao mês anterior. Mesmo quem entrou no Plus nos últimos dias daquele mês mantém esse direito no mês seguinte. A resposta é preparada cuidadosamente por profissional habilitado a partir do que você pediu e do contexto que escolheu compartilhar.
       </p>
 
       <section className="grid md:grid-cols-3 rounded-[26px] border border-line bg-white/70 overflow-hidden">
         <SummaryCell icon={CalendarDays} title="Prazo para enviar">
           <p className="font-semibold text-forest-900 text-lg">{deadline}</p>
-          <p className="text-xs text-ink-soft">(dia 23)</p>
+          <p className="text-xs text-ink-soft">(dias 1 a 10)</p>
           <p className="text-xs text-ink mt-1">1 orientação por mês</p>
         </SummaryCell>
         <SummaryCell icon={Clock} title="Prazo de resposta" separated>
@@ -359,7 +362,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
             <button onClick={handleSubmit} disabled={sending || !message.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 hover:bg-forest-800 disabled:opacity-50 text-white px-5 py-3 text-sm font-medium transition-colors">
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar orientação
             </button>
-            <p className="text-xs text-ink-soft flex items-start gap-2"><CalendarDays className="w-4 h-4 text-forest-500 flex-shrink-0" /> Você pode enviar até {deadline} (dia 23). A resposta chega em até 7 dias corridos.</p>
+            <p className="text-xs text-ink-soft flex items-start gap-2"><CalendarDays className="w-4 h-4 text-forest-500 flex-shrink-0" /> Você pode solicitar entre os dias 1 e 10 deste mês a orientação referente a {monthKeyLabel(cycle.key)}. A resposta chega em até 7 dias corridos.</p>
           </div>
         </section>
       )}
@@ -367,7 +370,7 @@ export default function MonthlyGuidancePage({ user, profile, onBack, onBackToPla
       {cycle.isPastDeadline && !request && (
         <section className="rounded-[26px] border border-line bg-paper-soft p-5 flex gap-3">
           <CalendarClock className="w-5 h-5 text-forest-600 flex-shrink-0 mt-0.5" />
-          <div><p className="font-medium text-forest-900">O prazo deste mês encerrou no dia 23.</p><p className="text-sm text-ink-soft mt-1">Você poderá enviar uma nova orientação a partir de {reopen}.</p></div>
+          <div><p className="font-medium text-forest-900">A janela de solicitação deste ciclo encerrou no dia 10.</p><p className="text-sm text-ink-soft mt-1">Você poderá solicitar a próxima orientação a partir de {reopen}, referente ao mês que acabou de fechar.</p></div>
         </section>
       )}
 

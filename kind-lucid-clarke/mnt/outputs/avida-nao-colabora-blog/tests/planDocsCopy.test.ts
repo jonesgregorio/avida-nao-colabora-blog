@@ -62,8 +62,9 @@ test('FAQ explica corretamente os principais limites e ciclos dos recursos', () 
   assert.match(faq, /até 3 aprofundamentos por dia/)
   assert.match(faq, /fecha no sábado e fica disponível no domingo seguinte/)
   assert.match(faq, /fica disponível no primeiro dia do mês seguinte/)
-  assert.match(faq, /1 orientação por mês até o dia 23/)
+  assert.match(faq, /entre os dias 1 e 10 do mês seguinte/)
   assert.match(faq, /até 7 dias corridos após o envio/)
+  assert.match(faq, /entrou no Plus nos últimos dias do mês, mantém o direito/)
 })
 
 test('FAQ diferencia Mapa Emocional, Descobertas e Minha História sem linguagem causal', () => {
