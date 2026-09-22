@@ -35,6 +35,7 @@ type CarePlanRow = {
   edited_by_human: boolean | null
   edited_at: string | null
   sent_at: string | null
+  review_due_at: string | null
 }
 
 type PreviousInsight = {
@@ -99,6 +100,9 @@ function periodForMonth(monthRef: string, activation: string | null): Period {
 function normPlus(plan: string | null | undefined) {
   return ['plus', 'therapeutic', 'therapeutic-plus'].includes(String(plan))
 }
+
+function reviewDue(monthRef:string){const d=parseYmd(monthRef);return ymd(new Date(d.getFullYear(),d.getMonth()+1,5,12))}
+function isReviewOverdue(monthRef:string,status:string){return !['sent','skipped'].includes(status)&&reviewDue(monthRef)<ymd(new Date())}
 
 function statusInTab(tab: Tab, status: string) {
   if (tab === 'todos') return true
@@ -186,7 +190,7 @@ export default function AdminLivingCarePlanWorkspace() {
           const status = row.plan?.status ?? 'pending_generation'
           return <button key={row.user.user_id} type="button" onClick={() => setOpen(row)} className="w-full text-left px-5 py-4 hover:bg-mint/20 transition flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
             <div className="min-w-0 md:flex-1"><p className="text-sm font-medium text-forest-900 truncate">{row.user.full_name || 'Usuário sem nome'}</p><p className="text-xs text-ink-soft truncate">{row.user.email || row.user.user_id}</p></div>
-            <div className="text-xs text-ink-soft md:w-48">{formatPeriodShort(row.period)}</div>
+            <div className="text-xs text-ink-soft md:w-48">{formatPeriodShort(row.period)}<span className={`block mt-1 ${isReviewOverdue(monthRef,status)?'text-red-700 font-semibold':'text-stone-400'}`}>{isReviewOverdue(monthRef,status)?'SLA atrasado':'Revisar até'} · {formatDateBR(reviewDue(monthRef))}</span></div>
             <span className={`text-xs rounded-full px-2.5 py-1 md:w-44 text-center ${status === 'sent' ? 'bg-forest-100 text-forest-800' : status === 'skipped' ? 'bg-amber-100 text-amber-800' : status === 'pending_review' || status === 'draft' ? 'bg-violet-100 text-violet-800' : 'bg-stone-100 text-stone-700'}`}>{STATUS_LABEL[status] ?? status}</span>
             <ChevronRight className="w-4 h-4 text-ink-soft" />
           </button>
@@ -341,7 +345,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     <button type="button" aria-label="Fechar revisão" className="absolute inset-0 bg-black/35" onClick={onClose} />
     <div className="relative w-full max-w-5xl h-full overflow-y-auto bg-[#f7f5ef] shadow-2xl">
       <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur px-5 sm:px-7 py-4 flex items-center justify-between gap-4">
-        <div className="min-w-0"><p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano de Autocuidado</p><h2 className="font-serif text-xl sm:text-2xl text-forest-900 truncate">{user.full_name || user.email || 'Usuário'}</h2><p className="text-xs text-ink-soft mt-0.5">{monthTitle(monthRef)} · {formatPeriodShort(period)} · disponível desde {formatDateBR(period.availableAt)}</p></div>
+        <div className="min-w-0"><p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Revisão do Plano de Autocuidado</p><h2 className="font-serif text-xl sm:text-2xl text-forest-900 truncate">{user.full_name || user.email || 'Usuário'}</h2><p className="text-xs text-ink-soft mt-0.5">{monthTitle(monthRef)} · {formatPeriodShort(period)} · disponível desde {formatDateBR(period.availableAt)} · SLA até {formatDateBR(reviewDue(monthRef))}</p></div>
         <button type="button" onClick={onClose} className="h-9 w-9 rounded-xl border border-line bg-white grid place-items-center" aria-label="Fechar"><X className="w-4 h-4" /></button>
       </header>
 
