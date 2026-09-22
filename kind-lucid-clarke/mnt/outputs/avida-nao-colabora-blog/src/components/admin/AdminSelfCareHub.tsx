@@ -11,6 +11,8 @@ type Dashboard = {
   pending_review?: number
   sent?: number
   failed?: number
+  overdue_review?: number
+  review_due_at?: string
   actions?: {
     active?: number
     paused?: number
@@ -68,7 +70,7 @@ export default function AdminSelfCareHub() {
           <div>
             <p className="text-[11px] uppercase tracking-[.14em] font-semibold text-forest-600">Plano de Autocuidado · visão operacional</p>
             <h2 className="font-serif text-2xl text-forest-900 mt-1">O plano está sendo útil ou só entregue?</h2>
-            <p className="text-sm text-ink-soft mt-1 max-w-3xl">Acompanhe se houve contexto suficiente para personalização, quantos planos chegaram ao usuário e como as ações escolhidas estão funcionando. Os números abaixo são agregados e não exibem texto íntimo do Diário.</p>
+            <p className="text-sm text-ink-soft mt-1 max-w-3xl">Acompanhe se houve contexto suficiente para personalização, quantos planos chegaram ao usuário e como as ações escolhidas estão funcionando. O ciclo fecha no fim do mês e a revisão/liberação tem SLA até o dia 5 do mês seguinte. Os números abaixo são agregados e não exibem texto íntimo do Diário.</p>
           </div>
           <div className="flex items-center gap-2">
             <select value={month} onChange={e => setMonth(e.target.value)} className="admin-input text-sm">
@@ -86,10 +88,11 @@ export default function AdminSelfCareHub() {
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>Não foi possível carregar os indicadores do plano: {error}</span></div>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-5">
+            <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mt-5">
               <Metric icon={Sparkles} value={data?.ready ?? 0} label="Com contexto suficiente" />
               <Metric icon={AlertCircle} value={data?.insufficient_activity ?? 0} label="Sem contexto suficiente" />
               <Metric icon={Activity} value={data?.pending_review ?? 0} label="Em revisão" />
+              <Metric icon={AlertCircle} value={data?.overdue_review ?? 0} label="Revisões atrasadas" />
               <Metric icon={CheckCircle2} value={data?.sent ?? 0} label="Enviados" />
               <Metric icon={HeartHandshake} value={actions.active ?? 0} label="Ações ativas" />
               <Metric icon={RefreshCw} value={actions.adapt_requests ?? 0} label="Pedidos de adaptação" />
@@ -100,6 +103,8 @@ export default function AdminSelfCareHub() {
               <Insight title="Ações que ajudaram" value={helpedRate === null ? 'Ainda sem retorno' : `${helpedRate}%`} text={feedbackTotal ? `${actions.helped ?? 0} retorno(s) positivo(s) entre ${feedbackTotal} percepções registradas.` : 'O indicador aparece quando usuários começam a responder às ações do plano.'} />
               <Insight title="Sinais para a próxima geração" value={`${(actions.not_for_me ?? 0) + (actions.could_not ?? 0) + (actions.adapt_requests ?? 0)}`} text="Soma de ações que não combinaram, não foram possíveis ou pediram adaptação. Esse retorno deve pesar no próximo plano." />
             </div>
+
+            {(data?.overdue_review ?? 0) > 0 && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong>{data?.overdue_review} plano(s) fora do SLA de revisão.</strong> Priorize estes ciclos antes das demais revisões pendentes.</div>}
 
             {(data?.insufficient_activity ?? 0) > 0 && (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
