@@ -23,7 +23,7 @@ begin
    union select 'guided:'||article_id::text from guided_content_progress where user_id=p_user and coalesce(completed_at,started_at,updated_at)::date between p_start and p_end and article_id is not null
    union select outcome from care_plan_action_state where user_id=p_user and updated_at::date between p_start and p_end and outcome is not null
  )
- select jsonb_build_object('total_entries',(select count(*) from events),'active_days',(select count(distinct event_day) from events),'source_counts',coalesce((select jsonb_object_agg(source,n) from counts),'{}'::jsonb),'min_entries',12,'min_active_days',8,'content_signals',coalesce((select jsonb_agg(signal) from (select distinct signal from signals where btrim(signal)<>'' limit 40) x),'[]'::jsonb)) into v;
+ select jsonb_build_object('total_entries',(select count(*) from events),'active_days',(select count(distinct event_day) from events),'source_counts',coalesce((select jsonb_object_agg(source,n) from counts),'{}'::jsonb),'min_entries',12,'min_active_days',8,'content_signals',coalesce((select jsonb_agg(signal) from (select distinct signal from signals where btrim(signal)<>'' limit 40) x),'[]'::jsonb), 'questionnaire_signals',coalesce((select jsonb_agg(jsonb_build_object('questionnaire_id',q.questionnaire_id,'result_title',q.result_title,'total_score',q.total_score,'generated_tags',q.generated_tags,'completed_at',coalesce(q.completed_at,q.created_at))) from questionnaire_responses q where q.user_id=p_user and q.status='completed' and coalesce(q.completed_at,q.created_at)::date between p_start and p_end),'[]'::jsonb)) into v;
  return v;
 end $$;
 revoke all on function public.care_plan_activity_summary(uuid,date,date) from public,anon;
