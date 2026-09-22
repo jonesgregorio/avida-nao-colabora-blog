@@ -15,7 +15,7 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 - **Descobertas** destaca repetições e conexões que ganham contexto com o uso contínuo.
 - **Relatório semanal** resume a semana para Essencial e Plus.
 - **Relatório mensal aprofundado** aprofunda o mês para Plus.
-- **Plano de autocuidado** transforma análises automáticas do ciclo em pequenos passos e passa por revisão antes de ser liberado.
+- **Plano de autocuidado** usa o mês-calendário encerrado, exige pelo menos 12 registros distribuídos em 8 dias ativos e transforma a análise automática em pequenos passos. Quando elegível, passa por revisão humana e deve ser liberado até o dia 5 do mês seguinte; sem atividade suficiente, nenhum plano genérico é criado e o usuário vê o motivo na própria página.
 - **Orientação mensal** é referente ao mês-calendário encerrado. Entre os dias 1 e 10 do mês seguinte, o usuário Plus pode solicitar uma orientação sobre aquele período; ativação do Plus em qualquer dia do mês de referência preserva o direito. A equipe também pode iniciar proativamente a orientação para usuários elegíveis, sempre com revisão humana antes do envio.
 - **Conteúdos guiados** oferecem exercícios, reflexões, pausas emocionais e recursos de apoio não clínico.
 
