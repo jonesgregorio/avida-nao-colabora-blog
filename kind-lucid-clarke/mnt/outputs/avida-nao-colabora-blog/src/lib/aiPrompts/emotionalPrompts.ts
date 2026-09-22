@@ -30,6 +30,7 @@ function compactSummary(summary: EmotionalSummary) {
       dias_ativos: summary.active_days,
       fontes_de_dados: summary.source_activity ?? {},
       sinais_de_conteudo: summary.content_signals ?? [],
+      sinais_de_questionarios: summary.questionnaire_signals ?? { completed_count: 0, latest_results: [], top_tags: [] },
     },
     emocoes_dominantes: summary.dominant_emotions.slice(0, 6),
     marcadores_emocionais: summary.emotional_markers.slice(0, 6),
