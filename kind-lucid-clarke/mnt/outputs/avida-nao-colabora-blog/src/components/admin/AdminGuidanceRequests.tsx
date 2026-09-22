@@ -17,7 +17,7 @@ interface GuidanceLetter {
   final_message_draft?: string; professional_review_notes?: string[]; safety_flags?: string[]; data_quality_notice?: string
   review_badge?: string
 }
-interface EligibleGuidanceUser { user_id: string; full_name?: string; email?: string; plan?: string; plan_activated_at?: string | null }
+interface EligibleGuidanceUser { user_id: string; full_name?: string; email?: string; plan?: string; plan_activated_at?: string | null; created_at?: string | null }
 
 interface GuidanceRequest {
   id: string
@@ -210,15 +210,14 @@ export default function AdminGuidanceRequests() {
     const monthKey = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, '0')}`
     const referenceEnd = new Date(reference.getFullYear(), reference.getMonth() + 1, 0, 23, 59, 59, 999).toISOString()
     const [{ data: profiles }, { data: existing }] = await Promise.all([
-      supabase.from('profiles').select('user_id,full_name,email,plan,plan_activated_at,subscription_status')
+      supabase.from('profiles').select('user_id,full_name,email,plan,plan_activated_at,created_at,subscription_status')
         .in('plan', ['plus', 'therapeutic', 'therapeutic-plus'])
         .in('subscription_status', ['active', 'trialing'])
-        .lte('plan_activated_at', referenceEnd)
         .order('full_name'),
       supabase.from('monthly_guidance_requests').select('user_id').eq('month_key', monthKey),
     ])
     const used = new Set((existing ?? []).map((row: { user_id: string }) => row.user_id))
-    setEligibleUsers(((profiles ?? []) as EligibleGuidanceUser[]).filter(profile => !used.has(profile.user_id)))
+    setEligibleUsers(((profiles ?? []) as EligibleGuidanceUser[]).filter(profile => { const activated = profile.plan_activated_at ?? profile.created_at; return !used.has(profile.user_id) && !!activated && new Date(activated).getTime() <= new Date(referenceEnd).getTime() }))
   }, [])
 
   useEffect(() => { void loadEligibleUsers() }, [loadEligibleUsers])
