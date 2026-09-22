@@ -20,7 +20,8 @@ begin
   'total_entries',(select count(*) from events),
   'active_days',(select count(distinct day) from events),
   'source_counts',coalesce((select jsonb_object_agg(source,n) from counts),'{}'::jsonb),
-  'min_entries',12,'min_active_days',8
+  'min_entries',12,'min_active_days',8,
+  'content_signals',coalesce((select jsonb_agg(signal) from (select distinct signal from (select content_slug signal from content_recommendations where user_id=p_user and created_at::date between p_start and p_end and content_slug is not null union all select article_slug from reading_history where user_id=p_user and created_at::date between p_start and p_end and article_slug is not null union all select title from personalized_content_deliveries where user_id=p_user and coalesce(read_at,sent_at,created_at)::date between p_start and p_end and title is not null) s limit 30) x),'[]'::jsonb)
  ) into v;
  return v;
 end $$;
