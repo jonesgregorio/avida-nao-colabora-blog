@@ -48,7 +48,7 @@ Registrar → Visualizar → Entender → Planejar → Receber apoio
 - Aprofundamentos do Diário: até 3 por dia (extensão do mesmo registro, não um novo check-in).
 - Questionários configurados para o Plus.
 - Relatório mensal aprofundado.
-- Plano de autocuidado mensal com revisão.
+- Plano de autocuidado mensal com revisão humana, baseado no mês encerrado e liberação até o dia 5 do mês seguinte quando houver contexto suficiente (mínimo de 12 registros em 8 dias ativos).
 - Orientação mensal por mensagem, preparada cuidadosamente por profissional habilitado a partir da solicitação e do contexto escolhido pelo usuário.
 
 `unlimited_access` é um entitlement administrativo (equivale ao Plus para autorização de recursos) e não é um plano comercial.
