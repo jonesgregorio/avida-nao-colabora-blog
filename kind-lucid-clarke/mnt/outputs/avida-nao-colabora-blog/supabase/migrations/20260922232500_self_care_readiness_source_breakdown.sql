@@ -1,0 +1,10 @@
+-- Expõe no readiness somente contagens agregadas por fonte, nunca conteúdo íntimo.
+begin;
+create or replace function public.care_plan_readiness_from_records(p_records jsonb)
+returns jsonb language sql immutable set search_path=public as $$
+ with v as (select coalesce(nullif(p_records->>'total_entries','')::int,nullif(p_records->>'totalEntries','')::int,0) total_entries,coalesce(nullif(p_records->>'active_days','')::int,nullif(p_records->>'activeDays','')::int,0) active_days,coalesce(p_records->'source_activity',p_records->'sourceActivity','{}'::jsonb) source_counts)
+ select case when total_entries>=12 and active_days>=8 then jsonb_build_object('reason_code','ready','title','Há contexto suficiente para um plano pessoal.','explanation','Os registros deste ciclo têm continuidade e variedade suficientes para apoiar escolhas específicas.','next_steps','[]'::jsonb,'total_entries',total_entries,'active_days',active_days,'min_entries',12,'min_active_days',8,'source_counts',source_counts)
+ else jsonb_build_object('reason_code','insufficient_activity','title','Ainda estamos conhecendo o seu ritmo.','explanation',format('Neste ciclo houve %s registro(s) de acompanhamento em %s dia(s). Preferimos não criar um plano genérico só para preencher a tela.',total_entries,active_days),'next_steps',jsonb_build_array('Check-ins, Diário e questionários ajudam a registrar como você está.','Conteúdos sugeridos, conteúdos vistos e experiências guiadas também entram como sinais do seu acompanhamento.','Não é preciso registrar todos os dias: o plano precisa de 12 registros em pelo menos 8 dias ativos.'),'total_entries',total_entries,'active_days',active_days,'min_entries',12,'min_active_days',8,'source_counts',source_counts) end from v;
+$$;
+update public.monthly_care_plans set records_summary=records_summary where status<>'sent';
+commit;

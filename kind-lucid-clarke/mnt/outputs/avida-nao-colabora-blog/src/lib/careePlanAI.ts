@@ -80,6 +80,8 @@ export interface RecordsSummary {
   diaryCount: number
   checkinCount: number
   activeDays: number
+  sourceActivity?: Record<string, number>
+  sourceSignals?: string[]
   avgEnergy: number
   avgAnxiety: number
   avgSleep: number
@@ -137,6 +139,8 @@ export function buildCarePlanPrompt(rs: RecordsSummary): string {
     diarios: rs.diaryCount,
     checkins: rs.checkinCount,
     dias_ativos: rs.activeDays,
+    fontes_de_dados: rs.sourceActivity ?? {},
+    sinais_de_conteudo: rs.sourceSignals ?? [],
     energia_media: rs.avgEnergy,
     ansiedade_media: rs.avgAnxiety,
     sono_medio: rs.avgSleep,
@@ -206,6 +210,8 @@ function asEmotionalSummary(rs: RecordsSummary): EmotionalSummary {
   const quality = rs.hasEnoughData ? 'medium' : 'low'
   return {
     period_start: rs.periodLabel.split(' a ')[0] ?? rs.monthLabel,
+    source_activity: rs.sourceActivity ?? {},
+    content_signals: rs.sourceSignals ?? [],
     period_end: rs.periodLabel.split(' a ')[1] ?? rs.monthLabel,
     plan: 'plus', total_entries: rs.totalEntries, total_checkins: rs.checkinCount,
     total_main_diaries: rs.diaryCount, total_addons: 0, active_days: rs.activeDays,

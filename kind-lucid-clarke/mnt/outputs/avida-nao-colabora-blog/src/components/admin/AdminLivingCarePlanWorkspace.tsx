@@ -38,6 +38,8 @@ type CarePlanRow = {
   review_due_at: string | null
 }
 
+type ActivitySummary = { total_entries:number; active_days:number; source_counts:Record<string,number>; content_signals?:string[]; min_entries?:number; min_active_days?:number }
+
 type PreviousInsight = {
   plan: CarePlanRow | null
   active_actions: number
@@ -114,9 +116,9 @@ function statusInTab(tab: Tab, status: string) {
   return true
 }
 
-function readinessOf(analysis: EmotionalAnalysis | null) {
-  const total = analysis?.totalEntries ?? 0
-  const days = analysis?.activeDays ?? 0
+function readinessOf(analysis: EmotionalAnalysis | null, activity: ActivitySummary | null) {
+  const total = activity?.total_entries ?? analysis?.totalEntries ?? 0
+  const days = activity?.active_days ?? analysis?.activeDays ?? 0
   return { ready: total >= 12 && days >= 8, total, days, minTotal: 12, minDays: 8 }
 }
 
@@ -204,6 +206,7 @@ export default function AdminLivingCarePlanWorkspace() {
 
 function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }: { user: EligibleUser; plan: CarePlanRow | null; period: Period; monthRef: string; onClose: () => void; onSaved: () => void; notify: (text: string, error?: boolean) => void }) {
   const [analysis, setAnalysis] = useState<EmotionalAnalysis | null>(null)
+  const [activity, setActivity] = useState<ActivitySummary | null>(null)
   const [loadingData, setLoadingData] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState<'draft' | 'send' | 'skip' | null>(null)
@@ -224,7 +227,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     let active = true
     ;(async () => {
       setLoadingData(true)
-      const { data, error } = await supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end })
+      const [{ data, error }, activityResult] = await Promise.all([supabase.rpc('admin_monthly_care_source', { p_user: user.user_id, p_start: period.start, p_end: period.end }), supabase.rpc('admin_care_plan_activity_summary', { p_user: user.user_id, p_start: period.start, p_end: period.end })])
       if (!active) return
       if (error) { notify('Erro ao carregar a base do plano: ' + error.message, true); setLoadingData(false); return }
       const rows: DiaryRowLite[] = ((data ?? []) as Record<string, unknown>[]).map(d => ({
@@ -232,6 +235,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
         emotional_tags: d.emotional_tags as string[], context_tags: d.context_tags as string[], need_tags: d.need_tags as string[], care_action_tags: d.care_action_tags as string[], trigger_tags: d.trigger_tags as string[], entry_type: d.entry_type as string, created_at: d.created_at as string, date: d.entry_date as string,
       }))
       setAnalysis(computeEmotionalAnalysis(rows))
+      if (!activityResult.error) setActivity((activityResult.data ?? null) as ActivitySummary | null)
       setLoadingData(false)
     })()
     return () => { active = false }
@@ -252,8 +256,8 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
     return () => { active = false }
   }, [user.user_id, monthRef])
 
-  const readiness = readinessOf(analysis)
-  const rs = useMemo(() => analysis ? buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)) : null, [analysis, monthRef, period])
+  const readiness = readinessOf(analysis, activity)
+  const rs = useMemo(() => { if (!analysis) return null; const base=buildRecordsSummary(analysis, monthTitle(monthRef), formatPeriodShort(period)); return activity ? { ...base, totalEntries: activity.total_entries, activeDays: activity.active_days, sourceActivity: activity.source_counts, sourceSignals: activity.content_signals ?? [], hasEnoughData: activity.total_entries >= 12 && activity.active_days >= 8 } : base }, [analysis, activity, monthRef, period])
   const priorities = care.three_care_priorities ?? []
   const currentSnapshot = JSON.stringify({ summary, care })
   const edited = currentSnapshot !== baselineRef.current
@@ -267,7 +271,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
 
   async function generate() {
     if (!analysis || !rs) return
-    if (!readiness.ready) { notify(`Contexto insuficiente: são necessários pelo menos ${readiness.minTotal} registros distribuídos em ${readiness.minDays} dias ativos. A IA não será chamada para criar um plano genérico.`, true); return }
+    if (!readiness.ready) { notify(`Contexto insuficiente: são necessários pelo menos ${readiness.minTotal} registros de acompanhamento distribuídos em ${readiness.minDays} dias ativos. A IA não será chamada para criar um plano genérico.`, true); return }
     setGenerating(true)
     try {
       const result = await generateCarePlanAI(analysis, rs, { userId: user.user_id, sourcePeriodStart: period.start })
@@ -353,7 +357,7 @@ function ReviewDrawer({ user, plan, period, monthRef, onClose, onSaved, notify }
         <section className="grid lg:grid-cols-[1.4fr_.8fr] gap-4">
           <div className="rounded-2xl border border-line bg-white p-5">
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-forest-700">1. Contexto disponível para a IA</p><h3 className="font-serif text-xl text-forest-900 mt-1">O sistema reuniu sinais estruturados deste ciclo</h3></div>{loadingData ? <Loader2 className="w-5 h-5 animate-spin text-forest-500" /> : readiness.ready ? <span className="rounded-full bg-forest-100 text-forest-800 px-3 py-1 text-xs font-medium">Contexto suficiente</span> : <span className="rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-xs font-medium">Contexto insuficiente</span>}</div>
-            {analysis && <><div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4"><MiniStat label="Registros" value={analysis.totalEntries} /><MiniStat label="Dias ativos" value={analysis.activeDays} /><MiniStat label="Check-ins" value={analysis.checkinCount} /><MiniStat label="Diários" value={analysis.diaryCount} /></div><div className="mt-4 space-y-2 text-xs text-ink-soft"><Signal label="Emoções" values={analysis.topEmotions.slice(0, 6).map(e => `${MOOD_EMOJI[e.label] ?? ''} ${e.label} (${e.count})`)} /><Signal label="Contextos" values={analysis.contexts.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /><Signal label="Necessidades" values={analysis.needs.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /><Signal label="Ações de cuidado" values={analysis.careActions.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /></div></>}
+            {analysis && <><div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4"><MiniStat label="Registros válidos" value={readiness.total} /><MiniStat label="Dias ativos" value={readiness.days} /><MiniStat label="Check-ins" value={activity?.source_counts?.checkins ?? analysis.checkinCount} /><MiniStat label="Diários" value={activity?.source_counts?.diaries ?? analysis.diaryCount} /></div>{activity && <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-ink-soft">{[['Questionários','questionnaires'],['Conteúdos sugeridos','suggested_content'],['Conteúdos vistos','viewed_content'],['Conteúdos guiados','guided_content'],['Conteúdos personalizados','personalized_content'],['Feedback do plano','care_plan_feedback']].map(([label,key])=><span key={key} className="rounded-full border border-line bg-paper-soft px-2.5 py-1">{label}: <strong>{activity.source_counts?.[key] ?? 0}</strong></span>)}</div>}<div className="mt-4 space-y-2 text-xs text-ink-soft"><Signal label="Emoções" values={analysis.topEmotions.slice(0, 6).map(e => `${MOOD_EMOJI[e.label] ?? ''} ${e.label} (${e.count})`)} /><Signal label="Contextos" values={analysis.contexts.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /><Signal label="Necessidades" values={analysis.needs.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /><Signal label="Ações de cuidado" values={analysis.careActions.slice(0, 6).map(x => `${x.tag} (${x.count})`)} /></div></>}
             {!loadingData && !readiness.ready && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-medium">A IA não deve gerar um plano personalizado neste ciclo.</p><p className="mt-1 text-xs">Atual: {readiness.total} registro(s) em {readiness.days} dia(s). Critério do produto: pelo menos {readiness.minTotal} registros distribuídos em {readiness.minDays} dias ativos. O usuário receberá apenas a explicação de contexto insuficiente.</p></div>}
           </div>
 
