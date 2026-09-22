@@ -5,7 +5,7 @@ const read=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8')
 test('página informa SLA e requisitos do Plano de Autocuidado',()=>{
  const page=read('src/components/SelfCarePlanPage.tsx')
  assert.match(page,/liberado até o dia 5/)
- assert.match(page,/12 registros distribuídos em 8 dias ativos/)
+ assert.match(page,/12 registros de acompanhamento distribuídos em 8 dias ativos/)
  assert.match(page,/Registros no ciclo/)
  assert.match(page,/Dias ativos/)
  assert.match(page,/nenhum plano genérico foi criado/)
