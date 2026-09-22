@@ -46,3 +46,15 @@ test('admin fails closed when canonical multisource evidence is unavailable',()=
  assert.match(admin,/const total = activity\?\.total_entries \?\? 0/)
  assert.match(admin,/Erro ao carregar a contagem multifuente do plano/)
 })
+
+test('admin generation receives questionnaire and content evidence, not only counts',()=>{
+ const migration=read('supabase/migrations/20260922235500_self_care_canonical_multisource.sql')
+ const admin=read('src/components/admin/AdminLivingCarePlanWorkspace.tsx')
+ const care=read('src/lib/careePlanAI.ts')
+ assert.match(migration,/questionnaire_signals/)
+ assert.match(migration,/result_title/)
+ assert.match(migration,/generated_tags/)
+ assert.match(admin,/questionnaireSignals: activity\.questionnaire_signals/)
+ assert.match(care,/sinais_de_questionarios/)
+ assert.match(care,/sinais_de_conteudo/)
+})
