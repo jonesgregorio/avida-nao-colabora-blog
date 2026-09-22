@@ -55,4 +55,14 @@ comment on column public.monthly_guidance_requests.request_origin is
 comment on policy guidance_own_request on public.monthly_guidance_requests is
   'Plus pode solicitar, entre os dias 1 e 10, uma orientação referente ao mês-calendário imediatamente anterior. Ativação em qualquer dia daquele mês é elegível.';
 
+update public.plan_features
+set feature_description = 'Orientação referente ao mês encerrado: solicitação entre os dias 1 e 10 do mês seguinte, com resposta revisada por profissional habilitado. Ativação do Plus em qualquer dia do mês de referência preserva o direito.',
+    presentation_revision = extract(epoch from now())::bigint * 1000
+where feature_key = 'monthly_message_guidance';
+
+update public.faq_items
+set answer = 'A Orientação Mensal é um recurso do Plus referente ao mês que acabou de fechar. Entre os dias 1 e 10 do mês seguinte, você pode enviar 1 solicitação sobre o período anterior e recebe a resposta em até 7 dias corridos após o envio. Se você entrou no Plus nos últimos dias do mês, mantém o direito à orientação daquele mês no mês seguinte. A resposta final é preparada cuidadosamente por profissional habilitado e é uma orientação pontual: não é psicoterapia, consulta, diagnóstico ou acompanhamento continuado.',
+    updated_at = now()
+where question = 'Como funciona a Orientação Mensal?';
+
 commit;
