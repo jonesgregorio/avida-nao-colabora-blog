@@ -83,6 +83,26 @@ async function installAdminSession(page) {
     const path = url.pathname
     const accept = request.headers().accept ?? ''
 
+    if (path.includes('/functions/v1/seo-control-selftest')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ history: [] }) })
+      return
+    }
+    if (path.includes('/functions/v1/google-search-console')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          configured: false,
+          siteUrl: 'https://avidanaocolabora.com',
+          current: { clicks: 0, impressions: 0, ctr: 0, position: 0 },
+          previous: { clicks: 0, impressions: 0, ctr: 0, position: 0 },
+          trend: [], queries: [], pages: [], opportunities: [], inspections: [],
+          sitemaps: [], alerts: [], runs: [], cannibalization: [],
+        }),
+      })
+      return
+    }
+
     if (path.startsWith('/auth/v1/')) {
       if (path.includes('/factors')) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ all: [], totp: [], phone: [] }) })
