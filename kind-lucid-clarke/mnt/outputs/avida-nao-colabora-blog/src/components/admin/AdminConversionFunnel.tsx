@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, CheckCircle2, CreditCard, Loader2, RefreshCw, TrendingUp, UserPlus } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 
 type Period = '7d' | '30d' | '90d'
 
@@ -99,34 +100,33 @@ export default function AdminConversionFunnel() {
     setLoading(true)
 
     const [eventsRes, profilesRes, subsRes, diaryRes, questionnaireRes] = await Promise.all([
-      supabase
-        .from('analytics_events')
-        .select('event,session_id,user_id,created_at')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(50000),
-      supabase
-        .from('profiles')
-        .select('user_id,created_at')
-        .gte('created_at', since)
-        .limit(50000),
-      supabase
-        .from('subscription_events')
-        .select('user_id,event_type,previous_plan,new_plan,occurred_at,status,amount')
-        .gte('occurred_at', since)
-        .in('event_type', ['checkout_completed', 'upgrade_confirmed'])
-        .limit(50000),
-      supabase
-        .from('diary_entries')
-        .select('user_id,created_at')
-        .gte('created_at', since)
-        .limit(50000),
-      supabase
-        .from('questionnaire_responses')
-        .select('user_id,created_at')
-        .eq('status', 'completed')
-        .gte('created_at', since)
-        .limit(50000),
+      collectAllPages<EventRow>((from, to) =>
+        supabase.from('analytics_events').select('event,session_id,user_id,created_at')
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
+          as unknown as PromiseLike<{ data: EventRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<ProfileRow>((from, to) =>
+        supabase.from('profiles').select('user_id,created_at')
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
+          as unknown as PromiseLike<{ data: ProfileRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<SubscriptionRow>((from, to) =>
+        supabase.from('subscription_events').select('user_id,event_type,previous_plan,new_plan,occurred_at,status,amount')
+          .gte('occurred_at', since).in('event_type', ['checkout_completed', 'upgrade_confirmed'])
+          .order('occurred_at', { ascending: false }).range(from, to)
+          as unknown as PromiseLike<{ data: SubscriptionRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<UsageRow>((from, to) =>
+        supabase.from('diary_entries').select('user_id,created_at')
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
+          as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<UsageRow>((from, to) =>
+        supabase.from('questionnaire_responses').select('user_id,created_at')
+          .eq('status', 'completed').gte('created_at', since)
+          .order('created_at', { ascending: false }).range(from, to)
+          as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
+      ),
     ])
 
     const warnings: string[] = []
@@ -136,11 +136,11 @@ export default function AdminConversionFunnel() {
     if (diaryRes.error) warnings.push('uso de diário/check-in')
     if (questionnaireRes.error) warnings.push('questionários concluídos')
 
-    const events = ((eventsRes.data ?? []) as EventRow[])
-    const profiles = ((profilesRes.data ?? []) as ProfileRow[])
-    const subscriptions = ((subsRes.data ?? []) as SubscriptionRow[])
-    const diary = ((diaryRes.data ?? []) as UsageRow[])
-    const questionnaires = ((questionnaireRes.data ?? []) as UsageRow[])
+    const events = eventsRes.data
+    const profiles = profilesRes.data
+    const subscriptions = subsRes.data
+    const diary = diaryRes.data
+    const questionnaires = questionnaireRes.data
 
     const visitors = uniqueSessions(events.filter(row => ['page_view', 'article_view', 'route_change'].includes(row.event)))
     const planInterest = uniqueSessions(events.filter(row => row.event === 'plan_click'))
