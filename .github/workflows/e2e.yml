@@ -66,5 +66,6 @@ jobs:
           path: |
             kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/diary-visual/*.png
             kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/idea1-qa/*.png
+            kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/test-results/admin-visual/*.png
           if-no-files-found: ignore
           retention-days: 7
