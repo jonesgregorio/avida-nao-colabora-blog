@@ -65,6 +65,8 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
     })))
     setLoading(false)
   }
+  // Carga única na entrada; o botão Atualizar chama a mesma rotina manualmente.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [])
 
   const totalViews = perf.reduce((s, p) => s + p.views, 0)
