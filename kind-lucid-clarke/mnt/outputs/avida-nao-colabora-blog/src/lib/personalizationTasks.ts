@@ -96,7 +96,14 @@ function hasPlan(userPlan: string, minPlan: string) {
 
 // ── Definições de pendências ──────────────────────────────────────────────────
 
-export const TASK_DEFS: TaskDef[] = [
+// Fluxos canônicos possuem telas, elegibilidade e revisão próprias. Eles NÃO podem
+// voltar a nascer nesta fila genérica, evitando duplicidade com Autocuidado e Orientação.
+export const CANONICAL_WORKFLOW_TASK_KEYS = new Set([
+  'self_care_plan', 'monthly_plan_review', 'monthly_guidance', 'monthly_guidance_reply',
+  'advanced_monthly_report', 'monthly_summary', 'weekly_report_suggestion',
+])
+
+export const DELIVERY_TASK_DEFS: TaskDef[] = [
   // ── Gratuito ──
   {
     key: 'article_suggestion',
@@ -373,6 +380,10 @@ export const TASK_DEFS: TaskDef[] = [
     expiresAfterDueDays: null,
   },
 ]
+
+// Compatibilidade para imports existentes: TASK_DEFS representa somente entregas
+// complementares; os fluxos canônicos permanecem nas respectivas áreas do Admin.
+export const TASK_DEFS = DELIVERY_TASK_DEFS.filter(d => !CANONICAL_WORKFLOW_TASK_KEYS.has(d.key))
 
 export function getTaskDefsForPlan(plan: string): TaskDef[] {
   return TASK_DEFS.filter(d => hasPlan(plan, d.minPlan))

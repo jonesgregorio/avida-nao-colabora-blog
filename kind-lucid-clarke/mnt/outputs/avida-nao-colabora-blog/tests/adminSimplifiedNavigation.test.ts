@@ -47,7 +47,7 @@ test('Sistema concentra governança e esconde técnicos em Avançado',()=>{
 
 test('trabalho individual fica explícito em Atendimentos & Entregas',()=>{
  const area=read('src/components/admin/AdminAreaAtendimentos.tsx')
- for(const label of ['Orientações Mensais','Planos de Autocuidado','Recomendações personalizadas','Relatórios para revisão']) assert.match(area,new RegExp(label))
+ for(const label of ['Orientações Mensais','Planos de Autocuidado','Entregas de Conteúdo','Relatórios para revisão']) assert.match(area,new RegExp(label))
  for(const component of ['AdminGuidanceRequests','AdminSelfCareHub','AdminPersonalization','AdminPDF']) assert.match(area,new RegExp(component))
  const index=read('src/components/admin/index.tsx')
  assert.match(index,/'guidance-requests': \{ area: 'atendimentos'/)

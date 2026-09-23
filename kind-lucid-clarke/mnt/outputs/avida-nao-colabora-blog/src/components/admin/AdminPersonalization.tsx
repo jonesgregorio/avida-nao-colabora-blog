@@ -8,7 +8,7 @@ import {
   SlidersHorizontal, UserRound,
 } from 'lucide-react'
 import {
-  TASK_DEFS, PersonalizationTask, TaskStatus,
+  TASK_DEFS, CANONICAL_WORKFLOW_TASK_KEYS, PersonalizationTask, TaskStatus,
   loadAllTasksForAdmin,
   formatDueLabel, dueBadgeColors, priorityBadgeColors, calculateTaskPriority,
   PRIORITY_LABELS, STATUS_LABELS, TARGET_AREA_LABELS, ACTION_VIEW_MAP,
@@ -837,11 +837,12 @@ export default function AdminPersonalization() {
   useEffect(() => { setLoading(true); void doRefreshTasks() // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const deliveryTasks = useMemo(() => allTasks.filter(t => !CANONICAL_WORKFLOW_TASK_KEYS.has(t.task_key)), [allTasks])
   const tabTasks = useMemo(() => {
     const conf = TAB_CONFIG.find(t => t.id === activeTab)
     if (!conf || activeTab === 'history') return []
-    return allTasks.filter(t => conf.statuses.includes(t.status))
-  }, [allTasks, activeTab])
+    return deliveryTasks.filter(t => conf.statuses.includes(t.status))
+  }, [deliveryTasks, activeTab])
 
   const filteredTasks = useMemo(() => {
     const filtered = tabTasks.filter(t => applyFilters(t, filters, profileMap))
@@ -858,7 +859,7 @@ export default function AdminPersonalization() {
   const tabCounts = useMemo(() => {
     const deliverySentCount = Object.values(deliveryMap).filter(d => d.status === 'sent').length
     const counts: Record<AdminTab, number> = { queue: 0, drafts: 0, resolved: 0, overdue: 0, cancelled: 0, history: deliverySentCount }
-    for (const t of allTasks) {
+    for (const t of deliveryTasks) {
       if (['pending', 'overdue'].includes(t.status)) counts.queue++
       if (['draft', 'generated'].includes(t.status)) counts.drafts++
       if (['sent', 'resolved', 'completed'].includes(t.status)) counts.resolved++
@@ -866,7 +867,7 @@ export default function AdminPersonalization() {
       if (t.status === 'cancelled') counts.cancelled++
     }
     return counts
-  }, [allTasks, deliveryMap])
+  }, [deliveryTasks, deliveryMap])
 
   function openEditor(task: PersonalizationTask) {
     setEditorTask(task)
@@ -903,8 +904,8 @@ export default function AdminPersonalization() {
 
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2"><Sparkles className="w-6 h-6 text-forest-700" /> Personalização por Plano</h1>
-          <p className="text-sm text-stone-500 mt-0.5">Revise e envie entregas personalizadas. Você pode gerar rascunhos agora — não precisa aguardar o ciclo automático.</p>
+          <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2"><Sparkles className="w-6 h-6 text-forest-700" /> Entregas de Conteúdo</h1>
+          <p className="text-sm text-stone-500 mt-0.5">Fila de recomendações, práticas, exercícios e reflexões personalizadas. Você pode gerar rascunhos agora — não precisa aguardar o ciclo automático. Planos de Autocuidado, Orientações Mensais e Relatórios seguem seus fluxos próprios.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-xl border border-line bg-white p-1" aria-label="Modo da Personalização">
@@ -915,7 +916,7 @@ export default function AdminPersonalization() {
         </div>
       </div>
 
-      <SummaryCards allTasks={allTasks} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()); setPage(1) }} advanced={viewMode === 'advanced'} />
+      <SummaryCards allTasks={deliveryTasks} onFilter={tab => { setActiveTab(tab); setSelectedIds(new Set()); setPage(1) }} advanced={viewMode === 'advanced'} />
 
       <div className="flex gap-0.5 border-b border-line mb-4 overflow-x-auto">
         {TAB_CONFIG.map(t => <button key={t.id} onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); setPage(1) }} className={`text-sm px-4 py-2.5 border-b-2 transition-colors font-medium whitespace-nowrap flex items-center gap-1.5 ${activeTab === t.id ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-500 hover:text-stone-700'}`}>{t.label}{tabCounts[t.id] > 0 && <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === t.id ? 'bg-mint text-forest-800' : 'bg-stone-100 text-stone-500'}`}>{tabCounts[t.id]}</span>}</button>)}
