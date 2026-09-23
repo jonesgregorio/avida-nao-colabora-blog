@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 import { reasonsLabel } from '../../lib/cancelReasons'
 import { emailCancellationReply } from '../../lib/emailTriggers'
 import { resolveEffectivePeriodEnd, formatBillingDate } from '../../lib/billingCycle'
@@ -115,14 +116,16 @@ export default function AdminCancellations() {
 
   async function load() {
     setLoading(true); setErr('')
-    const { data, error } = await supabase
-      .from('subscription_change_feedback')
-      .select('id, user_id, current_plan, target_plan, reasons, comment, requested_at, effective_at, status, admin_handled_at, admin_reply, admin_replied_at, stripe_sent_at, stripe_sync_status, stripe_error')
-      .eq('change_type', 'cancellation')
-      .order('requested_at', { ascending: false })
-      .limit(300)
-    if (error) { setErr(error.message); setLoading(false); return }
-    const list = (data ?? []) as Row[]
+    const { data, error } = await collectAllPages<Row>((from, to) =>
+      supabase
+        .from('subscription_change_feedback')
+        .select('id, user_id, current_plan, target_plan, reasons, comment, requested_at, effective_at, status, admin_handled_at, admin_reply, admin_replied_at, stripe_sent_at, stripe_sync_status, stripe_error')
+        .eq('change_type', 'cancellation')
+        .order('requested_at', { ascending: false })
+        .range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { message?: string } | null }>
+    )
+    if (error) { setErr(error.message || 'Não foi possível carregar os cancelamentos.'); setLoading(false); return }
+    const list = data
     const ids = [...new Set(list.map(r => r.user_id).filter(Boolean))]
     if (ids.length) {
       const [{ data: profs }, { data: subs }] = await Promise.all([
