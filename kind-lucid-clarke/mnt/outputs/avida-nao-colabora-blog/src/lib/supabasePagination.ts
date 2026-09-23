@@ -14,7 +14,7 @@ export type PageResult<T> = {
  */
 export async function collectAllPages<T>(
   loadPage: (from: number, to: number) => PromiseLike<PageResult<T>>,
-  pageSize = 500,
+  pageSize = 1000,
 ): Promise<{ data: T[]; error: { message?: string } | null }> {
   const rows: T[] = []
   let from = 0
