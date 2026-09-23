@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { AdminView } from './types'
 import {
@@ -67,6 +68,14 @@ const GROUPS = [
   },
 ]
 
+const ACTION_AREAS: { key:string; label:string; view:AdminView; Icon:LucideIcon }[] = [
+  {key:'support',label:'Suporte',view:'suporte',Icon:LifeBuoy},
+  {key:'guidance',label:'Orientações',view:'guidance-requests',Icon:MessageSquare},
+  {key:'care',label:'Autocuidado',view:'self-care-plans',Icon:Sprout},
+  {key:'deliveries',label:'Entregas',view:'personalization',Icon:HeartHandshake},
+  {key:'reports',label:'Relatórios',view:'pdf',Icon:FileText},
+]
+
 export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: (v: AdminView) => void }) {
   const [period, setPeriod] = useState<Period>('7d')
   const [customStart, setCustomStart] = useState('')
@@ -131,9 +140,7 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
       <div className="mb-5 rounded-2xl border border-forest-200 bg-forest-50/60 p-4 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-forest-600">Sua fila operacional</p><h3 className="font-serif text-xl text-forest-900">O que precisa da sua atenção</h3></div><button onClick={()=>onNavigate('atendimentos')} className="text-xs font-medium text-forest-700 hover:underline">Abrir Atendimentos & Entregas →</button></div>
         <div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-xl border border-line bg-white p-3"><HeartHandshake className="h-4 w-4 text-forest-600"/><p className="mt-1 font-serif text-2xl text-forest-900">{actions?.total ?? '—'}</p><p className="text-[10px] text-stone-500">dependem da sua ação</p></div><div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><Clock3 className="h-4 w-4 text-amber-700"/><p className="mt-1 font-serif text-2xl text-amber-800">{actions?.due_3d ?? '—'}</p><p className="text-[10px] text-amber-800">vencem em até 3 dias</p></div><div className="rounded-xl border border-red-200 bg-red-50 p-3"><AlertTriangle className="h-4 w-4 text-red-700"/><p className="mt-1 font-serif text-2xl text-red-800">{actions?.overdue ?? '—'}</p><p className="text-[10px] text-red-800">atrasados</p></div></div>
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">{[
-          ['support','Suporte','suporte',LifeBuoy],['guidance','Orientações','guidance-requests',MessageSquare],['care','Autocuidado','self-care-plans',Sprout],['deliveries','Entregas','personalization',HeartHandshake],['reports','Relatórios','pdf',FileText],
-        ].map(([key,label,view,Icon])=>{const a=actions?.areas?.[key as string];return <button key={key as string} onClick={()=>onNavigate(view as AdminView)} className="rounded-xl border border-line bg-white p-3 text-left hover:border-forest-300"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-stone-500"/>{(a?.overdue??0)>0&&<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] text-red-700">{a?.overdue} atras.</span>}</div><p className="mt-2 text-xs font-medium text-forest-900">{label as string}</p><p className="text-[11px] text-stone-500">{a?.total ?? 0} pendente(s){(a?.due_3d??0)>0?` · ${a?.due_3d} próximos`:''}</p></button>})}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">{ACTION_AREAS.map(({key,label,view,Icon})=>{const a=actions?.areas?.[key];return <button key={key} onClick={()=>onNavigate(view)} className="rounded-xl border border-line bg-white p-3 text-left hover:border-forest-300"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-stone-500"/>{(a?.overdue??0)>0&&<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] text-red-700">{a?.overdue} atras.</span>}</div><p className="mt-2 text-xs font-medium text-forest-900">{label}</p><p className="text-[11px] text-stone-500">{a?.total ?? 0} pendente(s){(a?.due_3d??0)>0?` · ${a?.due_3d} próximos`:''}</p></button>})}</div>
       </div>
 
       {period === 'custom' && (
