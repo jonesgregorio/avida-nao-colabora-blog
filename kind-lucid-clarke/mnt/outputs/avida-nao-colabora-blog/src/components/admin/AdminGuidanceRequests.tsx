@@ -191,7 +191,8 @@ export default function AdminGuidanceRequests() {
         .range(from, to) as unknown as PromiseLike<{ data: GuidanceRequest[] | null; error: { message?: string } | null }>
     )
     if (rowsError) {
-      showToast('Não foi possível carregar todas as orientações: ' + (rowsError.message || 'falha desconhecida'), true)
+      setToast({ msg: 'Não foi possível carregar todas as orientações: ' + (rowsError.message || 'falha desconhecida'), err: true })
+      window.setTimeout(() => setToast(null), 3500)
       setRequests(rows)
       setLoading(false)
       return
