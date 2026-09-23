@@ -31,3 +31,26 @@ test('Newsletter e Notificações também não escondem registros por limite sil
   assert.match(notifications, /loadTargetUsers/)
   assert.doesNotMatch(notifications, /\.limit\(100\)/)
 })
+
+test('demais telas de contagem completa não usam tetos arbitrários', () => {
+  const files = [
+    'src/components/admin/AdminCancellations.tsx',
+    'src/components/admin/AdminGuidanceRequests.tsx',
+    'src/components/admin/AdminSEOCockpit.tsx',
+    'src/components/admin/AdminFinanceiro.tsx',
+    'src/components/admin/AdminPerformanceEditorial.tsx',
+    'src/components/admin/AdminConversionFunnel.tsx',
+  ]
+  for (const file of files) {
+    const src = read(file)
+    assert.match(src, /collectAllPages</, `${file} deve paginar o conjunto completo`)
+  }
+
+  assert.doesNotMatch(read('src/components/admin/AdminCancellations.tsx'), /\.limit\(300\)/)
+  assert.doesNotMatch(read('src/components/admin/AdminGuidanceRequests.tsx'), /\.limit\(300\)/)
+  assert.doesNotMatch(read('src/components/admin/AdminSEOCockpit.tsx'), /\.limit\(500\)/)
+  assert.doesNotMatch(read('src/components/admin/AdminFinanceiro.tsx'), /\.limit\((1000|2000|5000)\)/)
+  assert.doesNotMatch(read('src/components/admin/AdminPerformanceEditorial.tsx'), /\.limit\((1000|20000|50000)\)/)
+  assert.doesNotMatch(read('src/components/admin/AdminConversionFunnel.tsx'), /\.limit\(50000\)/)
+})
+
