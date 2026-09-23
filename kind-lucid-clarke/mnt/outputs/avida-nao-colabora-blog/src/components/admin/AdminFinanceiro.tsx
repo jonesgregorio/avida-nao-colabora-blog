@@ -192,6 +192,10 @@ export default function AdminFinanceiro() {
         </button>
       </header>
 
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{loadError}</div>
+      )}
+
       {semEventos && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
           Nenhum evento financeiro registrado ainda. Os números aparecem conforme o Stripe confirmar pagamentos,
