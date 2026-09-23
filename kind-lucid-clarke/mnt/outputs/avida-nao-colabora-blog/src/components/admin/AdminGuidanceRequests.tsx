@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 import {
   MessageSquare, CheckCircle, Clock, Send, Loader2, Filter, Sparkles,
   ChevronLeft, Search, Users, Calendar, Bookmark, RefreshCw, LifeBuoy, UserPlus,
@@ -182,12 +183,21 @@ export default function AdminGuidanceRequests() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase
-      .from('monthly_guidance_requests')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(300)
-    const list = (rows ?? []) as GuidanceRequest[]
+    const { data: rows, error: rowsError } = await collectAllPages<GuidanceRequest>((from, to) =>
+      supabase
+        .from('monthly_guidance_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to) as unknown as PromiseLike<{ data: GuidanceRequest[] | null; error: { message?: string } | null }>
+    )
+    if (rowsError) {
+      setToast({ msg: 'Não foi possível carregar todas as orientações: ' + (rowsError.message || 'falha desconhecida'), err: true })
+      window.setTimeout(() => setToast(null), 3500)
+      setRequests(rows)
+      setLoading(false)
+      return
+    }
+    const list = rows
     const ids = [...new Set(list.map(r => r.user_id).filter(Boolean))]
     if (ids.length) {
       const { data: profs } = await supabase

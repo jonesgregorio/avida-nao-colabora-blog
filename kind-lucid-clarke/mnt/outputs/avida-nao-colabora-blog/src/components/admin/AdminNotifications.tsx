@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Plus, Trash2, Bell, Send, Sparkles } from 'lucide-react'
 import AIContentAssistant from './AIContentAssistant'
 import { logAdminAction } from '../../lib/adminAudit'
+import { collectAllPages } from '../../lib/supabasePagination'
 
 interface Notification {
   id: string
@@ -39,6 +40,7 @@ export default function AdminNotifications() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState('')
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -51,13 +53,26 @@ export default function AdminNotifications() {
   const [showAI, setShowAI] = useState(false)
 
   async function load() {
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100)
-    setItems(data || [])
+    setLoading(true)
+    setLoadError('')
+    const { data, error } = await collectAllPages<Notification>((from, to) =>
+      supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to) as unknown as PromiseLike<{ data: Notification[] | null; error: { message?: string } | null }>
+    )
+    if (error) setLoadError(error.message || 'Não foi possível carregar as notificações.')
+    setItems(data)
     setLoading(false)
+  }
+
+  async function loadTargetUsers(plan?: string) {
+    return collectAllPages<{ user_id: string }>((from, to) => {
+      let query = supabase.from('profiles').select('user_id').order('user_id', { ascending: true })
+      if (plan) query = query.eq('plan', plan)
+      return query.range(from, to) as unknown as PromiseLike<{ data: { user_id: string }[] | null; error: { message?: string } | null }>
+    })
   }
 
   useEffect(() => { load() }, [])
@@ -78,11 +93,13 @@ export default function AdminNotifications() {
       if (error) { showToastMsg('Erro: ' + error.message); return }
     } else if (targetMode === 'plan' && targetPlan !== 'all') {
       // All users with that plan
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('plan', targetPlan)
-      if (!profiles || profiles.length === 0) {
+      const { data: profiles, error: profilesError } = await loadTargetUsers(targetPlan)
+      if (profilesError) {
+        showToastMsg('Erro ao carregar destinatários: ' + (profilesError.message || 'falha desconhecida'))
+        setSaving(false)
+        return
+      }
+      if (profiles.length === 0) {
         showToastMsg('Nenhum usuário encontrado com esse plano.')
         setSaving(false)
         return
@@ -98,8 +115,13 @@ export default function AdminNotifications() {
       showToastMsg(`Notificação enviada para ${rows.length} usuário(s)!`)
     } else {
       // All users
-      const { data: profiles } = await supabase.from('profiles').select('user_id')
-      if (!profiles || profiles.length === 0) {
+      const { data: profiles, error: profilesError } = await loadTargetUsers()
+      if (profilesError) {
+        showToastMsg('Erro ao carregar destinatários: ' + (profilesError.message || 'falha desconhecida'))
+        setSaving(false)
+        return
+      }
+      if (profiles.length === 0) {
         showToastMsg('Nenhum usuário encontrado.')
         setSaving(false)
         return
@@ -246,6 +268,10 @@ export default function AdminNotifications() {
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-line text-stone-600 text-sm rounded-lg hover:bg-stone-50">Cancelar</button>
           </div>
         </div>
+      )}
+
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{loadError}</div>
       )}
 
       {loading ? (

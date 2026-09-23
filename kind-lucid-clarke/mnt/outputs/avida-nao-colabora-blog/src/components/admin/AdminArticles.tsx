@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Plus, Pencil, Trash2, Copy, Search, Send, Archive, FileText, Sparkles, Loader2 } from 'lucide-react'
 import { generateSEO } from '../../lib/aiContent'
 import { normalizePlan } from '../../lib/officialPlans'
+import { collectAllPages } from '../../lib/supabasePagination'
 
 interface Article {
   id: string
@@ -91,17 +92,18 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
 
   async function load() {
     setLoading(true)
-    // select('*') é tolerante caso a migration 059 (content_type) ainda não tenha aplicado.
-    // §21 (performance): antes buscava a tabela inteira sem limite algum — cresce
-    // linearmente com o catálogo. 2000 é uma rede de segurança generosa (não é
-    // paginação de verdade), no mesmo padrão já usado em personalizationTasks.ts.
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(2000)
-    if (error) showToast('Erro ao carregar artigos: ' + error.message, true)
-    setArticles(data || [])
+    // A listagem precisa ser completa para filtros e ações em massa. Em vez de
+    // um teto fixo (que escondia conteúdos quando o catálogo crescesse), lemos
+    // páginas explícitas do Data API até a última linha.
+    const { data, error } = await collectAllPages<Article>((from, to) =>
+      supabase
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to) as unknown as PromiseLike<{ data: Article[] | null; error: { message?: string } | null }>
+    )
+    if (error) showToast('Erro ao carregar artigos: ' + (error.message || 'falha desconhecida'), true)
+    setArticles(data)
     setLoading(false)
   }
 

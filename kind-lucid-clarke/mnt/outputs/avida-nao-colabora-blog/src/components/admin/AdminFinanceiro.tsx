@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 import { Loader2, TrendingUp, TrendingDown, DollarSign, Users, XCircle, ArrowDownCircle, RefreshCw } from 'lucide-react'
 import { OFFICIAL_PLANS, normalizePlan } from '../../lib/officialPlans'
 import { REASON_LABELS, reasonsLabel, type ReasonSlug } from '../../lib/cancelReasons'
@@ -64,6 +65,7 @@ export default function AdminFinanceiro() {
   const [perfis, setPerfis] = useState<PerfilRow[]>([])
   const [assinaturas, setAssinaturas] = useState<{ user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   // Filtros (§7)
   const [periodo, setPeriodo] = useState<PeriodKey>('mes')
@@ -75,21 +77,31 @@ export default function AdminFinanceiro() {
   const [busca, setBusca] = useState('')
 
   // Carga única na montagem; recarga manual pelo botão "Atualizar".
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void carregar() }, [])
 
   async function carregar() {
     setLoading(true)
+    setLoadError('')
     const [e, f, p, s] = await Promise.all([
-      supabase.from('subscription_events').select('*').order('occurred_at', { ascending: false }).limit(2000),
-      supabase.from('subscription_change_feedback').select('*').order('requested_at', { ascending: false }).limit(1000),
-      supabase.from('profiles').select('user_id, plan, email, full_name').limit(5000),
-      supabase.from('user_subscriptions').select('user_id, plan_key, status, payment_status').limit(5000),
+      collectAllPages<FinanceEvent>((from, to) =>
+        supabase.from('subscription_events').select('*').order('occurred_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: FinanceEvent[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<FeedbackRow>((from, to) =>
+        supabase.from('subscription_change_feedback').select('*').order('requested_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: FeedbackRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<PerfilRow>((from, to) =>
+        supabase.from('profiles').select('user_id, plan, email, full_name').order('user_id').range(from, to) as unknown as PromiseLike<{ data: PerfilRow[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<{ user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }>((from, to) =>
+        supabase.from('user_subscriptions').select('user_id, plan_key, status, payment_status').order('user_id').range(from, to) as unknown as PromiseLike<{ data: { user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }[] | null; error: { message?: string } | null }>
+      ),
     ])
-    setEventos((e.data as FinanceEvent[]) ?? [])
-    setFeedbacks((f.data as FeedbackRow[]) ?? [])
-    setPerfis((p.data as PerfilRow[]) ?? [])
-    setAssinaturas((s.data as typeof assinaturas) ?? [])
+    const errors = [e.error, f.error, p.error, s.error].filter(Boolean)
+    if (errors.length) setLoadError('Alguns dados financeiros não puderam ser carregados por completo. Atualize para tentar novamente.')
+    setEventos(e.data)
+    setFeedbacks(f.data)
+    setPerfis(p.data)
+    setAssinaturas(s.data)
     setLoading(false)
   }
 
@@ -174,6 +186,10 @@ export default function AdminFinanceiro() {
           <RefreshCw className="w-3.5 h-3.5" /> Atualizar
         </button>
       </header>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{loadError}</div>
+      )}
 
       {semEventos && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
