@@ -24,24 +24,19 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
     setLoading(true)
     const [artRes, viewRes, avRes, savRes, fbRes] = await Promise.all([
       collectAllPages<Art>((from, to) =>
-        supabase.from('articles').select('id, title, slug, category, status').order('id').range(from, to)
-          as unknown as PromiseLike<{ data: Art[] | null; error: { message?: string } | null }>
+        supabase.from('articles').select('id, title, slug, category, status').order('id').range(from, to) as unknown as PromiseLike<{ data: Art[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<{ article_slug: string }>((from, to) =>
-        supabase.from('reading_history').select('article_slug').order('id').range(from, to)
-          as unknown as PromiseLike<{ data: { article_slug: string }[] | null; error: { message?: string } | null }>
+        supabase.from('reading_history').select('article_slug').order('id').range(from, to) as unknown as PromiseLike<{ data: { article_slug: string }[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<{ entity_id: string | null }>((from, to) =>
-        supabase.from('analytics_events').select('entity_id').eq('event', 'article_view').order('id').range(from, to)
-          as unknown as PromiseLike<{ data: { entity_id: string | null }[] | null; error: { message?: string } | null }>
+        supabase.from('analytics_events').select('entity_id').eq('event', 'article_view').order('id').range(from, to) as unknown as PromiseLike<{ data: { entity_id: string | null }[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<{ item_id: string }>((from, to) =>
-        supabase.from('saved_items').select('item_id').eq('item_type', 'article').order('id').range(from, to)
-          as unknown as PromiseLike<{ data: { item_id: string }[] | null; error: { message?: string } | null }>
+        supabase.from('saved_items').select('item_id').eq('item_type', 'article').order('id').range(from, to) as unknown as PromiseLike<{ data: { item_id: string }[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<{ article_slug: string; feedback_type: string }>((from, to) =>
-        supabase.from('article_feedback').select('article_slug, feedback_type').order('id').range(from, to)
-          as unknown as PromiseLike<{ data: { article_slug: string; feedback_type: string }[] | null; error: { message?: string } | null }>
+        supabase.from('article_feedback').select('article_slug, feedback_type').order('id').range(from, to) as unknown as PromiseLike<{ data: { article_slug: string; feedback_type: string }[] | null; error: { message?: string } | null }>
       ),
     ])
     const failed = [artRes, viewRes, avRes, savRes, fbRes].filter(result => result.error)
