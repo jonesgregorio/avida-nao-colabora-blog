@@ -5,7 +5,7 @@ const read=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8')
 
 test('menu principal fica reduzido sem apagar recursos',()=>{
  const layout=read('src/components/admin/AdminLayout.tsx')
- for(const label of ['Dashboard','Usuários','Assinaturas','Conteúdo','SEO & Performance','Marketing','Comunicação','Cuidado','Suporte','Analytics','Sistema']) assert.match(layout,new RegExp(`label: '${label.replace('&','&')}'`))
+ for(const label of ['Dashboard','Usuários','Assinaturas','Conteúdo','SEO & Performance','Marketing','Comunicação','Atendimentos & Entregas','Suporte','Jardins','Analytics','Sistema']) assert.match(layout,new RegExp(`label: '${label.replace('&','&')}'`))
  const nav=layout.slice(layout.indexOf('const NAV_GROUPS'),layout.indexOf('const SEARCH_ITEMS'))
  for(const hidden of ["label: 'Segmentação'","label: 'Engajamento'","label: 'Financeiro'","label: 'Estúdio IA'","label: 'Site'"]) assert.doesNotMatch(nav,new RegExp(hidden))
 })
@@ -21,11 +21,12 @@ test('assinaturas incorpora financeiro sem remover a implementação',()=>{
  assert.match(area,/Receita & pagamentos/)
 })
 
-test('conteúdo mantém IA e Site como ferramentas contextuais',()=>{
+test('conteúdo mantém IA e Site como ferramentas contextuais e expõe questionários',()=>{
  const area=read('src/components/admin/AdminAreaConteudo.tsx')
  assert.match(area,/Criar com IA/)
  assert.match(area,/>Site</)
  assert.match(area,/Calendário editorial/)
+ assert.match(area,/AdminQuestionnaires/)
 })
 
 test('Cuidado usa três domínios simples e preserva Diário',()=>{
@@ -42,4 +43,21 @@ test('Sistema concentra governança e esconde técnicos em Avançado',()=>{
  assert.match(area,/Feature flags/)
  assert.match(area,/AdminLogs/)
  assert.match(area,/AdminPermissions/)
+})
+
+test('trabalho individual fica explícito em Atendimentos & Entregas',()=>{
+ const area=read('src/components/admin/AdminAreaAtendimentos.tsx')
+ for(const label of ['Orientações Mensais','Planos de Autocuidado','Recomendações personalizadas','Relatórios para revisão']) assert.match(area,new RegExp(label))
+ for(const component of ['AdminGuidanceRequests','AdminSelfCareHub','AdminPersonalization','AdminPDF']) assert.match(area,new RegExp(component))
+ const index=read('src/components/admin/index.tsx')
+ assert.match(index,/'guidance-requests': \{ area: 'atendimentos'/)
+ assert.match(index,/'self-care-plans': \{ area: 'atendimentos'/)
+ assert.match(index,/personalization: \{ area: 'atendimentos'/)
+})
+test('Suporte e Jardins permanecem áreas principais e visíveis',()=>{
+ const layout=read('src/components/admin/AdminLayout.tsx')
+ const nav=layout.slice(layout.indexOf('const NAV_GROUPS'),layout.indexOf('const SEARCH_ITEMS'))
+ assert.match(nav,/label: 'Suporte'/)
+ assert.match(nav,/label: 'Jardins'/)
+ assert.match(read('src/components/admin/AdminAreaJardins.tsx'),/AdminGardenManagement/)
 })

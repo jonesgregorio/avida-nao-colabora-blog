@@ -12,6 +12,8 @@ export type AdminAreaView =
   | 'site'
   | 'estudio'
   | 'cuidado'
+  | 'atendimentos'
+  | 'jardins'
   | 'comunicacao'
   | 'suporte'
   | 'analytics'
