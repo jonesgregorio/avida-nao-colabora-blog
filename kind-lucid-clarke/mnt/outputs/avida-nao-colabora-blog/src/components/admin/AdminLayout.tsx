@@ -2,7 +2,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
-  LayoutDashboard, Users, HeartHandshake, BookOpen,
+  LayoutDashboard, Users, HeartHandshake, BookOpen, Sprout,
   Mail, LifeBuoy, Settings2,
   ExternalLink, Menu, BarChart3, ArrowLeftFromLine, Megaphone,
   Search, Bell, CreditCard, AlertTriangle, Loader2, X, Gauge,
@@ -61,11 +61,12 @@ const NAV_GROUPS: NavGroup[] = [
     { id: 'estudio', label: 'Marketing', icon: Megaphone },
     { id: 'comunicacao', label: 'Comunicação', icon: Mail },
   ]},
-  { label: 'Cuidado', items: [
-    { id: 'cuidado', label: 'Cuidado', icon: HeartHandshake },
-  ]},
-  { label: 'Relacionamento', items: [
+  { label: 'Operação com usuários', items: [
+    { id: 'atendimentos', label: 'Atendimentos & Entregas', icon: HeartHandshake },
     { id: 'suporte', label: 'Suporte', icon: LifeBuoy },
+  ]},
+  { label: 'Experiência', items: [
+    { id: 'jardins', label: 'Jardins', icon: Sprout },
   ]},
   { label: 'Análise', items: [
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -119,7 +120,7 @@ const AREA_MODULE: Record<string, string> = {
   'visao-geral': 'overview', usuarios: 'users', segmentacao: 'users', engajamento: 'analytics',
   assinaturas: 'finance', financeiro: 'finance',
   conteudos: 'content', 'estudio-ia': 'content', 'seo-performance': 'content', site: 'content', estudio: 'content',
-  cuidado: 'content', analytics: 'analytics',
+  cuidado: 'content', atendimentos: 'content', jardins: 'content', analytics: 'analytics',
   comunicacao: 'communication', suporte: 'users', sistema: 'system',
 }
 
