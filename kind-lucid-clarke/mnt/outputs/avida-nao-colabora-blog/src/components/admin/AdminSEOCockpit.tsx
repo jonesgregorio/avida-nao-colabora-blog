@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 import { smartFixArticle, type SeoSmartArticle, type SeoSmartIssue } from '../../lib/seoSmartCorrector'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Pencil, RefreshCw, Search, Sparkles, WandSparkles } from 'lucide-react'
 
@@ -149,9 +150,15 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
 
   const loadArticles = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('articles').select(articleSelect).order('created_at', { ascending: false }).limit(500)
-    if (error) flash('Não consegui carregar a auditoria dos artigos: ' + error.message, true)
-    setRows((data as Row[]) ?? [])
+    const { data, error } = await collectAllPages<Row>((from, to) =>
+      supabase
+        .from('articles')
+        .select(articleSelect)
+        .order('created_at', { ascending: false })
+        .range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { message?: string } | null }>
+    )
+    if (error) flash('Não consegui carregar a auditoria completa dos artigos: ' + (error.message || 'falha desconhecida'), true)
+    setRows(data)
     setLoading(false)
   }, [flash])
 
@@ -191,15 +198,21 @@ export default function AdminSEOCockpit({ onEditArticle }: { onEditArticle?: (id
   async function analyzeAllNow() {
     setAnalyzing(true)
     try {
-      const [{ data: syncData, error: syncError }, { data: articleData, error: articleError }] = await Promise.all([
+      const [{ data: syncData, error: syncError }, articleResult] = await Promise.all([
         supabase.functions.invoke('google-search-console', { body: { action: 'sync', source: 'analysis_report' } }),
-        supabase.from('articles').select(articleSelect).order('created_at', { ascending: false }).limit(500),
+        collectAllPages<Row>((from, to) =>
+          supabase
+            .from('articles')
+            .select(articleSelect)
+            .order('created_at', { ascending: false })
+            .range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { message?: string } | null }>
+        ),
       ])
       if (syncError) throw syncError
-      if (articleError) throw articleError
+      if (articleResult.error) throw new Error(articleResult.error.message || 'Falha ao carregar os artigos.')
       const freshDashboard = (syncData?.dashboard || dashboard) as Dashboard | null
       if (!freshDashboard) throw new Error('O Google ainda não retornou dados suficientes para montar o relatório.')
-      const freshRows = (articleData as Row[]) ?? []
+      const freshRows = articleResult.data
       const freshPublished = freshRows.filter(a => a.published === true || a.status === 'published')
       setDashboard(freshDashboard)
       setRows(freshRows)
