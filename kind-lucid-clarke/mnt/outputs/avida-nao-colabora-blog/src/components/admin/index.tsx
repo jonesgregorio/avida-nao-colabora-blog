@@ -13,6 +13,8 @@ const AdminOverview = lazy(() => import('./AdminOverview'))
 const AdminAreaUsuarios = lazy(() => import('./AdminAreaUsuarios'))
 const AdminAreaAssinaturas = lazy(() => import('./AdminAreaAssinaturas'))
 const AdminAreaCuidado = lazy(() => import('./AdminAreaCuidado'))
+const AdminAreaAtendimentos = lazy(() => import('./AdminAreaAtendimentos'))
+const AdminAreaJardins = lazy(() => import('./AdminAreaJardins'))
 const AdminSuportePage = lazy(() => import('./AdminSuportePage'))
 const AdminAreaConteudo = lazy(() => import('./AdminAreaConteudo'))
 const AdminAreaEstudioIA = lazy(() => import('./AdminAreaEstudioIA'))
@@ -41,7 +43,7 @@ const ADMIN_KEY = 'avida_admin_view'
 const AREAS: AdminView[] = [
   'visao-geral', 'usuarios', 'segmentacao', 'engajamento',
   'assinaturas', 'financeiro',
-  'conteudos', 'estudio-ia', 'seo-performance', 'site', 'estudio', 'cuidado',
+  'conteudos', 'estudio-ia', 'seo-performance', 'site', 'estudio', 'cuidado', 'atendimentos', 'jardins',
   'comunicacao', 'suporte', 'analytics', 'sistema',
 ]
 
@@ -80,13 +82,13 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   emocional: { area: 'cuidado' },
   questionnaires: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'questionarios' },
   'diary-config': { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'diario' },
-  pdf: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'relatorios' },
-  'self-care-plans': { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'autocuidado' },
-  autocuidado: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'autocuidado' },
-  'guidance-requests': { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'orientacoes' },
-  orientacao: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'orientacoes' },
-  'professional-comments': { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'orientacoes' },
-  personalization: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'recomendacoes' },
+  pdf: { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'relatorios' },
+  'self-care-plans': { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'autocuidado' },
+  autocuidado: { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'autocuidado' },
+  'guidance-requests': { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'orientacoes' },
+  orientacao: { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'orientacoes' },
+  'professional-comments': { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'orientacoes' },
+  personalization: { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'recomendacoes' },
   professionals: { area: 'cuidado' },
   'evolution-sessions': { area: 'cuidado' }, atendimento: { area: 'cuidado' },
   // "Central de IA" saiu de Cuidado → Sistema › Monitoramento › IA
@@ -214,6 +216,8 @@ export default function AdminPanel() {
       case 'site': return <AdminAreaSite />
       case 'estudio': return <AdminEstudio />
       case 'cuidado': return <AdminAreaCuidado />
+      case 'atendimentos': return <AdminAreaAtendimentos />
+      case 'jardins': return <AdminAreaJardins />
       case 'comunicacao': return <AdminAreaComunicacao initialCampaignId={pendingCampaignId} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} initialTicketId={pendingTicketId} />
