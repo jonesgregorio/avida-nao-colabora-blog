@@ -43,7 +43,7 @@ function mockJwt() {
     role: 'authenticated',
     aal: 'aal2',
     session_id: '22222222-2222-4222-8222-222222222222',
-  })}.e2e-signature`
+  })}.${Buffer.from('e2e-signature').toString('base64url')}`
 }
 
 async function installAdminSession(page) {
@@ -177,13 +177,6 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/admin')
     await page.waitForTimeout(1200)
-    const debug = await page.evaluate(() => ({
-      href: location.href,
-      title: document.title,
-      body: document.body.innerText.slice(0, 1200),
-      keys: Object.keys(localStorage),
-    }))
-    console.log('[admin-e2e-debug]', JSON.stringify(debug))
     await expect(page.locator('.admin-shell')).toBeVisible({ timeout: 25_000 })
 
     for (const [label, slug] of sections) {
