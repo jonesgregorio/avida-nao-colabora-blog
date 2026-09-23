@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { RefreshCw, Users, Radar } from 'lucide-react'
+import { RefreshCw, Users, Radar, Info } from 'lucide-react'
+import { collectAllPages } from '../../lib/supabasePagination'
 
 // Card visual fixo na Visão geral do Admin (pedido do usuário: "quero a
 // informação de quantos acessos e por onde acessaram, de forma mais visual
@@ -39,6 +40,7 @@ function rangeFor(period: Period, customStart: string, customEnd: string): { sta
 const SOURCE_COLORS: Record<string, string> = {
   Instagram: '#c1447e',
   Direto: '#a8a29e',
+  'Origem não identificada': '#a8a29e',
   Google: '#4285f4',
   YouTube: '#e05252',
   Facebook: '#3b6fc4',
@@ -48,7 +50,13 @@ const SOURCE_COLORS: Record<string, string> = {
 }
 const FALLBACK_COLORS = ['#3d6b52', '#c08b3e', '#7a5ea8', '#3e8fc0', '#c0603e']
 
-interface Ev { event: string; entity_id: string | null; session_id: string | null; user_id: string | null }
+interface Ev {
+  event: string
+  entity_id: string | null
+  session_id: string | null
+  user_id: string | null
+  metadata: { path?: string; landing_path?: string; attribution_method?: string; medium?: string; campaign?: string } | null
+}
 
 export default function AdminVisitsSourceCard() {
   const [period, setPeriod] = useState<Period>('7d')
@@ -59,6 +67,7 @@ export default function AdminVisitsSourceCard() {
   const [visitors, setVisitors] = useState(0)
   const [sessions, setSessions] = useState(0)
   const [sources, setSources] = useState<[string, number][]>([])
+  const [unknownLandings, setUnknownLandings] = useState<[string, number][]>([])
 
   const load = useCallback(async () => {
     const r = rangeFor(period, customStart, customEnd)
@@ -70,24 +79,39 @@ export default function AdminVisitsSourceCard() {
     // eventos mais RECENTES em janelas maiores (30 dias mostrava 0 do Instagram,
     // mesmo com a campanha rodando). Ordenar do mais novo pro mais antigo garante
     // que, se algo for cortado, seja o passado distante — nunca a campanha atual.
-    const { data } = await supabase
-      .from('analytics_events')
-      .select('event, entity_id, session_id, user_id')
-      .gte('created_at', r.start.toISOString())
-      .lte('created_at', r.end.toISOString())
-      .in('event', ['page_view', 'article_view', 'visit_source'])
-      .order('created_at', { ascending: false })
-      .limit(20000)
-    const rows = (data ?? []) as Ev[]
-    const navEvents = rows.filter(r => r.event === 'page_view' || r.event === 'article_view')
-    setVisitors(new Set(navEvents.map(r => r.user_id || r.session_id).filter(Boolean)).size)
-    setSessions(new Set(navEvents.map(r => r.session_id).filter(Boolean)).size)
+    const { data, error } = await collectAllPages<Ev>((from, to) =>
+      supabase
+        .from('analytics_events')
+        .select('event, entity_id, session_id, user_id, metadata')
+        .gte('created_at', r.start.toISOString())
+        .lte('created_at', r.end.toISOString())
+        .in('event', ['page_view', 'article_view', 'visit_source'])
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    )
+    if (error) { setVisitors(0); setSessions(0); setSources([]); setUnknownLandings([]); setLoading(false); return }
+    const rows = data as Ev[]
+    // Eventos históricos do próprio /admin não devem contar como audiência pública.
+    const isAdmin = (row: Ev) => (row.metadata?.path ?? row.metadata?.landing_path ?? '').startsWith('/admin')
+    const navEvents = rows.filter(row => (row.event === 'page_view' || row.event === 'article_view') && !isAdmin(row))
+    setVisitors(new Set(navEvents.map(row => row.user_id || row.session_id).filter(Boolean)).size)
+    setSessions(new Set(navEvents.map(row => row.session_id).filter(Boolean)).size)
+
     const counts = new Map<string, number>()
-    for (const r of rows) {
-      if (r.event !== 'visit_source' || !r.entity_id) continue
-      counts.set(r.entity_id, (counts.get(r.entity_id) ?? 0) + 1)
+    const landings = new Map<string, number>()
+    for (const row of rows) {
+      if (row.event !== 'visit_source' || !row.entity_id || isAdmin(row)) continue
+      // "Direto" era o rótulo legado para ausência de sinal. Não fingimos que isso
+      // prova que a pessoa digitou a URL: mostramos como origem não identificada.
+      const source = row.entity_id === 'Direto' ? 'Origem não identificada' : row.entity_id
+      counts.set(source, (counts.get(source) ?? 0) + 1)
+      if (source === 'Origem não identificada') {
+        const landing = row.metadata?.landing_path ?? row.metadata?.path ?? '/'
+        landings.set(landing, (landings.get(landing) ?? 0) + 1)
+      }
     }
     setSources([...counts.entries()].sort((a, b) => b[1] - a[1]))
+    setUnknownLandings([...landings.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5))
     setLoading(false)
   }, [period, customStart, customEnd])
 
@@ -184,6 +208,24 @@ export default function AdminVisitsSourceCard() {
           </div>
         )}
       </div>
+
+      {!loading && sources.some(([source]) => source === 'Origem não identificada') && (
+        <div className="mt-5 rounded-xl border border-line bg-stone-50 px-4 py-3">
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-soft">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span><strong className="text-forest-900">Origem não identificada</strong> significa que o navegador não enviou UTM, identificador de campanha ou site de referência. Não tratamos mais isso como “Direto”, porque não há evidência de que a pessoa digitou o endereço.</span>
+          </p>
+          {unknownLandings.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {unknownLandings.map(([path, count]) => (
+                <span key={path} className="rounded-full border border-line bg-white px-2.5 py-1 text-[10px] text-stone-600">
+                  Entrada {path} · {count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
