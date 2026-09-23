@@ -80,7 +80,7 @@ const LEGACY_MAP: Record<string, { area: AdminView; tabKey?: string; tab?: strin
   // Cuidado (antes: "mapa" + "emocional")
   mapa: { area: 'cuidado' },
   emocional: { area: 'cuidado' },
-  questionnaires: { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'questionarios' },
+  questionnaires: { area: 'conteudos', tabKey: 'admin-conteudo-tab', tab: 'questionarios' },
   'diary-config': { area: 'cuidado', tabKey: 'admin-cuidado-tab', tab: 'diario' },
   pdf: { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'relatorios' },
   'self-care-plans': { area: 'atendimentos', tabKey: 'admin-atendimentos-tab', tab: 'autocuidado' },
