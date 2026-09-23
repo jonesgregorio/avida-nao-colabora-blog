@@ -102,30 +102,25 @@ export default function AdminConversionFunnel() {
     const [eventsRes, profilesRes, subsRes, diaryRes, questionnaireRes] = await Promise.all([
       collectAllPages<EventRow>((from, to) =>
         supabase.from('analytics_events').select('event,session_id,user_id,created_at')
-          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: EventRow[] | null; error: { message?: string } | null }>
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: EventRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<ProfileRow>((from, to) =>
         supabase.from('profiles').select('user_id,created_at')
-          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: ProfileRow[] | null; error: { message?: string } | null }>
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: ProfileRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<SubscriptionRow>((from, to) =>
         supabase.from('subscription_events').select('user_id,event_type,previous_plan,new_plan,occurred_at,status,amount')
           .gte('occurred_at', since).in('event_type', ['checkout_completed', 'upgrade_confirmed'])
-          .order('occurred_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: SubscriptionRow[] | null; error: { message?: string } | null }>
+          .order('occurred_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: SubscriptionRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<UsageRow>((from, to) =>
         supabase.from('diary_entries').select('user_id,created_at')
-          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
+          .gte('created_at', since).order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<UsageRow>((from, to) =>
         supabase.from('questionnaire_responses').select('user_id,created_at')
           .eq('status', 'completed').gte('created_at', since)
-          .order('created_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
+          .order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: UsageRow[] | null; error: { message?: string } | null }>
       ),
     ])
 
