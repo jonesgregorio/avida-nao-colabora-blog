@@ -77,7 +77,6 @@ export default function AdminFinanceiro() {
   const [busca, setBusca] = useState('')
 
   // Carga única na montagem; recarga manual pelo botão "Atualizar".
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void carregar() }, [])
 
   async function carregar() {
