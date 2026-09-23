@@ -73,9 +73,9 @@ async function installAdminSession(page) {
     },
   }
 
-  await page.addInitScript(value => {
-    localStorage.setItem('sb-e2e-auth-token', JSON.stringify(value))
-  }, session)
+  await page.addInitScript(({ key, value }) => {
+    localStorage.setItem(key, JSON.stringify(value))
+  }, { key: 'sb-e2e-auth-token', value: session })
 
   await page.route('https://e2e.supabase.co/**', async route => {
     const request = route.request()
@@ -172,6 +172,13 @@ for (const viewport of [
     await installAdminSession(page)
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/admin')
+    // O client Supabase v2 usa uma chave derivada do host do projeto. Como o
+    // ambiente E2E aponta para e2e.supabase.co, espelhamos a sessão na chave
+    // canônica antes de recarregar o bootstrap autenticado.
+    await page.evaluate(value => {
+      localStorage.setItem('sb-e2e-auth-token', JSON.stringify(value))
+    }, await page.evaluate(() => JSON.parse(localStorage.getItem('sb-e2e-auth-token') || 'null')))
+    await page.reload()
     await expect(page.locator('.admin-shell')).toBeVisible({ timeout: 10_000 })
 
     for (const [label, slug] of sections) {
