@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { FileText, CalendarDays, Clock, Tag, Image, Plus, Sparkles, LayoutTemplate } from 'lucide-react'
+import { FileText, CalendarDays, Clock, Tag, Image, Plus, Sparkles, LayoutTemplate, ClipboardList } from 'lucide-react'
 import AdminArticles from './AdminArticles'
 import AdminCategories from './AdminCategories'
 import AdminMediaLibrary from './AdminMediaLibrary'
 import AdminCalendarioEditorial from './AdminCalendarioEditorial'
 import AdminScheduled from './AdminScheduled'
+import AdminQuestionnaires from './AdminQuestionnaires'
 
 const TABS = [
   { id: 'artigos', label: 'Artigos', icon: FileText },
@@ -12,6 +13,7 @@ const TABS = [
   { id: 'programados', label: 'Programados', icon: Clock },
   { id: 'categorias', label: 'Categorias', icon: Tag },
   { id: 'imagens', label: 'Mídia', icon: Image },
+  { id: 'questionarios', label: 'Questionários', icon: ClipboardList },
 ] as const
 type Tab = typeof TABS[number]['id']
 const isTab=(v:string):v is Tab=>TABS.some(x=>x.id===v)
@@ -28,6 +30,7 @@ export default function AdminAreaConteudo({ onEditArticle, initialTab, onNavigat
    {tab==='programados'&&<AdminScheduled/>}
    {tab==='categorias'&&<AdminCategories/>}
    {tab==='imagens'&&<AdminMediaLibrary/>}
+   {tab==='questionarios'&&<AdminQuestionnaires/>}
   </section>
  </div>
 }
