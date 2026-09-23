@@ -120,6 +120,21 @@ async function installAdminSession(page) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '0' })
       return
     }
+    if (path.includes('/rest/v1/rpc/admin_subscriptions_overview')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          generated_at: nowIso,
+          users_by_plan: { free: 0, essential: 0, plus: 0 },
+          stripe: { active: 0, trialing: 0, past_due: 0, incomplete: 0, cancel_at_period_end: 0, canceled: 0, no_stripe_sub: 0 },
+          divergences: { paid_profile_no_active_stripe: 0, free_profile_active_stripe: 0, plan_mismatch: 0 },
+          movement_30d: { upgrades: 0, downgrades: 0, reactivations: 0, cancellations_requested: 0, cancellations_handled: 0, payment_failures: 0 },
+          attention: { cancellations_to_handle: 0, past_due: 0, divergences_total: 0 },
+        }),
+      })
+      return
+    }
 
     if (path.startsWith('/rest/v1/profiles') && accept.includes('application/vnd.pgrst.object+json')) {
       await route.fulfill({
