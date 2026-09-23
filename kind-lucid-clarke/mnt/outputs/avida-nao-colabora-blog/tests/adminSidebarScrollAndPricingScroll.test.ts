@@ -24,7 +24,7 @@ test('AdminSidebarContent é um componente próprio, definido fora do render de 
 })
 
 test('as duas instâncias do menu (desktop e mobile) usam o mesmo componente estável, recebendo os dados como props', () => {
-  const uses = adminLayout.match(/<AdminSidebarContent visibleNav=\{visibleNav\} active=\{active\} go=\{go\} initials=\{initials\} name=\{name\} onExit=\{onExit\} \/>/g) ?? []
+  const uses = adminLayout.match(/<AdminSidebarContent visibleNav=\{visibleNav\} active=\{active\} go=\{go\} initials=\{initials\} name=\{name\} onExit=\{onExit\}[^>]*\/>/g) ?? []
   assert.equal(uses.length, 2, 'esperava o componente usado 2x (sidebar fixa do desktop + drawer do mobile)')
 })
 
