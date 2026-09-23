@@ -84,6 +84,10 @@ async function installAdminSession(page) {
     const accept = request.headers().accept ?? ''
 
     if (path.startsWith('/auth/v1/')) {
+      if (path.includes('/factors')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ all: [], totp: [], phone: [] }) })
+        return
+      }
       if (path.endsWith('/user')) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(session.user) })
         return
