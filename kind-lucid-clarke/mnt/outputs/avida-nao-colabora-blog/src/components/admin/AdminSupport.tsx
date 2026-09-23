@@ -38,6 +38,8 @@ interface Ticket {
   unread_for_admin: boolean
   unread_for_user: boolean
   last_message_at: string | null
+  last_user_message_at: string | null
+  last_admin_message_at: string | null
   created_at: string
   updated_at: string
   user_name?: string | null
@@ -140,7 +142,7 @@ function formatDateTime(iso: string) {
   })
 }
 function getSLA(ticket: Ticket): { label: string; color: string } {
-  const created = new Date(ticket.created_at).getTime()
+  const created = new Date(ticket.last_user_message_at ?? ticket.created_at).getTime()
   const hours = (Date.now() - created) / 3600000
   const limit = getSupportSlaHours(ticket.user_plan ?? ticket.plan_at_creation)
   if (hours > limit) return { label: 'Atrasado', color: 'bg-red-100 text-red-700' }
@@ -151,7 +153,7 @@ function getSLARemaining(ticket: Ticket): {
   timeStr: string; isOverdue: boolean; isWarning: boolean; isOk: boolean
   deadline: string; limitHours: number
 } {
-  const created = new Date(ticket.created_at).getTime()
+  const created = new Date(ticket.last_user_message_at ?? ticket.created_at).getTime()
   const limit = getSupportSlaHours(ticket.user_plan ?? ticket.plan_at_creation)
   const deadlineMs = created + limit * 3600000
   const deadlineStr = new Date(deadlineMs).toLocaleString('pt-BR', {
@@ -180,7 +182,7 @@ function formatAvgTime(ms: number | null): string {
   return `${Math.round(hours / 24)}d`
 }
 function isOverdue(ticket: Ticket): boolean {
-  if (ticket.status === 'resolved' || ticket.status === 'closed') return false
+  if (!['open','in_progress','awaiting_admin'].includes(ticket.status)) return false
   return getSLA(ticket).label === 'Atrasado'
 }
 
@@ -244,6 +246,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
   const [periodFilter, setPeriodFilter] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [slaFilter,setSlaFilter]=useState<'all'|'action'|'soon'|'overdue'>('all')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [page, setPage] = useState(1)
@@ -529,6 +532,15 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
     .filter(t => !unreadOnly || t.unread_for_admin)
     .filter(t => !overdueOnly || isOverdue(t))
     .filter(t => {
+      if(slaFilter==='all') return true
+      const needsAction=['open','in_progress','awaiting_admin'].includes(t.status)
+      if(!needsAction) return false
+      const s=getSLARemaining(t)
+      if(slaFilter==='action') return true
+      if(slaFilter==='overdue') return s.isOverdue
+      return !s.isOverdue && s.isWarning
+    })
+    .filter(t => {
       if (!periodFilter) return true
       const days = (Date.now() - new Date(t.created_at).getTime()) / 86400000
       return days <= Number(periodFilter)
@@ -582,9 +594,9 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
     else { setOverdueOnly(false); setStatusTab(prev => prev === key ? '' : key) }
   }
   function clearFilters() {
-    setStatusTab(''); setPriorityFilter(''); setCategoryFilter(''); setPlanFilter(''); setPeriodFilter(''); setUnreadOnly(false); setOverdueOnly(false); setSearch(''); setPage(1)
+    setStatusTab(''); setPriorityFilter(''); setCategoryFilter(''); setPlanFilter(''); setPeriodFilter(''); setUnreadOnly(false); setOverdueOnly(false); setSlaFilter('all'); setSearch(''); setPage(1)
   }
-  const hasFilters = !!(statusTab || priorityFilter || categoryFilter || planFilter || periodFilter || unreadOnly || overdueOnly || search)
+  const hasFilters = !!(statusTab || priorityFilter || categoryFilter || planFilter || periodFilter || unreadOnly || overdueOnly || slaFilter!=='all' || search)
 
   function exportCSV() {
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
@@ -619,7 +631,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <h1 className="font-serif text-3xl text-forest-900">Suporte</h1>
-              <p className="text-sm text-ink-soft mt-0.5">Resolva problemas técnicos, conta, pagamento e dúvidas de uso.</p>
+              <p className="text-sm text-ink-soft mt-0.5">Resolva problemas técnicos, conta, pagamento e dúvidas de uso. O SLA considera a última mensagem do usuário e pausa quando o atendimento aguarda resposta dele.</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={loadTickets} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-xs text-forest-800 hover:border-forest-300">
@@ -714,6 +726,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
           </select>
+          <select value={slaFilter} onChange={e=>{setSlaFilter(e.target.value as typeof slaFilter);setPage(1)}} className="text-xs px-2.5 py-2 border border-line rounded-lg bg-white focus:outline-none"><option value="all">SLA: todos</option><option value="action">Depende de mim</option><option value="soon">Perto de vencer</option><option value="overdue">Atrasados</option></select>
           <button onClick={() => { setUnreadOnly(v => !v); setPage(1) }} className={`text-xs px-3 py-2 rounded-lg border transition-colors ${unreadOnly ? 'bg-red-600 text-white border-red-600' : 'bg-white border-line text-stone-600 hover:border-red-300'}`}>Não lidos</button>
           {hasFilters && <button onClick={clearFilters} className="text-xs text-stone-400 hover:text-stone-600 px-1">Limpar</button>}
         </div>

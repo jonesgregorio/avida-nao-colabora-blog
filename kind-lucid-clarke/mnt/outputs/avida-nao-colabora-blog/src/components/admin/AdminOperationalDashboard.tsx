@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { AdminView } from './types'
 import {
   RefreshCw, UserPlus, NotebookPen, CalendarCheck, ClipboardList,
-  Sprout, BarChart3, BookOpen, LifeBuoy, MessageSquare, CreditCard, XCircle, TrendingUp, TrendingDown, Activity,
+  Sprout, BarChart3, BookOpen, LifeBuoy, MessageSquare, CreditCard, XCircle, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock3, HeartHandshake, FileText,
 } from 'lucide-react'
 
 type Period = 'today' | '7d' | '30d' | 'month' | 'custom'
 interface DashboardData { period?: Record<string, number>; attention?: Record<string, number> }
+interface ActionArea { total?: number; overdue?: number; due_3d?: number }
+interface ActionSnapshot { total?: number; overdue?: number; due_3d?: number; areas?: Record<string,ActionArea> }
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: 'Hoje', '7d': '7 dias', '30d': '30 dias', month: 'Mês atual', custom: 'Personalizado',
@@ -65,22 +68,32 @@ const GROUPS = [
   },
 ]
 
-export default function AdminOperationalDashboard({ onNavigate: _onNavigate }: { onNavigate: (v: AdminView) => void }) {
+const ACTION_AREAS: { key:string; label:string; view:AdminView; Icon:LucideIcon }[] = [
+  {key:'support',label:'Suporte',view:'suporte',Icon:LifeBuoy},
+  {key:'guidance',label:'Orientações',view:'guidance-requests',Icon:MessageSquare},
+  {key:'care',label:'Autocuidado',view:'self-care-plans',Icon:Sprout},
+  {key:'deliveries',label:'Entregas',view:'personalization',Icon:HeartHandshake},
+  {key:'reports',label:'Relatórios',view:'pdf',Icon:FileText},
+]
+
+export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: (v: AdminView) => void }) {
   const [period, setPeriod] = useState<Period>('7d')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [actions,setActions]=useState<ActionSnapshot|null>(null)
   const [error, setError] = useState<string | null>(null)
   const { start, end } = useMemo(() => rangeFor(period, customStart, customEnd), [period, customStart, customEnd])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const { data: res, error: err } = await supabase.rpc('admin_operational_dashboard', {
-      p_start: start.toISOString(),
-      p_end: end.toISOString(),
-    })
+    const [{ data: res, error: err }, actionRes] = await Promise.all([
+      supabase.rpc('admin_operational_dashboard', { p_start: start.toISOString(), p_end: end.toISOString() }),
+      supabase.rpc('admin_action_center_snapshot'),
+    ])
+    if (!actionRes.error) setActions((actionRes.data ?? {}) as ActionSnapshot)
     if (err) {
       const code = (err as { code?: string }).code
       setError(code === 'PGRST202' ? 'A função admin_operational_dashboard não está publicada neste ambiente.' : err.message)
@@ -121,6 +134,13 @@ export default function AdminOperationalDashboard({ onNavigate: _onNavigate }: {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+      </div>
+
+
+      <div className="mb-5 rounded-2xl border border-forest-200 bg-forest-50/60 p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-forest-600">Sua fila operacional</p><h3 className="font-serif text-xl text-forest-900">O que precisa da sua atenção</h3></div><button onClick={()=>onNavigate('atendimentos')} className="text-xs font-medium text-forest-700 hover:underline">Abrir Atendimentos & Entregas →</button></div>
+        <div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-xl border border-line bg-white p-3"><HeartHandshake className="h-4 w-4 text-forest-600"/><p className="mt-1 font-serif text-2xl text-forest-900">{actions?.total ?? '—'}</p><p className="text-[10px] text-stone-500">dependem da sua ação</p></div><div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><Clock3 className="h-4 w-4 text-amber-700"/><p className="mt-1 font-serif text-2xl text-amber-800">{actions?.due_3d ?? '—'}</p><p className="text-[10px] text-amber-800">vencem em até 3 dias</p></div><div className="rounded-xl border border-red-200 bg-red-50 p-3"><AlertTriangle className="h-4 w-4 text-red-700"/><p className="mt-1 font-serif text-2xl text-red-800">{actions?.overdue ?? '—'}</p><p className="text-[10px] text-red-800">atrasados</p></div></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">{ACTION_AREAS.map(({key,label,view,Icon})=>{const a=actions?.areas?.[key];return <button key={key} onClick={()=>onNavigate(view)} className="rounded-xl border border-line bg-white p-3 text-left hover:border-forest-300"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-stone-500"/>{(a?.overdue??0)>0&&<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] text-red-700">{a?.overdue} atras.</span>}</div><p className="mt-2 text-xs font-medium text-forest-900">{label}</p><p className="text-[11px] text-stone-500">{a?.total ?? 0} pendente(s){(a?.due_3d??0)>0?` · ${a?.due_3d} próximos`:''}</p></button>})}</div>
       </div>
 
       {period === 'custom' && (

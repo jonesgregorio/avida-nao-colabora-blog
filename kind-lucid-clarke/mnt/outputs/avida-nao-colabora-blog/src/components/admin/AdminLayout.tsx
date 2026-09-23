@@ -143,13 +143,14 @@ interface Props {
 // do AdminLayout muda (inclusive só trocar de aba), zerando o scroll do menu lateral sem
 // nenhum motivo. Como componente próprio e estável, o React só atualiza o que mudou (o item
 // ativo) e preserva a posição de rolagem que o admin já tinha.
-function AdminSidebarContent({ visibleNav, active, go, initials, name, onExit }: {
+function AdminSidebarContent({ visibleNav, active, go, initials, name, onExit, navBadges }: {
   visibleNav: NavGroup[]
   active: string
   go: (item: NavItem) => void
   initials: string
   name: string
   onExit: () => void
+  navBadges: Record<string,number>
 }) {
   return (
     <aside className="admin-sidebar w-[250px] text-forest-100 flex flex-col h-full">
@@ -176,7 +177,7 @@ function AdminSidebarContent({ visibleNav, active, go, initials, name, onExit }:
                     className={`admin-nav-button ${on ? 'is-active' : ''} w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-left`}
                   >
                     <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate flex-1">{item.label}</span>{(navBadges[item.id]??0)>0&&<span className="min-w-5 h-5 px-1.5 rounded-full bg-white/15 text-white text-[10px] font-semibold flex items-center justify-center">{navBadges[item.id]>99?'99+':navBadges[item.id]}</span>}
                   </button>
                 )
               })}
@@ -220,6 +221,7 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
   const [alerts, setAlerts] = useState<AdminAlert[]>([])
   // undefined = ainda não carregou; nunca tratamos "sem dados" como "sem problemas".
   const [alertsLoadedOk, setAlertsLoadedOk] = useState<boolean | undefined>(undefined)
+  const [navBadges,setNavBadges]=useState<Record<string,number>>({})
   const active = deriveActive(currentView)
 
   useEffect(() => {
@@ -322,7 +324,11 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
 
     // Fonte ÚNICA: adminOperationalStatus (RPC admin_queues_overview). Sem
     // re-consultar support_tickets / guidance / cancellations por conta própria.
-    const snap = await fetchOperationalSnapshot()
+    const [snap,actionRes] = await Promise.all([fetchOperationalSnapshot(),supabase.rpc('admin_action_center_snapshot')])
+    if (!actionRes.error) {
+      const a=(actionRes.data??{}) as {areas?:Record<string,{total?:number}>}
+      setNavBadges({atendimentos:(a.areas?.guidance?.total??0)+(a.areas?.care?.total??0)+(a.areas?.deliveries?.total??0)+(a.areas?.reports?.total??0),suporte:a.areas?.support?.total??0})
+    }
     if (!snap.ok) setAlertsError('Painel de filas indisponível')
     const q = snap.queues
     const f = snap.failuresActive
@@ -375,12 +381,12 @@ export default function AdminLayout({ currentView, onNavigate, onExit, onOpenUse
   return (
     <div className="admin-shell flex min-h-screen">
       <div className="hidden md:flex flex-shrink-0 h-screen sticky top-0">
-        <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} />
+        <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} navBadges={navBadges} />
       </div>
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="flex-shrink-0 h-screen">
-            <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} />
+            <AdminSidebarContent visibleNav={visibleNav} active={active} go={go} initials={initials} name={name} onExit={onExit} navBadges={navBadges} />
           </div>
           <div className="flex-1 bg-black/45" onClick={() => setSidebarOpen(false)} />
         </div>
