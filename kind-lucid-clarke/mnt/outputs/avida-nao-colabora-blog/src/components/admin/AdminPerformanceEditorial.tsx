@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
 import { RefreshCw, Loader2, Save, TrendingUp, TrendingDown, Bookmark, ThumbsUp } from 'lucide-react'
 
 interface Art { id: string; title: string; slug: string; category: string | null; status: string }
@@ -22,23 +23,40 @@ export default function AdminPerformanceEditorial({ onEditArticle }: { onEditArt
   async function load() {
     setLoading(true)
     const [artRes, viewRes, avRes, savRes, fbRes] = await Promise.all([
-      supabase.from('articles').select('id, title, slug, category, status').limit(1000),
-      supabase.from('reading_history').select('article_slug').limit(20000),
-      supabase.from('analytics_events').select('entity_id').eq('event', 'article_view').limit(50000),
-      supabase.from('saved_items').select('item_id').eq('item_type', 'article').limit(20000),
-      supabase.from('article_feedback').select('article_slug, feedback_type').limit(20000),
+      collectAllPages<Art>((from, to) =>
+        supabase.from('articles').select('id, title, slug, category, status').order('id').range(from, to)
+          as unknown as PromiseLike<{ data: Art[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<{ article_slug: string }>((from, to) =>
+        supabase.from('reading_history').select('article_slug').order('id').range(from, to)
+          as unknown as PromiseLike<{ data: { article_slug: string }[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<{ entity_id: string | null }>((from, to) =>
+        supabase.from('analytics_events').select('entity_id').eq('event', 'article_view').order('id').range(from, to)
+          as unknown as PromiseLike<{ data: { entity_id: string | null }[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<{ item_id: string }>((from, to) =>
+        supabase.from('saved_items').select('item_id').eq('item_type', 'article').order('id').range(from, to)
+          as unknown as PromiseLike<{ data: { item_id: string }[] | null; error: { message?: string } | null }>
+      ),
+      collectAllPages<{ article_slug: string; feedback_type: string }>((from, to) =>
+        supabase.from('article_feedback').select('article_slug, feedback_type').order('id').range(from, to)
+          as unknown as PromiseLike<{ data: { article_slug: string; feedback_type: string }[] | null; error: { message?: string } | null }>
+      ),
     ])
-    const arts = (artRes.data as Art[]) ?? []
+    const failed = [artRes, viewRes, avRes, savRes, fbRes].filter(result => result.error)
+    if (failed.length) flash('Algumas métricas editoriais não puderam ser carregadas por completo.', true)
+    const arts = artRes.data
     // Leitores logados únicos (histórico) — 1 por usuário/artigo.
     const readers = new Map<string, number>()
-    ;((viewRes.data as { article_slug: string }[]) ?? []).forEach(r => readers.set(r.article_slug, (readers.get(r.article_slug) ?? 0) + 1))
+    ;viewRes.data.forEach(r => readers.set(r.article_slug, (readers.get(r.article_slug) ?? 0) + 1))
     // Visualizações totais (analytics) — conta toda abertura, inclusive anônima.
     const views = new Map<string, number>()
-    ;((avRes.data as { entity_id: string | null }[]) ?? []).forEach(r => { if (r.entity_id) views.set(r.entity_id, (views.get(r.entity_id) ?? 0) + 1) })
+    ;avRes.data.forEach(r => { if (r.entity_id) views.set(r.entity_id, (views.get(r.entity_id) ?? 0) + 1) })
     const saves = new Map<string, number>()
-    ;((savRes.data as { item_id: string }[]) ?? []).forEach(r => saves.set(r.item_id, (saves.get(r.item_id) ?? 0) + 1))
+    ;savRes.data.forEach(r => saves.set(r.item_id, (saves.get(r.item_id) ?? 0) + 1))
     const pos = new Map<string, number>(), neg = new Map<string, number>()
-    ;((fbRes.data as { article_slug: string; feedback_type: string }[]) ?? []).forEach(r => {
+    ;fbRes.data.forEach(r => {
       const m = POS_TYPES.includes(r.feedback_type) ? pos : neg
       m.set(r.article_slug, (m.get(r.article_slug) ?? 0) + 1)
     })
