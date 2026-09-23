@@ -89,6 +89,8 @@ function coarseUA(ua: string): string {
 export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
     if (isSmokeTest()) return
+    // O painel administrativo não representa aquisição/uso do site público.
+    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) return
     loadConfig()
     const normalized = (event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event)
       .trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
@@ -117,6 +119,18 @@ export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {})
 // referrer, classifica a fonte e registra 1 evento "visit_source" por sessão.
 // É assim que campanhas do Instagram/YouTube/Google aparecem separadas no admin.
 
+type Attribution = {
+  source: string
+  medium: string | null
+  campaign: string | null
+  referrer_host: string | null
+  landing_path: string
+  attribution_method: 'utm' | 'click_id' | 'referrer' | 'persisted_first_touch' | 'unknown'
+  click_id_type: string | null
+}
+
+const FIRST_TOUCH_KEY = 'avnc_first_touch_v2'
+
 function classifySource(refHost: string, utmSource: string): string {
   const u = utmSource.toLowerCase()
   if (u) {
@@ -127,10 +141,11 @@ function classifySource(refHost: string, utmSource: string): string {
     if (/tiktok/.test(u)) return 'TikTok'
     if (/whats|wpp/.test(u)) return 'WhatsApp'
     if (/email|newsletter|mail/.test(u)) return 'E-mail'
+    if (/bing|microsoft/.test(u)) return 'Bing'
     return utmSource.charAt(0).toUpperCase() + utmSource.slice(1)
   }
   const h = refHost.toLowerCase()
-  if (!h) return 'Direto'
+  if (!h) return 'Origem não identificada'
   if (/instagram|l\.instagram|ig\./.test(h)) return 'Instagram'
   if (/youtube|youtu\.be/.test(h)) return 'YouTube'
   if (/google\./.test(h)) return 'Google'
@@ -141,27 +156,120 @@ function classifySource(refHost: string, utmSource: string): string {
   return h.replace(/^www\./, '')
 }
 
+function clickIdAttribution(qs: URLSearchParams): { source: string; medium: string; type: string } | null {
+  if (qs.get('gclid') || qs.get('gbraid') || qs.get('wbraid')) return { source: 'Google', medium: 'paid', type: qs.get('gclid') ? 'gclid' : qs.get('gbraid') ? 'gbraid' : 'wbraid' }
+  if (qs.get('fbclid')) return { source: 'Facebook/Instagram', medium: 'social', type: 'fbclid' }
+  if (qs.get('msclkid')) return { source: 'Bing', medium: 'paid', type: 'msclkid' }
+  if (qs.get('ttclid')) return { source: 'TikTok', medium: 'social', type: 'ttclid' }
+  return null
+}
+
+function readFirstTouch(): Attribution | null {
+  try {
+    const raw = localStorage.getItem(FIRST_TOUCH_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Attribution
+    return parsed?.source ? parsed : null
+  } catch { return null }
+}
+
+function saveFirstTouch(value: Attribution) {
+  try { localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(value)) } catch { /* storage indisponível */ }
+}
+
 let acqInit = false
 export function initAcquisition(): void {
   if (acqInit) return
   acqInit = true
   try {
+    // Admin não entra nas métricas de aquisição.
+    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) return
+
     const seenKey = 'avnc_src_seen'
     if (sessionStorage.getItem(seenKey)) return // 1x por sessão
+
     const qs = new URLSearchParams(window.location.search)
     const utmSource = qs.get('utm_source') || ''
     const utmMedium = qs.get('utm_medium') || ''
     const utmCampaign = qs.get('utm_campaign') || ''
     let refHost = ''
     try { refHost = document.referrer ? new URL(document.referrer).hostname : '' } catch { /* ignora */ }
-    // Ignora referrer interno (mesma origem) — não é "fonte externa".
     if (refHost && refHost === window.location.hostname) refHost = ''
 
-    const source = classifySource(refHost, utmSource)
+    const click = clickIdAttribution(qs)
+    const hasExplicitSignal = Boolean(utmSource || click || refHost)
+    const persisted = readFirstTouch()
+
+    let attribution: Attribution
+    if (utmSource) {
+      attribution = {
+        source: classifySource(refHost, utmSource),
+        medium: utmMedium || null,
+        campaign: utmCampaign || null,
+        referrer_host: refHost || null,
+        landing_path: location.pathname,
+        attribution_method: 'utm',
+        click_id_type: click?.type ?? null,
+      }
+    } else if (click) {
+      attribution = {
+        source: click.source,
+        medium: click.medium,
+        campaign: utmCampaign || null,
+        referrer_host: refHost || null,
+        landing_path: location.pathname,
+        attribution_method: 'click_id',
+        click_id_type: click.type,
+      }
+    } else if (refHost) {
+      attribution = {
+        source: classifySource(refHost, ''),
+        medium: 'referral',
+        campaign: null,
+        referrer_host: refHost,
+        landing_path: location.pathname,
+        attribution_method: 'referrer',
+        click_id_type: null,
+      }
+    } else if (persisted && persisted.source !== 'Origem não identificada') {
+      attribution = {
+        ...persisted,
+        landing_path: location.pathname,
+        attribution_method: 'persisted_first_touch',
+      }
+    } else {
+      attribution = {
+        source: 'Origem não identificada',
+        medium: null,
+        campaign: null,
+        referrer_host: null,
+        landing_path: location.pathname,
+        attribution_method: 'unknown',
+        click_id_type: null,
+      }
+    }
+
+    // First touch só é substituído quando existe um sinal externo real. Assim uma
+    // visita posterior sem referrer não apaga uma origem previamente conhecida.
+    if (hasExplicitSignal && attribution.source !== 'Origem não identificada') saveFirstTouch(attribution)
+
     trackEvent('visit_source', {
-      entity_id: source,
-      entity_title: utmCampaign || undefined,
-      metadata: { source, utm_source: utmSource || null, utm_medium: utmMedium || null, utm_campaign: utmCampaign || null, referrer_host: refHost || null },
+      entity_id: attribution.source,
+      entity_title: attribution.campaign || undefined,
+      metadata: {
+        source: attribution.source,
+        medium: attribution.medium,
+        campaign: attribution.campaign,
+        utm_source: utmSource || null,
+        utm_medium: utmMedium || null,
+        utm_campaign: utmCampaign || null,
+        referrer_host: attribution.referrer_host,
+        landing_path: attribution.landing_path,
+        attribution_method: attribution.attribution_method,
+        click_id_type: attribution.click_id_type,
+        // Nunca salvamos o valor do click-id: apenas qual identificador permitiu atribuir.
+        first_touch_source: readFirstTouch()?.source ?? null,
+      },
     })
     sessionStorage.setItem(seenKey, '1')
   } catch { /* noop */ }
