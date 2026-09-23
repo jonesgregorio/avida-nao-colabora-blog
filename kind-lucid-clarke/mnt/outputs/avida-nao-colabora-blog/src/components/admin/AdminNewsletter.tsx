@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Mail, RefreshCw, UserCheck, UserX, Search } from 'lucide-react'
+import { Mail, RefreshCw, UserCheck, UserX, Search, AlertTriangle } from 'lucide-react'
+import { collectAllPages } from '../../lib/supabasePagination'
 
 interface Subscriber {
   id: string
@@ -27,13 +28,21 @@ export default function AdminNewsletter() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'subscribed' | 'unsubscribed'>('all')
   const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from('newsletter_subscribers').select('*').order('created_at', { ascending: false }).limit(500)
-    if (filter !== 'all') query = query.eq('status', filter)
-    const { data } = await query
-    setItems((data as Subscriber[]) ?? [])
+    setError('')
+    const { data, error: loadError } = await collectAllPages<Subscriber>((from, to) => {
+      let query = supabase
+        .from('newsletter_subscribers')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (filter !== 'all') query = query.eq('status', filter)
+      return query.range(from, to) as unknown as PromiseLike<{ data: Subscriber[] | null; error: { message?: string } | null }>
+    })
+    if (loadError) setError(loadError.message || 'Não foi possível carregar os inscritos.')
+    setItems(data)
     setLoading(false)
   }, [filter])
 
@@ -86,6 +95,13 @@ export default function AdminNewsletter() {
           />
         </div>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-auto border border-line rounded-xl">
         <table className="w-full text-sm">
