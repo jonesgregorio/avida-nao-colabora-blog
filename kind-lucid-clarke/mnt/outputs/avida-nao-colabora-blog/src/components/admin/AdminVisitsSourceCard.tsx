@@ -73,12 +73,8 @@ export default function AdminVisitsSourceCard() {
     const r = rangeFor(period, customStart, customEnd)
     if (!r) { setLoading(false); setVisitors(0); setSessions(0); setSources([]); return }
     setLoading(true)
-    // Achado ao vivo: o Supabase (PostgREST) limita silenciosamente a resposta a
-    // 1000 linhas por padrão, mesmo pedindo .limit(20000) — sem .order(), o corte
-    // ficava por conta da ordem "natural" da tabela, que descartava exatamente os
-    // eventos mais RECENTES em janelas maiores (30 dias mostrava 0 do Instagram,
-    // mesmo com a campanha rodando). Ordenar do mais novo pro mais antigo garante
-    // que, se algo for cortado, seja o passado distante — nunca a campanha atual.
+    // O Data API possui limite por página. Coletamos páginas explícitas para que
+    // períodos maiores não percam silenciosamente eventos de aquisição.
     const { data, error } = await collectAllPages<Ev>((from, to) =>
       supabase
         .from('analytics_events')
