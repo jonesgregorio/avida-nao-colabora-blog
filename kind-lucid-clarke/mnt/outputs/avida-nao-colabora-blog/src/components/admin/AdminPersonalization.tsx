@@ -905,7 +905,7 @@ export default function AdminPersonalization() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="font-serif text-2xl text-forest-900 flex items-center gap-2"><Sparkles className="w-6 h-6 text-forest-700" /> Entregas de Conteúdo</h1>
-          <p className="text-sm text-stone-500 mt-0.5">Fila de recomendações, práticas, exercícios e reflexões personalizadas. Planos de Autocuidado, Orientações Mensais e Relatórios seguem seus fluxos próprios.</p>
+          <p className="text-sm text-stone-500 mt-0.5">Fila de recomendações, práticas, exercícios e reflexões personalizadas. Você pode gerar rascunhos agora — não precisa aguardar o ciclo automático. Planos de Autocuidado, Orientações Mensais e Relatórios seguem seus fluxos próprios.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-xl border border-line bg-white p-1" aria-label="Modo da Personalização">
