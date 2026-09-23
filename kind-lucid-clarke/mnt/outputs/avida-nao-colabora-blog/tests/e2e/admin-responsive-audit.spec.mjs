@@ -176,6 +176,14 @@ for (const viewport of [
     await installAdminSession(page)
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/admin')
+    await page.waitForTimeout(1200)
+    const debug = await page.evaluate(() => ({
+      href: location.href,
+      title: document.title,
+      body: document.body.innerText.slice(0, 1200),
+      keys: Object.keys(localStorage),
+    }))
+    console.log('[admin-e2e-debug]', JSON.stringify(debug))
     await expect(page.locator('.admin-shell')).toBeVisible({ timeout: 10_000 })
 
     for (const [label, slug] of sections) {
