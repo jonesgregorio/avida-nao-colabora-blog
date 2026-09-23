@@ -10,10 +10,10 @@ begin
    select id,status,coalesce(last_user_message_at,created_at) base_at,
           coalesce(last_user_message_at,created_at) +
             case lower(coalesce(plan_at_creation,'free'))
-              when 'plus' then interval '12 hours'
-              when 'essencial' then interval '24 hours'
-              when 'essential' then interval '24 hours'
-              else interval '48 hours' end due_at
+              when 'plus' then interval '24 hours'
+              when 'essencial' then interval '48 hours'
+              when 'essential' then interval '48 hours'
+              else interval '72 hours' end due_at
    from support_tickets
    where status in ('open','in_progress','awaiting_admin')
  ), guidance as (
