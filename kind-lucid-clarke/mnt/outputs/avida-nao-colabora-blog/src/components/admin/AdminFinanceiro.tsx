@@ -85,20 +85,16 @@ export default function AdminFinanceiro() {
     setLoadError('')
     const [e, f, p, s] = await Promise.all([
       collectAllPages<FinanceEvent>((from, to) =>
-        supabase.from('subscription_events').select('*').order('occurred_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: FinanceEvent[] | null; error: { message?: string } | null }>
+        supabase.from('subscription_events').select('*').order('occurred_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: FinanceEvent[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<FeedbackRow>((from, to) =>
-        supabase.from('subscription_change_feedback').select('*').order('requested_at', { ascending: false }).range(from, to)
-          as unknown as PromiseLike<{ data: FeedbackRow[] | null; error: { message?: string } | null }>
+        supabase.from('subscription_change_feedback').select('*').order('requested_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: FeedbackRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<PerfilRow>((from, to) =>
-        supabase.from('profiles').select('user_id, plan, email, full_name').order('user_id').range(from, to)
-          as unknown as PromiseLike<{ data: PerfilRow[] | null; error: { message?: string } | null }>
+        supabase.from('profiles').select('user_id, plan, email, full_name').order('user_id').range(from, to) as unknown as PromiseLike<{ data: PerfilRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<{ user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }>((from, to) =>
-        supabase.from('user_subscriptions').select('user_id, plan_key, status, payment_status').order('user_id').range(from, to)
-          as unknown as PromiseLike<{ data: { user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }[] | null; error: { message?: string } | null }>
+        supabase.from('user_subscriptions').select('user_id, plan_key, status, payment_status').order('user_id').range(from, to) as unknown as PromiseLike<{ data: { user_id: string; plan_key: string | null; status: string | null; payment_status: string | null }[] | null; error: { message?: string } | null }>
       ),
     ])
     const errors = [e.error, f.error, p.error, s.error].filter(Boolean)
