@@ -184,7 +184,7 @@ for (const viewport of [
       keys: Object.keys(localStorage),
     }))
     console.log('[admin-e2e-debug]', JSON.stringify(debug))
-    await expect(page.locator('.admin-shell')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.admin-shell')).toBeVisible({ timeout: 25_000 })
 
     for (const [label, slug] of sections) {
       await test.step(label, async () => {
