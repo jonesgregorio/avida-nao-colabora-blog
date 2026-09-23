@@ -38,6 +38,8 @@ interface Ticket {
   unread_for_admin: boolean
   unread_for_user: boolean
   last_message_at: string | null
+  last_user_message_at: string | null
+  last_admin_message_at: string | null
   created_at: string
   updated_at: string
   user_name?: string | null
