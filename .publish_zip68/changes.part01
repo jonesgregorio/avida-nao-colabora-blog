@@ -1,0 +1,197 @@
+-supabase functions deploy manage-subscription
+-supabase functions deploy send-automated-emails
+-```
++Os testes cobrem, entre outros pontos:
+@@ -160 +85,7 @@ supabase functions deploy send-automated-emails
+-Configure os secrets nas Edge Functions (`Supabase > Edge Functions > Manage secrets`):
++- matriz Gratuito / Essencial / Plus;
++- planos legados e `unlimited_access`;
++- paywall;
++- primeiro ciclo semanal/mensal após ativação;
++- cron/notificação de relatórios;
++- personalização moderna;
++- automações editoriais e seus comportamentos distintos.
+@@ -162,6 +93 @@ Configure os secrets nas Edge Functions (`Supabase > Edge Functions > Manage sec
+-```
+-STRIPE_SECRET_KEY=sk_live_...
+-STRIPE_WEBHOOK_SECRET=whsec_...
+-SUPABASE_SERVICE_ROLE_KEY=...
+-VITE_APP_URL=https://avidanaocolabora.com.br
+-```
++## Automações editoriais
+@@ -169 +95 @@ VITE_APP_URL=https://avidanaocolabora.com.br
+-### 7. Rodar em desenvolvimento
++A Edge Function `run-automations` possui quatro executores reais:
+@@ -171,3 +97,4 @@ VITE_APP_URL=https://avidanaocolabora.com.br
+-```bash
+-npm run dev
+-```
++- `generate_daily` → gera **1 artigo completo**.
++- `generate_weekly_package` → gera **um pacote de vários artigos**.
++- `generate_pauta` → cria **ideias para as próximas duas semanas** no Calendário Editorial, sem criar artigos.
++- `monthly_pauta` → cria **planejamento editorial do próximo mês** no Calendário Editorial.
+@@ -175 +102 @@ npm run dev
+-Acesse `http://localhost:5173`
++Artigos em `auto_publish` só são publicados se passarem pela validação determinística de conteúdo, SEO e imagem. Caso contrário, ficam em rascunho com o motivo do bloqueio.
+@@ -177 +104 @@ Acesse `http://localhost:5173`
+-### 8. Build para produção
++A autenticação do cron editorial é automática por `automation_token`. **Não configure `service_role_key` manualmente no Vault para esse fluxo.**
+@@ -179,2 +106,18 @@ Acesse `http://localhost:5173`
+-```bash
+-npm run build
++## Automação emocional
++
++`run-emotional-automations` gera os artefatos fechados de acordo com o plano e a data de ativação:
++
++- semanal → Essencial + Plus;
++- mensal aprofundado → Plus;
++- plano de autocuidado → Plus, com `pending_review` antes de ser enviado.
++
++O Mapa Emocional não depende de geração por IA: ele é calculado a partir dos registros do usuário.
++
++Categorias de dados emocionais são distintas:
++
++```text
++emotional_tags   = marcadores emocionais
++trigger_tags     = gatilhos reais
++context_tags     = contextos
++need_tags        = necessidades
++care_action_tags = ações de cuidado
+@@ -183 +126 @@ npm run build
+-Saída em `dist/`. Faça deploy desta pasta.
++Nunca tratar `emotional_tags` como gatilhos.
+@@ -185 +128 @@ Saída em `dist/`. Faça deploy desta pasta.
+-## Deploy — Vercel
++## Saúde do sistema
+@@ -187,4 +130 @@ Saída em `dist/`. Faça deploy desta pasta.
+-1. Conecte o repositório GitHub ao Vercel
+-2. Configure as variáveis de ambiente no painel do Vercel (mesmas do `.env`)
+-3. O arquivo `vercel.json` já configura rewrite para SPA (`/* → /index.html`)
+-4. Deploy automático em cada push para `main`
++O Admin possui diagnóstico de infraestrutura e automações. As RPCs administrativas incluem:
+@@ -192 +132,2 @@ Saída em `dist/`. Faça deploy desta pasta.
+-## Primeiro acesso como administrador
++- `get_emotional_automation_health()`;
++- `get_editorial_automation_health()`.
+@@ -194,2 +135 @@ Saída em `dist/`. Faça deploy desta pasta.
+-1. Crie uma conta pelo site normalmente
+-2. No SQL Editor do Supabase, execute:
++Elas expõem status, agenda e últimas execuções **sem retornar tokens ou secrets**.
+@@ -197,5 +137 @@ Saída em `dist/`. Faça deploy desta pasta.
+-```sql
+-UPDATE profiles
+-SET role = 'admin'
+-WHERE email = 'seu-email@exemplo.com';
+-```
++## Migrations e Edge Functions
+@@ -203,2 +139 @@ WHERE email = 'seu-email@exemplo.com';
+-3. Faça logout e login novamente
+-4. Acesse `/admin` para o painel administrativo
++Não aplique uma lista antiga de migrations manualmente. O repositório possui workflows oficiais:
+@@ -206 +141,2 @@ WHERE email = 'seu-email@exemplo.com';
+-## Operações administrativas (RPCs)
++- `.github/workflows/apply-migrations.yml`;
++- `.github/workflows/deploy-supabase-functions.yml`.
+@@ -208 +144 @@ WHERE email = 'seu-email@exemplo.com';
+-As seguintes operações são realizadas via RPCs SECURITY DEFINER (apenas admins):
++Toda nova migration deve ser idempotente quando possível e passar pela validação do projeto antes de chegar à produção.
+@@ -210,5 +146 @@ As seguintes operações são realizadas via RPCs SECURITY DEFINER (apenas admin
+-- `admin_change_user_plan(user_id, new_plan, notes)` — altera plano e registra histórico
+-- `admin_update_user_role(user_id, new_role)` — promove/rebaixa papel do usuário
+-- `admin_cancel_subscription(user_id, notes)` — cancela assinatura
+-- `admin_set_unlimited_access(user_id, enabled)` — acesso ilimitado sem cobrança
+-- `admin_force_password_change(user_id)` — obriga troca de senha no próximo login
++## Pagamentos
+@@ -216 +148 @@ As seguintes operações são realizadas via RPCs SECURITY DEFINER (apenas admin
+-## Estrutura do projeto
++Stripe é server-side. Fluxos críticos existentes devem ser preservados:
+@@ -218 +150,19 @@ As seguintes operações são realizadas via RPCs SECURITY DEFINER (apenas admin
+-```
++- `create-checkout`;
++- `stripe-webhook`;
++- `manage-subscription`.
++
++Não refatore Stripe como parte de tarefas de Diário, IA, conteúdo, relatórios ou Admin sem necessidade explícita.
++
++## Regras de colaboração — Claude + Codex + ChatGPT
++
++1. Sempre atualizar/sincronizar a `main` antes de começar.
++2. Ler o arquivo atual antes de alterar; não recriar uma implementação paralela.
++3. Não fazer reset/force push da `main`.
++4. Não ressuscitar nomes/recursos legados a partir de documentos antigos.
++5. Se mudar planos, períodos, automações ou permissões, atualizar os testes no mesmo PR.
++6. Não remover compatibilidade histórica sem verificar dados já existentes.
++7. Não declarar uma tarefa concluída se `test`, `typecheck`, `lint` ou `build` falharem.
++
++## Estrutura principal
++
++```text
+@@ -220,5 +170,6 @@ src/
+-  components/         # Componentes React (lazy-loaded)
+-    admin/            # Painel administrativo
+-  hooks/              # useAuth, useAnalytics
+-  lib/                # Cliente Supabase, utilitários
+-  types/              # TypeScript types
++  components/
++  components/admin/
++  hooks/
++  lib/
++  lib/aiPrompts/
++
+@@ -226,7 +177,2 @@ supabase/
+-  migrations/         # 46 migrations em ordem numérica (001–046)
+-  functions/          # Edge Functions (Stripe, e-mails)
+-  legacy/             # Arquivos SQL legados (NÃO aplicar manualmente)
+-public/
+-  sitemap.xml         # Mapa do site (domínio: avidanaocolabora.com.br)
+-vercel.json           # Configuração SPA rewrite
+-```
++  functions/
++  migrations/
+@@ -234 +180,2 @@ vercel.json           # Configuração SPA rewrite
+-## Suporte e emergência
++tests/
++```
+@@ -236,2 +183 @@ vercel.json           # Configuração SPA rewrite
+-- **CVV — Centro de Valorização da Vida:** 188 (24h, gratuito)
+-- **CAPS (Centro de Atenção Psicossocial):** procure a unidade mais próxima
++Documentação histórica deve ficar em `docs/archive/` e não deve ser usada como especificação atual sem conferência com este README e com o código da `main`.
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx
+index 3968aed9db13a3234ca97b98480212e902bbb5b9..a40b7ade047aa9645dafb4f84073971ab8e36061 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/FAQPage.tsx
+@@ -92 +92 @@ const FAQS: { question: string; answer: string; category: string }[] = [
+-    answer: 'Não. A orientação mensal por mensagem e o comentário profissional do Plano Plus são recursos complementares de suporte — não substituem psicoterapia ou acompanhamento clínico continuado.',
++    answer: 'Não. São recursos diferentes e complementares do Plus: o comentário profissional fica ligado ao relatório mensal e oferece uma devolutiva breve sobre aquela leitura; a orientação mensal por mensagem parte de uma pergunta específica enviada por você. Nenhum dos dois substitui psicoterapia ou acompanhamento clínico continuado.',
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Hero.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Hero.tsx
+index f93dd4840e5112699a656a6370d48a113b78531d..17fdc03f51ceb350030681d35ee231846668a189 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Hero.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/Hero.tsx
+@@ -53 +53 @@ const PLUS_ITEMS = [
+-  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário profissional', desc: 'Receba um olhar profissional sobre seus registros uma vez por mês.' },
++  { Icon: MessageSquare, bg: 'bg-sky', color: 'text-[#3d6ea5]', title: 'Comentário sobre o relatório', desc: 'No Plus, receba uma devolutiva breve ligada ao seu relatório mensal.' },
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/HomeContent.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/HomeContent.tsx
+index 1c6de45663dec1ec1dcfc8cfa6e128635cf61d00..c71f9974f7ba070f80eee275345b6ebaed927900 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/HomeContent.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/HomeContent.tsx
+@@ -37 +37 @@ const PLANS = [
+-    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional mensal', 'Orientação mensal por mensagem'],
++    benefits: ['Tudo do Essencial', 'Plano de autocuidado mensal', 'Relatório mensal aprofundado', 'Comentário profissional sobre o relatório', 'Orientação mensal por mensagem'],
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyReportPage.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyReportPage.tsx
+index 7b014a29a85af757c19e94e2298bcde968576722..b2cd51b5c59210e01c19a92001acd9a403179a53 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyReportPage.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/MyReportPage.tsx
+@@ -949 +949 @@ export default function MyReportPage({ user, profile, onBack: _onBack, onNavigat
+-        {/* Comentário profissional mensal (Plus) */}
++        {/* Comentário profissional sobre o relatório (Plus) */}
+@@ -1387 +1387 @@ function ReportViewerModal({ viewer, plan, onClose, onPdf, pdfBusy, onRefresh, n
+-// Comentário profissional mensal (Plus) — recurso existente no sistema.
++// Comentário profissional sobre o relatório (Plus) — recurso existente no sistema.
+@@ -1405 +1405 @@ function ProfessionalComment({ userId, selectedMonth, onNavigateDiary }: { userI
+-        <p className="text-sm text-stone-500">Seu comentário profissional mensal ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
++        <p className="text-sm text-stone-500">Seu comentário profissional sobre o relatório ainda não está disponível. Ele pode considerar os padrões deste relatório.</p>
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/SupportPage.tsx b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/SupportPage.tsx
+index 6f5584bfd69c2fbf2f67796ff30e8126fd6f0113..2ad2a70b5fb26e96f79f899588061df93d6623cb 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/SupportPage.tsx
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/src/components/SupportPage.tsx
+@@ -50 +50 @@ const HELP_TOPICS: { q: string; a: string }[] = [
