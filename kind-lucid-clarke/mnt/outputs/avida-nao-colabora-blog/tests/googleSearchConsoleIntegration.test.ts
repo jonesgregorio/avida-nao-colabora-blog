@@ -78,8 +78,8 @@ test('cockpit mantém todas as áreas e usa linguagem simples', () => {
   }
   assert.match(cockpit, /Analisar tudo agora/)
   assert.match(cockpit, /Corrigir problemas automaticamente/)
-  assert.match(wrapper, /Autoteste do SEO Control Center/)
-  assert.match(wrapper, /Executar autoteste agora/)
+  assert.match(wrapper, /Autoteste técnico/)
+  assert.match(wrapper, /Executar autoteste/)
   assert.match(wrapper, /\$\{latest\.passed\}\/\$\{latest\.total\} testes aprovados/)
   assert.match(wrapper, /latest\?\.total === 12/)
   assert.match(wrapper, /seo-control-selftest/)
