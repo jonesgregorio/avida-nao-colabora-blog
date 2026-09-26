@@ -174,7 +174,7 @@ test('P3 detecta sobreposição somente com evidência consulta+página e manté
   const cockpit = read('src/components/admin/AdminSEOCockpit.tsx')
   const migration = read('supabase/migrations/20260920182500_seo_p3_query_page_dimension.sql')
   assert.match(fn, /\['date', 'query', 'page'\]/)
-  assert.match(fn, /dimension: 'query_page'/)
+  assert.match(fn, /pushRows\(perfRows, queryPages\.rows \|\| \[\], 'query_page'/)
   assert.match(fn, /function detectCannibalization/)
   assert.match(fn, /m\.impressions >= 5/)
   assert.match(migration, /'query_page'/)
