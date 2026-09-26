@@ -1,85 +1,186 @@
-import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Loader2, Search, ShieldCheck, Sparkles, WandSparkles, XCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { collectAllPages } from '../../lib/supabasePagination'
+import { smartFixArticle, type SeoSmartArticle, type SeoSmartIssue } from '../../lib/seoSmartCorrector'
 import AdminSEOCockpit from './AdminSEOCockpit'
 
+type Row = SeoSmartArticle
+type Issue = 'no_seo' | 'no_image' | 'bad_slug' | 'thin' | 'no_author' | 'no_links'
+type Inspection = { url: string; verdict?: string | null }
+type Sitemap = { errors: number; warnings: number }
+type Dashboard = { configured: boolean; inspections: Inspection[]; sitemaps: Sitemap[]; alerts?: unknown[]; error?: string }
 type SelfTestCheck = { key: string; label: string; ok: boolean; detail: string; duration_ms: number }
-type SelfTestRun = {
-  id: string
-  source: 'manual' | 'scheduled'
-  status: 'passed' | 'warning' | 'failed'
-  passed: number
-  total: number
-  checks: SelfTestCheck[]
-  created_at: string
+type SelfTestRun = { id: string; source: 'manual' | 'scheduled'; status: 'passed' | 'warning' | 'failed'; passed: number; total: number; checks: SelfTestCheck[]; created_at: string }
+type FixStatus = 'fixed' | 'unchanged' | 'approval' | 'google' | 'failed'
+type FixItem = { id: string; title: string; issue: string; status: FixStatus; detail: string; changed?: string[]; pending?: string[] }
+type FixReport = { createdAt: string; items: FixItem[]; sitemap: 'sent' | 'failed' | 'not-needed'; googleSync: 'done' | 'failed' | 'not-needed' }
+
+const articleSelect = 'id,title,slug,status,published,category,seo_title,seo_description,image_url,cover_image,cover_image_url,image_alt,keyword,content,author,related_slugs,reviewed_at,review_notes,published_at,updated_at,created_at'
+const seoOk = (a: Row) => !!(a.seo_title && a.seo_title.trim().length >= 25 && a.seo_title.trim().length <= 60 && a.seo_description && a.seo_description.trim().length >= 90 && a.seo_description.trim().length <= 155 && a.keyword)
+const imgOk = (a: Row) => !!((a.image_url || a.cover_image || a.cover_image_url) && a.image_alt?.trim())
+const badSlug = (s: string) => !s || /[^a-z0-9-]/.test(s) || s.length > 60 || s.includes('--')
+const wordCount = (content: string | null) => String(content || '').trim().split(/\s+/).filter(Boolean).length
+const ISSUE_LABEL: Record<Issue, string> = { no_seo: 'Dados de SEO', no_image: 'Imagem e descrição', bad_slug: 'Endereço da página', thin: 'Conteúdo curto', no_author: 'Autoria', no_links: 'Links internos' }
+const ISSUE_ORDER: Issue[] = ['no_seo', 'no_image', 'bad_slug', 'thin', 'no_author', 'no_links']
+function hasIssue(a: Row, issue: Issue) {
+  if (issue === 'no_seo') return !seoOk(a)
+  if (issue === 'no_image') return !imgOk(a)
+  if (issue === 'bad_slug') return badSlug(a.slug)
+  if (issue === 'thin') return wordCount(a.content) < 800
+  if (issue === 'no_author') return !a.author?.trim()
+  return !a.related_slugs?.length && !/\]\(\/blog\//.test(a.content || '')
 }
+function issuesOf(a: Row) { return ISSUE_ORDER.filter(issue => hasIssue(a, issue)) }
 
 export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditArticle?: (id: string) => void }) {
+  const [rows, setRows] = useState<Row[]>([])
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [fixing, setFixing] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [fixReport, setFixReport] = useState<FixReport | null>(null)
   const [latest, setLatest] = useState<SelfTestRun | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
 
-  const loadHistory = useCallback(async () => {
+  const load = useCallback(async (sync = false) => {
+    setLoading(true); setError('')
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('seo-control-selftest', { body: { history: true } })
-      if (invokeError) throw invokeError
-      const first = (data?.history?.[0] || null) as SelfTestRun | null
-      setLatest(first)
-      setError('')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar o histórico do autoteste.')
-    }
+      const [articleResult, googleResult] = await Promise.all([
+        collectAllPages<Row>((from, to) => supabase.from('articles').select(articleSelect).order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { message?: string } | null }>),
+        supabase.functions.invoke('google-search-console', { body: { action: sync ? 'sync' : 'dashboard', source: sync ? 'manual' : undefined } }),
+      ])
+      if (articleResult.error) throw new Error(articleResult.error.message || 'Não foi possível carregar os artigos.')
+      if (googleResult.error) throw googleResult.error
+      setRows(articleResult.data)
+      setDashboard((googleResult.data?.dashboard || googleResult.data) as Dashboard)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar os dados.') }
+    finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { void loadHistory() }, [loadHistory])
+  const loadHistory = useCallback(async () => {
+    try {
+      const { data } = await supabase.functions.invoke('seo-control-selftest', { body: { history: true } })
+      setLatest((data?.history?.[0] || null) as SelfTestRun | null)
+    } catch { /* diagnóstico técnico não bloqueia a tela principal */ }
+  }, [])
+
+  useEffect(() => { void Promise.all([load(false), loadHistory()]) }, [load, loadHistory])
+
+  const published = useMemo(() => rows.filter(a => a.published === true || a.status === 'published'), [rows])
+  const targets = useMemo(() => published.map(article => ({ article, issues: issuesOf(article) })).filter(item => item.issues.length), [published])
+  const autoCount = targets.reduce((sum, item) => sum + item.issues.length, 0)
+  const inspected = dashboard?.inspections?.length || 0
+  const indexed = dashboard?.inspections?.filter(i => i.verdict === 'PASS').length || 0
+  const waitingGoogle = Math.max(0, inspected - indexed)
+  const sitemapErrors = dashboard?.sitemaps?.reduce((sum, s) => sum + Number(s.errors || 0), 0) || 0
+  const critical = sitemapErrors
+
+  async function analyze() { setAnalyzing(true); setFixReport(null); await load(true); setAnalyzing(false) }
+
+  async function correct() {
+    if (!targets.length) { setFixReport({ createdAt: new Date().toISOString(), items: [], sitemap: 'not-needed', googleSync: 'not-needed' }); return }
+    setFixing(true); setError(''); setFixReport(null)
+    const items: FixItem[] = []
+    for (let i = 0; i < targets.length; i++) {
+      const { article, issues } = targets[i]
+      setProgress(`Validando e corrigindo ${i + 1} de ${targets.length}: ${article.title}`)
+      try {
+        const result = await smartFixArticle(article, published, issues as SeoSmartIssue[])
+        const changed = result.changed || []
+        const pending = result.skipped || []
+        items.push({ id: article.id, title: article.title, issue: issues.map(i => ISSUE_LABEL[i]).join(', '), status: changed.length ? 'fixed' : pending.length ? 'approval' : 'unchanged', detail: changed.length ? 'A alteração foi salva. O sistema vai carregar novamente o artigo para confirmar o resultado.' : pending.length ? 'O sistema não fez uma alteração insegura ou incerta automaticamente.' : 'Após a validação, nenhuma mudança era necessária.', changed, pending })
+      } catch (err) {
+        items.push({ id: article.id, title: article.title, issue: issues.map(i => ISSUE_LABEL[i]).join(', '), status: 'failed', detail: err instanceof Error ? err.message : 'A correção falhou e nenhuma conclusão foi presumida.' })
+      }
+    }
+    let sitemap: FixReport['sitemap'] = 'not-needed'
+    let googleSync: FixReport['googleSync'] = 'not-needed'
+    if (items.some(i => i.status === 'fixed')) {
+      setProgress('Reenviando o mapa de páginas e validando os dados mais recentes…')
+      try { await supabase.functions.invoke('seo-smart-google-actions', { body: { action: 'submit_sitemap' } }); sitemap = 'sent' } catch { sitemap = 'failed' }
+      try { await load(true); googleSync = 'done' } catch { googleSync = 'failed' }
+    }
+    setFixReport({ createdAt: new Date().toISOString(), items, sitemap, googleSync })
+    setProgress(''); setFixing(false)
+  }
 
   async function runNow() {
     setRunning(true)
-    setError('')
-    try {
-      const { data, error: invokeError } = await supabase.functions.invoke('seo-control-selftest', { body: { source: 'manual' } })
-      if (invokeError) throw invokeError
-      if (!data?.result) throw new Error(data?.error || 'O autoteste não retornou um resultado.')
-      setLatest(data.result as SelfTestRun)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível executar o autoteste.')
-    } finally {
-      setRunning(false)
-    }
+    try { const { data, error: e } = await supabase.functions.invoke('seo-control-selftest', { body: { source: 'manual' } }); if (e) throw e; setLatest(data?.result as SelfTestRun) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível executar o autoteste.') }
+    finally { setRunning(false) }
   }
 
   const allOk = latest?.passed === latest?.total && latest?.total === 12
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <header className="mb-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-600">Admin · Crescimento orgânico</p>
+      <h1 className="mt-1 font-serif text-3xl text-forest-900 sm:text-4xl">SEO Control Center</h1>
+      <p className="mt-2 max-w-3xl text-sm text-ink-soft">Veja em poucos segundos o que está certo, o que o site consegue corrigir e o que depende do Google.</p>
+    </header>
 
-  return <div>
-    <section className="mx-auto mt-5 max-w-7xl px-4 sm:px-6">
-      <div className={`rounded-2xl border p-4 sm:p-5 ${allOk ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex gap-3 min-w-0">
-            <div className={`mt-0.5 rounded-xl p-2 ${allOk ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}><ShieldCheck className="h-5 w-5" /></div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-forest-600">Autoteste do SEO Control Center</p>
-              <h2 className="mt-1 font-serif text-2xl text-forest-900">{latest ? `${latest.passed}/${latest.total} testes aprovados` : 'Ainda sem execução registrada'}</h2>
-              <p className="mt-1 max-w-3xl text-xs text-ink-soft">Valida Google, Search Analytics, sitemap, inspeção de URL, robots.txt, banco, provedor de IA, estrutura usada pelos adaptadores do corretor, redirects e automação diária sem alterar artigos reais.</p>
-              {latest && <p className="mt-1 text-[11px] text-ink-soft">Última execução: {new Date(latest.created_at).toLocaleString('pt-BR')} · {latest.source === 'scheduled' ? 'automática' : 'manual'}</p>}
-            </div>
-          </div>
-          <button type="button" onClick={() => void runNow()} disabled={running} className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Executar autoteste agora
-          </button>
+    <section className="mb-5 rounded-2xl border border-forest-200 bg-[#fbfcf8] p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-forest-600">Resumo simples</p><h2 className="mt-1 font-serif text-2xl text-forest-900">Como está o SEO agora?</h2></div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => void analyze()} disabled={loading || analyzing || fixing} className="inline-flex items-center gap-2 rounded-xl border border-forest-300 bg-mint px-4 py-2.5 text-sm font-medium text-forest-900 disabled:opacity-50">{analyzing || loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} 1. Atualizar e analisar</button>
+          <button onClick={() => void correct()} disabled={loading || fixing || !published.length} className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{fixing ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />} 2. Corrigir {autoCount ? `${autoCount} ponto${autoCount === 1 ? '' : 's'}` : 'o que for possível'}</button>
         </div>
-
-        {error && <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
-
-        {latest?.checks?.length ? <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {latest.checks.map(check => <div key={check.key} className="rounded-xl border border-white/80 bg-white px-3 py-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-forest-900">{check.ok ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}{check.label}</div>
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">{check.detail}</p>
-          </div>)}
-        </div> : null}
-
-        <p className="mt-3 text-[11px] text-ink-soft">A execução automática ocorre diariamente às 06:40 UTC, depois da sincronização principal do Search Console. O autoteste não publica, edita ou remove conteúdo.</p>
+      </div>
+      {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+      {progress && <div className="mt-4 rounded-xl border border-forest-200 bg-mint px-4 py-3 text-sm text-forest-900"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{progress}</div>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Stat label="No Google" value={`${indexed}/${inspected}`} note="páginas confirmadas" tone="ok" />
+        <Stat label="Aguardando Google" value={String(waitingGoogle)} note="não é erro automaticamente" tone="wait" />
+        <Stat label="Correções automáticas" value={String(autoCount)} note="pontos que o site pode tratar" tone={autoCount ? 'attention' : 'ok'} />
+        <Stat label="Erros críticos" value={String(critical)} note="problemas que podem bloquear" tone={critical ? 'danger' : 'ok'} />
+        <Stat label="Mapa de páginas" value={sitemapErrors ? 'Atenção' : 'Tudo certo'} note={sitemapErrors ? `${sitemapErrors} erro(s)` : 'sem erros detectados'} tone={sitemapErrors ? 'danger' : 'ok'} />
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <SimpleBox title="O que precisa de ação" icon={<AlertTriangle className="h-4 w-4" />} text={autoCount ? `Encontramos ${autoCount} ponto(s) que o próprio site consegue tentar corrigir e validar.` : 'Não há correções automáticas pendentes agora.'} />
+        <SimpleBox title="O que depende do Google" icon={<Clock3 className="h-4 w-4" />} text={waitingGoogle ? `${waitingGoogle} página(s) ainda aguardam confirmação. O sistema pode verificar bloqueios e reenviar o sitemap, mas não pode obrigar a indexação.` : 'Nenhuma página verificada está aguardando confirmação.'} />
+        <SimpleBox title="O que está bem" icon={<CheckCircle2 className="h-4 w-4" />} text={!critical ? 'O sitemap não apresenta erro crítico. Os detalhes técnicos continuam disponíveis abaixo.' : 'Os itens sem alerta continuam funcionando; veja os erros críticos antes de outras melhorias.'} />
       </div>
     </section>
-    <AdminSEOCockpit onEditArticle={onEditArticle} />
+
+    {fixReport && <CorrectionReport report={fixReport} />}
+
+    <details className="mb-5 rounded-2xl border border-line bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-forest-900">Ver detalhes técnicos e ferramentas avançadas <ChevronDown className="h-4 w-4" /></summary>
+      <div className="border-t border-line">
+        <section className="p-4 sm:p-5">
+          <div className={`rounded-2xl border p-4 ${allOk ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-forest-600">Autoteste técnico</p><h3 className="mt-1 font-serif text-xl text-forest-900">{latest ? `${latest.passed}/${latest.total} testes aprovados` : 'Ainda sem execução registrada'}</h3><p className="mt-1 text-xs text-ink-soft">Verifica Google, sitemap, inspeção, robots, banco, IA, redirects e automação sem editar artigos.</p></div><button onClick={() => void runNow()} disabled={running} className="inline-flex items-center gap-2 rounded-xl border border-forest-300 bg-white px-3 py-2 text-xs text-forest-900 disabled:opacity-50">{running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Executar autoteste</button></div>
+          </div>
+        </section>
+        <AdminSEOCockpit onEditArticle={onEditArticle} />
+      </div>
+    </details>
   </div>
 }
+
+function Stat({ label, value, note, tone }: { label: string; value: string; note: string; tone: 'ok' | 'wait' | 'attention' | 'danger' }) {
+  const cls = tone === 'danger' ? 'border-red-200 bg-red-50' : tone === 'attention' ? 'border-amber-200 bg-amber-50' : tone === 'wait' ? 'border-sky-200 bg-sky-50' : 'border-emerald-200 bg-emerald-50/60'
+  return <div className={`rounded-xl border p-4 ${cls}`}><p className="text-xs text-ink-soft">{label}</p><p className="mt-1 font-serif text-3xl text-forest-900">{value}</p><p className="mt-1 text-[11px] text-ink-soft">{note}</p></div>
+}
+function SimpleBox({ title, text, icon }: { title: string; text: string; icon: React.ReactNode }) { return <div className="rounded-xl border border-line bg-white p-4"><div className="flex items-center gap-2 text-sm font-semibold text-forest-900">{icon}{title}</div><p className="mt-2 text-xs leading-relaxed text-ink-soft">{text}</p></div> }
+function CorrectionReport({ report }: { report: FixReport }) {
+  const fixed = report.items.filter(i => i.status === 'fixed').length
+  const failed = report.items.filter(i => i.status === 'failed').length
+  const approval = report.items.filter(i => i.status === 'approval').length
+  const unchanged = report.items.filter(i => i.status === 'unchanged').length
+  const icon = (s: FixStatus) => s === 'fixed' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : s === 'failed' ? <XCircle className="h-4 w-4 text-red-600" /> : s === 'approval' ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : <Search className="h-4 w-4 text-sky-600" />
+  const label = (s: FixStatus) => s === 'fixed' ? 'Corrigido' : s === 'failed' ? 'Não corrigido' : s === 'approval' ? 'Precisa de revisão' : s === 'google' ? 'Aguardando Google' : 'Nenhuma mudança necessária'
+  return <section className="mb-5 rounded-2xl border border-forest-200 bg-white p-4 sm:p-5">
+    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-forest-600">Relatório da correção</p>
+    <h2 className="mt-1 font-serif text-2xl text-forest-900">O que foi feito e o que ficou pendente</h2>
+    <p className="mt-1 text-xs text-ink-soft">Executado em {new Date(report.createdAt).toLocaleString('pt-BR')}. O sistema só marca como corrigido quando uma alteração foi realmente salva.</p>
+    <div className="mt-4 flex flex-wrap gap-2 text-xs"><Badge text={`${fixed} corrigido(s)`} /><Badge text={`${approval} precisa(m) de revisão`} /><Badge text={`${failed} falhou(aram)`} /><Badge text={`${unchanged} sem mudança necessária`} /></div>
+    {!report.items.length ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Não havia problemas automáticos para corrigir.</div> : <div className="mt-4 space-y-2">{report.items.map(item => <div key={`${item.id}-${item.issue}`} className="rounded-xl border border-line p-3"><div className="flex items-start gap-2"><div className="mt-0.5">{icon(item.status)}</div><div className="min-w-0"><p className="text-sm font-semibold text-forest-900">{item.title}</p><p className="text-[11px] font-medium text-ink-soft">{label(item.status)} · {item.issue}</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.detail}</p>{item.changed?.length ? <p className="mt-1 text-xs text-emerald-800"><strong>Alterado:</strong> {item.changed.join(', ')}</p> : null}{item.pending?.length ? <p className="mt-1 text-xs text-amber-800"><strong>Pendente:</strong> {item.pending.join(' | ')}</p> : null}</div></div></div>)}</div>}
+    <div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Sitemap:</strong> {report.sitemap === 'sent' ? 'reenviado ao Google' : report.sitemap === 'failed' ? 'tentativa falhou; permanece pendente' : 'não precisou ser reenviado'}</div><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Validação final:</strong> {report.googleSync === 'done' ? 'dados atualizados novamente após as correções' : report.googleSync === 'failed' ? 'não foi possível atualizar os dados do Google agora' : 'não foi necessária'}</div></div>
+  </section>
+}
+function Badge({ text }: { text: string }) { return <span className="rounded-full border border-line bg-stone-50 px-3 py-1.5 text-ink-soft">{text}</span> }
