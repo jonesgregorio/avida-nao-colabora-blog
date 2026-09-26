@@ -156,7 +156,19 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
             <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-forest-600">Autoteste técnico</p><h3 className="mt-1 font-serif text-xl text-forest-900">{latest ? `${latest.passed}/${latest.total} testes aprovados` : 'Ainda sem execução registrada'}</h3><p className="mt-1 text-xs text-ink-soft">Verifica Google, sitemap, inspeção, robots, banco, IA, redirects e automação sem editar artigos.</p></div><button onClick={() => void runNow()} disabled={running} className="inline-flex items-center gap-2 rounded-xl border border-forest-300 bg-white px-3 py-2 text-xs text-forest-900 disabled:opacity-50">{running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Executar autoteste</button></div>
           </div>
         </section>
-        <AdminSEOCockpit onEditArticle={onEditArticle} />
+        <div className="seo-advanced-embedded">
+          <AdminSEOCockpit onEditArticle={onEditArticle} />
+        </div>
+        <style>{`
+          .seo-advanced-embedded > div { max-width: none; padding: 0 1rem 1rem; }
+          .seo-advanced-embedded > div > *:has(~ [role="tablist"]) { display: none; }
+          .seo-advanced-embedded [role="tablist"] { flex-wrap: wrap; overflow-x: visible; padding-bottom: 0; }
+          .seo-advanced-embedded [role="tablist"] + * { margin-top: .5rem; }
+          @media (max-width: 640px) {
+            .seo-advanced-embedded > div { padding-left: .75rem; padding-right: .75rem; }
+            .seo-advanced-embedded [role="tablist"] { gap: .375rem; }
+          }
+        `}</style>
       </div>
     </details>
   </div>
