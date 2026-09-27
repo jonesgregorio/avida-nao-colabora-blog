@@ -3,26 +3,15 @@ import { supabase } from '../../lib/supabase'
 import { RefreshCw, Users, Radar, Info } from 'lucide-react'
 import { collectAllPages } from '../../lib/supabasePagination'
 
-// Card visual fixo na Visão geral do Admin (pedido do usuário: "quero a
-// informação de quantos acessos e por onde acessaram, de forma mais visual
-// e fácil, a partir de agora" — não só dentro de Analytics → Aquisição,
-// mas logo na primeira tela que o admin abre). Mesma fonte de dados
-// (analytics_events) e mesmas regras de classificação de fonte já usadas
-// em Analytics; aqui só o recorte fica mais enxuto e com um gráfico.
-
 type Period = 'today' | '7d' | '30d' | 'month' | 'custom'
 const PERIOD_LABELS: Record<Period, string> = { today: 'Hoje', '7d': '7 dias', '30d': '30 dias', month: 'Mês atual', custom: 'Personalizado' }
 
-// yyyy-mm-dd no fuso local (input type=date trabalha assim, sem UTC no meio).
 function isoDay(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${d.getFullYear()}-${m}-${day}`
 }
 
-// Intervalo [start, end] de cada período. "Hoje" = desde 00:00 do dia local (não
-// "últimas 24h"), e o personalizado vai do início do 1º dia ao fim do último — sem
-// isso, escolher 10/09 a 12/09 cortaria o dia 12 inteiro.
 function rangeFor(period: Period, customStart: string, customEnd: string): { start: Date; end: Date } | null {
   const now = new Date()
   if (period === 'today') { const s = new Date(now); s.setHours(0, 0, 0, 0); return { start: s, end: now } }
@@ -36,12 +25,14 @@ function rangeFor(period: Period, customStart: string, customEnd: string): { sta
   return { start, end }
 }
 
-// Cores por fonte reconhecida; fontes não mapeadas (site desconhecido) usam o fallback.
 const SOURCE_COLORS: Record<string, string> = {
   Instagram: '#c1447e',
   Direto: '#a8a29e',
   'Origem não identificada': '#a8a29e',
   Google: '#4285f4',
+  'Google — Busca orgânica': '#4285f4',
+  'Google — Anúncio': '#2f6bc0',
+  'Google — outra origem': '#6d8fc7',
   YouTube: '#e05252',
   Facebook: '#3b6fc4',
   TikTok: '#3a3a3a',
@@ -55,7 +46,40 @@ interface Ev {
   entity_id: string | null
   session_id: string | null
   user_id: string | null
-  metadata: { path?: string; landing_path?: string; attribution_method?: string; medium?: string; campaign?: string } | null
+  metadata: {
+    path?: string
+    landing_path?: string
+    attribution_method?: string
+    medium?: string
+    campaign?: string
+    utm_medium?: string
+    referrer_host?: string
+    click_id_type?: string
+  } | null
+}
+
+function googleSourceLabel(row: Ev): string {
+  if (row.entity_id !== 'Google') return row.entity_id === 'Direto' ? 'Origem não identificada' : (row.entity_id ?? 'Origem não identificada')
+
+  const medium = String(row.metadata?.utm_medium ?? row.metadata?.medium ?? '').toLowerCase()
+  const clickId = String(row.metadata?.click_id_type ?? '').toLowerCase()
+  const method = row.metadata?.attribution_method
+  const referrer = String(row.metadata?.referrer_host ?? '').toLowerCase()
+
+  // Identificadores de clique do Google Ads e UTMs de mídia paga são evidência de anúncio.
+  if (clickId === 'gclid' || clickId === 'gbraid' || clickId === 'wbraid' || /^(cpc|ppc|paid|paid_search|sem|display)$/.test(medium)) {
+    return 'Google — Anúncio'
+  }
+
+  // UTM organic ou referência direta de um domínio Google sem sinal de mídia paga:
+  // classificamos como busca orgânica. Isso evita chamar todo acesso do Google de orgânico.
+  if (medium === 'organic' || (method === 'referrer' && /(^|\.)google\./.test(referrer))) {
+    return 'Google — Busca orgânica'
+  }
+
+  // Dados históricos/persistidos podem saber que a fonte foi Google, mas não guardar
+  // sinal suficiente para provar se foi busca ou anúncio.
+  return 'Google — outra origem'
 }
 
 export default function AdminVisitsSourceCard() {
@@ -73,8 +97,6 @@ export default function AdminVisitsSourceCard() {
     const r = rangeFor(period, customStart, customEnd)
     if (!r) { setLoading(false); setVisitors(0); setSessions(0); setSources([]); return }
     setLoading(true)
-    // O Data API possui limite por página. Coletamos páginas explícitas para que
-    // períodos maiores não percam silenciosamente eventos de aquisição.
     const { data, error } = await collectAllPages<Ev>((from, to) =>
       supabase
         .from('analytics_events')
@@ -87,7 +109,6 @@ export default function AdminVisitsSourceCard() {
     )
     if (error) { setVisitors(0); setSessions(0); setSources([]); setUnknownLandings([]); setLoading(false); return }
     const rows = data as Ev[]
-    // Eventos históricos do próprio /admin não devem contar como audiência pública.
     const isAdmin = (row: Ev) => (row.metadata?.path ?? row.metadata?.landing_path ?? '').startsWith('/admin')
     const navEvents = rows.filter(row => (row.event === 'page_view' || row.event === 'article_view') && !isAdmin(row))
     setVisitors(new Set(navEvents.map(row => row.user_id || row.session_id).filter(Boolean)).size)
@@ -97,9 +118,7 @@ export default function AdminVisitsSourceCard() {
     const landings = new Map<string, number>()
     for (const row of rows) {
       if (row.event !== 'visit_source' || !row.entity_id || isAdmin(row)) continue
-      // "Direto" era o rótulo legado para ausência de sinal. Não fingimos que isso
-      // prova que a pessoa digitou a URL: mostramos como origem não identificada.
-      const source = row.entity_id === 'Direto' ? 'Origem não identificada' : row.entity_id
+      const source = googleSourceLabel(row)
       counts.set(source, (counts.get(source) ?? 0) + 1)
       if (source === 'Origem não identificada') {
         const landing = row.metadata?.landing_path ?? row.metadata?.path ?? '/'
@@ -130,16 +149,11 @@ export default function AdminVisitsSourceCard() {
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-forest-600">Aquisição</p>
           <h2 className="font-serif text-2xl leading-tight text-forest-900">Visitas e origem</h2>
-          <p className="mt-1 max-w-xl text-xs leading-relaxed text-ink-soft">Quantas pessoas acessaram o site e de onde vieram (Instagram, Google, direto…).</p>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-ink-soft">Quantas pessoas acessaram o site e de onde vieram. No Google, diferenciamos busca orgânica, anúncio e origem sem evidência suficiente.</p>
         </div>
         <div className="inline-flex max-w-full self-start overflow-x-auto rounded-xl border border-line bg-[#f6f2eb] p-1 sm:self-auto">
           {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${period === p ? 'bg-forest-900 text-white shadow-sm' : 'text-stone-600 hover:bg-white hover:text-forest-900'}`}
-            >
+            <button key={p} type="button" onClick={() => setPeriod(p)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${period === p ? 'bg-forest-900 text-white shadow-sm' : 'text-stone-600 hover:bg-white hover:text-forest-900'}`}>
               {PERIOD_LABELS[p]}
             </button>
           ))}
@@ -178,19 +192,10 @@ export default function AdminVisitsSourceCard() {
             <svg viewBox="0 0 140 140" className="h-32 w-32 flex-shrink-0 -rotate-90" role="img" aria-label="Distribuição de fontes de tráfego">
               <circle cx="70" cy="70" r={R} fill="none" stroke="#f1f0ec" strokeWidth="18" />
               {arcs.map(a => (
-                <circle
-                  key={a.label}
-                  cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth="18"
-                  strokeDasharray={`${a.dash} ${C - a.dash}`}
-                  strokeDashoffset={-a.offset}
-                />
+                <circle key={a.label} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth="18" strokeDasharray={`${a.dash} ${C - a.dash}`} strokeDashoffset={-a.offset} />
               ))}
             </svg>
-            {/* Achado: numa tela larga, o rótulo (esquerda) e o número (direita) ficavam
-                tão distantes um do outro que dava pra confundir qual % era de qual fonte.
-                Largura limitada + número junto do nome na mesma "pastilha" resolve —
-                cada linha fica curta e autoexplicativa por si só. */}
-            <div className="w-full max-w-[280px] space-y-2">
+            <div className="w-full max-w-[320px] space-y-2">
               {arcs.map(a => (
                 <div key={a.label} className="flex items-center justify-between gap-3 rounded-lg bg-[#fbfaf7] px-3 py-1.5 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
@@ -205,6 +210,15 @@ export default function AdminVisitsSourceCard() {
         )}
       </div>
 
+      {!loading && sources.some(([source]) => source.startsWith('Google —')) && (
+        <div className="mt-5 rounded-xl border border-line bg-blue-50/40 px-4 py-3">
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-soft">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span><strong className="text-forest-900">Como lemos o Google:</strong> “Busca orgânica” exige referência do Google ou marcação organic sem sinal de anúncio; “Anúncio” exige identificador/UTM de mídia paga; “outra origem” significa que sabemos que veio do Google, mas os dados disponíveis não permitem afirmar qual tipo.</span>
+          </p>
+        </div>
+      )}
+
       {!loading && sources.some(([source]) => source === 'Origem não identificada') && (
         <div className="mt-5 rounded-xl border border-line bg-stone-50 px-4 py-3">
           <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-soft">
@@ -214,9 +228,7 @@ export default function AdminVisitsSourceCard() {
           {unknownLandings.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {unknownLandings.map(([path, count]) => (
-                <span key={path} className="rounded-full border border-line bg-white px-2.5 py-1 text-[10px] text-stone-600">
-                  Entrada {path} · {count}
-                </span>
+                <span key={path} className="rounded-full border border-line bg-white px-2.5 py-1 text-[10px] text-stone-600">Entrada {path} · {count}</span>
               ))}
             </div>
           )}
