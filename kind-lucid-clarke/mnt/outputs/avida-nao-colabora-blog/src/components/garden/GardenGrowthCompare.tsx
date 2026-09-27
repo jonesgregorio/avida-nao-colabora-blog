@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { gardenVisualProgress, type GardenTheme } from '../../lib/gardenThemes'
 
@@ -11,6 +11,8 @@ interface Props {
   to: number
   onClose: () => void
 }
+
+type CompareMode = 'last' | 'initial'
 
 /** Composição estática (sem canvas/motor) das fotos do jardim, na mesma mistura de opacidade
  * que a cena viva mostraria nesse ponto do progresso — usada pra "congelar" um antes/depois. */
@@ -31,14 +33,21 @@ function GardenSnapshot({ theme, progress, label }: { theme: GardenTheme; progre
 }
 
 export default function GardenGrowthCompare({ theme, from, to, onClose }: Props) {
+  // Quando existe uma visita anterior real, abrimos nela para preservar o comportamento atual.
+  // O usuário pode alternar a qualquer momento para o começo do jardim e enxergar toda a mudança.
+  const hasLastVisitComparison = from > 0 && from < to
+  const [mode, setMode] = useState<CompareMode>(hasLastVisitComparison ? 'last' : 'initial')
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const fromPct = Math.round((from / 59) * 100)
+  const comparisonFrom = mode === 'initial' ? 0 : from
+  const fromPct = Math.round((comparisonFrom / 59) * 100)
   const toPct = Math.round((to / 59) * 100)
+  const firstLabel = mode === 'initial' ? 'Jardim inicial' : 'Última atualização'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Comparar crescimento do jardim" onClick={onClose}>
@@ -47,14 +56,24 @@ export default function GardenGrowthCompare({ theme, from, to, onClose }: Props)
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-forest-600">{theme.label}</p>
             <h2 className="mt-1 font-serif text-2xl text-forest-950">Como seu jardim cresceu</h2>
+            <p className="mt-1 text-xs leading-5 text-ink-soft">Compare a mudança mais recente ou veja toda a transformação desde quando este jardim começou.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-forest-600 transition hover:bg-[#efe4d4]"><X className="h-4 w-4" /></button>
         </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-[#efe9de] p-1" role="group" aria-label="Período da comparação">
+          <button type="button" onClick={() => setMode('initial')} aria-pressed={mode === 'initial'} className={`rounded-xl px-3 py-2.5 text-xs font-medium transition ${mode === 'initial' ? 'bg-white text-forest-900 shadow-sm' : 'text-forest-600 hover:text-forest-900'}`}>Desde o início</button>
+          <button type="button" onClick={() => setMode('last')} disabled={!hasLastVisitComparison} aria-pressed={mode === 'last'} className={`rounded-xl px-3 py-2.5 text-xs font-medium transition ${mode === 'last' ? 'bg-white text-forest-900 shadow-sm' : 'text-forest-600 hover:text-forest-900'} disabled:cursor-not-allowed disabled:opacity-40`}>Última atualização</button>
+        </div>
+        {!hasLastVisitComparison && <p className="mt-2 text-center text-[11px] leading-4 text-ink-soft">Quando houver uma atualização anterior deste mesmo jardim, ela também ficará disponível para comparação.</p>}
+
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <GardenSnapshot theme={theme} progress={from} label="Antes" />
+          <GardenSnapshot theme={theme} progress={comparisonFrom} label={firstLabel} />
           <GardenSnapshot theme={theme} progress={to} label="Agora" />
         </div>
-        <p className="mt-4 text-center text-sm leading-6 text-ink-soft">Seu jardim foi de <strong className="text-forest-800">{fromPct}%</strong> para <strong className="text-forest-800">{toPct}%</strong> deste ciclo desde sua última visita.</p>
+        <p className="mt-4 text-center text-sm leading-6 text-ink-soft">
+          {mode === 'initial' ? <>Desde o início, seu jardim passou de <strong className="text-forest-800">0%</strong> para <strong className="text-forest-800">{toPct}%</strong> deste ciclo.</> : <>Desde a última atualização, seu jardim passou de <strong className="text-forest-800">{fromPct}%</strong> para <strong className="text-forest-800">{toPct}%</strong> deste ciclo.</>}
+        </p>
       </div>
     </div>
   )
