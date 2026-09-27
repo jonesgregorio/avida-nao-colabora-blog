@@ -8,6 +8,7 @@ interface PrivacyPageProps {
 export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
   const cms = useSitePage('privacidade')
   if (cms) return <CmsPage title={cms.title} body={cms.body_md} kicker="Legal" onNavigate={onNavigate} back />
+
   return (
     <div className="min-h-screen bg-paper">
       <div className="bg-white border-b border-line">
@@ -19,120 +20,62 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
-        <div className="bg-white border border-line rounded-2xl p-6">
-          <p className="text-ink-soft text-sm leading-relaxed">
-            Sua privacidade é fundamental para nós. Os registros pessoais que você cria no A Vida Não Colabora ficam vinculados à sua conta para que as funcionalidades escolhidas por você possam funcionar. Eles não são publicados no site nem ficam disponíveis para outros usuários. Esta política explica, com transparência, quando o sistema precisa armazenar ou processar informações e quais proteções se aplicam a elas.
-          </p>
-        </div>
-
-        {[
-          {
-            title: '1. Dados vinculados à sua conta',
-            items: [
-              'Dados de conta: nome, e-mail, preferências e informações de perfil. A autenticação e a senha são gerenciadas pelo Supabase Auth; o aplicativo não recebe sua senha em texto legível para armazenamento.',
-              'Registros que você decide criar: conteúdo do diário, check-ins e respostas inseridas por você. Esses registros permanecem associados à sua conta e não se tornam conteúdo público.',
-              'Informações geradas para você a partir do uso das funcionalidades, como resultados de questionários, mapa emocional, relatórios, planos de autocuidado e orientações, quando disponíveis no seu plano.',
-              'Dados de uso e comunicação necessários à operação: funcionalidades utilizadas, notificações, preferências de e-mail, tickets de suporte e histórico relacionado ao funcionamento do serviço.',
-              'Dados de assinatura e cobrança necessários para identificar o plano e acompanhar pagamentos; os dados completos do cartão são processados pelo Stripe e não são armazenados pelo aplicativo.',
-            ],
-          },
-          {
-            title: '2. Por que tratamos esses dados',
-            items: [
-              'Para autenticar sua conta, manter o serviço seguro e disponibilizar as funcionalidades do seu plano.',
-              'Para salvar e exibir a você os registros e históricos que você escolheu criar.',
-              'Para gerar recursos privados da sua conta, como visualizações, relatórios, recomendações e planos, conforme a funcionalidade e o plano.',
-              'Para responder solicitações de suporte, administrar preferências de comunicação e melhorar a operação do serviço.',
-              'Para processar e acompanhar assinaturas e pagamentos de forma segura.',
-            ],
-          },
-        ].map(section => (
-          <section key={section.title} className="bg-white border border-line rounded-2xl p-6">
-            <h2 className="font-serif text-xl text-forest-900 mb-4">{section.title}</h2>
-            <ul className="space-y-2.5">
-              {section.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                  <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <section className="bg-white border border-line rounded-2xl p-6">
+          <p className="text-sm text-ink-soft leading-relaxed">No <strong>A Vida Não Colabora</strong>, privacidade é parte essencial da experiência. Utilizamos apenas as informações necessárias para manter sua conta, disponibilizar os recursos escolhidos, administrar assinaturas, manter a segurança da plataforma e cumprir obrigações legais.</p>
+        </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">3. Como os dados são usados</h2>
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Seus registros são privados</h2>
+          <div className="bg-mint rounded-xl p-5 space-y-3 text-sm text-forest-800 leading-relaxed">
+            <p>O que você escreve no <strong>Diário</strong> e nos <strong>Check-ins</strong> é particular.</p>
+            <p><strong>Os administradores do A Vida Não Colabora não têm acesso ao conteúdo desses registros. Eles não são publicados, compartilhados com outros usuários nem ficam disponíveis para leitura pela nossa equipe.</strong></p>
+            <p>Esses espaços foram criados para que você possa escrever e se expressar com liberdade, preservando sua privacidade.</p>
+          </div>
+        </section>
+
+        <section className="bg-white border border-line rounded-2xl p-6">
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Orientação Profissional</h2>
           <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
-            <p>Usamos seus dados para operar, proteger e entregar as funcionalidades que você utiliza. Não vendemos ou alugamos seus dados pessoais a anunciantes e seus desabafos não são publicados como artigos ou conteúdo público.</p>
-            <p>Alguns recursos de inteligência artificial podem processar o contexto necessário para produzir funcionalidades privadas da sua conta, como relatórios, planos e recomendações. O processamento é limitado à finalidade do recurso acionado e segue os controles definidos no backend.</p>
-            <p>O comentário individual de um profissional sobre o relatório mensal foi descontinuado como recurso ativo do produto. Comentários enviados no passado continuam preservados para consulta e exportação, sem que isso represente acesso livre ou rotineiro da equipe ao seu diário completo.</p>
+            <p>No <strong>Plano Plus</strong>, quando você solicitar uma Orientação Profissional, serão consideradas <strong>somente as informações que você decidir fornecer especificamente naquela solicitação</strong>.</p>
+            <p>O profissional não recebe acesso ao seu Diário, aos seus Check-ins ou aos demais registros privados da sua conta.</p>
           </div>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">4. Armazenamento, segurança e retenção</h2>
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Informações da conta</h2>
           <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
-            <p>O aplicativo utiliza Supabase para autenticação, banco de dados e armazenamento e Vercel para hospedagem da aplicação web. As conexões de produção utilizam HTTPS. Pagamentos são processados pelo Stripe, e o aplicativo não armazena os dados completos do seu cartão.</p>
-            <p>Enquanto sua conta estiver ativa, conservamos os dados necessários para prestar o serviço e manter os históricos que você utiliza. Ao concluir a exclusão por autoatendimento, removemos a conta e os dados pessoais vinculados ao aplicativo. Prestadores externos podem conservar registros próprios quando isso for necessário para segurança, prevenção a fraude, auditoria ou cumprimento de obrigação legal, conforme as políticas e prazos aplicáveis a cada prestador.</p>
+            <p>Para manter o serviço funcionando, podemos utilizar informações básicas necessárias para cadastro, acesso à conta, assinatura, comunicação, segurança e cumprimento de obrigações legais.</p>
+            <p>Não vendemos seus dados pessoais e não transformamos seus registros privados em conteúdo público.</p>
           </div>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">5. Prestadores e compartilhamento necessário</h2>
-          <p className="text-sm text-ink-soft mb-4">Para operar o serviço, podemos utilizar os seguintes prestadores conforme a funcionalidade:</p>
-          <ul className="space-y-2.5 mb-4">
-            {[
-              'Supabase: autenticação, banco de dados, armazenamento e funções de backend.',
-              'Vercel: hospedagem e entrega da aplicação web.',
-              'Stripe: processamento e gestão de assinaturas e pagamentos.',
-              'Resend e infraestrutura de e-mail configurada: envio de comunicações transacionais e outras mensagens permitidas pelas suas preferências.',
-              'Provedores de inteligência artificial configurados no backend, como Google Gemini, Groq e, quando habilitado, OpenAI: processamento do contexto necessário para funcionalidades de IA.',
-              'Autoridades ou terceiros legitimados: quando houver obrigação legal ou ordem válida aplicável.',
-            ].map((item, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
-                {item}
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-ink-soft leading-relaxed">O uso de prestadores não transforma seus registros em conteúdo público. O acesso técnico é limitado ao necessário para operar, proteger e entregar as funcionalidades da plataforma.</p>
-        </section>
-
-        <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">6. Seus direitos e controles de privacidade</h2>
-          <p className="text-sm text-ink-soft mb-4">Nos termos da legislação aplicável, você pode exercer direitos relacionados aos seus dados, incluindo:</p>
-          <ul className="space-y-2.5">
-            {[
-              'Acessar os dados vinculados à sua conta e obter uma cópia em formato legível.',
-              'Corrigir informações incompletas, inexatas ou desatualizadas.',
-              'Solicitar eliminação, anonimização ou outras medidas quando aplicáveis.',
-              'Revogar consentimentos e ajustar preferências de comunicação quando o tratamento depender dessa escolha.',
-              'Solicitar informações sobre o tratamento e a portabilidade nos casos previstos em lei.',
-            ].map((item, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                <span className="w-1.5 h-1.5 rounded-full bg-forest-400 flex-shrink-0 mt-1.5" />
-                {item}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 bg-mint/50 rounded-xl p-4 text-sm text-forest-800 leading-relaxed">Usuários autenticados podem usar <strong>Meu perfil → Privacidade e seus dados</strong> para baixar uma cópia dos dados da conta ou iniciar a exclusão definitiva. A exclusão exige confirmação adicional com a senha atual.</div>
-        </section>
-
-        <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-4">7. Registros emocionais — confidencialidade</h2>
-          <div className="bg-mint rounded-xl p-5">
-            <p className="text-sm text-forest-900 font-medium mb-2">O que você escreve é tratado como informação privada da sua conta.</p>
-            <p className="text-sm text-forest-800 leading-relaxed">Diário, check-ins e demais registros emocionais não são áreas públicas nem caixas de leitura livre para a equipe. Eles são protegidos por controles de acesso e podem ser processados automaticamente quando isso é necessário para entregar uma funcionalidade da sua própria conta.</p>
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Segurança</h2>
+          <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
+            <p>Adotamos medidas de segurança destinadas à proteção das informações mantidas pela plataforma e ao controle de acessos.</p>
+            <p>Podemos utilizar serviços tecnológicos necessários para o funcionamento do A Vida Não Colabora, sempre observando as medidas aplicáveis de proteção e privacidade.</p>
           </div>
         </section>
 
         <section className="bg-white border border-line rounded-2xl p-6">
-          <h2 className="font-serif text-xl text-forest-900 mb-3">8. Como falar sobre privacidade</h2>
-          <p className="text-sm text-ink-soft leading-relaxed">Para dúvidas, solicitações adicionais ou exercício de direitos que não estejam disponíveis no autoatendimento, utilize a página de contato ou o formulário de suporte da plataforma. Assim sua solicitação fica registrada e pode ser acompanhada pela equipe.</p>
-          {onNavigate && <button onClick={() => onNavigate('contact')} className="mt-4 text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900">Ir para Contato</button>}
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Seus direitos</h2>
+          <div className="space-y-3 text-sm text-ink-soft leading-relaxed">
+            <p>Você pode solicitar informações sobre seus dados pessoais, correção ou exclusão quando aplicável, além de exercer os demais direitos previstos na Lei Geral de Proteção de Dados Pessoais (LGPD).</p>
+            <p>Solicitações ou dúvidas sobre privacidade podem ser encaminhadas pelos canais oficiais do A Vida Não Colabora.</p>
+          </div>
         </section>
 
-        {onNavigate && <div className="pt-2"><button onClick={() => onNavigate('home')} className="text-sm text-ink-soft hover:text-forest-800 transition-colors">← Voltar para o início</button></div>}
+        <section className="bg-white border border-line rounded-2xl p-6">
+          <h2 className="font-serif text-xl text-forest-900 mb-4">Alterações</h2>
+          <p className="text-sm text-ink-soft leading-relaxed">Esta Política poderá ser atualizada para acompanhar mudanças na plataforma ou na legislação. Alterações relevantes poderão ser comunicadas aos usuários.</p>
+        </section>
+
+        {onNavigate && (
+          <div className="flex flex-wrap gap-4 pt-2">
+            <button onClick={() => onNavigate('contact')} className="text-sm font-medium text-forest-700 underline underline-offset-2 hover:text-forest-900">Ir para Contato</button>
+            <button onClick={() => onNavigate('home')} className="text-sm text-ink-soft hover:text-forest-800 transition-colors">← Voltar para o início</button>
+          </div>
+        )}
       </div>
     </div>
   )

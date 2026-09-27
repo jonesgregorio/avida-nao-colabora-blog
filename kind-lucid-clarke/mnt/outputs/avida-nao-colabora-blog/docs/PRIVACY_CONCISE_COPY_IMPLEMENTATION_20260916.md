@@ -1,0 +1,1 @@
+Implementation note: production CMS was updated first because PrivacyPage prioritizes useSitePage('privacidade'). The repository fallback and a versioned CMS migration now contain the same concise policy. No permission, RLS, Diary, Check-in, plan, pricing, Stripe, or Garden behavior is changed by this branch.
