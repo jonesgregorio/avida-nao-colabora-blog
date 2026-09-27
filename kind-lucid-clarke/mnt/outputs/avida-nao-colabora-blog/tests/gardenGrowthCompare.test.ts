@@ -25,17 +25,34 @@ test('banner de mudança aparece na página, com botão de comparar e botão de 
 })
 
 test('comparação usa theme.stages e a mesma matemática de crossfade da cena viva — funciona pra qualquer jardim (4 ou 6 imagens), não hardcoded', () => {
-  assert.match(compare, /theme\.stages\.map/) // genérico: qualquer GardenTheme, não um slug fixo
-  assert.match(compare, /gardenVisualProgress\(progress, theme\.stages\.length === 6 \? 6 : 4\) \* last/) // mesma fórmula de applyProgress() no motor, generalizada pro número de imagens
-  assert.doesNotMatch(compare, /'japones'|'nordico'|'deserto'|'cottage'/) // nenhum jardim específico hardcoded
+  assert.match(compare, /theme\.stages\.map/)
+  assert.match(compare, /gardenVisualProgress\(progress, theme\.stages\.length === 6 \? 6 : 4\) \* last/)
+  assert.doesNotMatch(compare, /'japones'|'nordico'|'deserto'|'cottage'/)
 })
 
-test('comparação mostra Antes/Agora e fecha por Escape, clique fora, ou botão', () => {
-  assert.match(compare, /label="Antes"/)
+test('comparação fecha por Escape, clique fora, ou botão', () => {
   assert.match(compare, /label="Agora"/)
   assert.match(compare, /key === 'Escape'/)
   assert.match(compare, /onClick=\{onClose\}/)
-  assert.match(compare, /onClick=\{\(e\) => e\.stopPropagation\(\)\}/) // clique dentro do card não fecha
+  assert.match(compare, /onClick=\{\(e\) => e\.stopPropagation\(\)\}/)
+})
+
+test('comparação permite alternar entre a última atualização e o jardim inicial', () => {
+  assert.match(compare, /type CompareMode = 'last' \| 'initial'/)
+  assert.match(compare, /setMode\('initial'\)/)
+  assert.match(compare, /setMode\('last'\)/)
+  assert.match(compare, />Desde o início<\/button>/)
+  assert.match(compare, />Última atualização<\/button>/)
+  assert.match(compare, /const comparisonFrom = mode === 'initial' \? 0 : from/)
+  assert.match(compare, /label=\{firstLabel\}/)
+  assert.match(compare, /Desde o início, seu jardim passou de/)
+  assert.match(compare, /Desde a última atualização, seu jardim passou de/)
+})
+
+test('última atualização fica indisponível quando ainda não existe histórico comparável', () => {
+  assert.match(compare, /const hasLastVisitComparison = from > 0 && from < to/)
+  assert.match(compare, /disabled=\{!hasLastVisitComparison\}/)
+  assert.match(compare, /Quando houver uma atualização anterior deste mesmo jardim/)
 })
 
 test('botão de comparar é FIXO no card "Jardim atual" (não só dentro do aviso temporário que pode passar despercebido)', () => {
@@ -46,10 +63,6 @@ test('botão de comparar é FIXO no card "Jardim atual" (não só dentro do avis
 })
 
 test('botão de comparar aparece já na PRIMEIRA visita (sem histórico salvo), não só quando existe uma visita anterior diferente registrada', () => {
-  // bug relatado 2x: antes o botão só existia dentro de `priorProgress!=null&&priorProgress!==...`,
-  // impossível de satisfazer na primeira visita após o deploy (chave nova, sem baseline) ou em
-  // qualquer visita sem crescimento real desde a anterior. Agora a visibilidade só depende de
-  // haver progresso (>0) no jardim atual — o "de onde comparar" é que se ajusta.
   assert.match(garden, /const compareFrom=priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)\?priorProgress:0/)
   assert.match(garden, /const compareLabel=compareFrom!==0\?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'/)
   assert.match(garden, /from:compareFrom,to:state\.garden_progress\|\|0/)
