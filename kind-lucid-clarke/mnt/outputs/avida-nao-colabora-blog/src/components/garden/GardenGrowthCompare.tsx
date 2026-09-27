@@ -4,9 +4,7 @@ import { gardenVisualProgress, type GardenTheme } from '../../lib/gardenThemes'
 
 interface Props {
   theme: GardenTheme
-  /** garden_progress (0..59) antes e agora — funciona igual pra qualquer jardim, porque só
-   * depende de theme.stages (4 ou 6 fotos) e da mesma matemática de crossfade que a cena viva
-   * usa (gardenVisualProgress). */
+  /** garden_progress (0..59) antes e agora. */
   from: number
   to: number
   onClose: () => void
@@ -14,8 +12,22 @@ interface Props {
 
 type CompareMode = 'last' | 'initial'
 
+/** Retorna a última mudança visual relevante do jardim. É o fallback quando a visita anterior
+ * já foi sobrescrita pelo carregamento atual. Assim "Última atualização" nunca vira um botão
+ * morto só porque o usuário recarregou/abriu a página novamente. */
+function previousVisualUpdate(progress: number, stageCount: number): number {
+  const breakpoints = stageCount === 6 ? [0, 3, 10, 18, 28, 39] : [0, 10, 28, 50]
+  const current = Math.max(0, Math.min(59, progress))
+  let previous = 0
+  for (const point of breakpoints) {
+    if (point >= current) break
+    previous = point
+  }
+  return previous
+}
+
 /** Composição estática (sem canvas/motor) das fotos do jardim, na mesma mistura de opacidade
- * que a cena viva mostraria nesse ponto do progresso — usada pra "congelar" um antes/depois. */
+ * que a cena viva mostraria nesse ponto do progresso. */
 function GardenSnapshot({ theme, progress, label }: { theme: GardenTheme; progress: number; label: string }) {
   const last = theme.stages.length - 1
   const f = gardenVisualProgress(progress, theme.stages.length === 6 ? 6 : 4) * last
@@ -33,10 +45,11 @@ function GardenSnapshot({ theme, progress, label }: { theme: GardenTheme; progre
 }
 
 export default function GardenGrowthCompare({ theme, from, to, onClose }: Props) {
-  // Quando existe uma visita anterior real, abrimos nela para preservar o comportamento atual.
-  // O usuário pode alternar a qualquer momento para o começo do jardim e enxergar toda a mudança.
-  const hasLastVisitComparison = from > 0 && from < to
-  const [mode, setMode] = useState<CompareMode>(hasLastVisitComparison ? 'last' : 'initial')
+  const realPrevious = from > 0 && from < to ? from : null
+  const fallbackPrevious = previousVisualUpdate(to, theme.stages.length)
+  const lastUpdateProgress = realPrevious ?? fallbackPrevious
+  const hasLastUpdateComparison = to > 0 && lastUpdateProgress < to
+  const [mode, setMode] = useState<CompareMode>(hasLastUpdateComparison ? 'last' : 'initial')
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -44,7 +57,7 @@ export default function GardenGrowthCompare({ theme, from, to, onClose }: Props)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const comparisonFrom = mode === 'initial' ? 0 : from
+  const comparisonFrom = mode === 'initial' ? 0 : lastUpdateProgress
   const fromPct = Math.round((comparisonFrom / 59) * 100)
   const toPct = Math.round((to / 59) * 100)
   const firstLabel = mode === 'initial' ? 'Jardim inicial' : 'Última atualização'
@@ -56,16 +69,16 @@ export default function GardenGrowthCompare({ theme, from, to, onClose }: Props)
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-forest-600">{theme.label}</p>
             <h2 className="mt-1 font-serif text-2xl text-forest-950">Como seu jardim cresceu</h2>
-            <p className="mt-1 text-xs leading-5 text-ink-soft">Compare a mudança mais recente ou veja toda a transformação desde quando este jardim começou.</p>
+            <p className="mt-1 text-xs leading-5 text-ink-soft">Compare a última mudança do jardim ou veja toda a transformação desde o início.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-forest-600 transition hover:bg-[#efe4d4]"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-[#efe9de] p-1" role="group" aria-label="Período da comparação">
           <button type="button" onClick={() => setMode('initial')} aria-pressed={mode === 'initial'} className={`rounded-xl px-3 py-2.5 text-xs font-medium transition ${mode === 'initial' ? 'bg-white text-forest-900 shadow-sm' : 'text-forest-600 hover:text-forest-900'}`}>Desde o início</button>
-          <button type="button" onClick={() => setMode('last')} disabled={!hasLastVisitComparison} aria-pressed={mode === 'last'} className={`rounded-xl px-3 py-2.5 text-xs font-medium transition ${mode === 'last' ? 'bg-white text-forest-900 shadow-sm' : 'text-forest-600 hover:text-forest-900'} disabled:cursor-not-allowed disabled:opacity-40`}>Última atualização</button>
+          <button type="button" onClick={() => setMode('last')} disabled={!hasLastUpdateComparison} aria-pressed={mode === 'last'} className={`rounded-xl px-3 py-2.5 text-xs font-medium transition ${mode === 'last' ? 'bg-white text-forest-900 shadow-sm' : 'text-forest-600 hover:text-forest-900'} disabled:cursor-not-allowed disabled:opacity-40`}>Última atualização</button>
         </div>
-        {!hasLastVisitComparison && <p className="mt-2 text-center text-[11px] leading-4 text-ink-soft">Quando houver uma atualização anterior deste mesmo jardim, ela também ficará disponível para comparação.</p>}
+        {!hasLastUpdateComparison && <p className="mt-2 text-center text-[11px] leading-4 text-ink-soft">Este jardim ainda não teve uma mudança visual anterior para comparar.</p>}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <GardenSnapshot theme={theme} progress={comparisonFrom} label={firstLabel} />
