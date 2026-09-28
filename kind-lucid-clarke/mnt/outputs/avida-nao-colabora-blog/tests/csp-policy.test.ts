@@ -55,6 +55,13 @@ test('CSP permite somente os endpoints necessários para o monitoramento Sentry'
   assert.ok(csp.includes('https://*.ingest.sentry.io'))
 })
 
+test('CSP permite carregar e enviar eventos do Meta Pixel após consentimento', () => {
+  const csp = contentSecurityPolicy()
+  assert.ok(csp.includes('https://connect.facebook.net'))
+  assert.ok(csp.includes('https://www.facebook.com'))
+  assert.ok(csp.includes('https://graph.facebook.com'))
+})
+
 test('Permissions-Policy libera microfone apenas para o próprio site', () => {
   const policy = headerValue('permissions-policy')
   assert.ok(policy, 'Permissions-Policy deve existir no vercel.json')

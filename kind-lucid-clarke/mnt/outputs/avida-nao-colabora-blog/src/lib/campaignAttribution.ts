@@ -12,6 +12,7 @@ export interface CampaignAttribution {
 }
 
 const FIRST_TOUCH_KEY = 'avnc_campaign_first_touch_v1'
+const LAST_TOUCH_KEY = 'avnc_campaign_last_touch_v1'
 const MAX_VALUE_LENGTH = 160
 
 function clean(value: string | null): string | null {
@@ -77,19 +78,35 @@ function validStoredAttribution(value: unknown): CampaignAttribution | null {
   }
 }
 
-export function currentCampaignAttribution(): CampaignAttribution | null {
-  if (typeof window === 'undefined') return null
-  const current = parseCampaignAttribution(window.location.search, window.location.pathname)
-  if (current) {
-    try { localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(current)) } catch { /* storage indisponível */ }
-    return current
-  }
+function readStoredAttribution(key: string): CampaignAttribution | null {
   try {
-    const saved = localStorage.getItem(FIRST_TOUCH_KEY)
+    const saved = localStorage.getItem(key)
     return saved ? validStoredAttribution(JSON.parse(saved)) : null
   } catch {
     return null
   }
+}
+
+function rememberCampaignAttribution(current: CampaignAttribution): void {
+  try {
+    if (!readStoredAttribution(FIRST_TOUCH_KEY)) localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(current))
+    localStorage.setItem(LAST_TOUCH_KEY, JSON.stringify(current))
+  } catch { /* storage indisponível */ }
+}
+
+export function firstCampaignAttribution(): CampaignAttribution | null {
+  if (typeof window === 'undefined') return null
+  return readStoredAttribution(FIRST_TOUCH_KEY)
+}
+
+export function currentCampaignAttribution(): CampaignAttribution | null {
+  if (typeof window === 'undefined') return null
+  const current = parseCampaignAttribution(window.location.search, window.location.pathname)
+  if (current) {
+    rememberCampaignAttribution(current)
+    return current
+  }
+  return readStoredAttribution(LAST_TOUCH_KEY) ?? readStoredAttribution(FIRST_TOUCH_KEY)
 }
 
 export function campaignMetadata(fallback?: unknown): Record<string, string | null> {
