@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { logAdminAction } from '../../lib/adminAudit'
+import { markAiFailuresDeepLink, markEmailFailuresDeepLink } from '../../lib/adminOperationalStatus'
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 
 interface QueuesData {
@@ -26,13 +27,13 @@ const QUEUE_ROWS: { key: string; label: string; alert?: boolean }[] = [
   { key: 'webhooks_stuck', label: 'Webhooks travados há +1h', alert: true },
 ]
 
-const FAILURE_ROWS: { key: string; label: string }[] = [
-  { key: 'reports_failed', label: 'Relatórios com falha' },
-  { key: 'care_plans_failed', label: 'Planos de autocuidado com falha' },
-  { key: 'emails_failed', label: 'E-mails com falha' },
-  { key: 'ai_errors', label: 'Gerações de IA com erro' },
-  { key: 'content_jobs_failed', label: 'Jobs de conteúdo com falha' },
-  { key: 'webhooks_failed', label: 'Webhooks do Stripe com falha' },
+const FAILURE_ROWS: { key: string; label: string; nav?: string; before?: () => void }[] = [
+  { key: 'reports_failed', label: 'Relatórios com falha', nav: 'pdf' },
+  { key: 'care_plans_failed', label: 'Planos de autocuidado com falha', nav: 'self-care-plans' },
+  { key: 'emails_failed', label: 'E-mails com falha', nav: 'emails', before: markEmailFailuresDeepLink },
+  { key: 'ai_errors', label: 'Gerações de IA com erro', nav: 'uso-ia', before: markAiFailuresDeepLink },
+  { key: 'content_jobs_failed', label: 'Jobs de conteúdo com falha', nav: 'automacoes-blog' },
+  { key: 'webhooks_failed', label: 'Webhooks do Stripe com falha', nav: 'financeiro' },
 ]
 
 function dotColor(value: number, alert = false): string {
@@ -40,7 +41,7 @@ function dotColor(value: number, alert = false): string {
   return alert ? 'bg-red-500' : 'bg-amber-500'
 }
 
-export default function AdminQueuesFailures() {
+export default function AdminQueuesFailures({ onNavigate }: { onNavigate?: (v: string) => void }) {
   const [data, setData] = useState<QueuesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [notAvailable, setNotAvailable] = useState(false)
@@ -157,6 +158,14 @@ export default function AdminQueuesFailures() {
                     {recent > active && <span className="text-[11px] text-stone-400">{recent} ocorrência(s) em 24h</span>}
                     {total != null && total > recent && <span className="hidden sm:inline text-[11px] text-stone-400">{total} histórico(s)</span>}
                     <span className={`text-sm font-semibold tabular-nums ${active > 0 ? 'text-red-600' : 'text-stone-400'}`}>{loading ? '—' : active}</span>
+                    {active > 0 && row.nav && onNavigate && (
+                      <button
+                        onClick={() => { row.before?.(); onNavigate(row.nav as string) }}
+                        className="text-[11px] font-medium text-forest-700 hover:text-forest-900"
+                      >
+                        Abrir
+                      </button>
+                    )}
                   </div>
                 )
               })}

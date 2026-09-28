@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { sendTransactionalEmail } from '../../lib/emailTriggers'
+import { consumeEmailLogsStatusPreset } from '../../lib/adminOperationalStatus'
 import { Mail, RefreshCw, Send, Loader2, CheckCircle, XCircle, Clock, FileText, Pencil, Save, X } from 'lucide-react'
 
 interface EmailLog {
@@ -81,7 +82,8 @@ export default function AdminEmails({ initialTab }: { initialTab?: 'logs' | 'tem
   const [logs, setLogs] = useState<EmailLog[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [stats, setStats] = useState<EmailStats | null>(null)
-  const [filter, setFilter] = useState<'all' | 'sent' | 'failed' | 'pending' | 'queued' | 'delivered' | 'bounced'>('all')
+  type EmailStatusFilter = 'all' | 'sent' | 'failed' | 'pending' | 'queued' | 'delivered' | 'bounced'
+  const [filter, setFilter] = useState<EmailStatusFilter>(() => (consumeEmailLogsStatusPreset() as EmailStatusFilter | null) ?? 'all')
   const [templateFilter, setTemplateFilter] = useState('all')
   const [recipient, setRecipient] = useState('')
   const [appliedRecipient, setAppliedRecipient] = useState('')

@@ -44,7 +44,7 @@ const AREAS: { id: string; label: string; icon: typeof Activity; subs: Sub[] }[]
 const STORE = 'admin-sistema-tab'
 const ALL_SUBS = AREAS.flatMap(a => a.subs.map(s => ({ areaId: a.id, subId: s.id })))
 
-export default function AdminAreaSistema({ initialTab }: { initialTab?: string }) {
+export default function AdminAreaSistema({ initialTab, onNavigate }: { initialTab?: string; onNavigate?: (v: string) => void }) {
   const initial = (() => {
     try {
       const saved = initialTab ?? localStorage.getItem(STORE) ?? 'monitoramento'
@@ -110,7 +110,7 @@ export default function AdminAreaSistema({ initialTab }: { initialTab?: string }
       )}
 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
-        <Body />
+        {sub.id === 'filas' ? <AdminQueuesFailures onNavigate={onNavigate} /> : <Body />}
       </section>
     </div>
   )
