@@ -20,18 +20,19 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
   const [previewStep, setPreviewStep] = useState<1 | 2>(1)
   const [previewScore, setPreviewScore] = useState<number | null>(null)
   const [previewFeelings, setPreviewFeelings] = useState<string[]>([])
+  const [previewComplete, setPreviewComplete] = useState(false)
 
   useEffect(() => {
     trackEvent('ig_landing_view', { metadata: { location: 'instagram_landing' } })
   }, [])
 
   const startSignup = (position: string) => {
-    trackEvent('signup_cta_click', { metadata: { location: 'instagram_landing', position } })
+    trackEvent('signup_click', { metadata: { location: 'instagram_landing', position } })
     onNavigate('auth-signup')
   }
 
   const openCheckinPreview = () => {
-    trackEvent('ig_checkin_preview_open', { metadata: { location: 'instagram_landing' } })
+    trackEvent('ig_checkin_start', { metadata: { location: 'instagram_landing' } })
     previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     previewRef.current?.focus({ preventScroll: true })
   }
@@ -39,11 +40,17 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
   const choosePreviewScore = (score: number) => {
     setPreviewScore(score)
     setPreviewStep(2)
+    setPreviewComplete(false)
     trackEvent('ig_checkin_preview_step', { metadata: { location: 'instagram_landing', step: 2 } })
   }
 
   const togglePreviewFeeling = (key: string) => {
     setPreviewFeelings(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])
+  }
+
+  const completePreview = () => {
+    setPreviewComplete(true)
+    trackEvent('ig_checkin_complete', { metadata: { location: 'instagram_landing' } })
   }
 
   const selectedPreviewScore = CHECKIN_SCORES.find(item => item.score === previewScore)
@@ -108,7 +115,7 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                   </>
                 ) : (
                   <>
-                    <button type="button" onClick={() => setPreviewStep(1)} className="inline-flex items-center gap-1 text-xs font-medium text-forest-700 hover:text-forest-950">
+                    <button type="button" onClick={() => { setPreviewStep(1); setPreviewComplete(false) }} className="inline-flex items-center gap-1 text-xs font-medium text-forest-700 hover:text-forest-950">
                       <ArrowLeft className="h-3.5 w-3.5" /> Alterar resposta
                     </button>
                     {selectedPreviewScore && (
@@ -116,29 +123,50 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                         <Check className="h-4 w-4" /> Hoje: {selectedPreviewScore.emoji} {selectedPreviewScore.label}
                       </div>
                     )}
-                    <h2 id="ig-checkin-title" className="mt-5 font-serif text-2xl text-forest-950">O que mais marcou como você se sentiu hoje?</h2>
-                    <p className="mt-2 text-xs leading-relaxed text-ink-soft">Opcional. Escolha as opções que mais combinaram com o seu dia.</p>
-                    <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Estados percebidos hoje">
-                      {FEATURED_CHECKIN_MOODS.map(mood => (
-                        <MoodChip key={mood.key} mood={mood} active={previewFeelings.includes(mood.key)} onClick={() => togglePreviewFeeling(mood.key)} />
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => startSignup('checkin_preview')}
-                      data-cta="ig-checkin-preview-signup"
-                      data-cta-location="instagram_landing"
-                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-forest-800"
-                    >
-                      Criar conta e continuar <ArrowRight className="h-4 w-4" />
-                    </button>
+                    {previewComplete ? (
+                      <>
+                        <div className="mt-5 rounded-2xl bg-mint/70 p-4 text-center">
+                          <CheckCircle2 className="mx-auto h-6 w-6 text-forest-700" />
+                          <h2 id="ig-checkin-title" className="mt-2 font-serif text-2xl text-forest-950">Check-in concluído</h2>
+                          <p className="mt-2 text-xs leading-relaxed text-ink-soft">Crie sua conta grátis para registrar este tipo de check-in e acompanhar sua evolução.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => startSignup('checkin_preview')}
+                          data-cta="ig-checkin-preview-signup"
+                          data-cta-location="instagram_landing"
+                          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-forest-800"
+                        >
+                          Criar conta e continuar <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <h2 id="ig-checkin-title" className="mt-5 font-serif text-2xl text-forest-950">O que mais marcou como você se sentiu hoje?</h2>
+                        <p className="mt-2 text-xs leading-relaxed text-ink-soft">Opcional. Escolha as opções que mais combinaram com o seu dia.</p>
+                        <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Estados percebidos hoje">
+                          {FEATURED_CHECKIN_MOODS.map(mood => (
+                            <MoodChip key={mood.key} mood={mood} active={previewFeelings.includes(mood.key)} onClick={() => togglePreviewFeeling(mood.key)} />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={completePreview}
+                          data-cta="ig-checkin-preview-complete"
+                          data-cta-location="instagram_landing"
+                          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-forest-800"
+                        >
+                          Concluir meu check-in <Check className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                     <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Esta prévia não salva nem envia suas respostas. Depois de criar a conta, você registra seu check-in com privacidade.</p>
                   </>
                 )}
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint" role="progressbar" aria-label="Etapa da prévia do check-in" aria-valuemin={1} aria-valuemax={2} aria-valuenow={previewStep}>
                   <div className={`h-full rounded-full bg-forest-600 transition-[width] ${previewStep === 1 ? 'w-1/2' : 'w-full'}`} />
                 </div>
-                <p className="mt-2 text-right text-xs text-ink-soft">{previewStep} de 2</p>
+                <p className="mt-2 text-right text-xs text-ink-soft">{previewComplete ? 'Concluído' : `${previewStep} de 2`}</p>
               </div>
             </section>
           </div>

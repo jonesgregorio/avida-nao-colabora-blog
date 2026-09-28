@@ -90,3 +90,8 @@ verify_jwt = false
 # Svix internamente quando RESEND_WEBHOOK_SECRET está setada.
 [functions.resend-webhook]
 verify_jwt = false
+
+# A conversão de cadastro só pode ser enviada por uma sessão autenticada e com
+# e-mail confirmado. O mesmo event_id é usado no Pixel para deduplicação.
+[functions.meta-conversions]
+verify_jwt = true

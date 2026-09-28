@@ -4,6 +4,8 @@ import type { View } from './types'
 import { setPendingAction, getPendingAction, clearPendingAction } from './lib/pendingAction'
 import { confirmDialog } from './lib/confirmDialog'
 import { trackEvent, initWebVitals, initAcquisition, initCustomEvents, trackCustomViews } from './lib/analytics'
+import { experimentVariant } from './lib/campaignAttribution'
+import { trackMetaPageView } from './lib/metaConversions'
 import { getEffectivePlan } from './lib/officialPlans'
 import {
   canonicalPathForLocation,
@@ -122,6 +124,15 @@ export default function App() {
   // Analytics: page_view a cada troca de página (privacy-safe, sem conteúdo)
   useEffect(() => {
     trackEvent('page_view', { entity_id: window.location.pathname, entity_title: selectedArticleSlug || view, user_id: user?.id ?? null, metadata: { view } })
+    trackMetaPageView()
+    const variant = experimentVariant()
+    if ((view === 'ig-landing' || view === 'home') && variant) {
+      trackEvent('campaign_landing_view', {
+        entity_id: variant,
+        user_id: user?.id ?? null,
+        metadata: { experiment: 'ig_vs_site_home', experiment_variant: variant },
+      })
+    }
   }, [view, selectedArticleSlug, user?.id])
 
   // Título e metadados por rota — o pathname já está sincronizado por pushURL

@@ -16,7 +16,11 @@ type EventRow = {
   session_id: string | null
   user_id: string | null
   created_at: string
+  metadata: Record<string, unknown> | null
 }
+
+type ExperimentVariant = 'ig_landing' | 'site_home'
+type VariantSnapshot = { visits: number; registrations: number }
 
 type ProfileRow = {
   user_id: string | null
@@ -49,6 +53,12 @@ type Snapshot = {
   upgrades: number
   activatedNewAccounts: number
   paidFromNewAccounts: number
+  campaignVisits: number
+  campaignCheckinStarted: number
+  campaignCheckinCompleted: number
+  campaignSignupClicked: number
+  campaignRegistrations: number
+  variants: Record<ExperimentVariant, VariantSnapshot>
   warnings: string[]
 }
 
@@ -63,6 +73,15 @@ const EMPTY: Snapshot = {
   upgrades: 0,
   activatedNewAccounts: 0,
   paidFromNewAccounts: 0,
+  campaignVisits: 0,
+  campaignCheckinStarted: 0,
+  campaignCheckinCompleted: 0,
+  campaignSignupClicked: 0,
+  campaignRegistrations: 0,
+  variants: {
+    ig_landing: { visits: 0, registrations: 0 },
+    site_home: { visits: 0, registrations: 0 },
+  },
   warnings: [],
 }
 
@@ -88,6 +107,11 @@ function isPaidPlan(plan: string | null): boolean {
   return Boolean(plan && !['free', 'gratuito'].includes(plan.toLowerCase()))
 }
 
+function eventVariant(row: EventRow): ExperimentVariant | null {
+  const value = row.metadata?.experiment_variant
+  return value === 'ig_landing' || value === 'site_home' ? value : null
+}
+
 export default function AdminConversionFunnel() {
   const [period, setPeriod] = useState<Period>('30d')
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY)
@@ -101,7 +125,7 @@ export default function AdminConversionFunnel() {
 
     const [eventsRes, profilesRes, subsRes, diaryRes, questionnaireRes] = await Promise.all([
       collectAllPages<EventRow>((from, to) =>
-        supabase.from('analytics_events').select('event,session_id,user_id,created_at')
+        supabase.from('analytics_events').select('event,session_id,user_id,created_at,metadata')
           .gte('created_at', since).order('created_at', { ascending: false }).range(from, to) as unknown as PromiseLike<{ data: EventRow[] | null; error: { message?: string } | null }>
       ),
       collectAllPages<ProfileRow>((from, to) =>
@@ -160,6 +184,20 @@ export default function AdminConversionFunnel() {
     const upgradeUsers = userSet(upgradeRows)
 
     const usageUsers = userSet([...diary, ...questionnaires])
+    const campaignRows = events.filter(row => eventVariant(row) !== null)
+    const campaignVisits = uniqueSessions(campaignRows.filter(row => row.event === 'campaign_landing_view'))
+    const campaignCheckinStarted = uniqueSessions(campaignRows.filter(row => row.event === 'ig_checkin_start'))
+    const campaignCheckinCompleted = uniqueSessions(campaignRows.filter(row => row.event === 'ig_checkin_complete'))
+    const campaignSignupClicked = uniqueSessions(campaignRows.filter(row => ['signup_click', 'signup_cta_click'].includes(row.event)))
+    const campaignRegistrations = userSet(campaignRows.filter(row => ['registration_complete', 'email_confirmation_success'].includes(row.event))).size
+    const variants = (['ig_landing', 'site_home'] as const).reduce<Record<ExperimentVariant, VariantSnapshot>>((result, variant) => {
+      const variantRows = campaignRows.filter(row => eventVariant(row) === variant)
+      result[variant] = {
+        visits: uniqueSessions(variantRows.filter(row => row.event === 'campaign_landing_view')),
+        registrations: userSet(variantRows.filter(row => ['registration_complete', 'email_confirmation_success'].includes(row.event))).size,
+      }
+      return result
+    }, { ig_landing: { visits: 0, registrations: 0 }, site_home: { visits: 0, registrations: 0 } })
 
     setSnapshot({
       visitors,
@@ -172,6 +210,12 @@ export default function AdminConversionFunnel() {
       upgrades: upgradeUsers.size,
       activatedNewAccounts: intersectSize(accountUsers, usageUsers),
       paidFromNewAccounts: intersectSize(accountUsers, newPaidUsers),
+      campaignVisits,
+      campaignCheckinStarted,
+      campaignCheckinCompleted,
+      campaignSignupClicked,
+      campaignRegistrations,
+      variants,
       warnings,
     })
     setLoading(false)
@@ -193,6 +237,15 @@ export default function AdminConversionFunnel() {
     { label: 'Ativaram um recurso', value: snapshot.activatedNewAccounts, note: `${pct(snapshot.activatedNewAccounts, snapshot.accountsCreated)} das contas novas`, Icon: Activity },
     { label: 'Upgrades pagos', value: snapshot.upgrades, note: 'separados de aquisição', Icon: TrendingUp },
   ]
+  const campaignSteps = [
+    { label: 'Visita', value: snapshot.campaignVisits },
+    { label: 'Início do check-in', value: snapshot.campaignCheckinStarted },
+    { label: 'Check-in concluído', value: snapshot.campaignCheckinCompleted },
+    { label: 'Clique no cadastro', value: snapshot.campaignSignupClicked },
+    { label: 'Conta criada e confirmada', value: snapshot.campaignRegistrations },
+  ]
+  const campaignMax = Math.max(1, ...campaignSteps.map(step => step.value))
+  const abReady = snapshot.variants.ig_landing.visits >= 100 && snapshot.variants.site_home.visits >= 100
 
   return (
     <section className="mb-6 rounded-3xl border border-forest-100 bg-gradient-to-br from-white to-mint/30 p-5 md:p-6 shadow-sm" aria-labelledby="conversion-funnel-title">
@@ -274,6 +327,58 @@ export default function AdminConversionFunnel() {
           <div className="mt-4 rounded-xl bg-mint/60 p-3 text-xs text-forest-800">
             <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" /><p><strong>Ativação real</strong> = a conta nova registrou diário/check-in ou concluiu questionário no período. O painel usa somente IDs e horários para essa contagem.</p></div>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+        <div className="rounded-2xl border border-line bg-white p-4 md:p-5">
+          <h3 className="font-serif text-lg text-forest-900">Funil da campanha Instagram</h3>
+          <p className="text-xs text-ink-soft">Cada etapa recebe a mesma atribuição UTM. A conversão final só conta após a confirmação do e-mail.</p>
+          <div className="mt-4 space-y-3">
+            {campaignSteps.map((step, index) => {
+              const previous = index > 0 ? campaignSteps[index - 1].value : 0
+              return (
+                <div key={step.label}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                    <span className="text-forest-900">{step.label}</span>
+                    <span className="whitespace-nowrap text-ink-soft">{loading ? '—' : step.value}{!loading && index > 0 ? ` · ${pct(step.value, previous)} da etapa` : ''}</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-stone-100">
+                    <div className="h-full rounded-full bg-forest-500 transition-all" style={{ width: loading ? '0%' : `${Math.min(100, (step.value / campaignMax) * 100)}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-white p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-serif text-lg text-forest-900">Teste A/B · /ig × site normal</h3>
+              <p className="text-xs text-ink-soft">Não altere páginas, público ou criativo enquanto o teste estiver coletando visitas.</p>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${abReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+              {abReady ? 'Pronto para avaliar' : 'Coletando'}
+            </span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {([
+              { key: 'ig_landing' as const, label: 'Landing /ig' },
+              { key: 'site_home' as const, label: 'Site normal' },
+            ]).map(item => {
+              const result = snapshot.variants[item.key]
+              const progress = Math.min(100, (result.visits / 100) * 100)
+              return (
+                <div key={item.key} className="rounded-xl border border-line p-3">
+                  <div className="flex items-center justify-between text-sm"><span className="font-medium text-forest-900">{item.label}</span><span className="text-ink-soft">{result.visits} visitas · {result.registrations} cadastros</span></div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-100"><div className="h-full rounded-full bg-forest-600" style={{ width: `${progress}%` }} /></div>
+                  <p className="mt-1.5 text-[11px] text-ink-soft">{result.visits >= 100 ? `${pct(result.registrations, result.visits)} de conversão · mínimo atingido` : `${100 - result.visits} visitas até o mínimo`}</p>
+                </div>
+              )
+            })}
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">Avalie a primeira leitura com 100 visitas por versão; prefira 200 por versão para uma decisão mais estável.</p>
         </div>
       </div>
 
