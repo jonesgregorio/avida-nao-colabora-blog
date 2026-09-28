@@ -22,7 +22,7 @@ test('prompt da orientação usa somente contexto mensal compactado e permitido'
   assert.match(promptSource, /somente sínteses estruturadas\/revisadas; nunca texto bruto do Diário/)
 
   const careHelper = promptSource.match(
-    /function compactSelfCarePlan\(value: unknown\) \{([\s\S]*?)\n\}\n\nfunction compactProfessionalGuidanceContext/,
+    /function compactSelfCarePlan\(value: unknown\) \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction compactProfessionalGuidanceContext/,
   )?.[1] ?? ''
 
   assert.match(careHelper, /main_focus:/)

@@ -20,6 +20,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import Hero from './components/Hero'
 import HomeContent from './components/HomeContent'
+import InstagramLanding from './components/InstagramLanding'
 import LoggedHome from './components/LoggedHome'
 import UserLayout from './components/user/UserLayout'
 import Pricing from './components/Pricing'
@@ -173,6 +174,14 @@ export default function App() {
     // Redireciona views de módulos removidos do MVP para destinos válidos.
     section = normalizeLegacyView(section)
 
+    if (section === 'auth-signup') {
+      setView('auth')
+      window.history.pushState({ view: 'auth' }, '', '/login?mode=signup')
+      applyRouteMetadata('auth', '/login')
+      scrollToTopHard()
+      return
+    }
+
     // Autocuidado virou área PRÓPRIA (§12); as demais abas ficam no Mapa Emocional.
     if (section.startsWith('my-evolution?tab=')) {
       const tab = section.split('tab=')[1]
@@ -210,7 +219,7 @@ export default function App() {
     }
 
     const directViews: View[] = [
-      'home', 'auth', 'diary', 'profile',
+      'home', 'ig-landing', 'auth', 'diary', 'profile',
       'about', 'privacy', 'terms', 'questionnaire', 'questionarios', 'questionarios-evolucao',
       'pricing', 'articles', 'article', 'responsibility', 'admin', 'contact', 'success', 'faq',
       'support', 'support-ticket', 'monthly-guidance', 'professional-comments', 'my-plan', 'my-evolution', 'my-report', 'my-history', 'my-garden', 'self-care',
@@ -377,7 +386,11 @@ export default function App() {
   }
 
   if (view === 'auth') {
-    return <Auth onBack={() => setView('home')} />
+    return <Auth onBack={() => navigate('home')} />
+  }
+
+  if (view === 'ig-landing') {
+    return <InstagramLanding onNavigate={navigate} />
   }
 
   if (view === 'article' && selectedArticleSlug) {
@@ -524,7 +537,7 @@ export default function App() {
       <Pricing
         user={user}
         currentPlan={profile?.plan || 'free'}
-        onNavigateAuth={() => navigate('auth')}
+        onNavigateAuth={() => navigate('auth-signup')}
       />
     )
   }

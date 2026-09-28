@@ -10,9 +10,10 @@ export const PERSIST_KEY = 'avida_nav'
 // página nova acaba parada no meio ou no fim. Reforçar a posição por alguns frames depois do
 // clique "vence" essa inércia sem precisar de nenhuma lib.
 export function scrollToTopHard() { window.scrollTo(0, 0); let frames = 0; const reinforce = () => { window.scrollTo(0, 0); frames += 1; if (frames < 8) requestAnimationFrame(reinforce) }; requestAnimationFrame(reinforce) }
-export const VALID_VIEWS: View[] = ['home','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications','newsletter-unsubscribed']
+export const VALID_VIEWS: View[] = ['home','ig-landing','auth','diary','profile','about','privacy','terms','questionnaire','questionarios','questionarios-evolucao','pricing','articles','article','guides','editorial-policy','responsibility','admin','contact','success','faq','support','support-ticket','monthly-guidance','professional-comments','my-plan','my-report','my-evolution','my-history','my-garden','self-care','descobertas','cuidar','mais','notifications','newsletter-unsubscribed']
 const URL_TO_VIEW: Record<string, View> = {
   '/':                           'home',
+  '/ig':                         'ig-landing',
   '/blog':                       'articles',
   '/guias':                      'guides',
   '/politica-editorial':         'editorial-policy',

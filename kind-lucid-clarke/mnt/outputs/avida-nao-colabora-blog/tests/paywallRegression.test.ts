@@ -57,6 +57,6 @@ test('paywall apresenta teaser e CTA corretos sem expor o corpo do artigo', () =
   assert.match(articleView, /locked\.summary \|\| locked\.excerpt/)
   assert.match(articleView, /Conteúdo gratuito — requer conta/)
   assert.match(articleView, /Conteúdo exclusivo do plano \$\{planLabel\}/)
-  assert.match(articleView, /doNavigate\(isAccount \? 'auth' : 'pricing'\)/)
+  assert.match(articleView, /doNavigate\(isAccount \? 'auth-signup' : 'pricing'\)/)
   assert.match(articleView, /Assine o plano <strong>\{planLabel\}<\/strong>/)
 })

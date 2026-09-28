@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Eye, EyeOff, Sprout, HeartHandshake, LineChart, ShieldCheck, Leaf, MailCheck, RefreshCw } from 'lucide-react'
 import { emailWelcome } from '../lib/emailTriggers'
@@ -36,18 +36,20 @@ function cleanAuthCallbackUrl() {
 }
 
 export default function Auth({ onBack }: AuthProps) {
-  const [mode, setMode] = useState<AuthMode>('login')
+  const [mode, setMode] = useState<AuthMode>(() => {
+    const query = new URLSearchParams(window.location.search)
+    return query.get('mode') === 'signup' || query.get('modo') === 'cadastro' ? 'signup' : 'login'
+  })
   const [email, setEmail] = useState('')
   const [verificationEmail, setVerificationEmail] = useState(() => pendingVerificationEmail())
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [name, setName] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [agreedTerms, setAgreedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const signupStarted = useRef(false)
 
   const isSignup = mode === 'signup'
 
@@ -55,6 +57,18 @@ export default function Auth({ onBack }: AuthProps) {
     setMode(m)
     setError('')
     setSuccess('')
+    const nextUrl = m === 'signup' ? '/login?mode=signup' : '/login'
+    window.history.replaceState({ view: 'auth' }, '', nextUrl)
+  }
+
+  useEffect(() => {
+    if (mode === 'signup') trackEvent('signup_view', { metadata: { location: 'auth' } })
+  }, [mode])
+
+  const markSignupStarted = () => {
+    if (!isSignup || signupStarted.current) return
+    signupStarted.current = true
+    trackEvent('signup_start', { metadata: { location: 'auth' } })
   }
 
   useEffect(() => {
@@ -93,6 +107,7 @@ export default function Auth({ onBack }: AuthProps) {
       setMode('confirmed')
       cleanAuthCallbackUrl()
       trackEvent('email_confirmation_success', { user_id: confirmedUser.id, metadata: { location: 'auth' } })
+      trackEvent('email_verified', { user_id: confirmedUser.id, metadata: { location: 'auth' } })
       if (userEmail) void emailWelcome(confirmedUser.id, userEmail, displayName)
     }
 
@@ -155,7 +170,6 @@ export default function Auth({ onBack }: AuthProps) {
 
     if (isSignup) {
       if (password.length < 8) { setError('A senha deve ter pelo menos 8 caracteres.'); return }
-      if (password !== confirmPassword) { setError('As senhas não coincidem.'); return }
       if (!agreedTerms) { setError('É preciso aceitar os Termos de Uso e a Política de Privacidade.'); return }
     }
 
@@ -186,18 +200,20 @@ export default function Auth({ onBack }: AuthProps) {
         onBack()
       } else if (mode === 'signup') {
         const targetEmail = email.trim()
+        trackEvent('signup_submit', { metadata: { location: 'auth' } })
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: targetEmail,
           password,
           options: {
-            data: { full_name: name },
             emailRedirectTo: confirmationRedirectUrl(window.location.origin),
           },
         })
         if (signUpError) throw signUpError
         if (signUpData.user) {
           trackEvent('register_success', { user_id: signUpData.user.id, metadata: { location: 'auth', email_confirmation_required: true } })
+          trackEvent('signup_success', { user_id: signUpData.user.id, metadata: { location: 'auth' } })
         }
+        trackEvent('email_verification_required', { user_id: signUpData.user?.id ?? null, metadata: { location: 'auth' } })
         rememberVerificationEmail(targetEmail)
         setVerificationEmail(targetEmail)
         setMode('verify')
@@ -209,6 +225,11 @@ export default function Auth({ onBack }: AuthProps) {
       }
     } catch (err) {
       const raw = (err as Error).message || ''
+      if (isSignup) {
+        trackEvent('signup_error', {
+          metadata: { location: 'auth', error_code: (err as { code?: string })?.code || 'unknown' },
+        })
+      }
       const banned = /ban(ned)?|user is banned|user_banned/i.test(raw)
         || (err as { code?: string })?.code === 'user_banned'
       setError(banned
@@ -331,14 +352,9 @@ export default function Auth({ onBack }: AuthProps) {
                   {error && <div className="bg-coral/20 border border-coral/40 text-[#8a3b23] text-sm rounded-xl px-3.5 py-2.5 mb-4">{error}</div>}
                   {success && <div className="bg-mint/60 border border-forest-100 text-forest-800 text-sm rounded-xl px-3.5 py-2.5 mb-4">{success}</div>}
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {isSignup && (
-                      <Field label="Nome completo" htmlFor="auth-name">
-                        <input id="auth-name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Digite seu nome" className={inputCls} required />
-                      </Field>
-                    )}
+                  <form onSubmit={handleSubmit} onFocus={markSignupStarted} className="space-y-4">
                     <Field label="E-mail" htmlFor="auth-email">
-                      <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seuemail@email.com" className={inputCls} required />
+                      <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seuemail@email.com" autoComplete="email" className={inputCls} required />
                     </Field>
                     {mode !== 'reset' && (
                       <Field label="Senha" htmlFor="auth-password">
@@ -350,6 +366,8 @@ export default function Auth({ onBack }: AuthProps) {
                             onChange={e => setPassword(e.target.value)}
                             placeholder={isSignup ? 'Mínimo 8 caracteres' : 'Sua senha'}
                             className={inputCls + ' pr-10'}
+                            autoComplete={isSignup ? 'new-password' : 'current-password'}
+                            aria-describedby={isSignup ? 'signup-password-hint' : undefined}
                             required
                             minLength={isSignup ? 8 : undefined}
                           />
@@ -359,15 +377,11 @@ export default function Auth({ onBack }: AuthProps) {
                         </div>
                       </Field>
                     )}
-                    {isSignup && (
-                      <Field label="Confirmar senha" htmlFor="auth-confirm-password">
-                        <input id="auth-confirm-password" type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Digite novamente sua senha" className={inputCls} required minLength={8} />
-                      </Field>
-                    )}
+                    {isSignup && <p id="signup-password-hint" className="-mt-2 text-xs text-ink-soft">Use pelo menos 8 caracteres.</p>}
 
                     {isSignup && (
                       <label className="flex items-start gap-2.5 text-sm text-ink-soft cursor-pointer">
-                        <input type="checkbox" checked={agreedTerms} onChange={e => setAgreedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 accent-forest-700 flex-shrink-0" />
+                        <input type="checkbox" checked={agreedTerms} onChange={e => setAgreedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 accent-forest-700 flex-shrink-0" required />
                         <span>
                           Eu concordo com os <a href="/termos" target="_blank" rel="noreferrer" className="text-forest-700 underline">Termos de Uso</a> e com a <a href="/privacidade" target="_blank" rel="noreferrer" className="text-forest-700 underline">Política de Privacidade</a>.
                         </span>

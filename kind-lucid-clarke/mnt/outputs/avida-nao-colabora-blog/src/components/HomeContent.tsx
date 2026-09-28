@@ -206,7 +206,7 @@ export default function HomeContent({ onNavigate }: HomeContentProps) {
             </div>
           </div>
           <div className="flex items-center justify-center bg-forest-900 px-6 py-10 text-center text-white lg:rounded-tl-[34px]">
-            <div className="max-w-sm"><BookOpen className="mx-auto h-5 w-5 text-mint"/><h2 className="mt-3 font-serif text-3xl leading-tight">Você não precisa entender tudo hoje.</h2><p className="mt-3 text-sm leading-6 text-white/80">Comece registrando como você está. O resto, a gente constrói juntos.</p><button onClick={() => onNavigate('auth')} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#fbf7ef] px-5 py-2.5 text-sm font-semibold text-forest-900">Criar minha conta gratuita <ArrowRight className="h-4 w-4"/></button></div>
+            <div className="max-w-sm"><BookOpen className="mx-auto h-5 w-5 text-mint"/><h2 className="mt-3 font-serif text-3xl leading-tight">Você não precisa entender tudo hoje.</h2><p className="mt-3 text-sm leading-6 text-white/80">Comece registrando como você está. O resto, a gente constrói juntos.</p><button onClick={() => onNavigate('auth-signup')} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#fbf7ef] px-5 py-2.5 text-sm font-semibold text-forest-900">Criar minha conta gratuita <ArrowRight className="h-4 w-4"/></button></div>
           </div>
         </div>
       </section>

@@ -132,7 +132,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
 
         <div className="text-center pt-2">
           <button
-            onClick={() => onNavigate('auth')}
+            onClick={() => onNavigate('auth-signup')}
             className="bg-forest-900 hover:bg-forest-800 text-white px-8 py-3 rounded-2xl font-medium text-sm transition-colors"
           >
             Começar gratuitamente

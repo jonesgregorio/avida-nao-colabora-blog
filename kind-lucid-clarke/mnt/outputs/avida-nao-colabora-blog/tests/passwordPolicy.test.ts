@@ -16,7 +16,7 @@ test('cadastro exige 8 caracteres sem bloquear login de credencial legada no HTM
   assert.match(auth, /if \(password\.length < 8\)/)
   assert.match(auth, /A senha deve ter pelo menos 8 caracteres\./)
   assert.match(auth, /minLength=\{isSignup \? 8 : undefined\}/)
-  assert.match(auth, /minLength=\{8\}/)
+  assert.doesNotMatch(auth, /auth-confirm-password/)
   assert.match(auth, /placeholder=\{isSignup \? 'Mínimo 8 caracteres' : 'Sua senha'\}/)
   assert.doesNotMatch(auth, /minLength=\{6\}|Mínimo 6 caracteres|password\.length < 6/)
 })
