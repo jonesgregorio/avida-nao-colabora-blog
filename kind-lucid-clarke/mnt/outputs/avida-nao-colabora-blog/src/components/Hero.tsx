@@ -74,7 +74,7 @@ export default function Hero({ onNavigate }: HeroProps) {
               <button
                 data-cta="hero-comecar-gratis"
                 data-cta-location="hero"
-                onClick={() => onNavigate('auth')}
+                onClick={() => onNavigate('auth-signup')}
                 className="inline-flex min-h-12 items-center justify-center rounded-full bg-forest-900 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-forest-800 sm:min-h-0 sm:py-3.5"
               >
                 {cta}

@@ -15,9 +15,8 @@
     { "source": "/perguntas-frequentes", "destination": "/faq", "permanent": true },
     { "source": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia-btcpl-ifq", "destination": "/blog/como-dizer-nao-sem-culpa-e-preservar-sua-energia", "permanent": true },
     { "source": "/blog/como-acalmar-uma-crise-de-ansiedade-no-instante-m6nec-fj7", "destination": "/blog/como-se-acalmar-durante-uma-crise-de-ansiedade", "permanent": true },
-    { "source": "/ig", "destination": "/?utm_source=instagram&utm_medium=bio&utm_campaign=campanha_setembro_01semana", "permanent": false },
-    { "source": "/ig-story", "destination": "/?utm_source=instagram&utm_medium=story&utm_campaign=campanha_setembro_01semana", "permanent": false },
-    { "source": "/ig-post", "destination": "/?utm_source=instagram&utm_medium=post&utm_campaign=campanha_setembro_01semana", "permanent": false }
+    { "source": "/ig-story", "destination": "/ig?utm_source=instagram&utm_medium=story&utm_campaign=campanha_setembro_01semana", "permanent": false },
+    { "source": "/ig-post", "destination": "/ig?utm_source=instagram&utm_medium=post&utm_campaign=campanha_setembro_01semana", "permanent": false }
   ],
   "rewrites": [
     { "source": "/author/:path*", "destination": "/api/gone" },
@@ -46,7 +45,7 @@
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
-    { "source": "/:private(login|diario|perfil|questionarios|suporte|notificacoes|guia-mensal|mapa-emocional|meu-relatorio|minha-historia|meu-jardim|descobertas|cuidar|mais|plano-de-autocuidado|meu-plano|admin|sucesso)/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/:private(ig|login|diario|perfil|questionarios|suporte|notificacoes|guia-mensal|mapa-emocional|meu-relatorio|minha-historia|meu-jardim|descobertas|cuidar|mais|plano-de-autocuidado|meu-plano|admin|sucesso)/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
     { "source": "/api/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
     { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/(.*)", "headers": [

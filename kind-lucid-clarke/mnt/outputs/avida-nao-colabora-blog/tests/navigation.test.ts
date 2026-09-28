@@ -36,9 +36,15 @@ test('normaliza views legadas usadas por navigate()', () => {
 
 test('gera URLs canônicas para views simples e dinâmicas', () => {
   assert.equal(urlForView('diary'), '/diario')
+  assert.equal(urlForView('ig-landing'), '/ig')
   assert.equal(urlForView('article', 'meu-artigo'), '/blog/meu-artigo')
   assert.equal(urlForView('support-ticket', null, 'abc'), '/suporte/abc')
   assert.equal(urlForView('view-inexistente'), '/')
+})
+
+test('resolve a landing do Instagram sem redirecionar para a home', () => {
+  assert.equal(parseNavLocation('/ig')?.view, 'ig-landing')
+  assert.equal(canonicalPathForLocation('/ig'), null)
 })
 
 test('preserva compatibilidade de ?view e rejeita caminhos desconhecidos', () => {

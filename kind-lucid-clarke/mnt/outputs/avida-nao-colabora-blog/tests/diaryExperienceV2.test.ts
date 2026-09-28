@@ -218,7 +218,7 @@ test('ditado e organização preservam o texto original intacto', () => {
   assert.match(diary, /Esta versão não substitui nem altera o que você escreveu/)
   assert.equal(diary.includes('setDraft(organizedCandidate)'), false)
   assert.match(edge, /mantendo a PRIMEIRA PESSOA/)
-  assert.match(migration, /nunca é\n-- substituído automaticamente/)
+  assert.match(migration, /nunca é\r?\n-- substituído automaticamente/)
 })
 
 test('devolutiva de reflexão não quebra quando o humor é "Outro" ou não foi marcado', () => {

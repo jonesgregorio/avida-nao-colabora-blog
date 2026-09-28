@@ -15,7 +15,7 @@ test('ditado consulta o estado da permissão antes de tocar no dispositivo de á
 })
 
 test('permissão já concedida inicia reconhecimento diretamente e encerra esse ramo', () => {
-  const grantedBlock = guard.match(/if \(state === 'granted'\) \{[\s\S]*?startRecognition\(true\)[\s\S]*?return\n\s*\}/)?.[0] || ''
+  const grantedBlock = guard.match(/if \(state === 'granted'\) \{[\s\S]*?startRecognition\(true\)[\s\S]*?return\r?\n\s*\}/)?.[0] || ''
   assert.match(grantedBlock, /startRecognition\(true\)\s*return/)
 })
 
