@@ -1,0 +1,2 @@
+VARIANTE_A_IG=https://www.avidanaocolabora.com/ig?utm_source=facebook&utm_medium=paid_social&utm_campaign=avnc_ab_signup&utm_content=ab_ig_landing
+VARIANTE_B_HOME=https://www.avidanaocolabora.com/?utm_source=facebook&utm_medium=paid_social&utm_campaign=avnc_ab_signup&utm_content=ab_site_home
