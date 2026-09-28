@@ -22,7 +22,7 @@ test('conversão de cadastro ocorre somente após confirmação da conta', () =>
   assert.match(auth, /trackMetaCompleteRegistration\(confirmedUser\.id\)/)
 })
 
-test('teste A\/B reconhece as duas variantes oficiais da campanha', () => {
+test('teste A/B reconhece as duas variantes oficiais da campanha', () => {
   assert.match(attribution, /ab_ig_landing/)
   assert.match(attribution, /ab_site_home/)
   assert.match(attribution, /ig_landing/)
