@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import InstagramLanding from './components/InstagramLanding.tsx'
 import { initExternalMonitoring, installStaleChunkRecovery, MonitoringErrorBoundary } from './lib/monitoring'
 import { installSensitiveDraftStorageGuard } from './lib/sensitiveDraftStorage'
 import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognitionPermission'
@@ -12,10 +13,12 @@ installStaleChunkRecovery()
 installSensitiveDraftStorageGuard()
 installSpeechRecognitionPermissionGuard()
 
+const Root = window.location.pathname === '/ig' ? InstagramLanding : App
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MonitoringErrorBoundary>
-      <App />
+      <Root />
     </MonitoringErrorBoundary>
   </StrictMode>,
 )
