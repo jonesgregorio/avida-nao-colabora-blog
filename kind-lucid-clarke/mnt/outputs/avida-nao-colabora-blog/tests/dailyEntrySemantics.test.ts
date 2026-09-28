@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const home = fs.readFileSync(new URL('../src/components/LoggedHome.tsx', import.meta.url), 'utf8')
+const checkinOptions = fs.readFileSync(new URL('../src/components/user/checkinOptions.ts', import.meta.url), 'utf8')
 const diaryMood = fs.readFileSync(new URL('../src/components/DiaryMoodSelector.tsx', import.meta.url), 'utf8')
 const legacyHome = fs.readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8')
 
@@ -10,12 +11,13 @@ const expected = ['Nem um pouco', 'Fez o mínimo', 'Sobrevivemos', 'Até que ten
 
 test('Home separa avaliação do dia de estados e sensações percebidos', () => {
   assert.match(home, /E aí, a vida colaborou hoje\?/)
-  for (const label of expected) assert.match(home, new RegExp(label))
+  for (const label of expected) assert.match(checkinOptions, new RegExp(label))
+  assert.match(home, /CHECKIN_SCORES\.map/)
   assert.match(home, /daily_life_collaboration/)
   assert.match(home, /O que mais marcou como você se sentiu hoje\?/)
   assert.match(home, /Opcional\. Escolha as opções que mais combinaram com o seu dia\./)
-  assert.match(home, /'alegria'/)
-  assert.doesNotMatch(home, /featuredMoodKeys = new Set\(\['bem_estar'/)
+  assert.match(checkinOptions, /'alegria'/)
+  assert.doesNotMatch(checkinOptions, /'bem_estar'/)
 })
 
 test('Diário e check-in continuam usando estados emocionais, não a escala da Home', () => {

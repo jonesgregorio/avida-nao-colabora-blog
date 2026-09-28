@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
-import { ArrowRight, CheckCircle2, Heart, ShieldCheck, Sprout } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Heart, ShieldCheck, Sprout } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
 import Logo from './Logo'
+import { CHECKIN_SCORES, FEATURED_CHECKIN_MOODS } from './user/checkinOptions'
+import { MoodChip } from './user/ui'
 
 interface InstagramLandingProps {
   onNavigate: (section: string) => void
@@ -14,6 +16,11 @@ const STEPS = [
 ] as const
 
 export default function InstagramLanding({ onNavigate }: InstagramLandingProps) {
+  const previewRef = useRef<HTMLElement>(null)
+  const [previewStep, setPreviewStep] = useState<1 | 2>(1)
+  const [previewScore, setPreviewScore] = useState<number | null>(null)
+  const [previewFeelings, setPreviewFeelings] = useState<string[]>([])
+
   useEffect(() => {
     trackEvent('ig_landing_view', { metadata: { location: 'instagram_landing' } })
   }, [])
@@ -22,6 +29,24 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
     trackEvent('signup_cta_click', { metadata: { location: 'instagram_landing', position } })
     onNavigate('auth-signup')
   }
+
+  const openCheckinPreview = () => {
+    trackEvent('ig_checkin_preview_open', { metadata: { location: 'instagram_landing' } })
+    previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    previewRef.current?.focus({ preventScroll: true })
+  }
+
+  const choosePreviewScore = (score: number) => {
+    setPreviewScore(score)
+    setPreviewStep(2)
+    trackEvent('ig_checkin_preview_step', { metadata: { location: 'instagram_landing', step: 2 } })
+  }
+
+  const togglePreviewFeeling = (key: string) => {
+    setPreviewFeelings(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])
+  }
+
+  const selectedPreviewScore = CHECKIN_SCORES.find(item => item.score === previewScore)
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -48,8 +73,8 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                 Faça um check-in emocional de poucos minutos e comece a perceber o que se repete nos seus dias.
               </p>
               <button
-                onClick={() => startSignup('hero')}
-                data-cta="ig-signup-hero"
+                onClick={openCheckinPreview}
+                data-cta="ig-checkin-preview-open"
                 data-cta-location="instagram_landing"
                 className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-6 py-3.5 font-medium text-white transition-colors hover:bg-forest-800 sm:w-auto"
               >
@@ -60,23 +85,62 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-line bg-paper-soft p-5 shadow-sm sm:p-7" aria-label="Exemplo de check-in emocional">
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-600">Check-in de hoje</p>
-                <h2 className="mt-2 font-serif text-2xl text-forest-950">O que mais combina com este momento?</h2>
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  {['Mais leve', 'Cansada(o)', 'Ansiosa(o)', 'Sobrecarregada(o)'].map((mood, index) => (
-                    <div key={mood} className={`rounded-2xl border p-3 text-sm ${index === 2 ? 'border-forest-500 bg-mint text-forest-900' : 'border-line text-ink-soft'}`}>
-                      <span className="mr-2" aria-hidden="true">{['🌿', '🌙', '🌊', '☁️'][index]}</span>{mood}
+            <section ref={previewRef} tabIndex={-1} className="rounded-[2rem] border border-line bg-paper-soft p-5 shadow-sm outline-none sm:p-7" aria-labelledby="ig-checkin-title">
+              <div className="rounded-3xl bg-white p-5 shadow-sm" aria-live="polite">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-600">Prévia do check-in real</p>
+                {previewStep === 1 ? (
+                  <>
+                    <h2 id="ig-checkin-title" className="mt-2 font-serif text-2xl text-forest-950">E aí, a vida colaborou hoje?</h2>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-soft">Escolha a opção que mais combina com o seu dia.</p>
+                    <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5" role="group" aria-label="Quanto a vida colaborou hoje">
+                      {CHECKIN_SCORES.map(item => (
+                        <button
+                          key={item.score}
+                          type="button"
+                          onClick={() => choosePreviewScore(item.score)}
+                          className="rounded-2xl border border-line bg-white px-2 py-3 text-center text-forest-900 transition-colors hover:border-forest-400 hover:bg-mint focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300"
+                        >
+                          <span className="block text-xl" aria-hidden="true">{item.emoji}</span>
+                          <span className="mt-1 block text-xs font-medium leading-tight">{item.label}</span>
+                        </button>
+                      ))}
                     </div>
-                  ))}
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setPreviewStep(1)} className="inline-flex items-center gap-1 text-xs font-medium text-forest-700 hover:text-forest-950">
+                      <ArrowLeft className="h-3.5 w-3.5" /> Alterar resposta
+                    </button>
+                    {selectedPreviewScore && (
+                      <div className="mt-3 flex items-center gap-2 rounded-2xl bg-mint/70 px-3 py-2 text-sm text-forest-900">
+                        <Check className="h-4 w-4" /> Hoje: {selectedPreviewScore.emoji} {selectedPreviewScore.label}
+                      </div>
+                    )}
+                    <h2 id="ig-checkin-title" className="mt-5 font-serif text-2xl text-forest-950">O que mais marcou como você se sentiu hoje?</h2>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-soft">Opcional. Escolha as opções que mais combinaram com o seu dia.</p>
+                    <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Estados percebidos hoje">
+                      {FEATURED_CHECKIN_MOODS.map(mood => (
+                        <MoodChip key={mood.key} mood={mood} active={previewFeelings.includes(mood.key)} onClick={() => togglePreviewFeeling(mood.key)} />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startSignup('checkin_preview')}
+                      data-cta="ig-checkin-preview-signup"
+                      data-cta-location="instagram_landing"
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-forest-800"
+                    >
+                      Criar conta e continuar <ArrowRight className="h-4 w-4" />
+                    </button>
+                    <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Esta prévia não salva nem envia suas respostas. Depois de criar a conta, você registra seu check-in com privacidade.</p>
+                  </>
+                )}
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint" role="progressbar" aria-label="Etapa da prévia do check-in" aria-valuemin={1} aria-valuemax={2} aria-valuenow={previewStep}>
+                  <div className={`h-full rounded-full bg-forest-600 transition-[width] ${previewStep === 1 ? 'w-1/2' : 'w-full'}`} />
                 </div>
-                <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint">
-                  <div className="h-full w-1/3 rounded-full bg-forest-600" />
-                </div>
-                <p className="mt-2 text-right text-xs text-ink-soft">1 de 3</p>
+                <p className="mt-2 text-right text-xs text-ink-soft">{previewStep} de 2</p>
               </div>
-            </div>
+            </section>
           </div>
         </section>
 
