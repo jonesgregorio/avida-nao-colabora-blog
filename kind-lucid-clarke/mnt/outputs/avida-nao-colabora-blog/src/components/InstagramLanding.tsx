@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Heart, ShieldCheck, Sprout } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
+import { setPendingAction } from '../lib/pendingAction'
 import Logo from './Logo'
 import { CHECKIN_SCORES, FEATURED_CHECKIN_MOODS } from './user/checkinOptions'
 import { MoodChip } from './user/ui'
@@ -15,6 +16,10 @@ const STEPS = [
   ['Acompanhe', 'Veja sua história emocional ganhar forma ao longo dos dias.'],
 ] as const
 
+const DIARY_MOOD_ALIAS: Record<string, string> = {
+  alegria: 'bem_estar',
+}
+
 export default function InstagramLanding({ onNavigate }: InstagramLandingProps) {
   const previewRef = useRef<HTMLElement>(null)
   const [previewStep, setPreviewStep] = useState<1 | 2>(1)
@@ -27,6 +32,11 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
   }, [])
 
   const startSignup = (position: string) => {
+    if (previewComplete) {
+      const selectedMood = previewFeelings[0]
+      const diaryMood = selectedMood ? (DIARY_MOOD_ALIAS[selectedMood] || selectedMood) : undefined
+      setPendingAction({ view: 'diary', ...(diaryMood ? { mood: diaryMood } : {}) })
+    }
     trackEvent('signup_click', { metadata: { location: 'instagram_landing', position } })
     onNavigate('auth-signup')
   }
@@ -160,7 +170,7 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                         </button>
                       </>
                     )}
-                    <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Esta prévia não salva nem envia suas respostas. Depois de criar a conta, você registra seu check-in com privacidade.</p>
+                    <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Esta prévia não salva nem envia suas respostas. Ao continuar para o cadastro, guardamos apenas a intenção de retomar o Diário nesta sessão do navegador; nada é gravado no banco antes de você entrar.</p>
                   </>
                 )}
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint" role="progressbar" aria-label="Etapa da prévia do check-in" aria-valuemin={1} aria-valuemax={2} aria-valuenow={previewStep}>
