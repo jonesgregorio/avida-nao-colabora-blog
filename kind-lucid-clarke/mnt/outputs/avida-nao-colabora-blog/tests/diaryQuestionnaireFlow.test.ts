@@ -15,8 +15,8 @@ const currentMigration = readFileSync(new URL('../supabase/migrations/2026090402
 test('rota canônica usa o Diário e mantém o check-in como experiência separada da Home', () => {
   assert.match(diaryEntry, /DiaryExperience/)
   assert.match(savedReflection, /Quero escrever sobre isso/)
-  assert.match(diary, /Check-in e Diário são separados/)
-  assert.match(diary, /check-in é feito uma única vez ao dia pela Página Inicial/i)
+  assert.match(diary, /não oferece uma segunda implementação de check-in/)
+  assert.match(diary, /exclusivamente pela experiência canônica da Página Inicial/)
   assert.doesNotMatch(diary, />Fazer check-in rápido<\/button>/)
   assert.match(diary, /setMode\('diary'\)/)
 })

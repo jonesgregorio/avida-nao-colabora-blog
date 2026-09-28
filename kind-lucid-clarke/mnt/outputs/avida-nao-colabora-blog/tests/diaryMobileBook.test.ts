@@ -24,7 +24,7 @@ test('escrita mobile reaproveita o DOM desktop como páginas horizontais', () =>
 })
 
 test('abertura mobile ensina o gesto para chegar à escrita sem alterar desktop', () => {
-  assert.match(mobileCss, /Deslize para o lado para escrever/)
+  assert.match(mobileCss, /Deslize para escrever/)
   assert.match(mobileCss, /> div:first-child::after/)
   assert.match(mobileCss, /@keyframes diary-swipe-cue/)
   assert.match(mobileCss, /prefers-reduced-motion: reduce/)

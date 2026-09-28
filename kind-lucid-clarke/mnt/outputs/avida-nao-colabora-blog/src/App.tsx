@@ -408,6 +408,7 @@ export default function App() {
       <DiaryPage
         user={user}
         plan={effectivePlan}
+        firstName={(profile?.full_name || profile?.display_name || '').trim().split(' ')[0] || null}
         onBack={() => setView('home')}
         onNavigatePricing={() => navigate('pricing')}
         onOpenArticle={(slug) => { setSelectedArticleSlug(slug); setView('article'); pushURL('article', slug); scrollToTopHard() }}

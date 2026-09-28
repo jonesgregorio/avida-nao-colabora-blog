@@ -24,6 +24,7 @@ import { MOODS } from './user/moods'
 interface DiaryExperienceProps {
   user: User | null
   plan: Plan
+  firstName?: string | null
   onBack: () => void
   onNavigatePricing?: () => void
   initialMood?: string | null
@@ -72,9 +73,11 @@ const unique = (items: string[]) => [...new Set(items.filter(Boolean))]
 function moodMeta(value: string | number | null | undefined) {
   return moodOptions.find(m => m.value === value || m.label === value) ?? moodOptions[moodOptions.length - 1]
 }
-function greeting() {
+function greeting(name?: string | null) {
   const h = new Date().getHours()
-  return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+  const period = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+  const trimmedName = name?.trim()
+  return trimmedName ? `${period}, ${trimmedName}` : period
 }
 function effectiveMoodLabel(mood: string | number | null | undefined, otherLabel: string | null | undefined): string {
   const m = String(mood ?? '')
@@ -133,7 +136,7 @@ function voiceErrorMessage(code?: string) {
   return 'O ditado foi interrompido. Verifique o microfone e tente novamente. Seu texto digitado continua salvo nesta tela.'
 }
 
-export default function DiaryExperienceRefined({ user, plan, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
+export default function DiaryExperienceRefined({ user, plan, firstName, onBack, onNavigatePricing, initialMood, promptContext, onClearPromptContext, onOpenArticle }: DiaryExperienceProps) {
   const [cfg, setCfg] = useState<DiaryPlanConfig>(() => defaultDiaryConfig(plan))
   const [tab, setTab] = useState<PageTab>('write')
   // O Diário não oferece uma segunda implementação de check-in. Check-in é feito
@@ -484,7 +487,7 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
         {focusMode && <header className="flex items-start justify-between gap-4 mb-6">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-forest-600">{formattedToday}</p>
-            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting()}. O que você quer colocar para fora hoje?</h1>
+            <h1 className="font-serif text-3xl sm:text-4xl text-forest-900 mt-1">{greeting(firstName)}. O que você quer colocar para fora hoje?</h1>
           </div>
           <button onClick={() => setFocusMode(false)} className="flex-shrink-0 rounded-xl border border-line bg-white p-2.5 text-forest-800" title="Sair do modo foco" aria-label="Sair do modo foco"><Minimize2 className="w-4 h-4" /></button>
         </header>}
@@ -499,12 +502,9 @@ export default function DiaryExperienceRefined({ user, plan, onBack, onNavigateP
                 {!focusMode && <div className="relative min-h-[610px] border-b border-[#e1d7c5] p-6 sm:p-8 lg:border-b-0 lg:border-r lg:border-[#d8cbb5] lg:pr-11">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-forest-600">{formattedToday}</p>
                   <p className="mt-8 text-xs uppercase tracking-[0.16em] text-forest-600">Meu diário</p>
-                  <h1 className="mt-2 font-serif text-3xl sm:text-4xl text-forest-900">{greeting()}.<br />O que você quer colocar para fora hoje?</h1>
+                  <h1 className="mt-2 font-serif text-3xl sm:text-4xl text-forest-900">{greeting(firstName)}.<br />O que você quer colocar para fora hoje?</h1>
                   <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">{mode === 'main-saved' ? (isPlus ? (todayDeepened ? 'Seu diário de hoje já recebeu os três aprofundamentos disponíveis.' : `Seu diário continua aberto para ${deepeningsRemaining} ${deepeningsRemaining === 1 ? 'aprofundamento' : 'aprofundamentos'} hoje.`) : 'Seu registro de hoje está guardado.') : 'Esta página é sua. Comece pelo texto e acrescente contexto somente se fizer sentido.'}</p>
 
-                  <div className="mt-8 rounded-2xl border border-[#e7ddcc] bg-[#faf6ec] p-4"><p className="text-sm leading-relaxed text-forest-800"><strong>Check-in e Diário são separados.</strong> O check-in é feito uma única vez ao dia pela Página Inicial. Aqui ficam somente sua escrita e os aprofundamentos do Diário.</p></div>
-
-                  <div className="mt-10 rounded-2xl border border-[#e8dfcf] bg-white/70 p-5"><p className="font-serif text-xl text-forest-900">“Não precisa ficar bonito para ser verdadeiro.”</p><p className="mt-2 text-sm leading-relaxed text-ink-soft">Escreva como vier. Esta página não mede frequência, desempenho ou sequência.</p></div>
                   <div className="mt-8 border-t border-[#e7ddcc] pt-5"><p className="text-xs font-medium text-forest-800">Seu espaço, no seu ritmo.</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">{isPlus ? 'Você pode escrever seu diário e aprofundar o mesmo registro até três vezes no dia, quando fizer sentido.' : 'Você pode escrever seu diário sempre que fizer sentido.'}</p></div>
                 </div>}
 

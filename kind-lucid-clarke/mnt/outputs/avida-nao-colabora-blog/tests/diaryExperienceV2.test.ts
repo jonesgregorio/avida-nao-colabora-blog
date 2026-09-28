@@ -63,8 +63,8 @@ test('mobile mantém ações essenciais próximas do polegar', () => {
 
 test('Diário não oferece um segundo check-in e mantém as experiências separadas', () => {
   assert.match(diary, /useState<EntryMode>\('diary'\)/)
-  assert.match(diary, /Check-in e Diário são separados/)
-  assert.match(diary, /check-in é feito uma única vez ao dia pela Página Inicial/i)
+  assert.match(diary, /não oferece uma segunda implementação de check-in/)
+  assert.match(diary, /exclusivamente pela experiência canônica da Página Inicial/)
   assert.doesNotMatch(diary, /Prefiro só um Check-in rápido hoje/)
   assert.doesNotMatch(diary, />Fazer check-in rápido<\/button>/)
   assert.match(diary, /todayMain && mode === 'diary' && !draft\.trim\(\)/)

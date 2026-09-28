@@ -167,8 +167,7 @@ test('Diário abre como escrita e não oferece um segundo check-in', async ({ pa
   await expect(page.getByRole('textbox', { name: 'Texto do diário' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Prefiro só um Check-in rápido hoje/i })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Fazer check-in rápido/i })).toHaveCount(0)
-  await expect(page.getByText(/Check-in e Diário são separados/i)).toBeVisible()
-  await expect(page.getByText(/check-in é feito uma única vez ao dia pela Página Inicial/i)).toBeVisible()
+  await expect(page.getByText(/O que você quer colocar para fora hoje\?/i)).toBeVisible()
 })
 
 test('Diário mantém sentimentos como contexto opcional, sem transformá-los em check-in', async ({ page }) => {

@@ -41,34 +41,37 @@
   div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child > p:nth-of-type(2) {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a3d2e;
   }
 
   div.grid:has(> div + main textarea[aria-label="Texto do diário"]) > div:first-child > p:nth-of-type(2)::after,
   div.grid:has(> div + main textarea[aria-label="Nota rápida do check-in"]) > div:first-child > p:nth-of-type(2)::after {
-    content: 'Deslize para o lado para escrever  →';
+    content: 'Deslize para escrever  →';
     display: inline-flex;
     align-items: center;
     width: max-content;
     max-width: 100%;
-    padding: 6px 10px;
-    border: 1px solid rgba(44, 86, 67, .18);
+    padding: 9px 16px;
+    border: none;
     border-radius: 999px;
-    background: rgba(255, 253, 248, .94);
-    box-shadow: 0 6px 16px rgba(53, 69, 54, .10);
-    color: #315c49;
-    font-size: 10px;
-    font-weight: 600;
+    background: #1a3d2e;
+    box-shadow: 0 8px 20px rgba(26, 61, 46, .35);
+    color: #f4ecdd;
+    font-size: 13px;
+    font-weight: 700;
     letter-spacing: .01em;
     text-transform: none;
     pointer-events: none;
-    animation: diary-swipe-cue 1.8s ease-in-out infinite;
+    animation: diary-swipe-cue 1.4s ease-in-out infinite;
   }
 
   @keyframes diary-swipe-cue {
     0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(7px); }
+    50% { transform: translateX(10px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
