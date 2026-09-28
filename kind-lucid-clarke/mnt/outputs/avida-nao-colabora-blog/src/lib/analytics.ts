@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { campaignMetadata } from './campaignAttribution'
 
 // ─── Rastreamento leve e privacy-safe para a área Analytics do admin ─────────
 // Grava em analytics_events (insert anônimo liberado pela migration 077).
@@ -41,7 +42,10 @@ export type AnalyticsEvent =
   | 'self_care_plan_view' | 'professional_guidance_request' | 'professional_guidance_view'
   | 'signup_click' | 'register_success' | 'login_success' | 'plan_click' | 'checkout_started'
   | 'subscription_started' | 'upgrade_started' | 'upgrade_completed' | 'downgrade_requested'
-  | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save';
+  | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save'
+  | 'campaign_landing_view' | 'ig_checkin_start' | 'ig_checkin_complete'
+  | 'signup_view' | 'signup_start' | 'signup_submit' | 'registration_complete'
+  | 'email_confirmation_success' | 'email_verified' | 'email_verification_required' | 'signup_error';
 
 const BLOCKED_KEYS = new Set(['password', 'token', 'access_token', 'refresh_token', 'diary_text', 'message_body', 'personal_note', 'health_description', 'email'])
 const seenEvents = new Set<string>()
@@ -98,7 +102,7 @@ export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {})
     const rawUA = navigator.userAgent
     let referrer: string | null = document.referrer || null
     if (cfg.anonymize && referrer) { try { referrer = new URL(referrer).hostname } catch { /* mantém */ } }
-    const key = ['page_view', 'article_view', 'article_scroll_50', 'article_scroll_75', 'article_scroll_100'].includes(normalized) ? `${getSessionId()}:${normalized}:${opts.entity_id ?? location.pathname}` : ''
+    const key = ['page_view', 'article_view', 'article_scroll_50', 'article_scroll_75', 'article_scroll_100', 'campaign_landing_view'].includes(normalized) ? `${getSessionId()}:${normalized}:${opts.entity_id ?? location.pathname}` : ''
     if (key && seenEvents.has(key)) return
     if (key) seenEvents.add(key)
     supabase.from('analytics_events').insert({
@@ -106,7 +110,9 @@ export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {})
       event: normalized,
       entity_id: opts.entity_id ?? null,
       entity_title: opts.entity_title ?? null,
-      metadata: sanitize({ path: location.pathname, ...(opts.metadata ?? {}) }) ?? null,
+      // Atribuição acompanha todas as etapas do funil. Os metadados explícitos do
+      // evento prevalecem e nunca incluem o valor bruto de click IDs.
+      metadata: sanitize({ path: location.pathname, ...campaignMetadata(), ...(opts.metadata ?? {}) }) ?? null,
       session_id: getSessionId(),
       referrer,
       user_agent: cfg.anonymize ? coarseUA(rawUA) : rawUA,
@@ -192,6 +198,8 @@ export function initAcquisition(): void {
     const utmSource = qs.get('utm_source') || ''
     const utmMedium = qs.get('utm_medium') || ''
     const utmCampaign = qs.get('utm_campaign') || ''
+    const utmContent = qs.get('utm_content') || ''
+    const utmTerm = qs.get('utm_term') || ''
     let refHost = ''
     try { refHost = document.referrer ? new URL(document.referrer).hostname : '' } catch { /* ignora */ }
     if (refHost && refHost === window.location.hostname) refHost = ''
@@ -263,6 +271,8 @@ export function initAcquisition(): void {
         utm_source: utmSource || null,
         utm_medium: utmMedium || null,
         utm_campaign: utmCampaign || null,
+        utm_content: utmContent || null,
+        utm_term: utmTerm || null,
         referrer_host: attribution.referrer_host,
         landing_path: attribution.landing_path,
         attribution_method: attribution.attribution_method,

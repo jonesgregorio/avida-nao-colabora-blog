@@ -86,6 +86,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
               'Vercel: hospedagem e entrega da aplicação web.',
               'Stripe: processamento e gestão de assinaturas e pagamentos.',
               'Resend e infraestrutura de e-mail configurada: envio de comunicações transacionais e outras mensagens permitidas pelas suas preferências.',
+              'Meta: quando você autoriza a medição de marketing, o Pixel e a Conversions API podem receber eventos de navegação e de cadastro confirmado para medir anúncios. Respostas emocionais, textos do diário e conteúdos de check-in não são enviados.',
               'Provedores de inteligência artificial configurados no backend, como Google Gemini, Groq e, quando habilitado, OpenAI: processamento do contexto necessário para funcionalidades de IA.',
               'Autoridades ou terceiros legitimados: quando houver obrigação legal ou ordem válida aplicável.',
             ].map((item, i) => (

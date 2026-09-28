@@ -9,7 +9,7 @@ test('landing /ig tem proposta e CTA direto para cadastro', () => {
   assert.match(landing, /Como você está hoje\?/)
   assert.match(landing, /onNavigate\('auth-signup'\)/)
   assert.match(landing, /ig_landing_view/)
-  assert.match(landing, /signup_cta_click/)
+  assert.match(landing, /signup_click/)
 })
 
 test('prévia interativa da landing reutiliza o check-in real sem enviar respostas à análise', () => {
@@ -22,7 +22,8 @@ test('prévia interativa da landing reutiliza o check-in real sem enviar respost
   assert.match(landing, /FEATURED_CHECKIN_MOODS\.map/)
   assert.match(landing, /Criar conta e continuar/)
   assert.match(landing, /Esta prévia não salva nem envia suas respostas/)
-  assert.match(landing, /ig_checkin_preview_open/)
+  assert.match(landing, /ig_checkin_start/)
+  assert.match(landing, /ig_checkin_complete/)
   assert.match(home, /CHECKIN_SCORES\.map/)
   assert.match(home, /FEATURED_CHECKIN_MOODS\.map/)
   assert.match(options, /Nem um pouco/)

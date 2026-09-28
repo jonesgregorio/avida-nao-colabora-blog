@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabase'
 import { ArrowLeft, Eye, EyeOff, Sprout, HeartHandshake, LineChart, ShieldCheck, Leaf, MailCheck, RefreshCw } from 'lucide-react'
 import { emailWelcome } from '../lib/emailTriggers'
 import { trackEvent } from '../lib/analytics'
+import { campaignAttributionForSignup, campaignMetadata } from '../lib/campaignAttribution'
 import { confirmationRedirectUrl, isEmailConfirmed, isEmailNotConfirmedError } from '../lib/authVerification'
+import { trackMetaCompleteRegistration } from '../lib/metaConversions'
 import { LogoIcon } from './Logo'
 
 type AuthMode = 'login' | 'signup' | 'reset' | 'verify' | 'confirmed'
@@ -106,8 +108,12 @@ export default function Auth({ onBack }: AuthProps) {
       setSuccess('E-mail confirmado com sucesso. Sua conta está pronta para uso.')
       setMode('confirmed')
       cleanAuthCallbackUrl()
-      trackEvent('email_confirmation_success', { user_id: confirmedUser.id, metadata: { location: 'auth' } })
-      trackEvent('email_verified', { user_id: confirmedUser.id, metadata: { location: 'auth' } })
+      const signupAttribution = confirmedUser.user_metadata?.campaign_attribution
+      const confirmationMetadata = { location: 'auth', ...campaignMetadata(signupAttribution) }
+      trackEvent('registration_complete', { user_id: confirmedUser.id, metadata: confirmationMetadata })
+      trackEvent('email_confirmation_success', { user_id: confirmedUser.id, metadata: confirmationMetadata })
+      trackEvent('email_verified', { user_id: confirmedUser.id, metadata: confirmationMetadata })
+      trackMetaCompleteRegistration(confirmedUser.id)
       if (userEmail) void emailWelcome(confirmedUser.id, userEmail, displayName)
     }
 
@@ -206,6 +212,7 @@ export default function Auth({ onBack }: AuthProps) {
           password,
           options: {
             emailRedirectTo: confirmationRedirectUrl(window.location.origin),
+            data: { campaign_attribution: campaignAttributionForSignup() },
           },
         })
         if (signUpError) throw signUpError
