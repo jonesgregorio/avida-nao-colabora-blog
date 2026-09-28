@@ -28,3 +28,11 @@ test('teste A\/B reconhece as duas variantes oficiais da campanha', () => {
   assert.match(attribution, /ig_landing/)
   assert.match(attribution, /site_home/)
 })
+
+test('atribuição preserva primeiro contato e atualiza último contato separadamente', () => {
+  assert.match(attribution, /FIRST_TOUCH_KEY/)
+  assert.match(attribution, /LAST_TOUCH_KEY/)
+  assert.match(attribution, /if \(!readStoredAttribution\(FIRST_TOUCH_KEY\)\) localStorage\.setItem\(FIRST_TOUCH_KEY/)
+  assert.match(attribution, /localStorage\.setItem\(LAST_TOUCH_KEY/)
+  assert.match(attribution, /readStoredAttribution\(LAST_TOUCH_KEY\) \?\? readStoredAttribution\(FIRST_TOUCH_KEY\)/)
+})
