@@ -13,6 +13,20 @@ test('aquisição não chama ausência de sinal de Direto e reconhece identifica
   assert.match(analytics, /FIRST_TOUCH_KEY/)
 })
 
+test('first touch conhecido não é sobrescrito por campanhas posteriores', () => {
+  const analytics = read('src/lib/analytics.ts')
+  assert.match(analytics, /const current = readFirstTouch\(\)/)
+  assert.match(analytics, /if \(current && current\.source !== 'Origem não identificada'\) return/)
+  assert.match(analytics, /localStorage\.setItem\(FIRST_TOUCH_KEY, JSON\.stringify\(value\)\)/)
+  assert.match(analytics, /first_touch_source: readFirstTouch\(\)\?\.source \?\? null/)
+})
+
+test('first touch desconhecido pode ser substituído pela primeira origem externa conhecida', () => {
+  const analytics = read('src/lib/analytics.ts')
+  assert.match(analytics, /if \(hasExplicitSignal && attribution\.source !== 'Origem não identificada'\) saveFirstTouch\(attribution\)/)
+  assert.doesNotMatch(analytics, /if \(current\) return\s*\n\s*localStorage\.setItem\(FIRST_TOUCH_KEY/)
+})
+
 test('aquisição exclui admin e não persiste o valor sensível dos click-ids', () => {
   const analytics = read('src/lib/analytics.ts')
   assert.match(analytics, /location\.pathname\.startsWith\('\/admin\/'\)/)

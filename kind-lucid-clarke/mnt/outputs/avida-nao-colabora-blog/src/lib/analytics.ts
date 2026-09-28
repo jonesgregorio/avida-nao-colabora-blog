@@ -180,7 +180,11 @@ function readFirstTouch(): Attribution | null {
 }
 
 function saveFirstTouch(value: Attribution) {
-  try { localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(value)) } catch { /* storage indisponível */ }
+  try {
+    const current = readFirstTouch()
+    if (current && current.source !== 'Origem não identificada') return
+    localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(value))
+  } catch { /* storage indisponível */ }
 }
 
 let acqInit = false
@@ -257,8 +261,9 @@ export function initAcquisition(): void {
       }
     }
 
-    // First touch só é substituído quando existe um sinal externo real. Assim uma
-    // visita posterior sem referrer não apaga uma origem previamente conhecida.
+    // First touch é gravado apenas na primeira origem externa conhecida. Uma visita
+    // posterior por outra campanha continua sendo a origem atual, mas não reescreve
+    // de onde a pessoa foi adquirida originalmente.
     if (hasExplicitSignal && attribution.source !== 'Origem não identificada') saveFirstTouch(attribution)
 
     trackEvent('visit_source', {
