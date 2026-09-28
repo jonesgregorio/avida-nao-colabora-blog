@@ -221,7 +221,7 @@ export default function AdminPanel() {
       case 'comunicacao': return <AdminAreaComunicacao initialCampaignId={pendingCampaignId} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
       case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} initialTicketId={pendingTicketId} />
-      case 'sistema': return <AdminAreaSistema />
+      case 'sistema': return <AdminAreaSistema onNavigate={v => navigate(v)} />
       case 'article-editor':
         return (
           <AdminArticleEditor

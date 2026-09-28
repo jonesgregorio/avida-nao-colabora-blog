@@ -89,3 +89,17 @@ export function consumeAiUsageStatusPreset(): string | null {
   } catch { /* noop */ }
   return null
 }
+
+// Mesmo padrão de deep-link acima, para "E-mails com falha": ao abrir o
+// histórico de e-mails a partir de um alerta, pré-filtra em Status = Falhas.
+export const EMAIL_LOGS_STATUS_KEY = 'admin-email-logs-status'
+export function markEmailFailuresDeepLink(): void {
+  try { localStorage.setItem(EMAIL_LOGS_STATUS_KEY, 'failed') } catch { /* storage indisponível não impede navegação */ }
+}
+export function consumeEmailLogsStatusPreset(): string | null {
+  try {
+    const v = localStorage.getItem(EMAIL_LOGS_STATUS_KEY)
+    if (v) { localStorage.removeItem(EMAIL_LOGS_STATUS_KEY); return v }
+  } catch { /* noop */ }
+  return null
+}
