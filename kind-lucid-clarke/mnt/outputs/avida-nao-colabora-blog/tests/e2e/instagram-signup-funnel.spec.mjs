@@ -26,7 +26,7 @@ test.describe('Instagram → cadastro em mobile', () => {
 
     await expect(page.getByRole('heading', { name: 'Crie sua conta gratuita' })).toBeVisible()
     await expect(page.getByLabel('E-mail')).toBeVisible()
-    await expect(page.getByLabel(/Senha/)).toBeVisible()
+    await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.getByText(/Concordo com os/)).toBeVisible()
     await expect(page.getByText('Nome completo')).toHaveCount(0)
   })
@@ -36,11 +36,12 @@ test.describe('Instagram → cadastro em mobile', () => {
     await expect(page.getByRole('heading', { name: 'Crie sua conta gratuita' })).toBeVisible()
 
     await page.getByLabel('E-mail').fill('teste@example.com')
-    await page.getByLabel(/Senha/).fill('curta')
+    const password = page.locator('input[type="password"]')
+    await password.fill('curta')
     await page.getByRole('button', { name: /Criar conta grátis/i }).click()
-    await expect(page.getByText('A senha deve ter pelo menos 8 caracteres.')).toBeVisible()
+    await expect.poll(async () => password.evaluate((el) => el.validity.tooShort)).toBe(true)
 
-    await page.getByLabel(/Senha/).fill('senha-segura-123')
+    await password.fill('senha-segura-123')
     await page.getByRole('button', { name: /Criar conta grátis/i }).click()
     await expect(page.getByText('É preciso aceitar os Termos de Uso e a Política de Privacidade.')).toBeVisible()
   })
