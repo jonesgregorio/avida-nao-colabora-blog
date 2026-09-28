@@ -31,6 +31,21 @@ test('prévia interativa da landing reutiliza o check-in real sem enviar respost
   assert.doesNotMatch(landing, /metadata:\s*\{[^}]*previewFeelings/)
 })
 
+test('check-in concluído mantém somente intenção temporária para retomar o Diário após autenticação', () => {
+  const landing = read('src/components/InstagramLanding.tsx')
+  const pending = read('src/lib/pendingAction.ts')
+  const app = read('src/App.tsx')
+
+  assert.match(landing, /setPendingAction\(\{ view: 'diary'/)
+  assert.match(landing, /if \(previewComplete\)/)
+  assert.match(landing, /DIARY_MOOD_ALIAS/)
+  assert.match(pending, /sessionStorage\.setItem/)
+  assert.match(app, /if \(pending\.mood\) setDiaryMood\(pending\.mood\)/)
+  assert.match(app, /clearPendingAction\(\)/)
+  assert.doesNotMatch(landing, /metadata:\s*\{[^}]*diaryMood/)
+  assert.doesNotMatch(landing, /metadata:\s*\{[^}]*selectedMood/)
+})
+
 test('cadastro reduz atrito e mede as etapas principais', () => {
   const auth = read('src/components/Auth.tsx')
   assert.doesNotMatch(auth, /auth-name/)
