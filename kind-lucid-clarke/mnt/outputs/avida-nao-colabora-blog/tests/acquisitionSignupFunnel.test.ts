@@ -12,6 +12,24 @@ test('landing /ig tem proposta e CTA direto para cadastro', () => {
   assert.match(landing, /signup_cta_click/)
 })
 
+test('prévia interativa da landing reutiliza o check-in real sem enviar respostas à análise', () => {
+  const landing = read('src/components/InstagramLanding.tsx')
+  const home = read('src/components/LoggedHome.tsx')
+  const options = read('src/components/user/checkinOptions.ts')
+
+  assert.match(landing, /E aí, a vida colaborou hoje\?/)
+  assert.match(landing, /CHECKIN_SCORES\.map/)
+  assert.match(landing, /FEATURED_CHECKIN_MOODS\.map/)
+  assert.match(landing, /Criar conta e continuar/)
+  assert.match(landing, /Esta prévia não salva nem envia suas respostas/)
+  assert.match(landing, /ig_checkin_preview_open/)
+  assert.match(home, /CHECKIN_SCORES\.map/)
+  assert.match(home, /FEATURED_CHECKIN_MOODS\.map/)
+  assert.match(options, /Nem um pouco/)
+  assert.doesNotMatch(landing, /metadata:\s*\{[^}]*previewScore/)
+  assert.doesNotMatch(landing, /metadata:\s*\{[^}]*previewFeelings/)
+})
+
 test('cadastro reduz atrito e mede as etapas principais', () => {
   const auth = read('src/components/Auth.tsx')
   assert.doesNotMatch(auth, /auth-name/)

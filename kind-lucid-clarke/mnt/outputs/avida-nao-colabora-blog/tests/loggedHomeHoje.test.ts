@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const home = readFileSync(new URL('../src/components/LoggedHome.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+const checkinOptions = readFileSync(new URL('../src/components/user/checkinOptions.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const legacyHome = readFileSync(new URL('../src/components/LoggedHomeLegacy.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const checkinMigration = readFileSync(new URL('../supabase/migrations/20260902215500_home_checkin_tags.sql', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
@@ -17,17 +18,17 @@ test('Home logada prioriza o dia e recolhe a experiência analítica', () => {
 })
 
 test('Home Hoje usa o novo check-in e mantém o Diário separado', () => {
-  assert.match(home, /Fez o mínimo/)
-  assert.match(home, /Sobrevivemos/)
-  assert.match(home, /Até que tentou/)
+  assert.match(checkinOptions, /Fez o mínimo/)
+  assert.match(checkinOptions, /Sobrevivemos/)
+  assert.match(checkinOptions, /Até que tentou/)
   assert.match(home, /Registrar meu check-in/)
   assert.match(home, /Quero escrever no Diário/)
   assert.match(home, /O que mais marcou como você se sentiu hoje\?/)
   assert.match(home, /Opcional\. Escolha as opções que mais combinaram com o seu dia\./)
-  assert.match(home, /featuredMoodKeys = new Set\(\['alegria'/)
-  assert.match(home, /featuredMoods\.map/)
+  assert.match(checkinOptions, /'alegria'/)
+  assert.match(home, /FEATURED_CHECKIN_MOODS\.map/)
   assert.match(home, /toggleFeeling\(mood\.key\)/)
-  assert.doesNotMatch(home, /featuredMoods\.map\([\s\S]{0,260}diary\?mood=/)
+  assert.doesNotMatch(home, /FEATURED_CHECKIN_MOODS\.map\([\s\S]{0,260}diary\?mood=/)
 })
 
 test('novo check-in permite tags personalizadas curtas sem virar texto de Diário', () => {
