@@ -35,5 +35,14 @@ test('relatórios corrigem data ausente, concatenação e período entre meses',
 
 test('login autenticado não permanece visualmente na rota de login', () => {
   const app = read('src/App.tsx')
-  assert.match(app, /if \(isAuthView\) navigate\('home'\)/)
+  assert.match(app, /if \(isAuthView && !hasPendingEmailConfirmation\) navigate\('home'\)/)
+})
+
+test('redirecionamento pós-login não interrompe a confirmação de e-mail em andamento (auditoria Meta 2026-09-29)', () => {
+  // Achado real: useAuth() libera `user` assim que a sessão é restaurada, antes do
+  // próprio Auth.tsx terminar de processar ?email_confirmed=1 (que dispara
+  // CompleteRegistration/Pixel/CAPI). Sem esta guarda, o redirecionamento genérico
+  // desmontava o Auth no meio do processamento e o evento de cadastro nunca disparava.
+  const app = read('src/App.tsx')
+  assert.match(app, /hasPendingEmailConfirmation = isAuthView && \(query\.get\('email_confirmed'\) === '1' \|\| query\.has\('error'\)\)/)
 })
