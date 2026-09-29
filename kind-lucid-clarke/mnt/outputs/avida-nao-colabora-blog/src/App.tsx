@@ -288,7 +288,17 @@ export default function App() {
     if (!user) return
     const pending = getPendingAction()
     if (!pending) {
-      if (isAuthView) navigate('home')
+      // Se a URL ainda carrega o retorno da confirmação de e-mail (?email_confirmed=1
+      // ou erro), NÃO navegue ainda: useAuth() resolve a sessão e libera `user` antes
+      // do próprio Auth.tsx terminar de processar esse retorno (que dispara
+      // CompleteRegistration/Pixel/CAPI e mostra a tela "E-mail confirmado"). Navegar
+      // cedo demais desmonta o Auth no meio do processamento — o cleanup marca
+      // `active = false` e o disparo do evento de cadastro nunca acontece. Achado real
+      // (auditoria Meta, 2026-09-29): reproduzido 2x, zero eventos CompleteRegistration
+      // chegaram à Edge Function por causa desta corrida.
+      const query = new URLSearchParams(window.location.search)
+      const hasPendingEmailConfirmation = isAuthView && (query.get('email_confirmed') === '1' || query.has('error'))
+      if (isAuthView && !hasPendingEmailConfirmation) navigate('home')
       return
     }
     clearPendingAction()
