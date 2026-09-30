@@ -5,6 +5,7 @@ import {
   Save, Search, Settings2, Sprout, Users, X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import AdminGardenCreator from './AdminGardenCreator'
 
 type Tab = 'overview' | 'users' | 'catalog' | 'queue' | 'campaigns' | 'rules' | 'analytics' | 'history'
 type GardenStatus = 'draft' | 'ready' | 'queued' | 'active' | 'paused' | 'archived'
@@ -22,6 +23,7 @@ type Garden = {
   stage_images: string[]
   completion_title: string
   completion_message: string
+  scene_config?: unknown
 }
 
 type UserGarden = {
@@ -178,19 +180,6 @@ export default function AdminGardenManagement() {
     })
   }
 
-  async function createGarden(input: { slug: string; label: string; description: string; theme_index: number; cover_image: string; stage_images: string[] }) {
-    await withSave(async () => {
-      const { error: e } = await supabase.from('garden_catalog').insert({
-        slug: input.slug.trim(), label: input.label.trim(), description: input.description.trim(),
-        theme_index: input.theme_index, status: 'draft',
-        cover_image: input.cover_image.trim() || null,
-        stage_images: input.stage_images.map(s => s.trim()).filter(Boolean),
-      })
-      if (e) throw e
-      await auditAction('garden.create', 'garden', input.slug, { label: input.label })
-    })
-  }
-
   async function moveQueue(index: number, delta: number) {
     const target = index + delta
     if (target < 0 || target >= queue.length) return
@@ -282,7 +271,7 @@ export default function AdminGardenManagement() {
 
       {tab === 'overview' && <Overview stats={stats} users={users} queue={queue} campaigns={campaigns} onTab={setTab} />}
       {tab === 'users' && <UsersPanel users={filteredUsers} query={query} setQuery={setQuery} onOpen={openUser} />}
-      {tab === 'catalog' && <CatalogPanel gardens={gardens} onUpdate={updateGarden} onCreate={createGarden} saving={saving} />}
+      {tab === 'catalog' && <CatalogPanel gardens={gardens} onUpdate={updateGarden} saving={saving} reload={load} audit={auditAction} />}
       {tab === 'queue' && <QueuePanel queue={queue} gardens={gardens} onMove={moveQueue} onMakeNext={makeNext} onUpdate={updateGarden} saving={saving} />}
       {tab === 'campaigns' && <CampaignPanel campaigns={campaigns} gardens={gardens} open={newCampaignOpen} setOpen={setNewCampaignOpen} reload={load} audit={auditAction} />}
       {tab === 'rules' && <RulesPanel settings={settings} setSettings={setSettings} save={saveSettings} saving={saving} />}
@@ -318,41 +307,15 @@ function UsersPanel({users,query,setQuery,onOpen}:{users:UserGarden[];query:stri
   return <div className="admin-card overflow-hidden"><div className="admin-toolbar m-4"><div className="relative min-w-[260px] flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ink-soft"/><input className="w-full rounded-xl border border-line bg-white py-2 pl-9 pr-3 text-sm" placeholder="Buscar usuário ou jardim..." value={query} onChange={e=>setQuery(e.target.value)}/></div><span className="text-xs text-ink-soft">{users.length} usuários</span></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-paper-soft text-left text-xs text-ink-soft"><tr><th className="px-4 py-3">Usuário</th><th className="px-4 py-3">Jardim</th><th className="px-4 py-3">Progresso</th><th className="px-4 py-3">Estágio</th><th className="px-4 py-3">Última evolução</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-line">{users.map(u=><tr key={u.user_id} className="hover:bg-paper-soft/60"><td className="px-4 py-3"><p className="font-medium text-forest-900">{u.full_name||'Sem nome'}</p><p className="text-xs text-ink-soft">{u.email}</p></td><td className="px-4 py-3">{u.garden_label||'—'}{u.override_active&&<span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">ajuste manual</span>}</td><td className="px-4 py-3 min-w-[160px]"><div className="flex items-center gap-2"><div className="h-2 flex-1 rounded-full bg-stone-100"><div className="h-full rounded-full bg-forest-600" style={{width:pct(u.progress_pct)}}/></div><span className="text-xs font-semibold">{pct(u.progress_pct)}</span></div></td><td className="px-4 py-3 text-xs">{STAGE_LABEL[u.stage]??`Etapa ${u.stage}`}</td><td className="px-4 py-3 text-xs text-ink-soft">{fmtDate(u.last_activity)}</td><td className="px-4 py-3 text-right"><button className="admin-btn-secondary" onClick={()=>onOpen(u)}>Gerenciar</button></td></tr>)}</tbody></table></div></div>
 }
 
-function CatalogPanel({gardens,onUpdate,onCreate,saving}:{gardens:Garden[];onUpdate:(g:Garden,p:Partial<Garden>)=>Promise<void>;onCreate:(g:{slug:string;label:string;description:string;theme_index:number;cover_image:string;stage_images:string[]})=>Promise<void>;saving:boolean}) {
-  const [open,setOpen]=useState(false)
-  const nextIndex=gardens.length?Math.max(...gardens.map(g=>g.theme_index))+1:0
-  const blank={slug:'',label:'',description:'',theme_index:nextIndex,cover_image:'',stage1:'',stage2:'',stage3:'',stage4:''}
-  const [form,setForm]=useState(blank)
-  const [busy,setBusy]=useState(false)
-  function openForm(){ setForm({...blank,theme_index:nextIndex}); setOpen(true) }
-  async function create(){
-    if(!form.slug.trim()||!form.label.trim())return
-    setBusy(true)
-    await onCreate({slug:form.slug,label:form.label,description:form.description,theme_index:form.theme_index,cover_image:form.cover_image,stage_images:[form.stage1,form.stage2,form.stage3,form.stage4]})
-    setBusy(false); setOpen(false)
-  }
+function CatalogPanel({gardens,onUpdate,saving,reload,audit}:{gardens:Garden[];onUpdate:(g:Garden,p:Partial<Garden>)=>Promise<void>;saving:boolean;reload:()=>Promise<void>;audit:(a:string,t:string,id?:string,m?:Record<string,unknown>)=>Promise<void>}) {
+  const [creator,setCreator]=useState<{garden:Garden|null}|null>(null)
   return <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <p className="max-w-xl text-xs text-ink-soft">Um jardim novo entra como "Rascunho" (não aparece pra ninguém). Fotos + a configuração de água/fauna/luz continuam sendo um trabalho à parte — sem isso, o jardim usa a aparência de um dos 8 já existentes até ganhar a própria.</p>
-      <button type="button" className="admin-btn-primary shrink-0" onClick={openForm}><Plus className="h-4 w-4"/>Novo jardim</button>
+    <div className="flex items-center justify-between gap-4">
+      <p className="max-w-2xl text-xs text-ink-soft">Crie jardins completos sem código: você envia as 6 imagens e monta a água, a queda de folhas, a fauna, a luz e os extras clicando na imagem. O jardim novo entra como "Rascunho" (ninguém vê); para liberar, mude o status para "Pronto" ou "Na fila". Os 10 jardins originais continuam com a configuração do código.</p>
+      <button type="button" className="admin-btn-primary shrink-0" onClick={()=>setCreator({garden:null})}><Plus className="h-4 w-4"/>Criar jardim completo</button>
     </div>
-    {open&&<div className="admin-card p-5">
-      <div className="flex justify-between"><h3 className="font-serif text-xl text-forest-900">Cadastrar jardim</h3><button onClick={()=>setOpen(false)} aria-label="Fechar"><X className="h-4 w-4"/></button></div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <Input label="Slug (identificador único, ex.: jardim-de-inverno)" value={form.slug} onChange={v=>setForm({...form,slug:v})}/>
-        <Input label="Nome de exibição" value={form.label} onChange={v=>setForm({...form,label:v})}/>
-        <Input label="Descrição editorial" value={form.description} onChange={v=>setForm({...form,description:v})}/>
-        <label className="text-xs text-ink-soft">Índice do tema (posição interna, sugerido automaticamente)<input type="number" min="0" className="mt-1 w-full rounded-xl border border-line bg-white p-2.5 text-sm" value={form.theme_index} onChange={e=>setForm({...form,theme_index:Number(e.target.value)})}/></label>
-        <Input label="Imagem de capa (URL)" value={form.cover_image} onChange={v=>setForm({...form,cover_image:v})}/>
-        <div/>
-        <Input label="Foto — recém-plantado (URL)" value={form.stage1} onChange={v=>setForm({...form,stage1:v})}/>
-        <Input label="Foto — pegando (URL)" value={form.stage2} onChange={v=>setForm({...form,stage2:v})}/>
-        <Input label="Foto — maduro (URL)" value={form.stage3} onChange={v=>setForm({...form,stage3:v})}/>
-        <Input label="Foto — completo (URL)" value={form.stage4} onChange={v=>setForm({...form,stage4:v})}/>
-      </div>
-      <button className="admin-btn-primary mt-4" disabled={busy||saving||!form.slug.trim()||!form.label.trim()} onClick={()=>void create()}>{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Cadastrar como rascunho</button>
-    </div>}
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{gardens.map(g=><article key={g.id} className="admin-card overflow-hidden"><div className="aspect-[16/8] bg-stone-100">{g.cover_image&&<img src={g.cover_image} alt="" className="h-full w-full object-cover"/>}</div><div className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] uppercase tracking-wider text-ink-soft">{g.slug}</p><h3 className="font-serif text-xl text-forest-900">{g.label}</h3></div><span className="rounded-full bg-forest-50 px-2 py-1 text-[10px] text-forest-700">{STATUS_LABEL[g.status]}</span></div><p className="mt-2 line-clamp-2 text-xs text-ink-soft">{g.description||'Sem descrição editorial.'}</p><div className="mt-4 flex gap-2"><select className="flex-1 rounded-lg border border-line bg-white px-2 py-2 text-xs" value={g.status} disabled={saving} onChange={e=>void onUpdate(g,{status:e.target.value as GardenStatus})}>{Object.entries(STATUS_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><button className="admin-btn-secondary" disabled={saving} onClick={()=>void onUpdate(g,{release_at:new Date().toISOString(),status:'queued'})}>Fila</button></div></div></article>)}</div>
+    {creator&&<AdminGardenCreator key={creator.garden?.id??'novo'} gardens={gardens} editing={creator.garden} onClose={()=>setCreator(null)} onSaved={reload} audit={audit}/>}
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{gardens.map(g=><article key={g.id} className="admin-card overflow-hidden"><div className="aspect-[16/8] bg-stone-100">{g.cover_image&&<img src={g.cover_image} alt="" className="h-full w-full object-cover"/>}</div><div className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] uppercase tracking-wider text-ink-soft">{g.slug}</p><h3 className="font-serif text-xl text-forest-900">{g.label}</h3></div><span className="rounded-full bg-forest-50 px-2 py-1 text-[10px] text-forest-700">{STATUS_LABEL[g.status]}</span></div><p className="mt-2 line-clamp-2 text-xs text-ink-soft">{g.description||'Sem descrição editorial.'}</p><div className="mt-4 flex gap-2"><select className="flex-1 rounded-lg border border-line bg-white px-2 py-2 text-xs" value={g.status} disabled={saving} onChange={e=>void onUpdate(g,{status:e.target.value as GardenStatus})}>{Object.entries(STATUS_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><button className="admin-btn-secondary" disabled={saving} onClick={()=>void onUpdate(g,{release_at:new Date().toISOString(),status:'queued'})}>Fila</button></div>{g.scene_config?<button className="admin-btn-secondary mt-2 w-full" onClick={()=>setCreator({garden:g})}>Editar imagens e cena</button>:<p className="mt-2 text-[10px] text-ink-soft">Jardim original (cena no código).</p>}</div></article>)}</div>
   </div>
 }
 
