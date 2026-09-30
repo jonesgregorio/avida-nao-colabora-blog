@@ -48,17 +48,25 @@ function previewText(body: string): string {
   return `${clean.slice(0, PREVIEW_LIMIT).trimEnd()}…`
 }
 
-async function loadTemplates(): Promise<SupportTemplate[]> {
-  if (!templatesPromise) {
-    templatesPromise = supabase
+async function fetchTemplates(): Promise<SupportTemplate[]> {
+  try {
+    const { data } = await supabase
       .from('support_reply_templates')
       .select('id,title,category,body')
       .eq('is_active', true)
       .in('usage_context', ['support', 'both'])
-      .then(({ data }) => (data ?? []) as SupportTemplate[])
-      .catch(() => [])
+    return (data ?? []) as SupportTemplate[]
+  } catch {
+    return []
   }
-  return templatesPromise
+}
+
+function loadTemplates(): Promise<SupportTemplate[]> {
+  const existing = templatesPromise
+  if (existing) return existing
+  const pending = fetchTemplates()
+  templatesPromise = pending
+  return pending
 }
 
 function looksLikeTemplateListButton(button: HTMLButtonElement): boolean {
