@@ -83,7 +83,9 @@ begin
     select 'cancellations', f.id::text, f.user_id::text, 'Pedido de cancelamento', f.requested_at,
       f.requested_at + interval '24 hours', 'high', 'cancelamentos'
     from public.subscription_change_feedback f
-    where coalesce(f.change_type,'')='cancellation' and f.admin_handled_at is null and coalesce(f.status,'') <> 'reverted'
+    where coalesce(f.change_type,'')='cancellation'
+      and coalesce(f.status,'') <> 'reverted'
+      and (f.status='pending_approval' or f.stripe_sync_status='failed')
 
     -- Editorial: só conteúdo explicitamente em revisão. Rascunho comum e conteúdo já
     -- agendado/aprovado não viram pendência. Se houver publicação programada, a revisão
@@ -112,6 +114,11 @@ begin
     from public.content_generation_jobs j where j.status='failed'
 
     union all
+    select 'incidents', p.id::text, p.user_id::text, 'Plano de Autocuidado com falha', coalesce(p.updated_at,p.created_at),
+      coalesce(p.updated_at,p.created_at) + interval '24 hours', 'high', 'self-care-plans'
+    from public.monthly_care_plans p where p.status='failed'
+
+    union all
     select 'incidents', w.id::text, null::text, 'Webhook Stripe com falha', w.created_at,
       w.created_at + interval '4 hours', 'critical', 'financeiro'
     from public.stripe_webhook_events w where coalesce(w.status,'')='failed'
@@ -130,7 +137,7 @@ begin
       case
         when w.due_at is null then 'no_due'
         when w.due_at < v_now then 'overdue'
-        when w.due_at <= v_now + interval '24 hours' then 'today'
+        when (w.due_at at time zone 'America/Sao_Paulo')::date = (v_now at time zone 'America/Sao_Paulo')::date then 'today'
         when w.due_at <= v_now + interval '3 days' then 'due_3d'
         else 'later'
       end bucket
@@ -222,12 +229,12 @@ begin
       'personalization_overdue',(select count(*) from public.user_personalization_tasks where status='overdue' and delivery_id is null and generated_at is null),
       'reports_building',(select count(*) from public.reports where status='building'),
       'reports_pending_review',0,
-      'care_plans_pending',(select count(*) from public.monthly_care_plans where status in ('pending_generation','generating','pending_review','draft')),
+      'care_plans_pending',(select count(*) from public.monthly_care_plans where status in ('pending_review','draft','generated')),
       'notifications_draft',0,
       'guidance_pending',(select count(*) from public.monthly_guidance_requests where coalesce(status,'open') in ('open','pending','in_progress','in_review')),
       'tickets_open',(select count(*) from public.support_tickets where status not in ('closed','resolved')),
       'tickets_stale_7d',(select count(*) from public.support_tickets where status not in ('closed','resolved') and coalesce(updated_at,created_at)<v_now-interval '7 days'),
-      'cancellations_to_handle',(select count(*) from public.subscription_change_feedback where coalesce(change_type,'')='cancellation' and admin_handled_at is null and coalesce(status,'')<>'reverted'),
+      'cancellations_to_handle',(select count(*) from public.subscription_change_feedback where coalesce(change_type,'')='cancellation' and coalesce(status,'')<>'reverted' and (status='pending_approval' or stripe_sync_status='failed')),
       'content_jobs_running',(select count(*) from public.content_generation_jobs where status in ('pending','running')),
       'webhooks_stuck',(select count(*) from public.stripe_webhook_events where coalesce(status,'processing')='processing' and created_at<v_now-interval '1 hour')
     ),
@@ -248,6 +255,12 @@ begin
       'content_jobs_failed',(select count(*) from public.content_generation_jobs where status='failed' and updated_at>v_now-interval '24 hours'),
       'webhooks_failed',(select count(*) from public.stripe_webhook_events where coalesce(status,'')='failed' and created_at>v_now-interval '24 hours'),
       'campaigns_failed',(select count(*) from public.admin_communications where status='failed' and created_at>v_now-interval '24 hours')
+    ),
+    'failures_total',jsonb_build_object(
+      'reports_failed',(select count(*) from public.reports where status='failed'),
+      'care_plans_failed',(select count(*) from public.monthly_care_plans where status='failed'),
+      'content_jobs_failed',(select count(*) from public.content_generation_jobs where status='failed'),
+      'campaigns_failed',(select count(*) from public.admin_communications where status='failed')
     )
   ) into result;
   return coalesce(result,'{}'::jsonb);
