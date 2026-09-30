@@ -42,3 +42,10 @@ test('card do Admin pagina todos os eventos e explica origem não identificada',
   assert.match(card, /Não tratamos mais isso como “Direto”/)
   assert.match(card, /Entrada \{path\}/)
 })
+
+test('tráfego automatizado (bots/webdriver) não é registrado nas métricas', () => {
+  const analytics = read('src/lib/analytics.ts')
+  assert.match(analytics, /export function isAutomatedClient/)
+  assert.match(analytics, /navigator\.webdriver === true/)
+  assert.match(analytics, /if \(isSmokeTest\(\) \|\| isAutomatedClient\(\)\) return/)
+})
