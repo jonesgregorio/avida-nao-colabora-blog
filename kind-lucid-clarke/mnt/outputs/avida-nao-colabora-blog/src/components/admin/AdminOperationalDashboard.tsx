@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { AdminView } from './types'
+import AdminHumanActionCenter from './AdminHumanActionCenter'
 import {
   RefreshCw, UserPlus, NotebookPen, CalendarCheck, ClipboardList,
   Sprout, BarChart3, BookOpen, LifeBuoy, MessageSquare, CreditCard, XCircle, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock3, HeartHandshake, FileText,
@@ -10,7 +11,7 @@ import {
 type Period = 'today' | '7d' | '30d' | 'month' | 'custom'
 interface DashboardData { period?: Record<string, number>; attention?: Record<string, number> }
 interface ActionArea { total?: number; overdue?: number; due_3d?: number }
-interface ActionSnapshot { total?: number; overdue?: number; due_3d?: number; areas?: Record<string,ActionArea> }
+interface ActionSnapshot { total?: number; overdue?: number; due_today?: number; due_3d?: number; areas?: Record<string,ActionArea> }
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: 'Hoje', '7d': '7 dias', '30d': '30 dias', month: 'Mês atual', custom: 'Personalizado',
@@ -74,6 +75,9 @@ const ACTION_AREAS: { key:string; label:string; view:AdminView; Icon:LucideIcon 
   {key:'care',label:'Autocuidado',view:'self-care-plans',Icon:Sprout},
   {key:'deliveries',label:'Entregas',view:'personalization',Icon:HeartHandshake},
   {key:'reports',label:'Relatórios',view:'pdf',Icon:FileText},
+  {key:'cancellations',label:'Cancelamentos',view:'cancelamentos',Icon:XCircle},
+  {key:'incidents',label:'Incidentes',view:'system-health',Icon:AlertTriangle},
+  {key:'editorial',label:'Editorial',view:'articles',Icon:BookOpen},
 ]
 
 export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: (v: AdminView) => void }) {
@@ -121,27 +125,24 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
         </div>
         <div className="inline-flex max-w-full self-start overflow-x-auto rounded-xl border border-line bg-[#f6f2eb] p-1 xl:self-auto">
           {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${period === p ? 'bg-forest-900 text-white shadow-sm' : 'text-stone-600 hover:bg-white hover:text-forest-900'}`}
-            >
-              {PERIOD_LABELS[p]}
-            </button>
+            <button key={p} type="button" onClick={() => setPeriod(p)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${period === p ? 'bg-forest-900 text-white shadow-sm' : 'text-stone-600 hover:bg-white hover:text-forest-900'}`}>{PERIOD_LABELS[p]}</button>
           ))}
-          <button type="button" onClick={() => void load()} className="ml-1 rounded-lg p-1.5 text-stone-500 hover:bg-white hover:text-forest-800" aria-label="Atualizar período">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <button type="button" onClick={() => void load()} className="ml-1 rounded-lg p-1.5 text-stone-500 hover:bg-white hover:text-forest-800" aria-label="Atualizar período"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
       </div>
 
-
       <div className="mb-5 rounded-2xl border border-forest-200 bg-forest-50/60 p-4 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-forest-600">Sua fila operacional</p><h3 className="font-serif text-xl text-forest-900">O que precisa da sua atenção</h3></div><button onClick={()=>onNavigate('atendimentos')} className="text-xs font-medium text-forest-700 hover:underline">Abrir Atendimentos & Entregas →</button></div>
-        <div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-xl border border-line bg-white p-3"><HeartHandshake className="h-4 w-4 text-forest-600"/><p className="mt-1 font-serif text-2xl text-forest-900">{actions?.total ?? '—'}</p><p className="text-[10px] text-stone-500">dependem da sua ação</p></div><div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><Clock3 className="h-4 w-4 text-amber-700"/><p className="mt-1 font-serif text-2xl text-amber-800">{actions?.due_3d ?? '—'}</p><p className="text-[10px] text-amber-800">vencem em até 3 dias</p></div><div className="rounded-xl border border-red-200 bg-red-50 p-3"><AlertTriangle className="h-4 w-4 text-red-700"/><p className="mt-1 font-serif text-2xl text-red-800">{actions?.overdue ?? '—'}</p><p className="text-[10px] text-red-800">atrasados</p></div></div>
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">{ACTION_AREAS.map(({key,label,view,Icon})=>{const a=actions?.areas?.[key];return <button key={key} onClick={()=>onNavigate(view)} className="rounded-xl border border-line bg-white p-3 text-left hover:border-forest-300"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-stone-500"/>{(a?.overdue??0)>0&&<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] text-red-700">{a?.overdue} atras.</span>}</div><p className="mt-2 text-xs font-medium text-forest-900">{label}</p><p className="text-[11px] text-stone-500">{a?.total ?? 0} pendente(s){(a?.due_3d??0)>0?` · ${a?.due_3d} próximos`:''}</p></button>})}</div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-xl border border-line bg-white p-3"><HeartHandshake className="h-4 w-4 text-forest-600"/><p className="mt-1 font-serif text-2xl text-forest-900">{actions?.total ?? '—'}</p><p className="text-[10px] text-stone-500">dependem da sua ação</p></div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><Clock3 className="h-4 w-4 text-amber-700"/><p className="mt-1 font-serif text-2xl text-amber-800">{actions?.due_today ?? '—'}</p><p className="text-[10px] text-amber-800">vencem hoje</p></div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><Clock3 className="h-4 w-4 text-amber-700"/><p className="mt-1 font-serif text-2xl text-amber-800">{actions?.due_3d ?? '—'}</p><p className="text-[10px] text-amber-800">vencem em até 3 dias</p></div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3"><AlertTriangle className="h-4 w-4 text-red-700"/><p className="mt-1 font-serif text-2xl text-red-800">{actions?.overdue ?? '—'}</p><p className="text-[10px] text-red-800">atrasados</p></div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{ACTION_AREAS.map(({key,label,view,Icon})=>{const a=actions?.areas?.[key];return <button key={key} onClick={()=>onNavigate(view)} className="rounded-xl border border-line bg-white p-3 text-left hover:border-forest-300"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-stone-500"/>{(a?.overdue??0)>0&&<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] text-red-700">{a?.overdue} atras.</span>}</div><p className="mt-2 text-xs font-medium text-forest-900">{label}</p><p className="text-[11px] text-stone-500">{a?.total ?? 0} pendente(s){(a?.due_3d??0)>0?` · ${a?.due_3d} próximos`:''}</p></button>})}</div>
       </div>
+
+      <AdminHumanActionCenter onNavigate={onNavigate} />
 
       {period === 'custom' && (
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-stone-50 px-4 py-3 text-xs">
@@ -160,10 +161,7 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
               return (
                 <div key={m.key} className="rounded-2xl border border-line bg-[#fbfaf7] p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{m.label}</p>
-                      {display === null ? <span className="mt-2 block h-8 w-12 animate-pulse rounded bg-stone-200" aria-label="carregando" /> : <p className="mt-1 font-serif text-[32px] leading-none text-forest-900">{display}</p>}
-                    </div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{m.label}</p>{display === null ? <span className="mt-2 block h-8 w-12 animate-pulse rounded bg-stone-200" aria-label="carregando" /> : <p className="mt-1 font-serif text-[32px] leading-none text-forest-900">{display}</p>}</div>
                     <span className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white"><m.Icon className="h-3.5 w-3.5 text-forest-600" /></span>
                   </div>
                   <p className="mt-2 text-[10px] text-stone-500">{m.note}</p>
@@ -179,13 +177,7 @@ export default function AdminOperationalDashboard({ onNavigate }: { onNavigate: 
                 <div className="divide-y divide-line/70">
                   {group.metrics.map(m => {
                     const display = value(m.key)
-                    return (
-                      <div key={m.key} className="flex items-center gap-2 py-2.5">
-                        <m.Icon className="h-3.5 w-3.5 flex-shrink-0 text-stone-400" />
-                        <span className="min-w-0 flex-1 text-xs text-stone-600">{m.label}</span>
-                        {display === null ? <span className="h-4 w-7 animate-pulse rounded bg-stone-200" /> : <strong className="font-serif text-lg font-normal text-forest-900">{display}</strong>}
-                      </div>
-                    )
+                    return <div key={m.key} className="flex items-center gap-2 py-2.5"><m.Icon className="h-3.5 w-3.5 flex-shrink-0 text-stone-400" /><span className="min-w-0 flex-1 text-xs text-stone-600">{m.label}</span>{display === null ? <span className="h-4 w-7 animate-pulse rounded bg-stone-200" /> : <strong className="font-serif text-lg font-normal text-forest-900">{display}</strong>}</div>
                   })}
                 </div>
               </div>
