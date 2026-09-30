@@ -4,12 +4,12 @@ import { collectAllPages } from '../../lib/supabasePagination'
 import { reasonsLabel } from '../../lib/cancelReasons'
 import { emailCancellationReply } from '../../lib/emailTriggers'
 import { resolveEffectivePeriodEnd, formatBillingDate } from '../../lib/billingCycle'
-import { Ban, RefreshCw, Loader2, Send, Check, X, Mail, MessageSquare, CreditCard, AlertTriangle } from 'lucide-react'
+import { Ban, RefreshCw, Loader2, Send, Check, X, Mail, MessageSquare, CreditCard, AlertTriangle, Clock3 } from 'lucide-react'
 
-// Fila de cancelamentos para o admin. O cancelamento já é honrado no fim do ciclo
-// (agendado pelo manage-subscription no ato do pedido do usuário). Aqui o admin
-// pode: (1) GARANTIR/re-sincronizar o agendamento no Stripe (cancel_at_period_end),
-// e (2) responder por e-mail (retenção). Nunca cancela acesso imediatamente.
+// Fila de cancelamentos para o admin. O pedido nasce como pending_approval e só
+// é enviado ao Stripe depois da aprovação humana. A resposta por e-mail é uma
+// conversa de suporte/retenção e NÃO encerra a pendência de aprovação.
+// O agendamento é sempre para o fim do ciclo; nunca cancela o acesso imediatamente.
 // RLS de admin (scf_admin_all / sub_admin) permite ler/atualizar.
 
 interface SubInfo {
@@ -60,6 +60,24 @@ function initials(name?: string | null, email?: string | null) {
   const b = (name || email || 'U').trim()
   return (b.split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'U').toUpperCase()
 }
+function needsDecision(r: Row): boolean {
+  if (r.status === 'reverted' || r.status === 'completed') return false
+  if (r.status === 'scheduled' && r.stripe_sync_status === 'success') return false
+  return r.status === 'pending_approval' || r.stripe_sync_status === 'failed'
+}
+function cancellationSla(iso: string): { label: string; overdue: boolean; deadline: string } {
+  const due = new Date(new Date(iso).getTime() + 24 * 3600000)
+  const diff = due.getTime() - Date.now()
+  const hours = Math.max(1, Math.ceil(Math.abs(diff) / 3600000))
+  const label = diff < 0
+    ? `Atrasado há ${hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d`}`
+    : `Responder em até ${hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d`}`
+  return {
+    label,
+    overdue: diff < 0,
+    deadline: due.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+  }
+}
 
 // Fim do ciclo real, seguindo a prioridade oficial (billingCycle):
 // current_period_end (Stripe→banco) → pending/effective_at → ativação+30d.
@@ -87,7 +105,6 @@ function stripeStateOf(r: Row): StripeState {
   if (subStatus === 'cancelled' || subStatus === 'canceled' || r.status === 'completed') {
     return { badge: 'Já cancelado', badgeCls: 'bg-stone-100 text-stone-500', canSchedule: false, btnLabel: 'Já cancelado' }
   }
-  // Pedido retirado pelo usuário antes da aprovação (110): não há o que aprovar.
   if (r.status === 'reverted') {
     return { badge: 'Pedido retirado', badgeCls: 'bg-stone-100 text-stone-500', canSchedule: false, btnLabel: 'Pedido retirado' }
   }
@@ -146,23 +163,24 @@ export default function AdminCancellations() {
   useEffect(() => { load() }, [])
 
   const counts = useMemo(() => ({
-    pendentes: rows.filter(r => !r.admin_handled_at).length,
-    tratados: rows.filter(r => r.admin_handled_at).length,
+    pendentes: rows.filter(needsDecision).length,
+    tratados: rows.filter(r => !needsDecision(r)).length,
     todos: rows.length,
   }), [rows])
 
   const filtered = useMemo(() => rows.filter(r =>
-    filter === 'todos' ? true : filter === 'pendentes' ? !r.admin_handled_at : !!r.admin_handled_at
+    filter === 'todos' ? true : filter === 'pendentes' ? needsDecision(r) : !needsDecision(r)
   ), [rows, filter])
 
   async function markHandled(row: Row) {
     const { data: me } = await supabase.auth.getUser()
+    const now = new Date().toISOString()
     const { error } = await supabase.from('subscription_change_feedback')
-      .update({ admin_handled_at: new Date().toISOString(), admin_id: me.user?.id ?? null, updated_at: new Date().toISOString() })
+      .update({ admin_handled_at: now, admin_id: me.user?.id ?? null, updated_at: now })
       .eq('id', row.id)
     if (error) { showToast('Erro: ' + error.message, true); return }
-    showToast('Marcado como tratado.')
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, admin_handled_at: new Date().toISOString() } : r))
+    showToast('Registro administrativo marcado como tratado.')
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, admin_handled_at: now } : r))
   }
 
   async function sendReply() {
@@ -176,12 +194,12 @@ export default function AdminCancellations() {
     if (!res.ok) { showToast('Falha ao enviar e-mail: ' + (res.error ?? ''), true); setSending(false); return }
     const { data: me } = await supabase.auth.getUser()
     await supabase.from('subscription_change_feedback').update({
-      admin_reply: reply.trim(), admin_replied_at: now, admin_handled_at: now,
+      admin_reply: reply.trim(), admin_replied_at: now,
       admin_id: me.user?.id ?? null, updated_at: now,
     }).eq('id', replyTo.id)
-    setRows(prev => prev.map(r => r.id === replyTo.id ? { ...r, admin_reply: reply.trim(), admin_replied_at: now, admin_handled_at: now } : r))
+    setRows(prev => prev.map(r => r.id === replyTo.id ? { ...r, admin_reply: reply.trim(), admin_replied_at: now } : r))
     setSending(false); setReplyTo(null); setReply('')
-    showToast('Resposta enviada por e-mail e cancelamento marcado como tratado.')
+    showToast('Resposta enviada por e-mail. O pedido continua pendente até você aprovar ou o usuário retirá-lo.')
   }
 
   // Agenda o cancelamento no Stripe (cancel_at_period_end=true) via Edge Function
@@ -203,6 +221,7 @@ export default function AdminCancellations() {
     }
     const end = d.effectiveAt ?? row.effective_at
     const dateStr = end ? formatBillingDate(end) : ''
+    const handledAt = new Date().toISOString()
     showToast(d.already
       ? 'Este cancelamento já está agendado no Stripe.'
       : `Cancelamento agendado no Stripe com sucesso.${dateStr ? ' O usuário mantém acesso até ' + dateStr + '.' : ''}`)
@@ -210,9 +229,10 @@ export default function AdminCancellations() {
       ...r,
       status: 'scheduled',
       effective_at: end,
+      admin_handled_at: handledAt,
       stripe_sync_status: 'success',
       stripe_error: null,
-      stripe_sent_at: new Date().toISOString(),
+      stripe_sent_at: handledAt,
       sub: r.sub ? { ...r.sub, cancel_at_period_end: true, current_period_end: end ?? r.sub.current_period_end } : r.sub,
     } : r))
   }
@@ -224,14 +244,13 @@ export default function AdminCancellations() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="font-serif text-3xl text-forest-900 flex items-center gap-2"><Ban className="w-6 h-6 text-forest-600" /> Cancelamentos</h1>
-          <p className="text-sm text-ink-soft mt-1">Cada pedido chega para a <strong>sua aprovação</strong> com o motivo. Nada é enviado ao Stripe até você aprovar. Ao aprovar, o cancelamento é agendado para o <strong>fim do ciclo</strong> — o usuário mantém acesso até lá. Você também pode responder por e-mail antes de decidir.</p>
+          <p className="text-sm text-ink-soft mt-1">Cada pedido chega para a <strong>sua aprovação</strong> com o motivo. Nada é enviado ao Stripe até você aprovar. Procure processar o pedido em até <strong>24 horas</strong>. Ao aprovar, o cancelamento é agendado para o <strong>fim do ciclo</strong> — o usuário mantém acesso até lá. Você também pode responder por e-mail antes de decidir, sem retirar o pedido da fila.</p>
         </div>
         <button onClick={load} className="inline-flex items-center gap-2 border border-line bg-white px-4 py-2 rounded-xl text-sm text-forest-800 hover:border-forest-300">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </button>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap gap-1.5 mb-4">
         {([['pendentes', 'Pendentes'], ['tratados', 'Tratados'], ['todos', 'Todos']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)}
@@ -256,8 +275,10 @@ export default function AdminCancellations() {
             const ss = stripeStateOf(r)
             const endStr = formatBillingDate(endDateOf(r))
             const busy = scheduling === r.id
+            const pending = needsDecision(r)
+            const sla = cancellationSla(r.requested_at)
             return (
-              <div key={r.id} className={`bg-white border rounded-2xl p-4 ${r.admin_handled_at ? 'border-line' : 'border-amber-200'}`}>
+              <div key={r.id} className={`bg-white border rounded-2xl p-4 ${pending ? (sla.overdue ? 'border-red-200' : 'border-amber-200') : 'border-line'}`}>
                 <div className="flex items-start gap-3">
                   <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-xs font-semibold text-forest-700 flex-shrink-0 mt-0.5">
                     {initials(r.user?.full_name, r.user?.email)}
@@ -268,14 +289,14 @@ export default function AdminCancellations() {
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">{planLabel(r.current_plan)} → {planLabel(r.target_plan)}</span>
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${sm.cls}`}>{sm.label}</span>
                       <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${ss.badgeCls}`}><CreditCard className="w-3 h-3" /> {ss.badge}</span>
-                      {!r.admin_handled_at
-                        ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Pendente</span>
+                      {pending
+                        ? <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${sla.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}><Clock3 className="w-3 h-3" /> {sla.label}</span>
                         : <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-forest-100 text-forest-800 font-medium"><Check className="w-3 h-3" /> Tratado</span>}
                     </div>
                     {r.user?.email && <p className="text-xs text-stone-400 mt-0.5">{r.user.email}</p>}
                     <p className="text-sm text-stone-700 mt-2"><span className="text-stone-400">Motivo:</span> {reasonsLabel(r.reasons) || '—'}</p>
                     {r.comment && <p className="text-sm text-stone-600 mt-1 bg-stone-50 rounded-lg p-2.5 whitespace-pre-wrap">"{r.comment}"</p>}
-                    <p className="text-[11px] text-stone-400 mt-2">Solicitado {fmt(r.requested_at)} · fim do ciclo {endStr}</p>
+                    <p className="text-[11px] text-stone-400 mt-2">Solicitado {fmt(r.requested_at)} · fim do ciclo {endStr}{pending ? ` · prazo administrativo ${sla.deadline}` : ''}</p>
                     {r.stripe_sync_status === 'failed' && r.stripe_error && (
                       <p className="text-[11px] text-red-600 mt-1">Erro Stripe: {r.stripe_error}</p>
                     )}
@@ -296,9 +317,9 @@ export default function AdminCancellations() {
                         className="inline-flex items-center gap-1.5 text-xs bg-forest-700 hover:bg-forest-800 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg">
                         <Mail className="w-3.5 h-3.5" /> Responder por e-mail
                       </button>
-                      {!r.admin_handled_at && (
+                      {!pending && !r.admin_handled_at && (
                         <button onClick={() => markHandled(r)} className="inline-flex items-center gap-1.5 text-xs border border-line text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">
-                          <Check className="w-3.5 h-3.5" /> Marcar como tratado
+                          <Check className="w-3.5 h-3.5" /> Marcar registro como tratado
                         </button>
                       )}
                     </div>
@@ -310,7 +331,6 @@ export default function AdminCancellations() {
         </div>
       )}
 
-      {/* Modal: confirmar agendamento no Stripe */}
       {confirmRow && (() => {
         const end = formatBillingDate(endDateOf(confirmRow))
         const start = confirmRow.sub?.current_period_start ? fmt(confirmRow.sub.current_period_start) : null
@@ -350,7 +370,6 @@ export default function AdminCancellations() {
         )
       })()}
 
-      {/* Modal de resposta por e-mail */}
       {replyTo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
@@ -364,7 +383,7 @@ export default function AdminCancellations() {
               <textarea value={reply} onChange={e => setReply(e.target.value)} rows={7}
                 placeholder="Escreva uma mensagem acolhedora. Ex.: agradeça o tempo no app, pergunte se há algo que possa ajudar, ofereça apoio para retomar quando quiser…"
                 className="w-full px-3 py-2.5 border border-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-300" />
-              <p className="text-[11px] text-stone-400">O e-mail vai com o assunto "Sobre a sua assinatura" e marca o cancelamento como tratado.</p>
+              <p className="text-[11px] text-stone-400">O e-mail vai com o assunto "Sobre a sua assinatura". Enviar uma resposta não aprova nem encerra o pedido de cancelamento.</p>
             </div>
             <div className="p-4 border-t border-line flex items-center justify-end gap-2">
               <button onClick={() => setReplyTo(null)} className="px-4 py-2 text-sm text-stone-500 border border-line rounded-lg hover:bg-stone-50">Cancelar</button>
