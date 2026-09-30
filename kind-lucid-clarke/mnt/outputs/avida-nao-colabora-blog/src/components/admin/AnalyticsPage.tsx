@@ -4,6 +4,7 @@ import AdminRetentionAnalytics from './AdminRetentionAnalytics'
 import AdminJourneyFunnel from './AdminJourneyFunnel'
 import AdminConversionFunnel from './AdminConversionFunnel'
 import AdminArticleAnalytics from './AdminArticleAnalytics'
+import AdminArticleReaders from './AdminArticleReaders'
 import AnalyticsPageLegacy from './AnalyticsPageLegacy'
 
 interface AnalyticsPageProps {
@@ -56,6 +57,7 @@ function AnalyticsContent(props: AnalyticsPageProps) {
   return (
     <div className="flex flex-col gap-4">
       <Card pad><AdminArticleAnalytics /></Card>
+      <Card pad><AdminArticleReaders /></Card>
       <Card><AnalyticsPageLegacy {...props} only={ONLY_CONTENT} hideHero /></Card>
     </div>
   )
