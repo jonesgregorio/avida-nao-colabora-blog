@@ -15,7 +15,7 @@ export interface OperationalSnapshot {
 }
 
 // Filas que representam TRABALHO HUMANO/OPERACIONAL a fazer.
-// Buckets sem sobreposição entre si e com TECH_FAILURE_KEYS.
+// Rascunhos voluntários sem prazo não entram como obrigação.
 export const ACTION_QUEUE_KEYS = [
   'guidance_pending',
   'tickets_open',
@@ -23,7 +23,6 @@ export const ACTION_QUEUE_KEYS = [
   'care_plans_pending',
   'cancellations_to_handle',
   'personalization_overdue',
-  'notifications_draft',
   'webhooks_stuck',
 ] as const
 
@@ -35,6 +34,7 @@ export const TECH_FAILURE_KEYS = [
   'care_plans_failed',
   'content_jobs_failed',
   'webhooks_failed',
+  'campaigns_failed',
 ] as const
 
 const EMPTY: OperationalSnapshot = { ok: false, queues: {}, failuresActive: {}, failures24h: {} }
@@ -65,7 +65,7 @@ export function actionItemsCount(s: OperationalSnapshot): number {
   return sumKeys(s.queues, ACTION_QUEUE_KEYS)
 }
 
-/** Incidentes técnicos ativos (IA, e-mail, jobs, webhooks, relatórios/planos com falha). */
+/** Incidentes técnicos ativos (IA, e-mail, jobs, webhooks, relatórios/planos/campanhas com falha). */
 export function techFailuresCount(s: OperationalSnapshot): number {
   return sumKeys(s.failuresActive, TECH_FAILURE_KEYS)
 }
