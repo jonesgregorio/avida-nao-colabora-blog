@@ -86,11 +86,11 @@ begin
     where coalesce(f.change_type,'')='cancellation' and f.admin_handled_at is null and coalesce(f.status,'') <> 'reverted'
 
     -- Editorial: só conteúdo explicitamente em revisão. Rascunho comum e conteúdo já
-    -- agendado/aprovado não viram pendência. Se houver data futura em published_at,
-    -- a revisão vence 24h antes; sem data, há uma janela operacional de 3 dias.
+    -- agendado/aprovado não viram pendência. Se houver publicação programada, a revisão
+    -- vence 24h antes do scheduled_at; sem programação, há janela operacional de 3 dias.
     union all
     select 'editorial', a.id::text, null::text, coalesce(nullif(a.title,''),'Conteúdo em revisão'), a.created_at,
-      coalesce(a.published_at - interval '24 hours', a.created_at + interval '3 days'), 'normal', 'articles'
+      coalesce(a.scheduled_at - interval '24 hours', a.created_at + interval '3 days'), 'normal', 'articles'
     from public.articles a where a.status='review'
 
     -- Incidentes: uma falha transitória recente tem 15 minutos para se recuperar antes
@@ -170,11 +170,7 @@ as $$
 declare v_now timestamptz:=now(); v jsonb;
 begin
   if not public.is_admin() then raise exception 'not authorized'; end if;
-  with payload as (
-    select public.admin_action_center_items('all','all',100,0) value
-  ), raw_items as (
-    -- Snapshot usa a própria função paginada para manter semântica única. Como o limite
-    -- público é 100, complementamos contagens por área com chamadas filtradas.
+  with raw_items as (
     select unnest(array['support','guidance','care','deliveries','reports','cancellations','incidents','editorial']) area
   ), counts as (
     select area,
