@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Clock3, Filter, RefreshCw, Search, UserRoundCheck, UserRoundX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock3, Download, Filter, RefreshCw, Search, UserRoundCheck, UserRoundX } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { exportCsv } from '../../lib/csvExport'
 
 type Period = '24h' | '7d' | '30d' | '90d'
 type ReaderType = 'all' | 'identified' | 'anonymous'
@@ -14,7 +15,7 @@ const PERIODS: { id: Period; label: string; days: number }[] = [
   { id: '24h', label: 'Últimas 24h', days: 1 }, { id: '7d', label: '7 dias', days: 7 },
   { id: '30d', label: '30 dias', days: 30 }, { id: '90d', label: '90 dias', days: 90 },
 ]
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 
 type Ev = {
   event: string
@@ -171,6 +172,7 @@ export default function AdminArticleReaders() {
   const [registration, setRegistration] = useState<RegistrationFilter>('all')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(10)
   const [events, setEvents] = useState<Ev[]>([])
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -194,7 +196,7 @@ export default function AdminArticleReaders() {
     setLoading(false)
   }
   useEffect(() => { void load() }, [since]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(1) }, [readerType, article, engagement, progress, timeFilter, registration, search, period])
+  useEffect(() => { setPage(1) }, [readerType, article, engagement, progress, timeFilter, registration, search, period, pageSize])
 
   const rows = useMemo(() => buildRows(events, profiles), [events, profiles])
   const articles = useMemo(() => { const m = new Map<string,string>(); for (const r of rows) m.set(r.slug,r.articleTitle); return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')) }, [rows])
@@ -239,10 +241,16 @@ export default function AdminArticleReaders() {
     ['Iniciaram cadastro', baseFiltered.filter(r=>r.signupStarted).length],
     ['Concluíram cadastro', baseFiltered.filter(r=>r.registered).length],
   ] as const
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); const safePage = Math.min(page,totalPages); const visible = filtered.slice((safePage-1)*PAGE_SIZE,safePage*PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize)); const safePage = Math.min(page,totalPages); const visible = filtered.slice((safePage-1)*pageSize,safePage*pageSize)
+
+  function exportRows() {
+    exportCsv(`avnc-leituras-detalhadas-${period}.csv`,
+      ['Leitor', 'Identificação', 'Tipo', 'Artigo', 'Slug', 'Aberturas', 'Tempo ativo (s)', 'Tempo estimado (s)', 'Profundidade', 'Engajamento', 'Próxima ação', 'Cadastro', 'Última leitura'],
+      filtered.map(r => [r.readerName, r.readerDetail, r.identified ? 'Cadastrado' : 'Anônimo', r.articleTitle, r.slug, r.views, r.activeSeconds, r.estimatedReadSeconds, r.maxProgress ? `${r.maxProgress}%` : 'Abriu', r.engagement, r.nextAction, r.registered ? 'Concluído' : r.signupStarted ? 'Iniciado' : 'Não', fmt(r.lastReadAt)]))
+  }
 
   return <section className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="admin-kicker">Conteúdo</p><h2 className="font-serif text-2xl text-forest-900">Leitores, tempo e conversão</h2><p className="mt-1 max-w-3xl text-sm text-ink-soft">Entenda quem leu, por quanto tempo ficou realmente ativo no artigo, até onde chegou e o que fez depois.</p></div><button type="button" onClick={()=>void load()} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-forest-800"><RefreshCw className={`h-4 w-4 ${loading?'animate-spin':''}`}/> Atualizar</button></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="admin-kicker">Conteúdo</p><h2 className="font-serif text-2xl text-forest-900">Leitores, tempo e conversão</h2><p className="mt-1 max-w-3xl text-sm text-ink-soft">Entenda quem leu, por quanto tempo ficou realmente ativo no artigo, até onde chegou e o que fez depois.</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={!filtered.length} onClick={exportRows} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-forest-800 disabled:opacity-40"><Download className="h-4 w-4"/> Exportar CSV</button><button type="button" onClick={()=>void load()} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-forest-800"><RefreshCw className={`h-4 w-4 ${loading?'animate-spin':''}`}/> Atualizar</button></div></div>
 
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <div className="rounded-2xl border border-line bg-white p-4"><UserRoundCheck className="mb-2 h-4 w-4 text-forest-600"/><p className="font-serif text-3xl text-forest-900">{loading?'—':identified}</p><p className="mt-1 text-xs text-ink-soft">Leitores identificados</p></div>
@@ -270,7 +278,7 @@ export default function AdminArticleReaders() {
     {error&&<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Não foi possível carregar todos os dados: {error}</div>}
 
     <div className="overflow-hidden rounded-2xl border border-line bg-white">
-      <div className="border-b border-line px-5 py-4"><h3 className="font-serif text-lg text-forest-900">Leituras detalhadas</h3><p className="mt-1 text-xs text-ink-soft">{filtered.length} resultado{filtered.length===1?'':'s'} · {PAGE_SIZE} linhas por página. Tempo ativo pausa quando a aba fica oculta ou após 60s sem atividade.</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line px-5 py-4"><div><h3 className="font-serif text-lg text-forest-900">Leituras detalhadas</h3><p className="mt-1 text-xs text-ink-soft">{filtered.length} resultado{filtered.length===1?'':'s'} · {pageSize} por página. Tempo ativo pausa quando a aba fica oculta ou após 60s sem atividade.</p></div><label className="flex items-center gap-2 text-xs text-ink-soft">Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))} className="rounded-lg border border-line bg-white px-2 py-1.5 text-sm text-forest-900">{PAGE_SIZE_OPTIONS.map(size=><option key={size} value={size}>{size}</option>)}</select></label></div>
       {loading?<div className="p-8 text-center text-sm text-ink-soft">Carregando leitores…</div>:filtered.length===0?<div className="p-8 text-center text-sm text-ink-soft">Nenhuma leitura encontrada com estes filtros.</div>:<><div className="overflow-x-auto"><table className="min-w-[1280px] w-full text-sm"><thead className="bg-paper-soft text-left text-xs uppercase tracking-wide text-ink-soft"><tr><th className="px-4 py-3">Leitor</th><th className="px-4 py-3">Artigo</th><th className="px-3 py-3 text-right">Tempo ativo</th><th className="px-3 py-3 text-right">Leitura</th><th className="px-3 py-3">Engajamento</th><th className="px-3 py-3">Próxima ação</th><th className="px-3 py-3 text-center">Cadastro</th><th className="px-4 py-3 text-right">Última leitura</th></tr></thead><tbody className="divide-y divide-line">{visible.map(r=><tr key={r.key} className="hover:bg-paper-soft/60"><td className="px-4 py-3"><div className="flex items-center gap-2">{r.identified?<UserRoundCheck className="h-4 w-4 shrink-0 text-forest-600"/>:<UserRoundX className="h-4 w-4 shrink-0 text-stone-400"/>}<div className="min-w-0"><p className="truncate font-medium text-forest-900">{r.readerName}</p><p className="truncate text-xs text-ink-soft">{r.readerDetail}</p></div></div></td><td className="px-4 py-3"><p className="max-w-md truncate font-medium text-forest-900">{r.articleTitle}</p><p className="max-w-md truncate font-mono text-[11px] text-ink-soft">{r.slug}</p></td><td className="px-3 py-3 text-right"><p className="font-medium text-forest-900">{formatTime(r.activeSeconds)}</p>{r.estimatedReadSeconds>0&&<p className="text-[10px] text-ink-soft">de ~{formatTime(r.estimatedReadSeconds)}</p>}</td><td className="px-3 py-3 text-right"><span className="inline-flex min-w-12 justify-center rounded-full bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">{r.maxProgress?`${r.maxProgress}%`:'abriu'}</span></td><td className="px-3 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${r.engagement==='Alta intenção'?'bg-green-50 text-green-700':r.engagement==='Engajado'?'bg-forest-50 text-forest-700':r.engagement==='Parcial'?'bg-amber-50 text-amber-700':'bg-stone-100 text-stone-600'}`}>{r.engagement}</span></td><td className="px-3 py-3 text-ink-soft">{r.nextAction}</td><td className="px-3 py-3 text-center"><span className={`rounded-full px-2 py-1 text-xs font-medium ${r.registered?'bg-green-50 text-green-700':r.signupStarted?'bg-amber-50 text-amber-700':'bg-stone-100 text-stone-600'}`}>{r.registered?'Concluído':r.signupStarted?'Iniciado':'Não'}</span></td><td className="px-4 py-3 text-right whitespace-nowrap text-ink-soft">{fmt(r.lastReadAt)}</td></tr>)}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3"><p className="text-xs text-ink-soft">Página {safePage} de {totalPages}</p><div className="flex gap-2"><button type="button" disabled={safePage<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1.5 text-sm text-forest-800 disabled:opacity-40"><ChevronLeft className="h-4 w-4"/> Anterior</button><button type="button" disabled={safePage>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1.5 text-sm text-forest-800 disabled:opacity-40">Próxima <ChevronRight className="h-4 w-4"/></button></div></div></>}
     </div>
     <p className="text-xs leading-relaxed text-ink-soft">Privacidade: o rastreamento registra apenas tempo técnico de leitura, artigo, sessão e ações de navegação. Não lê conteúdo do diário, check-ins, respostas de questionários ou dados emocionais. Usuários só aparecem identificados quando já estavam autenticados.</p>
