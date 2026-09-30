@@ -17,6 +17,17 @@ function isSmokeTest(): boolean {
   try { return sessionStorage.getItem('avnc_smoke') === '1' } catch { return false }
 }
 
+// Robôs/crawlers que executam JavaScript (auditoria de SEO, headless, scanners) chegam sem
+// UTM/referrer e passavam como "Origem não identificada", inflando visitantes e sessões.
+// Não os contamos. Cobre navegador automatizado (navigator.webdriver) e UAs conhecidos.
+const BOT_UA = /bot\b|crawl|spider|slurp|headless|phantomjs|lighthouse|pagespeed|gtmetrix|pingdom|scrapy|python-requests|curl\/|wget|httpclient|axios|node-fetch/i
+export function isAutomatedClient(
+  ua: string = typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  webdriver: boolean = typeof navigator !== 'undefined' && navigator.webdriver === true,
+): boolean {
+  return webdriver || BOT_UA.test(ua || '')
+}
+
 function getSessionId(): string {
   const key = 'avnc_sid'
   try {
@@ -92,7 +103,7 @@ function coarseUA(ua: string): string {
 
 export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
-    if (isSmokeTest()) return
+    if (isSmokeTest() || isAutomatedClient()) return
     // O painel administrativo não representa aquisição/uso do site público.
     if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) return
     loadConfig()

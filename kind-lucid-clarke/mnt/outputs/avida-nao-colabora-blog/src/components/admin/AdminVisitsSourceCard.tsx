@@ -47,6 +47,7 @@ interface Ev {
   session_id: string | null
   user_id: string | null
   metadata: {
+    bot_suspected?: boolean
     path?: string
     landing_path?: string
     attribution_method?: string
@@ -108,7 +109,7 @@ export default function AdminVisitsSourceCard() {
         .range(from, to)
     )
     if (error) { setVisitors(0); setSessions(0); setSources([]); setUnknownLandings([]); setLoading(false); return }
-    const rows = data as Ev[]
+    const rows = (data as Ev[]).filter(row => row.metadata?.bot_suspected !== true)
     const isAdmin = (row: Ev) => (row.metadata?.path ?? row.metadata?.landing_path ?? '').startsWith('/admin')
     const navEvents = rows.filter(row => (row.event === 'page_view' || row.event === 'article_view') && !isAdmin(row))
     setVisitors(new Set(navEvents.map(row => row.user_id || row.session_id).filter(Boolean)).size)
