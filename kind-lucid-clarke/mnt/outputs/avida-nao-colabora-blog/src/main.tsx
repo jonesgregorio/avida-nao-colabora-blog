@@ -6,6 +6,7 @@ import { initExternalMonitoring, installStaleChunkRecovery, MonitoringErrorBound
 import { installSensitiveDraftStorageGuard } from './lib/sensitiveDraftStorage'
 import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognitionPermission'
 import { initArticleActiveTimeTracking } from './lib/articleActiveTime'
+import { initAdminSupportComposerEnhancements } from './lib/adminSupportComposerEnhancements'
 import './index.css'
 import './diary-mobile.css'
 
@@ -14,6 +15,7 @@ installStaleChunkRecovery()
 installSensitiveDraftStorageGuard()
 installSpeechRecognitionPermissionGuard()
 initArticleActiveTimeTracking()
+initAdminSupportComposerEnhancements()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
