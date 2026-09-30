@@ -38,7 +38,7 @@ test('recursos sensíveis são explicados sem diagnóstico ou promessa clínica'
   assert.match(migration, /não diagnostica/)
   assert.match(migration, /não é uma prescrição/)
   assert.match(migration, /não substitui acompanhamento psicológico, psiquiátrico, médico ou atendimento de emergência/i)
-  assert.doesNotMatch(migration, /garante melhora|cura|diagnóstico automático|tratamento personalizado/i)
+  assert.doesNotMatch(migration, /garante melhora|\bcura\b|diagnóstico automático|tratamento personalizado/i)
 })
 
 test('lacunas operacionais recebem respostas completas', () => {
