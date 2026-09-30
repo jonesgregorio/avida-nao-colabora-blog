@@ -68,6 +68,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
     'run-automations',
     'run-emotional-automations',
     'run-lifecycle-emails',
+    'run-onboarding-emails',
     'send-transactional-email',
     'seo-control-selftest',
     'seo-smart-google-actions',
