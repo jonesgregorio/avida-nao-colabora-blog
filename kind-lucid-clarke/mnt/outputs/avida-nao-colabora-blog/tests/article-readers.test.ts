@@ -31,8 +31,8 @@ test('leitores exportam todos os resultados filtrados em CSV, não só a página
   assert.match(component, /exportCsv/)
   assert.match(component, /filtered\.map/)
   assert.doesNotMatch(component, /visible\.map\(r => \[r\.readerName/)
-  assert.match(csv, /\uFEFF/)
-  assert.match(csv, /replace\(\/"\/g, '\"\"'\)/)
+  assert.match(csv, /\\uFEFF/)
+  assert.match(csv, /safe\.replace\(\/"\/g, '""'\)/)
 })
 
 test('identificação nominal depende de user_id autenticado', () => {
