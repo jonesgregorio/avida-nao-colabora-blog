@@ -10,6 +10,7 @@ import { requireAdminAal2 } from '../_shared/adminAuth.ts'
 // current_period_end; após o fim do ciclo o webhook (customer.subscription.deleted)
 // reverte para o Gratuito. Aqui só GARANTIMOS o agendamento no Stripe e
 // sincronizamos o banco — de forma idempotente e segura (apenas admin AAL2).
+// A pendência administrativa só é concluída quando o agendamento está confirmado.
 //
 // Entrada: { feedback_id }  — o ID da assinatura NUNCA vem do client; é buscado
 // no banco a partir do usuário do registro de cancelamento.
@@ -85,7 +86,7 @@ Deno.serve(async (req: Request) => {
 
   const stripeSubId = (sub as { provider_subscription_id?: string } | null)?.provider_subscription_id ?? null
   if (!stripeSubId) {
-    return json({ error: 'Não foi encontrada uma assinatura Stripe vinculada a este usuário.', code: 'no_subscription' })
+    return json({ error: 'Não foi encontrada uma assinatura Stripe vinculada a este usuário.', code: 'no_subscription' }, 404)
   }
 
   const { data: profile } = await admin.from('profiles')
@@ -124,21 +125,24 @@ Deno.serve(async (req: Request) => {
   const effectiveEnd = computeEnd(s.current_period_end ? new Date(s.current_period_end * 1000).toISOString() : null)
 
   async function syncDb(endDate: string | null): Promise<void> {
+    const now = new Date().toISOString()
     await admin.from('user_subscriptions').update({
       cancel_at_period_end: true,
       status: 'cancel_pending',
       pending_plan: 'free',
       pending_plan_starts_at: endDate,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     }).eq('user_id', targetUserId)
 
     await admin.from('subscription_change_feedback').update({
       status: 'scheduled',
       effective_at: endDate,
-      stripe_sent_at: new Date().toISOString(),
+      stripe_sent_at: now,
       stripe_sync_status: 'success',
       stripe_error: null,
-      updated_at: new Date().toISOString(),
+      admin_handled_at: now,
+      admin_id: user.id,
+      updated_at: now,
     }).eq('id', feedbackId)
   }
 
