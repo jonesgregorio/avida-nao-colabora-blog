@@ -26,8 +26,9 @@
       "**Org-specific CLIs**: supabase (CLI, used routinely), stripe (CLI, used for payment flows — treat as sensitive given Stripe critical-flow warning in CLAUDE.md)",
       "No additional 'routine under <user>/ prefix' qualifiers found"
     ],
-    "allow": [],
-    "soft_deny": [
+    "allow": [
+      "Bash(gh pr merge:*)"
+    ],    "soft_deny": [
       "$defaults",
       "Bash(stripe:trigger*)",
       "Bash(supabase:db reset*)",
