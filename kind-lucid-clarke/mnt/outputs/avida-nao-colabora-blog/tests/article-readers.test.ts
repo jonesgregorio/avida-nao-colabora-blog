@@ -18,7 +18,7 @@ test('painel de leitores possui filtros e paginação', () => {
   assert.match(component, /Só anônimos/)
   assert.match(component, /Todos os artigos/)
   assert.match(component, /Buscar usuário ou artigo/)
-  assert.match(component, /PAGE_SIZE = 25/)
+  assert.match(component, /PAGE_SIZE = 20/)
   assert.match(component, /Anterior/)
   assert.match(component, /Próxima/)
 })
