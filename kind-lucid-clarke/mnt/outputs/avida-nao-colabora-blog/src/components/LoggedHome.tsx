@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { syncHomeCheckinToDiary } from '../lib/homeCheckinDiary'
 import { ArrowRight, BookOpen, CalendarDays, Check, Compass, Flower2, Leaf, Sprout, X } from 'lucide-react'
 import LoggedHomeLegacy from './LoggedHomeLegacy'
+import PlanOnboardingGuide from './PlanOnboardingGuide'
 import { MOODS } from './user/moods'
 import { CHECKIN_SCORES, FEATURED_CHECKIN_MOODS } from './user/checkinOptions'
 import { MoodChip } from './user/ui'
@@ -157,6 +158,7 @@ export default function LoggedHome({ user, profile, onNavigate }: LoggedHomeProp
       </section>
     </div>
 
+    <PlanOnboardingGuide user={user} profile={profile} onNavigate={onNavigate} checkinSaved={checkinSaved} />
     <JourneyOrchestrator onNavigate={onNavigate} />
 
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
