@@ -5,11 +5,13 @@ import fs from 'node:fs'
 const root = new URL('../', import.meta.url)
 const read = (path: string) => fs.readFileSync(new URL(path, root), 'utf8')
 const migration = read('supabase/migrations/20260930234000_unified_human_action_center.sql')
+const editorialMigration = read('supabase/migrations/20260930234500_editorial_review_status.sql')
 const component = read('src/components/admin/AdminHumanActionCenter.tsx')
 const dashboard = read('src/components/admin/AdminOperationalDashboard.tsx')
 const operational = read('src/lib/adminOperationalStatus.ts')
 const cancellations = read('src/components/admin/AdminCancellations.tsx')
 const scheduleCancellation = read('supabase/functions/admin-schedule-cancellation/index.ts')
+const articleEditor = read('src/components/admin/AdminArticleEditor.tsx')
 
 test('central unificada inclui todas as frentes que realmente dependem de ação humana', () => {
   for (const area of ['support','guidance','care','deliveries','reports','cancellations','incidents','editorial']) {
@@ -18,6 +20,13 @@ test('central unificada inclui todas as frentes que realmente dependem de ação
   assert.match(migration, /requested_at \+ interval '24 hours'/)
   assert.match(migration, /status='review'/)
   assert.match(migration, /scheduled_at - interval '24 hours'/)
+})
+
+test('status editorial de revisão existe no editor e passa a ser aceito pelo banco', () => {
+  assert.match(articleEditor, /<option value="review">Em revisão<\/option>/)
+  assert.match(editorialMigration, /'published','draft','review','archived','scheduled'/)
+  assert.match(editorialMigration, /draft = rascunho sem obrigação/)
+  assert.match(editorialMigration, /review = aguarda revisão humana/)
 })
 
 test('cancelamento continua pendente após e-mail e só conclui após decisão real', () => {
