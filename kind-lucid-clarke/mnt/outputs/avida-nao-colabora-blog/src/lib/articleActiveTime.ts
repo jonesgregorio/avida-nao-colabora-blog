@@ -62,7 +62,10 @@ export function initArticleActiveTimeTracking() {
 
   const switchArticleIfNeeded = () => {
     const nextSlug = currentArticleSlug()
-    if (nextSlug === slug) return
+    if (nextSlug === slug) {
+      if (slug && document.querySelector('.article-content')) estimatedSeconds = estimatedReadSeconds()
+      return
+    }
     flush()
     slug = nextSlug
     activeSeconds = 0
