@@ -7,6 +7,7 @@ import { installSensitiveDraftStorageGuard } from './lib/sensitiveDraftStorage'
 import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognitionPermission'
 import { initArticleActiveTimeTracking } from './lib/articleActiveTime'
 import { initAdminSupportComposerEnhancements } from './lib/adminSupportComposerEnhancements'
+import { initAdminOperationalAlertUX } from './lib/adminOperationalAlertUX'
 import './index.css'
 import './diary-mobile.css'
 
@@ -16,6 +17,7 @@ installSensitiveDraftStorageGuard()
 installSpeechRecognitionPermissionGuard()
 initArticleActiveTimeTracking()
 initAdminSupportComposerEnhancements()
+initAdminOperationalAlertUX()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
