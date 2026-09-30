@@ -14,6 +14,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 }
 const SITE = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || 'https://avidanaocolabora.com'
+const DAY_MS = 86400000
 const MAX_PER_RUN = 60 // teto de envios por execução (o dedup cobre o resto nos dias seguintes)
 
 function json(b: unknown, s = 200) { return new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } }) }
@@ -81,6 +82,42 @@ Deno.serve(async (req) => {
       if (r.ok) { sent++; return true }
     } catch { /* ignora e segue */ }
     return false
+  }
+
+  // ── Boas-vindas no servidor (rede de segurança) ──
+  // O envio principal acontece no navegador ao confirmar o e-mail (Auth.tsx), mas ele
+  // falha se a pessoa fecha a aba ou abre o link num navegador interno. Um cron leve
+  // (body {"only":"welcome"}, a cada 15 min) envia o que faltou. A idempotency_key
+  // "welcome:<user_id>" é a mesma do navegador, então nunca duplica.
+  // Só considera confirmações das últimas 24h: não faz backfill de contas antigas.
+  let onlyWelcome = false
+  try { onlyWelcome = ((await req.clone().json()) as { only?: string })?.only === 'welcome' } catch { /* corpo vazio = execução completa */ }
+  if (onlyWelcome) {
+    const GRACE_MS = 2 * 60 * 1000
+    const WINDOW_MS = 24 * 60 * 60 * 1000
+    const { data: recent } = await admin.from('profiles')
+      .select('user_id, email, full_name')
+      .gte('created_at', new Date(now.getTime() - 4 * DAY_MS).toISOString())
+      .not('email', 'is', null).limit(500)
+    const recentUsers = (recent ?? []) as { user_id: string; email: string; full_name: string | null }[]
+    const ids = recentUsers.map(u => u.user_id)
+    const already = new Set<string>()
+    if (ids.length) {
+      const { data: logs } = await admin.from('email_logs').select('user_id').eq('template_key', 'welcome').in('user_id', ids)
+      for (const l of (logs ?? []) as { user_id: string | null }[]) if (l.user_id) already.add(l.user_id)
+    }
+    let welcomeSent = 0
+    for (const u of recentUsers) {
+      if (already.has(u.user_id)) continue
+      try {
+        const { data } = await admin.auth.admin.getUserById(u.user_id)
+        const confirmedAt = data?.user?.email_confirmed_at ? new Date(data.user.email_confirmed_at).getTime() : 0
+        if (!confirmedAt || now.getTime() - confirmedAt < GRACE_MS || now.getTime() - confirmedAt > WINDOW_MS) continue
+        const nome = (u.full_name || '').trim() || u.email.split('@')[0] || 'você'
+        if (await send(u.email, 'welcome', { nome, link_login: `${SITE}/login` }, `welcome:${u.user_id}`, u.user_id)) welcomeSent++
+      } catch { /* segue para o próximo */ }
+    }
+    return json({ ok: true, mode: 'welcome', sent: welcomeSent })
   }
 
   // ── Dados base ──
