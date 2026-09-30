@@ -413,7 +413,23 @@ export function gardenThemeFor(gardenIndex: number): GardenTheme {
  */
 export function gardenThemeBySlug(slug: string | null | undefined): GardenTheme | undefined {
   if (!slug) return undefined
-  return GARDEN_THEMES.find((t) => t.slug === slug)
+  // O código vence: um slug do código nunca é sobrescrito por um jardim criado no Admin.
+  return GARDEN_THEMES.find((t) => t.slug === slug) ?? runtimeThemes.get(slug)
+}
+
+// Jardins criados no Admin (garden_catalog.scene_config), já validados por
+// themeFromCatalogRow. Preenchido por gardenRuntimeThemes.ts antes da tela do jardim renderizar.
+const runtimeThemes = new Map<string, GardenTheme>()
+
+export function registerRuntimeGardenThemes(themes: GardenTheme[]): void {
+  runtimeThemes.clear()
+  for (const theme of themes) {
+    if (!GARDEN_THEMES.some((t) => t.slug === theme.slug)) runtimeThemes.set(theme.slug, theme)
+  }
+}
+
+export function runtimeGardenThemes(): GardenTheme[] {
+  return [...runtimeThemes.values()]
 }
 
 /**

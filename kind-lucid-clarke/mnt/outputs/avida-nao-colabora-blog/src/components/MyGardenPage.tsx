@@ -7,6 +7,7 @@ import { gardenThemeFor, gardenVisualProgress, resolveGardenTheme, type GardenTh
 import LivingGarden from './garden/LivingGarden'
 import GardenCelebration from './garden/GardenCelebration'
 import GardenGrowthCompare from './garden/GardenGrowthCompare'
+import { ensureRuntimeGardenThemes } from '../lib/gardenRuntimeThemes'
 
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
 // vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
@@ -101,6 +102,8 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
+      // jardins criados no Admin precisam estar registrados antes de resolver o tema do estado
+      await ensureRuntimeGardenThemes()
       const {data}=await supabase.rpc('get_my_garden_state')
       if(!alive||!data)return
       const next=data as GardenState
@@ -166,6 +169,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
+      await ensureRuntimeGardenThemes()
       const {data}=await supabase.from('garden_user_cycles').select('cycle_number,garden_slug').eq('user_id',userId)
       if(!alive||!data)return
       const map:Record<number,string>={}

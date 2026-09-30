@@ -69,14 +69,14 @@ test('painel admin explica o efeito real do "Limite diário" (agora aplicado no 
   assert.match(adminPanel, /não pode subir mais do que esse valor por dia/)
 })
 
-test('admin consegue cadastrar um jardim novo no Catálogo (linha no banco) — com aviso claro do que isso NÃO resolve sozinho', () => {
-  assert.match(adminPanel, /async function createGarden/)
-  assert.match(adminPanel, /supabase\.from\('garden_catalog'\)\.insert/)
-  assert.match(adminPanel, /status: 'draft'/) // nunca nasce visível pra usuários sem o admin promover
-  assert.match(adminPanel, /onCreate:\(g:\{slug:string;label:string;description:string;theme_index:number;cover_image:string;stage_images:string\[\]\}\)/)
-  assert.match(adminPanel, /Novo jardim/)
-  // avisa explicitamente que fotos+engine continuam sendo trabalho à parte
-  assert.match(adminPanel, /a configuração de água\/fauna\/luz continuam sendo um trabalho à parte/)
+test('admin cria um jardim COMPLETO no Catálogo (imagens + cena viva) e ele nunca nasce visível', () => {
+  const creator = readFileSync(new URL('../src/components/admin/AdminGardenCreator.tsx', import.meta.url), 'utf8')
+  assert.match(adminPanel, /<AdminGardenCreator/)
+  assert.match(adminPanel, /Criar jardim completo/)
+  assert.ok(creator.includes("supabase.from('garden_catalog').insert("))
+  assert.match(creator, /status: 'draft'/) // nunca nasce visível pra usuários sem o admin promover
+  assert.match(creator, /scene_config: clean/)
+  assert.ok(creator.includes("supabase.storage.from('garden-images').upload("))
 })
 
 test('Memórias do Jardim usa o garden_slug REAL de cada ciclo passado (garden_user_cycles), não só o índice aproximado', () => {
