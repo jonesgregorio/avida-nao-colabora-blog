@@ -12,3 +12,9 @@ test('fila de relatórios do action center não conta relatórios já gerados', 
   assert.match(sql, /if not public\.is_admin\(\)/)
   assert.match(sql, /grant execute on function public\.admin_action_center_snapshot\(\) to authenticated,service_role/)
 })
+
+test('Suporte: botão "Marcar resolvido" e balão do suporte têm texto branco em negrito (legível sobre o tema do admin)', () => {
+  const support = read('src/components/admin/AdminSupport.tsx')
+  assert.match(support, /!bg-forest-900 border border-forest-900 !text-white font-bold[^"]*">\s*<CheckCircle2[^>]*\/> Marcar resolvido/)
+  assert.match(support, /isAdminMsg \? 'bg-forest-900 text-white font-bold \[&_\*\]:!text-white'/)
+})
