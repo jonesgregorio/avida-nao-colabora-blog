@@ -32,7 +32,7 @@ test('cancelamento continua pendente após e-mail e só conclui após decisão r
 
 test('rascunhos sem prazo não inflam mais a fila operacional', () => {
   assert.match(migration, /'notifications_draft',0/)
-  assert.doesNotMatch(operational, /ACTION_QUEUE_KEYS[\s\S]{0,400}'notifications_draft'/)
+  assert.doesNotMatch(operational, /ACTION_QUEUE_KEYS[\s\S]{0,500}'notifications_draft'/)
   assert.match(component, /Rascunhos sem prazo e processos já automáticos ficam fora desta lista/)
 })
 
@@ -44,15 +44,29 @@ test('incidentes transitórios têm grace period antes de virarem trabalho human
   assert.match(migration, /Plano de Autocuidado com falha/)
 })
 
-test('fila tem filtros, ordenação operacional e paginação de 20 itens', () => {
+test('fila tem filtros fortes server-side e paginação de 20 itens', () => {
   assert.match(component, /const PAGE_SIZE = 20/)
-  for (const label of ['Atrasadas','Vencem hoje','Próximos 3 dias','Todas as áreas','Incidentes','Editorial']) {
-    assert.match(component, new RegExp(label))
+  assert.match(component, /admin_action_center_items_filtered/)
+  for (const param of ['p_area','p_bucket','p_severity','p_status','p_plan','p_search','p_assignee','p_limit','p_offset']) {
+    assert.match(component, new RegExp(param))
+    assert.match(migration, new RegExp(param))
   }
+  for (const label of [
+    'Atrasadas','Vencem hoje','Próximos 3 dias','Todas as áreas','Todas as prioridades',
+    'Todos os status','Todos os planos','Todos os responsáveis','Buscar usuário ou pendência','Incidentes','Editorial',
+  ]) assert.match(component, new RegExp(label))
   assert.match(component, /20 por página/)
+  assert.match(migration, /p_limit integer default 20/)
   assert.match(migration, /when 'overdue' then 0 when 'today' then 1 when 'due_3d' then 2/)
   assert.match(migration, /when 'critical' then 0 when 'high' then 1 else 2/)
   assert.match(migration, /America\/Sao_Paulo/)
+})
+
+test('busca administrativa não devolve e-mail na lista da Central de Ação', () => {
+  assert.match(migration, /p\.email user_email/)
+  assert.match(migration, /lower\(coalesce\(user_email,''\)\)/)
+  assert.doesNotMatch(migration, /'user_email',user_email/)
+  assert.doesNotMatch(component, /item\.user_email/)
 })
 
 test('dashboard expõe vencimentos de hoje e novas áreas', () => {
