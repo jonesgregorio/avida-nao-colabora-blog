@@ -25,7 +25,7 @@ test('painel de leitores inclui filtros, tempo, engajamento e funil compacto', (
   assert.match(readers, /Qualquer profundidade/)
   assert.match(readers, /Qualquer tempo ativo/)
   assert.match(readers, /Cadastro: todos/)
-  assert.match(readers, /PAGE_SIZE = 20/)
+  assert.match(readers, /PAGE_SIZE_OPTIONS = \[10, 20, 50, 100\]/)
   assert.match(readers, /article_active_time/)
   assert.match(readers, /registration_complete/)
   assert.match(readers, /signup_start/)
