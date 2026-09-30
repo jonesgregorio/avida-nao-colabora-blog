@@ -3,6 +3,7 @@ import { LayoutDashboard, Radar, FileText, Filter, Repeat } from 'lucide-react'
 import AdminRetentionAnalytics from './AdminRetentionAnalytics'
 import AdminJourneyFunnel from './AdminJourneyFunnel'
 import AdminConversionFunnel from './AdminConversionFunnel'
+import AdminArticleAnalytics from './AdminArticleAnalytics'
 import AnalyticsPageLegacy from './AnalyticsPageLegacy'
 
 interface AnalyticsPageProps {
@@ -52,7 +53,12 @@ function AnalyticsAcquisition(props: AnalyticsPageProps) {
   )
 }
 function AnalyticsContent(props: AnalyticsPageProps) {
-  return <Card><AnalyticsPageLegacy {...props} only={ONLY_CONTENT} hideHero /></Card>
+  return (
+    <div className="flex flex-col gap-4">
+      <Card pad><AdminArticleAnalytics /></Card>
+      <Card><AnalyticsPageLegacy {...props} only={ONLY_CONTENT} hideHero /></Card>
+    </div>
+  )
 }
 function AnalyticsConversion(props: AnalyticsPageProps) {
   return (
