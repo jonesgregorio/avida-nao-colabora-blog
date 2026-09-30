@@ -69,21 +69,21 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'Fechado',
 }
 const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-orange-100 text-orange-700',
-  awaiting_admin: 'bg-red-100 text-red-700',
-  awaiting_user: 'bg-purple-100 text-purple-700',
-  resolved: 'bg-green-100 text-green-700',
-  closed: 'bg-stone-100 text-stone-500',
+  open: 'bg-sky text-ocean-800',
+  in_progress: 'bg-lilac text-purple-800',
+  awaiting_admin: 'bg-coral text-[#A63A25]',
+  awaiting_user: 'bg-sand-100 text-sand-800',
+  resolved: 'bg-mint text-forest-700',
+  closed: 'bg-stone-100 text-ink-soft',
 }
 const PRIORITY_LABELS: Record<string, string> = {
   low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente',
 }
 const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-stone-100 text-stone-500',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  urgent: 'bg-red-100 text-red-700',
+  low: 'bg-sand-100 text-ink-soft',
+  medium: 'bg-amber-100 text-amber-800',
+  high: 'bg-orange-100 text-orange-800',
+  urgent: 'bg-coral text-[#A63A25]',
 }
 const PLAN_LABELS: Record<string, string> = {
   free: 'Gratuito', essential: 'Essencial', plus: 'Plus',
@@ -145,9 +145,9 @@ function getSLA(ticket: Ticket): { label: string; color: string } {
   const created = new Date(ticket.last_user_message_at ?? ticket.created_at).getTime()
   const hours = (Date.now() - created) / 3600000
   const limit = getSupportSlaHours(ticket.user_plan ?? ticket.plan_at_creation)
-  if (hours > limit) return { label: 'Atrasado', color: 'bg-red-100 text-red-700' }
-  if (hours > limit * 0.75) return { label: 'Perto de vencer', color: 'bg-yellow-100 text-yellow-700' }
-  return { label: 'Dentro do prazo', color: 'bg-green-100 text-green-700' }
+  if (hours > limit) return { label: 'Atrasado', color: 'bg-coral text-[#A63A25]' }
+  if (hours > limit * 0.75) return { label: 'Perto de vencer', color: 'bg-amber-100 text-amber-800' }
+  return { label: 'Dentro do prazo', color: 'bg-mint text-forest-700' }
 }
 function getSLARemaining(ticket: Ticket): {
   timeStr: string; isOverdue: boolean; isWarning: boolean; isOk: boolean
@@ -201,26 +201,26 @@ function descriptionAsMessage(ticket: Ticket): Message {
 }
 
 const STATUS_DOT_OPTIONS = [
-  { value: 'open', label: 'Novo', dot: 'bg-blue-500' },
-  { value: 'in_progress', label: 'Em atendimento', dot: 'bg-orange-500' },
-  { value: 'awaiting_admin', label: 'Aguard. suporte', dot: 'bg-red-500' },
-  { value: 'awaiting_user', label: 'Aguard. usuário', dot: 'bg-purple-500' },
-  { value: 'resolved', label: 'Resolvido', dot: 'bg-green-500' },
+  { value: 'open', label: 'Novo', dot: 'bg-ocean-500' },
+  { value: 'in_progress', label: 'Em atendimento', dot: 'bg-purple-500' },
+  { value: 'awaiting_admin', label: 'Aguard. suporte', dot: 'bg-plus' },
+  { value: 'awaiting_user', label: 'Aguard. usuário', dot: 'bg-sand-500' },
+  { value: 'resolved', label: 'Resolvido', dot: 'bg-forest-400' },
   { value: 'closed', label: 'Fechado', dot: 'bg-stone-400' },
 ]
 const PRIORITY_DOT_OPTIONS = [
   { value: 'low', label: 'Baixa', dot: 'bg-stone-400' },
   { value: 'medium', label: 'Média', dot: 'bg-yellow-500' },
   { value: 'high', label: 'Alta', dot: 'bg-orange-500' },
-  { value: 'urgent', label: 'Urgente', dot: 'bg-red-500' },
+  { value: 'urgent', label: 'Urgente', dot: 'bg-plus' },
 ]
 
 const KANBAN_COLUMNS = [
-  { key: 'open', label: 'Novo', color: 'bg-blue-100 text-blue-700' },
-  { key: 'awaiting_admin', label: 'Aguardando suporte', color: 'bg-red-100 text-red-700' },
-  { key: 'in_progress', label: 'Em atendimento', color: 'bg-orange-100 text-orange-700' },
-  { key: 'awaiting_user', label: 'Aguardando usuário', color: 'bg-purple-100 text-purple-700' },
-  { key: 'resolved', label: 'Resolvido', color: 'bg-green-100 text-green-700' },
+  { key: 'open', label: 'Novo', color: STATUS_COLORS.open },
+  { key: 'awaiting_admin', label: 'Aguardando suporte', color: STATUS_COLORS.awaiting_admin },
+  { key: 'in_progress', label: 'Em atendimento', color: STATUS_COLORS.in_progress },
+  { key: 'awaiting_user', label: 'Aguardando usuário', color: STATUS_COLORS.awaiting_user },
+  { key: 'resolved', label: 'Resolvido', color: STATUS_COLORS.resolved },
 ]
 
 interface ReplyTemplate { id: string; title: string; category: string; body: string }
@@ -580,11 +580,11 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
 
   const cnt = (s: string) => tickets.filter(t => t.status === s).length
   const summaryCards = [
-    { key: 'open', n: loading ? '—' : cnt('open'), label: 'Novos', Icon: Inbox, bg: 'bg-blue-50', num: 'text-blue-600', border: 'border-blue-100' },
-    { key: 'in_progress', n: loading ? '—' : cnt('in_progress'), label: 'Em atendimento', Icon: MessageSquare, bg: 'bg-orange-50', num: 'text-orange-600', border: 'border-orange-100' },
-    { key: '__resolved_today', n: loading ? '—' : resolvedToday, label: 'Resolvidos hoje', Icon: CheckCircle2, bg: 'bg-green-50', num: 'text-green-600', border: 'border-green-100' },
-    { key: '__overdue', n: loading ? '—' : tickets.filter(isOverdue).length, label: 'Atrasados', Icon: AlertTriangle, bg: 'bg-red-50', num: 'text-red-600', border: 'border-red-100' },
-    { key: '__avg', n: loading ? '—' : formatAvgTime(avgResponseMs), label: 'Tempo médio', Icon: Clock, bg: 'bg-amber-50', num: 'text-amber-600', border: 'border-amber-100' },
+    { key: 'open', n: loading ? '—' : cnt('open'), label: 'Novos', Icon: Inbox, bg: 'bg-sky', num: 'text-ocean-800', border: 'border-ocean-200' },
+    { key: 'in_progress', n: loading ? '—' : cnt('in_progress'), label: 'Em atendimento', Icon: MessageSquare, bg: 'bg-lilac', num: 'text-purple-800', border: 'border-purple-200' },
+    { key: '__resolved_today', n: loading ? '—' : resolvedToday, label: 'Resolvidos hoje', Icon: CheckCircle2, bg: 'bg-mint', num: 'text-forest-700', border: 'border-forest-200' },
+    { key: '__overdue', n: loading ? '—' : tickets.filter(isOverdue).length, label: 'Atrasados', Icon: AlertTriangle, bg: 'bg-coral', num: 'text-[#A63A25]', border: 'border-[#EFB9A8]' },
+    { key: '__avg', n: loading ? '—' : formatAvgTime(avgResponseMs), label: 'Tempo médio', Icon: Clock, bg: 'bg-sand-100', num: 'text-sand-800', border: 'border-sand-200' },
   ]
 
   function clickCard(key: string) {
@@ -634,7 +634,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
               <p className="text-sm text-ink-soft mt-0.5">Resolva problemas técnicos, conta, pagamento e dúvidas de uso. O SLA considera a última mensagem do usuário e pausa quando o atendimento aguarda resposta dele.</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={loadTickets} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-xs text-forest-800 hover:border-forest-300">
+              <button onClick={loadTickets} className="inline-flex items-center gap-2 border border-forest-900 bg-forest-900 px-3 py-2 rounded-xl text-xs text-white hover:bg-forest-700">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
               </button>
               <button onClick={exportCSV} disabled={loading || filtered.length === 0} className="inline-flex items-center gap-2 border border-line bg-white px-3 py-2 rounded-xl text-xs text-forest-800 hover:border-forest-300 disabled:opacity-50">
@@ -664,7 +664,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                     <c.Icon className={`w-4 h-4 ${c.num}`} />
                   </div>
                   <p className={`font-serif text-2xl font-semibold ${c.num}`}>{c.n}</p>
-                  <p className="text-[11px] font-medium text-stone-600 leading-tight mt-0.5">{c.label}</p>
+                  <p className="text-[11px] font-medium text-ink-soft leading-tight mt-0.5">{c.label}</p>
                 </button>
               )
             })}
@@ -675,21 +675,21 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
               <button key={tab.key} onClick={() => { setStatusTab(tab.key); setOverdueOnly(false); setPage(1) }}
                 className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
                   statusTab === tab.key && !overdueOnly
-                    ? 'border-forest-700 text-forest-800'
-                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                    ? 'border-forest-900 text-forest-900'
+                    : 'border-transparent text-ink-soft hover:text-ink hover:border-line'
                 }`}>
                 {tab.label}
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusTab === tab.key && !overdueOnly ? 'bg-forest-900 text-white' : 'bg-mint text-forest-700'}`}>
                   {tickets.filter(t => !tab.key || t.status === tab.key).length}
                 </span>
               </button>
             ))}
             <button onClick={() => { setOverdueOnly(v => !v); setPage(1) }}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                overdueOnly ? 'border-red-500 text-red-600' : 'border-transparent text-stone-500 hover:text-stone-700'
+                overdueOnly ? 'border-plus text-[#A63A25]' : 'border-transparent text-ink-soft hover:text-ink'
               }`}>
               Atrasados
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">{tickets.filter(isOverdue).length}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-coral text-[#A63A25]">{tickets.filter(isOverdue).length}</span>
             </button>
           </div>
         </div>
@@ -727,7 +727,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
             <option value="30">Últimos 30 dias</option>
           </select>
           <select value={slaFilter} onChange={e=>{setSlaFilter(e.target.value as typeof slaFilter);setPage(1)}} className="text-xs px-2.5 py-2 border border-line rounded-lg bg-white focus:outline-none"><option value="all">SLA: todos</option><option value="action">Depende de mim</option><option value="soon">Perto de vencer</option><option value="overdue">Atrasados</option></select>
-          <button onClick={() => { setUnreadOnly(v => !v); setPage(1) }} className={`text-xs px-3 py-2 rounded-lg border transition-colors ${unreadOnly ? 'bg-red-600 text-white border-red-600' : 'bg-white border-line text-stone-600 hover:border-red-300'}`}>Não lidos</button>
+          <button onClick={() => { setUnreadOnly(v => !v); setPage(1) }} className={`text-xs px-3 py-2 rounded-lg border transition-colors ${unreadOnly ? 'bg-forest-900 text-white border-forest-900' : 'bg-white border-line text-ink-soft hover:border-forest-300'}`}>Não lidos</button>
           {hasFilters && <button onClick={clearFilters} className="text-xs text-stone-400 hover:text-stone-600 px-1">Limpar</button>}
         </div>
 
@@ -749,34 +749,34 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 z-10 bg-white border-b border-line">
+                  <thead className="sticky top-0 z-10 bg-paper border-b border-line">
                     <tr>
-                      <th className="w-10 px-4 py-3 text-left text-xs font-medium text-stone-400">#</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500">Assunto</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500 hidden md:table-cell">Usuário</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500 hidden lg:table-cell">Plano</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500 hidden lg:table-cell">Prioridade</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500">Status</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500 hidden md:table-cell">Atualizado</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-stone-500 hidden xl:table-cell">SLA</th>
+                      <th className="w-10 px-4 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft">#</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft">Assunto</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft hidden md:table-cell">Usuário</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft hidden lg:table-cell">Plano</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft hidden lg:table-cell">Prioridade</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft">Status</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft hidden md:table-cell">Atualizado</th>
+                      <th className="px-3 py-3 text-left text-[11px] uppercase tracking-wider font-semibold text-ink-soft hidden xl:table-cell">SLA</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-line">
                     {paginated.map(ticket => {
                       const overdue = isOverdue(ticket)
                       const sla = getSLA(ticket)
                       const isSelected = selectedTicket?.id === ticket.id
                       return (
                         <tr key={ticket.id} onClick={() => openDrawer(ticket)}
-                          className={`cursor-pointer hover:bg-stone-50 transition-colors ${isSelected ? 'bg-mint/20' : ''}`}>
+                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-mint shadow-[inset_3px_0_0_#1A4A3A]' : 'hover:bg-paper'}`}>
                           <td className="w-10 px-4 py-3 text-xs text-stone-400 font-mono whitespace-nowrap">
                             {ticket.unread_for_admin
-                              ? <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0 animate-pulse" />#{ticket.ticket_number}</span>
+                              ? <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-plus rounded-full flex-shrink-0 animate-pulse" />#{ticket.ticket_number}</span>
                               : <span>#{ticket.ticket_number}</span>
                             }
                           </td>
                           <td className="px-3 py-3 min-w-[160px] max-w-[260px]">
-                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-forest-700' : 'text-forest-900'}`}>{ticket.subject}</p>
+                            <p className={`text-sm font-medium truncate text-forest-900`}>{ticket.subject}</p>
                             {ticket.category && <p className="text-[10px] text-stone-400 truncate mt-0.5">{ticket.category}</p>}
                           </td>
                           <td className="px-3 py-3 hidden md:table-cell min-w-[130px] max-w-[180px]">
@@ -784,7 +784,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                             {ticket.user_email && <p className="text-[10px] text-stone-400 truncate">{ticket.user_email}</p>}
                           </td>
                           <td className="px-3 py-3 hidden lg:table-cell whitespace-nowrap">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${planOf(ticket) === 'plus' ? 'bg-[#FCE3DC] text-[#B8432B]' : 'bg-mint text-forest-700'}`}>
                               {PLAN_LABELS[planOf(ticket)] ?? planOf(ticket) ?? '—'}
                             </span>
                           </td>
@@ -803,7 +803,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                           </td>
                           <td className="px-3 py-3 hidden xl:table-cell whitespace-nowrap">
                             {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${overdue ? 'bg-red-100 text-red-700' : sla.color}`}>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${overdue ? 'bg-coral text-[#A63A25]' : sla.color}`}>
                                 {sla.label}
                               </span>
                             )}
@@ -869,7 +869,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                     </span>
                     <span className="text-xs text-stone-400 font-mono">#{selectedTicket.ticket_number}</span>
                     {selectedTicket.unread_for_admin && (
-                      <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium animate-pulse">Nova mensagem</span>
+                      <span className="text-[10px] bg-coral text-[#A63A25] px-2 py-0.5 rounded-full font-medium animate-pulse">Nova mensagem</span>
                     )}
                   </div>
                   <p className="font-semibold text-forest-900 leading-snug line-clamp-2">{selectedTicket.subject}</p>
@@ -902,11 +902,11 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
               </div>
             </div>
 
-            <div className="overflow-y-auto flex-shrink-0 max-h-[280px] border-b border-line bg-stone-50">
+            <div className="overflow-y-auto flex-shrink-0 max-h-[280px] border-b border-line bg-paper">
               <div className="px-5 pt-4 pb-3">
                 <div className="bg-white rounded-2xl border border-line p-4 mb-3">
                   <div className="flex items-start gap-3">
-                    <span className="w-10 h-10 rounded-full bg-mint flex items-center justify-center text-sm font-semibold text-forest-700 flex-shrink-0">
+                    <span className="w-10 h-10 rounded-full bg-forest-900 flex items-center justify-center text-sm font-semibold text-white flex-shrink-0">
                       {initials(selectedTicket.user_name, selectedTicket.user_email)}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -929,7 +929,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                   </div>
                   <div className="flex items-center gap-4 mt-3 text-xs text-stone-500 flex-wrap border-t border-stone-50 pt-3">
                     <span className="flex items-center gap-1.5">
-                      <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      <Crown className="w-3.5 h-3.5 text-plus flex-shrink-0" />
                       {PLAN_LABELS[planOf(selectedTicket)] ?? planOf(selectedTicket) ?? '—'}
                     </span>
                     {selectedTicket.user_joined_at && (
@@ -968,8 +968,8 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                     <p className="text-[10px] text-stone-400 uppercase tracking-wide mb-1">SLA</p>
                     {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' ? (() => {
                       const sla = getSLARemaining(selectedTicket)
-                      const timeColor = sla.isOverdue ? 'text-red-600' : sla.isWarning ? 'text-yellow-600' : 'text-green-600'
-                      const iconColor = sla.isOverdue ? 'text-red-500' : sla.isWarning ? 'text-yellow-500' : 'text-green-500'
+                      const timeColor = sla.isOverdue ? 'text-[#A63A25]' : sla.isWarning ? 'text-amber-700' : 'text-forest-700'
+                      const iconColor = sla.isOverdue ? 'text-plus' : sla.isWarning ? 'text-amber-500' : 'text-forest-400'
                       return (
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1">
@@ -988,10 +988,10 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                 {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (() => {
                   const sla = getSLARemaining(selectedTicket)
                   const cardCls = sla.isOverdue
-                    ? 'bg-red-50 border-red-200'
-                    : sla.isWarning ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'
-                  const textCls = sla.isOverdue ? 'text-red-700' : sla.isWarning ? 'text-yellow-700' : 'text-green-700'
-                  const iconCls = sla.isOverdue ? 'text-red-500' : sla.isWarning ? 'text-yellow-500' : 'text-green-500'
+                    ? 'bg-[#FCEDE8] border-coral'
+                    : sla.isWarning ? 'bg-amber-50 border-amber-200' : 'bg-mint border-forest-200'
+                  const textCls = sla.isOverdue ? 'text-[#8F2F1C]' : sla.isWarning ? 'text-amber-800' : 'text-forest-700'
+                  const iconCls = sla.isOverdue ? 'text-plus' : sla.isWarning ? 'text-amber-500' : 'text-forest-400'
                   const label = sla.isOverdue ? 'SLA vencido' : sla.isWarning ? 'Perto de vencer' : 'Dentro da meta de resposta'
                   const Icon = sla.isOverdue || sla.isWarning ? AlertTriangle : CheckCircle2
                   return (
@@ -999,7 +999,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconCls}`} />
                       <div>
                         <p className={`text-xs font-semibold ${textCls}`}>{label}</p>
-                        <p className="text-[10px] text-stone-400 mt-0.5">Meta: {sla.limitHours}h | Responder até: {sla.deadline}</p>
+                        <p className="text-[10px] text-ink-soft mt-0.5">Meta: {sla.limitHours}h | Responder até: {sla.deadline}</p>
                       </div>
                     </div>
                   )
@@ -1007,12 +1007,12 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
 
                 <div className="flex gap-2 flex-wrap">
                   {isClosed ? (
-                    <button onClick={() => updateTicket('status', 'open')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50">
+                    <button onClick={() => updateTicket('status', 'open')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-sky border border-ocean-200 text-ocean-800 rounded-lg hover:bg-ocean-100 disabled:opacity-50">
                       <RotateCcw className="w-3 h-3" /> Reabrir ticket
                     </button>
                   ) : (
                     <>
-                      <button onClick={() => updateTicket('status', 'resolved')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50">
+                      <button onClick={() => updateTicket('status', 'resolved')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-mint border border-forest-200 text-forest-700 rounded-lg hover:bg-forest-100 disabled:opacity-50">
                         <CheckCircle2 className="w-3 h-3" /> Marcar resolvido
                       </button>
                       <button onClick={() => updateTicket('status', 'closed')} disabled={updatingStatus} className="text-xs px-3 py-1.5 bg-stone-50 border border-line text-stone-600 rounded-lg hover:bg-stone-100 disabled:opacity-50">Fechar</button>
@@ -1025,8 +1025,8 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto min-h-0 bg-stone-50">
-              <div className="flex items-center justify-between px-5 py-2.5 border-b border-stone-100 bg-stone-50 sticky top-0 z-10">
+            <div className="flex-1 overflow-y-auto min-h-0 bg-paper">
+              <div className="flex items-center justify-between px-5 py-2.5 border-b border-line bg-paper sticky top-0 z-10">
                 <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Conversa</p>
                 <button onClick={() => setMsgOrder(v => v === 'asc' ? 'desc' : 'asc')}
                   className="flex items-center gap-1 text-[10px] text-stone-400 hover:text-stone-600">
@@ -1053,11 +1053,11 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                   }
                   return (
                     <div key={msg.id} className={`flex ${isAdminMsg ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-forest-700 text-white' : 'bg-white border border-line text-forest-900'}`}>
-                        <p className={`text-[10px] font-semibold mb-1 ${isAdminMsg ? 'text-forest-100' : 'text-forest-600'}`}>{isAdminMsg ? 'Suporte' : (msg.sender_name ?? 'Usuário')}</p>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-forest-900 text-white' : 'bg-white border border-line text-ink'}`}>
+                        <p className={`text-[10px] font-semibold mb-1 ${isAdminMsg ? 'text-forest-200' : 'text-forest-600'}`}>{isAdminMsg ? 'Suporte' : (msg.sender_name ?? 'Usuário')}</p>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                         <SupportAttachmentList attachments={msg.attachments} inverse={isAdminMsg} />
-                        <p className={`text-[10px] mt-1.5 text-right ${isAdminMsg ? 'text-forest-200' : 'text-stone-300'}`}>{formatDateTime(msg.created_at)}</p>
+                        <p className={`text-[10px] mt-1.5 text-right ${isAdminMsg ? 'text-forest-200' : 'text-ink-soft'}`}>{formatDateTime(msg.created_at)}</p>
                       </div>
                     </div>
                   )
@@ -1132,7 +1132,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
 
                   <div className="flex border-b border-line mb-3">
                     <button onClick={() => setIsInternal(false)}
-                      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${!isInternal ? 'border-forest-700 text-forest-800' : 'border-transparent text-stone-400 hover:text-stone-600'}`}>
+                      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${!isInternal ? 'border-forest-900 text-forest-900' : 'border-transparent text-stone-400 hover:text-stone-600'}`}>
                       Responder
                     </button>
                     <button onClick={() => setIsInternal(true)}
@@ -1158,7 +1158,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                       <Save className="w-3.5 h-3.5" /> Salvar rascunho
                     </button>
                     <button onClick={handleSend} disabled={sending || (!replyContent.trim() && files.length === 0)}
-                      className={`inline-flex items-center gap-2 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-40 ${isInternal ? 'bg-amber-500 hover:bg-amber-600' : 'bg-forest-700 hover:bg-forest-800'}`}>
+                      className={`inline-flex items-center gap-2 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-40 ${isInternal ? 'bg-amber-500 hover:bg-amber-600' : 'bg-forest-900 hover:bg-forest-700'}`}>
                       <Send className="w-4 h-4" /> {isInternal ? 'Salvar nota' : 'Enviar resposta'}
                     </button>
                   </div>
