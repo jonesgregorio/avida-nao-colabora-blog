@@ -1012,7 +1012,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                     </button>
                   ) : (
                     <>
-                      <button onClick={() => updateTicket('status', 'resolved')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-mint border border-forest-200 text-forest-700 rounded-lg hover:bg-forest-100 disabled:opacity-50">
+                      <button onClick={() => updateTicket('status', 'resolved')} disabled={updatingStatus} className="flex items-center gap-1.5 text-xs px-3 py-1.5 !bg-forest-900 border border-forest-900 !text-white font-bold rounded-lg hover:!bg-forest-700 disabled:opacity-50">
                         <CheckCircle2 className="w-3 h-3" /> Marcar resolvido
                       </button>
                       <button onClick={() => updateTicket('status', 'closed')} disabled={updatingStatus} className="text-xs px-3 py-1.5 bg-stone-50 border border-line text-stone-600 rounded-lg hover:bg-stone-100 disabled:opacity-50">Fechar</button>
@@ -1053,7 +1053,7 @@ export default function AdminSupport({ onManageTemplates, onViewUser, initialTic
                   }
                   return (
                     <div key={msg.id} className={`flex ${isAdminMsg ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-forest-900 text-white' : 'bg-white border border-line text-ink'}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isAdminMsg ? 'bg-forest-900 text-white font-bold [&_*]:!text-white' : 'bg-white border border-line text-ink'}`}>
                         <p className={`text-[10px] font-semibold mb-1 ${isAdminMsg ? 'text-forest-200' : 'text-forest-600'}`}>{isAdminMsg ? 'Suporte' : (msg.sender_name ?? 'Usuário')}</p>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                         <SupportAttachmentList attachments={msg.attachments} inverse={isAdminMsg} />
