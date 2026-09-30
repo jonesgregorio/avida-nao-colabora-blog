@@ -15,7 +15,7 @@ test('central unificada inclui todas as frentes que realmente dependem de ação
   }
   assert.match(migration, /requested_at \+ interval '24 hours'/)
   assert.match(migration, /status='review'/)
-  assert.match(migration, /published_at - interval '24 hours'/)
+  assert.match(migration, /scheduled_at - interval '24 hours'/)
 })
 
 test('rascunhos sem prazo não inflam mais a fila operacional', () => {
