@@ -5,6 +5,7 @@ import MarketingConsentBanner from './components/MarketingConsentBanner'
 import { initExternalMonitoring, installStaleChunkRecovery, MonitoringErrorBoundary } from './lib/monitoring'
 import { installSensitiveDraftStorageGuard } from './lib/sensitiveDraftStorage'
 import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognitionPermission'
+import { initArticleActiveTimeTracking } from './lib/articleActiveTime'
 import './index.css'
 import './diary-mobile.css'
 
@@ -12,6 +13,7 @@ initExternalMonitoring()
 installStaleChunkRecovery()
 installSensitiveDraftStorageGuard()
 installSpeechRecognitionPermissionGuard()
+initArticleActiveTimeTracking()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
