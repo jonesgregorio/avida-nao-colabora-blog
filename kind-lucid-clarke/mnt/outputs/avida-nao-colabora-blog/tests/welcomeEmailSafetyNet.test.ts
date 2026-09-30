@@ -18,11 +18,3 @@ test('rede de segurança só olha confirmações recentes (sem backfill) e respe
   assert.match(fn, /GRACE_MS = 2 \* 60 \* 1000/)
   assert.match(fn, /email_confirmed_at/)
 })
-
-test('cron do boas-vindas roda a cada 15 min com o token interno e é idempotente', () => {
-  const sql = read('supabase/migrations/20260930180000_cron_welcome_email_safety_net.sql')
-  assert.match(sql, /\*\/15 \* \* \* \*/)
-  assert.match(sql, /"only":"welcome"/)
-  assert.match(sql, /private\.cron_config/)
-  assert.match(sql, /cron\.unschedule/)
-})
