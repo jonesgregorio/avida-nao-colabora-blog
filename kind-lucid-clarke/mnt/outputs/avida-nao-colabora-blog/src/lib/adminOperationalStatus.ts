@@ -22,6 +22,7 @@ export const ACTION_QUEUE_KEYS = [
   'reports_pending_review',
   'care_plans_pending',
   'cancellations_to_handle',
+  'personalization_pending',
   'personalization_overdue',
   'webhooks_stuck',
 ] as const
