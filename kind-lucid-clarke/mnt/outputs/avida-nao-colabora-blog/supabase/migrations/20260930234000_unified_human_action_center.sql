@@ -4,13 +4,20 @@
 -- 2) rascunhos sem prazo NÃO contam como pendência;
 -- 3) cancelamentos, editorial em revisão e incidentes ganham prazo operacional;
 -- 4) falhas transitórias de IA/e-mail recebem uma janela de 15 min antes de alertar;
--- 5) a listagem paginada (20 por padrão) usa a mesma regra do resumo.
+-- 5) a listagem paginada (20 por padrão) usa a mesma regra do resumo;
+-- 6) filtros operacionais são server-side: área, prazo, prioridade, status, plano,
+--    busca por usuário/título e responsável (atribuído/não atribuído).
 
 begin;
 
-create or replace function public.admin_action_center_items(
+create or replace function public.admin_action_center_items_filtered(
   p_area text default null,
   p_bucket text default 'all',
+  p_severity text default 'all',
+  p_status text default 'all',
+  p_plan text default 'all',
+  p_search text default null,
+  p_assignee text default 'all',
   p_limit integer default 20,
   p_offset integer default 0
 )
@@ -23,6 +30,7 @@ declare
   v_now timestamptz := now();
   v_limit integer := least(greatest(coalesce(p_limit,20),1),100);
   v_offset integer := greatest(coalesce(p_offset,0),0);
+  v_search text := lower(nullif(btrim(coalesce(p_search,'')),''));
   v jsonb;
 begin
   if not public.is_admin() then raise exception 'not authorized'; end if;
@@ -54,34 +62,44 @@ begin
       coalesce(nullif(s.subject,''),'Atendimento de suporte')::text title,
       coalesce(s.last_user_message_at,s.created_at) created_at,
       coalesce(s.last_user_message_at,s.created_at) + case lower(coalesce(s.plan_at_creation,'free')) when 'plus' then interval '24 hours' when 'essential' then interval '48 hours' when 'essencial' then interval '48 hours' else interval '72 hours' end due_at,
-      'normal'::text severity, 'suporte'::text destination
+      'normal'::text severity, 'suporte'::text destination,
+      case when s.status='in_progress' then 'in_progress' else 'pending' end::text action_status,
+      s.plan_at_creation::text raw_plan, s.assigned_to::text assignee_id
     from public.support_tickets s where s.status in ('open','in_progress','awaiting_admin')
 
     union all
     select 'guidance', g.id::text, g.user_id::text, 'Orientação mensal', g.created_at,
-      g.created_at + interval '7 days', 'normal', 'guidance-requests'
+      g.created_at + interval '7 days', 'normal', 'guidance-requests',
+      case when g.status in ('in_progress','in_review') then 'in_progress' else 'pending' end,
+      null::text, null::text
     from public.monthly_guidance_requests g where coalesce(g.status,'open') in ('open','pending','in_progress','in_review')
 
     union all
     select 'care', c.id::text, c.user_id::text, 'Plano de Autocuidado', c.created_at,
-      coalesce(c.review_due_at::timestamptz,c.created_at + interval '5 days'), 'normal', 'self-care-plans'
+      coalesce(c.review_due_at::timestamptz,c.created_at + interval '5 days'), 'normal', 'self-care-plans',
+      'review', null::text, c.reviewed_by::text
     from public.monthly_care_plans c where c.status in ('pending_review','draft','generated')
 
     union all
     select 'deliveries', t.id::text, t.user_id::text, coalesce(nullif(t.task_title,''),'Entrega personalizada'), t.created_at,
-      t.due_at, case when t.status='overdue' then 'high' else 'normal' end, 'personalization'
+      t.due_at, case when t.status='overdue' then 'high' else 'normal' end, 'personalization',
+      case when t.status in ('draft','generated') then 'in_progress' else 'pending' end,
+      t.plan_key::text, t.created_by::text
     from public.user_personalization_tasks t
     where t.status in ('pending','overdue','draft','generated')
       and t.task_key not in ('self_care_plan','monthly_plan_review','monthly_guidance','monthly_guidance_reply','advanced_monthly_report','monthly_summary','weekly_report_suggestion')
 
     union all
     select 'reports', r.id::text, r.user_id::text, 'Falha na geração de relatório', coalesce(r.updated_at,r.generated_at,r.created_at),
-      coalesce(r.updated_at,r.generated_at,r.created_at) + interval '24 hours', 'high', 'pdf'
+      coalesce(r.updated_at,r.generated_at,r.created_at) + interval '24 hours', 'high', 'pdf',
+      'failed', null::text, null::text
     from public.reports r where r.status='failed'
 
     union all
     select 'cancellations', f.id::text, f.user_id::text, 'Pedido de cancelamento', f.requested_at,
-      f.requested_at + interval '24 hours', 'high', 'cancelamentos'
+      f.requested_at + interval '24 hours', 'high', 'cancelamentos',
+      case when f.stripe_sync_status='failed' then 'failed' else 'pending' end,
+      f.current_plan::text, f.admin_id::text
     from public.subscription_change_feedback f
     where coalesce(f.change_type,'')='cancellation'
       and coalesce(f.status,'') <> 'reverted'
@@ -92,7 +110,8 @@ begin
     -- vence 24h antes do scheduled_at; sem programação, há janela operacional de 3 dias.
     union all
     select 'editorial', a.id::text, null::text, coalesce(nullif(a.title,''),'Conteúdo em revisão'), a.created_at,
-      coalesce(a.scheduled_at - interval '24 hours', a.created_at + interval '3 days'), 'normal', 'articles'
+      coalesce(a.scheduled_at - interval '24 hours', a.created_at + interval '3 days'), 'normal', 'articles',
+      'review', null::text, a.reviewed_by::text
     from public.articles a where a.status='review'
 
     -- Incidentes: uma falha transitória recente tem 15 minutos para se recuperar antes
@@ -100,52 +119,80 @@ begin
     -- e e-mail/jobs/campanhas como operacionais (24h).
     union all
     select 'incidents', ai.entity_id, ai.user_id, ('IA · ' || ai.title), ai.created_at,
-      ai.created_at + interval '4 hours', 'critical', 'uso-ia'
+      ai.created_at + interval '4 hours', 'critical', 'uso-ia', 'failed', null::text, null::text
     from latest_ai ai where ai.outcome in ('error','failed') and ai.created_at <= v_now - interval '15 minutes' and ai.created_at > v_now - interval '30 days'
 
     union all
     select 'incidents', e.entity_id, e.user_id, e.title, e.created_at,
-      e.created_at + interval '24 hours', 'high', 'emails'
+      e.created_at + interval '24 hours', 'high', 'emails', 'failed', null::text, null::text
     from latest_email e where e.status='failed' and e.created_at <= v_now - interval '15 minutes' and e.created_at > v_now - interval '7 days'
 
     union all
     select 'incidents', j.id::text, null::text, 'Job de conteúdo com falha', j.updated_at,
-      j.updated_at + interval '24 hours', 'high', 'system-health'
+      j.updated_at + interval '24 hours', 'high', 'system-health', 'failed', null::text, null::text
     from public.content_generation_jobs j where j.status='failed'
 
     union all
     select 'incidents', p.id::text, p.user_id::text, 'Plano de Autocuidado com falha', coalesce(p.updated_at,p.created_at),
-      coalesce(p.updated_at,p.created_at) + interval '24 hours', 'high', 'self-care-plans'
+      coalesce(p.updated_at,p.created_at) + interval '24 hours', 'high', 'self-care-plans', 'failed', null::text, p.reviewed_by::text
     from public.monthly_care_plans p where p.status='failed'
 
     union all
     select 'incidents', w.id::text, null::text, 'Webhook Stripe com falha', w.created_at,
-      w.created_at + interval '4 hours', 'critical', 'financeiro'
+      w.created_at + interval '4 hours', 'critical', 'financeiro', 'failed', null::text, null::text
     from public.stripe_webhook_events w where coalesce(w.status,'')='failed'
 
     union all
     select 'incidents', w.id::text, null::text, 'Webhook Stripe travado em processamento', w.created_at,
-      w.created_at + interval '4 hours', 'critical', 'financeiro'
+      w.created_at + interval '4 hours', 'critical', 'financeiro', 'failed', null::text, null::text
     from public.stripe_webhook_events w where coalesce(w.status,'processing')='processing' and w.created_at < v_now - interval '1 hour'
 
     union all
     select 'incidents', c.id::text, null::text, coalesce(nullif(c.title,''),'Campanha com falha'), c.created_at,
-      coalesce(c.scheduled_for,c.created_at) + interval '24 hours', 'high', 'comunicacao'
+      coalesce(c.scheduled_for,c.created_at) + interval '24 hours', 'high', 'comunicacao', 'failed', null::text, null::text
     from public.admin_communications c where c.status='failed'
-  ), enriched as (
+  ), profiled as (
     select w.*,
+      p.full_name user_name,
+      case lower(coalesce(nullif(w.raw_plan,''),p.plan,''))
+        when 'therapeutic' then 'plus'
+        when 'therapeutic-plus' then 'plus'
+        when 'therapeutic_plus' then 'plus'
+        when 'essencial' then 'essential'
+        else lower(coalesce(nullif(w.raw_plan,''),p.plan,''))
+      end plan_key,
+      p.email user_email
+    from work w
+    left join public.profiles p on p.user_id::text=w.user_id
+  ), enriched as (
+    select p.*,
       case
-        when w.due_at is null then 'no_due'
-        when w.due_at < v_now then 'overdue'
-        when (w.due_at at time zone 'America/Sao_Paulo')::date = (v_now at time zone 'America/Sao_Paulo')::date then 'today'
-        when w.due_at <= v_now + interval '3 days' then 'due_3d'
+        when p.due_at is null then 'no_due'
+        when p.due_at < v_now then 'overdue'
+        when (p.due_at at time zone 'America/Sao_Paulo')::date = (v_now at time zone 'America/Sao_Paulo')::date then 'today'
+        when p.due_at <= v_now + interval '3 days' then 'due_3d'
         else 'later'
       end bucket
-    from work w
+    from profiled p
   ), filtered as (
     select * from enriched
     where (p_area is null or p_area='' or p_area='all' or area=p_area)
       and (coalesce(p_bucket,'all')='all' or bucket=p_bucket)
+      and (coalesce(p_severity,'all')='all' or severity=p_severity)
+      and (coalesce(p_status,'all')='all' or action_status=p_status)
+      and (coalesce(p_plan,'all')='all' or plan_key=p_plan)
+      and (
+        coalesce(p_assignee,'all')='all'
+        or (p_assignee='assigned' and assignee_id is not null)
+        or (p_assignee='unassigned' and assignee_id is null)
+        or assignee_id=p_assignee
+      )
+      and (
+        v_search is null
+        or lower(coalesce(title,'')) like '%'||v_search||'%'
+        or lower(coalesce(user_name,'')) like '%'||v_search||'%'
+        or lower(coalesce(user_email,'')) like '%'||v_search||'%'
+      )
   ), page as (
     select * from filtered
     order by
@@ -158,12 +205,34 @@ begin
     'total',(select count(*) from filtered),
     'limit',v_limit,'offset',v_offset,
     'items',coalesce((select jsonb_agg(jsonb_build_object(
-      'area',area,'id',entity_id,'user_id',user_id,'title',title,'created_at',created_at,
-      'due_at',due_at,'bucket',bucket,'severity',severity,'destination',destination
+      'area',area,'id',entity_id,'user_id',user_id,'user_name',user_name,'title',title,'created_at',created_at,
+      'due_at',due_at,'bucket',bucket,'severity',severity,'status',action_status,'plan',plan_key,
+      'assignee_id',assignee_id,'destination',destination
     )) from page),'[]'::jsonb)
   ) into v;
   return v;
 end $$;
+
+revoke all on function public.admin_action_center_items_filtered(text,text,text,text,text,text,text,integer,integer) from public,anon;
+grant execute on function public.admin_action_center_items_filtered(text,text,text,text,text,text,text,integer,integer) to authenticated,service_role;
+
+-- Wrapper de compatibilidade: mantém o contrato já usado por dashboard/snapshot/testes,
+-- mas delega a regra para a função filtrável acima (fonte única de verdade).
+create or replace function public.admin_action_center_items(
+  p_area text default null,
+  p_bucket text default 'all',
+  p_limit integer default 20,
+  p_offset integer default 0
+)
+returns jsonb
+language sql
+security definer
+set search_path=public,auth
+as $$
+  select public.admin_action_center_items_filtered(
+    p_area,p_bucket,'all','all','all',null,'all',p_limit,p_offset
+  );
+$$;
 
 revoke all on function public.admin_action_center_items(text,text,integer,integer) from public,anon;
 grant execute on function public.admin_action_center_items(text,text,integer,integer) to authenticated,service_role;
@@ -269,8 +338,10 @@ end $$;
 revoke all on function public.admin_queues_overview() from public,anon;
 grant execute on function public.admin_queues_overview() to authenticated;
 
+comment on function public.admin_action_center_items_filtered(text,text,text,text,text,text,text,integer,integer) is
+  'Fonte única paginada e filtrável das ações humanas obrigatórias. Não retorna conteúdo sensível; busca usa apenas título/nome/e-mail e devolve só nome do usuário.';
 comment on function public.admin_action_center_items(text,text,integer,integer) is
-  'Fonte única paginada das ações humanas obrigatórias. Rascunhos sem prazo não entram; incidentes transitórios têm grace period de 15 min.';
+  'Wrapper compatível da Central de Ação, delegando à função filtrável.';
 comment on function public.admin_action_center_snapshot() is
   'Resumo da Central de Ação: atrasadas, vencem hoje/próximos 3 dias e áreas acionáveis.';
 
