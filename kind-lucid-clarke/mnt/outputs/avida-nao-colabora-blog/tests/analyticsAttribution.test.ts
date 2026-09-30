@@ -49,3 +49,18 @@ test('tráfego automatizado (bots/webdriver) não é registrado nas métricas', 
   assert.match(analytics, /navigator\.webdriver === true/)
   assert.match(analytics, /if \(isSmokeTest\(\) \|\| isAutomatedClient\(\)\) return/)
 })
+
+test('sessão que passou pelo /admin não entra nas métricas de visitas', () => {
+  const analytics = read('src/lib/analytics.ts')
+  assert.match(analytics, /avnc_admin_session/)
+  assert.match(analytics, /if \(isAdminSession\(\)\) return/)
+})
+
+test('Ver usuário das notificações abre a ficha mesmo em outra aba ou já na tela de usuários', () => {
+  const area = read('src/components/admin/AdminAreaUsuarios.tsx')
+  assert.match(area, /if\(initialUserId\)setTab\('usuarios'\)/)
+  const index = read('src/components/admin/index.tsx')
+  assert.match(index, /pendingUserNonce/)
+  const alerts = read('src/components/admin/AdminActivityAlerts.tsx')
+  assert.match(alerts, /setOpen\(false\); onOpenUser\(id\)/)
+})

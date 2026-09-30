@@ -142,6 +142,8 @@ export default function AdminPanel() {
   })
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null)
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  // Incrementa a cada pedido para reabrir a ficha mesmo quando o ID é o mesmo ou a tela já está aberta.
+  const [pendingUserNonce, setPendingUserNonce] = useState(0)
   const [pendingTicketId, setPendingTicketId] = useState<string | null>(null)
   const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null)
 
@@ -193,6 +195,12 @@ export default function AdminPanel() {
     return <AdminMfaGate onVerified={() => setMfaVerified(true)} onSignOut={() => { void signOut() }} />
   }
 
+  function openUserFile(uid: string) {
+    setPendingUserId(uid)
+    setPendingUserNonce(n => n + 1)
+    navigate('usuarios')
+  }
+
   function navigate(v: string) {
     setView(resolveView(v))
   }
@@ -205,11 +213,11 @@ export default function AdminPanel() {
   function renderView() {
     switch (view) {
       case 'visao-geral': return <AdminOverview onNavigate={v => navigate(v)} />
-      case 'usuarios': return <AdminAreaUsuarios initialUserId={pendingUserId} />
-      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={pendingUserId} />
-      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={pendingUserId} />
-      case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
-      case 'financeiro': return <AdminAreaAssinaturas initialTab="financeiro" onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} />
+      case 'usuarios': return <AdminAreaUsuarios initialUserId={pendingUserId} openNonce={pendingUserNonce} />
+      case 'segmentacao': return <AdminAreaUsuarios initialTab="segmentacao" initialUserId={pendingUserId} openNonce={pendingUserNonce} />
+      case 'engajamento': return <AdminAreaUsuarios initialTab="engajamento" initialUserId={pendingUserId} openNonce={pendingUserNonce} />
+      case 'assinaturas': return <AdminAreaAssinaturas onViewUser={uid => openUserFile(uid)} />
+      case 'financeiro': return <AdminAreaAssinaturas initialTab="financeiro" onViewUser={uid => openUserFile(uid)} />
       case 'conteudos': return <AdminAreaConteudo onEditArticle={handleEditArticle} onNavigate={v => navigate(v)} />
       case 'estudio-ia': return <AdminAreaEstudioIA />
       case 'seo-performance': return <AdminAreaSEO onEditArticle={handleEditArticle} />
@@ -220,7 +228,7 @@ export default function AdminPanel() {
       case 'jardins': return <AdminAreaJardins />
       case 'comunicacao': return <AdminAreaComunicacao initialCampaignId={pendingCampaignId} />
       case 'analytics': return <AnalyticsPage onEditArticle={handleEditArticle} />
-      case 'suporte': return <AdminSuportePage onViewUser={uid => { setPendingUserId(uid); navigate('usuarios') }} initialTicketId={pendingTicketId} />
+      case 'suporte': return <AdminSuportePage onViewUser={uid => openUserFile(uid)} initialTicketId={pendingTicketId} />
       case 'sistema': return <AdminAreaSistema onNavigate={v => navigate(v)} />
       case 'article-editor':
         return (
@@ -246,7 +254,7 @@ export default function AdminPanel() {
       currentView={view}
       onNavigate={v => navigate(v)}
       onExit={handleExit}
-      onOpenUser={uid => { setPendingUserId(uid); navigate('usuarios') }}
+      onOpenUser={uid => openUserFile(uid)}
       onOpenArticle={id => handleEditArticle(id)}
       onOpenTicket={id => { setPendingTicketId(id); navigate('suporte') }}
       onOpenCampaign={id => { setPendingCampaignId(id); try { localStorage.setItem('admin-comunicacao-tab', 'campanhas') } catch { /* noop */ } navigate('comunicacao') }}
