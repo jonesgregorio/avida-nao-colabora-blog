@@ -8,6 +8,8 @@ import LivingGarden from './garden/LivingGarden'
 import GardenCelebration from './garden/GardenCelebration'
 import GardenGrowthCompare from './garden/GardenGrowthCompare'
 import { ensureRuntimeGardenThemes } from '../lib/gardenRuntimeThemes'
+import { chooseMyGarden, loadMyGardenChoice, type GardenChoice } from '../lib/gardenChoice'
+import GardenChooser from './garden/GardenChooser'
 
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
 // vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
@@ -33,6 +35,9 @@ const STAGE_THRESHOLDS:Record<number,number>={1:3,2:10,3:18,4:28,5:39,6:50}
 const LAST_GARDEN_KEY_PREFIX='avnc:garden:lastIndex:'
 const LAST_GARDEN_SLUG_KEY_PREFIX='avnc:garden:lastSlug:'
 const LAST_GARDEN_PROGRESS_KEY_PREFIX='avnc:garden:lastProgress:'
+// Ciclo visto por último: a celebração só dispara quando o CICLO avança. Trocar de jardim no mesmo
+// ciclo (modo Híbrido) muda o índice do tema, mas não é "jardim concluído".
+const LAST_GARDEN_CYCLE_KEY_PREFIX='avnc:garden:lastCycle:'
 // "Flores" (queda de pétalas) e "Vida" (fauna) descrevem algo que só existe em ALGUNS jardins —
 // deserto não tem nenhuma partícula caindo (fall.count:0 em gardenThemes.ts) e nórdico só tem
 // neve, sem fauna nenhuma (flyers:{}). Nesses dois casos o marco genérico prometeria algo que
@@ -70,6 +75,10 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [cycleSlugs,setCycleSlugs]=useState<Record<number,string>>({})
   const [growthChange,setGrowthChange]=useState<{theme:GardenTheme;from:number;to:number}|null>(null)
   const [compareOpen,setCompareOpen]=useState(false)
+  // Modo de entrega (Admin → Regras): em Livre escolha/Híbrido a pessoa escolhe ou troca o jardim do ciclo.
+  const [choice,setChoice]=useState<GardenChoice|null>(null)
+  const [chooserOpen,setChooserOpen]=useState(false)
+  const [reloadTick,setReloadTick]=useState(0)
   // último progresso visto neste MESMO jardim (não só quando ele avançou) — permite um botão
   // fixo de comparação sempre que existir uma visita anterior pra comparar, além do aviso
   // reativo abaixo (que só aparece no momento em que o progresso avança).
@@ -108,6 +117,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       if(!alive||!data)return
       const next=data as GardenState
       setState(next)
+      void loadMyGardenChoice().then(c=>{if(alive)setChoice(c)})
       // um jardim "vira" quando garden_index sobe — comparamos com o último índice visto
       // (guardado no navegador) pra celebrar só uma vez, no momento da conclusão. Guardamos
       // também o slug anterior: se a fila do admin foi reordenada nesse meio-tempo, o slug é
@@ -123,8 +133,13 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         const prevProgress=prevProgressRaw==null?null:Number(prevProgressRaw)
         const nextIndex=Math.max(0,next.garden_index||0)
         const nextProgress=Math.max(0,Math.min(59,next.garden_progress||0))
+        const cycleKey=LAST_GARDEN_CYCLE_KEY_PREFIX+userId
+        const prevCycleRaw=window.localStorage.getItem(cycleKey)
+        const prevCycle=prevCycleRaw==null?null:Number(prevCycleRaw)
+        // sem baseline de ciclo (visitas antigas), vale só o índice, como sempre foi
+        const cycleAdvanced=prevCycle==null||Number.isNaN(prevCycle)||(next.garden_cycle??0)>prevCycle
         const sameGarden=prev!=null&&!Number.isNaN(prev)&&nextIndex===prev
-        if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev){
+        if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev&&cycleAdvanced){
           // o jardim virou — a celebração de tela cheia cuida desse momento; não soma com o
           // aviso de "mudou desde sua última visita" abaixo, que é sobre o MESMO jardim.
           setCelebrateTheme(prevSlug?resolveGardenTheme(prevSlug,nextIndex-1):themeFor(nextIndex-1))
@@ -137,13 +152,14 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         // botão FIXO de comparação — o aviso acima é só reativo e pode passar despercebido.
         if(sameGarden&&prevProgress!=null&&!Number.isNaN(prevProgress))setPriorProgress(prevProgress)
         window.localStorage.setItem(key,String(nextIndex))
+        window.localStorage.setItem(cycleKey,String(next.garden_cycle??0))
         window.localStorage.setItem(progressKey,String(nextProgress))
         if(next.garden_slug)window.localStorage.setItem(slugKey,next.garden_slug)
         else window.localStorage.removeItem(slugKey)
       }catch{/* localStorage indisponível (modo privado etc.) — só não notifica, sem quebrar a página */}
     })().catch(()=>{})
     return()=>{alive=false}
-  },[userId,effectiveAccess])
+  },[userId,effectiveAccess,reloadTick])
 
   useEffect(()=>{
     // "Marcos visuais" (Admin → Gestão de Jardins → Regras) — se o admin mudar os limiares
@@ -214,6 +230,15 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const compareFrom=priorProgress!=null&&priorProgress!==(state.garden_progress||0)?priorProgress:0
   const compareLabel=compareFrom!==0?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'
 
+  const showChooser=Boolean(choice&&(choice.needs_choice||chooserOpen)&&choice.options.length>0)
+  async function handleChoose(slug:string):Promise<string|null>{
+    const result=await chooseMyGarden(slug)
+    if(!result.ok)return result.error
+    setChooserOpen(false)
+    setReloadTick(t=>t+1)
+    return null
+  }
+
   function goToHistory(){
     setCelebrateTheme(null)
     memoriesRef.current?.scrollIntoView({behavior:'smooth',block:'start'})
@@ -235,11 +260,12 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       </div>
     </div>
 
-    <section className="relative aspect-[1672/941] overflow-hidden">
+    {showChooser?<GardenChooser options={choice!.options} currentSlug={choice!.current_slug} firstChoice={choice!.needs_choice} onChoose={handleChoose} onCancel={choice!.needs_choice?undefined:()=>setChooserOpen(false)}/>:<section className="relative aspect-[1672/941] overflow-hidden">
       <LivingGarden theme={theme} progress={gardenProgress}/>
-    </section>
+    </section>}
 
     <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:px-10">
+      {choice?.can_switch&&!choice.needs_choice&&!showChooser&&<div className="mb-4 flex justify-end"><button type="button" onClick={()=>setChooserOpen(true)} className="rounded-2xl border border-[#d8cfbd] bg-[#fffaf3] px-4 py-2 text-xs font-semibold text-forest-800 transition hover:bg-white">Trocar de jardim</button></div>}
       {tempUnlocked&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-forest-200 bg-forest-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-forest-600"/><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-forest-700">Acesso liberado por tempo limitado</p><p className="mt-1 text-sm leading-5 text-ink-soft">Você está vendo o Meu Jardim de graça enquanto esta campanha estiver ativa. Ele volta a ficar disponível a partir do plano Essencial quando a campanha terminar.</p></div></div>{onNavigatePricing&&<button onClick={onNavigatePricing} className="shrink-0 self-start rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">Garantir acesso permanente</button>}</div>}
       {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&(campaign.cta_url?<a href={campaign.cta_url} target="_blank" rel="noopener noreferrer" className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">{campaign.cta_label}</a>:<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>)}</div>}
       {growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">Seu jardim mudou desde sua última visita.</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={()=>setCompareOpen(true)} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button><button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button></div></div>}
