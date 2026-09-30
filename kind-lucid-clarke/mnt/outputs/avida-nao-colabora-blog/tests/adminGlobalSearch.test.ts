@@ -47,6 +47,7 @@ test('a navegação estática (áreas) foi preservada', () => {
 })
 
 test('index.tsx liga onOpenUser/onOpenArticle da busca global', () => {
-  assert.match(index, /onOpenUser=\{uid => \{ setPendingUserId\(uid\); navigate\('usuarios'\) \}\}/)
+  assert.match(index, /onOpenUser=\{uid => openUserFile\(uid\)\}/)
+  assert.match(index, /function openUserFile[\s\S]*setPendingUserId\(uid\)[\s\S]*navigate\('usuarios'\)/)
   assert.match(index, /onOpenArticle=\{id => handleEditArticle\(id\)\}/)
 })

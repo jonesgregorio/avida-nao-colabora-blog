@@ -56,7 +56,7 @@ import {
 
 const PAGE_SIZE = 40
 
-export default function AdminUsers({ initialUserId }: { initialUserId?: string | null }) {
+export default function AdminUsers({ initialUserId, openNonce = 0 }: { initialUserId?: string | null; openNonce?: number }) {
   const { user: adminUser } = useAuth()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -219,9 +219,12 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
   // Com paginação real o usuário pode não estar na página atual, então buscamos pelo ID
   // no servidor em vez de voltar a carregar toda a base.
   const pendingOpenRef = useRef<string | null>(null)
+  const [openTick, setOpenTick] = useState(0)
   useEffect(() => {
-    if (initialUserId) pendingOpenRef.current = initialUserId
-  }, [initialUserId])
+    if (!initialUserId) return
+    pendingOpenRef.current = initialUserId
+    setOpenTick(t => t + 1)
+  }, [initialUserId, openNonce])
   useEffect(() => {
     const userId = pendingOpenRef.current
     if (!userId || loading) return
@@ -241,7 +244,7 @@ export default function AdminUsers({ initialUserId }: { initialUserId?: string |
       .catch(() => { pendingOpenRef.current = null })
   // openDrawer é estável para este fluxo; reagimos apenas à página carregada.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, users])
+  }, [loading, users, openTick])
 
   useEffect(() => {
     if (drawerTab === 'resumo-inteligente' && selectedUser && !aiExtraLoaded) {

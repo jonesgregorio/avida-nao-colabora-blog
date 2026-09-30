@@ -250,7 +250,7 @@ export default function AdminActivityAlerts({ onOpenUser }: { onOpenUser?: (user
           ) : (
             <div className="max-h-[460px] overflow-y-auto divide-y divide-line">
               {rows.map(ev => (
-                <EventRow key={ev.id} ev={ev} onOpenUser={onOpenUser} onRead={handleRead} />
+                <EventRow key={ev.id} ev={ev} onOpenUser={onOpenUser ? (id: string) => { setOpen(false); onOpenUser(id) } : undefined} onRead={handleRead} />
               ))}
               {rows.length < total && (
                 <button

@@ -28,6 +28,19 @@ export function isAutomatedClient(
   return webdriver || BOT_UA.test(ua || '')
 }
 
+// Quem abre o /admin é a equipe, não público. Ao entrar no painel marcamos a aba (sessionStorage)
+// e nada mais daquela sessão é contado, mesmo depois de navegar para páginas públicas.
+const ADMIN_SESSION_KEY = 'avnc_admin_session'
+function isAdminPath(): boolean {
+  return location.pathname === '/admin' || location.pathname.startsWith('/admin/')
+}
+function isAdminSession(): boolean {
+  try {
+    if (isAdminPath()) { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); return true }
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'
+  } catch { return isAdminPath() }
+}
+
 function getSessionId(): string {
   const key = 'avnc_sid'
   try {
@@ -104,8 +117,8 @@ function coarseUA(ua: string): string {
 export function trackEvent(event: AnalyticsEvent | string, opts: TrackOpts = {}): void {
   try {
     if (isSmokeTest() || isAutomatedClient()) return
-    // O painel administrativo não representa aquisição/uso do site público.
-    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) return
+    // O painel administrativo (e a sessão de quem passou por ele) não representa uso do site público.
+    if (isAdminSession()) return
     loadConfig()
     const normalized = (event === 'scroll_50' ? 'article_scroll_50' : event === 'scroll_75' ? 'article_scroll_75' : event === 'scroll_100' ? 'article_scroll_100' : event)
       .trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
@@ -204,7 +217,7 @@ export function initAcquisition(): void {
   acqInit = true
   try {
     // Admin não entra nas métricas de aquisição.
-    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) return
+    if (isAdminSession()) return
 
     const seenKey = 'avnc_src_seen'
     if (sessionStorage.getItem(seenKey)) return // 1x por sessão
