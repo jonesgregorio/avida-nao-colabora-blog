@@ -33,9 +33,6 @@ const AREA_LABEL: Record<string, string> = {
   support: 'Suporte', guidance: 'Orientações', care: 'Autocuidado', deliveries: 'Entregas',
   reports: 'Relatórios', cancellations: 'Cancelamentos', incidents: 'Incidentes', editorial: 'Editorial',
 }
-const BUCKET_LABEL: Record<string, string> = {
-  overdue: 'Atrasada', today: 'Vence hoje', due_3d: 'Próx. 3 dias', later: 'No prazo', no_due: 'Sem prazo',
-}
 
 function dueLabel(iso: string | null): string {
   if (!iso) return 'Sem prazo definido'
@@ -65,7 +62,6 @@ export default function AdminHumanActionCenter({ onNavigate }: { onNavigate: (vi
   }, [area, bucket, page])
 
   useEffect(() => { void load() }, [load])
-  useEffect(() => { setPage(1) }, [area, bucket])
 
   const total = payload.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -83,11 +79,11 @@ export default function AdminHumanActionCenter({ onNavigate }: { onNavigate: (vi
         <div className="flex flex-wrap gap-2">
           <label className="relative">
             <Filter className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-stone-400" />
-            <select value={area} onChange={e => setArea(e.target.value)} className="rounded-lg border border-line bg-white py-2 pl-8 pr-8 text-xs text-stone-600">
+            <select value={area} onChange={e => { setArea(e.target.value); setPage(1) }} className="rounded-lg border border-line bg-white py-2 pl-8 pr-8 text-xs text-stone-600">
               {AREA_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <select value={bucket} onChange={e => setBucket(e.target.value as Bucket)} className="rounded-lg border border-line bg-white px-3 py-2 text-xs text-stone-600">
+          <select value={bucket} onChange={e => { setBucket(e.target.value as Bucket); setPage(1) }} className="rounded-lg border border-line bg-white px-3 py-2 text-xs text-stone-600">
             {BUCKET_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
           <button onClick={() => void load()} className="rounded-lg border border-line p-2 text-stone-500 hover:text-forest-800" aria-label="Atualizar ações"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
