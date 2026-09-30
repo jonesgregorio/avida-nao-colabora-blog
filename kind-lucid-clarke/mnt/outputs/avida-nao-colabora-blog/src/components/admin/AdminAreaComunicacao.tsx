@@ -1,20 +1,22 @@
 import { useCallback, useState, useId, type ReactNode } from 'react'
-import { Bell, FileText, Sparkles, Megaphone, Repeat, History, Mail, X } from 'lucide-react'
+import { Bell, FileText, Sparkles, Megaphone, Repeat, History, Mail, X, Waypoints } from 'lucide-react'
 import AdminNotifications from './AdminNotifications'
 import AdminEmails from './AdminEmails'
 import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
 import AdminNewsletter from './AdminNewsletter'
+import AdminOnboarding from './AdminOnboarding'
 import { useModalA11y } from '../../hooks/useModalA11y'
 
-// COMUNICAÇÃO — de 6 abas para 4: Campanhas, Automáticas, Newsletter, Histórico.
+// COMUNICAÇÃO — Campanhas, Automáticas, Onboarding, Newsletter e Histórico.
 // "Templates de e-mail", "Criador com IA" e "Notificação avulsa" deixaram de ser
 // áreas próprias e viraram FERRAMENTAS abertas de dentro de Campanhas.
-// "Site & páginas" saiu daqui para Conteúdo → Site. "Newsletter" mostra quem se
-// inscreveu/cancelou no formulário do rodapé do blog (visitantes sem conta).
+// Onboarding concentra a jornada inicial por comportamento/plano, sem criar uma
+// segunda automação concorrente com os e-mails transacionais já existentes.
 const TABS = [
   { id: 'campanhas', label: 'Campanhas', icon: Megaphone },
   { id: 'automaticas', label: 'Automáticas', icon: Repeat },
+  { id: 'onboarding', label: 'Onboarding', icon: Waypoints },
   { id: 'newsletter', label: 'Newsletter', icon: Mail },
   { id: 'historico', label: 'Histórico', icon: History },
 ] as const
@@ -49,7 +51,7 @@ export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: 
         <div>
           <p className="admin-kicker">Relacionamento</p>
           <h1 className="font-serif text-3xl text-forest-900">Comunicação</h1>
-          <p className="admin-subtitle mt-1">Campanhas (e-mail e notificação), envios automáticos e histórico de entrega em uma área só.</p>
+          <p className="admin-subtitle mt-1">Campanhas, onboarding, envios automáticos e histórico de entrega em uma área só.</p>
         </div>
         <div className="admin-actions">
           <button onClick={() => setTool('notificacao')} className="admin-btn-secondary"><Bell className="w-4 h-4" /> Notificação avulsa</button>
@@ -75,6 +77,7 @@ export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: 
       <section className="admin-card overflow-hidden flex-1 min-h-0">
         {tab === 'campanhas' && <AdminCommunicationCampaigns initialCampaignId={initialCampaignId} />}
         {tab === 'automaticas' && <AdminEmails initialTab="resumo" />}
+        {tab === 'onboarding' && <AdminOnboarding />}
         {tab === 'newsletter' && <AdminNewsletter />}
         {tab === 'historico' && <AdminEmails initialTab="logs" />}
       </section>
@@ -90,8 +93,6 @@ export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: 
   )
 }
 
-// Modal acessível padrão do projeto: foco inicial dentro do diálogo, focus
-// trap, Escape fecha, foco restaurado ao botão que abriu, aria-labelledby.
 function ToolModal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const close = useCallback(() => onClose(), [onClose])
   const dialogRef = useModalA11y(close)
