@@ -297,7 +297,7 @@ export default function App() {
       // (auditoria Meta, 2026-09-29): reproduzido 2x, zero eventos CompleteRegistration
       // chegaram à Edge Function por causa desta corrida.
       const query = new URLSearchParams(window.location.search)
-      const hasPendingEmailConfirmation = isAuthView && (query.get('email_confirmed') === '1' || query.has('error'))
+      const hasPendingEmailConfirmation = isAuthView && (query.get('email_confirmed') === '1' || query.has('error') || query.get('oauth') === 'google')
       if (isAuthView && !hasPendingEmailConfirmation) navigate('home')
       return
     }

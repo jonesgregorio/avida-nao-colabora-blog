@@ -44,5 +44,6 @@ test('redirecionamento pós-login não interrompe a confirmação de e-mail em a
   // CompleteRegistration/Pixel/CAPI). Sem esta guarda, o redirecionamento genérico
   // desmontava o Auth no meio do processamento e o evento de cadastro nunca disparava.
   const app = read('src/App.tsx')
-  assert.match(app, /hasPendingEmailConfirmation = isAuthView && \(query\.get\('email_confirmed'\) === '1' \|\| query\.has\('error'\)\)/)
+  // inclui o retorno do login com o Google (?oauth=google), que tem o mesmo risco de corrida
+  assert.match(app, /hasPendingEmailConfirmation = isAuthView && \(query\.get\('email_confirmed'\) === '1' \|\| query\.has\('error'\) \|\| query\.get\('oauth'\) === 'google'\)/)
 })

@@ -7,6 +7,8 @@ import { campaignAttributionForSignup, campaignMetadata } from '../lib/campaignA
 import { confirmationRedirectUrl, isEmailConfirmed, isEmailNotConfirmedError } from '../lib/authVerification'
 import { trackMetaCompleteRegistration } from '../lib/metaConversions'
 import { LogoIcon } from './Logo'
+import { isGoogleLoginEnabled, startGoogleSignIn } from '../lib/googleAuth'
+import { googleErrorMessage, isNewOAuthUser } from '../lib/googleAuthRules'
 
 type AuthMode = 'login' | 'signup' | 'reset' | 'verify' | 'confirmed'
 
@@ -52,6 +54,12 @@ export default function Auth({ onBack }: AuthProps) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const signupStarted = useRef(false)
+  // Login com o Google: o botão só aparece quando o provedor está ligado no Supabase.
+  const [googleReady, setGoogleReady] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [oauthProcessing, setOauthProcessing] = useState(() => new URLSearchParams(window.location.search).get('oauth') === 'google' && !new URLSearchParams(window.location.search).has('error'))
+  const onBackRef = useRef(onBack)
+  onBackRef.current = onBack
 
   const isSignup = mode === 'signup'
 
@@ -80,6 +88,7 @@ export default function Auth({ onBack }: AuthProps) {
     const callbackError = query.get('error') || hash.get('error')
     const callbackErrorCode = query.get('error_code') || hash.get('error_code')
 
+    if (query.get('oauth') === 'google') return // retorno do Google: tratado no efeito abaixo
     if (!confirmationCallback && !callbackError) return
 
     if (callbackError) {
@@ -139,6 +148,80 @@ export default function Auth({ onBack }: AuthProps) {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    let alive = true
+    void isGoogleLoginEnabled().then((enabled) => { if (alive) setGoogleReady(enabled) })
+    return () => { alive = false }
+  }, [])
+
+  // Retorno do Google (/login?oauth=google): conclui o login, registra o cadastro novo (eventos,
+  // Meta e e-mail de boas-vindas) e segue para a área logada. O App espera este efeito terminar
+  // antes de navegar (mesma regra do retorno da confirmação de e-mail).
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('oauth') !== 'google') return undefined
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const callbackError = query.get('error') || hash.get('error')
+    if (callbackError) {
+      setError(googleErrorMessage(query.get('error_description') || hash.get('error_description') || callbackError))
+      cleanAuthCallbackUrl()
+      return undefined
+    }
+
+    let active = true
+    let handled = false
+
+    const finish = async (user: { id: string; email?: string | null; created_at?: string; last_sign_in_at?: string; user_metadata?: Record<string, unknown> }) => {
+      if (!active || handled) return
+      handled = true
+      cleanAuthCallbackUrl()
+      try {
+        if (isNewOAuthUser(user)) {
+          const attribution = campaignAttributionForSignup()
+          const metadata = { location: 'auth', method: 'google', ...campaignMetadata(attribution) }
+          // preserva a origem do cadastro como no cadastro por e-mail (que a grava em user_metadata)
+          if (attribution) { try { await supabase.auth.updateUser({ data: { campaign_attribution: attribution } }) } catch { /* não bloqueia o acesso */ } }
+          trackEvent('register_success', { user_id: user.id, metadata })
+          trackEvent('registration_complete', { user_id: user.id, metadata })
+          trackMetaCompleteRegistration(user.id)
+          const meta = user.user_metadata ?? {}
+          const fullName = typeof meta.full_name === 'string' && meta.full_name.trim() ? meta.full_name : (typeof meta.name === 'string' ? meta.name : '')
+          const targetEmail = user.email ?? ''
+          if (targetEmail) void emailWelcome(user.id, targetEmail, fullName || targetEmail.split('@')[0] || 'você')
+        } else {
+          trackEvent('login_success', { user_id: user.id, metadata: { location: 'auth', method: 'google' } })
+        }
+      } finally {
+        setOauthProcessing(false)
+        onBackRef.current()
+      }
+    }
+
+    void supabase.auth.getSession().then(({ data }) => { if (data.session?.user) void finish(data.session.user) }).catch(() => undefined)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { if (session?.user) void finish(session.user) })
+    const timer = window.setTimeout(() => {
+      if (!active || handled) return
+      setOauthProcessing(false)
+      setError('Não foi possível concluir o acesso com o Google. Tente de novo ou use e-mail e senha.')
+      cleanAuthCallbackUrl()
+    }, 10000)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleGoogle = async () => {
+    setError('')
+    setSuccess('')
+    setGoogleBusy(true)
+    trackEvent('google_auth_start', { metadata: { location: 'auth', mode } })
+    const failure = await startGoogleSignIn()
+    if (failure) { setError(failure); setGoogleBusy(false) }
+  }
 
   const handleResendConfirmation = async () => {
     const targetEmail = verificationEmail.trim()
@@ -298,7 +381,13 @@ export default function Auth({ onBack }: AuthProps) {
             </div>
 
             <div className="p-6 sm:p-9 bg-white border-t lg:border-t-0 lg:border-l border-line flex flex-col justify-center">
-              {mode === 'verify' ? (
+              {oauthProcessing ? (
+                <div className="text-center py-8" role="status">
+                  <div className="w-10 h-10 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <h2 className="font-serif text-2xl text-forest-900">Entrando com o Google…</h2>
+                  <p className="text-sm text-ink-soft mt-2">Só um instante.</p>
+                </div>
+              ) : mode === 'verify' ? (
                 <div>
                   <div className="w-12 h-12 rounded-full bg-mint flex items-center justify-center text-forest-700 mb-4"><MailCheck className="w-6 h-6" /></div>
                   <h2 className="font-serif text-2xl text-forest-900">Confirme seu e-mail</h2>
@@ -358,6 +447,24 @@ export default function Auth({ onBack }: AuthProps) {
 
                   {error && <div className="bg-coral/20 border border-coral/40 text-[#8a3b23] text-sm rounded-xl px-3.5 py-2.5 mb-4">{error}</div>}
                   {success && <div className="bg-mint/60 border border-forest-100 text-forest-800 text-sm rounded-xl px-3.5 py-2.5 mb-4">{success}</div>}
+
+                  {googleReady && mode !== 'reset' && (
+                    <div className="mb-5">
+                      <button
+                        type="button"
+                        onClick={() => void handleGoogle()}
+                        disabled={googleBusy || loading}
+                        className="w-full inline-flex items-center justify-center gap-3 rounded-2xl border border-line bg-white py-3 text-sm font-medium text-forest-900 transition-colors hover:bg-stone-50 disabled:opacity-60"
+                      >
+                        <GoogleIcon />
+                        {googleBusy ? 'Abrindo o Google…' : isSignup ? 'Cadastrar com o Google' : 'Entrar com o Google'}
+                      </button>
+                      <p className="mt-2 text-center text-xs text-ink-soft">
+                        Ao continuar com o Google você concorda com os <a href="/termos" target="_blank" rel="noreferrer" className="text-forest-700 underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noreferrer" className="text-forest-700 underline">Política de Privacidade</a>.
+                      </p>
+                      <div className="mt-5 flex items-center gap-3 text-xs text-ink-soft" aria-hidden="true"><span className="h-px flex-1 bg-line" />ou use seu e-mail<span className="h-px flex-1 bg-line" /></div>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} onFocus={markSignupStarted} className="space-y-4">
                     <Field label="E-mail" htmlFor="auth-email">
@@ -443,6 +550,17 @@ export default function Auth({ onBack }: AuthProps) {
         </div>
       </main>
     </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z" />
+      <path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z" />
+      <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" />
+    </svg>
   )
 }
 
