@@ -80,3 +80,19 @@ test('resumo interno preserva contagens sem armazenar o texto adaptado', () => {
   assert.match(runner, /adapted_actions: items\.filter\(item => Boolean\(item\.adapted_action\)\)\.length/)
   assert.doesNotMatch(runner, /previous_care_action_feedback:\s*previousCareFeedback/)
 })
+
+test('percepção do plano anterior é compacta: linhas em lista, só as 3 primeiras à vista e o resto sob demanda', () => {
+  assert.match(component, /const COLLAPSED_COUNT = 3/)
+  assert.match(component, /actions\.slice\(0, COLLAPSED_COUNT\)/)
+  assert.match(component, /aria-expanded=\{expanded\}/)
+  assert.match(component, /Ver as outras \$\{actions\.length - COLLAPSED_COUNT\} ações/)
+  assert.match(component, /Mostrar menos/)
+  // a pergunta aparece uma vez no topo, não repetida em cada ação
+  assert.equal((component.match(/Como isso combina com seu momento\?/g) ?? []).length, 1)
+  // contagem neutra, sem meta, pontuação ou sequência
+  assert.match(component, /com sua percepção/)
+  assert.doesNotMatch(component, /progress|streak|pontos|score/i)
+  // cada ação continua com as três respostas e a mesma gravação
+  assert.match(component, /<ul className="mt-3 divide-y/)
+  assert.match(component, /sm:flex-row sm:items-center/)
+})
