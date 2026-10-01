@@ -20,5 +20,25 @@ test('Entregas preserva gestão operacional de prazos e filtros',()=>{
 test('Atendimentos mostra visão agregada de ação',()=>{
  const area=read('src/components/admin/AdminAreaAtendimentos.tsx')
  for(const text of ['Itens que exigem acompanhamento','Vencem em até 3 dias','Atrasados','Entregas de Conteúdo']) assert.match(area,new RegExp(text))
- for(const source of ['monthly_guidance_requests','monthly_care_plans','user_personalization_tasks']) assert.match(area,new RegExp(source))
+ // as três fontes agora vêm da MESMA RPC da lateral (admin_action_center_snapshot), não de consultas próprias
+ assert.match(area,/supabase\.rpc\('admin_action_center_snapshot'\)/)
+ const sql=read('supabase/migrations/20260930200000_action_center_reports_only_failed.sql')
+ for(const source of ['monthly_guidance_requests','monthly_care_plans','user_personalization_tasks']) assert.match(sql,new RegExp(source))
+})
+
+test('Atendimentos indica EM QUAL aba está cada pendência (abas com contador + faixa "Onde estão as pendências")',()=>{
+ const area=read('src/components/admin/AdminAreaAtendimentos.tsx')
+ // cada aba aponta para uma área da RPC
+ assert.match(area,/orientacoes:'guidance',autocuidado:'care',recomendacoes:'deliveries',relatorios:'reports'/)
+ // contador na aba, com cor por urgência (atrasado / vence em 3 dias)
+ assert.match(area,/const c=countOf\(t\.id\)/)
+ assert.match(area,/c\.total>0&&<span title=/)
+ assert.match(area,/c\.overdue>0\?'bg-red-100 text-red-700'/)
+ // faixa que lista só as áreas com pendência, clicável, e mensagem quando está tudo em dia
+ assert.match(area,/Onde estão as pendências/)
+ assert.match(area,/withPending\.map\(t=>/)
+ assert.match(area,/Nenhuma pendência em Atendimentos & Entregas\. Tudo em dia\./)
+ // os cartões do topo levam à aba certa, não sempre a Entregas de Conteúdo
+ assert.match(area,/change\(firstPending\)/)
+ assert.doesNotMatch(area,/onClick=\{\(\)=>change\('recomendacoes'\)\} className="rounded-2xl border border-line bg-white p-4/)
 })
