@@ -38,8 +38,12 @@ test('o aviso salva pelo RPC seguro do perfil, grava o nome nos 3 campos e não 
   assert.match(prompt, /Agora não/)
   assert.match(prompt, /currentView !== 'profile'/) // na tela de perfil a pessoa já edita o nome
   assert.match(prompt, /!profile\?\.must_change_password/)
-  // nunca é um modal que trava: sem overlay de tela cheia
-  assert.doesNotMatch(prompt, /fixed inset-0/)
+  // destaque no centro da tela, mas sempre dispensável: X, "Agora não", Esc e clique fora
+  assert.match(prompt, /fixed inset-0 z-50 grid place-items-center/)
+  assert.match(prompt, /aria-modal="true"/)
+  assert.match(prompt, /e\.key !== 'Escape'/)
+  assert.match(prompt, /e\.target === e\.currentTarget\) dismiss\(\)/)
+  assert.match(prompt, /aria-label="Agora não"/)
 })
 
 test('o aviso aparece em toda a área logada (UserLayout) e recarrega o perfil ao salvar', () => {
