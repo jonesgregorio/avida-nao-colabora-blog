@@ -53,7 +53,7 @@ export default {
         forest: {
           50: '#eef3f0', 100: '#dcebe2', 200: '#b9d3c3', 300: '#8fb5a1',
           400: '#5c8a72', 500: '#2f5d47', 600: '#1c4a37', 700: '#153e2f',
-          800: '#123528', 900: '#1A4A3A',
+          800: '#123528', 900: '#1A4A3A', 950: '#0F2F25',
         },
         paper: { DEFAULT: '#FBFAF7', soft: '#FFFFFF' },
         ink: { DEFAULT: '#0F2F25', soft: '#5F6661' },
