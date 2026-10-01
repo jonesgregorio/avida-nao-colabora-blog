@@ -32,6 +32,7 @@ import { LogoIcon } from '../Logo'
 import PlanBadge from '../PlanBadge'
 import { useUserMfaGate } from './UserMfaGate'
 import UserMfaSettings from './UserMfaSettings'
+import NamePrompt from './NamePrompt'
 
 interface UserLayoutProps {
   user: SupabaseUser | null
@@ -39,6 +40,8 @@ interface UserLayoutProps {
   currentView: string
   onNavigate: (section: string) => void
   onSignOut: () => void
+  /** Recarrega o perfil depois que a pessoa informa o nome (aviso "Como você gostaria de ser chamado(a)?"). */
+  onProfileRefresh?: () => void | Promise<void>
   children: ReactNode
 }
 
@@ -157,7 +160,7 @@ function displayName(profile: Profile | null, user: SupabaseUser | null) {
   return profile?.preferred_name || profile?.display_name || profile?.full_name || user?.email?.split('@')[0] || 'você'
 }
 
-export default function UserLayout({ user, profile, currentView, onNavigate, onSignOut, children }: UserLayoutProps) {
+export default function UserLayout({ user, profile, currentView, onNavigate, onSignOut, onProfileRefresh, children }: UserLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [unread, setUnread] = useState(0)
@@ -259,6 +262,7 @@ export default function UserLayout({ user, profile, currentView, onNavigate, onS
           <div className="flex-1">{children}{currentView === 'profile' && user && <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 sm:pb-10"><UserMfaSettings user={user} /></div>}</div>
           <UserFooter onNavigate={onNavigate} />
         </main>
+        {user && onProfileRefresh && <NamePrompt userId={user.id} profile={profile} currentView={currentView} onSaved={onProfileRefresh} />}
       </div>
 
       <nav aria-label="Navegação principal" className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-line shadow-[0_-8px_28px_rgba(15,47,37,0.08)]" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>

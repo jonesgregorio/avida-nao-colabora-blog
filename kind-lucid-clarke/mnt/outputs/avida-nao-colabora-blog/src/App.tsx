@@ -345,7 +345,7 @@ export default function App() {
   const appShell = (content: ReactNode) => {
     const page = <Suspense fallback={<PageLoading />}>{content}</Suspense>
     return user ? (
-      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
+      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut} onProfileRefresh={refreshProfile}>
         {page}
       </UserLayout>
     ) : (
@@ -758,7 +758,7 @@ export default function App() {
   // Home logado → nova experiência com sidebar (UserLayout)
   if (user) {
     return (
-      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut}>
+      <UserLayout user={user} profile={accessProfile} currentView={view} onNavigate={navigate} onSignOut={handleSignOut} onProfileRefresh={refreshProfile}>
         <LoggedHome user={user} profile={accessProfile} onNavigate={navigate} />
       </UserLayout>
     )
