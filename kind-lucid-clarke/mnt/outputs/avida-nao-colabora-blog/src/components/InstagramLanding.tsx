@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, Heart, ShieldCheck, Sprout } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, Check, CheckCircle2, Heart, ShieldCheck, Sprout } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
 import { setPendingAction } from '../lib/pendingAction'
 import Logo from './Logo'
@@ -22,13 +22,21 @@ const DIARY_MOOD_ALIAS: Record<string, string> = {
 
 export default function InstagramLanding({ onNavigate }: InstagramLandingProps) {
   const previewRef = useRef<HTMLElement>(null)
+  const previewHighlightTimerRef = useRef<number | null>(null)
   const [previewStep, setPreviewStep] = useState<1 | 2>(1)
   const [previewScore, setPreviewScore] = useState<number | null>(null)
   const [previewFeelings, setPreviewFeelings] = useState<string[]>([])
   const [previewComplete, setPreviewComplete] = useState(false)
+  const [previewHighlighted, setPreviewHighlighted] = useState(false)
 
   useEffect(() => {
     trackEvent('ig_landing_view', { metadata: { location: 'instagram_landing' } })
+
+    return () => {
+      if (previewHighlightTimerRef.current !== null) {
+        window.clearTimeout(previewHighlightTimerRef.current)
+      }
+    }
   }, [])
 
   const startSignup = (position: string) => {
@@ -43,6 +51,14 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
 
   const openCheckinPreview = () => {
     trackEvent('ig_checkin_start', { metadata: { location: 'instagram_landing' } })
+    setPreviewHighlighted(true)
+    if (previewHighlightTimerRef.current !== null) {
+      window.clearTimeout(previewHighlightTimerRef.current)
+    }
+    previewHighlightTimerRef.current = window.setTimeout(() => {
+      setPreviewHighlighted(false)
+      previewHighlightTimerRef.current = null
+    }, 1800)
     previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     previewRef.current?.focus({ preventScroll: true })
   }
@@ -95,14 +111,25 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                 data-cta-location="instagram_landing"
                 className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-6 py-3.5 font-medium text-white transition-colors hover:bg-forest-800 sm:w-auto"
               >
-                Fazer meu primeiro check-in grátis <ArrowRight className="h-4 w-4" />
+                Fazer meu primeiro check-in grátis
+                <ArrowDown className="h-4 w-4 lg:hidden" aria-hidden="true" />
+                <ArrowRight className="hidden h-4 w-4 lg:block" aria-hidden="true" />
               </button>
+              <p className="mt-3 text-center text-sm font-medium text-forest-700 sm:text-left">
+                <span className="lg:hidden">A primeira pergunta está logo abaixo.</span>
+                <span className="hidden lg:inline">A primeira pergunta está no quadro ao lado.</span>
+              </p>
               <p className="mt-3 flex items-center gap-2 text-sm text-ink-soft">
                 <ShieldCheck className="h-4 w-4 text-forest-700" /> Sem cartão. Privado. Leva cerca de 2 minutos.
               </p>
             </div>
 
-            <section ref={previewRef} tabIndex={-1} className="rounded-[2rem] border border-line bg-paper-soft p-5 shadow-sm outline-none sm:p-7" aria-labelledby="ig-checkin-title">
+            <section
+              ref={previewRef}
+              tabIndex={-1}
+              className={`rounded-[2rem] border bg-paper-soft p-5 shadow-sm outline-none transition-[border-color,box-shadow] duration-300 sm:p-7 ${previewHighlighted ? 'border-forest-400 ring-4 ring-forest-200/70' : 'border-line'}`}
+              aria-labelledby="ig-checkin-title"
+            >
               <div className="rounded-3xl bg-white p-5 shadow-sm" aria-live="polite">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-600">Prévia do check-in real</p>
                 {previewStep === 1 ? (
@@ -137,8 +164,8 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                       <>
                         <div className="mt-5 rounded-2xl bg-mint/70 p-4 text-center">
                           <CheckCircle2 className="mx-auto h-6 w-6 text-forest-700" />
-                          <h2 id="ig-checkin-title" className="mt-2 font-serif text-2xl text-forest-950">Check-in concluído</h2>
-                          <p className="mt-2 text-xs leading-relaxed text-ink-soft">Crie sua conta grátis para registrar este tipo de check-in e acompanhar sua evolução.</p>
+                          <h2 id="ig-checkin-title" className="mt-2 font-serif text-2xl text-forest-950">Sua prévia está concluída</h2>
+                          <p className="mt-2 text-xs leading-relaxed text-ink-soft">Crie sua conta grátis para registrar seu primeiro check-in de verdade e acompanhar seus padrões ao longo dos dias.</p>
                         </div>
                         <button
                           type="button"
@@ -147,7 +174,7 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                           data-cta-location="instagram_landing"
                           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-forest-800"
                         >
-                          Criar conta e continuar <ArrowRight className="h-4 w-4" />
+                          Registrar meu primeiro check-in grátis <ArrowRight className="h-4 w-4" />
                         </button>
                       </>
                     ) : (
@@ -170,7 +197,7 @@ export default function InstagramLanding({ onNavigate }: InstagramLandingProps) 
                         </button>
                       </>
                     )}
-                    <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Esta prévia não salva nem envia suas respostas. Ao continuar para o cadastro, guardamos apenas a intenção de retomar o Diário nesta sessão do navegador; nada é gravado no banco antes de você entrar.</p>
+                    <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-soft">Sua prévia não foi salva. Depois de entrar, você poderá registrar o check-in no seu Diário.</p>
                   </>
                 )}
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint" role="progressbar" aria-label="Etapa da prévia do check-in" aria-valuemin={1} aria-valuemax={2} aria-valuenow={previewStep}>
