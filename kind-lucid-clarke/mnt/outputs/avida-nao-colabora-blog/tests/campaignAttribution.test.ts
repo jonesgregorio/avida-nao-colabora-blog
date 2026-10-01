@@ -37,7 +37,13 @@ test('the final Meta conversion fires only in the confirmed-account flow', () =>
   assert.ok(confirmationStart >= 0)
   assert.ok(metaConversion > confirmationStart)
   assert.ok(metaConversion < signupStart || signupStart < confirmationStart)
-  assert.equal((auth.match(/trackMetaCompleteRegistration\(/g) ?? []).length, 1)
+  // Duas conversões finais, ambas só com e-mail verificado: a confirmação por e-mail e o cadastro novo
+  // com o Google (e-mail já verificado pelo Google; ver docs/LOGIN_GOOGLE.md). Nunca no submit do formulário.
+  const calls = auth.match(/trackMetaCompleteRegistration\(/g) ?? []
+  assert.equal(calls.length, 2) // confirmação por e-mail + cadastro novo com o Google
+  const google = auth.indexOf('trackMetaCompleteRegistration(user.id)')
+  assert.ok(google > auth.indexOf('if (isNewOAuthUser(user))'))
+  assert.ok(google > auth.indexOf("query.get('oauth') !== 'google'"))
 })
 
 test('the campaign funnel exposes the five requested stages and AB threshold', () => {
