@@ -2,7 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
+// o histórico mensal (modal) vive em CarePlanHistory.tsx, aberto pela página do plano
 const page = fs.readFileSync(new URL('../src/components/SelfCarePlanPage.tsx', import.meta.url), 'utf8')
+  + fs.readFileSync(new URL('../src/components/CarePlanHistory.tsx', import.meta.url), 'utf8')
 const migration = fs.readFileSync(new URL('../supabase/migrations/20260908211000_living_self_care_plan.sql', import.meta.url), 'utf8')
 
 test('Plano de Autocuidado é orientado a escolhas e experiência, não um segundo relatório', () => {
