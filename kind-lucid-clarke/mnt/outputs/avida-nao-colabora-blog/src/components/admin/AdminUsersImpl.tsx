@@ -28,6 +28,7 @@ import {
   type SubscribedSince,
 } from './adminUsersServer'
 import { fetchNewUsersOverview, type NewUsersOverview } from '../../lib/adminActivityEvents'
+import AdminDeleteUserCard from './AdminDeleteUserCard'
 import {
   ACCOUNT_STATUS_COLORS,
   accountStatusLabel,
@@ -1657,6 +1658,11 @@ export default function AdminUsers({ initialUserId, openNonce = 0 }: { initialUs
                         </div>
                       )}
                     </div>
+
+                    <AdminDeleteUserCard
+                      user={{ user_id: selectedUser.user_id, email: selectedUser.email, full_name: selectedUser.full_name, role: selectedUser.role }}
+                      onDeleted={() => { setSelectedUser(null); void loadUsers(); void loadStats() }}
+                    />
 
                     {authOpResult && (
                       <div className={`text-sm px-3 py-2 rounded-lg ${authOpResult.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
