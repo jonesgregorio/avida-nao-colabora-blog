@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs'
 
 const questionnaires = readFileSync(new URL('../src/components/QuestionnairesPage.tsx', import.meta.url), 'utf8')
 const questionnaireLegacy = readFileSync(new URL('../src/components/QuestionnairesPageLegacy.tsx', import.meta.url), 'utf8')
+// o histórico mensal (modal) vive em CarePlanHistory.tsx, aberto pela página do plano
 const care = readFileSync(new URL('../src/components/SelfCarePlanPage.tsx', import.meta.url), 'utf8')
+  + readFileSync(new URL('../src/components/CarePlanHistory.tsx', import.meta.url), 'utf8')
 
 test('Fase 22.8 mostra resumo antes do catálogo completo de questionários', () => {
   assert.match(questionnaires, /Um retrato do seu momento/)
