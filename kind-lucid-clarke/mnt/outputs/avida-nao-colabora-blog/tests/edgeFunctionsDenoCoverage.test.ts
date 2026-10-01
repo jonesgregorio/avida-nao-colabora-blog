@@ -44,6 +44,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
 
   const known = [
     'admin-config-status',
+    'admin-delete-user',
     'admin-discount',
     'admin-plan-consistency',
     'admin-plan-pricing',
