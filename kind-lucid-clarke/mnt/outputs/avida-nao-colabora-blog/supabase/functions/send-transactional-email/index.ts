@@ -185,6 +185,13 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Contas técnicas do smoke de produção (prod-smoke-*@example.com) não recebem e-mail:
+  // example.com não existe para entrega e cada tentativa virava uma falha "pendente" no Admin.
+  // Não gera log nem chama o provedor.
+  if (/^prod-smoke-.+@example\.com$/i.test(payload.to_email.trim())) {
+    return json({ skipped: true, reason: 'technical_account' })
+  }
+
   // ── Idempotência: insere log 'pending' primeiro (índice único protege) ──────
   const insertRow: Record<string, unknown> = {
     user_id: payload.user_id ?? null,
