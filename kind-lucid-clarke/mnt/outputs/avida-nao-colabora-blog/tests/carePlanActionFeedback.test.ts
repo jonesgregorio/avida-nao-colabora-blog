@@ -81,18 +81,15 @@ test('resumo interno preserva contagens sem armazenar o texto adaptado', () => {
   assert.doesNotMatch(runner, /previous_care_action_feedback:\s*previousCareFeedback/)
 })
 
-test('percepção do plano anterior é compacta: linhas em lista, só as 3 primeiras à vista e o resto sob demanda', () => {
-  assert.match(component, /const COLLAPSED_COUNT = 3/)
-  assert.match(component, /actions\.slice\(0, COLLAPSED_COUNT\)/)
-  assert.match(component, /aria-expanded=\{expanded\}/)
-  assert.match(component, /Ver as outras \$\{actions\.length - COLLAPSED_COUNT\} ações/)
-  assert.match(component, /Mostrar menos/)
-  // a pergunta aparece uma vez no topo, não repetida em cada ação
-  assert.equal((component.match(/Como isso combina com seu momento\?/g) ?? []).length, 1)
-  // contagem neutra, sem meta, pontuação ou sequência
-  assert.match(component, /com sua percepção/)
-  assert.doesNotMatch(component, /progress|streak|pontos|score/i)
-  // cada ação continua com as três respostas e a mesma gravação
-  assert.match(component, /<ul className="mt-3 divide-y/)
-  assert.match(component, /sm:flex-row sm:items-center/)
+test('seção "Como foi o Plano de Autocuidado anterior" mantém o texto, começa recolhida e abre com uma seta para baixo', () => {
+  assert.match(page, /const\[previousOpen,setPreviousOpen\]=useState\(false\)/)
+  assert.match(page, /Como foi o Plano de Autocuidado anterior/)
+  assert.match(page, /O que você percebeu em \{monthLabel\(previous\.month_reference\)\} ajuda o próximo ciclo a respeitar melhor suas preferências\./)
+  assert.match(page, /aria-expanded=\{previousOpen\} aria-controls="care-previous-body"/)
+  assert.match(page, /<ChevronDown className=\{`w-5 h-5 transition-transform \$\{previousOpen\?'rotate-180':''\}`\}\/>/)
+  // o conteúdo (as ações e as respostas) só existe quando a seção está aberta
+  assert.match(page, /\{previous&&previousOpen&&<div id="care-previous-body" className="mt-4"><CarePlanActionFeedback userId=\{user\.id\} carePlanId=\{previous\.id\}/)
+  // sem plano anterior não há seta nem conteúdo para abrir
+  assert.match(page, /\{previous&&<button type="button" onClick=\{e=>\{e\.stopPropagation\(\);setPreviousOpen/)
+  assert.match(page, /Quando houver um plano anterior, suas percepções aparecem aqui para apoiar o próximo ciclo\./)
 })
