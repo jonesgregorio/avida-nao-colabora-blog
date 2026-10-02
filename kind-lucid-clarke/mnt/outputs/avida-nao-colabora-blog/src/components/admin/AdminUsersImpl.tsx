@@ -947,6 +947,8 @@ export default function AdminUsers({ initialUserId, openNonce = 0 }: { initialUs
                         ['E-mail', selectedUser.email || '—'],
                         ['Plano', PLAN_LABELS[selectedUser.plan] ?? selectedUser.plan],
                         ['Perfil', selectedUser.role === 'admin' ? 'Admin' : 'Usuário'],
+                        ['Idade', selectedUser.age == null ? '—' : `${selectedUser.age} anos`],
+                        ['Nascimento', selectedUser.birth_date ? selectedUser.birth_date.slice(0, 10).split('-').reverse().join('/') : '—'],
                         ['Cadastro', new Date(selectedUser.created_at).toLocaleDateString('pt-BR')],
                         ['Desde', timeSince(selectedUser.created_at)],
                         ['Último acesso', selectedUser.last_activity ? timeSince(selectedUser.last_activity) : 'Sem registros'],

@@ -28,6 +28,8 @@ interface Row {
   contents_30d: number
   checkins_total: number
   diaries_total: number
+  birth_date: string | null
+  age: number | null
   bucket: Bucket
   total_count: number
 }
@@ -55,6 +57,11 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
+function fmtBirth(d: string | null): string {
+  if (!d) return ''
+  const [y, m, day] = d.slice(0, 10).split('-')
+  return `${day}/${m}/${y}`
+}
 function agoLabel(d: number | null): string {
   if (d === null) return 'nunca'
   if (d <= 0) return 'hoje'
@@ -74,6 +81,7 @@ const SORTS = [
   { id: 'last_activity', label: 'Última atividade' },
   { id: 'created_at', label: 'Cadastro' },
   { id: 'full_name', label: 'Nome' },
+  { id: 'age', label: 'Idade' },
   { id: 'checkins_30d', label: 'Check-ins (30d)' },
   { id: 'diaries_30d', label: 'Diários (30d)' },
 ]
@@ -135,7 +143,7 @@ export default function AdminEngagement() {
     try {
       const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
       const header = [
-        'Nome', 'E-mail', 'Plano', 'Status', 'Dias sem interagir', 'Última atividade',
+        'Nome', 'E-mail', 'Data de nascimento', 'Idade', 'Plano', 'Status', 'Dias sem interagir', 'Última atividade',
         'Último acesso', 'Último check-in', 'Último diário', 'Último questionário', 'Último conteúdo',
         'Check-ins 30d', 'Diários 30d', 'Questionários 30d', 'Conteúdos 30d', 'Check-ins total', 'Diários total',
       ]
@@ -152,7 +160,7 @@ export default function AdminEngagement() {
       const lines = all.map(r => {
         const dias = daysSince(r.last_activity)
         return [
-          r.full_name ?? '', r.email ?? '', planLabel(r.plan), BUCKET_META[r.bucket].label,
+          r.full_name ?? '', r.email ?? '', fmtBirth(r.birth_date), r.age ?? '', planLabel(r.plan), BUCKET_META[r.bucket].label,
           dias === null ? 'nunca' : dias,
           fmtDate(r.last_activity), fmtDate(r.last_seen_at), fmtDate(r.last_checkin), fmtDate(r.last_diary),
           fmtDate(r.last_questionnaire), fmtDate(r.last_content),
@@ -270,6 +278,7 @@ export default function AdminEngagement() {
               <thead className="bg-stone-50 border-b border-line">
                 <tr>
                   <th className="text-left px-4 py-2.5 text-stone-500 font-medium">Usuário</th>
+                  <th className="text-left px-4 py-2.5 text-stone-500 font-medium">Idade</th>
                   <th className="text-left px-4 py-2.5 text-stone-500 font-medium">Plano</th>
                   <th className="text-left px-4 py-2.5 text-stone-500 font-medium">Onde interage (30 dias)</th>
                   <th className="text-left px-4 py-2.5 text-stone-500 font-medium">Última atividade</th>
@@ -292,6 +301,14 @@ export default function AdminEngagement() {
                       <td className={`px-4 py-3 border-l-4 ${meta.bar}`}>
                         <p className="font-medium text-forest-900">{r.full_name || '—'}</p>
                         <p className="text-xs text-stone-400">{r.email ?? '—'}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {r.age === null ? <span className="text-xs text-stone-400">—</span> : (
+                          <>
+                            <span className="font-medium text-forest-900">{r.age} anos</span>
+                            <span className="block text-[11px] text-stone-400">{fmtBirth(r.birth_date)}</span>
+                          </>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${PLAN_COLORS[r.plan] ?? 'bg-stone-100 text-stone-600'}`}>{planLabel(r.plan)}</span>
