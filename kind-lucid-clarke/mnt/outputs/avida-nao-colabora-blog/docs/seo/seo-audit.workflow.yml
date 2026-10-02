@@ -1,0 +1,58 @@
+# ATENCAO: copie este arquivo para .github/workflows/seo-audit.yml pelo site do GitHub (o token local nao tem escopo workflow).
+name: SEO Audit
+
+# Auditoria diária de SEO (somente leitura). Publica o relatório como uma Issue
+# com o rótulo "seo-report". Não altera o site, o banco nem o Google.
+on:
+  schedule:
+    - cron: '0 21 * * *' # 18h em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: seo-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Lighthouse (celular) em páginas-chave
+        continue-on-error: true
+        run: |
+          i=0
+          for path in "/" "/blog" "/planos" "/faq"; do
+            i=$((i+1))
+            npx --yes lighthouse "https://www.avidanaocolabora.com${path}" \
+              --output=json --output-path="lh-${i}.json" \
+              --only-categories=performance,seo --quiet \
+              --chrome-flags="--headless=new --no-sandbox" || true
+          done
+
+      - name: Auditoria
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/seo-audit.mjs
+
+      - name: Publicar relatório como Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DAY=$(TZ=America/Sao_Paulo date +%Y-%m-%d)
+          gh label create seo-report --description "Relatório diário de SEO" --color 0E8A16 --force
+          for n in $(gh issue list --label seo-report --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Substituído pelo relatório de $DAY." || true
+          done
+          gh issue create --label seo-report --title "Relatório de SEO — $DAY" --body-file seo-report.md
