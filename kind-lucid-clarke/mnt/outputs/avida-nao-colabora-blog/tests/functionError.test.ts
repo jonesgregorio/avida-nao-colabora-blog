@@ -48,11 +48,19 @@ test('telas de plano e de preços usam a mensagem real do servidor e não o text
   const pricing = read('src/components/Pricing.tsx')
   assert.match(plan, /import \{ serverErrorMessage \} from '\.\.\/lib\/functionError'/)
   assert.match(pricing, /import \{ serverErrorMessage \} from '\.\.\/lib\/functionError'/)
-  assert.equal((plan.match(/await serverErrorMessage\(error, data,/g) ?? []).length, 5) // checkout, upgrade, downgrade, cancelar, reativar
+  assert.equal((plan.match(/await serverErrorMessage\(error, data,/g) ?? []).length, 6) // checkout, upgrade, downgrade, cancelar, reativar, portal de pagamento
   assert.match(pricing, /await serverErrorMessage\(fnError, data,/)
   // o padrão antigo (mensagem genérica do erro) não pode voltar para as funções de cobrança
   assert.doesNotMatch(plan, /throw new Error\(error\?\.message \?\?/)
   assert.doesNotMatch(pricing, /throw new Error\(fnError\?\.message \|\|/)
+})
+
+test('portal de pagamento: o botão não envia customer e a função usa o customer do banco', () => {
+  const plan = read('src/components/MyPlanPageCore.tsx')
+  assert.match(plan, /functions\.invoke\('create-billing-portal'\)/)
+  const fn = read('supabase/functions/create-billing-portal/index.ts')
+  assert.match(fn, /\.from\('profiles'\)[\s\S]*\.eq\('user_id', user\.id\)/)
+  assert.doesNotMatch(fn, /req\.json\(\)/)
 })
 
 test('só o texto exibido muda: as chamadas às funções de cobrança continuam idênticas', () => {
