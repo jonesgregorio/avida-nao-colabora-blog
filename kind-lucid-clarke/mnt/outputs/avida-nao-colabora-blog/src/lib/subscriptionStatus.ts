@@ -64,7 +64,7 @@ export function resolveStatus(opts: {
   if (cancelAtPeriodEnd || appStatus === 'cancel_pending') {
     return { label: 'Cancelamento agendado', tom: 'alerta' }
   }
-  if (pendingPlan) return { label: 'Downgrade agendado', tom: 'alerta' }
+  if (pendingPlan) return { label: 'Mudança de plano agendada', tom: 'alerta' }
 
   if (stripeStatus && STRIPE_STATUS[stripeStatus]) return STRIPE_STATUS[stripeStatus]
   if (appStatus && APP_STATUS[appStatus]) return APP_STATUS[appStatus]
@@ -72,15 +72,17 @@ export function resolveStatus(opts: {
 }
 
 // ── Linha do tempo (subscription_events.event_type) ──
+// As chaves continuam técnicas porque são persistidas no banco. Os rótulos são
+// destinados ao usuário e usam linguagem simples.
 export const EVENT_LABELS: Record<string, string> = {
   subscription_created: 'Assinatura criada',
-  checkout_completed: 'Checkout concluído',
+  checkout_completed: 'Pagamento concluído',
   payment_confirmed: 'Pagamento confirmado',
   payment_failed: 'Pagamento recusado',
   subscription_renewed: 'Assinatura renovada',
-  upgrade_confirmed: 'Upgrade realizado',
-  downgrade_requested: 'Downgrade solicitado',
-  downgrade_completed: 'Downgrade efetivado',
+  upgrade_confirmed: 'Mudança de plano concluída',
+  downgrade_requested: 'Mudança de plano solicitada',
+  downgrade_completed: 'Mudança de plano concluída',
   cancellation_requested: 'Cancelamento solicitado',
   cancellation_completed: 'Cancelamento efetivado',
   subscription_deleted: 'Assinatura encerrada',
