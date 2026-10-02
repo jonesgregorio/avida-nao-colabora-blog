@@ -72,6 +72,62 @@ function paidPlanLabel(planKey: unknown): string | null {
   return null
 }
 
+// Resumo comercial usado nos e-mails de mudança de plano. Ele acompanha a fonte
+// oficial exibida na comparação de planos (planCatalogPresentation.ts). Para o Plus,
+// "Tudo do Essencial" evita repetir onze itens e ainda representa corretamente a
+// herança de recursos do plano.
+const PLAN_EMAIL_BENEFITS: Record<'free' | 'essential' | 'plus', string> = {
+  free: [
+    '- Check-in diário — 1 por dia',
+    '- Diário emocional — até 5 dias por mês',
+    '- Diário por voz',
+    '- Questionários de autoconhecimento — seleção do Gratuito',
+    '- Artigos e conteúdos',
+    '- Conteúdos Guiados — seleção para começar',
+    '- Minha História — visão inicial',
+  ].join('\n'),
+  essential: [
+    '- Check-in diário — 1 por dia',
+    '- Diário emocional — sem limite mensal',
+    '- Diário por voz',
+    '- Questionários de autoconhecimento — catálogo do Essencial',
+    '- Artigos e conteúdos',
+    '- Conteúdos Guiados — catálogo Essencial',
+    '- Mapa Emocional — completo',
+    '- Descobertas',
+    '- Minha História — completa',
+    '- Relatório Semanal',
+    '- Meu Jardim',
+  ].join('\n'),
+  plus: [
+    '- Tudo o que está disponível no Essencial',
+    '- Aprofundamentos do Diário — até 3 por dia',
+    '- Questionários de autoconhecimento — catálogo do Plus',
+    '- Conteúdos Guiados — catálogo completo e conteúdos exclusivos do Plus',
+    '- Relatório Mensal Aprofundado',
+    '- Plano de Autocuidado Mensal',
+    '- Orientação Mensal',
+  ].join('\n'),
+}
+
+function canonicalEmailPlan(value: unknown): 'free' | 'essential' | 'plus' | null {
+  const key = String(value ?? '').trim().toLowerCase()
+  if (key === 'free' || key === 'gratuito') return 'free'
+  if (key === 'essential' || key === 'essencial') return 'essential'
+  if (key === 'plus' || key === 'therapeutic' || key === 'therapeutic-plus' || key === 'therapeutic_plus') return 'plus'
+  return null
+}
+
+function benefitsForPlanEmail(templateKey: string, vars: Record<string, unknown>): string | null {
+  let plan: 'free' | 'essential' | 'plus' | null = null
+  if (templateKey === 'plan_returned_to_free') plan = 'free'
+  else if (templateKey === 'plan_activated') plan = canonicalEmailPlan(vars.plano)
+  else if (templateKey === 'plan_upgraded' || templateKey === 'plan_downgrade_scheduled') {
+    plan = canonicalEmailPlan(vars.plano_novo)
+  }
+  return plan ? PLAN_EMAIL_BENEFITS[plan] : null
+}
+
 // Token de descadastro: HMAC-SHA256 do user_id (sem estado; /unsubscribe recomputa
 // e compara). Usa UNSUBSCRIBE_SECRET, ou a service role como fallback (sempre setada).
 async function unsubToken(userId: string): Promise<string> {
@@ -218,6 +274,9 @@ Deno.serve(async (req: Request) => {
       if (label) effectiveVariables.plano = label
     }
   }
+
+  const planBenefits = benefitsForPlanEmail(payload.template_key, effectiveVariables)
+  if (planBenefits) effectiveVariables.beneficios_do_plano = planBenefits
 
   // ── Idempotência: insere log 'pending' primeiro (índice único protege) ──────
   const insertRow: Record<string, unknown> = {
