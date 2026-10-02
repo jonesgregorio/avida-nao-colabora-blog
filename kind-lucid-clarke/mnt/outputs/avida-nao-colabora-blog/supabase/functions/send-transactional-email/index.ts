@@ -65,6 +65,13 @@ function boldPlanVars(vars: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
+function paidPlanLabel(planKey: unknown): string | null {
+  const key = String(planKey ?? '').trim().toLowerCase()
+  if (key === 'essential' || key === 'essencial') return 'Essencial'
+  if (key === 'plus' || key === 'therapeutic' || key === 'therapeutic-plus' || key === 'therapeutic_plus') return 'Plus'
+  return null
+}
+
 // Token de descadastro: HMAC-SHA256 do user_id (sem estado; /unsubscribe recomputa
 // e compara). Usa UNSUBSCRIBE_SECRET, ou a service role como fallback (sempre setada).
 async function unsubToken(userId: string): Promise<string> {
@@ -192,6 +199,26 @@ Deno.serve(async (req: Request) => {
     return json({ skipped: true, reason: 'technical_account' })
   }
 
+  // O webhook de pagamento conhece o plano ATUAL do perfil, mas em uma primeira
+  // tentativa de assinatura o usuário ainda está no Gratuito. Para payment_failed,
+  // a fonte correta do plano que estava sendo contratado é user_subscriptions.plan_key,
+  // preenchida pelo evento customer.subscription.created do Stripe.
+  const effectiveVariables: Record<string, unknown> = { ...(payload.variables ?? {}) }
+  if (payload.template_key === 'payment_failed' && payload.user_id) {
+    const { data: subscriptionPlan, error: subscriptionPlanError } = await admin
+      .from('user_subscriptions')
+      .select('plan_key')
+      .eq('user_id', payload.user_id)
+      .maybeSingle()
+
+    if (subscriptionPlanError) {
+      console.error('payment_failed: não foi possível resolver plano de destino:', subscriptionPlanError.message)
+    } else {
+      const label = paidPlanLabel((subscriptionPlan as { plan_key?: unknown } | null)?.plan_key)
+      if (label) effectiveVariables.plano = label
+    }
+  }
+
   // ── Idempotência: insere log 'pending' primeiro (índice único protege) ──────
   const insertRow: Record<string, unknown> = {
     user_id: payload.user_id ?? null,
@@ -203,7 +230,7 @@ Deno.serve(async (req: Request) => {
     related_entity_type: payload.related_entity_type ?? null,
     related_entity_id: payload.related_entity_id ?? null,
     idempotency_key: payload.idempotency_key ?? null,
-    metadata: { variables: payload.variables ?? {}, ...(payload.metadata ?? {}) },
+    metadata: { variables: effectiveVariables, ...(payload.metadata ?? {}) },
   }
 
   const { data: logRow, error: insertErr } = await admin
@@ -235,7 +262,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Template inexistente ou inativo', log_id: logId }, 200)
   }
 
-  const vars = (payload.variables ?? {}) as Record<string, unknown>
+  const vars = effectiveVariables
   const subject = render(tpl.subject, vars)
   const bodyText = render(tpl.body_text, vars)
 
