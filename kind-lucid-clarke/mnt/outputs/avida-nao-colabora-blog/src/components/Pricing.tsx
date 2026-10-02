@@ -13,6 +13,7 @@ import {
 } from '../lib/planFeatureCatalog'
 import { resolvePricingPlanAction } from '../lib/pricingPlanAction'
 import { usePlanPricing } from '../lib/planPricing'
+import { serverErrorMessage } from '../lib/functionError'
 
 interface PricingProps {
   user: unknown
@@ -365,7 +366,7 @@ export default function Pricing({ user, currentPlan, onNavigateAuth }: PricingPr
       const { data, error: fnError } = await supabase.functions.invoke('create-checkout', {
         body: { plan: planKey, origin: window.location.origin },
       })
-      if (fnError || !data?.url) throw new Error(fnError?.message || 'Erro ao iniciar o pagamento')
+      if (fnError || !data?.url) throw new Error(await serverErrorMessage(fnError, data, 'Não foi possível iniciar o pagamento agora.'))
       trackEvent('checkout_started', { entity_id: planKey, entity_title: `Plano ${planKey}`, metadata: { location: 'pricing', plan: planKey } })
       window.location.href = data.url
     } catch (err: unknown) {

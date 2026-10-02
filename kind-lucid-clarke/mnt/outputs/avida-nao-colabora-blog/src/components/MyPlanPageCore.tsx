@@ -15,6 +15,7 @@ import {
 } from '../lib/billingCycle'
 import ReasonPicker from './ReasonPicker'
 import { validateReasons, reasonsLabel } from '../lib/cancelReasons'
+import { serverErrorMessage } from '../lib/functionError'
 
 interface Props {
   user: User | null
@@ -203,7 +204,7 @@ export default function MyPlanPage({
         const { data, error } = await supabase.functions.invoke('create-checkout', {
           body: { plan: targetPlan, origin: window.location.origin },
         })
-        if (error || !data?.url) throw new Error(error?.message ?? 'URL de checkout não retornada')
+        if (error || !data?.url) throw new Error(await serverErrorMessage(error, data, 'Não foi possível iniciar o pagamento agora.'))
         setModal(null)
         window.location.href = data.url
         return
@@ -211,7 +212,7 @@ export default function MyPlanPage({
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: { action: 'upgrade', targetPlan },
       })
-      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao fazer upgrade')
+      if (error || !data?.ok) throw new Error(await serverErrorMessage(error, data, 'Não foi possível fazer o upgrade agora.'))
       setModal(null)
       setActionMsg({ type: 'ok', text: data.message ?? `Upgrade para ${PLAN_LABELS[targetPlan]} em processamento.` })
       loadData()
@@ -234,7 +235,7 @@ export default function MyPlanPage({
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: { action: 'downgrade', targetPlan, reasons, comment: reasonComment.trim() },
       })
-      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao agendar downgrade')
+      if (error || !data?.ok) throw new Error(await serverErrorMessage(error, data, 'Não foi possível agendar a mudança de plano agora.'))
       setModal(null)
       setActionMsg({ type: 'ok', text: data.message ?? `Downgrade para ${PLAN_LABELS[targetPlan]} agendado.` })
       loadData()
@@ -257,7 +258,7 @@ export default function MyPlanPage({
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: { action: 'cancel', reasons, comment: reasonComment.trim() },
       })
-      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao cancelar assinatura')
+      if (error || !data?.ok) throw new Error(await serverErrorMessage(error, data, 'Não foi possível registrar o pedido de cancelamento agora.'))
       setModal(null)
       setActionMsg({ type: 'ok', text: data.message ?? 'Recebemos seu pedido de cancelamento. Ele está em análise e você mantém acesso normalmente.' })
       loadData()
@@ -278,7 +279,7 @@ export default function MyPlanPage({
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: { action: 'reactivate' },
       })
-      if (error || !data?.ok) throw new Error(error?.message ?? data?.error ?? 'Erro ao reativar assinatura')
+      if (error || !data?.ok) throw new Error(await serverErrorMessage(error, data, 'Não foi possível reativar a assinatura agora.'))
       setModal(null)
       setActionMsg({ type: 'ok', text: data.message ?? 'Cancelamento removido. Seu plano continuará ativo normalmente.' })
       loadData()
