@@ -80,3 +80,16 @@ test('resumo interno preserva contagens sem armazenar o texto adaptado', () => {
   assert.match(runner, /adapted_actions: items\.filter\(item => Boolean\(item\.adapted_action\)\)\.length/)
   assert.doesNotMatch(runner, /previous_care_action_feedback:\s*previousCareFeedback/)
 })
+
+test('seção "Como foi o Plano de Autocuidado anterior" mantém o texto, começa recolhida e abre com uma seta para baixo', () => {
+  assert.match(page, /const\[previousOpen,setPreviousOpen\]=useState\(false\)/)
+  assert.match(page, /Como foi o Plano de Autocuidado anterior/)
+  assert.match(page, /O que você percebeu em \{monthLabel\(previous\.month_reference\)\} ajuda o próximo ciclo a respeitar melhor suas preferências\./)
+  assert.match(page, /aria-expanded=\{previousOpen\} aria-controls="care-previous-body"/)
+  assert.match(page, /<ChevronDown className=\{`w-5 h-5 transition-transform \$\{previousOpen\?'rotate-180':''\}`\}\/>/)
+  // o conteúdo (as ações e as respostas) só existe quando a seção está aberta
+  assert.match(page, /\{previous&&previousOpen&&<div id="care-previous-body" className="mt-4"><CarePlanActionFeedback userId=\{user\.id\} carePlanId=\{previous\.id\}/)
+  // sem plano anterior não há seta nem conteúdo para abrir
+  assert.match(page, /\{previous&&<button type="button" onClick=\{e=>\{e\.stopPropagation\(\);setPreviousOpen/)
+  assert.match(page, /Quando houver um plano anterior, suas percepções aparecem aqui para apoiar o próximo ciclo\./)
+})
