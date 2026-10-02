@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldCheck, Sprout, Leaf, Info } from 'lucide-react'
+import { Check, Crown, Loader2, AlertTriangle, ArrowUp, ArrowDown, X, ShieldCheck, Sprout, Leaf, Info, CreditCard } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '../types'
 import { OFFICIAL_PLANS, PUBLIC_PLAN_FEATURES, normalizePlan } from '../lib/officialPlans'
@@ -138,6 +138,7 @@ export default function MyPlanPage({
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ type: 'upgrade' | 'downgrade' | 'cancel' | 'reactivate'; targetPlan?: string } | null>(null)
   const [acting, setActing] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
   const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [reasons, setReasons] = useState<string[]>([])
   const [reasonComment, setReasonComment] = useState('')
@@ -194,6 +195,21 @@ export default function MyPlanPage({
       setPlanActivatedAt(oldHist?.created_at ?? null)
     }
     setLoading(false)
+  }
+
+  async function handleOpenBillingPortal() {
+    setOpeningPortal(true)
+    setActionMsg(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('create-billing-portal')
+      if (error || !data?.url) throw new Error(await serverErrorMessage(error, data, 'Não foi possível abrir o gerenciamento de pagamento agora.'))
+      window.location.href = data.url
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao abrir o gerenciamento de pagamento'
+      console.error('handleOpenBillingPortal:', msg)
+      setActionMsg({ type: 'err', text: msg })
+      setOpeningPortal(false)
+    }
   }
 
   async function handleUpgrade(targetPlan: string) {
@@ -363,6 +379,23 @@ export default function MyPlanPage({
             {effectivePeriodEnd && currentPlan !== 'free' && !isCancelPending && (
               <div><p className="text-stone-400 mb-0.5">Próxima cobrança</p><p className="font-medium text-stone-700">{formatDate(effectivePeriodEnd)}</p></div>
             )}
+          </div>
+        )}
+
+        {currentPlan !== 'free' && sub && (
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white/60 border border-forest-100 rounded-xl p-3 mb-4">
+            <p className="text-xs text-forest-800 leading-relaxed flex-1 min-w-[200px]">
+              <strong className="font-semibold">Pagamento:</strong> troque o cartão, veja suas faturas e atualize seus dados de cobrança em um ambiente seguro do Stripe.
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenBillingPortal}
+              disabled={openingPortal}
+              className="inline-flex items-center gap-2 bg-forest-800 hover:bg-forest-900 text-white px-4 py-2 rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              {openingPortal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+              Gerenciar cartão e faturas
+            </button>
           </div>
         )}
 
