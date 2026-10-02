@@ -1,0 +1,115 @@
+begin;
+
+-- A FAQ pública é servida pelo CMS (faq_items). Mantemos estes textos alinhados
+-- ao fallback do código e à linguagem simples usada em Meu Plano.
+
+update public.faq_items
+set question = 'O plano Gratuito tem prazo de validade?',
+    answer = 'Não. O plano Gratuito não tem prazo de validade e pode ser usado sem cadastrar cartão de crédito. Ele inclui Check-in diário, Diário emocional em até 5 dias por mês, Diário por voz, uma seleção de questionários, Artigos e conteúdos, uma seleção de Conteúdos Guiados e uma visão inicial da Minha História.',
+    updated_at = now()
+where category = 'Planos e pagamento'
+  and lower(question) = lower('O plano gratuito tem prazo de validade?');
+
+update public.faq_items
+set answer = 'Gratuito: Check-in diário (1 por dia), Diário emocional em até 5 dias por mês, Diário por voz, seleção de Questionários de autoconhecimento, Artigos e conteúdos, seleção de Conteúdos Guiados e visão inicial da Minha História. Essencial: inclui tudo do Gratuito e acrescenta Diário sem limite mensal, catálogo de questionários e Conteúdos Guiados do Essencial, Mapa Emocional, Descobertas, Minha História completa, Relatório Semanal e Meu Jardim. Plus: inclui tudo do Essencial e acrescenta Aprofundamentos do Diário (até 3 por dia), questionários do Plus, catálogo completo de Conteúdos Guiados com conteúdos exclusivos do Plus, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal.',
+    updated_at = now()
+where category = 'Planos e pagamento' and question = 'Qual a diferença entre os planos?';
+
+update public.faq_items
+set answer = 'Sim. Na área Meu Plano, você pode escolher outro plano sempre que essa opção estiver disponível para sua assinatura. Ao mudar para um plano com mais recursos, a diferença proporcional do período restante pode ser cobrada. Ao mudar para um plano com menos recursos, a alteração fica programada para o fim do ciclo já pago. Seus dados e registros continuam preservados.',
+    updated_at = now()
+where category = 'Planos e pagamento' and question = 'Posso mudar de plano depois?';
+
+update public.faq_items
+set question = 'Como funciona a mudança do Essencial para o Plus?',
+    answer = 'A mudança é feita na sua assinatura atual. O Stripe, empresa que processa o pagamento com segurança, calcula a diferença proporcional referente ao período restante do ciclo. Depois da confirmação do pagamento, os recursos do Plus são liberados e a data normal de renovação é mantida.',
+    updated_at = now()
+where category = 'Planos e pagamento'
+  and question in ('Como funciona o upgrade de Essencial para Plus?', 'Como funciona a mudança do Essencial para o Plus?');
+
+update public.faq_items
+set question = 'O que acontece se eu escolher um plano com menos recursos?',
+    answer = 'A mudança fica programada para o fim do ciclo que já foi pago. Até a data da próxima renovação, você continua usando normalmente os recursos do plano atual. Depois dessa data, passa a valer o plano escolhido. Seus dados e registros não são apagados; apenas a disponibilidade de alguns recursos passa a seguir as regras do novo plano.',
+    updated_at = now()
+where category = 'Planos e pagamento'
+  and question in ('Como funciona o downgrade?', 'O que acontece se eu escolher um plano com menos recursos?');
+
+update public.faq_items
+set answer = 'Os planos Essencial e Plus são cobrados mensalmente por cartão de crédito. O pagamento é processado com segurança pelo Stripe, e a plataforma não armazena os dados completos do seu cartão.',
+    updated_at = now()
+where category = 'Planos e pagamento' and question = 'Como funciona o pagamento?';
+
+update public.faq_items
+set answer = 'Sim, sem multa. Em Meu Plano, você envia o pedido de cancelamento para análise. Até a confirmação, nada muda. Quando o cancelamento é confirmado, o plano continua ativo até o fim do ciclo que já foi pago. Depois, a conta volta ao Gratuito e seus dados permanecem preservados.',
+    updated_at = now()
+where category = 'Planos e pagamento' and question = 'Posso cancelar quando quiser?';
+
+update public.faq_items
+set answer = 'Os questionários ajudam você a refletir sobre diferentes aspectos do seu momento. A disponibilidade varia conforme o plano: o Gratuito tem uma seleção, o Essencial amplia o catálogo e o Plus inclui o nível mais completo. As respostas servem para autoconhecimento e não representam diagnóstico clínico.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Como funcionam os Questionários de autoconhecimento?';
+
+update public.faq_items
+set answer = 'Não. O Gratuito recebe uma seleção para começar. O Essencial acessa essa seleção e o catálogo do Essencial. O Plus acessa todo esse conteúdo e também os Conteúdos Guiados exclusivos do Plus. Cada nível reúne exercícios, reflexões e práticas compatíveis com o plano.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Os Conteúdos Guiados são iguais em todos os planos?';
+
+update public.faq_items
+set question = 'O que é o Mapa Emocional?',
+    answer = 'O Mapa Emocional ajuda a visualizar como seus registros se distribuíram ao longo do tempo, reunindo informações como emoções, contextos, faixas de humor, evolução e conexões presentes nos seus próprios registros. Está disponível no Essencial e no Plus. Ele não faz diagnóstico nem afirma relações de causa e efeito.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and lower(question) = lower('O que é o mapa emocional?');
+
+update public.faq_items
+set answer = 'O Mapa Emocional mostra como seus registros se distribuíram, com visualizações de emoções, contextos e evolução. Descobertas destaca temas e padrões que aparecem ao longo do uso. Minha História organiza sua trajetória ao longo do tempo. O Mapa Emocional e Descobertas estão no Essencial e no Plus. Minha História tem uma visão inicial no Gratuito e a experiência completa no Essencial e no Plus.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Qual a diferença entre Mapa Emocional, Descobertas e Minha História?';
+
+update public.faq_items
+set answer = 'Cada recurso tem um papel diferente. No Essencial e no Plus, o Mapa Emocional mostra distribuições, Descobertas ajuda a perceber repetições, o Relatório Semanal resume um período fechado, Minha História organiza sua trajetória e Meu Jardim representa momentos de cuidado. No Plus, o Relatório Mensal aprofunda o mês, o Plano de Autocuidado transforma o histórico do ciclo em possibilidades práticas de cuidado e a Orientação Mensal responde a uma questão específica com resposta preparada por profissional habilitado.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Como cada análise personalizada se diferencia?';
+
+update public.faq_items
+set answer = 'Minha História organiza sua trajetória ao longo do tempo, reunindo períodos, marcos, mudanças e temas importantes. O Gratuito possui uma visão inicial. No Essencial e no Plus, a experiência é completa.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'O que é Minha História?';
+
+update public.faq_items
+set answer = 'O Relatório Semanal está disponível no Essencial e no Plus. Ele acompanha o ciclo de domingo a sábado, fecha no sábado e fica disponível no domingo seguinte. Na primeira ativação no meio de um ciclo, o primeiro relatório considera o período a partir da data em que o recurso foi ativado.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Quando o Relatório Semanal fica disponível?';
+
+update public.faq_items
+set answer = 'O Relatório Mensal Aprofundado é um recurso do Plus. Ele acompanha o período do dia 1 até o último dia do mês, fecha no último dia e fica disponível no primeiro dia do mês seguinte. Na primeira ativação no meio do mês, o primeiro relatório considera o período a partir da ativação.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Quando o Relatório Mensal Aprofundado fica disponível?';
+
+update public.faq_items
+set answer = 'Meu Jardim é uma representação visual da sua jornada de cuidado. Ele cresce com usos significativos da plataforma, como dias de Diário, relatórios e marcos pessoais. Não exige sequência diária, não pune pausas, nada morre por ausência e não existe competição. Está disponível no Essencial e no Plus.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'O que é Meu Jardim?';
+
+update public.faq_items
+set answer = 'O Plano de Autocuidado Mensal é um recurso do Plus e considera o mês que acabou de fechar. Para evitar um plano genérico, ele só é preparado quando existe contexto suficiente no período: atualmente, pelo menos 12 sinais de uso distribuídos em 8 dias do ciclo. Podem entrar nessa contagem atividades como Check-ins, registros do Diário, questionários concluídos e interações com conteúdos da plataforma. Quando elegível, o plano é organizado a partir desses dados, passa por revisão humana e deve ser liberado até o dia 5 do mês seguinte. Ele reúne possibilidades práticas de cuidado e não substitui orientação clínica.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Como funciona o Plano de Autocuidado Mensal?';
+
+update public.faq_items
+set answer = 'A Orientação Mensal é um recurso do Plus referente ao mês que acabou de fechar. Entre os dias 1 e 10 do mês seguinte, você pode enviar 1 solicitação sobre o período anterior. A resposta é preparada cuidadosamente por profissional habilitado e enviada em até 7 dias corridos após a solicitação. Se você entrou no Plus nos últimos dias do mês, mantém o direito à orientação daquele mês no mês seguinte. É uma orientação pontual: não é psicoterapia, consulta, diagnóstico ou acompanhamento continuado.',
+    updated_at = now()
+where category = 'Recursos e funcionalidades' and question = 'Como funciona a Orientação Mensal?';
+
+update public.faq_items
+set answer = 'A plataforma usa os dados gerados pelo seu uso — como registros, Check-ins, respostas estruturadas e preferências — para organizar recursos da sua própria conta, como mapas, descobertas, relatórios, planos e recomendações. Quando há processamento automatizado, é usado apenas o contexto necessário para a funcionalidade. A exceção é a Orientação Mensal: a resposta final é preparada por profissional habilitado a partir da sua solicitação e do contexto escolhido. Nenhum desses recursos produz diagnóstico clínico.',
+    updated_at = now()
+where category = 'Privacidade e dados' and question = 'Como meus dados são usados para gerar recursos personalizados?';
+
+update public.faq_items
+set question = 'O plano Plus substitui o acompanhamento com psicólogo?',
+    answer = 'Não. O Plus reúne tudo do Essencial e acrescenta recursos como Aprofundamentos do Diário, Relatório Mensal Aprofundado, Plano de Autocuidado Mensal e Orientação Mensal. A Orientação Mensal é preparada por profissional habilitado, mas responde a uma solicitação pontual e não representa psicoterapia, consulta, avaliação clínica ou acompanhamento continuado.',
+    updated_at = now()
+where category = 'Saúde e segurança'
+  and lower(question) = lower('O Plano Plus substitui o acompanhamento com psicólogo?');
+
+commit;
