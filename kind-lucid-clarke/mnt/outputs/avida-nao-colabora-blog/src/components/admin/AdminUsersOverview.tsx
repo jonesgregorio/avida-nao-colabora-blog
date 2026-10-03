@@ -345,6 +345,7 @@ export function AdminUsersList({ users, selectedUserId, onOpenUser }: AdminUsers
             <th className="text-left px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">E-mail</th>
             <th className="text-left px-3 py-3 text-stone-500 font-medium">Plano</th>
             <th className="text-left px-3 py-3 text-stone-500 font-medium hidden sm:table-cell">Status</th>
+            <th className="text-left px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Idade</th>
             <th className="text-left px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Membro desde</th>
             <th className="text-left px-3 py-3 text-stone-500 font-medium hidden lg:table-cell">Atividade</th>
             <th className="text-center px-3 py-3 text-stone-500 font-medium hidden md:table-cell">Tickets</th>
@@ -397,6 +398,9 @@ export function AdminUsersList({ users, selectedUserId, onOpenUser }: AdminUsers
                     {isUnlimited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-mint text-forest-800 font-medium">Ilimitado</span>}
                     {hasDiscount && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Desconto</span>}
                   </div>
+                </td>
+                <td className="px-3 py-3 text-xs hidden md:table-cell whitespace-nowrap">
+                  {u.age == null ? <span className="text-stone-300">—</span> : <span className="text-forest-900">{u.age} anos</span>}
                 </td>
                 <td className="px-3 py-3 text-ink-soft text-xs hidden md:table-cell whitespace-nowrap">{timeSince(u.created_at)}</td>
                 <td className="px-3 py-3 text-xs hidden lg:table-cell whitespace-nowrap">

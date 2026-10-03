@@ -21,6 +21,8 @@ export interface UserRow {
   unread_notifs?: number
   last_activity?: string | null
   first_paid_at?: string | null
+  birth_date?: string | null
+  age?: number | null
   is_new_user?: boolean
   is_recent_subscriber?: boolean
 }

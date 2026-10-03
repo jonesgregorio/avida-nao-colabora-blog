@@ -26,6 +26,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   const [statusPhrase, setStatusPhrase] = useState(profile?.status_phrase || '')
   const [notificationFrequency, setNotificationFrequency] = useState(profile?.notification_frequency || 'weekly')
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
+  const [birthDate, setBirthDate] = useState(profile?.birth_date || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -43,6 +44,7 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
       setStatusPhrase(profile?.status_phrase || '')
       setNotificationFrequency(profile?.notification_frequency || 'weekly')
       setAvatarUrl(profile?.avatar_url || '')
+      setBirthDate(profile?.birth_date || '')
     }
   }, [profile])
 
@@ -102,6 +104,10 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   }
 
   const handleSave = async () => {
+    if (birthDate && (birthDate > todayKey || birthDate < '1900-01-01')) {
+      setMsg({ type: 'err', text: 'Informe uma data de nascimento válida.' })
+      return
+    }
     setSaving(true)
     const { error } = await supabase.rpc('update_my_profile', {
       p_full_name: displayName,
@@ -109,6 +115,8 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
       p_preferred_name: preferredName,
       p_status_phrase: statusPhrase,
       p_notification_frequency: notificationFrequency,
+      p_birth_date: birthDate || null,
+      p_clear_birth_date: !birthDate && !!profile?.birth_date,
     })
     if (error) {
       setMsg({ type: 'err', text: 'Erro ao salvar o perfil: ' + error.message })
@@ -146,6 +154,8 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : null
+
+  const todayKey = ymd(new Date())
 
   const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-line bg-white text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 focus:border-forest-300 transition-colors'
 
@@ -211,6 +221,9 @@ export default function ProfilePage({ user, profile, onBack, onNavigatePricing, 
               </Field>
               <Field label="Como prefere que a gente te chame?">
                 <input value={preferredName} onChange={e => setPreferredName(e.target.value)} className={inputCls} placeholder="Ex.: Mari, Rafa, Carol…" />
+              </Field>
+              <Field label="Data de nascimento" hint="(opcional)">
+                <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} min="1900-01-01" max={todayKey} className={inputCls} />
               </Field>
               <Field label="Frase de status" hint="(opcional)">
                 <input value={statusPhrase} onChange={e => setStatusPhrase(e.target.value)} maxLength={80} className={inputCls} placeholder="Ex.: Hoje eu estou tentando com calma." />

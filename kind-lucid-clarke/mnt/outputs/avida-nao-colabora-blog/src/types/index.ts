@@ -12,6 +12,7 @@ export interface Profile {
   preferred_name?: string
   avatar_url: string | null
   status_phrase?: string
+  birth_date?: string | null
   plan: Plan
   unlimited_access?: boolean | null
   unlimited_access_until?: string | null

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { UserPlus, Crown, Loader2, CheckCheck, Sparkles, Mail, UserRound } from 'lucide-react'
+import { UserPlus, Crown, Loader2, CheckCheck, Sparkles, Mail, UserRound, Cake } from 'lucide-react'
 import {
   fetchActivityEvents,
   fetchActivityUnreadCount,
@@ -34,7 +34,8 @@ function EventRow({
   onOpenUser?: (userId: string) => void
   onRead: (id: string) => void
 }) {
-  const sub = isSubscription(ev.event_type)
+  const birthday = ev.event_type === 'user_birthday'
+  const sub = !birthday && isSubscription(ev.event_type)
   const plan = (ev.metadata?.plan as string | undefined) ?? ev.user_plan ?? null
   const copy = activityEventCopy(ev)
   const identity = activityUserIdentity(ev)
@@ -42,11 +43,11 @@ function EventRow({
     <div className={`px-4 py-3.5 flex items-start gap-3 ${ev.read_at ? '' : 'bg-mint/25'}`}>
       <span
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          sub ? 'bg-coral text-[#c05f3c]' : 'bg-mint text-forest-700'
+          sub || birthday ? 'bg-coral text-[#c05f3c]' : 'bg-mint text-forest-700'
         }`}
         aria-hidden="true"
       >
-        {sub ? <Crown className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+        {birthday ? <Cake className="w-4 h-4" /> : sub ? <Crown className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">

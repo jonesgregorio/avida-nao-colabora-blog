@@ -121,6 +121,11 @@ function planLabel(value: unknown): string | null {
   return PLAN_PT[normalized] ?? value.trim()
 }
 
+function identityName(ev: AdminActivityEvent): string {
+  const metaName = typeof ev.metadata?.name === 'string' ? ev.metadata.name.trim() : ''
+  return ev.user_name?.trim() || metaName || ev.user_email?.trim() || 'Um usuário'
+}
+
 export function activityEventCopy(ev: AdminActivityEvent): { title: string; message: string } {
   const plan = planLabel(ev.metadata?.plan ?? ev.user_plan)
   const previousPlan = planLabel(ev.metadata?.previous_plan)
@@ -131,6 +136,14 @@ export function activityEventCopy(ev: AdminActivityEvent): { title: string; mess
         title: 'Novo usuário cadastrado',
         message: plan ? `Uma nova conta foi criada no plano ${plan}.` : 'Uma nova conta foi criada.',
       }
+    case 'user_birthday': {
+      const age = Number(ev.metadata?.age)
+      const who = identityName(ev)
+      return {
+        title: 'Aniversário hoje',
+        message: Number.isFinite(age) && age > 0 ? `${who} faz ${age} anos hoje.` : `${who} faz aniversário hoje.`,
+      }
+    }
     case 'subscription_started':
       return {
         title: plan ? `Nova assinatura ${plan}` : 'Nova assinatura',
