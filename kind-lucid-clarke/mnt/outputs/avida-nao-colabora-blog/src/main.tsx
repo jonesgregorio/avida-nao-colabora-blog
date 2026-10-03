@@ -8,6 +8,7 @@ import { installSpeechRecognitionPermissionGuard } from './lib/speechRecognition
 import { initArticleActiveTimeTracking } from './lib/articleActiveTime'
 import { initAdminSupportComposerEnhancements } from './lib/adminSupportComposerEnhancements'
 import { initAdminOperationalAlertUX } from './lib/adminOperationalAlertUX'
+import { initGlobalGardenCompletion } from './lib/globalGardenCompletion'
 import './index.css'
 import './diary-mobile.css'
 
@@ -18,6 +19,7 @@ installSpeechRecognitionPermissionGuard()
 initArticleActiveTimeTracking()
 initAdminSupportComposerEnhancements()
 initAdminOperationalAlertUX()
+initGlobalGardenCompletion()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
