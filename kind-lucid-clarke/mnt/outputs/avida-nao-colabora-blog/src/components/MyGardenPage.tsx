@@ -12,12 +12,7 @@ import { chooseMyGarden, loadMyGardenChoice, type GardenChoice } from '../lib/ga
 import GardenChooser from './garden/GardenChooser'
 
 interface Props { userId: string; profile?: Profile | null; onNavigatePricing?: () => void }
-// vem de get_my_garden_campaign() — a campanha ativa em "Gestão de Jardins" (Admin) cujo
-// público-alvo bate com o estado real deste usuário, ou null se nenhuma bater.
 type GardenCampaign = { id:string; name:string; headline:string; body:string; cta_label:string; cta_url?:string|null; garden_slug:string|null; campaign_type:string; temporary_unlock:boolean }
-// garden_slug: autoritativo, vem do catálogo administrável ("Gestão de Jardins" no Admin — fila,
-// jardim forçado por usuário). Pode ser null (jardim novo no catálogo do admin sem config rica
-// aqui, ou dado antigo antes dessa coluna existir) — nesse caso caímos para o cálculo por índice.
 type GardenState = { stage:number; active_days:number; diversity:number; signals:Record<string,number>; garden_index:number; garden_slug?:string|null; garden_cycle?:number; garden_progress:number; completed_gardens:number; total_growth:number; growth_model_version?:number }
 
 const EMPTY:GardenState={stage:0,active_days:0,diversity:0,signals:{},garden_index:0,garden_progress:0,completed_gardens:0,total_growth:0}
@@ -29,24 +24,13 @@ const ELEMENTS=[
   {stage:5,name:'Recanto',why:'O jardim ganhou profundidade e um novo canto de pausa.',preview:'O jardim ganha profundidade com um novo canto de pausa junto à água.',Icon:Waves},
   {stage:6,name:'Luz',why:'O espaço amadureceu e ganhou uma atmosfera própria.',preview:'No auge, o espaço amadurece e ganha uma atmosfera própria de luz.',Icon:Sparkles}
 ] as const
-// limiar de garden_progress (0..59, ver migration garden_balanced_growth_v4) em que cada
-// elemento acima aparece — mesmos números do CASE que calcula `stage` na RPC.
 const STAGE_THRESHOLDS:Record<number,number>={1:3,2:10,3:18,4:28,5:39,6:50}
 const LAST_GARDEN_KEY_PREFIX='avnc:garden:lastIndex:'
 const LAST_GARDEN_SLUG_KEY_PREFIX='avnc:garden:lastSlug:'
 const LAST_GARDEN_PROGRESS_KEY_PREFIX='avnc:garden:lastProgress:'
-// Ciclo visto por último: a celebração só dispara quando o CICLO avança. Trocar de jardim no mesmo
-// ciclo (modo Híbrido) muda o índice do tema, mas não é "jardim concluído".
 const LAST_GARDEN_CYCLE_KEY_PREFIX='avnc:garden:lastCycle:'
-// "Flores" (queda de pétalas) e "Vida" (fauna) descrevem algo que só existe em ALGUNS jardins —
-// deserto não tem nenhuma partícula caindo (fall.count:0 em gardenThemes.ts) e nórdico só tem
-// neve, sem fauna nenhuma (flyers:{}). Nesses dois casos o marco genérico prometeria algo que
-// nunca aparece na tela, então trocamos por um equivalente real daquele jardim (calor/vento no
-// deserto, neve/aurora no nórdico) — os outros 6 jardins continuam com o texto genérico.
 const ELEMENT_OVERRIDES:Record<string,Partial<Record<number,{name:string;why:string;preview:string;Icon:typeof Sprout}>>>={
-  deserto:{
-    2:{name:'Calor',why:'O vento e o calor do deserto começaram a dar movimento ao ar do jardim.',preview:'Com mais tempo, o ar ao redor do jardim ganha o tremular do calor do deserto.',Icon:Wind},
-  },
+  deserto:{2:{name:'Calor',why:'O vento e o calor do deserto começaram a dar movimento ao ar do jardim.',preview:'Com mais tempo, o ar ao redor do jardim ganha o tremular do calor do deserto.',Icon:Wind}},
   nordico:{
     2:{name:'Neve',why:'A neve começou a cobrir o jardim, dando um brilho novo ao espaço.',preview:'Quando a neve se acumular, um brilho novo cobre o jardim.',Icon:Snowflake},
     4:{name:'Aurora',why:'A aurora começou a aparecer no céu, trazendo companhia às noites frias.',preview:'Com o inverno mais presente, a aurora começa a colorir o céu do jardim.',Icon:MoonStar},
@@ -68,27 +52,17 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const [showAllMemories,setShowAllMemories]=useState(false)
   const [celebrateTheme,setCelebrateTheme]=useState<GardenTheme|null>(null)
   const [campaign,setCampaign]=useState<GardenCampaign|null>(null)
-  // Ainda não sabemos se existe uma campanha de desbloqueio temporário até a 1ª chamada
-  // terminar — evita mostrar o paywall por um instante pra quem seria desbloqueado.
   const [campaignChecked,setCampaignChecked]=useState(access)
   const [stageThresholds,setStageThresholds]=useState<number[]|null>(null)
   const [cycleSlugs,setCycleSlugs]=useState<Record<number,string>>({})
   const [growthChange,setGrowthChange]=useState<{theme:GardenTheme;from:number;to:number}|null>(null)
   const [compareOpen,setCompareOpen]=useState(false)
-  // Modo de entrega (Admin → Regras): em Livre escolha/Híbrido a pessoa escolhe ou troca o jardim do ciclo.
   const [choice,setChoice]=useState<GardenChoice|null>(null)
   const [chooserOpen,setChooserOpen]=useState(false)
   const [reloadTick,setReloadTick]=useState(0)
-  // último progresso visto neste MESMO jardim (não só quando ele avançou) — permite um botão
-  // fixo de comparação sempre que existir uma visita anterior pra comparar, além do aviso
-  // reativo abaixo (que só aparece no momento em que o progresso avança).
   const [priorProgress,setPriorProgress]=useState<number|null>(null)
   const memoriesRef=useRef<HTMLDivElement|null>(null)
 
-  // get_my_garden_campaign() não depende do plano (mesma leitura de atividade de sempre) —
-  // por isso dá pra buscar a campanha mesmo antes de saber se o usuário tem acesso pago, só
-  // pra decidir se um "Desbloqueio temporário" (Admin → Jardins → Campanhas) se aplica a ele.
-  // Sempre roda uma vez, mesmo com acesso real, pra manter o banner de campanha que já existia.
   useEffect(()=>{
     let alive=true
     ;(async()=>{
@@ -100,10 +74,6 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     return()=>{alive=false}
   },[userId])
 
-  // Desbloqueio temporário: só vale pra quem NÃO tem acesso pago (nunca reduz o que um
-  // assinante já tem) e só enquanto a campanha que o concedeu segue ativa/elegível — a
-  // próxima chamada de get_my_garden_campaign() já reflete campanha pausada/expirada/fora
-  // do público-alvo, então o acesso cai sozinho, sem exigir nenhuma ação manual.
   const tempUnlocked=!access&&Boolean(campaign?.temporary_unlock)
   const effectiveAccess=access||tempUnlocked
 
@@ -111,17 +81,12 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
-      // jardins criados no Admin precisam estar registrados antes de resolver o tema do estado
       await ensureRuntimeGardenThemes()
       const {data}=await supabase.rpc('get_my_garden_state')
       if(!alive||!data)return
       const next=data as GardenState
       setState(next)
       void loadMyGardenChoice().then(c=>{if(alive)setChoice(c)})
-      // um jardim "vira" quando garden_index sobe — comparamos com o último índice visto
-      // (guardado no navegador) pra celebrar só uma vez, no momento da conclusão. Guardamos
-      // também o slug anterior: se a fila do admin foi reordenada nesse meio-tempo, o slug é
-      // a fonte da verdade de qual jardim o usuário via antes (o índice sozinho pode não bater).
       try{
         const key=LAST_GARDEN_KEY_PREFIX+userId
         const slugKey=LAST_GARDEN_SLUG_KEY_PREFIX+userId
@@ -136,35 +101,25 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
         const cycleKey=LAST_GARDEN_CYCLE_KEY_PREFIX+userId
         const prevCycleRaw=window.localStorage.getItem(cycleKey)
         const prevCycle=prevCycleRaw==null?null:Number(prevCycleRaw)
-        // sem baseline de ciclo (visitas antigas), vale só o índice, como sempre foi
         const cycleAdvanced=prevCycle==null||Number.isNaN(prevCycle)||(next.garden_cycle??0)>prevCycle
         const sameGarden=prev!=null&&!Number.isNaN(prev)&&nextIndex===prev
         if(prev!=null&&!Number.isNaN(prev)&&nextIndex>prev&&cycleAdvanced){
-          // o jardim virou — a celebração de tela cheia cuida desse momento; não soma com o
-          // aviso de "mudou desde sua última visita" abaixo, que é sobre o MESMO jardim.
           setCelebrateTheme(prevSlug?resolveGardenTheme(prevSlug,nextIndex-1):themeFor(nextIndex-1))
         } else if(sameGarden&&prevProgress!=null&&!Number.isNaN(prevProgress)&&nextProgress>prevProgress){
-          // mesmo jardim, progresso avançou desde a última visita — notícia leve (não é a
-          // celebração de 100%), com um botão pra comparar visualmente antes/depois.
           setGrowthChange({theme:resolveGardenTheme(next.garden_slug,nextIndex),from:prevProgress,to:nextProgress})
         }
-        // guarda o progresso anterior sempre que é o mesmo jardim (avançou ou não), pra um
-        // botão FIXO de comparação — o aviso acima é só reativo e pode passar despercebido.
         if(sameGarden&&prevProgress!=null&&!Number.isNaN(prevProgress))setPriorProgress(prevProgress)
         window.localStorage.setItem(key,String(nextIndex))
         window.localStorage.setItem(cycleKey,String(next.garden_cycle??0))
         window.localStorage.setItem(progressKey,String(nextProgress))
         if(next.garden_slug)window.localStorage.setItem(slugKey,next.garden_slug)
         else window.localStorage.removeItem(slugKey)
-      }catch{/* localStorage indisponível (modo privado etc.) — só não notifica, sem quebrar a página */}
+      }catch{/* localStorage indisponível — não interrompe o jardim */}
     })().catch(()=>{})
     return()=>{alive=false}
   },[userId,effectiveAccess,reloadTick])
 
   useEffect(()=>{
-    // "Marcos visuais" (Admin → Gestão de Jardins → Regras) — se o admin mudar os limiares
-    // padrão, a dica "faltam N sinais" abaixo passa a refletir o valor real configurado em vez
-    // do padrão fixo no código. Leitura pública (garden_settings_read permite authenticated).
     if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
@@ -176,12 +131,6 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   },[effectiveAccess])
 
   useEffect(()=>{
-    // Memórias do Jardim: cada ciclo já concluído pode ter um garden_slug real gravado (o
-    // usuário só lê o próprio, garden_cycles_owner permite) — reflete fila/override do admin
-    // no momento em que aquele jardim aconteceu. Quando um ciclo não tem linha (ex.: o total
-    // de crescimento pulou vários ciclos de uma vez, como num ajuste manual do admin, e o
-    // resolvedor nunca rodou pra esse ciclo intermediário), MemoryCard cai pro índice — nunca
-    // fica sem imagem.
     if(!effectiveAccess)return
     let alive=true
     ;(async()=>{
@@ -195,9 +144,6 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
     return()=>{alive=false}
   },[userId,effectiveAccess])
 
-  // Sem acesso pago: só decide entre paywall e desbloqueio temporário depois que a checagem
-  // de campanha (acima) terminar — evita mostrar o paywall por um instante pra quem seria
-  // desbloqueado, e evita liberar o jardim por um instante pra quem não tem nenhuma campanha.
   if(!effectiveAccess){
     if(!campaignChecked)return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center animate-pulse"><div className="mx-auto h-9 w-9 rounded-full bg-line"/><div className="mx-auto mt-4 h-8 w-40 rounded-lg bg-line"/><div className="mx-auto mt-3 h-4 w-64 rounded-lg bg-line"/></section></div>
     return <div className="mx-auto max-w-4xl px-4 py-10"><section className="rounded-[30px] border border-line bg-paper-soft p-8 text-center"><LockKeyhole className="mx-auto h-9 w-9 text-forest-500"/><h1 className="mt-4 font-serif text-3xl text-forest-900">Meu Jardim</h1><p className="mt-3 text-sm text-ink-soft">Seu espaço cresce junto com sua jornada. Disponível a partir do plano Essencial.</p>{onNavigatePricing&&<button onClick={onNavigatePricing} className="mt-6 rounded-2xl bg-forest-900 px-5 py-2.5 text-sm text-white">Ver planos</button>}</section></div>
@@ -205,9 +151,6 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
 
   const stage=Math.max(0,Math.min(6,state.stage||0))
   const gardenIndex=Math.max(0,state.garden_index||0)
-  // garden_slug é a fonte da verdade (reflete fila/override de "Gestão de Jardins" no Admin);
-  // o índice só entra como aproximação quando não há slug ainda (1º carregamento) ou o slug é
-  // de um jardim do catálogo sem config de engine aqui (ver resolveGardenTheme).
   const theme=resolveGardenTheme(state.garden_slug,gardenIndex)
   const elements=elementsForTheme(theme.slug)
   const unlocked=elements.filter(e=>stage>=e.stage)
@@ -222,13 +165,7 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   const memories=showAllMemories?allMemories:allMemories.slice(0,8)
   const visualProgress=Math.max(0,Math.min(100,Math.round((state.garden_progress||0)/60*100)))
   const gardenProgress=gardenVisualProgress(state.garden_progress||0,theme.stages.length===6?6:4)
-  // botão fixo de comparação: prefere "desde a última visita" quando já existe um registro
-  // real de uma visita anterior com progresso DIFERENTE do atual — mas nunca fica escondido
-  // esperando por isso (a versão anterior só aparecia depois de 2 visitas em dias diferentes
-  // com crescimento real entre elas, o que raramente acontece; por padrão sempre existe uma
-  // comparação disponível "desde o início" deste jardim, a partir do progresso 0).
   const compareFrom=priorProgress!=null&&priorProgress!==(state.garden_progress||0)?priorProgress:0
-  const compareLabel=compareFrom!==0?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'
 
   const showChooser=Boolean(choice&&(choice.needs_choice||chooserOpen)&&choice.options.length>0)
   async function handleChoose(slug:string):Promise<string|null>{
@@ -242,6 +179,11 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
   function goToHistory(){
     setCelebrateTheme(null)
     memoriesRef.current?.scrollIntoView({behavior:'smooth',block:'start'})
+  }
+
+  function openGrowthCompare(){
+    if(!growthChange)setGrowthChange({theme,from:compareFrom,to:state.garden_progress||0})
+    setCompareOpen(true)
   }
 
   return <main className="min-h-full bg-[#f7f0e5] text-forest-950">
@@ -268,11 +210,10 @@ export default function MyGardenPage({userId,profile,onNavigatePricing}:Props){
       {choice?.can_switch&&!choice.needs_choice&&!showChooser&&<div className="mb-4 flex justify-end"><button type="button" onClick={()=>setChooserOpen(true)} className="rounded-2xl border border-[#d8cfbd] bg-[#fffaf3] px-4 py-2 text-xs font-semibold text-forest-800 transition hover:bg-white">Trocar de jardim</button></div>}
       {tempUnlocked&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-forest-200 bg-forest-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-forest-600"/><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-forest-700">Acesso liberado por tempo limitado</p><p className="mt-1 text-sm leading-5 text-ink-soft">Você está vendo o Meu Jardim de graça enquanto esta campanha estiver ativa. Ele volta a ficar disponível a partir do plano Essencial quando a campanha terminar.</p></div></div>{onNavigatePricing&&<button onClick={onNavigatePricing} className="shrink-0 self-start rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">Garantir acesso permanente</button>}</div>}
       {campaign&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#e3d3a3] bg-gradient-to-r from-[#fdf4e0] to-[#f8ecd6] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8a6a2f]">Novidade no seu jardim</p><p className="mt-1 font-serif text-lg text-forest-900">{campaign.headline}</p>{campaign.body&&<p className="mt-1 text-sm leading-5 text-ink-soft">{campaign.body}</p>}</div>{campaign.cta_label&&(campaign.cta_url?<a href={campaign.cta_url} target="_blank" rel="noopener noreferrer" className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800 sm:self-center">{campaign.cta_label}</a>:<span className="shrink-0 self-start rounded-2xl bg-forest-900/90 px-4 py-2 text-xs font-medium text-white sm:self-center">{campaign.cta_label}</span>)}</div>}
-      {growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">Seu jardim mudou desde sua última visita.</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={()=>setCompareOpen(true)} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button><button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button></div></div>}
+      <div className="mb-5 flex flex-col gap-3 rounded-[22px] border border-[#c9d9c2] bg-gradient-to-r from-[#eef3e8] to-[#e6efe0] p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70"><Sprout className="h-5 w-5 text-forest-700"/></div><p className="font-serif text-base text-forest-900">{growthChange?'Seu jardim mudou desde sua última visita.':'Veja como seu jardim está crescendo ao longo do tempo.'}</p></div><div className="flex shrink-0 items-center gap-2 self-end sm:self-center"><button type="button" onClick={openGrowthCompare} className="rounded-2xl bg-forest-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-forest-800">Comparar crescimento</button>{growthChange&&<button type="button" onClick={()=>setGrowthChange(null)} aria-label="Dispensar aviso de mudança" className="grid h-8 w-8 place-items-center rounded-full text-forest-600 transition hover:bg-white/60"><X className="h-4 w-4"/></button>}</div></div>
       <section className="rounded-[28px] border border-[#e0d8ca] bg-[#fffaf3] p-6 shadow-[0_14px_40px_rgba(47,61,43,.07)] sm:p-7">
         <div className="flex items-start justify-between gap-4"><div className="flex gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e8eadf]"><Sprout className="h-5 w-5 text-forest-700"/></div><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-forest-500">Jardim atual</p><p className="mt-1 font-serif text-2xl">{theme.label}</p><p className="mt-1 text-xs text-ink-soft">{stage===6?'Maduro — todo progresso, por menor que pareça, também floresce.':'Em evolução'}</p></div></div><div className="shrink-0 rounded-full border border-[#dde2d6] bg-[#f1f3ec] px-3 py-1.5 text-[10px] font-medium text-forest-700">Crescimento contínuo</div></div>
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e7e3d8]"><div className="h-full rounded-full bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${visualProgress}%`}}/></div>
-        {(state.garden_progress||0)>0&&<button type="button" onClick={()=>{setGrowthChange({theme,from:compareFrom,to:state.garden_progress||0});setCompareOpen(true)}} className="mt-2 text-xs font-medium text-forest-700 underline decoration-[#a9b89c] underline-offset-4 transition hover:text-forest-900">{compareLabel}</button>}
         <div className="relative mt-6">
           <div className="absolute left-[8.34%] right-[8.34%] top-[22px] h-0.5 bg-[#e7e3d8]"/>
           <div className="absolute left-[8.34%] top-[22px] h-0.5 bg-gradient-to-r from-[#315d3f] to-[#8da37c] transition-[width] duration-700" style={{width:`${(visualProgress*0.8334).toFixed(2)}%`}}/>
