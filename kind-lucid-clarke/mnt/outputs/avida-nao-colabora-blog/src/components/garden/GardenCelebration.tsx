@@ -106,24 +106,33 @@ export default function GardenCelebration({ theme, onViewHistory, onClose }: Pro
             <p className={reduced ? 'font-serif text-xl leading-[1.2] sm:text-[30px] sm:leading-[1.25]' : 'gc-line1 font-serif text-xl leading-[1.2] sm:text-[30px] sm:leading-[1.25]'}>
               Seu jardim floresceu por completo.
             </p>
-            <p className={reduced ? 'font-serif text-base text-white/90 sm:text-lg' : 'gc-line2 font-serif text-base text-white/90 sm:text-lg'}>
-              Você chegou aos 100%.
+            <p className={reduced ? 'mx-auto max-w-sm text-xs leading-5 text-white/80 sm:text-sm sm:leading-6' : 'gc-line2 mx-auto max-w-sm text-xs leading-5 text-white/80 sm:text-sm sm:leading-6'}>
+              Os pequenos momentos de cuidado que você registrou ao longo do caminho transformaram este espaço.
             </p>
             <p className={reduced ? 'mx-auto max-w-sm text-xs leading-5 text-white/75 sm:text-sm sm:leading-6' : 'gc-line3 mx-auto max-w-sm text-xs leading-5 text-white/75 sm:text-sm sm:leading-6'}>
-              O que começou com pequenos cuidados agora ocupa todo esse espaço.
+              Este jardim agora fica guardado na sua história — e um novo começa a crescer no seu ritmo.
             </p>
             <p className={reduced ? 'font-serif text-base text-[#ffe08c] sm:text-lg' : 'gc-line4 font-serif text-base text-[#ffe08c] sm:text-lg'}>
-              Parabéns por cultivar até aqui. 🌿
+              Que bom ter você por aqui. 🌿
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onViewHistory}
-            className={`${reduced ? '' : 'gc-line4'} mt-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-forest-900 shadow-lg transition hover:bg-white/90`}
-          >
-            Ver minha jornada
-          </button>
+          <div className={`${reduced ? '' : 'gc-line4'} mt-2 flex w-full flex-col gap-2 sm:w-auto sm:flex-row`}>
+            <button
+              type="button"
+              onClick={onViewHistory}
+              className="rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-forest-900 shadow-lg transition hover:bg-white/90"
+            >
+              Ver meu jardim concluído
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-white/35 bg-black/20 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-black/30"
+            >
+              Conhecer o novo jardim
+            </button>
+          </div>
         </div>
 
         {!reduced && (
