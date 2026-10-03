@@ -30,6 +30,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
             title: '1. Dados vinculados à sua conta',
             items: [
               'Dados de conta: nome, e-mail, preferências e informações de perfil. A autenticação e a senha são gerenciadas pelo Supabase Auth; o aplicativo não recebe sua senha em texto legível para armazenamento.',
+              'Data de nascimento (opcional): informada por você em Minha Conta, pode ser alterada ou apagada a qualquer momento e é visível apenas para você e para a equipe administrativa autorizada.',
               'Registros que você decide criar: conteúdo do diário, check-ins e respostas inseridas por você. Esses registros permanecem associados à sua conta e não se tornam conteúdo público.',
               'Informações geradas para você a partir do uso das funcionalidades, como resultados de questionários, mapa emocional, relatórios, planos de autocuidado e orientações, quando disponíveis no seu plano.',
               'Dados de uso e comunicação necessários à operação: funcionalidades utilizadas, notificações, preferências de e-mail, tickets de suporte e histórico relacionado ao funcionamento do serviço.',
@@ -40,6 +41,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
             title: '2. Por que tratamos esses dados',
             items: [
               'Para autenticar sua conta, manter o serviço seguro e disponibilizar as funcionalidades do seu plano.',
+              'Para calcular a sua idade e registrar o seu aniversário, para que a equipe administrativa conheça a faixa etária de quem usa o serviço e seja avisada no dia do aniversário. O fornecimento é opcional e baseado no seu consentimento, que você pode retirar apagando a data em Minha Conta.',
               'Para salvar e exibir a você os registros e históricos que você escolheu criar.',
               'Para gerar recursos privados da sua conta, como visualizações, relatórios, recomendações e planos, conforme a funcionalidade e o plano.',
               'Para responder solicitações de suporte, administrar preferências de comunicação e melhorar a operação do serviço.',
