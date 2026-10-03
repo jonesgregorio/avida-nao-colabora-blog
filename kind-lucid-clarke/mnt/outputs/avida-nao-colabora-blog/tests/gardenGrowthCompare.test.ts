@@ -12,13 +12,20 @@ test('avisa quando o MESMO jardim avançou desde a última visita, mas não soma
   assert.match(garden, /setGrowthChange\(\{theme:resolveGardenTheme\(next\.garden_slug,nextIndex\),from:prevProgress,to:nextProgress\}\)/)
 })
 
-test('banner de mudança aparece na página, com botão de comparar e botão de dispensar', () => {
-  assert.match(garden, /\{growthChange&&<div/)
+test('área de comparação permanece visível durante toda a experiência Meu Jardim', () => {
+  assert.doesNotMatch(garden, /\{growthChange&&<div className="mb-5 flex flex-col gap-3 rounded-\[22px\]/)
+  assert.match(garden, /Veja como seu jardim está crescendo ao longo do tempo\./)
   assert.match(garden, /Seu jardim mudou desde sua última visita\./)
-  assert.match(garden, /onClick=\{\(\)=>setCompareOpen\(true\)\}/)
-  assert.match(garden, /Comparar crescimento/)
-  assert.match(garden, /onClick=\{\(\)=>setGrowthChange\(null\)\}/)
+  assert.match(garden, /function openGrowthCompare\(\)/)
+  assert.match(garden, /<button type="button" onClick=\{openGrowthCompare\}[^>]*>Comparar crescimento<\/button>/)
+  assert.match(garden, /growthChange&&<button type="button" onClick=\{\(\)=>setGrowthChange\(null\)\}/)
   assert.match(garden, /<GardenGrowthCompare theme=\{growthChange\.theme\} from=\{growthChange\.from\} to=\{growthChange\.to\}/)
+})
+
+test('comparação sempre pode ser aberta mesmo sem mudança desde a última visita', () => {
+  assert.match(garden, /const compareFrom=priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)\?priorProgress:0/)
+  assert.match(garden, /if\(!growthChange\)setGrowthChange\(\{theme,from:compareFrom,to:state\.garden_progress\|\|0\}\)/)
+  assert.match(garden, /setCompareOpen\(true\)/)
 })
 
 test('comparação usa theme.stages e a mesma matemática de crossfade da cena viva', () => {
@@ -53,18 +60,4 @@ test('última atualização usa visita anterior real ou último marco visual com
   assert.match(compare, /const lastUpdateProgress = realPrevious \?\? fallbackPrevious/)
   assert.match(compare, /const hasLastUpdateComparison = to > 0 && lastUpdateProgress < to/)
   assert.match(compare, /disabled=\{!hasLastUpdateComparison\}/)
-})
-
-test('botão de comparar é FIXO no card Jardim atual', () => {
-  assert.match(garden, /const \[priorProgress,setPriorProgress\]=useState<number\|null>\(null\)/)
-  assert.match(garden, /if\(sameGarden&&prevProgress!=null&&!Number\.isNaN\(prevProgress\)\)setPriorProgress\(prevProgress\)/)
-  assert.match(garden, /\{\(state\.garden_progress\|\|0\)>0&&<button/)
-  assert.match(garden, /Comparar crescimento com a última visita/)
-})
-
-test('botão de comparar aparece já na primeira visita sem histórico salvo', () => {
-  assert.match(garden, /const compareFrom=priorProgress!=null&&priorProgress!==\(state\.garden_progress\|\|0\)\?priorProgress:0/)
-  assert.match(garden, /const compareLabel=compareFrom!==0\?'Comparar crescimento com a última visita':'Comparar crescimento desde o início'/)
-  assert.match(garden, /from:compareFrom,to:state\.garden_progress\|\|0/)
-  assert.match(garden, /Comparar crescimento desde o início/)
 })
