@@ -12,7 +12,7 @@ test('vercel.json devolve 410 também para /author/x/ e lixo de WordPress', () =
     assert.ok(cfg.rewrites.some(r => r.source === s && r.destination === '/api/gone'), `falta 410 para ${s}`)
   }
   const gone = cfg.rewrites.findIndex(r => r.destination === '/api/gone')
-  const catchAll = cfg.rewrites.findIndex(r => r.destination === '/index.html')
+  const catchAll = cfg.rewrites.findIndex(r => r.destination.startsWith('/api/app-fallback'))
   assert.ok(gone < catchAll, 'as regras 410 precisam vir antes do catch-all do SPA')
 })
 

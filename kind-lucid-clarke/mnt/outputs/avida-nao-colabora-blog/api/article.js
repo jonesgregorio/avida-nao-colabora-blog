@@ -118,6 +118,8 @@ function setArticleHead(shell, article, slug) {
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:type["'][^>]*>/i, '<meta property="og:type" content="article" />')
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:url["'][^>]*>/i, `<meta property="og:url" content="${escapeHtml(canonical)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:image["'][^>]*>/i, `<meta property="og:image" content="${escapeHtml(image)}" />`)
+  // Não herdar dimensões da logo para capas de tamanhos diferentes.
+  html = html.replace(/<meta\s+property=["']og:image:(?:width|height)["'][^>]*>/gi, '')
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:image:type["'][^>]*>/i, `<meta property="og:image:type" content="${imageMime(image)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+property=["']og:image:alt["'][^>]*>/i, `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}" />`)
   html = replaceOrAppendHead(html, /<meta\s+name=["']twitter:card["'][^>]*>/i, '<meta name="twitter:card" content="summary_large_image" />')

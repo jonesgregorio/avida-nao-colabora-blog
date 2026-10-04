@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm ci && vite build",
   "outputDirectory": "dist",
+  "functions": { "api/seo-audit.js": { "maxDuration": 30 } },
   "ignoreCommand": "exit 1",
   "git": {
     "deploymentEnabled": {
@@ -42,7 +43,7 @@
     { "source": "/termos", "destination": "/api/page?route=terms" },
     { "source": "/aviso-de-responsabilidade", "destination": "/api/page?route=responsibility" },
     { "source": "/politica-editorial", "destination": "/api/page?route=editorial" },
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|images/|brand/|api/|index.html|robots.txt|favicon).*)", "destination": "/api/app-fallback?path=$1" }
   ],
   "headers": [
     { "source": "/:private(ig|login|diario|perfil|questionarios|suporte|notificacoes|guia-mensal|mapa-emocional|meu-relatorio|minha-historia|meu-jardim|descobertas|cuidar|mais|plano-de-autocuidado|meu-plano|admin|sucesso)/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
