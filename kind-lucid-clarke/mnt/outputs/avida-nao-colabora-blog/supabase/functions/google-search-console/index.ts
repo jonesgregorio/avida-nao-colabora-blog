@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { requireAdminAal2 } from '../_shared/adminAuth.ts'
+import { assertSeoReads } from './readValidation.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -217,6 +218,7 @@ async function dashboard() {
     admin.from('seo_alerts').select('id,code,severity,title,details,url,status,first_seen_at,last_seen_at').eq('status', 'open').order('last_seen_at', { ascending: false }).limit(100),
     admin.from('seo_sync_runs').select('id,kind,status,started_at,finished_at,rows_written,error,metadata').order('started_at', { ascending: false }).limit(10),
   ])
+  assertSeoReads([...results, inspectionsResult, sitemapsResult, alertsResult, runsResult])
   const data = Object.fromEntries(dimensions.map((d, i) => [d, results[i].data || []])) as Record<string, Array<{ day: string; dimension_key: string; clicks: number; impressions: number; ctr: number; position: number }>>
   const totals = data.total, currentRows = totals.filter(row => row.day >= currentStart), previousRows = totals.filter(row => row.day >= previousStart && row.day <= previousEnd)
   const queries = aggregate(data.query.filter(row => row.day >= currentStart)).slice(0, 50), pages = aggregate(data.page.filter(row => row.day >= currentStart)).slice(0, 50)

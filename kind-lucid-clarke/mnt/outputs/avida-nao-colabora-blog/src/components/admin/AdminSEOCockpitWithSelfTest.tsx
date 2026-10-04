@@ -54,7 +54,7 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
       const response = await fetch('/api/seo-audit', { signal: AbortSignal.timeout(25000) })
       if (!response.ok) throw new Error(`Auditoria pública respondeu HTTP ${response.status}`)
       const result = await response.json() as PublicAudit
-      if (!Array.isArray(result.checked) || !Array.isArray(result.issues)) throw new Error('Resposta inválida da auditoria pública.')
+      if (!Array.isArray(result.checked) || !Array.isArray(result.issues) || !Array.isArray(result.unavailable) || !result.generatedAt) throw new Error('Resposta inválida da auditoria pública.')
       setPublicAudit(result)
     } catch (err) { setPublicAudit(null); setAuditError(err instanceof Error ? err.message : 'Auditoria pública indisponível.') }
     finally { setAuditBusy(false) }

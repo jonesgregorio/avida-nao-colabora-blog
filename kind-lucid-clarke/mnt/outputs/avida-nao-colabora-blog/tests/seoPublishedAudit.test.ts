@@ -2,6 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { inspectResponse } from '../api/seo-audit.js'
 import fallback, { isAppRoute } from '../api/app-fallback.js'
+import { assertSeoReads } from '../supabase/functions/google-search-console/readValidation.ts'
+
+test('falha de leitura do painel não pode virar lista vazia aprovada', () => {
+  assert.doesNotThrow(() => assertSeoReads([{ error: null }, { error: null }]))
+  assert.throws(() => assertSeoReads([{ error: null }, { error: { message: 'database unavailable' } }]), /análise está incompleta/)
+})
 
 test('auditoria diferencia URLs inexistentes de páginas públicas e privadas', () => {
   assert.equal(inspectResponse('/pagina-inexistente-auditoria-seo', 200, '').at(0)?.code, 'soft404')
