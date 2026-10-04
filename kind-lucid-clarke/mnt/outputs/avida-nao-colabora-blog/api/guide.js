@@ -95,7 +95,7 @@ const GUIDES={
 
 const esc=(s='')=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
 function replaceOrAppend(html,re,replacement){return re.test(html)?html.replace(re,replacement):html.replace('</head>',`${replacement}</head>`)}
-function head(html,g,key){
+function head(html,g,key,titles){
   const canonical=`${SITE}/guias/${key}`,title=`${g.seoTitle} — A Vida Não Colabora`
   html=html.replace(/<title>[\s\S]*?<\/title>/i,`<title>${esc(title)}</title>`)
   for(const[re,value]of[
@@ -116,20 +116,31 @@ function head(html,g,key){
   const graph={'@context':'https://schema.org','@graph':[
     {'@type':'WebPage','@id':`${canonical}#webpage`,url:canonical,name:g.title,description:g.description,inLanguage:'pt-BR',isPartOf:{'@id':`${SITE}/#website`},about:{'@id':`${SITE}/#organization`}},
     {'@type':'BreadcrumbList','@id':`${canonical}#breadcrumb`,itemListElement:[{'@type':'ListItem',position:1,name:'Início',item:`${SITE}/`},{'@type':'ListItem',position:2,name:'Guias',item:`${SITE}/guias`},{'@type':'ListItem',position:3,name:g.title,item:canonical}]},
-    {'@type':'ItemList','@id':`${canonical}#leituras`,itemListElement:g.readings.map((slug,index)=>({'@type':'ListItem',position:index+1,name:index===0?'Leitura principal':'Leitura relacionada',url:`${SITE}/blog/${slug}`}))}
+    {'@type':'ItemList','@id':`${canonical}#leituras`,itemListElement:g.readings.map((slug,index)=>({'@type':'ListItem',position:index+1,name:titles[slug],url:`${SITE}/blog/${slug}`}))}
   ]}
   return html.replace('</head>',`<script type="application/ld+json">${JSON.stringify(graph).replace(/</g,'\\u003c')}</script></head>`)
 }
 async function shell(req){const host=req.headers.host||process.env.VERCEL_URL;if(!host)throw new Error('host_missing');const r=await fetch(`${host.includes('localhost')?'http':'https'}://${host}/index.html`);if(!r.ok)throw new Error(`shell_${r.status}`);return r.text()}
+async function readingTitles(slugs){
+  const titles=Object.fromEntries(slugs.map(slug=>[slug,slug.replace(/-/g,' ').replace(/^./,c=>c.toUpperCase())]))
+  const url=process.env.VITE_SUPABASE_URL||process.env.SUPABASE_URL,key=process.env.VITE_SUPABASE_ANON_KEY||process.env.SUPABASE_ANON_KEY
+  if(!url||!key)return titles
+  try{
+    const response=await fetch(`${url}/rest/v1/rpc/list_public_article_index`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(2500)})
+    if(response.ok)for(const row of await response.json())if(slugs.includes(row.slug)&&row.title)titles[row.slug]=row.title
+  }catch{ /* conserva links descritivos se o catálogo estiver indisponível */ }
+  return titles
+}
 export default async function handler(req,res){
   if(!['GET','HEAD'].includes(req.method)){res.setHeader('Allow','GET, HEAD');return res.status(405).end('Method Not Allowed')}
   const key=String(Array.isArray(req.query?.slug)?req.query.slug[0]:req.query?.slug||''),g=GUIDES[key]
   if(!g)return res.status(404).end('Not Found')
   try{
-    let html=head(await shell(req),g,key)
+    const [base,titles]=await Promise.all([shell(req),readingTitles(g.readings)])
+    let html=head(base,g,key,titles)
     const sections=g.sections.map(([heading,paragraph])=>`<section><h2>${esc(heading)}</h2><p>${esc(paragraph)}</p></section>`).join('')
     const questions=`<section><h2>Perguntas para observar</h2><ul>${g.questions.map(q=>`<li>${esc(q)}</li>`).join('')}</ul></section>`
-    const readings=`<section><h2>Continue explorando</h2><ul>${g.readings.map((slug,index)=>`<li><a href="/blog/${esc(slug)}">${index===0?'Começar pela leitura principal':'Abrir leitura relacionada'}</a></li>`).join('')}</ul></section>`
+    const readings=`<section><h2>Continue explorando</h2><ul>${g.readings.map(slug=>`<li><a href="/blog/${esc(slug)}">${esc(titles[slug])}</a></li>`).join('')}</ul></section>`
     const body=`<main class="seo-snapshot"><nav aria-label="Trilha de navegação"><a href="/">Início</a> · <a href="/guias">Guias</a></nav><h1>${esc(g.title)}</h1><p>${esc(g.intro)}</p>${sections}${questions}${readings}<p>Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento profissional quando necessário.</p></main>`
     html=html.replace(/<div id="root">[\s\S]*?<\/div>/i,`<div id="root">${body}</div>`)
     res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400');res.status(200)

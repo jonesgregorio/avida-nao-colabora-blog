@@ -41,7 +41,13 @@ test('recuperação de chunk velho recarrega uma única vez com guarda de sessã
 })
 
 test('SPA fallback da Vercel não intercepta /assets/ (evita cache imutável envenenado)', () => {
-  assert.match(vercelConfig, /"source": "\/\(\(\?!assets\/\)\.\*\)", "destination": "\/index\.html"/)
+  const config = JSON.parse(vercelConfig)
+  const fallback = config.rewrites.find((r: { destination: string }) => r.destination.startsWith('/api/app-fallback'))
+  assert.ok(fallback)
+  const matcher = new RegExp(`^${fallback.source}$`)
+  assert.equal(matcher.test('/assets/main.js'), false)
+  assert.equal(matcher.test('/api/seo-audit'), false)
+  assert.equal(matcher.test('/pagina-inventada'), true)
   assert.doesNotMatch(vercelConfig, /"source": "\/\(\.\*\)", "destination": "\/index\.html"/)
 })
 

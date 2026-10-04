@@ -7,9 +7,10 @@ import AdminSEOCockpit from './AdminSEOCockpit'
 
 type Row = SeoSmartArticle
 type Issue = 'no_seo' | 'no_image' | 'bad_slug' | 'thin' | 'no_author' | 'no_links'
-type Inspection = { url: string; verdict?: string | null }
+type Inspection = { url: string; verdict?: string | null; coverage_state?: string | null; last_inspected_at?: string }
 type Sitemap = { errors: number; warnings: number }
-type Dashboard = { configured: boolean; inspections: Inspection[]; sitemaps: Sitemap[]; alerts?: unknown[]; error?: string }
+type Dashboard = { configured: boolean; inspections: Inspection[]; sitemaps: Sitemap[]; alerts?: { severity?: string }[]; error?: string }
+type PublicAudit = { generatedAt: string; checked: string[]; unavailable: string[]; scope: string; issues: { path: string; code: string; severity: string; detail: string }[] }
 type SelfTestCheck = { key: string; label: string; ok: boolean; detail: string; duration_ms: number }
 type SelfTestRun = { id: string; source: 'manual' | 'scheduled'; status: 'passed' | 'warning' | 'failed'; passed: number; total: number; checks: SelfTestCheck[]; created_at: string }
 type FixStatus = 'fixed' | 'unchanged' | 'approval' | 'google' | 'failed'
@@ -44,6 +45,20 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
   const [latest, setLatest] = useState<SelfTestRun | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
+  const [publicAudit, setPublicAudit] = useState<PublicAudit | null>(null)
+  const [auditError, setAuditError] = useState('')
+  const [auditBusy, setAuditBusy] = useState(false)
+  const auditPublic = useCallback(async () => {
+    setAuditBusy(true); setAuditError('')
+    try {
+      const response = await fetch('/api/seo-audit', { signal: AbortSignal.timeout(25000) })
+      if (!response.ok) throw new Error(`Auditoria pública respondeu HTTP ${response.status}`)
+      const result = await response.json() as PublicAudit
+      if (!Array.isArray(result.checked) || !Array.isArray(result.issues) || !Array.isArray(result.unavailable) || !result.generatedAt) throw new Error('Resposta inválida da auditoria pública.')
+      setPublicAudit(result)
+    } catch (err) { setPublicAudit(null); setAuditError(err instanceof Error ? err.message : 'Auditoria pública indisponível.') }
+    finally { setAuditBusy(false) }
+  }, [])
 
   const load = useCallback(async (sync = false) => {
     setLoading(true); setError('')
@@ -54,9 +69,10 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
       ])
       if (articleResult.error) throw new Error(articleResult.error.message || 'Não foi possível carregar os artigos.')
       if (googleResult.error) throw googleResult.error
+      if (googleResult.data?.error || googleResult.data?.dashboard?.error) throw new Error(googleResult.data.error || googleResult.data.dashboard.error)
       setRows(articleResult.data)
       setDashboard((googleResult.data?.dashboard || googleResult.data) as Dashboard)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar os dados.') }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar os dados.'); throw err }
     finally { setLoading(false) }
   }, [])
 
@@ -67,21 +83,21 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
     } catch { /* diagnóstico técnico não bloqueia a tela principal */ }
   }, [])
 
-  useEffect(() => { void Promise.all([load(false), loadHistory()]) }, [load, loadHistory])
+  useEffect(() => { void Promise.allSettled([load(false), loadHistory(), auditPublic()]) }, [load, loadHistory, auditPublic])
 
   const published = useMemo(() => rows.filter(a => a.published === true || a.status === 'published'), [rows])
   const targets = useMemo(() => published.map(article => ({ article, issues: issuesOf(article) })).filter(item => item.issues.length), [published])
   const autoCount = targets.reduce((sum, item) => sum + item.issues.length, 0)
   const inspected = dashboard?.inspections?.length || 0
   const indexed = dashboard?.inspections?.filter(i => i.verdict === 'PASS').length || 0
-  const waitingGoogle = Math.max(0, inspected - indexed)
+  const waitingGoogle = dashboard?.inspections?.filter(i => /discovered|crawled|detectada|rastreada/i.test(i.coverage_state || '') && i.verdict !== 'PASS').length || 0
   const sitemapErrors = dashboard?.sitemaps?.reduce((sum, s) => sum + Number(s.errors || 0), 0) || 0
-  const critical = sitemapErrors
+  const critical = sitemapErrors + (dashboard?.alerts?.filter(a => a.severity === 'critical').length || 0) + (publicAudit?.issues.filter(i => i.severity === 'critical').length || 0) + (latest?.status === 'failed' ? 1 : 0)
 
-  async function analyze() { setAnalyzing(true); setFixReport(null); await load(true); setAnalyzing(false) }
+  async function analyze() { setAnalyzing(true); setFixReport(null); try { await Promise.all([load(true), auditPublic()]) } catch { /* erro apresentado por load */ } finally { setAnalyzing(false) } }
 
   async function correct() {
-    if (!targets.length) { setFixReport({ createdAt: new Date().toISOString(), items: [], sitemap: 'not-needed', googleSync: 'not-needed' }); return }
+    if (!targets.length) { await auditPublic(); setFixReport({ createdAt: new Date().toISOString(), items: [], sitemap: 'not-needed', googleSync: 'not-needed' }); return }
     setFixing(true); setError(''); setFixReport(null)
     const items: FixItem[] = []
     for (let i = 0; i < targets.length; i++) {
@@ -91,19 +107,26 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
         const result = await smartFixArticle(article, published, issues as SeoSmartIssue[])
         const changed = result.changed || []
         const pending = result.skipped || []
-        items.push({ id: article.id, title: article.title, issue: issues.map(i => ISSUE_LABEL[i]).join(', '), status: changed.length ? 'fixed' : pending.length ? 'approval' : 'unchanged', detail: changed.length ? 'A alteração foi salva. O sistema vai carregar novamente o artigo para confirmar o resultado.' : pending.length ? 'O sistema não fez uma alteração insegura ou incerta automaticamente.' : 'Após a validação, nenhuma mudança era necessária.', changed, pending })
+        if (changed.length) {
+          const saved = await supabase.from('articles').select(articleSelect).eq('id', article.id).single()
+          if (saved.error || !saved.data) throw new Error('Alteração enviada, mas não foi possível confirmar o artigo salvo.')
+          const remaining = issues.filter(issue => hasIssue(saved.data as Row, issue))
+          pending.push(...remaining.map(issue => `${ISSUE_LABEL[issue]} ainda não passou na validação após salvar.`))
+        }
+        items.push({ id: article.id, title: article.title, issue: issues.map(i => ISSUE_LABEL[i]).join(', '), status: pending.length ? 'approval' : changed.length ? 'fixed' : 'unchanged', detail: changed.length ? 'A alteração foi salva e o artigo foi relido. Confira abaixo os itens que ainda precisam de revisão.' : pending.length ? 'O sistema não fez uma alteração insegura ou incerta automaticamente.' : 'Após a validação, nenhuma mudança era necessária.', changed, pending })
       } catch (err) {
         items.push({ id: article.id, title: article.title, issue: issues.map(i => ISSUE_LABEL[i]).join(', '), status: 'failed', detail: err instanceof Error ? err.message : 'A correção falhou e nenhuma conclusão foi presumida.' })
       }
     }
     let sitemap: FixReport['sitemap'] = 'not-needed'
     let googleSync: FixReport['googleSync'] = 'not-needed'
-    if (items.some(i => i.status === 'fixed')) {
+    if (items.some(i => i.changed?.length)) {
       setProgress('Reenviando o mapa de páginas e validando os dados mais recentes…')
-      try { await supabase.functions.invoke('seo-smart-google-actions', { body: { action: 'submit_sitemap' } }); sitemap = 'sent' } catch { sitemap = 'failed' }
+      try { const result = await supabase.functions.invoke('seo-smart-google-actions', { body: { action: 'submit_sitemap' } }); if (result.error || result.data?.error) throw new Error(result.data?.error || result.error?.message); sitemap = 'sent' } catch { sitemap = 'failed' }
       try { await load(true); googleSync = 'done' } catch { googleSync = 'failed' }
     }
     setFixReport({ createdAt: new Date().toISOString(), items, sitemap, googleSync })
+    await auditPublic()
     setProgress(''); setFixing(false)
   }
 
@@ -133,17 +156,27 @@ export default function AdminSEOCockpitWithSelfTest({ onEditArticle }: { onEditA
       {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
       {progress && <div className="mt-4 rounded-xl border border-forest-200 bg-mint px-4 py-3 text-sm text-forest-900"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{progress}</div>}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Stat label="No Google" value={`${indexed}/${inspected}`} note="páginas confirmadas" tone="ok" />
+        <Stat label="No Google" value={dashboard && !error ? `${indexed}/${inspected}` : 'Não verificado'} note="inspeções disponíveis; não é todo o sitemap" tone="wait" />
         <Stat label="Aguardando Google" value={String(waitingGoogle)} note="não é erro automaticamente" tone="wait" />
-        <Stat label="Correções automáticas" value={String(autoCount)} note="pontos que o site pode tratar" tone={autoCount ? 'attention' : 'ok'} />
-        <Stat label="Erros críticos" value={String(critical)} note="problemas que podem bloquear" tone={critical ? 'danger' : 'ok'} />
-        <Stat label="Mapa de páginas" value={sitemapErrors ? 'Atenção' : 'Tudo certo'} note={sitemapErrors ? `${sitemapErrors} erro(s)` : 'sem erros detectados'} tone={sitemapErrors ? 'danger' : 'ok'} />
+        <Stat label="Correções automáticas" value={error || !dashboard ? 'Não verificado' : String(autoCount)} note="pontos que o site pode tratar" tone={autoCount ? 'attention' : 'ok'} />
+        <Stat label="Erros críticos" value={publicAudit && !publicAudit.unavailable.length && !error ? String(critical) : 'Incompleto'} note="sitemap, alertas, autoteste e HTML público" tone={critical ? 'danger' : 'wait'} />
+        <Stat label="Mapa de páginas" value={!dashboard?.sitemaps?.length || error ? 'Não verificado' : sitemapErrors ? 'Atenção' : 'Sem erros registrados'} note="resultado disponível do Google" tone={sitemapErrors ? 'danger' : 'wait'} />
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <SimpleBox title="O que precisa de ação" icon={<AlertTriangle className="h-4 w-4" />} text={autoCount ? `Encontramos ${autoCount} ponto(s) que o próprio site consegue tentar corrigir e validar.` : 'Não há correções automáticas pendentes agora.'} />
-        <SimpleBox title="O que depende do Google" icon={<Clock3 className="h-4 w-4" />} text={waitingGoogle ? `${waitingGoogle} página(s) ainda aguardam confirmação. O sistema pode verificar bloqueios e reenviar o sitemap, mas não pode obrigar a indexação.` : 'Nenhuma página verificada está aguardando confirmação.'} />
-        <SimpleBox title="O que está bem" icon={<CheckCircle2 className="h-4 w-4" />} text={!critical ? 'O sitemap não apresenta erro crítico. Os detalhes técnicos continuam disponíveis abaixo.' : 'Os itens sem alerta continuam funcionando; veja os erros críticos antes de outras melhorias.'} />
+        <SimpleBox title="O que precisa de ação" icon={<AlertTriangle className="h-4 w-4" />} text={`Há ${autoCount} ajuste(s) automático(s) de artigos e ${publicAudit?.issues.length || 0} achado(s) técnico(s) na amostra. Zero ajustes automáticos não significa ausência de problemas.`} />
+        <SimpleBox title="O que depende do Google" icon={<Clock3 className="h-4 w-4" />} text={`${waitingGoogle} página(s) detectada(s) ou rastreada(s), ainda sem indexação. Demais resultados sem PASS precisam ser avaliados nos detalhes; não são classificados automaticamente como espera.`} />
+        <SimpleBox title="O que está bem" icon={<CheckCircle2 className="h-4 w-4" />} text={error || !publicAudit || publicAudit.unavailable.length ? 'Verificação incompleta. Consulte as falhas e a cobertura antes de concluir.' : !critical ? 'Sem erros críticos nos testes disponíveis. Isso não aprova itens fora da cobertura.' : 'Há problemas confirmados. Veja os achados técnicos antes de outras melhorias.'} />
       </div>
+    </section>
+
+    <section className="mb-5 rounded-2xl border border-line bg-white p-4 sm:p-5">
+      <h2 className="font-serif text-2xl text-forest-900">Auditoria do site publicado</h2>
+      <p className="mt-2 text-sm text-ink-soft">{auditBusy ? 'Verificando respostas HTTP e HTML público…' : publicAudit ? `${publicAudit.checked.length}/15 URLs verificadas em ${new Date(publicAudit.generatedAt).toLocaleString('pt-BR')}. ${publicAudit.scope}` : 'Não verificado. Nenhuma aprovação técnica pode ser presumida.'}</p>
+      {publicAudit && Date.now() - new Date(publicAudit.generatedAt).getTime() > 3600000 && <p className="mt-2 text-sm text-amber-800">Dados desatualizados: execute Atualizar e analisar novamente.</p>}
+      {auditError && <p className="mt-2 text-sm text-red-800">{auditError}</p>}
+      {publicAudit?.unavailable.length ? <p className="mt-2 text-sm text-amber-800">Não verificado por falha de acesso: {publicAudit.unavailable.join(', ')}</p> : null}
+      {publicAudit?.issues.map(i => <div key={`${i.path}-${i.code}`} className="mt-3 rounded-xl border border-amber-200 p-3 text-sm"><p className="font-semibold">{i.severity === 'critical' ? 'Crítico' : 'Melhoria confirmada'} · {i.path}</p><p>{i.detail}</p><p className="text-xs text-ink-soft">Requer ajuste no código e validação pública; o corretor de artigos não resolve este item.</p></div>)}
+      {publicAudit && !publicAudit.issues.length && !publicAudit.unavailable.length && <p className="mt-3 text-sm">Aprovado nos testes executados nesta amostra. Demais páginas, desempenho e dimensões reais das imagens: não verificados.</p>}
     </section>
 
     {fixReport && <CorrectionReport report={fixReport} />}
@@ -192,7 +225,7 @@ function CorrectionReport({ report }: { report: FixReport }) {
     <p className="mt-1 text-xs text-ink-soft">Executado em {new Date(report.createdAt).toLocaleString('pt-BR')}. O sistema só marca como corrigido quando uma alteração foi realmente salva.</p>
     <div className="mt-4 flex flex-wrap gap-2 text-xs"><Badge text={`${fixed} corrigido(s)`} /><Badge text={`${approval} precisa(m) de revisão`} /><Badge text={`${failed} falhou(aram)`} /><Badge text={`${unchanged} sem mudança necessária`} /></div>
     {!report.items.length ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Não havia problemas automáticos para corrigir.</div> : <div className="mt-4 space-y-2">{report.items.map(item => <div key={`${item.id}-${item.issue}`} className="rounded-xl border border-line p-3"><div className="flex items-start gap-2"><div className="mt-0.5">{icon(item.status)}</div><div className="min-w-0"><p className="text-sm font-semibold text-forest-900">{item.title}</p><p className="text-[11px] font-medium text-ink-soft">{label(item.status)} · {item.issue}</p><p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.detail}</p>{item.changed?.length ? <p className="mt-1 text-xs text-emerald-800"><strong>Alterado:</strong> {item.changed.join(', ')}</p> : null}{item.pending?.length ? <p className="mt-1 text-xs text-amber-800"><strong>Pendente:</strong> {item.pending.join(' | ')}</p> : null}</div></div></div>)}</div>}
-    <div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Sitemap:</strong> {report.sitemap === 'sent' ? 'reenviado ao Google' : report.sitemap === 'failed' ? 'tentativa falhou; permanece pendente' : 'não precisou ser reenviado'}</div><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Validação final:</strong> {report.googleSync === 'done' ? 'dados atualizados novamente após as correções' : report.googleSync === 'failed' ? 'não foi possível atualizar os dados do Google agora' : 'não foi necessária'}</div></div>
+    <div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Sitemap:</strong> {report.sitemap === 'sent' ? 'reenviado ao Google' : report.sitemap === 'failed' ? 'tentativa falhou; permanece pendente' : 'não precisou ser reenviado'}</div><div className="rounded-xl bg-stone-50 px-3 py-2 text-xs text-ink-soft"><strong>Atualização dos dados Google:</strong> {report.googleSync === 'done' ? 'dados atualizados novamente após as correções' : report.googleSync === 'failed' ? 'não foi possível atualizar os dados do Google agora' : 'não foi necessária'}</div></div>
   </section>
 }
 function Badge({ text }: { text: string }) { return <span className="rounded-full border border-line bg-stone-50 px-3 py-1.5 text-ink-soft">{text}</span> }

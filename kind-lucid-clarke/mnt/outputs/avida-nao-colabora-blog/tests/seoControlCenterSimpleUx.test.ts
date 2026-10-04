@@ -36,7 +36,9 @@ test('correção em lote gera relatório explícito do que aconteceu', () => {
 })
 
 test('corretor não declara sucesso sem mudança real e revalida depois', () => {
-  assert.match(wrapper, /status: changed\.length \? 'fixed'/)
+  assert.match(wrapper, /status: pending\.length \? 'approval' : changed\.length \? 'fixed'/)
+  assert.match(wrapper, /\.eq\('id', article\.id\)\.single\(\)/)
+  assert.match(wrapper, /result\.error \|\| result\.data\?\.error/)
   assert.match(wrapper, /A alteração foi salva/)
   assert.match(wrapper, /smartFixArticle/)
   assert.match(wrapper, /submit_sitemap/)
