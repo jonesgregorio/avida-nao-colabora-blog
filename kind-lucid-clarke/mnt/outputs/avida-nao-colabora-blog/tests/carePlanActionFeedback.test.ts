@@ -53,7 +53,7 @@ test('próximo Plano de Autocuidado lê primeiro os seis retornos do estado vivo
   assert.match(runner, /\['helped', 'neutral', 'not_tried', 'could_not', 'adapt', 'not_for_me'\]/)
   assert.match(runner, /adapted_action: adapted \|\| null/)
   assert.match(runner, /source: 'living'/)
-  assert.match(runner, /prompt\('self_care_plan', s, previousCareFeedback(, guidanceFeedback)?\)/)
+  assert.match(runner, /prompt\('self_care_plan', s, previousCareFeedback(, guidanceFeedback(, await loadDiscoveryFeedback\(admin, profile\.user_id\))?)?\)/)
   assert.match(runner, /previous_care_action_feedback: careFeedbackSummary\(previousCareFeedback\)/)
 })
 

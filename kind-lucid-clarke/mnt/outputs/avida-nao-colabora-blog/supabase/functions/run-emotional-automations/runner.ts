@@ -226,7 +226,7 @@ function summaryOf(rows: Record<string, unknown>[], start: string, end: string, 
 // registros reais — pedir pra IA "inventar" esses números violaria a própria
 // regra de segurança de não inventar fatos/padrões. Isso é deliberado, não uma
 // simplificação: números vêm de cálculo determinístico, nunca de geração de texto.
-function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan', summary: Summary, careFeedback: CarePlanFeedbackEntry[] = [], guidanceFeedback: GuidanceFeedbackEntry[] = []) {
+function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan', summary: Summary, careFeedback: CarePlanFeedbackEntry[] = [], guidanceFeedback: GuidanceFeedbackEntry[] = [], discoveryFeedback: DiscoveryFeedbackEntry[] = []) {
   const task = kind === 'weekly_report'
     ? 'Esta leitura responde "como foi minha semana?": curta, leve, prática, focada nos últimos 7 dias, com 2 ou 3 próximos passos leves. Não gere relatório mensal, plano de autocuidado ou orientação profissional.'
     : kind === 'monthly_deep_report'
@@ -240,6 +240,9 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
   const guidanceContext = kind === 'self_care_plan' && guidanceFeedback.length
     ? ` Considere também, apenas se fizer sentido para os dados atuais, os retornos opcionais que a pessoa deu às últimas Orientações Mensais: ${JSON.stringify(guidanceFeedback)}. feedback=helpful indica que o estilo da orientação pareceu útil; partial indica que ajudou só em parte; not_for_me indica que não combinou, então varie a abordagem. Tags: too_generic pede mais especificidade; missing_practical_steps pede ações menores e mais concretas; unclear pede linguagem mais simples; not_applicable pede mais aderência ao momento da pessoa. É preferência contextual, nunca prova de eficácia, melhora ou diagnóstico, e não significa que o tema da orientação deva reaparecer no plano. Não mencione avaliação, retorno ou bastidores na resposta.`
     : ''
+  const discoveryContext = discoveryFeedback.length
+    ? ` Considere também, apenas se fizer sentido para os dados atuais, estas percepções que a pessoa registrou sobre Descobertas (padrões dos próprios registros dela): ${JSON.stringify(discoveryFeedback)}. A chave "discovery" é "tipo:assunto". feedback=made_sense indica que o padrão pareceu fazer sentido: pode ser retomado com cuidado se os dados atuais ainda o sustentarem. feedback=sort_of indica dúvida: apresente como possibilidade a observar, sem afirmar. feedback=not_following indica que a pessoa NÃO quer acompanhar esse assunto: não o destaque, não o transforme em foco, prioridade ou ação, e só cite se os dados atuais forem muito claros, de forma breve. Isso é preferência, nunca prova do padrão, diagnóstico ou relação causal. Não mencione percepção, retorno ou bastidores na resposta.`
+    : ''
   // §6.2/6.3 do audit: além do texto-base (summary/patterns/...), a IA também
   // lê em prosa curta os dados já agregados em código (marcadores, contextos,
   // necessidades, ações de cuidado, gatilhos reais, indicadores avançados,
@@ -248,7 +251,7 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
   // não inventar fatos. Campos condicionais (ex.: real_triggers_reading) só
   // devem vir preenchidos quando os dados correspondentes existirem no resumo.
   const shape = EMOTIONAL_NARRATIVE_SHAPES[kind]
-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Sinais de questionários, quando presentes, são contexto estruturado auxiliar: nunca trate um único resultado ou tag de questionário como recorrência, padrão, diagnóstico, causa ou prova. A pontuação só faz sentido dentro do respectivo questionário e não pode ser comparada entre questionários diferentes. Nenhuma resposta aberta de questionário é fornecida. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task}${feedbackContext}${guidanceContext} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Sinais de questionários, quando presentes, são contexto estruturado auxiliar: nunca trate um único resultado ou tag de questionário como recorrência, padrão, diagnóstico, causa ou prova. A pontuação só faz sentido dentro do respectivo questionário e não pode ser comparada entre questionários diferentes. Nenhuma resposta aberta de questionário é fornecida. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task}${feedbackContext}${guidanceContext}${discoveryContext} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
 }
 
 async function generate(promptText: string): Promise<{ text: string; model: string }> {
@@ -496,6 +499,27 @@ async function loadGuidanceFeedback(admin: AdminClient, userId: string): Promise
   })
 }
 
+type DiscoveryFeedbackEntry = { discovery: string; feedback: 'made_sense' | 'sort_of' | 'not_following' }
+
+// Percepções da pessoa sobre as Descobertas (padrões dos próprios registros). A chave é
+// "tipo:assunto", sem texto livre nem contagens; só entram valores conhecidos.
+async function loadDiscoveryFeedback(admin: AdminClient, userId: string): Promise<DiscoveryFeedbackEntry[]> {
+  const allowed = new Set(['made_sense', 'sort_of', 'not_following'])
+  const { data, error } = await admin
+    .from('user_discovery_feedback')
+    .select('discovery_key,feedback')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(12)
+  if (error || !data?.length) return []
+  return data.flatMap((row: Record<string, unknown>) => {
+    const feedback = String(row.feedback || '')
+    const discovery = typeof row.discovery_key === 'string' ? row.discovery_key.trim().slice(0, 120) : ''
+    if (!discovery || !allowed.has(feedback)) return []
+    return [{ discovery, feedback: feedback as DiscoveryFeedbackEntry['feedback'] }]
+  })
+}
+
 function careFeedbackSummary(items: CarePlanFeedbackEntry[]) {
   return {
     total: items.length,
@@ -644,7 +668,7 @@ Deno.serve(async (req) => {
         }
       }
       let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
-      try { const generated = await generate(prompt(job.kind === 'weekly' ? 'weekly_report' : 'monthly_deep_report', summary)); parsed = parse(generated.text); if (!parsed) throw new Error('JSON inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
+      try { const generated = await generate(prompt(job.kind === 'weekly' ? 'weekly_report' : 'monthly_deep_report', summary, [], [], await loadDiscoveryFeedback(admin, profile.user_id))); parsed = parse(generated.text); if (!parsed) throw new Error('JSON inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
       const content = reportContent(job.kind, summary, parsed, (rows || []) as Record<string, unknown>[], prevSummary)
       const promptType = job.kind === 'weekly' ? 'weekly_report' : 'monthly_deep_report'
       const { error: saveError } = await admin.from('reports').insert({ user_id: profile.user_id, report_type: job.kind, plan_required: job.kind === 'weekly' ? 'essential' : 'plus', period_start: job.start, period_end: job.end, available_at: new Date().toISOString(), status: 'generated', title: job.kind === 'weekly' ? `Relatório semanal — ${job.start}` : `Relatório mensal aprofundado — ${job.start.slice(0, 7)}`, summary: content.summary, content, generated_at: new Date().toISOString(), ai_prompt_type: promptType, ai_prompt_version: PROMPT_VERSION[promptType], model_used: model, fallback_used: fallback, data_quality: summary.data_quality, error_message: errorMessage, generated_by: actor })
@@ -672,7 +696,7 @@ Deno.serve(async (req) => {
                 const previousCareFeedback = await loadPreviousCarePlanFeedback(admin, profile.user_id, careStart)
         const guidanceFeedback = await loadGuidanceFeedback(admin, profile.user_id)
         let parsed: Record<string, unknown> | null = null; let model = 'deterministic-fallback'; let fallback = true; let errorMessage: string | null = null
-        try { const generated = await generate(prompt('self_care_plan', s, previousCareFeedback, guidanceFeedback)); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
+        try { const generated = await generate(prompt('self_care_plan', s, previousCareFeedback, guidanceFeedback, await loadDiscoveryFeedback(admin, profile.user_id))); parsed = parse(generated.text); if (!parsed || !parsed.main_focus || carePriorities(parsed.three_care_priorities).length < 3) throw new Error('JSON do plano inválido'); model = generated.model; fallback = false } catch (e) { errorMessage = e instanceof Error ? e.message : String(e) }
         const actions = texts(parsed?.suggested_micro_actions ?? parsed?.practical_tips, 260)
         const care = { title: str(parsed?.title, 'Seu roteiro de cuidado'), month_label: str(parsed?.month_label, monthStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })), based_on_period: `${careStart} a ${careEnd}`, main_focus: str(parsed?.main_focus ?? parsed?.monthly_priority, 'Escolher um pequeno passo de cuidado possível.'), why_this_focus: str(parsed?.why_this_focus ?? parsed?.main_care, s.data_quality.message), three_care_priorities: carePriorities(parsed?.three_care_priorities), weekly_rhythm: weeklyRhythm(parsed?.weekly_rhythm), suggested_micro_actions: actions, recommended_guided_contents: texts(parsed?.recommended_guided_contents, 160), gentle_reminders: texts(parsed?.gentle_reminders, 220), what_not_to_force: str(parsed?.what_not_to_force, 'Você não precisa resolver todos os pontos de uma vez.'), light_emotional_goal: str(parsed?.light_emotional_goal, 'Perceber um sinal seu e escolher um cuidado possível.'), monthly_priority: str(parsed?.monthly_priority ?? parsed?.main_focus, 'Escolher um pequeno passo de cuidado possível.'), main_care: str(parsed?.main_care ?? parsed?.why_this_focus, s.data_quality.message), recommended_practice: actions[0] || 'Reserve alguns minutos para observar como você está, sem cobrança.', attention_point: s.data_quality.message, small_commitment: actions[1] || 'Escolha uma ação leve em um dia da semana.', checkin_suggestion: str(parsed?.checkin_suggestion, 'Faça um check-in breve quando fizer sentido.'), when_to_seek_more_support: str(parsed?.when_to_seek_more_support, 'Se algo pesar mais do que o de costume, procurar apoio profissional é sempre uma escolha válida — sem pressa e sem cobrança.'), practical_tips: actions, reflection_questions: texts(parsed?.reflection_questions, 260), final_message: str(parsed?.final_message, 'Você não precisa resolver tudo agora.') }
         await admin.from('monthly_care_plans').insert({ user_id: profile.user_id, month_reference: isoDay(monthStart), period_start: careStart, period_end: careEnd, available_at: new Date().toISOString(), plan_required: 'plus', status: 'pending_review', records_summary: { ...s, previous_care_action_feedback: careFeedbackSummary(previousCareFeedback) }, ai_summary: str(parsed?.data_quality_message, s.data_quality.message), ai_summary_json: { data_quality: s.data_quality }, care_plan: care, generated_by_ai: !fallback, generated_at: new Date().toISOString(), ai_prompt_type: 'self_care_plan', ai_prompt_version: PROMPT_VERSION.self_care_plan, model_used: model, fallback_used: fallback, data_quality: s.data_quality, error_message: errorMessage, generated_by: actor })

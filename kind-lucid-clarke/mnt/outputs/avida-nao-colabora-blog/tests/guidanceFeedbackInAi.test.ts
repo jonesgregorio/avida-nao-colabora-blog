@@ -23,6 +23,15 @@ test('plano de autocuidado considera as avaliações da orientação sem levar t
   const runner = read('supabase/functions/run-emotional-automations/runner.ts')
   assert.match(runner, /from\('monthly_guidance_feedback'\)\s*\n\s*\.select\('feedback,tags,monthly_guidance_requests\(month_key\)'\)/)
   assert.doesNotMatch(runner, /monthly_guidance_requests\([^)]*message/)
-  assert.match(runner, /prompt\('self_care_plan', s, previousCareFeedback, guidanceFeedback\)/)
+  assert.match(runner, /prompt\('self_care_plan', s, previousCareFeedback, guidanceFeedback/)
   assert.match(runner, /guidanceContext = kind === 'self_care_plan' && guidanceFeedback\.length/)
+})
+
+test('relatórios e plano consideram as percepções sobre Descobertas, respeitando "não quero acompanhar"', () => {
+  const runner = read('supabase/functions/run-emotional-automations/runner.ts')
+  assert.match(runner, /from\('user_discovery_feedback'\)\s*\n\s*\.select\('discovery_key,feedback'\)/)
+  assert.match(runner, /allowed = new Set\(\['made_sense', 'sort_of', 'not_following'\]\)/)
+  assert.match(runner, /feedback=not_following indica que a pessoa NÃO quer acompanhar esse assunto/)
+  assert.match(runner, /'weekly_report' : 'monthly_deep_report', summary, \[\], \[\], await loadDiscoveryFeedback\(admin, profile\.user_id\)/)
+  assert.match(runner, /prompt\('self_care_plan', s, previousCareFeedback, guidanceFeedback, await loadDiscoveryFeedback/)
 })
