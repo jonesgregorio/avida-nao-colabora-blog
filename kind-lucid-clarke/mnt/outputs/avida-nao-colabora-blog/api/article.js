@@ -38,12 +38,12 @@ function isArticlePublic(article) {
 
 function renderInlineMarkdown(value = '') {
   return escapeHtml(value)
-    .replace(/\[([^\]]+)\]\((\/blog\/[a-z0-9-]+)\)/gi, '<a href="$2">$1</a>')
+    .replace(/\[([^\]]+)\]\((\/blog\/[a-z0-9-]+|https:\/\/[^\s)]+)\)/gi, '<a href="$2">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 }
 
-function renderPublicArticleContent(content = '') {
+export function renderPublicArticleContent(content = '') {
   const lines = String(content).replace(/\r\n/g, '\n').split('\n')
   const output = []
   let listType = null
