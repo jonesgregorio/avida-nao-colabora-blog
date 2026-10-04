@@ -9,11 +9,13 @@ import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
 import { generateArticleCTA, getLastProvider, providerLabel } from '../../lib/aiContent'
+import { normalizeArticlePackage, validateArticlePackage, withEditorialDisclosure } from '../../lib/articleGenerationContract'
 import { DEFAULT_CTA } from '../../lib/articleCta'
 import { logAdminAction } from '../../lib/adminAudit'
 
 interface ArticleData {
   title: string
+  author: string
   slug: string
   status: string
   content_type: string
@@ -66,7 +68,7 @@ interface StepDraft {
 }
 
 const EMPTY: ArticleData = {
-  title: '', slug: '', status: 'draft', content_type: 'article', category: '',
+  author: 'A Vida Não Colabora', title: '', slug: '', status: 'draft', content_type: 'article', category: '',
   content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
   keyword: '', secondary_keywords: '', tags: '', related_slugs: '', emotion: '', journey_stage: '',
@@ -104,7 +106,7 @@ interface ArticleVersion {
 
 // Limites de caracteres (média recomendada) — respeitados no campo (maxLength +
 // contador) E ao inserir texto gerado pela IA (clamp em handleAIInsert).
-const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 160 }
+const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 155 }
 
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
@@ -116,6 +118,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [versions, setVersions] = useState<ArticleVersion[]>([])
   const [steps, setSteps] = useState<StepDraft[]>([])
   const [review, setReview] = useState<{ at: string | null; note: string }>({ at: null, note: '' })
+  const [editorialConfirmed, setEditorialConfirmed] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [ctaBusy, setCtaBusy] = useState(false)
   // ID do artigo recém-criado (insert). O articleId da prop é null para artigo
@@ -148,6 +151,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   }, [])
 
   useEffect(() => {
+    setEditorialConfirmed(false)
     if (!articleId) return
     supabase.from('articles').select('*').eq('id', articleId).single().then(({ data: a, error }) => {
       if (error) { showToast('Erro ao carregar artigo: ' + error.message, true); setLoading(false); return }
@@ -162,6 +166,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           summary: a.summary || a.excerpt || '',
           image_url: a.image_url || a.cover_image || a.cover_image_url || '',
           image_alt: a.image_alt || '',
+          author: a.author || 'A Vida Não Colabora',
           seo_title: a.seo_title || '',
           seo_description: a.seo_description || '',
           keyword: a.keyword || '',
@@ -229,6 +234,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   }
 
   function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
+    setEditorialConfirmed(false)
     setData(d => {
       const next = { ...d, [key]: value }
       // Tempo de leitura SEMPRE em dia com o conteúdo (~200 palavras/min).
@@ -246,11 +252,25 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
   async function save(status?: string) {
     if (!data.title.trim()) { showToast('Título obrigatório', true); return }
-    if (!data.slug.trim()) { showToast('Slug obrigatório', true); return }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) { showToast('Use um endereço com letras minúsculas, números e hífens', true); return }
     // Checklist: bloqueia publicação se faltar item crítico.
-    if ((status || data.status) === 'published' && missingCritical.length > 0) {
+    if (['published', 'scheduled'].includes(status || data.status) && missingCritical.length > 0) {
       showToast('Não dá para publicar: falta ' + missingCritical.map(c => c.label).join(', '), true)
       return
+    }
+    const willPublish = ['published', 'scheduled'].includes(status || data.status)
+    let reviewerId: string | null = null
+    if (willPublish && data.content_type === 'article') {
+      const { data: catalog, error } = await supabase.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').neq('slug', data.slug).limit(500)
+      if (error || (catalog?.length || 0) >= 500) { showToast('Não foi possível validar os links e o catálogo. Nada foi publicado.', true); return }
+      const errors = validateArticlePackage(normalizeArticlePackage({ ...data, excerpt: data.summary, secondary_keywords: toArray(data.secondary_keywords) }), {
+        publication: true, imageUrl: data.image_url, author: data.author,
+        reviewed: editorialConfirmed, relatedSlugs: toArray(data.related_slugs), catalog: catalog || [],
+      })
+      if (errors.length) { showToast('Revise antes de publicar: ' + errors.join('; '), true); return }
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) { showToast('Entre novamente para registrar a revisão.', true); return }
+      reviewerId = auth.user.id
     }
     setSaving(true)
 
@@ -261,11 +281,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     const summaryC = data.summary.trim().slice(0, LIMITS.summary)
     const payload: Record<string, unknown> = {
       title: titleC,
+      author: data.author.trim(),
       slug: data.slug,
       status: targetStatus,
       content_type: data.content_type,
       category: data.category,
-      content: data.content,
+      content: withEditorialDisclosure(data.content, data.origin, !!reviewerId),
       summary: summaryC,
       excerpt: summaryC,
       image_url: data.image_url,
@@ -302,6 +323,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       plan_required: data.plan_required,
       read_time: data.read_time,
       updated_at: new Date().toISOString(),
+      ...(data.content_type === 'article' ? { reviewed_by: reviewerId, reviewed_at: reviewerId ? new Date().toISOString() : null, review_notes: reviewerId ? 'Revisão editorial confirmada no editor: fontes, exemplos, links, autoria e descrição da capa conferidos. Não implica revisão clínica.' : null } : {}),
     }
 
     if (data.scheduled_at) payload.scheduled_at = new Date(data.scheduled_at).toISOString()
@@ -453,12 +475,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     { label: 'Conteúdo (≥ 300 caracteres)', ok: (data.content || '').trim().length >= 300, critical: true },
     { label: 'Categoria', ok: !!data.category.trim(), critical: true },
     { label: 'Plano definido', ok: !!data.plan_required, critical: true },
-    { label: 'Imagem de capa', ok: !!data.image_url.trim(), critical: false },
-    { label: 'Texto alternativo da imagem', ok: !!data.image_alt.trim(), critical: false },
-    { label: 'SEO title', ok: !!data.seo_title.trim(), critical: false },
-    { label: 'SEO description', ok: !!data.seo_description.trim(), critical: false },
-    { label: 'Pergunta para o diário', ok: !!data.diary_question.trim(), critical: false },
-    { label: 'CTA', ok: !!data.cta_text.trim(), critical: false },
+    { label: 'Imagem de capa', ok: !!data.image_url.trim(), critical: data.content_type === 'article' },
+    { label: 'Texto alternativo da imagem', ok: !!data.image_alt.trim(), critical: data.content_type === 'article' },
+    { label: 'SEO title', ok: !!data.seo_title.trim(), critical: data.content_type === 'article' },
+    { label: 'SEO description', ok: !!data.seo_description.trim(), critical: data.content_type === 'article' },
+    { label: 'Pergunta para o diário', ok: !!data.diary_question.trim(), critical: data.content_type === 'article' },
+    { label: 'CTA', ok: !!data.cta_text.trim(), critical: data.content_type === 'article' },
   ]
   const missingCritical = checklist.filter(c => c.critical && !c.ok)
   const score = Math.round((checklist.filter(c => c.ok).length / checklist.length) * 100)
@@ -466,6 +488,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   // Restauração de 1 clique: server-side (grava de volta E registra a volta como
   // nova versão). Se a RPC ainda não existe, cai no modo "carrega no formulário".
   async function restoreVersion(v: ArticleVersion) {
+    setEditorialConfirmed(false)
     if (effectiveId && window.confirm(`Restaurar a versão ${v.version}? O conteúdo atual é preservado como versão anterior no histórico.`)) {
       const { error } = await supabase.rpc('admin_restore_article_version', { p_article_id: effectiveId, p_version: v.version })
       if (!error) {
@@ -721,6 +744,15 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Publicação</h2>
+            <Field label="Autoria">
+              <input value={data.author} onChange={e => set('author', e.target.value)} className={inputCls} placeholder="Nome real ou equipe editorial" />
+            </Field>
+            {data.content_type === 'article' && (
+              <label className="flex gap-2 text-sm text-stone-600">
+                <input type="checkbox" checked={editorialConfirmed} onChange={e => setEditorialConfirmed(e.target.checked)} />
+                Conferi o texto, fontes, exemplos fictícios, links, autoria e a descrição da capa real. Esta confirmação é editorial, não clínica.
+              </label>
+            )}
             <Field label="Status">
               <select value={data.status} onChange={e => set('status', e.target.value)} className={inputCls}>
                 <option value="draft">Rascunho</option>

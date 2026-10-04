@@ -9,13 +9,12 @@ import {
   type EditorialAutomationType,
 } from '../_shared/editorialAutomationContracts.ts'
 import {
-  MIN_ARTICLE_WORDS,
   articleExcerptFrom,
   articleWordCount,
-  buildArticleExpansionPrompt,
   buildArticleGenerationPrompt,
   parseArticlePackages,
   validateArticlePackage,
+  catalogBrief, selectRelatedArticles, hasTopicOverlap,
   type ArticleAIContract,
 } from '../_shared/articleGenerationContract.ts'
 
@@ -246,17 +245,9 @@ async function persistArticle(
   pkg: GeneratedArticlePackage,
   fallbackTheme: string,
   prompt: string,
-  allowExpansion: boolean,
 ): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
   const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
-  let content = cleanText(pkg.content, 50000)
-  // Etapa 5.1: no máximo UMA tentativa de expansão por artigo.
-  if (allowExpansion && content && articleWordCount(content) < MIN_ARTICLE_WORDS) {
-    try {
-      const expanded = await genAI(buildArticleExpansionPrompt(content))
-      if (expanded.trim()) content = expanded.trim()
-    } catch { /* a validação compartilhada mantém como rascunho */ }
-  }
+  const content = cleanText(pkg.content, 50000)
   if (!content) throw new Error(`Artigo “${title}” retornou sem conteúdo.`)
 
   const excerpt = cleanText(pkg.excerpt, 200) || articleExcerptFrom(content) || title.slice(0, 200)
@@ -268,7 +259,7 @@ async function persistArticle(
   const emotionalThemes = pkg.emotional_themes.slice(0, 4)
   const imageQuery = cleanText(pkg.image_query, 120)
   const cover = await searchPexelsCover(imageQuery)
-  const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
+  const imageAlt = cover?.alt || ''
   const diaryQuestion = cleanText(pkg.diary_question, 260)
   const ctaText = cleanText(pkg.cta_text, 180)
   const category = cleanText(pkg.category, 120) || automation.category || 'Geral'
@@ -290,7 +281,11 @@ async function persistArticle(
     diary_question: diaryQuestion,
     cta_text: ctaText,
   }
-  const validationErrors = validateArticlePackage(validatedPackage, { imageUrl: cover?.url })
+  const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').limit(500)
+  const rows = catalog || []
+  const related = selectRelatedArticles(`${title} ${keyword}`, rows)
+  const validationErrors = validateArticlePackage(validatedPackage, { imageUrl: cover?.url, publication: true, reviewed: false, author: 'A Vida Não Colabora', relatedSlugs: related.map(row => row.slug), catalog: rows, duplicate: hasTopicOverlap(title, keyword, rows) })
+  if (catalogError || rows.length >= 500) validationErrors.push('catálogo indisponível')
   const cliches = detectAiCliches(content)
   if (cliches.length > 0) validationErrors.push(`tom genérico de IA detectado ("${cliches.join('", "')}")`)
 
@@ -312,6 +307,7 @@ async function persistArticle(
     : null
 
   const { data: art, error: insErr } = await admin.from('articles').insert({
+    author: 'A Vida Não Colabora', related_slugs: related.map(row => row.slug),
     title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-5)}-${Math.random().toString(36).slice(2, 5)}`,
     content, summary: excerpt, excerpt, category,
     plan_required: normalizedPlan(automation.plan_required), content_type: 'article', origin: 'ia',
@@ -346,12 +342,14 @@ async function executeArticleAutomation(
   const quantity = clampAutomationQuantity(type, config.quantity)
   const themes = uniqueThemes(config, automation.category || 'saúde emocional')
   const tone = config.tone || 'acolhedor'
+  const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').eq('plan_required', 'free').limit(500)
+  if (catalogError || (catalog?.length || 0) >= 500) throw new Error('Catálogo indisponível para planejar conteúdo distinto e links válidos.')
   const prompt = buildArticleGenerationPrompt({
     quantity,
     themes,
     tone,
     category: automation.category || 'saúde emocional',
-    extraInstructions: config.extra || undefined,
+    extraInstructions: [catalogBrief(catalog || []), config.extra || ''].join('\n'),
   })
   const raw = await genAI(prompt)
   const packages = parseArticlePackages(raw, themes, automation.category || '').slice(0, quantity)
@@ -361,7 +359,7 @@ async function executeArticleAutomation(
   // uma única chamada, evitando multiplicar a latência do cron semanal.
   // A expansão é limitada a UMA tentativa por artigo pelo persistArticle.
   const results = await Promise.all(packages.map((pkg, index) =>
-    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, true),
+    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt),
   ))
   const published = results.filter(r => r.published).length
   const drafts = results.length - published

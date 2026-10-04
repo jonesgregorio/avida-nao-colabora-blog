@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { callAI, generateWithFailover, type AITone, type AISize } from '../../lib/aiContent'
 import {
-  MIN_ARTICLE_WORDS,
   articleExcerptFrom,
   articleWordCount,
-  buildArticleExpansionPrompt,
   buildArticleGenerationPrompt,
   parseArticlePackages,
   validateArticlePackage,
+  catalogBrief, selectRelatedArticles, hasTopicOverlap,
   type ArticleAIContract,
 } from '../../lib/articleGenerationContract'
 import { Sparkles, Loader2, Save, Layers, FileText } from 'lucide-react'
@@ -19,6 +18,7 @@ interface ArticleDraftState {
   cover: { url: string; alt: string } | null
   validationErrors: string[]
   prompt: string
+  relatedSlugs: string[]
 }
 
 const PLANS = [['free', 'Gratuito'], ['essential', 'Essencial'], ['plus', 'Plus']] as const
@@ -48,13 +48,19 @@ async function insertDraft(row: Record<string, unknown>) {
   return res
 }
 
-async function searchContractCover(query: string, fallbackAlt: string): Promise<{ url: string; alt: string } | null> {
+async function searchContractCover(query: string): Promise<{ url: string; alt: string } | null> {
   if (!query.trim()) return null
   try {
     const { data, error } = await supabase.functions.invoke('image-search', { body: { query } })
     const out = data as { url?: string; alt?: string } | null
     if (error || !out?.url) return null
-    return { url: out.url, alt: (out.alt || fallbackAlt).slice(0, 300) }
+    let alt = ''
+    if (out.alt?.trim()) {
+      try {
+        alt = (await generateWithFailover(`Traduza para português brasileiro apenas a descrição literal da fotografia abaixo. Não acrescente cenário, emoção, diagnóstico ou relação com o artigo. Responda só com a descrição, até 220 caracteres. Descrição do fornecedor: ${out.alt}`, { contentType: 'seo_image_alt', entityKey: `cover-alt:${query}`.slice(0, 120) })).trim().slice(0, 220)
+      } catch { /* sem descrição verificada, a revisão deve preencher o campo */ }
+    }
+    return { url: out.url, alt }
   } catch { return null }
 }
 
@@ -67,6 +73,9 @@ async function generateArticleContract(input: {
   extraInstructions?: string
   operationId: string
 }): Promise<ArticleDraftState> {
+  const { data: catalog, error: catalogError } = await supabase.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').order('title').limit(500)
+  if (catalogError || (catalog?.length || 0) >= 500) throw new Error('Não foi possível conferir o catálogo; tente novamente antes de gerar.')
+  const rows = catalog || []
   const prompt = buildArticleGenerationPrompt({
     quantity: 1,
     themes: [input.theme],
@@ -74,7 +83,7 @@ async function generateArticleContract(input: {
     tone: input.tone,
     audience: input.audience,
     keyword: input.keyword,
-    extraInstructions: input.extraInstructions,
+    extraInstructions: [catalogBrief(rows.filter(row => row.plan_required === 'free')), input.extraInstructions || ''].join('\n'),
   })
   // incident_entity_key estável por sessão de geração deste tema: retries
   // resolvem o mesmo incidente; um tema novo é uma operação nova.
@@ -83,18 +92,11 @@ async function generateArticleContract(input: {
   const parsed = parseArticlePackages(raw, [input.theme], input.category || '')
   if (!parsed.length) throw new Error('A IA não retornou o contrato JSON válido do artigo.')
 
-  let pkg = parsed[0]
-  // Etapa 5.1: UMA única tentativa de expansão. Sem loop.
-  if (articleWordCount(pkg.content) < MIN_ARTICLE_WORDS && pkg.content.trim()) {
-    try {
-      const expanded = await generateWithFailover(buildArticleExpansionPrompt(pkg.content), meta)
-      if (expanded.trim()) pkg = { ...pkg, content: expanded.trim() }
-    } catch { /* permanece curto e será salvo como draft com o motivo */ }
-  }
-
-  const cover = await searchContractCover(pkg.image_query, pkg.image_alt || pkg.title)
-  const validationErrors = validateArticlePackage(pkg, { imageUrl: cover?.url })
-  return { pkg, cover, validationErrors, prompt }
+  const pkg = parsed[0]
+  const cover = await searchContractCover(pkg.image_query)
+  pkg.image_alt = cover?.alt || ''
+  const validationErrors = validateArticlePackage(pkg, { imageUrl: cover?.url, duplicate: hasTopicOverlap(pkg.title, pkg.keyword, rows) })
+  return { pkg, cover, validationErrors, prompt, relatedSlugs: selectRelatedArticles(`${pkg.title} ${pkg.keyword}`, rows).map(row => row.slug) }
 }
 
 export default function AdminFabricaIA() {
@@ -186,7 +188,7 @@ export default function AdminFabricaIA() {
       }
       const { data: duplicateRows } = await supabase.from('articles').select('id').ilike('title', pkg.title).limit(1)
       const duplicate = !!duplicateRows?.length
-      const validationErrors = validateArticlePackage(pkg, { imageUrl: articleDraft.cover?.url, duplicate })
+      const validationErrors = [...new Set([...articleDraft.validationErrors, ...validateArticlePackage(pkg, { imageUrl: articleDraft.cover?.url, duplicate })])]
       const coverUrl = articleDraft.cover?.url || null
       row = {
         title: pkg.title, slug: `${slugify(pkg.title)}-${Date.now().toString(36).slice(-4)}`,
@@ -197,11 +199,12 @@ export default function AdminFabricaIA() {
         secondary_keywords: pkg.secondary_keywords.join(', '), keywords: [pkg.keyword, ...pkg.secondary_keywords].filter(Boolean),
         tags: pkg.tags, emotional_themes: pkg.emotional_themes,
         image_url: coverUrl, cover_image: coverUrl, cover_image_url: coverUrl, og_image: coverUrl,
-        image_alt: pkg.image_alt || articleDraft.cover?.alt || null,
+        image_alt: articleDraft.cover?.alt || null,
+        related_slugs: articleDraft.relatedSlugs, author: 'A Vida Não Colabora',
         diary_question: pkg.diary_question || null, cta_text: pkg.cta_text || null,
         read_time: Math.max(1, Math.ceil(articleWordCount(pkg.content) / 200)),
         is_guided_content: false, is_recommendable: true,
-        internal_notes: validationErrors.length ? `Rascunho mantido por validação: ${validationErrors.join('; ')}.` : null,
+        internal_notes: `Revisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
         ai_prompt: articleDraft.prompt, updated_at: new Date().toISOString(),
       }
     } else {
@@ -233,7 +236,7 @@ export default function AdminFabricaIA() {
           const draft = await generateArticleContract({ theme: temas[i], tone: 'acolhedor', operationId: `mass:${temas[i]}`.slice(0, 120) })
           const pkg = draft.pkg
           const { data: duplicateRows } = await supabase.from('articles').select('id').ilike('title', pkg.title).limit(1)
-          const validationErrors = validateArticlePackage(pkg, { imageUrl: draft.cover?.url, duplicate: !!duplicateRows?.length })
+          const validationErrors = [...new Set([...draft.validationErrors, ...validateArticlePackage(pkg, { imageUrl: draft.cover?.url, duplicate: !!duplicateRows?.length })])]
           const coverUrl = draft.cover?.url || null
           const { error } = await insertDraft({
             title: pkg.title, slug: `${slugify(pkg.title)}-${Date.now().toString(36).slice(-4)}`,
@@ -244,11 +247,12 @@ export default function AdminFabricaIA() {
             secondary_keywords: pkg.secondary_keywords.join(', '), keywords: [pkg.keyword, ...pkg.secondary_keywords].filter(Boolean),
             tags: pkg.tags, emotional_themes: pkg.emotional_themes,
             image_url: coverUrl, cover_image: coverUrl, cover_image_url: coverUrl, og_image: coverUrl,
-            image_alt: pkg.image_alt || draft.cover?.alt || null,
+            image_alt: draft.cover?.alt || null,
+            related_slugs: draft.relatedSlugs, author: 'A Vida Não Colabora',
             diary_question: pkg.diary_question || null, cta_text: pkg.cta_text || null,
             read_time: Math.max(1, Math.ceil(articleWordCount(pkg.content) / 200)),
             is_guided_content: false, is_recommendable: true,
-            internal_notes: validationErrors.length ? `Rascunho mantido por validação: ${validationErrors.join('; ')}.` : null,
+            internal_notes: `Revisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
             ai_prompt: draft.prompt, updated_at: new Date().toISOString(),
           })
           if (error) { fail++; continue }

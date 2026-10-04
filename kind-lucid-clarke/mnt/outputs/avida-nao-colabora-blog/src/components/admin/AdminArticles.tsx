@@ -195,6 +195,10 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
     const ids = selectedIds()
     if (!ids.length) return
     if (status === 'published') {
+      if (filtered.some(a => ids.includes(a.id) && (!a.content_type || a.content_type === 'article'))) {
+        showToast('Publique artigos pelo editor para conferir SEO, fontes, links e confirmar a revisão editorial.', true)
+        return
+      }
       const incomplete = filtered.filter(a => ids.includes(a.id) && missingCriticalFields(a).length > 0)
       if (incomplete.length > 0) {
         showToast(`Não dá para publicar: ${incomplete.length} conteúdo(s) incompleto(s) (ex.: "${incomplete[0].title || incomplete[0].slug}" — falta ${missingCriticalFields(incomplete[0]).join(', ')}).`, true)

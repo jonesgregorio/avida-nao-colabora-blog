@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  MIN_ARTICLE_WORDS,
   articleWordCount,
   buildArticleGenerationPrompt,
   parseArticlePackages,
@@ -41,8 +40,7 @@ test('parser único aceita artigo individual e pacote sem mudar o contrato', () 
   assert.deepEqual(Object.keys(batch[0]), [...FIELDS])
 })
 
-test('regra editorial exige mínimo de 1000 palavras e valida metadados essenciais', () => {
-  assert.equal(MIN_ARTICLE_WORDS, 1000)
+test('valida conteúdo e metadados sem impor contagem SEO', () => {
   assert.equal(articleWordCount(Array.from({ length: 1000 }, () => 'palavra').join(' ')), 1000)
 
   const valid: ArticleAIContract = {
@@ -65,16 +63,16 @@ test('regra editorial exige mínimo de 1000 palavras e valida metadados essencia
 
   const invalid = { ...valid, content: 'curto', secondary_keywords: [], image_query: '', image_alt: '' }
   const errors = validateArticlePackage(invalid, { imageUrl: null, duplicate: true })
-  assert.ok(errors.some(e => e.includes('menos de 1000 palavras')))
+  assert.ok(errors.some(e => e.includes('conteúdo insuficiente')))
   assert.ok(errors.includes('palavras-chave insuficientes'))
   assert.ok(errors.includes('busca de imagem ausente'))
-  assert.ok(errors.includes('imagem de capa ausente'))
+  assert.ok(errors.includes('imagem de capa ausente ou URL inválida'))
   assert.ok(errors.includes('texto alternativo da imagem ausente'))
   assert.ok(errors.includes('artigo duplicado'))
 })
 
 test('Fábrica IA e automação reutilizam o mesmo construtor, parser e validador', () => {
-  for (const symbol of ['buildArticleGenerationPrompt', 'parseArticlePackages', 'validateArticlePackage', 'buildArticleExpansionPrompt']) {
+  for (const symbol of ['buildArticleGenerationPrompt', 'parseArticlePackages', 'validateArticlePackage']) {
     assert.ok(factory.includes(symbol), `Fábrica não usa ${symbol}`)
     assert.ok(automation.includes(symbol), `automação não usa ${symbol}`)
   }
@@ -82,7 +80,7 @@ test('Fábrica IA e automação reutilizam o mesmo construtor, parser e validado
   assert.match(automation, /from '\.\.\/_shared\/articleGenerationContract\.ts'/)
 })
 
-test('artigo curto recebe no máximo uma tentativa explícita de expansão em cada fluxo', () => {
+test('nenhum fluxo expande texto apenas por tamanho', () => {
   const factoryStart = factory.indexOf('async function generateArticleContract(')
   const factoryEnd = factory.indexOf('\nexport default function AdminFabricaIA()', factoryStart)
   const automationStart = automation.indexOf('async function persistArticle(')
@@ -91,8 +89,8 @@ test('artigo curto recebe no máximo uma tentativa explícita de expansão em ca
   const automationPersist = automationStart >= 0 && automationEnd > automationStart ? automation.slice(automationStart, automationEnd) : ''
   assert.notEqual(factoryGeneration, '')
   assert.notEqual(automationPersist, '')
-  assert.equal((factoryGeneration.match(/buildArticleExpansionPrompt\(/g) ?? []).length, 1)
-  assert.equal((automationPersist.match(/buildArticleExpansionPrompt\(/g) ?? []).length, 1)
+  assert.equal((factoryGeneration.match(/buildArticleExpansionPrompt\(/g) ?? []).length, 0)
+  assert.equal((automationPersist.match(/buildArticleExpansionPrompt\(/g) ?? []).length, 0)
   assert.doesNotMatch(factoryGeneration, /\bwhile\s*\(/)
   assert.doesNotMatch(automationPersist, /\bwhile\s*\(/)
 })
@@ -101,7 +99,7 @@ test('Fábrica não cria novos drafts com summary/excerpt vazios e registra moti
   assert.doesNotMatch(factory, /summary:\s*['"]['"]\s*,\s*excerpt:\s*['"]['"]/)
   assert.match(factory, /summary:\s*pkg\.excerpt \|\| fallbackExcerpt/)
   assert.match(factory, /excerpt:\s*pkg\.excerpt \|\| fallbackExcerpt/)
-  assert.match(factory, /Rascunho mantido por validação:/)
+  assert.match(factory, /Revisão editorial pendente:/)
   assert.match(factory, /\.ilike\('title', pkg\.title\)/)
 })
 
