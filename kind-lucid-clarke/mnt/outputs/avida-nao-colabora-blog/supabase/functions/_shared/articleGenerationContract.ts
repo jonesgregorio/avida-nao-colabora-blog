@@ -21,6 +21,7 @@ export interface ArticleAIContract {
 }
 
 export interface ArticlePromptOptions {
+  plan?: string
   quantity?: number
   themes: string[]
   tone?: string
@@ -31,6 +32,7 @@ export interface ArticlePromptOptions {
 }
 
 export interface ArticleValidationContext {
+  plan?: string
   imageUrl?: string | null
   duplicate?: boolean
   publication?: boolean
@@ -136,6 +138,8 @@ export function validateArticlePackage(article: ArticleAIContract, context: Arti
   if (!article.image_alt.trim()) errors.push('texto alternativo da imagem ausente')
   if (!article.diary_question.trim()) errors.push('pergunta para diário ausente')
   if (!article.cta_text.trim()) errors.push('CTA ausente')
+  if (context.plan && articleAccessRank(context.plan) < 0) errors.push('acesso editorial desconhecido')
+  errors.push(...validateTierDeliverables(article.content, context.plan))
   if (context.duplicate) errors.push('artigo duplicado')
   if (context.publication) {
     if (!context.author?.trim()) errors.push('autoria ausente')
@@ -144,6 +148,7 @@ export function validateArticlePackage(article: ArticleAIContract, context: Arti
     if (!context.relatedSlugs?.length) errors.push('artigos relacionados ausentes')
     if (context.catalog) {
       const bodyTargets = [...article.content.matchAll(/\]\((?:https:\/\/(?:www\.)?avidanaocolabora\.com)?\/blog\/([a-z0-9-]+)(?:[?#][^)]*)?\)/g)].map(match => match[1])
+      if ([...bodyTargets, ...(context.relatedSlugs || [])].some(slug => context.catalog!.some(row => row.slug === slug && articleAccessRank(row.plan_required) > articleAccessRank(context.plan || 'free')))) errors.push('link para conteúdo de acesso superior ao plano')
       if (bodyTargets.some(slug => !context.catalog!.some(row => row.slug === slug))) errors.push('link interno no texto indisponível')
       if (context.relatedSlugs?.some(slug => !context.catalog!.some(row => row.slug === slug))) errors.push('artigo relacionado indisponível')
       if (hasTopicOverlap(article.title, article.keyword, context.catalog)) errors.push('tema semelhante no catálogo; diferencie a intenção ou atualize o existente')
@@ -163,6 +168,7 @@ export function buildArticleGenerationPrompt(options: ArticlePromptOptions): str
   const containerEnd = quantity === 1 ? '}' : '}]}'
 
   return `Você escreve para o blog A Vida Não Colabora. Gere ${quantity === 1 ? 'UM artigo' : `exatamente ${quantity} artigos distintos`} em português brasileiro.
+${articleTierBrief(options.plan)}
 Temas disponíveis: ${themes.join(' | ') || 'saúde emocional'}.
 Categoria-base: ${category}. Tom: ${tone}. Público-alvo: ${audience}.${keyword ? ` Palavra-chave prioritária: ${keyword}.` : ''}
 
@@ -228,11 +234,11 @@ export function hasTopicOverlap(title: string, keyword: string, catalog: Article
   })
 }
 
-export function selectRelatedArticles(topic: string, catalog: ArticleCatalogItem[], ownSlug = ''): ArticleCatalogItem[] {
+export function selectRelatedArticles(topic: string, catalog: ArticleCatalogItem[], ownSlug = '', plan = 'free'): ArticleCatalogItem[] {
   const tokens = topicTokens(topic)
-  return catalog.filter(row => row.slug !== ownSlug && row.plan_required === 'free')
+  return catalog.filter(row => row.slug !== ownSlug && articleAccessRank(row.plan_required) >= 0 && articleAccessRank(row.plan_required) <= articleAccessRank(plan))
     .map(row => ({ row, score: [...topicTokens(`${row.title} ${row.keyword || ''}`)].filter(t => tokens.has(t)).length }))
-    .filter(item => item.score > 0).sort((a, b) => b.score - a.score || a.row.slug.localeCompare(b.row.slug))
+    .filter(item => item.score > 0).sort((a, b) => b.score - a.score || articleAccessRank(b.row.plan_required) - articleAccessRank(a.row.plan_required) || a.row.slug.localeCompare(b.row.slug))
     .slice(0, 3).map(item => item.row)
 }
 
@@ -244,4 +250,49 @@ export function catalogBrief(catalog: ArticleCatalogItem[]): string {
 export function withEditorialDisclosure(content: string, origin: string, reviewed: boolean): string {
   if (origin !== 'ia' || !reviewed || /inteligência artificial|apoio de IA/i.test(content)) return content
   return `${content.trim()}\n\n## Transparência editorial\n\nConteúdo elaborado com apoio de inteligência artificial e conferido editorialmente antes da publicação. Essa conferência não equivale a revisão clínica por profissional habilitado.`
+}
+
+
+export function articleAccessRank(plan?: string | null): number {
+  const ranks: Record<string, number> = { free: 0, account: 1, essential: 2, plus: 3 }
+  return ranks[plan || 'free'] ?? -1
+}
+
+export function articleTierSections(plan?: string): string[] {
+  const essential = ['Roteiro de aplicação', 'Modelo para copiar', 'Exemplo fictício preenchido', 'Adaptação para pouca energia', 'Revisão da semana']
+  if (plan === 'essential') return essential
+  if (plan === 'plus') return [...essential, 'Cenários e alternativas', 'Critérios para escolher', 'Revisão do mês', 'Plano de acompanhamento']
+  return []
+}
+
+export function articleTierBrief(plan = 'free'): string {
+  const name = ({ free: 'Público sem cadastro', account: 'Gratuito com conta', essential: 'Essencial', plus: 'Plus' } as Record<string, string>)[plan] || 'Acesso não reconhecido'
+  const sections = articleTierSections(plan)
+  const promise = plan === 'plus'
+    ? 'Entregue um guia de aprofundamento: decisões com alternativas e limites, pelo menos três cenários fictícios distintos, revisão mensal e plano adaptável de acompanhamento. Diferencie da revisão semanal Essencial. Não invente personalização: o leitor preenche seus próprios registros.'
+    : plan === 'essential'
+      ? 'Entregue um guia aplicado: roteiro em etapas, modelo copiável com campos claros, exemplo explicitamente fictício preenchido, versão para pouca energia e revisão semanal. Vá além de explicar conceitos.'
+      : plan === 'account'
+        ? 'Entregue um exercício inicial completo ligado ao diário. O leitor deve poder usar papel ou outro formato; não condicione utilidade ao app. Gratuito tem limite de registros: não exija diário diário ilimitado.'
+        : 'Entregue explicação completa, exemplos e uma ação possível sem cadastro. Não esconda a resposta principal nem use texto incompleto como isca.'
+  return `Plano editorial: ${name}. ${promise}
+${sections.length ? 'Inclua estas seções com títulos Markdown ## exatamente como abaixo; cada seção deve conter instruções e exemplos específicos ao assunto, nunca apenas o título ou generalidades:\n' + sections.map(section => '## ' + section).join('\n') : ''}
+Escolha palavra-chave específica da entrega e intenção, não repita o termo amplo de outro artigo. Profundidade é utilidade, não extensão. Não repita o artigo público com mais palavras. Nenhum artigo estático é diagnóstico, terapia ou orientação individual. Não atribua revisão profissional que não ocorreu. Use exemplos fictícios identificados, não dados de usuários.
+Recursos reais do AVNC: Essencial tem diário, mapa, descobertas e relatório semanal. Plus inclui relatório mensal; plano de autocuidado e orientação têm elegibilidade e revisão humana próprias. Escreva 'quando disponível', não prometa liberação ou substitua esses serviços. Não proponha inferir causas, gatilhos ou diagnósticos por pontuação.`
+}
+
+export function validateTierDeliverables(content: string, plan?: string): string[] {
+  const sections = articleTierSections(plan)
+  const blocks = [...content.matchAll(/^##\s+(.+)\r?\n([\s\S]*?)(?=^##\s|$(?![\s\S]))/gm)]
+  return sections.filter(section => !blocks.some(block => block[1].trim() === section && block[2].replace(/[#*_>\s]/g, '').length >= 80))
+    .map(section => `entrega ${plan === 'plus' ? 'Plus' : 'Essencial'} ausente ou incompleta: ${section}`)
+}
+
+
+export function buildTierCompletionPrompt(content: string, plan?: string): string {
+  return `Complete as entregas editoriais que faltam no artigo, preservando informações úteis e o assunto. Corrija generalidades e identifique exemplos como fictícios. Não apenas aumente o texto. Preserve links já fornecidos, não invente estudos, URLs, autoria ou revisão profissional. Retorne só o corpo em Markdown, sem H1 ou HTML.
+${articleTierBrief(plan)}
+${editorialSourceBrief()}
+Pendências: ${validateTierDeliverables(content, plan).join('; ')}
+Artigo: ${content}`
 }

@@ -14,8 +14,9 @@ import {
   buildArticleGenerationPrompt,
   parseArticlePackages,
   validateArticlePackage,
-  catalogBrief, selectRelatedArticles, hasTopicOverlap,
+  catalogBrief, selectRelatedArticles, hasTopicOverlap, articleAccessRank, validateTierDeliverables, buildTierCompletionPrompt,
   type ArticleAIContract,
+  type ArticleCatalogItem,
 } from '../_shared/articleGenerationContract.ts'
 
 // ─── Executor de automações de conteúdo (chamado por pg_cron via pg_net) ─────
@@ -234,6 +235,7 @@ function uniqueThemes(config: EditorialAutomationConfig, fallback: string): stri
 
 function normalizedPlan(value: unknown, fallback = 'free'): string {
   const raw = String(value || fallback).trim().toLowerCase()
+  if (raw === 'account') return 'account'
   if (raw === 'essential') return 'essential'
   if (['plus', 'therapeutic', 'therapeutic-plus', 'therapeutic_plus'].includes(raw)) return 'plus'
   return 'free'
@@ -247,7 +249,14 @@ async function persistArticle(
   prompt: string,
 ): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
   const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
-  const content = cleanText(pkg.content, 50000)
+  let content = cleanText(pkg.content, 50000)
+  const tierErrors = validateTierDeliverables(content, normalizedPlan(automation.plan_required))
+  if (content && tierErrors.length) {
+    try {
+      const completed = await genAI(buildTierCompletionPrompt(content, normalizedPlan(automation.plan_required)))
+      if (validateTierDeliverables(completed, normalizedPlan(automation.plan_required)).length < tierErrors.length) content = cleanText(completed, 50000)
+    } catch { /* rascunho preservado, sem repetir chamadas indefinidamente */ }
+  }
   if (!content) throw new Error(`Artigo “${title}” retornou sem conteúdo.`)
 
   const excerpt = cleanText(pkg.excerpt, 200) || articleExcerptFrom(content) || title.slice(0, 200)
@@ -283,8 +292,8 @@ async function persistArticle(
   }
   const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').limit(500)
   const rows = catalog || []
-  const related = selectRelatedArticles(`${title} ${keyword}`, rows)
-  const validationErrors = validateArticlePackage(validatedPackage, { imageUrl: cover?.url, publication: true, reviewed: false, author: 'A Vida Não Colabora', relatedSlugs: related.map(row => row.slug), catalog: rows, duplicate: hasTopicOverlap(title, keyword, rows) })
+  const related = selectRelatedArticles(`${title} ${keyword}`, rows, '', normalizedPlan(automation.plan_required))
+  const validationErrors = validateArticlePackage(validatedPackage, { plan: normalizedPlan(automation.plan_required), imageUrl: cover?.url, publication: true, reviewed: false, author: 'A Vida Não Colabora', relatedSlugs: related.map(row => row.slug), catalog: rows, duplicate: hasTopicOverlap(title, keyword, rows) })
   if (catalogError || rows.length >= 500) validationErrors.push('catálogo indisponível')
   const cliches = detectAiCliches(content)
   if (cliches.length > 0) validationErrors.push(`tom genérico de IA detectado ("${cliches.join('", "')}")`)
@@ -342,14 +351,14 @@ async function executeArticleAutomation(
   const quantity = clampAutomationQuantity(type, config.quantity)
   const themes = uniqueThemes(config, automation.category || 'saúde emocional')
   const tone = config.tone || 'acolhedor'
-  const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').eq('plan_required', 'free').limit(500)
+  const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').limit(500)
   if (catalogError || (catalog?.length || 0) >= 500) throw new Error('Catálogo indisponível para planejar conteúdo distinto e links válidos.')
   const prompt = buildArticleGenerationPrompt({
-    quantity,
+    quantity, plan: normalizedPlan(automation.plan_required),
     themes,
     tone,
     category: automation.category || 'saúde emocional',
-    extraInstructions: [catalogBrief(catalog || []), config.extra || ''].join('\n'),
+    extraInstructions: [catalogBrief((catalog || []).filter((row: ArticleCatalogItem) => articleAccessRank(row.plan_required) >= 0 && articleAccessRank(row.plan_required) <= articleAccessRank(normalizedPlan(automation.plan_required)))), config.extra || ''].join('\n'),
   })
   const raw = await genAI(prompt)
   const packages = parseArticlePackages(raw, themes, automation.category || '').slice(0, quantity)

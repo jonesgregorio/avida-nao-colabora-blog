@@ -7,7 +7,7 @@ import {
   buildArticleGenerationPrompt,
   parseArticlePackages,
   validateArticlePackage,
-  catalogBrief, selectRelatedArticles, hasTopicOverlap,
+  catalogBrief, selectRelatedArticles, hasTopicOverlap, articleAccessRank, validateTierDeliverables, buildTierCompletionPrompt,
   type ArticleAIContract,
 } from '../../lib/articleGenerationContract'
 import { Sparkles, Loader2, Save, Layers, FileText } from 'lucide-react'
@@ -21,7 +21,7 @@ interface ArticleDraftState {
   relatedSlugs: string[]
 }
 
-const PLANS = [['free', 'Gratuito'], ['essential', 'Essencial'], ['plus', 'Plus']] as const
+const PLANS = [['free', 'Público (sem conta)'], ['account', 'Gratuito (com conta)'], ['essential', 'Essencial'], ['plus', 'Plus']] as const
 const TYPES = [['article', 'Artigo'], ['practice', 'Prática'], ['meditation', 'Pausa emocional']] as const
 const TONES: AITone[] = ['acolhedor', 'simples', 'leve', 'educativo', 'motivacional', 'direto']
 const SIZES: AISize[] = ['curto', 'médio', 'longo']
@@ -66,6 +66,7 @@ async function searchContractCover(query: string): Promise<{ url: string; alt: s
 
 async function generateArticleContract(input: {
   theme: string
+  plan: string
   category?: string
   tone?: string
   audience?: string
@@ -77,13 +78,13 @@ async function generateArticleContract(input: {
   if (catalogError || (catalog?.length || 0) >= 500) throw new Error('Não foi possível conferir o catálogo; tente novamente antes de gerar.')
   const rows = catalog || []
   const prompt = buildArticleGenerationPrompt({
-    quantity: 1,
+    quantity: 1, plan: input.plan,
     themes: [input.theme],
     category: input.category,
     tone: input.tone,
     audience: input.audience,
     keyword: input.keyword,
-    extraInstructions: [catalogBrief(rows.filter(row => row.plan_required === 'free')), input.extraInstructions || ''].join('\n'),
+    extraInstructions: [catalogBrief(rows.filter(row => articleAccessRank(row.plan_required) >= 0 && articleAccessRank(row.plan_required) <= articleAccessRank(input.plan))), input.extraInstructions || ''].join('\n'),
   })
   // incident_entity_key estável por sessão de geração deste tema: retries
   // resolvem o mesmo incidente; um tema novo é uma operação nova.
@@ -93,10 +94,17 @@ async function generateArticleContract(input: {
   if (!parsed.length) throw new Error('A IA não retornou o contrato JSON válido do artigo.')
 
   const pkg = parsed[0]
+  const tierErrors = validateTierDeliverables(pkg.content, input.plan)
+  if (tierErrors.length) {
+    try {
+      const completed = await generateWithFailover(buildTierCompletionPrompt(pkg.content, input.plan), meta)
+      if (validateTierDeliverables(completed, input.plan).length < tierErrors.length) pkg.content = completed.trim()
+    } catch { /* conserva o rascunho e explica as entregas pendentes */ }
+  }
   const cover = await searchContractCover(pkg.image_query)
   pkg.image_alt = cover?.alt || ''
-  const validationErrors = validateArticlePackage(pkg, { imageUrl: cover?.url, duplicate: hasTopicOverlap(pkg.title, pkg.keyword, rows) })
-  return { pkg, cover, validationErrors, prompt, relatedSlugs: selectRelatedArticles(`${pkg.title} ${pkg.keyword}`, rows).map(row => row.slug) }
+  const validationErrors = validateArticlePackage(pkg, { plan: input.plan, imageUrl: cover?.url, duplicate: hasTopicOverlap(pkg.title, pkg.keyword, rows) })
+  return { pkg, cover, validationErrors, prompt, relatedSlugs: selectRelatedArticles(`${pkg.title} ${pkg.keyword}`, rows, '', input.plan).map(row => row.slug) }
 }
 
 export default function AdminFabricaIA() {
@@ -148,7 +156,7 @@ export default function AdminFabricaIA() {
         const vars = { tema, categoria, tom, palavra_chave: keyword, publico, titulo: titulo || tema }
         const selectedTemplate = templates.find(x => x.id === tpl)
         const draft = await generateArticleContract({
-          theme: tema,
+          theme: tema, plan: plano,
           category: categoria,
           tone: tom,
           audience: publico,
@@ -188,7 +196,7 @@ export default function AdminFabricaIA() {
       }
       const { data: duplicateRows } = await supabase.from('articles').select('id').ilike('title', pkg.title).limit(1)
       const duplicate = !!duplicateRows?.length
-      const validationErrors = [...new Set([...articleDraft.validationErrors, ...validateArticlePackage(pkg, { imageUrl: articleDraft.cover?.url, duplicate })])]
+      const validationErrors = [...new Set([...articleDraft.validationErrors, ...validateArticlePackage(pkg, { plan: plano, imageUrl: articleDraft.cover?.url, duplicate })])]
       const coverUrl = articleDraft.cover?.url || null
       row = {
         title: pkg.title, slug: `${slugify(pkg.title)}-${Date.now().toString(36).slice(-4)}`,
@@ -233,10 +241,10 @@ export default function AdminFabricaIA() {
       setMassProg(`Gerando ${i + 1}/${temas.length}: ${temas[i]}`)
       try {
         if (massTipo === 'article') {
-          const draft = await generateArticleContract({ theme: temas[i], tone: 'acolhedor', operationId: `mass:${temas[i]}`.slice(0, 120) })
+          const draft = await generateArticleContract({ theme: temas[i], plan: massPlano, tone: 'acolhedor', operationId: `mass:${temas[i]}`.slice(0, 120) })
           const pkg = draft.pkg
           const { data: duplicateRows } = await supabase.from('articles').select('id').ilike('title', pkg.title).limit(1)
-          const validationErrors = [...new Set([...draft.validationErrors, ...validateArticlePackage(pkg, { imageUrl: draft.cover?.url, duplicate: !!duplicateRows?.length })])]
+          const validationErrors = [...new Set([...draft.validationErrors, ...validateArticlePackage(pkg, { plan: massPlano, imageUrl: draft.cover?.url, duplicate: !!duplicateRows?.length })])]
           const coverUrl = draft.cover?.url || null
           const { error } = await insertDraft({
             title: pkg.title, slug: `${slugify(pkg.title)}-${Date.now().toString(36).slice(-4)}`,
