@@ -195,6 +195,10 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
     const ids = selectedIds()
     if (!ids.length) return
     if (status === 'published') {
+      if (filtered.some(a => ids.includes(a.id) && (!a.content_type || a.content_type === 'article'))) {
+        showToast('Publique artigos pelo editor para conferir SEO, fontes, links e confirmar a revisão editorial.', true)
+        return
+      }
       const incomplete = filtered.filter(a => ids.includes(a.id) && missingCriticalFields(a).length > 0)
       if (incomplete.length > 0) {
         showToast(`Não dá para publicar: ${incomplete.length} conteúdo(s) incompleto(s) (ex.: "${incomplete[0].title || incomplete[0].slug}" — falta ${missingCriticalFields(incomplete[0]).join(', ')}).`, true)
@@ -326,7 +330,7 @@ export default function AdminArticles({ onNew, onEdit, contentType = 'article' }
           <span className="text-sm font-medium text-forest-900">{selectedIds().length} selecionado(s)</span>
           {bulkBusy && <Loader2 className="w-4 h-4 animate-spin text-forest-700" />}
           <div className="flex flex-wrap gap-2 ml-auto">
-            <button disabled={bulkBusy} onClick={() => bulkStatus('published')} className="inline-flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-1.5 rounded-lg hover:bg-forest-800 disabled:opacity-50"><Send className="w-3.5 h-3.5" /> Publicar</button>
+            {contentType !== 'article' && (<button disabled={bulkBusy} onClick={() => bulkStatus('published')} className="inline-flex items-center gap-1.5 text-xs bg-forest-900 text-white px-3 py-1.5 rounded-lg hover:bg-forest-800 disabled:opacity-50"><Send className="w-3.5 h-3.5" /> Publicar</button>)}
             <button disabled={bulkBusy} onClick={() => bulkStatus('draft')} className="inline-flex items-center gap-1.5 text-xs border border-line bg-white text-stone-700 px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50"><FileText className="w-3.5 h-3.5" /> Rascunho</button>
             <button disabled={bulkBusy} onClick={() => bulkStatus('archived')} className="inline-flex items-center gap-1.5 text-xs border border-line bg-white text-stone-700 px-3 py-1.5 rounded-lg hover:bg-stone-50 disabled:opacity-50"><Archive className="w-3.5 h-3.5" /> Arquivar</button>
             <button disabled={bulkBusy} onClick={bulkGenerateSEO} className="inline-flex items-center gap-1.5 text-xs border border-forest-200 bg-white text-forest-800 px-3 py-1.5 rounded-lg hover:bg-mint disabled:opacity-50"><Sparkles className="w-3.5 h-3.5" /> Gerar SEO (IA)</button>

@@ -9,11 +9,13 @@ import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
 import { generateArticleCTA, getLastProvider, providerLabel } from '../../lib/aiContent'
+import { normalizeArticlePackage, validateArticlePackage, withEditorialDisclosure } from '../../lib/articleGenerationContract'
 import { DEFAULT_CTA } from '../../lib/articleCta'
 import { logAdminAction } from '../../lib/adminAudit'
 
 interface ArticleData {
   title: string
+  author: string
   slug: string
   status: string
   content_type: string
@@ -66,7 +68,7 @@ interface StepDraft {
 }
 
 const EMPTY: ArticleData = {
-  title: '', slug: '', status: 'draft', content_type: 'article', category: '',
+  author: 'A Vida Não Colabora', title: '', slug: '', status: 'draft', content_type: 'article', category: '',
   content: '', summary: '', image_url: '', image_alt: '',
   seo_title: '', seo_description: '',
   keyword: '', secondary_keywords: '', tags: '', related_slugs: '', emotion: '', journey_stage: '',
@@ -104,7 +106,7 @@ interface ArticleVersion {
 
 // Limites de caracteres (média recomendada) — respeitados no campo (maxLength +
 // contador) E ao inserir texto gerado pela IA (clamp em handleAIInsert).
-const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 160 }
+const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 155 }
 
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [data, setData] = useState<ArticleData>(EMPTY)
@@ -116,6 +118,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   const [versions, setVersions] = useState<ArticleVersion[]>([])
   const [steps, setSteps] = useState<StepDraft[]>([])
   const [review, setReview] = useState<{ at: string | null; note: string }>({ at: null, note: '' })
+  const [editorialConfirmed, setEditorialConfirmed] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [ctaBusy, setCtaBusy] = useState(false)
   // ID do artigo recém-criado (insert). O articleId da prop é null para artigo
@@ -148,6 +151,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   }, [])
 
   useEffect(() => {
+    setEditorialConfirmed(false)
     if (!articleId) return
     supabase.from('articles').select('*').eq('id', articleId).single().then(({ data: a, error }) => {
       if (error) { showToast('Erro ao carregar artigo: ' + error.message, true); setLoading(false); return }
@@ -162,6 +166,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           summary: a.summary || a.excerpt || '',
           image_url: a.image_url || a.cover_image || a.cover_image_url || '',
           image_alt: a.image_alt || '',
+          author: a.author || 'A Vida Não Colabora',
           seo_title: a.seo_title || '',
           seo_description: a.seo_description || '',
           keyword: a.keyword || '',
@@ -229,6 +234,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   }
 
   function set(key: keyof ArticleData, value: ArticleData[keyof ArticleData]) {
+    setEditorialConfirmed(false)
     setData(d => {
       const next = { ...d, [key]: value }
       // Tempo de leitura SEMPRE em dia com o conteúdo (~200 palavras/min).
@@ -246,11 +252,25 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
   async function save(status?: string) {
     if (!data.title.trim()) { showToast('Título obrigatório', true); return }
-    if (!data.slug.trim()) { showToast('Slug obrigatório', true); return }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) { showToast('Use um endereço com letras minúsculas, números e hífens', true); return }
     // Checklist: bloqueia publicação se faltar item crítico.
-    if ((status || data.status) === 'published' && missingCritical.length > 0) {
+    if (['published', 'scheduled'].includes(status || data.status) && missingCritical.length > 0) {
       showToast('Não dá para publicar: falta ' + missingCritical.map(c => c.label).join(', '), true)
       return
+    }
+    const willPublish = ['published', 'scheduled'].includes(status || data.status)
+    let reviewerId: string | null = null
+    if (willPublish && data.content_type === 'article') {
+      const { data: catalog, error } = await supabase.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').neq('slug', data.slug).limit(500)
+      if (error || (catalog?.length || 0) >= 500) { showToast('Não foi possível validar os links e o catálogo. Nada foi publicado.', true); return }
+      const errors = validateArticlePackage(normalizeArticlePackage({ ...data, excerpt: data.summary, secondary_keywords: toArray(data.secondary_keywords) }), {
+        publication: true, imageUrl: data.image_url, author: data.author,
+        reviewed: editorialConfirmed, relatedSlugs: toArray(data.related_slugs), catalog: catalog || [],
+      })
+      if (errors.length) { showToast('Revise antes de publicar: ' + errors.join('; '), true); return }
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) { showToast('Entre novamente para registrar a revisão.', true); return }
+      reviewerId = auth.user.id
     }
     setSaving(true)
 
@@ -261,11 +281,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     const summaryC = data.summary.trim().slice(0, LIMITS.summary)
     const payload: Record<string, unknown> = {
       title: titleC,
+      author: data.author.trim(),
       slug: data.slug,
       status: targetStatus,
       content_type: data.content_type,
       category: data.category,
-      content: data.content,
+      content: withEditorialDisclosure(data.content, data.origin, !!reviewerId),
       summary: summaryC,
       excerpt: summaryC,
       image_url: data.image_url,
@@ -290,7 +311,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       journey_stage: data.journey_stage,
       intent: data.intent,
       audience: data.audience,
-      og_image: data.og_image,
+      og_image: data.og_image || data.image_url,
       origin: data.origin,
       internal_notes: data.internal_notes,
       diary_question: data.diary_question,
@@ -302,6 +323,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       plan_required: data.plan_required,
       read_time: data.read_time,
       updated_at: new Date().toISOString(),
+      ...(data.content_type === 'article' ? { reviewed_by: reviewerId, reviewed_at: reviewerId ? new Date().toISOString() : null, review_notes: reviewerId ? 'Revisão editorial confirmada no editor: fontes, exemplos, links, autoria e descrição da capa conferidos. Não implica revisão clínica.' : null } : {}),
     }
 
     if (data.scheduled_at) payload.scheduled_at = new Date(data.scheduled_at).toISOString()
@@ -453,12 +475,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     { label: 'Conteúdo (≥ 300 caracteres)', ok: (data.content || '').trim().length >= 300, critical: true },
     { label: 'Categoria', ok: !!data.category.trim(), critical: true },
     { label: 'Plano definido', ok: !!data.plan_required, critical: true },
-    { label: 'Imagem de capa', ok: !!data.image_url.trim(), critical: false },
-    { label: 'Texto alternativo da imagem', ok: !!data.image_alt.trim(), critical: false },
-    { label: 'SEO title', ok: !!data.seo_title.trim(), critical: false },
-    { label: 'SEO description', ok: !!data.seo_description.trim(), critical: false },
-    { label: 'Pergunta para o diário', ok: !!data.diary_question.trim(), critical: false },
-    { label: 'CTA', ok: !!data.cta_text.trim(), critical: false },
+    { label: 'Imagem de capa', ok: !!data.image_url.trim(), critical: data.content_type === 'article' },
+    { label: 'Texto alternativo da imagem', ok: !!data.image_alt.trim(), critical: data.content_type === 'article' },
+    { label: 'SEO title', ok: !!data.seo_title.trim(), critical: data.content_type === 'article' },
+    { label: 'SEO description', ok: !!data.seo_description.trim(), critical: data.content_type === 'article' },
+    { label: 'Pergunta para o diário', ok: !!data.diary_question.trim(), critical: data.content_type === 'article' },
+    { label: 'CTA', ok: !!data.cta_text.trim(), critical: data.content_type === 'article' },
   ]
   const missingCritical = checklist.filter(c => c.critical && !c.ok)
   const score = Math.round((checklist.filter(c => c.ok).length / checklist.length) * 100)
@@ -466,6 +488,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   // Restauração de 1 clique: server-side (grava de volta E registra a volta como
   // nova versão). Se a RPC ainda não existe, cai no modo "carrega no formulário".
   async function restoreVersion(v: ArticleVersion) {
+    setEditorialConfirmed(false)
     if (effectiveId && window.confirm(`Restaurar a versão ${v.version}? O conteúdo atual é preservado como versão anterior no histórico.`)) {
       const { error } = await supabase.rpc('admin_restore_article_version', { p_article_id: effectiveId, p_version: v.version })
       if (!error) {
@@ -591,13 +614,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* Painel de IA */}
-          <div className="bg-gradient-to-r from-mint to-stone-50 border border-forest-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
+          <details className="bg-gradient-to-r from-mint to-stone-50 border border-forest-200 rounded-xl p-4">
+            <summary className="cursor-pointer flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-forest-700" />
-              <span className="text-sm font-semibold text-forest-900">Assistente de IA</span>
-              <span className="text-[10px] bg-mint text-forest-800 px-2 py-0.5 rounded-full">Gratuito · Sem chave</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-semibold text-forest-900">Assistente de escrita</span>
+            </summary>
+            <div className="flex flex-wrap gap-2 pt-3">
               {([
                 { type: 'article', label: 'Gerar artigo completo' },
                 { type: 'article_title', label: 'Gerar título' },
@@ -617,16 +639,18 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 </button>
               ))}
             </div>
-          </div>
+          </details>
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Conteúdo</h2>
             <Field label="Título" hint={`(${data.title.length}/${LIMITS.title} caracteres)`}>
               <input value={data.title} onChange={e => set('title', e.target.value)} maxLength={LIMITS.title} placeholder="Título do artigo" className={inputCls} />
             </Field>
+            <details className="text-sm text-stone-600"><summary className="cursor-pointer">Editar endereço do artigo</summary><div className="pt-3">
             <Field label="Slug">
               <input value={data.slug} onChange={e => set('slug', e.target.value)} placeholder="slug-do-artigo" className={inputCls} />
             </Field>
+            </div></details>
             <Field label="Resumo" hint={`(${data.summary.length}/${LIMITS.summary} caracteres)`}>
               <textarea value={data.summary} onChange={e => set('summary', e.target.value)} maxLength={LIMITS.summary} rows={6} placeholder="Resumo exibido na listagem de artigos" className={inputCls} />
             </Field>
@@ -644,18 +668,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           </div>
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">SEO</h2>
-            <Field label="Título SEO">
-              <input value={data.seo_title} onChange={e => set('seo_title', e.target.value)} placeholder="Título para mecanismos de busca" className={inputCls} />
-            </Field>
-            <Field label="Descrição SEO">
-              <textarea value={data.seo_description} onChange={e => set('seo_description', e.target.value)} rows={2} placeholder="Descrição para mecanismos de busca (até 160 caracteres)" className={inputCls} />
-              <p className="text-xs text-stone-400 mt-1">{data.seo_description.length}/160 caracteres</p>
-            </Field>
-          </div>
-
-          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">CTA</h2>
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Convite para registrar no diário</h2>
             <Field label="Texto do CTA">
               <input value={data.cta_text} onChange={e => set('cta_text', e.target.value)} placeholder="Ex: Abra seu diário agora" className={inputCls} />
             </Field>
@@ -665,12 +678,12 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           </div>
 
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">SEO &amp; Editorial</h2>
-            <Field label="SEO title (~60 caracteres)">
-              <input value={data.seo_title} onChange={e => set('seo_title', e.target.value)} maxLength={70} placeholder="Título para mecanismos de busca" className={inputCls} />
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">SEO e artigos relacionados</h2>
+            <Field label="Título para buscas">
+              <input value={data.seo_title} onChange={e => set('seo_title', e.target.value)} maxLength={LIMITS.seoTitle} placeholder="Título para mecanismos de busca" className={inputCls} />
             </Field>
-            <Field label="SEO description (~155 caracteres)">
-              <textarea value={data.seo_description} onChange={e => set('seo_description', e.target.value)} maxLength={180} rows={2} placeholder="Descrição para busca e compartilhamento" className={inputCls} />
+            <Field label="Descrição para buscas">
+              <textarea value={data.seo_description} onChange={e => set('seo_description', e.target.value)} maxLength={LIMITS.seoDescription} rows={2} placeholder="Descrição para busca e compartilhamento" className={inputCls} />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Palavra-chave principal">
@@ -682,6 +695,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               <Field label="Tags">
                 <input value={data.tags} onChange={e => set('tags', e.target.value)} placeholder="separadas por vírgula" className={inputCls} />
               </Field>
+            </div>
+            <details><summary className="cursor-pointer text-sm font-medium text-stone-600">Planejamento editorial e opções avançadas</summary>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
               <Field label="Emoção / dor principal">
                 <input value={data.emotion} onChange={e => set('emotion', e.target.value)} placeholder="Ex: sobrecarga" className={inputCls} />
               </Field>
@@ -705,13 +721,14 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                   <option value="ia">IA</option>
                 </select>
               </Field>
-            </div>
+              </div>
             <Field label="Imagem Open Graph (URL)">
               <input value={data.og_image} onChange={e => set('og_image', e.target.value)} placeholder="https://... (compartilhamento social)" className={inputCls} />
             </Field>
             <Field label="Notas internas (não aparecem no site)">
               <textarea value={data.internal_notes} onChange={e => set('internal_notes', e.target.value)} rows={2} placeholder="Anotações para a equipe" className={inputCls} />
             </Field>
+            </details>
             <Field label="Artigos relacionados (slugs, separados por vírgula)">
               <input value={data.related_slugs} onChange={e => set('related_slugs', e.target.value)} placeholder="ansiedade-no-trabalho, primeiros-passos" className={inputCls} />
             </Field>
@@ -721,6 +738,15 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Publicação</h2>
+            <Field label="Autoria">
+              <input value={data.author} onChange={e => set('author', e.target.value)} className={inputCls} placeholder="Nome real ou equipe editorial" />
+            </Field>
+            {data.content_type === 'article' && (
+              <label className="flex gap-2 text-sm text-stone-600">
+                <input type="checkbox" checked={editorialConfirmed} onChange={e => setEditorialConfirmed(e.target.checked)} />
+                Conferi o texto, fontes, exemplos fictícios, links, autoria e a descrição da capa real. Esta confirmação é editorial, não clínica.
+              </label>
+            )}
             <Field label="Status">
               <select value={data.status} onChange={e => set('status', e.target.value)} className={inputCls}>
                 <option value="draft">Rascunho</option>
@@ -774,14 +800,16 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 <option value="plus">Plus (só assinantes Plus)</option>
               </select>
             </Field>
+            <details className="text-sm text-stone-600"><summary className="cursor-pointer">Ajustar tempo de leitura</summary><div className="pt-3">
             <Field label="Tempo de leitura (min)" hint="(calculado do conteúdo; pode ajustar)">
               <input type="number" value={data.read_time} onChange={e => set('read_time', Number(e.target.value))} className={inputCls} min={1} />
             </Field>
+            </div></details>
           </div>
 
           {/* CTA final do artigo (aquisição para visitante sem conta) */}
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">CTA final do artigo</h2>
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Convite para criar conta</h2>
             <p className="text-xs text-stone-500 -mt-2">
               Bloco de convite no fim do artigo. Aparece para <strong>visitantes sem conta</strong> (aquisição).
               Quem já tem conta continua vendo o convite padrão para registrar no diário.
@@ -864,8 +892,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           </div>
 
           {/* Recomendação (Conteúdos Guiados) — alimenta o motor de recomendação (086). */}
-          <div className="bg-white rounded-xl border border-line p-5 space-y-4">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Recomendação (Conteúdos Guiados)</h2>
+          <details className="bg-white rounded-xl border border-line p-5 space-y-4">
+            <summary className="cursor-pointer font-semibold text-stone-700 text-sm">Recomendação (Conteúdos Guiados)</summary>
+            <div className="space-y-3 pt-3">
             <p className="text-xs text-stone-500 -mt-2">
               Estes campos ajudam o sistema a recomendar este conteúdo a partir do que o usuário
               escreve e marca no diário, check-in e questionários. Não aparecem para o leitor.
@@ -881,9 +910,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
                 Valores reconhecidos: ansiedade, sobrecarga, cansaco, autocobranca, autoestima, tristeza, irritacao, alimentacao, sono, rotina, limites, autocuidado.
               </p>
             </Field>
-            <Field label="Tags temáticas">
-              <input value={data.tags} onChange={e => set('tags', e.target.value)} placeholder="respiração, pausa, escrita guiada..." className={inputCls} />
-            </Field>
+
             <Field label="Palavras-chave (o que o usuário costuma escrever)">
               <input value={data.keywords} onChange={e => set('keywords', e.target.value)} placeholder="coração acelerado, sem energia, não dou conta..." className={inputCls} />
             </Field>
@@ -907,9 +934,11 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               </label>
             </div>
           </div>
+          </details>
 
           {/* Player por etapas — só faz diferença pra quem lê quando existe pelo menos 1 etapa.
               Sem etapas, o conteúdo é lido normalmente, como qualquer outro artigo. */}
+          {(data.content_type !== 'article' || steps.length > 0) && (
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Prática guiada por etapas</h2>
             <p className="text-xs text-stone-500 -mt-2">
@@ -949,6 +978,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
             </div>
           </div>
 
+          )}
           <div className="bg-white rounded-xl border border-line p-5 space-y-4">
             <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Imagem de capa</h2>
             <CoverImageInput
@@ -985,8 +1015,9 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           </div>
 
           {/* Histórico de versões + rollback */}
-          <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wide">Histórico de versões</h2>
+          <details className="bg-white rounded-xl border border-line p-5 space-y-3">
+            <summary className="cursor-pointer font-semibold text-stone-700 text-sm">Histórico de versões</summary>
+            <div className="space-y-3 pt-3">
             {versions.length === 0 ? (
               <p className="text-xs text-stone-400">As versões aparecem aqui a cada vez que você salva.</p>
             ) : (
@@ -1003,6 +1034,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               </ul>
             )}
           </div>
+          </details>
         </div>
       </div>
     </div>

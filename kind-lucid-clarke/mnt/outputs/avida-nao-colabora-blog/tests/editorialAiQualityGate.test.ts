@@ -39,9 +39,10 @@ test('run-automations bloqueia auto-publicação quando detecta clichê determin
   assert.match(persistFn, /const publish = wantsAutoPublish && validationErrors\.length === 0/)
 })
 
-test('gate de tamanho mínimo (1000 palavras) continua ativo antes de auto-publicar', () => {
-  assert.match(contract, /export const MIN_ARTICLE_WORDS = 1000/)
-  assert.match(contract, /articleWordCount\(article\.content\) < MIN_ARTICLE_WORDS/)
+test('qualidade depende de revisão e metadados, sem expansão por tamanho', () => {
+  assert.doesNotMatch(contract, /MIN_ARTICLE_WORDS/)
+  assert.match(runner, /reviewed: false/)
+  assert.match(contract, /revisão editorial e capa não confirmadas/)
   assert.match(runner, /validateArticlePackage\(validatedPackage/)
   assert.match(runner, /const publish = wantsAutoPublish && validationErrors\.length === 0/)
 })
