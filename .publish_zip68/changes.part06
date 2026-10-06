@@ -1,0 +1,119 @@
+-          content = await genAI(`Amplie o artigo abaixo para pelo menos 1100 palavras, preservando título, tom acolhedor, estrutura e segurança. Não invente dados clínicos. Responda somente com o corpo final do artigo.\n\n${content}`)
+-        } catch { /* validação abaixo impedirá auto-publicação */ }
+-      }
+-      if (!content) content = rawPackage
+-
+-      const excerpt = cleanText(pkg.excerpt, 200) || excerptFrom(content)
+-      const seoTitle = cleanText(pkg.seo_title, 60) || title.slice(0, 60)
+-      const seoDescription = cleanText(pkg.seo_description, 155) || excerpt.slice(0, 155)
+-      const keyword = cleanText(pkg.keyword, 120) || tema.slice(0, 120)
+-      const secondaryKeywords = stringList(pkg.secondary_keywords, 6)
+-      const tags = stringList(pkg.tags, 6)
+-      const emotionalThemes = stringList(pkg.emotional_themes, 4)
+-      const imageQuery = cleanText(pkg.image_query, 120) || `${tema} wellbeing lifestyle`
+-      const cover = await searchPexelsCover(imageQuery)
+-      const imageAlt = cleanText(pkg.image_alt, 180) || cover?.alt || ''
+-      const diaryQuestion = cleanText(pkg.diary_question, 260)
+-      const ctaText = cleanText(pkg.cta_text, 180)
+-
+-      const validationErrors: string[] = []
+-      if (wordCount(content) < MIN_AUTO_PUBLISH_WORDS) validationErrors.push(`menos de ${MIN_AUTO_PUBLISH_WORDS} palavras`)
+-      if (excerpt.length < 80) validationErrors.push('resumo curto/ausente')
+-      if (seoTitle.length < 25) validationErrors.push('SEO title ausente/curto')
+-      if (seoDescription.length < 90) validationErrors.push('meta description ausente/curta')
+-      if (!keyword || secondaryKeywords.length < 2) validationErrors.push('palavras-chave insuficientes')
+-      if (!cover?.url) validationErrors.push('imagem de capa ausente')
+-      if (!imageAlt) validationErrors.push('texto alternativo da imagem ausente')
+-
+-      const wantsAutoPublish = a.mode === 'auto_publish'
+-      const publish = wantsAutoPublish && validationErrors.length === 0
++      if (!isEditorialAutomationType(a.type)) throw new Error(`Tipo de automação sem executor: ${a.type}`)
++      const cfg = (a.config ?? {}) as EditorialAutomationConfig
++      const resultLabel = a.type === 'generate_daily' || a.type === 'generate_weekly_package'
++        ? await executeArticleAutomation(admin, a, a.type, cfg)
++        : await executePautaAutomation(admin, a, a.type, cfg)
+@@ -295,31 +469,0 @@ ${cfg.extra ? `Instrução adicional: ${cfg.extra}` : ''}`
+-      const readTime = Math.max(1, Math.ceil(wordCount(content) / 200))
+-      const internalNotes = wantsAutoPublish && !publish
+-        ? `Auto-publicação bloqueada pela validação: ${validationErrors.join('; ')}.`
+-        : null
+-
+-      const { data: art, error: insErr } = await admin.from('articles').insert({
+-        title, slug: `${slugify(title)}-${Date.now().toString(36).slice(-4)}`,
+-        content, summary: excerpt, excerpt, category: a.category || 'Geral',
+-        plan_required: a.plan_required || 'free', content_type: 'article', origin: 'ia',
+-        status: publish ? 'published' : 'draft', published_at: publish ? nowIso : null, updated_at: nowIso,
+-        seo_title: seoTitle, seo_description: seoDescription, keyword,
+-        secondary_keywords: secondaryKeywords.join(', '), keywords: [keyword, ...secondaryKeywords].filter(Boolean),
+-        tags, emotional_themes: emotionalThemes, image_url: cover?.url || null, cover_image: cover?.url || null,
+-        cover_image_url: cover?.url || null, image_alt: imageAlt || null, og_image: cover?.url || null,
+-        diary_question: diaryQuestion || null, cta_text: ctaText || null, read_time: readTime,
+-        is_guided_content: false, is_recommendable: true, internal_notes: internalNotes, ai_prompt: articlePrompt,
+-      }).select('id').single()
+-      if (insErr) throw insErr
+-
+-      admin.from('editorial_calendar').insert({
+-        article_id: (art as { id?: string } | null)?.id ?? null, title,
+-        content_type: 'article', plan_required: a.plan_required || 'free',
+-        status: publish ? 'publicado' : 'gerado_ia', origin: 'ia',
+-        scheduled_date: nowIso.slice(0, 10),
+-      }).then(() => {}, () => {})
+-
+-      const resultLabel = publish
+-        ? `Publicado: ${title}`
+-        : wantsAutoPublish && validationErrors.length
+-          ? `Rascunho: ${title} (auto-publicação bloqueada: ${validationErrors.join(', ')})`
+-          : `Rascunho: ${title}`
+@@ -327,2 +471,4 @@ ${cfg.extra ? `Instrução adicional: ${cfg.extra}` : ''}`
+-        last_run_at: nowIso, next_run_at: new Date(now + days * 86400000).toISOString(),
+-        last_result: resultLabel, last_error: null,
++        last_run_at: nowIso,
++        next_run_at: nextRunAt(a.frequency, new Date(now)),
++        last_result: resultLabel,
++        last_error: null,
+@@ -333 +479,6 @@ ${cfg.extra ? `Instrução adicional: ${cfg.extra}` : ''}`
+-      await admin.from('content_automations').update({ last_run_at: new Date().toISOString(), last_error: msg }).eq('id', a.id)
++      // Falhas não contam como execução concluída: preserva last_run_at e agenda
++      // uma nova tentativa para o próximo ciclo horário do cron.
++      await admin.from('content_automations').update({
++        last_error: msg,
++        next_run_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
++      }).eq('id', a.id)
+diff --git a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
+index 5fe8735826b2d820c2f44ffd86ef5b08a8a24346..877fc38a4d6935f8f327b59956e22839f3c40a45 100644
+--- a/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
++++ b/kind-lucid-clarke/mnt/outputs/avida-nao-colabora-blog/supabase/functions/run-emotional-automations/index.ts
+@@ -1,0 +2 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
++import { EMOTIONAL_AI_SAFETY_TEXT, EMOTIONAL_NARRATIVE_SHAPES, EMOTIONAL_PROMPT_VERSIONS } from '../_shared/emotionalPromptContracts.ts'
+@@ -5,6 +6,2 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
+-// Espelho versionado dos contratos em src/lib/aiPrompts/emotionalPrompts.ts.
+-// Deno não importa o bundle React; manter tipo+versão explícitos evita prompts
+-// paralelos e torna cada geração auditável.
+-const PROMPT_VERSION: Record<'weekly_report' | 'monthly_deep_report' | 'self_care_plan', string> = {
+-  weekly_report: 'weekly_report_v2', monthly_deep_report: 'monthly_deep_report_v2', self_care_plan: 'self_care_plan_v2',
+-}
++// Versões e regras de segurança vêm do módulo compartilhado com os prompts do frontend.
++const PROMPT_VERSION = EMOTIONAL_PROMPT_VERSIONS
+@@ -172,6 +169,2 @@ function prompt(kind: 'weekly_report' | 'monthly_deep_report' | 'self_care_plan'
+-  const shape = kind === 'weekly_report'
+-    ? '{"summary":"2 a 4 frases","what_most_appeared":"texto curto sobre a emoção/marcador que mais apareceu","emotional_markers_reading":"texto curto","contexts_reading":"texto curto, só se houver contexts","needs_reading":"texto curto, só se houver needs","care_actions_reading":"texto curto, só se houver care_actions","patterns":["até 3"],"attention_points":["até 2"],"next_steps":["até 3"],"closing_message":"mensagem curta e acolhedora","data_quality_message":"texto"}'
+-    : kind === 'monthly_deep_report'
+-      ? '{"summary":"3 a 5 frases","main_emotional_markers_reading":"texto","contexts_and_needs_reading":"texto, só se houver contexts/needs","care_actions_observed_reading":"texto, só se houver care_actions","real_triggers_reading":"texto, somente se houver trigger_tags","advanced_indicators_reading":"texto, somente se houver stress/self_esteem/irritability/overload informados","attention_days_reading":"texto, só se houver dias de atenção","comparison_with_previous_month_reading":"texto, só se houver mês anterior comparável","patterns":["até 4"],"relations":["até 3"],"improvement_moments":["até 3"],"reflection_questions":["3 perguntas"],"closing_message":"mensagem final curta e acolhedora","data_quality_message":"texto"}'
+-      : '{"title":"texto","month_label":"texto","based_on_period":"texto","main_focus":"texto","why_this_focus":"texto","three_care_priorities":[{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]},{"priority":"texto","why_it_matters":"texto","small_actions":["2"]}],"weekly_rhythm":{"week_1":"texto","week_2":"texto","week_3":"texto","week_4":"texto"},"suggested_micro_actions":["3 a 5"],"recommended_guided_contents":["até 3 temas"],"gentle_reminders":["2"],"what_not_to_force":"texto","light_emotional_goal":"texto","checkin_suggestion":"texto","when_to_seek_more_support":"texto, leve, sem alarmismo","reflection_questions":["3"],"final_message":"texto","data_quality_message":"texto"}'
+-  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
++  const shape = EMOTIONAL_NARRATIVE_SHAPES[kind]
++  return `Você prepara ${kind} para o aplicativo A Vida Não Colabora. Use somente os dados agregados abaixo, em português brasileiro. Seja acolhedora, simples, humana e não clínica. Não diagnostique, prescreva, prometa cura, invente fatos, transforme correlação em causa nem trate marcadores emocionais como gatilhos. Regras compartilhadas: ${EMOTIONAL_AI_SAFETY_TEXT} Use "seus registros sugerem", "vale observar" e "pode ser interessante". Marcadores emocionais, contextos, necessidades, ações de cuidado e gatilhos reais são categorias diferentes e não devem ser misturados. Se houver poucos dados, reconheça a limitação sem criar padrões. ${task} Retorne exclusivamente JSON válido e sem markdown, apenas com os campos narrativos abaixo — os campos numéricos e estruturados do relatório final são calculados à parte, em código, a partir dos mesmos dados agregados.\nDADOS: ${JSON.stringify(summary)}\nFORMATO: ${shape}`
+@@ -181,8 +174,46 @@ async function generate(promptText: string): Promise<{ text: string; model: stri
+-  const key = Deno.env.get('GEMINI_API_KEY')
+-  if (!key) throw new Error('GEMINI_API_KEY não configurada')
+-  const model = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash').split(',')[0].trim()
+-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1800 } }) })
+-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
+-  const data = await res.json(); const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+-  if (!text || !String(text).trim()) throw new Error('Resposta de IA vazia')
+-  return { text: String(text).trim(), model }
++  const geminiKey = Deno.env.get('GEMINI_API_KEY')
++  const geminiModels = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-2.0-flash').split(',').map(v => v.trim()).filter(Boolean)
++  if (geminiKey) {
++    for (const model of geminiModels) {
++      try {
