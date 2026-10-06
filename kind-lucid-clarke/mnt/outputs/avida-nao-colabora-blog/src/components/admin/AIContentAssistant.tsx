@@ -1,3 +1,4 @@
+import { generateArticleContract, type ArticleDraftState } from '../../lib/articleDraftGeneration'
 import { useState } from 'react'
 import { articleTierBrief, editorialSourceBrief } from '../../lib/articleGenerationContract'
 import {
@@ -41,6 +42,7 @@ interface AIContentAssistantProps {
   defaultTone?: AITone
   label?: string
   placeholder?: string
+  onArticleInsert?: (draft: ArticleDraftState) => void
   onInsert: (result: string) => void
   onClose: () => void
 }
@@ -255,6 +257,7 @@ export default function AIContentAssistant({
   defaultTone = 'acolhedor',
   label,
   placeholder,
+  onArticleInsert,
   onInsert,
   onClose,
 }: AIContentAssistantProps) {
@@ -272,6 +275,8 @@ export default function AIContentAssistant({
 
   const needsTheme = !['improve', 'rewrite', 'summarize'].includes(contentType)
 
+  const [articleDraft, setArticleDraft] = useState<ArticleDraftState | null>(null)
+
   async function generate() {
     if (needsTheme && !theme.trim()) {
       setError('Informe o tema antes de gerar.')
@@ -281,11 +286,16 @@ export default function AIContentAssistant({
     setStatus('generating')
     setError('')
     setResult('')
+    setArticleDraft(null)
     setUsedProvider(null)
     try {
       // Para questionários, chama diretamente sem instruções de tamanho/tom que corrompem o JSON
       let text: string
-      if (contentType === 'questionnaire') {
+      if (contentType === 'article' && onArticleInsert) {
+        const draft = await generateArticleContract({ theme, plan: contextPlan || 'free', category: contextCategory, tone, extraInstructions: extras, operationId: crypto.randomUUID() })
+        setArticleDraft(draft)
+        text = draft.pkg.content
+      } else if (contentType === 'questionnaire') {
         text = await generateQuestionnaireDraft(theme, 'autoavaliação')
       } else {
         const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory, false, contextPlan) + (contextPlan && ['improve', 'rewrite'].includes(contentType) ? `\n${articleTierBrief(contextPlan)}\n${editorialSourceBrief()}` : '')
@@ -400,6 +410,7 @@ export default function AIContentAssistant({
             )}
           </button>
 
+          {articleDraft && <div className="rounded-xl border border-line p-4 text-sm"><p className="font-medium">{articleDraft.pkg.title}</p><p>{articleDraft.pkg.seo_title}</p><p>{articleDraft.pkg.seo_description}</p><p className="text-xs mt-2">Título, resumo, SEO, classificação editorial, pergunta, CTA e relacionados serão inseridos junto com o conteúdo.</p>{articleDraft.validationErrors.length > 0 && <p className="text-amber-800 mt-2">Pendências para revisão: {articleDraft.validationErrors.join('; ')}.</p>}</div>}
           {/* Resultado */}
           {status === 'error' && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-4">
@@ -464,7 +475,7 @@ export default function AIContentAssistant({
                 <RefreshCw className="w-3.5 h-3.5" /> Gerar novamente
               </button>
               <button
-                onClick={() => { onInsert(result); onClose() }}
+                onClick={() => { if (articleDraft && onArticleInsert) onArticleInsert({ ...articleDraft, pkg: { ...articleDraft.pkg, content: result } }); else onInsert(result); onClose() }}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-forest-700 text-white rounded-lg hover:bg-forest-800 transition-colors font-medium"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Inserir no formulário

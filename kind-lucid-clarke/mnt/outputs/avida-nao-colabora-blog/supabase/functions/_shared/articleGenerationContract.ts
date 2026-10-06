@@ -18,6 +18,9 @@ export interface ArticleAIContract {
   image_alt: string
   diary_question: string
   cta_text: string
+  journey_stage?: string
+  intent?: string
+  audience?: string
 }
 
 export interface ArticlePromptOptions {
@@ -86,6 +89,9 @@ export function normalizeArticlePackage(raw: Record<string, unknown>, fallbackTh
     image_alt: cleanText(raw.image_alt, 220),
     diary_question: cleanText(raw.diary_question, 300),
     cta_text: cleanText(raw.cta_text, 220),
+    journey_stage: ['descoberta', 'consideracao', 'decisao'].includes(String(raw.journey_stage)) ? String(raw.journey_stage) : 'descoberta',
+    intent: cleanText(raw.intent, 120) || 'educar',
+    audience: cleanText(raw.audience, 300) || 'Adultos interessados em bem-estar emocional',
   }
 }
 
@@ -199,7 +205,10 @@ ${containerStart}
   "image_query": "busca curta em inglês para foto real e específica",
   "image_alt": "texto alternativo descritivo em português",
   "diary_question": "pergunta reflexiva curta",
-  "cta_text": "CTA gentil"
+  "cta_text": "CTA gentil",
+  "journey_stage": "descoberta, consideracao ou decisao",
+  "intent": "intenção editorial específica",
+  "audience": "público-alvo específico do tema"
 ${containerEnd}
 ${options.extraInstructions?.trim() ? `\nBriefing adicional (não altera o contrato JSON):\n${options.extraInstructions.trim()}` : ''}`.trim()
 }

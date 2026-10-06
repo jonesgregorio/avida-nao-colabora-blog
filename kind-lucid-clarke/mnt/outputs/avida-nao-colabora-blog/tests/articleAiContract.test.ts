@@ -11,6 +11,7 @@ import {
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const factory = read('src/components/admin/AdminFabricaIA.tsx')
+const generation = read('src/lib/articleDraftGeneration.ts')
 const automation = read('supabase/functions/run-automations/index.ts')
 const contract = read('supabase/functions/_shared/articleGenerationContract.ts')
 
@@ -36,8 +37,8 @@ test('parser único aceita artigo individual e pacote sem mudar o contrato', () 
   const batch = parseArticlePackages(JSON.stringify({ articles: [sample, sample] }), ['tema'])
   assert.equal(single.length, 1)
   assert.equal(batch.length, 2)
-  assert.deepEqual(Object.keys(single[0]), [...FIELDS])
-  assert.deepEqual(Object.keys(batch[0]), [...FIELDS])
+  assert.deepEqual(Object.keys(single[0]), [...FIELDS, 'journey_stage', 'intent', 'audience'])
+  assert.deepEqual(Object.keys(batch[0]), [...FIELDS, 'journey_stage', 'intent', 'audience'])
 })
 
 test('valida conteúdo e metadados sem impor contagem SEO', () => {
@@ -73,19 +74,20 @@ test('valida conteúdo e metadados sem impor contagem SEO', () => {
 
 test('Fábrica IA e automação reutilizam o mesmo construtor, parser e validador', () => {
   for (const symbol of ['buildArticleGenerationPrompt', 'parseArticlePackages', 'validateArticlePackage']) {
-    assert.ok(factory.includes(symbol), `Fábrica não usa ${symbol}`)
+    assert.ok(generation.includes(symbol), `Fábrica não usa ${symbol}`)
     assert.ok(automation.includes(symbol), `automação não usa ${symbol}`)
   }
-  assert.match(factory, /from '\.\.\/\.\.\/lib\/articleGenerationContract'/)
+  assert.match(factory, /generateArticleContract/)
+  assert.match(generation, /from '\.\/articleGenerationContract'/)
   assert.match(automation, /from '\.\.\/_shared\/articleGenerationContract\.ts'/)
 })
 
 test('nenhum fluxo expande texto apenas por tamanho', () => {
-  const factoryStart = factory.indexOf('async function generateArticleContract(')
-  const factoryEnd = factory.indexOf('\nexport default function AdminFabricaIA()', factoryStart)
+  const factoryStart = generation.indexOf('async function generateArticleContract(')
+  const factoryEnd = generation.length
   const automationStart = automation.indexOf('async function persistArticle(')
   const automationEnd = automation.indexOf('\nasync function executeArticleAutomation(', automationStart)
-  const factoryGeneration = factoryStart >= 0 && factoryEnd > factoryStart ? factory.slice(factoryStart, factoryEnd) : ''
+  const factoryGeneration = factoryStart >= 0 && factoryEnd > factoryStart ? generation.slice(factoryStart, factoryEnd) : ''
   const automationPersist = automationStart >= 0 && automationEnd > automationStart ? automation.slice(automationStart, automationEnd) : ''
   assert.notEqual(factoryGeneration, '')
   assert.notEqual(automationPersist, '')

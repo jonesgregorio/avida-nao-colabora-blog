@@ -1,3 +1,4 @@
+import { type ArticleDraftState } from '../../lib/articleDraftGeneration'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Save, Eye, Send, Sparkles, Loader2 } from 'lucide-react'
@@ -422,6 +423,28 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
     } catch { /* capa é secundária — não interrompe o fluxo */ }
   }
 
+  function handleArticleInsert(draft: ArticleDraftState) {
+    const p = draft.pkg
+    setEditorialConfirmed(false)
+    setData(d => ({
+      ...d, title: p.title,
+      slug: effectiveId ? d.slug : p.title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-'),
+      content: p.content, summary: p.excerpt, category: p.category,
+      seo_title: p.seo_title, seo_description: p.seo_description,
+      keyword: p.keyword, secondary_keywords: p.secondary_keywords.join(', '), tags: p.tags.join(', '),
+      emotional_themes: p.emotional_themes.join(', '), emotion: p.emotional_themes[0] || '',
+      keywords: [p.keyword, ...p.secondary_keywords].join(', '),
+      related_slugs: draft.relatedSlugs.join(', '),
+      diary_question: p.diary_question, cta_text: p.cta_text,
+      cta_link: '/diario', read_time: estimateReadTime(p.content), origin: 'ia',
+      image_url: draft.cover?.url || d.image_url,
+      image_alt: draft.cover ? draft.cover.alt : d.image_alt,
+      og_image: draft.cover?.url || d.image_url,
+      journey_stage: p.journey_stage || 'descoberta', intent: p.intent || 'educar', audience: p.audience || 'Adultos interessados em bem-estar emocional',
+    }))
+    showToast(draft.validationErrors.length ? 'Pacote inserido. Revise as pendências indicadas pela IA.' : 'Pacote completo inserido. Revise antes de salvar/publicar.')
+  }
+
   function handleAIInsert(result: string) {
     if (!aiModal) return
     switch (aiModal.type) {
@@ -560,6 +583,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           contextCategory={data.category}
           contextPlan={data.content_type === 'article' ? data.plan_required : undefined}
           defaultTheme={data.title}
+          onArticleInsert={data.content_type === 'article' ? handleArticleInsert : undefined}
           onInsert={handleAIInsert}
           onClose={() => setAiModal(null)}
         />
