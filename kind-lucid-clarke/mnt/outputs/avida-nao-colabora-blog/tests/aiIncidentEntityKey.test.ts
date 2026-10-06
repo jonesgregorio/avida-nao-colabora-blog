@@ -9,6 +9,7 @@ const genContent = read('supabase/functions/generate-content/index.ts')
 const runner = read('supabase/functions/run-emotional-automations/runner.ts')
 const explainMap = read('supabase/functions/explain-emotional-map/index.ts')
 const fabrica = read('src/components/admin/AdminFabricaIA.tsx')
+const generation = read('src/lib/articleDraftGeneration.ts')
 const aiContent = read('src/lib/aiContent.ts')
 
 test('todos os produtores de log de IA definem incident_entity_key', () => {
@@ -24,7 +25,7 @@ test('todos os produtores de log de IA definem incident_entity_key', () => {
 })
 
 test('geração editorial (sem usuário) usa uma chave de operação própria', () => {
-  assert.match(fabrica, /entityKey: `editorial_article:\$\{input\.operationId\}`/)
+  assert.match(generation, /entityKey: `editorial_article:\$\{input\.operationId\}`/)
   assert.match(fabrica, /operationId: `single:\$\{tema\}`/)
   assert.match(fabrica, /operationId: `mass:\$\{temas\[i\]\}`/)
   assert.match(aiContent, /entityKey\?: string/)
