@@ -32,6 +32,7 @@ export interface ArticlePromptOptions {
   audience?: string
   keyword?: string
   extraInstructions?: string
+  sourcesBrief?: string
 }
 
 export interface ArticleValidationContext {
@@ -183,7 +184,7 @@ Use subtítulos ## e ### quando ajudarem a leitura. Não use título H1 dentro d
 ${quantity > 1 ? 'Varie temas e ângulos; não gere títulos quase iguais.' : ''}
 Não diagnostique, não prescreva, não prometa cura e não invente pesquisas ou estatísticas.
 Use apenas as fontes oficiais fornecidas no briefing. Quando o briefing fornecer fontes verificadas e o texto fizer afirmações factuais de saúde, inclua ao final uma seção "## Fontes consultadas" com os links recebidos. Nunca invente autor, credencial, estudo, instituição ou URL; sem fonte fornecida, mantenha o conteúdo educativo e não clínico.
-${editorialSourceBrief()}
+${options.sourcesBrief ?? editorialSourceBrief()}
 Não transforme exemplos fictícios em relatos reais. Não invente autoria ou revisão clínica.
 Evite clichês de texto gerado por IA como “em conclusão”, “é importante ressaltar”, “em suma”, “não podemos esquecer que”, “em um mundo cada vez mais”, “convido você a refletir” e “ao longo deste artigo, vamos explorar”. Não repita fórmulas de introdução.
 
@@ -226,7 +227,7 @@ Inclua somente referências pertinentes, em links Markdown, e não copie frases.
 }
 
 export function hasEditorialSource(content: string): boolean {
-  return /\]\(https:\/\/(?:www\.)?(?:nhs\.uk|nimh\.nih\.gov|nhlbi\.nih\.gov|cci\.health\.wa\.gov\.au|gov\.br)\/[^\s)]+\)/i.test(content)
+  return /\]\(https:\/\/(?:www\.)?(?:medlineplus\.gov|nhs\.uk|nimh\.nih\.gov|nhlbi\.nih\.gov|cci\.health\.wa\.gov\.au|gov\.br)\/[^\s)]+\)/i.test(content)
 }
 
 function topicTokens(text: string): Set<string> {

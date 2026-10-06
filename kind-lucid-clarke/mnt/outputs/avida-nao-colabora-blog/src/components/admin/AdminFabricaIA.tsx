@@ -145,7 +145,7 @@ export default function AdminFabricaIA() {
         diary_question: pkg.diary_question || null, cta_text: pkg.cta_text || null,
         read_time: Math.max(1, Math.ceil(articleWordCount(pkg.content) / 200)),
         is_guided_content: false, is_recommendable: true,
-        internal_notes: `Revisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
+        internal_notes: `Pesquisa editorial: ${JSON.stringify({ research: articleDraft.research, opportunities: articleDraft.opportunities, warnings: articleDraft.researchWarnings })}\nRevisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
         ai_prompt: articleDraft.prompt, updated_at: new Date().toISOString(),
       }
     } else {
@@ -193,7 +193,7 @@ export default function AdminFabricaIA() {
             diary_question: pkg.diary_question || null, cta_text: pkg.cta_text || null,
             read_time: Math.max(1, Math.ceil(articleWordCount(pkg.content) / 200)),
             is_guided_content: false, is_recommendable: true,
-            internal_notes: `Revisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
+            internal_notes: `Pesquisa editorial: ${JSON.stringify({ research: draft.research, opportunities: draft.opportunities, warnings: draft.researchWarnings })}\nRevisão editorial pendente: conferir fontes, intenção, links e traduzir/verificar a descrição da capa real. ${validationErrors.join('; ')}`,
             ai_prompt: draft.prompt, updated_at: new Date().toISOString(),
           })
           if (error) { fail++; continue }

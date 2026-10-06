@@ -23,6 +23,8 @@ export interface VideoCandidate {
   videoId: string
   title: string
   channel: string
+  channelId?: string
+  trustedChannel?: boolean
   description: string
   thumbnail: string | null
   url: string
@@ -217,7 +219,7 @@ export async function searchArticleVideos(a: VideoArticleInput, customQuery?: st
   if (raw.length === 0 && firstError) return { query: queries[0], queries, candidates: [], belowThreshold: 0, error: firstError }
 
   const scored = raw.map(c => scoreVideo(a, intent, c, usedMap)).filter(c => (c.score ?? 0) > 0)
-  const approved = scored.filter(c => (c.score ?? 0) >= 65).sort((x, y) => (y.score ?? 0) - (x.score ?? 0))
+  const approved = scored.filter(c => (c.score ?? 0) >= 65 && !/cura garantida|cura definitiva|milagros[oa]|cure all|guaranteed cure/i.test(`${c.title} ${c.description}`)).sort((x, y) => (y.score ?? 0) - (x.score ?? 0))
   const belowThreshold = scored.filter(c => (c.score ?? 0) < 65).length
   return { query: queries[0], queries, candidates: approved, belowThreshold }
 }

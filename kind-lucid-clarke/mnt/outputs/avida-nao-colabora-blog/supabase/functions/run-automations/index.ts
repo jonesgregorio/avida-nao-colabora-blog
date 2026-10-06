@@ -1,3 +1,4 @@
+import { researchOfficialSources, researchBrief, validateResearchedCitations, type EditorialResearch } from '../_shared/editorialResearch.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { resolveAiModels } from '../_shared/aiModels.ts'
 import {
@@ -247,13 +248,14 @@ async function persistArticle(
   pkg: GeneratedArticlePackage,
   fallbackTheme: string,
   prompt: string,
+  research: EditorialResearch,
 ): Promise<{ title: string; published: boolean; validationErrors: string[] }> {
   const title = cleanText(pkg.title, 120) || fallbackTheme.slice(0, 120)
   let content = cleanText(pkg.content, 50000)
   const tierErrors = validateTierDeliverables(content, normalizedPlan(automation.plan_required))
   if (content && tierErrors.length) {
     try {
-      const completed = await genAI(buildTierCompletionPrompt(content, normalizedPlan(automation.plan_required)))
+      const completed = await genAI(buildTierCompletionPrompt(content, normalizedPlan(automation.plan_required)) + `\nUse apenas as fontes pesquisadas, em vez das referências estáticas: ${researchBrief(research)}`)
       if (validateTierDeliverables(completed, normalizedPlan(automation.plan_required)).length < tierErrors.length) content = cleanText(completed, 50000)
     } catch { /* rascunho preservado, sem repetir chamadas indefinidamente */ }
   }
@@ -294,6 +296,7 @@ async function persistArticle(
   const rows = catalog || []
   const related = selectRelatedArticles(`${title} ${keyword}`, rows, '', normalizedPlan(automation.plan_required))
   const validationErrors = validateArticlePackage(validatedPackage, { plan: normalizedPlan(automation.plan_required), imageUrl: cover?.url, publication: true, reviewed: false, author: 'A Vida Não Colabora', relatedSlugs: related.map(row => row.slug), catalog: rows, duplicate: hasTopicOverlap(title, keyword, rows) })
+  validationErrors.push(...validateResearchedCitations(content, research.sources))
   if (catalogError || rows.length >= 500) validationErrors.push('catálogo indisponível')
   const cliches = detectAiCliches(content)
   if (cliches.length > 0) validationErrors.push(`tom genérico de IA detectado ("${cliches.join('", "')}")`)
@@ -326,7 +329,7 @@ async function persistArticle(
     tags, emotional_themes: emotionalThemes, image_url: cover?.url || null, cover_image: cover?.url || null,
     cover_image_url: cover?.url || null, image_alt: imageAlt || null, og_image: cover?.url || null,
     diary_question: diaryQuestion || null, cta_text: ctaText || null, read_time: readTime,
-    is_guided_content: false, is_recommendable: true, internal_notes: internalNotes, ai_prompt: prompt,
+    is_guided_content: false, is_recommendable: true, internal_notes: [`Pesquisa editorial: ${JSON.stringify({ research, warnings: research.warnings })}`, internalNotes].filter(Boolean).join('\n'), ai_prompt: prompt,
   }).select('id').single()
   if (insErr) throw insErr
 
@@ -349,12 +352,23 @@ async function executeArticleAutomation(
   config: EditorialAutomationConfig,
 ): Promise<string> {
   const quantity = clampAutomationQuantity(type, config.quantity)
-  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
+  const themes = uniqueThemes(config, automation.category || 'saúde emocional').slice(0, quantity)
   const tone = config.tone || 'acolhedor'
   const { data: catalog, error: catalogError } = await admin.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').limit(500)
   if (catalogError || (catalog?.length || 0) >= 500) throw new Error('Catálogo indisponível para planejar conteúdo distinto e links válidos.')
+  const queryRaw = await genAI(`Retorne somente um array JSON de strings, sem markdown. Para cada tema abaixo, na mesma ordem, escolha um tópico indexado do MedlinePlus relacionado ao assunto e retorne 1 a 3 termos em inglês (exemplos: stress, mental health, healthy sleep). Não transforme emoções em diagnósticos nem acrescente doenças não mencionadas. Não inclua URLs ou instruções. Temas: ${JSON.stringify(themes)}`)
+  let queries: unknown
+  try { queries = JSON.parse(queryRaw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim()) } catch { throw new Error('Não foi possível preparar a pesquisa de fontes.') }
+  if (!Array.isArray(queries) || queries.length !== themes.length || queries.some(q => typeof q !== 'string' || q.length > 120)) throw new Error('Termos de pesquisa inválidos.')
+  const evidence = await Promise.all((queries as string[]).map(q => researchOfficialSources(q)))
+  if (evidence.some(r => !r.sources.length)) throw new Error('Pesquisa sem fontes oficiais para um dos temas; automação não gerou artigos como se estivessem pesquisados.')
+  const research: EditorialResearch = {
+    query: evidence.map(r => r.query).join(' | '), retrievedAt: new Date().toISOString(),
+    sources: [...new Map(evidence.flatMap(r => r.sources).map(source => [source.url, { ...source, summary: source.summary.slice(0, 1500) }])).values()].slice(0, 12),
+    warnings: evidence.flatMap(r => r.warnings),
+  }
   const prompt = buildArticleGenerationPrompt({
-    quantity, plan: normalizedPlan(automation.plan_required),
+    quantity, sourcesBrief: researchBrief(research), plan: normalizedPlan(automation.plan_required),
     themes,
     tone,
     category: automation.category || 'saúde emocional',
@@ -368,7 +382,7 @@ async function executeArticleAutomation(
   // uma única chamada, evitando multiplicar a latência do cron semanal.
   // A expansão é limitada a UMA tentativa por artigo pelo persistArticle.
   const results = await Promise.all(packages.map((pkg, index) =>
-    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt),
+    persistArticle(admin, automation, pkg, themes[index % themes.length], prompt, research),
   ))
   const published = results.filter(r => r.published).length
   const drafts = results.length - published
@@ -388,7 +402,7 @@ async function executePautaAutomation(
   config: EditorialAutomationConfig,
 ): Promise<string> {
   const quantity = clampAutomationQuantity(type, config.quantity)
-  const themes = uniqueThemes(config, automation.category || 'saúde emocional')
+  const themes = uniqueThemes(config, automation.category || 'saúde emocional').slice(0, quantity)
   const { data: existing } = await admin.from('editorial_calendar')
     .select('title').gte('scheduled_date', new Date().toISOString().slice(0, 10)).limit(120)
   const existingTitles = (existing ?? []).map((row: { title?: string | null }) => row.title).filter(Boolean).slice(0, 80)

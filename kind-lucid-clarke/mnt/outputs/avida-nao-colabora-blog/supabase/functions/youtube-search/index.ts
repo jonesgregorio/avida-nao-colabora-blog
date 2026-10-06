@@ -61,12 +61,15 @@ Deno.serve(async (req: Request) => {
 
     const candidates = items.map((it: { id: { videoId: string }; snippet: Record<string, unknown> }) => {
       const id = it.id.videoId
-      const sn = it.snippet as { title?: string; description?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> }
+      const sn = it.snippet as { title?: string; description?: string; channelTitle?: string; channelId?: string; thumbnails?: Record<string, { url?: string }> }
       const extra = byId.get(id) ?? { duration: 0, views: 0 }
       return {
         videoId: id,
         title: String(sn.title ?? '').trim(),
         channel: String(sn.channelTitle ?? '').trim(),
+        channelId: String(sn.channelId ?? ''),
+        trustedChannel: (Deno.env.get('EDITORIAL_TRUSTED_YOUTUBE_CHANNEL_IDS') || '').split(',').map(id => id.trim()).filter(Boolean).includes(String(sn.channelId ?? '')),
+
         description: String(sn.description ?? '').slice(0, 300),
         thumbnail: sn.thumbnails?.medium?.url ?? sn.thumbnails?.default?.url ?? null,
         url: `https://www.youtube.com/watch?v=${id}`,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Video, Search, Loader2, Check, X, Link2, RefreshCw, AlertTriangle } from 'lucide-react'
 import {
   searchArticleVideos, videoMarker, youtubeIdFromUrl,
@@ -8,6 +8,7 @@ import {
 
 interface Props {
   article: VideoArticleInput
+  initialResult?: VideoSearchResult | null
   content: string
   onChangeContent: (c: string) => void
 }
@@ -23,7 +24,7 @@ const REL_BADGE: Record<string, { label: string; cls: string }> = {
   pouco: { label: 'Pouco relacionado', cls: 'bg-amber-100 text-amber-700' },
 }
 
-export default function RelatedVideoPicker({ article, content, onChangeContent }: Props) {
+export default function RelatedVideoPicker({ article, content, onChangeContent, initialResult }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<VideoSearchResult | null>(null)
@@ -31,6 +32,8 @@ export default function RelatedVideoPicker({ article, content, onChangeContent }
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [manualUrl, setManualUrl] = useState('')
   const [manualErr, setManualErr] = useState<string | null>(null)
+
+  useEffect(() => { setResult(initialResult || null) }, [initialResult])
 
   const currentId = currentRelatedVideoId(content)
 
@@ -66,7 +69,7 @@ export default function RelatedVideoPicker({ article, content, onChangeContent }
         <Video className="w-4 h-4 text-forest-700" />
         <h3 className="text-sm font-semibold text-forest-900">Vídeo relacionado</h3>
       </div>
-      <p className="text-xs text-stone-500 -mt-1">A busca usa o tema real do artigo (título, categoria, tags). Só mostramos vídeos com relação clara; nada é inserido sem você escolher.</p>
+      <p className="text-xs text-stone-500 -mt-1">A busca usa o tema real do artigo (título, categoria, tags). Só mostramos vídeos com relação clara. Relevância não comprova credibilidade: confira canal e conteúdo antes de escolher.</p>
 
       {/* Vídeo atual */}
       {currentId && (
@@ -125,7 +128,7 @@ export default function RelatedVideoPicker({ article, content, onChangeContent }
                       {c.durationSeconds > 0 && <span className="text-[10px] text-stone-400">{fmtDur(c.durationSeconds)}</span>}
                     </div>
                     <p className="text-sm font-medium text-forest-900 line-clamp-2 leading-snug">{c.title}</p>
-                    <p className="text-[11px] text-stone-400 truncate">{c.channel}</p>
+                    <p className="text-[11px] text-stone-400 truncate">{c.channel} · identidade do canal: {c.trustedChannel ? 'ID cadastrado como confiável' : 'não verificada'}</p>
                   </div>
                 </div>
                 {c.reason && <p className="text-[11px] text-stone-600 bg-stone-50 rounded-lg px-2 py-1.5">{c.reason}</p>}
