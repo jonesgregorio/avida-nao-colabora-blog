@@ -27,3 +27,16 @@ Essas verificações protegem os fluxos de admin e o executor editorial; não co
 Testes funcionais cobrem publicação de texto útil mais curto, revisão/autoria, fontes, URLs internas inexistentes, H1 duplicado, seleção de artigos públicos, sobreposição de temas e transparência idempotente de IA.
 
 Após o merge, os workflows existentes publicam frontend e Edge Functions. Conferir os dois deployments antes de considerar a mudança disponível em produção.
+
+## Entregas por acesso
+
+- Público: explicação completa e uma ação possível, sem cadastro.
+- Gratuito com conta: exercício inicial ligado ao diário, respeitando limites do plano e oferecendo alternativa em papel.
+- Essencial: roteiro, modelo copiável, exemplo fictício preenchido, adaptação para pouca energia e revisão semanal.
+- Plus: as entregas Essencial mais cenários e alternativas, critérios para escolher, revisão mensal e plano de acompanhamento adaptável.
+
+O plano é passado na geração individual, em massa, no assistente do editor e no executor editorial. A validação compartilhada exige os blocos preenchidos do plano antes de publicar/agendar. Não mede precisão ou utilidade por contagem: o editor informa que a checagem é estrutural.
+
+A Fábrica e o executor tentam completar blocos faltantes uma única vez. Falhas mantêm o rascunho e os avisos, sem publicar. A seleção automática de relacionados prioriza temas e acessos disponíveis ao leitor, sem recomendar um conteúdo Plus para o Público ou Essencial.
+
+Para um artigo existente, abra o editor e use **Entregas do artigo → Preparar aprofundamento com IA**. A proposta fica no formulário; salvar ou publicar continua sendo uma ação explícita. A ferramenta não sobrescreve em lote os artigos publicados e não usa registros pessoais dos leitores para inventar personalização. Fontes, adequação do modelo e profundidade precisam ser conferidas pelo editor.

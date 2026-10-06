@@ -9,7 +9,7 @@ import ArticlePreview from './ArticlePreview'
 import FormattedTextarea from './FormattedTextarea'
 import { estimateReadTime } from '../../lib/renderArticle'
 import { generateArticleCTA, getLastProvider, providerLabel } from '../../lib/aiContent'
-import { normalizeArticlePackage, validateArticlePackage, withEditorialDisclosure } from '../../lib/articleGenerationContract'
+import { normalizeArticlePackage, validateArticlePackage, withEditorialDisclosure, articleTierSections, validateTierDeliverables } from '../../lib/articleGenerationContract'
 import { DEFAULT_CTA } from '../../lib/articleCta'
 import { logAdminAction } from '../../lib/adminAudit'
 
@@ -126,6 +126,8 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   // ficaria preso em "Novo artigo". effectiveId = o id que realmente vale agora.
   const [createdId, setCreatedId] = useState<string | null>(null)
   const effectiveId = articleId ?? createdId
+  const tierSections = articleTierSections(data.plan_required)
+  const tierErrors = validateTierDeliverables(data.content, data.plan_required)
 
   // Gera o CTA personalizado com IA a partir do conteúdo real do artigo.
   async function gerarCTAComIA() {
@@ -264,7 +266,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       const { data: catalog, error } = await supabase.from('articles').select('slug,title,keyword,plan_required').eq('published', true).eq('status', 'published').neq('slug', data.slug).limit(500)
       if (error || (catalog?.length || 0) >= 500) { showToast('Não foi possível validar os links e o catálogo. Nada foi publicado.', true); return }
       const errors = validateArticlePackage(normalizeArticlePackage({ ...data, excerpt: data.summary, secondary_keywords: toArray(data.secondary_keywords) }), {
-        publication: true, imageUrl: data.image_url, author: data.author,
+        plan: data.plan_required, publication: true, imageUrl: data.image_url, author: data.author,
         reviewed: editorialConfirmed, relatedSlugs: toArray(data.related_slugs), catalog: catalog || [],
       })
       if (errors.length) { showToast('Revise antes de publicar: ' + errors.join('; '), true); return }
@@ -423,6 +425,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
   function handleAIInsert(result: string) {
     if (!aiModal) return
     switch (aiModal.type) {
+      case 'article_deepen':
       case 'article':
         set('content', result); set('origin', 'ia')
         // Capa automática relacionada ao tema (usa o conteúdo gerado — não depende
@@ -555,6 +558,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
           contextTitle={data.title}
           contextContent={data.content}
           contextCategory={data.category}
+          contextPlan={data.content_type === 'article' ? data.plan_required : undefined}
           defaultTheme={data.title}
           onInsert={handleAIInsert}
           onClose={() => setAiModal(null)}
@@ -613,6 +617,19 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
+          {data.content_type === 'article' && tierSections.length > 0 && (
+            <details className="bg-white rounded-xl border border-line p-5">
+              <summary className="cursor-pointer font-medium text-forest-900">Entregas do artigo {data.plan_required === 'plus' ? 'Plus' : 'Essencial'}</summary>
+              <p className="text-xs text-stone-500 mt-3">A conferência automática identifica seções e preenchimento. Confira precisão, utilidade e profundidade na revisão editorial.</p>
+              <ul className="text-sm space-y-2 mt-3">
+                {tierSections.map(section => (
+                  <li key={section}>{tierErrors.some(error => error.endsWith(section)) ? 'Pendente: ' : 'Estrutura preenchida: '}{section}</li>
+                ))}
+              </ul>
+              <button type="button" onClick={() => setAiModal({ type: 'article_deepen', label: 'Preparar aprofundamento do plano' })} className="mt-3 text-sm font-medium text-forest-700">Preparar aprofundamento com IA</button>
+              <p className="text-xs text-stone-500 mt-2">A proposta fica no editor para conferência; o artigo publicado só muda quando você salvar.</p>
+            </details>
+          )}
           {/* Painel de IA */}
           <details className="bg-gradient-to-r from-mint to-stone-50 border border-forest-200 rounded-xl p-4">
             <summary className="cursor-pointer flex items-center gap-2">

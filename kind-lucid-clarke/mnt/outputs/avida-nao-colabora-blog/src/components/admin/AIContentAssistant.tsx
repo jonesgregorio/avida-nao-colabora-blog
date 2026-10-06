@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { articleTierBrief, editorialSourceBrief } from '../../lib/articleGenerationContract'
 import {
   Sparkles, Loader2, Copy, CheckCircle, AlertCircle,
   RefreshCw, X, ChevronDown, ChevronUp,
@@ -7,6 +8,7 @@ import { callAI, generateQuestionnaireDraft, getLastProvider, providerLabel, VID
 
 export type AIContentType =
   | 'article'
+  | 'article_deepen'
   | 'article_title'
   | 'article_summary'
   | 'article_seo'
@@ -34,6 +36,7 @@ interface AIContentAssistantProps {
   contextTitle?: string
   contextContent?: string
   contextCategory?: string
+  contextPlan?: string
   defaultTheme?: string
   defaultTone?: AITone
   label?: string
@@ -64,6 +67,7 @@ const SIZES: { value: AISize; label: string }[] = [
 
 const TYPE_LABELS: Record<AIContentType, string> = {
   article: 'Gerar artigo completo',
+  article_deepen: 'Preparar aprofundamento do artigo',
   article_title: 'Gerar opções de título',
   article_summary: 'Gerar resumo',
   article_seo: 'Gerar SEO completo',
@@ -95,15 +99,17 @@ function buildPrompt(
   contextContent?: string,
   contextCategory?: string,
   includeVideo = false,
+  contextPlan?: string,
 ): string {
   const ctx = contextTitle ? `\nTítulo/contexto: "${contextTitle}"` : ''
   const preview = contextContent ? `\nTrecho do conteúdo: "${contextContent.slice(0, 600)}"` : ''
+  const tier = contextPlan ? `\n${articleTierBrief(contextPlan)}\n${editorialSourceBrief()}` : ''
   const cat = contextCategory ? `\nCategoria: ${contextCategory}` : ''
 
   switch (contentType) {
     case 'article':
       return `Escreva um artigo APROFUNDADO e bem desenvolvido de blog sobre saúde emocional.
-Tema: "${theme}"${ctx}${cat}
+Tema: "${theme}"${ctx}${cat}${tier}
 Estrutura: introdução acolhedora, explicação simples, exemplos da vida real, reflexão guiada, exercício prático, pergunta para diário, CTA, aviso de responsabilidade.
 Cada seção com 2 a 4 parágrafos densos. Não seja raso.
 
@@ -116,6 +122,12 @@ FORMATAÇÃO (obrigatória, sintaxe deste blog — rica, mas natural):
 - Separe blocos temáticos maiores com uma linha contendo apenas "---" (divisor), com moderação.
 - Parágrafos normais em texto corrido, separados por uma linha em branco.
 - NÃO use "#" de título nível 1 (o título já existe), nem HTML, nem tabelas.${includeVideo ? `\n\n${VIDEO_MARKER_INSTRUCTION}` : ''}`
+
+    case 'article_deepen':
+      return `Prepare uma versão melhorada e completa do artigo existente para o acesso selecionado. Preserve o assunto e as informações úteis, corrija exageros e acrescente as entregas do plano. Nunca apenas alongue ou repita parágrafos. Use subtítulos ##, exemplos explicitamente fictícios e modelos copiáveis em listas, sem HTML ou H1. Não invente personalização, autor ou revisão clínica.
+Artigo de base: ${contextContent || theme}
+${tier}
+Retorne somente o corpo final. Essa proposta será conferida antes de salvar/publicar.`
 
     case 'article_title':
       return `Sugira 5 títulos de artigo para o tema: "${theme}"${ctx}. Acolhedores, sem clickbait, sem prometer cura. Liste numerados.`
@@ -238,6 +250,7 @@ export default function AIContentAssistant({
   contextTitle,
   contextContent,
   contextCategory,
+  contextPlan,
   defaultTheme = '',
   defaultTone = 'acolhedor',
   label,
@@ -275,8 +288,8 @@ export default function AIContentAssistant({
       if (contentType === 'questionnaire') {
         text = await generateQuestionnaireDraft(theme, 'autoavaliação')
       } else {
-        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory)
-        const preserveLength = contentType === 'improve' || contentType === 'rewrite'
+        const prompt = buildPrompt(contentType, theme, extras, contextTitle, contextContent, contextCategory, false, contextPlan) + (contextPlan && ['improve', 'rewrite'].includes(contentType) ? `\n${articleTierBrief(contextPlan)}\n${editorialSourceBrief()}` : '')
+        const preserveLength = ['improve', 'rewrite', 'article', 'article_deepen'].includes(contentType)
         text = await callAI(prompt, { tone, size, extras, preserveLength })
       }
       setResult(text)
