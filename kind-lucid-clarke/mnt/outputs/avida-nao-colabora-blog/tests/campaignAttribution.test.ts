@@ -28,17 +28,19 @@ test('captures all UTMs without persisting the raw Meta click id', () => {
   assert.doesNotMatch(JSON.stringify(attribution), /secret-click-id/)
 })
 
-test('the final Meta conversion fires only in the confirmed-account flow', () => {
+test('Meta counts a real account creation and completes CAPI after confirmation', () => {
   const auth = readFileSync(new URL('../src/components/Auth.tsx', import.meta.url), 'utf8')
   const confirmationStart = auth.indexOf('const finishConfirmation')
   const signupStart = auth.indexOf("mode === 'signup'")
   const metaConversion = auth.indexOf('trackMetaCompleteRegistration(confirmedUser.id)')
+  const browserConversion = auth.indexOf('trackMetaRegistrationCreated(signUpData.user.id)')
 
   assert.ok(confirmationStart >= 0)
   assert.ok(metaConversion > confirmationStart)
   assert.ok(metaConversion < signupStart || signupStart < confirmationStart)
-  // Duas conversões finais, ambas só com e-mail verificado: a confirmação por e-mail e o cadastro novo
-  // com o Google (e-mail já verificado pelo Google; ver docs/LOGIN_GOOGLE.md). Nunca no submit do formulário.
+  assert.ok(browserConversion > signupStart)
+  assert.ok(browserConversion > auth.indexOf('const accountWasCreated'))
+  // CAPI continua restrita a sessões verificadas: confirmação por e-mail e Google.
   const calls = auth.match(/trackMetaCompleteRegistration\(/g) ?? []
   assert.equal(calls.length, 2) // confirmação por e-mail + cadastro novo com o Google
   const google = auth.indexOf('trackMetaCompleteRegistration(user.id)')

@@ -69,7 +69,8 @@ export type AnalyticsEvent =
   | 'cancel_started' | 'cancel_completed' | 'article_share' | 'article_save'
   | 'campaign_landing_view' | 'ig_checkin_start' | 'ig_checkin_complete'
   | 'signup_view' | 'signup_start' | 'signup_submit' | 'registration_complete'
-  | 'email_confirmation_success' | 'email_verified' | 'email_verification_required' | 'signup_error';
+  | 'email_confirmation_success' | 'email_verified' | 'email_verification_required' | 'signup_error'
+  | 'meta_conversion_delivery';
 
 const BLOCKED_KEYS = new Set(['password', 'token', 'access_token', 'refresh_token', 'diary_text', 'message_body', 'personal_note', 'health_description', 'email'])
 const seenEvents = new Set<string>()

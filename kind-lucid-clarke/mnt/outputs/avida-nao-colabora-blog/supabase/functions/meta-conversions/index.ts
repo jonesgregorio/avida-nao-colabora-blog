@@ -68,12 +68,16 @@ Deno.serve(async (req) => {
   const payload: Record<string, unknown> = {
     data: [{
       event_name: 'CompleteRegistration',
-      event_time: Math.floor(Date.now() / 1000),
+      // A conversão representa a criação da conta (mesma semântica do cadastro no admin),
+      // embora o envio seguro pelo servidor aguarde a sessão confirmada.
+      event_time: Number.isFinite(Date.parse(user.created_at))
+        ? Math.floor(Date.parse(user.created_at) / 1000)
+        : Math.floor(Date.now() / 1000),
       event_id: expectedEventId,
       action_source: 'website',
       event_source_url: clean(body.event_source_url, 500) || 'https://avidanaocolabora.com/login',
       user_data: userData,
-      custom_data: { content_name: 'Cadastro confirmado', status: true },
+      custom_data: { content_name: 'Conta criada', status: true },
     }],
   }
   const testEventCode = clean(Deno.env.get('META_TEST_EVENT_CODE'), 80)
@@ -90,5 +94,6 @@ Deno.serve(async (req) => {
     return json({ ok: false }, cors, 502)
   }
 
+  console.info('[meta-conversions] accepted', { events_received: result.events_received ?? 0 })
   return json({ ok: true, events_received: result.events_received ?? 0 }, cors)
 })
