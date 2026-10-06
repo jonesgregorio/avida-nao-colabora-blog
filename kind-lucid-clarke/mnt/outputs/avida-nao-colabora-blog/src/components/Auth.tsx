@@ -5,7 +5,7 @@ import { emailWelcome } from '../lib/emailTriggers'
 import { trackEvent } from '../lib/analytics'
 import { campaignAttributionForSignup, campaignMetadata } from '../lib/campaignAttribution'
 import { confirmationRedirectUrl, isEmailConfirmed, isEmailNotConfirmedError } from '../lib/authVerification'
-import { trackMetaCompleteRegistration } from '../lib/metaConversions'
+import { trackMetaCompleteRegistration, trackMetaRegistrationCreated } from '../lib/metaConversions'
 import { LogoIcon } from './Logo'
 import { isGoogleLoginEnabled, startGoogleSignIn } from '../lib/googleAuth'
 import { googleErrorMessage, isNewOAuthUser } from '../lib/googleAuthRules'
@@ -299,9 +299,14 @@ export default function Auth({ onBack }: AuthProps) {
           },
         })
         if (signUpError) throw signUpError
-        if (signUpData.user) {
+        // Com confirmação de e-mail ativa, o Supabase devolve identities=[] para um e-mail
+        // que já existia. Esse objeto ofuscado não representa um novo cadastro/conversão.
+        const accountWasCreated = Boolean(signUpData.user
+          && (!Array.isArray(signUpData.user.identities) || signUpData.user.identities.length > 0))
+        if (signUpData.user && accountWasCreated) {
           trackEvent('register_success', { user_id: signUpData.user.id, metadata: { location: 'auth', email_confirmation_required: true } })
           trackEvent('signup_success', { user_id: signUpData.user.id, metadata: { location: 'auth' } })
+          trackMetaRegistrationCreated(signUpData.user.id)
         }
         trackEvent('email_verification_required', { user_id: signUpData.user?.id ?? null, metadata: { location: 'auth' } })
         rememberVerificationEmail(targetEmail)

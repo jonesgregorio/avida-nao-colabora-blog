@@ -13,13 +13,24 @@ test('Meta Pixel continua condicionado ao consentimento de marketing', () => {
 
 test('CompleteRegistration mantém deduplicação entre Pixel e CAPI', () => {
   assert.match(metaConversions, /registration:\$\{userId\}/)
-  assert.match(metaConversions, /eventID: eventId/)
+  assert.match(metaConversions, /eventID: payload\.event_id/)
   assert.match(metaConversions, /supabase\.functions\.invoke\('meta-conversions'/)
+  assert.match(metaConversions, /BROWSER_REGISTRATION_KEY/)
+  assert.match(metaConversions, /SERVER_REGISTRATION_KEY/)
 })
 
-test('conversão de cadastro ocorre somente após confirmação da conta', () => {
+test('Pixel registra a conta criada e CAPI repete o evento após confirmação', () => {
+  assert.match(auth, /trackMetaRegistrationCreated\(signUpData\.user\.id\)/)
   assert.match(auth, /registration_complete/)
   assert.match(auth, /trackMetaCompleteRegistration\(confirmedUser\.id\)/)
+  assert.match(auth, /signUpData\.user\.identities\.length > 0/)
+})
+
+test('falhas de entrega CAPI ficam observáveis e podem ser tentadas novamente', () => {
+  assert.match(metaConversions, /meta_conversion_delivery/)
+  assert.match(metaConversions, /status: 'failed'/)
+  assert.match(metaConversions, /status: 'accepted'/)
+  assert.match(metaConversions, /if \(registrationWasSent\(SERVER_REGISTRATION_KEY, userId\)\) return/)
 })
 
 test('teste A/B reconhece as duas variantes oficiais da campanha', () => {
