@@ -43,6 +43,7 @@ test('toda Edge Function real em disco tem index.ts e nenhuma ficou fora da list
   assert.ok(found.length >= 21, `esperava pelo menos 21 Edge Functions, achou ${found.length}`)
 
   const known = [
+    'editorial-research',
     'admin-config-status',
     'admin-delete-user',
     'admin-discount',

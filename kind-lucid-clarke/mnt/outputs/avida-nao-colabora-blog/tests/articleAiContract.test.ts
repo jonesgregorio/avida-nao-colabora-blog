@@ -110,5 +110,5 @@ test('automação só auto-publica após validação e mantém falhas como rascu
   assert.match(automation, /status: publish \? 'published' : 'draft'/)
   assert.match(automation, /Rascunho mantido/)
   assert.match(automation, /título idêntico já publicado\/gerado nas últimas 24h/)
-  assert.match(automation, /internal_notes: internalNotes/)
+  assert.match(automation, /internal_notes: .*internalNotes/)
 })

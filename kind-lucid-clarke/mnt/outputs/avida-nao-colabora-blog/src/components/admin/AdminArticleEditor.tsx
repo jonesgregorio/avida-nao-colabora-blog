@@ -1,3 +1,5 @@
+import { validateResearchAudit } from '../../../supabase/functions/_shared/editorialResearch'
+import { type VideoSearchResult } from '../../lib/videoSearch'
 import { type ArticleDraftState } from '../../lib/articleDraftGeneration'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -110,6 +112,7 @@ interface ArticleVersion {
 const LIMITS = { title: 80, summary: 3000, seoTitle: 60, seoDescription: 155 }
 
 export default function AdminArticleEditor({ articleId, onBack }: Props) {
+  const [generatedVideos, setGeneratedVideos] = useState<VideoSearchResult | null>(null)
   const [data, setData] = useState<ArticleData>(EMPTY)
   const [loading, setLoading] = useState(!!articleId)
   const [saving, setSaving] = useState(false)
@@ -270,6 +273,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
         plan: data.plan_required, publication: true, imageUrl: data.image_url, author: data.author,
         reviewed: editorialConfirmed, relatedSlugs: toArray(data.related_slugs), catalog: catalog || [],
       })
+      errors.push(...validateResearchAudit(data.content, data.internal_notes))
       if (errors.length) { showToast('Revise antes de publicar: ' + errors.join('; '), true); return }
       const { data: auth } = await supabase.auth.getUser()
       if (!auth.user) { showToast('Entre novamente para registrar a revisão.', true); return }
@@ -425,6 +429,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
 
   function handleArticleInsert(draft: ArticleDraftState) {
     const p = draft.pkg
+    setGeneratedVideos(draft.videoSearch)
     setEditorialConfirmed(false)
     setData(d => ({
       ...d, title: p.title,
@@ -440,6 +445,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
       image_url: draft.cover?.url || d.image_url,
       image_alt: draft.cover ? draft.cover.alt : d.image_alt,
       og_image: draft.cover?.url || d.image_url,
+      internal_notes: [d.internal_notes, `Pesquisa editorial: ${JSON.stringify({ research: draft.research, opportunities: draft.opportunities, warnings: draft.researchWarnings })}`].filter(Boolean).join('\n'),
       journey_stage: p.journey_stage || 'descoberta', intent: p.intent || 'educar', audience: p.audience || 'Adultos interessados em bem-estar emocional',
     }))
     showToast(draft.validationErrors.length ? 'Pacote inserido. Revise as pendências indicadas pela IA.' : 'Pacote completo inserido. Revise antes de salvar/publicar.')
@@ -921,6 +927,7 @@ export default function AdminArticleEditor({ articleId, onBack }: Props) {
               conteúdo (::video[...]) e é salvo por artigo pelo save() normal. */}
           <div className="bg-white rounded-xl border border-line p-5">
             <RelatedVideoPicker
+              initialResult={generatedVideos}
               article={{
                 id: effectiveId,
                 title: data.title, category: data.category, tags: data.tags,

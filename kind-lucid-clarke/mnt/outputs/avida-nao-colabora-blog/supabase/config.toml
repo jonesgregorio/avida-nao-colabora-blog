@@ -100,3 +100,7 @@ verify_jwt = false
 # e-mail confirmado. O mesmo event_id é usado no Pixel para deduplicação.
 [functions.meta-conversions]
 verify_jwt = true
+
+# Pesquisa editorial: exige JWT válido, perfil admin e AAL2 no handler.
+[functions.editorial-research]
+verify_jwt = true
