@@ -68,9 +68,24 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
     if (!user || reminderSaving) return
     setReminderSaving(true)
     setReminderError('')
-    const { error } = await supabase.from('user_notification_preferences').upsert({
-      user_id: user.id, email_enabled: true, receive_selfcare_reminders: true,
-    }, { onConflict: 'user_id' })
+    const { data: existing, error: readError } = await supabase.from('user_notification_preferences')
+      .select('user_id').eq('user_id', user.id).maybeSingle()
+    if (readError) {
+      setReminderError('Não foi possível verificar suas preferências. Tente novamente em Minha Conta.')
+      setReminderSaving(false)
+      return
+    }
+    // Ao aderir aos convites, não habilitar outras categorias por efeito dos defaults do banco.
+    const { error } = existing
+      ? await supabase.from('user_notification_preferences')
+          .update({ email_enabled: true, receive_selfcare_reminders: true, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+      : await supabase.from('user_notification_preferences')
+          .insert({
+            user_id: user.id, email_enabled: true, receive_selfcare_reminders: true,
+            receive_report_reminders: false, receive_care_plan_reminders: false,
+            receive_product_updates: false,
+          })
     if (error) setReminderError('Não foi possível salvar sua preferência. Tente novamente nas configurações.')
     else setReminderChoice('enabled')
     setReminderSaving(false)
