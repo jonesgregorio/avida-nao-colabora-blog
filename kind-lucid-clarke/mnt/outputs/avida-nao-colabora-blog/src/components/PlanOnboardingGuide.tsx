@@ -46,8 +46,35 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
   const [seen, setSeen] = useState<Set<string>>(new Set())
   const [dismissed, setDismissed] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [reminderChoice, setReminderChoice] = useState<'loading' | 'enabled' | 'disabled'>('loading')
+  const [reminderSaving, setReminderSaving] = useState(false)
+  const [reminderError, setReminderError] = useState('')
 
   useEffect(() => { if (checkinSaved) setCheckinDone(true) }, [checkinSaved])
+
+  const userId = user?.id
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    void supabase.from('user_notification_preferences')
+      .select('email_enabled,receive_selfcare_reminders')
+      .eq('user_id', userId).maybeSingle().then(({ data }) => {
+        if (active) setReminderChoice(data?.email_enabled === true && data?.receive_selfcare_reminders === true ? 'enabled' : 'disabled')
+      })
+    return () => { active = false }
+  }, [userId])
+
+  async function enableReminders() {
+    if (!user || reminderSaving) return
+    setReminderSaving(true)
+    setReminderError('')
+    const { error } = await supabase.from('user_notification_preferences').upsert({
+      user_id: user.id, email_enabled: true, receive_selfcare_reminders: true,
+    }, { onConflict: 'user_id' })
+    if (error) setReminderError('Não foi possível salvar sua preferência. Tente novamente nas configurações.')
+    else setReminderChoice('enabled')
+    setReminderSaving(false)
+  }
 
   useEffect(() => {
     if (!user || !profile) return
@@ -138,6 +165,16 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
   }
 
   const paid = plan !== 'free'
+  const accountAge = profile?.created_at ? Math.floor((Date.now() - new Date(profile.created_at).getTime()) / (24 * 60 * 60 * 1000)) : 0
+  const journeyHint = !checkinDone
+    ? 'Quando quiser, um Check-in rápido pode ser seu primeiro registro. Não precisa explicar tudo.'
+    : !diaryDone && accountAge >= 2
+      ? 'Seu Check-in já é um começo. O Diário é outra opção, para quando você quiser escrever mais.'
+      : accountAge >= 7
+        ? 'Você pode rever os registros que já fez. Não é necessário preencher os dias em que esteve ausente.'
+        : accountAge >= 4
+          ? 'Explore uma leitura ou um conteúdo guiado quando tiver vontade.'
+          : 'Você pode voltar em outro dia e perceber como se sente, sem precisar criar uma rotina rígida.'
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8" aria-label="Onboarding do seu espaço">
       <div className="rounded-[26px] border border-line bg-white/75 overflow-hidden shadow-sm">
@@ -152,6 +189,17 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
           <button type="button" onClick={dismissForNow} className="p-2 rounded-xl text-ink-soft hover:bg-paper-soft" aria-label="Ocultar onboarding por 7 dias"><X className="w-4 h-4" /></button>
         </div>
 
+        <div className="px-5 sm:px-6 py-4 bg-mint/20 border-b border-line space-y-2">
+          <p className="text-xs font-semibold text-forest-800">Um convite da Vida</p>
+          <p className="text-sm text-forest-900">{journeyHint}</p>
+          {reminderChoice !== 'loading' && <div className="pt-1">
+            {reminderChoice === 'enabled'
+              ? <p className="text-xs text-forest-700">Você escolheu receber lembretes leves por e-mail. Pode alterar isso em Minha Conta.</p>
+              : <button type="button" disabled={reminderSaving} onClick={() => void enableReminders()} className="text-xs font-semibold text-forest-700 underline underline-offset-2 disabled:opacity-50">Quero receber convites ocasionais por e-mail (opcional)</button>}
+            {reminderError && <p role="alert" className="text-xs text-red-700 mt-1">{reminderError}</p>}
+            <p className="text-[11px] text-ink-soft mt-1">Sem mensagens sobre o conteúdo privado do seu Diário. Você pode parar de receber quando quiser.</p>
+          </div>}
+        </div>
         <div className="divide-y divide-line">
           {visible.map(item => {
             const done = isDone(item)

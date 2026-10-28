@@ -16,7 +16,7 @@ Deno.serve(async (request) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!url || !serviceKey) return json({ error: 'Missing configuration' }, 500)
   const admin = createClient(url, serviceKey)
-  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\\s+/i, '').trim()
+  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
   const { data: internal } = await admin.rpc('get_automation_token')
   if (!token || ![serviceKey, internal].filter(Boolean).includes(token)) return json({ error: 'Unauthorized' }, 401)
 
