@@ -68,6 +68,7 @@ function csvCell(value: unknown) {
 
 export default function AdminOnboarding() {
   const [rows, setRows] = useState<Row[]>([])
+  const [retention, setRetention] = useState<{ registered: number; activated: number; tracked_multi_day: number; tracked_one_day: number; tracking_missing: number; eligible_d7: number; retained_d7: number } | null>(null)
   const [summary, setSummary] = useState<Summary>({ total: 0, aguardando_checkin: 0, aguardando_diario: 0, conhecendo_plano: 0, concluido: 0 })
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -93,9 +94,10 @@ export default function AdminOnboarding() {
       p_plan: plan === 'todos' ? null : plan,
       p_status: status === 'todos' ? null : status,
     }
-    const [pageRes, summaryRes] = await Promise.all([
+    const [pageRes, summaryRes, retentionRes] = await Promise.all([
       supabase.rpc('admin_onboarding_page', { ...params, p_limit: pageSize, p_offset: (page - 1) * pageSize }),
       supabase.rpc('admin_onboarding_summary', params),
+      supabase.rpc('admin_retention_summary'),
     ])
     if (pageRes.error || summaryRes.error) {
       setError(pageRes.error?.message || summaryRes.error?.message || 'Não foi possível carregar o onboarding.')
@@ -103,6 +105,7 @@ export default function AdminOnboarding() {
       setLoading(false)
       return
     }
+    if (!retentionRes.error && retentionRes.data) setRetention(retentionRes.data as typeof retention)
     setRows((pageRes.data ?? []) as Row[])
     setSummary((summaryRes.data ?? {}) as Summary)
     setLoading(false)
@@ -169,6 +172,18 @@ export default function AdminOnboarding() {
         </div>
       </div>
 
+      {retention && <section className="admin-card p-4 space-y-3" aria-label="Retenção de usuários">
+        <div><h3 className="font-serif text-xl text-forest-900">Retenção e ativação</h3><p className="text-xs text-ink-soft mt-1">Métricas de navegação rastreada. Ausência de evento não comprova ausência de acesso.</p></div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            ['Contas', retention.registered],
+            ['Com registro', retention.activated],
+            ['Vários dias rastreados', retention.tracked_multi_day],
+            ['Sem navegação vinculada', retention.tracking_missing],
+          ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-paper-soft p-3"><p className="text-xs text-ink-soft">{label}</p><p className="font-serif text-2xl text-forest-900 mt-1">{value}</p></div>)}
+        </div>
+        <p className="text-xs text-ink-soft">Retenção exata D7 (coortes maduras): {retention.retained_d7} / {retention.eligible_d7}. Denominador inclui contas sem rastreamento, portanto o resultado pode subestimar o uso real.</p>
+      </section>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {cards.map(({ label, value, icon: Icon }) => <div key={label} className="admin-card p-4"><div className="flex items-center justify-between gap-2"><p className="text-xs text-ink-soft">{label}</p><Icon className="w-4 h-4 text-forest-600" /></div><p className="font-serif text-2xl text-forest-900 mt-2">{value}</p></div>)}
       </div>
