@@ -52,16 +52,17 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
 
   useEffect(() => { if (checkinSaved) setCheckinDone(true) }, [checkinSaved])
 
+  const userId = user?.id
   useEffect(() => {
-    if (!user) return
+    if (!userId) return
     let active = true
     void supabase.from('user_notification_preferences')
       .select('email_enabled,receive_selfcare_reminders')
-      .eq('user_id', user.id).maybeSingle().then(({ data }) => {
+      .eq('user_id', userId).maybeSingle().then(({ data }) => {
         if (active) setReminderChoice(data?.email_enabled === true && data?.receive_selfcare_reminders === true ? 'enabled' : 'disabled')
       })
     return () => { active = false }
-  }, [user?.id])
+  }, [userId])
 
   async function enableReminders() {
     if (!user || reminderSaving) return
