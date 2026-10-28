@@ -69,7 +69,6 @@ export default function PlanOnboardingGuide({ user, profile, onNavigate, checkin
     setReminderError('')
     const { error } = await supabase.from('user_notification_preferences').upsert({
       user_id: user.id, email_enabled: true, receive_selfcare_reminders: true,
-      receive_report_reminders: false, receive_care_plan_reminders: false, receive_product_updates: false,
     }, { onConflict: 'user_id' })
     if (error) setReminderError('Não foi possível salvar sua preferência. Tente novamente nas configurações.')
     else setReminderChoice('enabled')
