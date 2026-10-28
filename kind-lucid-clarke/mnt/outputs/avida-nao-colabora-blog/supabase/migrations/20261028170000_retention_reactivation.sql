@@ -32,7 +32,7 @@ CREATE OR REPLACE FUNCTION public.get_reactivation_email_candidates()
 RETURNS TABLE(user_id uuid,email text,full_name text,plan text,last_seen_at timestamptz,checkins_total integer,diaries_total integer,days_inactive integer,email_enabled boolean,receive_selfcare_reminders boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
 BEGIN
- IF current_user <> 'service_role' THEN RAISE EXCEPTION 'Somente serviço'; END IF;
+ IF auth.role() <> 'service_role' THEN RAISE EXCEPTION 'Somente serviço'; END IF;
  RETURN QUERY
  WITH usage AS (
    SELECT p.user_id,
