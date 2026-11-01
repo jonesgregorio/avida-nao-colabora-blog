@@ -28,7 +28,7 @@ export default function AdminReactivation() {
   const togglePause = async () => {
     if (!control) return
     const next = !control.paused
-    if (!window.confirm(next ? 'Pausar a automação de reativação?' : 'Retirar a pausa administrativa? O envio real também depende da chave de ambiente REACTIVATION_SEND_ENABLED=true.')) return
+    if (!window.confirm(next ? 'Pausar a automação de reativação?' : 'Ativar os envios automáticos de reativação para todos os usuários elegíveis?')) return
     setSaving(true)
     const { data, error: updateError } = await supabase.rpc('admin_set_reactivation_paused', { p_paused: next })
     if (updateError) setError(updateError.message)
@@ -117,14 +117,14 @@ export default function AdminReactivation() {
     <section className="admin-card p-4 space-y-4">
       <h3 className="font-serif text-xl text-forest-900">Automação de reativação</h3>
       <div className="flex flex-wrap items-center gap-3 text-sm"><span>Controle administrativo: <strong>{control ? (control.paused ? 'Pausado' : 'Sem pausa administrativa') : 'Carregando'}</strong></span><button type="button" className="admin-btn-secondary" disabled={!control || saving} onClick={() => void togglePause()}>{saving ? 'Salvando…' : control?.paused ? 'Retirar pausa' : 'Pausar envios'}</button></div>
-      <p className="text-xs text-ink-soft">Retirar a pausa não ativa o envio se REACTIVATION_SEND_ENABLED não estiver configurado como true. O estado da variável de ambiente não pode ser consultado nesta tela.</p>
+      <p className="text-xs text-ink-soft">Ao retirar a pausa, os envios automáticos ficam ativos para usuários elegíveis, respeitando consentimento e limites de frequência.</p>
       <div className="grid md:grid-cols-3 gap-3 text-sm">
         <div className="rounded-xl bg-paper-soft p-3"><Clock3 className="w-4 h-4 mb-2 text-forest-700" />Agendamento: diariamente às 10h15 (Brasília)</div>
         <div className="rounded-xl bg-paper-soft p-3"><ShieldCheck className="w-4 h-4 mb-2 text-forest-700" />Somente usuários com consentimento explícito</div>
         <div className="rounded-xl bg-paper-soft p-3"><Mail className="w-4 h-4 mb-2 text-forest-700" />Limite técnico atual: até 20 tentativas por execução</div>
       </div>
       <div className="flex gap-2 text-sm text-ink-soft"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-        O painel não consulta a chave de ambiente REACTIVATION_SEND_ENABLED. A ausência de pausa não confirma que os envios estejam ativados.
+        O estado da pausa controla os disparos. O agendamento diário permanece independente.
       </div>
     </section>
   </div>
