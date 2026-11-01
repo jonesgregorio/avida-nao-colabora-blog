@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, ShieldCheck, Mail, Clock3, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
+type Operations = { total: number; sent: number; delivered: number; failed: number; pending: number; last_sent_at: string | null; recent: Array<{ created_at: string; status: string; template_key: string; sent_at: string | null; delivered_at: string | null; error: string | null }> }
+
 type Summary = {
   registered: number
   activated: number
@@ -14,14 +16,15 @@ type Summary = {
 
 export default function AdminReactivation() {
   const [data, setData] = useState<Summary | null>(null)
+  const [operations, setOperations] = useState<Operations | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const response = await supabase.rpc('admin_retention_summary')
-    if (response.error) setError(response.error.message)
-    else setData(response.data as Summary)
+    const [response, ops] = await Promise.all([supabase.rpc('admin_retention_summary'), supabase.rpc('admin_reactivation_operations')])
+    if (response.error || ops.error) setError(response.error?.message ?? ops.error?.message ?? 'Falha ao carregar dados')
+    else { setData(response.data as Summary); setOperations(ops.data as Operations) }
     setLoading(false)
   }, [])
   useEffect(() => { void load() }, [load])
@@ -57,6 +60,12 @@ export default function AdminReactivation() {
       <p className="text-xs text-ink-soft">Contas com visita rastreada no sétimo dia após o cadastro, entre contas com pelo menos sete dias. A ausência de rastreamento pode subestimar o retorno real.</p>
     </section>
     <section className="admin-card p-4 space-y-4">
+      <h3 className="font-serif text-xl text-forest-900">Histórico de reativação</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">{([['Tentativas',operations?.total],['Enviados',operations?.sent],['Entregues',operations?.delivered],['Falhas',operations?.failed]] as const).map(([name,value]) => <div key={name} className="rounded-xl bg-paper-soft p-3"><p className="text-ink-soft">{name}</p><p className="text-xl font-semibold text-forest-900">{value ?? '—'}</p></div>)}</div>
+      <p className="text-sm text-ink-soft">Pendentes: {operations?.pending ?? '—'} · Último envio: {operations?.last_sent_at ? new Date(operations.last_sent_at).toLocaleString('pt-BR') : 'Nenhum'}</p>
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="py-2">Data</th><th>Status</th><th>Template</th><th>Detalhes</th></tr></thead><tbody>{operations?.recent.map((item,i) => <tr key={`${item.created_at}-${i}`} className="border-b"><td className="py-2">{new Date(item.created_at).toLocaleString('pt-BR')}</td><td>{item.status}</td><td>{item.template_key}</td><td>{item.error ?? '—'}</td></tr>)}</tbody></table>{operations?.recent.length === 0 && <p className="py-4 text-ink-soft">Nenhuma tentativa de reativação registrada.</p>}</div>
+    </section>
+    <section className="admin-card p-4 space-y-4">
       <h3 className="font-serif text-xl text-forest-900">Automação de reativação</h3>
       <div className="grid md:grid-cols-3 gap-3 text-sm">
         <div className="rounded-xl bg-paper-soft p-3"><Clock3 className="w-4 h-4 mb-2 text-forest-700" />Agendamento: diariamente às 10h15 (Brasília)</div>
@@ -64,7 +73,7 @@ export default function AdminReactivation() {
         <div className="rounded-xl bg-paper-soft p-3"><Mail className="w-4 h-4 mb-2 text-forest-700" />Limite técnico atual: até 20 tentativas por execução</div>
       </div>
       <div className="flex gap-2 text-sm text-ink-soft"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-        O painel ainda não consulta o estado da chave de envio, o histórico de entregas nem a quantidade de candidatos. Nenhum envio pode ser ativado por esta tela. Não interprete estes indicadores como confirmação de envio.
+        O painel ainda não consulta o estado da chave de envio nem a quantidade de candidatos. Nenhum envio pode ser ativado por esta tela. Não interprete estes indicadores como confirmação de envio.
       </div>
     </section>
   </div>
