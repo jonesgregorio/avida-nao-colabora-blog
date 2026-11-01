@@ -6,6 +6,7 @@ import AdminEmailCreatorIA from './AdminEmailCreatorIA'
 import AdminCommunicationCampaigns from './AdminCommunicationCampaigns'
 import AdminNewsletter from './AdminNewsletter'
 import AdminOnboarding from './AdminOnboarding'
+import AdminReactivation from './AdminReactivation'
 import { useModalA11y } from '../../hooks/useModalA11y'
 
 // COMUNICAÇÃO — Campanhas, Automáticas, Onboarding, Newsletter e Histórico.
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'campanhas', label: 'Campanhas', icon: Megaphone },
   { id: 'automaticas', label: 'Automáticas', icon: Repeat },
   { id: 'onboarding', label: 'Onboarding', icon: Waypoints },
+  { id: 'reativacao', label: 'Retenção e Reativação', icon: Repeat },
   { id: 'newsletter', label: 'Newsletter', icon: Mail },
   { id: 'historico', label: 'Histórico', icon: History },
 ] as const
@@ -78,6 +80,7 @@ export default function AdminAreaComunicacao({ initialTab, initialCampaignId }: 
         {tab === 'campanhas' && <AdminCommunicationCampaigns initialCampaignId={initialCampaignId} />}
         {tab === 'automaticas' && <AdminEmails initialTab="resumo" />}
         {tab === 'onboarding' && <AdminOnboarding />}
+        {tab === 'reativacao' && <AdminReactivation />}
         {tab === 'newsletter' && <AdminNewsletter />}
         {tab === 'historico' && <AdminEmails initialTab="logs" />}
       </section>

@@ -6,7 +6,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 type Candidate = {
-  user_id: string; email: string; full_name: string | null; plan: string;
+  user_id: string; email: string; full_name: string | null; plan: string; last_seen_at: string;
   days_inactive: number; email_enabled: boolean; receive_selfcare_reminders: boolean
 }
 
@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
           cta_link: `${SITE}/`,
           link_preferencias: `${SITE}/perfil`,
         },
-        idempotency_key: `value_reactivation_return:${candidate.user_id}:v1`,
+        idempotency_key: `value_reactivation_return:${candidate.user_id}:v2:${candidate.last_seen_at.slice(0, 10)}`,
         related_entity_type: 'retention',
         related_entity_id: candidate.user_id,
         metadata: { kind: 'opted_in_reactivation', plan: candidate.plan },
