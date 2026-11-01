@@ -1,0 +1,2 @@
+-- Reactivation admin controls and privacy-safe eligible-user list
+-- Applied to production as migration reactivation_admin_controls_nov1.
