@@ -26,8 +26,8 @@ Deno.serve(async (request) => {
   const { data, error } = await admin.rpc('get_reactivation_email_candidates')
   if (error) return json({ error: error.message }, 500)
   const candidates = (data ?? []) as Candidate[]
-  const enabled = Deno.env.get('REACTIVATION_SEND_ENABLED') === 'true'
-  if (!enabled) return json({ ok: true, mode: 'dry_run', eligible: candidates.length, sent: 0 })
+  // The MFA-protected database pause switch is the sole delivery gate.
+  // Runtime has already returned above when paused; no opaque env flag is needed.
   let sent = 0, failed = 0
   for (const candidate of candidates.slice(0, MAX_PER_RUN)) {
     if (!candidate.email_enabled || !candidate.receive_selfcare_reminders || candidate.days_inactive < 7) continue
