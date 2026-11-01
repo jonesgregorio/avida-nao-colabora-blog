@@ -20,6 +20,9 @@ Deno.serve(async (request) => {
   const { data: internal } = await admin.rpc('get_automation_token')
   if (!token || ![serviceKey, internal].filter(Boolean).includes(token)) return json({ error: 'Unauthorized' }, 401)
 
+  const { data: control, error: controlError } = await admin.rpc('reactivation_runtime_config')
+  if (controlError || !control || control.paused !== false) return json({ ok: true, mode: 'paused', eligible: 0, sent: 0 })
+
   const { data, error } = await admin.rpc('get_reactivation_email_candidates')
   if (error) return json({ error: error.message }, 500)
   const candidates = (data ?? []) as Candidate[]

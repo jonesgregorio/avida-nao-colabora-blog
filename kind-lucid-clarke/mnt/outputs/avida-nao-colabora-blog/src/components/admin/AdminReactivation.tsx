@@ -4,6 +4,9 @@ import { supabase } from '../../lib/supabase'
 
 type Operations = { total: number; sent: number; delivered: number; failed: number; pending: number; last_sent_at: string | null; recent: Array<{ created_at: string; status: string; template_key: string; sent_at: string | null; delivered_at: string | null; error: string | null }> }
 
+type Candidates = { total: number; recent: Array<{ user_id: string; email: string; full_name: string | null; plan: string; last_activity: string; days_inactive: number }> }
+type Control = { paused: boolean; updated_at: string }
+
 type Summary = {
   registered: number
   activated: number
@@ -19,6 +22,19 @@ export default function AdminReactivation() {
   const [operations, setOperations] = useState<Operations | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [candidates, setCandidates] = useState<Candidates | null>(null)
+  const [control, setControl] = useState<Control | null>(null)
+  const [saving, setSaving] = useState(false)
+  const togglePause = async () => {
+    if (!control) return
+    const next = !control.paused
+    if (!window.confirm(next ? 'Pausar a automação de reativação?' : 'Retirar a pausa administrativa? O envio real também depende da chave de ambiente REACTIVATION_SEND_ENABLED=true.')) return
+    setSaving(true)
+    const { data, error: updateError } = await supabase.rpc('admin_set_reactivation_paused', { p_paused: next })
+    if (updateError) setError(updateError.message)
+    else setControl(data as Control)
+    setSaving(false)
+  }
   const [testBusy, setTestBusy] = useState(false)
   const [testResult, setTestResult] = useState('')
   const sendAuthorizedTest = async () => {
@@ -44,9 +60,9 @@ export default function AdminReactivation() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const [response, ops] = await Promise.all([supabase.rpc('admin_retention_summary'), supabase.rpc('admin_reactivation_operations')])
-    if (response.error || ops.error) setError(response.error?.message ?? ops.error?.message ?? 'Falha ao carregar dados')
-    else { setData(response.data as Summary); setOperations(ops.data as Operations) }
+    const [response, ops, users, runtime] = await Promise.all([supabase.rpc('admin_retention_summary'), supabase.rpc('admin_reactivation_operations'), supabase.rpc('admin_reactivation_candidates'), supabase.rpc('reactivation_runtime_config')])
+    if (response.error || ops.error || users.error || runtime.error) setError(response.error?.message ?? ops.error?.message ?? users.error?.message ?? runtime.error?.message ?? 'Falha ao carregar dados')
+    else { setData(response.data as Summary); setOperations(ops.data as Operations); setCandidates(users.data as Candidates); setControl(runtime.data as Control) }
     setLoading(false)
   }, [])
   useEffect(() => { void load() }, [load])
@@ -88,6 +104,11 @@ export default function AdminReactivation() {
       <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="py-2">Data</th><th>Status</th><th>Template</th><th>Detalhes</th></tr></thead><tbody>{operations?.recent.map((item,i) => <tr key={`${item.created_at}-${i}`} className="border-b"><td className="py-2">{new Date(item.created_at).toLocaleString('pt-BR')}</td><td>{item.status}</td><td>{item.template_key}</td><td>{item.error ?? '—'}</td></tr>)}</tbody></table>{operations?.recent.length === 0 && <p className="py-4 text-ink-soft">Nenhuma tentativa de reativação registrada.</p>}</div>
     </section>
     <section className="admin-card p-4 space-y-3">
+      <h3 className="font-serif text-xl text-forest-900">Usuários elegíveis</h3>
+      <p className="text-sm text-ink-soft">{candidates?.total ?? '—'} elegíveis no momento · consentimento, 7 dias de inatividade, intervalo de 45 dias e máximo de 3 envios em 365 dias.</p>
+      <div className="overflow-x-auto max-h-80 overflow-y-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="py-2">E-mail</th><th>Plano</th><th>Dias sem atividade</th></tr></thead><tbody>{candidates?.recent.map(user => <tr key={user.user_id} className="border-b"><td className="py-2">{user.email}</td><td>{user.plan}</td><td>{user.days_inactive}</td></tr>)}</tbody></table></div>
+    </section>
+    <section className="admin-card p-4 space-y-3">
       <h3 className="font-serif text-xl text-forest-900">Teste autorizado de entrega</h3>
       <p className="text-sm text-ink-soft">Destinatário fixo: jonesgregory.jg@gmail.com. Teste separado da campanha automática; exige autenticação administrativa reforçada. O descadastro no e-mail é real.</p>
       <button type="button" className="admin-btn-secondary" disabled={testBusy} onClick={() => void sendAuthorizedTest()}>{testBusy ? 'Enviando…' : 'Enviar e-mail de teste'}</button>
@@ -95,13 +116,15 @@ export default function AdminReactivation() {
     </section>
     <section className="admin-card p-4 space-y-4">
       <h3 className="font-serif text-xl text-forest-900">Automação de reativação</h3>
+      <div className="flex flex-wrap items-center gap-3 text-sm"><span>Controle administrativo: <strong>{control ? (control.paused ? 'Pausado' : 'Sem pausa administrativa') : 'Carregando'}</strong></span><button type="button" className="admin-btn-secondary" disabled={!control || saving} onClick={() => void togglePause()}>{saving ? 'Salvando…' : control?.paused ? 'Retirar pausa' : 'Pausar envios'}</button></div>
+      <p className="text-xs text-ink-soft">Retirar a pausa não ativa o envio se REACTIVATION_SEND_ENABLED não estiver configurado como true. O estado da variável de ambiente não pode ser consultado nesta tela.</p>
       <div className="grid md:grid-cols-3 gap-3 text-sm">
         <div className="rounded-xl bg-paper-soft p-3"><Clock3 className="w-4 h-4 mb-2 text-forest-700" />Agendamento: diariamente às 10h15 (Brasília)</div>
         <div className="rounded-xl bg-paper-soft p-3"><ShieldCheck className="w-4 h-4 mb-2 text-forest-700" />Somente usuários com consentimento explícito</div>
         <div className="rounded-xl bg-paper-soft p-3"><Mail className="w-4 h-4 mb-2 text-forest-700" />Limite técnico atual: até 20 tentativas por execução</div>
       </div>
       <div className="flex gap-2 text-sm text-ink-soft"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-        O painel ainda não consulta o estado da chave de envio nem a quantidade de candidatos. Nenhum envio pode ser ativado por esta tela. Não interprete estes indicadores como confirmação de envio.
+        O painel não consulta a chave de ambiente REACTIVATION_SEND_ENABLED. A ausência de pausa não confirma que os envios estejam ativados.
       </div>
     </section>
   </div>
