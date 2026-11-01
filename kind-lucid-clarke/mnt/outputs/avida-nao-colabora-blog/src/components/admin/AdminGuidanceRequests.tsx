@@ -337,14 +337,20 @@ export default function AdminGuidanceRequests() {
     setGenerating(true)
     try {
       const monthReference = `${selected.month_key}-01`
-      const [{ data: carePlan }, { data: monthlyReport }, { data: previousGuidance }] = await Promise.all([
+      const [{ data: carePlan }, { data: monthlyReport }, { data: previousGuidance }, { data: guidanceFeedback }] = await Promise.all([
         supabase.from('monthly_care_plans').select('records_summary,care_plan,ai_summary_json').eq('user_id', selected.user_id)
           .eq('month_reference', monthReference).maybeSingle(),
         supabase.from('reports').select('content,summary,period_start,period_end').eq('user_id', selected.user_id)
           .eq('report_type', 'monthly').gte('period_start', monthReference).order('period_start', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('monthly_guidance_requests').select('response,month_key').eq('user_id', selected.user_id)
           .neq('id', selected.id).not('response', 'is', null).order('month_key', { ascending: false }).limit(3),
+        supabase.from('monthly_guidance_feedback').select('feedback,tags,updated_at,monthly_guidance_requests(month_key,message)')
+          .eq('user_id', selected.user_id).neq('guidance_request_id', selected.id).order('updated_at', { ascending: false }).limit(3),
       ])
+      const previousGuidanceFeedback = ((guidanceFeedback ?? []) as unknown as Array<{ feedback: string; tags: string[] | null; monthly_guidance_requests: { month_key?: string; message?: string | null } | { month_key?: string; message?: string | null }[] | null }>).map(row => {
+        const request = Array.isArray(row.monthly_guidance_requests) ? row.monthly_guidance_requests[0] : row.monthly_guidance_requests
+        return { feedback: row.feedback, tags: row.tags ?? [], month: request?.month_key ?? null, topic: request?.message ?? null }
+      })
       const report = monthlyReport as { content?: SummaryRecord; summary?: string; period_start?: string; period_end?: string } | null
       const care = carePlan as { records_summary?: SummaryRecord; care_plan?: SummaryRecord; ai_summary_json?: SummaryRecord } | null
       const combined: SummaryRecord = {
@@ -364,6 +370,7 @@ export default function AdminGuidanceRequests() {
         {
           monthly_report_summary: combined.monthly_report_summary,
           self_care_plan: combined.self_care_plan,
+          previous_guidance_feedback: previousGuidanceFeedback,
         },
       ), { contentType: 'professional_guidance', userId: selected.user_id, sourcePeriodStart: monthReference })
       const nextLetter = extractLetter(raw)
