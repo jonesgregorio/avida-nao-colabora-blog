@@ -31,7 +31,16 @@ Deno.serve(async (request) => {
   let sent = 0, failed = 0
   for (const candidate of candidates.slice(0, MAX_PER_RUN)) {
     if (!candidate.email_enabled || !candidate.receive_selfcare_reminders || candidate.days_inactive < 7) continue
-    // Rotate across three editorial variants on successive eligible return cycles.\n    // Only successful/pending campaign records advance the cycle; failures can retry the same copy.\n    const { count: previousCount, error: historyError } = await admin.from('email_logs')\n      .select('id', { count: 'exact', head: true })\n      .eq('user_id', candidate.user_id)\n      .in('status', ['pending', 'sent', 'delivered'])\n      .in('template_key', ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'])\n    if (historyError) { failed++; continue }\n    const templateKey = ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'][(previousCount ?? 0) % 3]\n    // Delivery service handles consent/unsubscribe and idempotency.
+    // Rotate across three editorial variants on successive eligible return cycles.
+    // Only successful/pending campaign records advance the cycle; failures can retry the same copy.
+    const { count: previousCount, error: historyError } = await admin.from('email_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', candidate.user_id)
+      .in('status', ['pending', 'sent', 'delivered'])
+      .in('template_key', ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'])
+    if (historyError) { failed++; continue }
+    const templateKey = ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'][(previousCount ?? 0) % 3]
+    // Delivery service handles consent/unsubscribe and idempotency.
     const response = await fetch(`${url}/functions/v1/send-transactional-email`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'application/json' },
