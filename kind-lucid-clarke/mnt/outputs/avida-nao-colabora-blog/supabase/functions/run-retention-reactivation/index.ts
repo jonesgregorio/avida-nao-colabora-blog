@@ -31,19 +31,28 @@ Deno.serve(async (request) => {
   let sent = 0, failed = 0
   for (const candidate of candidates.slice(0, MAX_PER_RUN)) {
     if (!candidate.email_enabled || !candidate.receive_selfcare_reminders || candidate.days_inactive < 7) continue
+    // Rotate across three editorial variants on successive eligible return cycles.
+    // Only successful/pending campaign records advance the cycle; failures can retry the same copy.
+    const { count: previousCount, error: historyError } = await admin.from('email_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', candidate.user_id)
+      .in('status', ['pending', 'sent', 'delivered'])
+      .in('template_key', ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'])
+    if (historyError) { failed++; continue }
+    const templateKey = ['value_reactivation_return', 'value_reactivation_reflection', 'value_reactivation_light'][(previousCount ?? 0) % 3]
     // Delivery service handles consent/unsubscribe and idempotency.
     const response = await fetch(`${url}/functions/v1/send-transactional-email`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: candidate.user_id, to_email: candidate.email,
-        template_key: 'value_reactivation_return',
+        template_key: templateKey,
         variables: {
           nome: candidate.full_name?.trim() || 'você',
           cta_link: `${SITE}/`,
           link_preferencias: `${SITE}/perfil`,
         },
-        idempotency_key: `value_reactivation_return:${candidate.user_id}:v2:${candidate.last_seen_at.slice(0, 10)}`,
+        idempotency_key: `value_reactivation:${candidate.user_id}:v3:${candidate.last_seen_at.slice(0, 10)}`,
         related_entity_type: 'retention',
         related_entity_id: candidate.user_id,
         metadata: { kind: 'opted_in_reactivation', plan: candidate.plan },
