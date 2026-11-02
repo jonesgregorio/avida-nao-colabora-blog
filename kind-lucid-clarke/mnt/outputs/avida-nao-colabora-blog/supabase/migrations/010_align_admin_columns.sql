@@ -19,12 +19,16 @@ WHERE name IS NULL OR text IS NULL;
 
 -- ─────────────────────────────────────────────────────────────
 -- 2. SITE_METRICS
--- Migration 007 criou: metric (unique), value
--- AdminSocialProof usa: key, label, value, id, updated_at
+-- Migration 007 criou: metric (unique), value NUMERIC
+-- AdminSocialProof usa: key, label, value TEXT, id, updated_at
+-- O ambiente de produção usa value TEXT; formalizamos a conversão aqui
+-- antes de semear valores de apresentação como "98%".
 -- ─────────────────────────────────────────────────────────────
 ALTER TABLE site_metrics ADD COLUMN IF NOT EXISTS key TEXT;
 ALTER TABLE site_metrics ADD COLUMN IF NOT EXISTS label TEXT;
 ALTER TABLE site_metrics ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE site_metrics
+  ALTER COLUMN value TYPE TEXT USING value::TEXT;
 
 -- Remove métricas técnicas da migration 007 (não usadas pelo admin)
 DELETE FROM site_metrics WHERE metric IN ('total_pageviews','avg_session_minutes','bounce_rate','new_users_week');
