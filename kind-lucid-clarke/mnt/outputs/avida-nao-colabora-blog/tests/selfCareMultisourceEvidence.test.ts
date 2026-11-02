@@ -36,7 +36,7 @@ test('admin and automation share one canonical multisource counter',()=>{
 test('automatic plan generation stops before AI when multisource context is insufficient',()=>{
  const runner=read('supabase/functions/run-emotional-automations/runner.ts')
  const gate=runner.indexOf('if (!s.data_quality.has_enough_data)')
- const generate=runner.indexOf("generate(prompt('self_care_plan'",gate)
+ const generate=runner.indexOf("generate(userFeedbackBrief(feedback)",gate)
  assert.ok(gate >= 0)
  assert.ok(generate > gate)
  assert.match(runner.slice(gate,generate),/status: 'skipped'/)

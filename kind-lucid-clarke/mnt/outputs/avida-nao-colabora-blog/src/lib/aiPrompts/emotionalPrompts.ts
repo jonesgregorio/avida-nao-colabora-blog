@@ -166,6 +166,7 @@ FORMATO EXATO:
 export interface ProfessionalGuidanceRelatedContext {
   monthly_report_summary?: unknown
   self_care_plan?: unknown
+  previous_guidance_feedback?: unknown
 }
 
 function compactGuidanceText(value: unknown, maxLength: number): string | null {
@@ -220,7 +221,25 @@ function compactProfessionalGuidanceContext(context?: ProfessionalGuidanceRelate
   return {
     monthly_report_summary: compactGuidanceText(context?.monthly_report_summary, 2200),
     self_care_plan: compactSelfCarePlan(context?.self_care_plan),
+    previous_guidance_feedback: compactGuidanceFeedback(context?.previous_guidance_feedback),
   }
+}
+
+const GUIDANCE_FEEDBACK_VALUES = new Set(['helpful', 'partial', 'not_for_me'])
+const GUIDANCE_FEEDBACK_TAGS = new Set(['clear', 'practical', 'organized_ideas', 'felt_relevant', 'too_generic', 'not_applicable', 'unclear', 'missing_practical_steps'])
+
+// Avaliações que a própria pessoa deu a orientações anteriores (até 3, só valores conhecidos).
+// "topic" é o início do pedido daquele mês, para a IA julgar se o assunto se relaciona com o atual.
+function compactGuidanceFeedback(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.flatMap(item => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    const feedback = String(row.feedback ?? '')
+    if (!GUIDANCE_FEEDBACK_VALUES.has(feedback)) return []
+    const tags = Array.isArray(row.tags) ? row.tags.map(String).filter(tag => GUIDANCE_FEEDBACK_TAGS.has(tag)).slice(0, 3) : []
+    return [{ month: compactGuidanceText(row.month, 10), feedback, tags, topic: compactGuidanceText(row.topic, 160) }]
+  }).slice(0, 3)
 }
 
 export function buildProfessionalGuidancePrompt(
@@ -242,6 +261,7 @@ ${adminNotes?.trim() || 'nenhuma'}
 CONTEXTO JÁ PRODUZIDO NO PRODUTO (somente sínteses estruturadas/revisadas; nunca texto bruto do Diário):
 ${JSON.stringify(compactProfessionalGuidanceContext(relatedContext))}
 Use este contexto apenas quando estiver presente. Não invente conteúdo ausente e não transforme relatório/plano em diagnóstico ou relação causal.
+Se previous_guidance_feedback tiver itens, são retornos opcionais que a própria pessoa deu a orientações anteriores. Considere-os só quando o "topic" for parecido com o pedido atual ou quando fizer sentido para o tom e o formato. feedback=helpful: a abordagem pareceu útil, mantenha o estilo sem prometer o mesmo resultado. feedback=partial: aproveite o que funcionou e ajuste o que faltou. feedback=not_for_me: evite repetir a mesma abordagem ou formulação. Tags: too_generic pede mais especificidade ao que a pessoa trouxe; missing_practical_steps pede passos mais concretos e pequenos; unclear pede linguagem mais simples e direta; not_applicable pede mais aderência ao momento descrito. Isso é preferência contextual, não prova de eficácia nem diagnóstico. Nunca mencione avaliação, retorno ou sistema na resposta.
 
 FORMATO EXATO:
 {
